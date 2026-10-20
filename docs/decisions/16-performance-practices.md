@@ -46,3 +46,19 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 ## Considered options
 
 * The techniques of §C, recorded so nobody "optimises" a part into one of them.
+
+## Amendments
+
+**2026-10-20, from the Blazor rendering-performance guidance ([learn.microsoft.com, aspnetcore-11.0](https://learn.microsoft.com/en-us/aspnet/core/blazor/performance/rendering?view=aspnetcore-11.0)), mapped onto the records.** Six of the page's techniques were already rules or settled decisions (ADR 01/04 event routing, ADR 02 one instance per part, ADR 05 fixed store cascade, rule 2 cached delegates, rule 6, the rejection in §C); the rest are recorded here.
+
+*Rules added to §A:*
+
+8. `PartBase<TState>` implements `IHandleEvent` so that a part re-renders only when it calls `StateHasChanged` itself: a request that commits (ADR 05 §2) renders, a cancelled request or a handler on a disabled part does not, and a controlled part renders only when its parameters change. `HandleEventAsync` routes exceptions through `DispatchExceptionAsync` so error boundaries keep working. Consumer handlers keep their own re-render because an `EventCallback` targets the consumer's component.
+9. Every `CascadingValue` the library renders is `IsFixed = true`; change reaches parts by subscription only (the store subscription of ADR 05 §1 and the context subscriptions of the parts). The analyzers project checks it.
+10. A part renders its internal elements (hidden inputs, indicator wrappers, visually hidden spans) inline in its own render tree; the library never introduces an internal component instance beyond the one per part (ADR 02 decision 4), because each instance costs about 0.06 ms per render on WebAssembly in the product team's measurement.
+
+*Accepted cost:* `CaptureUnmatchedValues` on every part is Base UI's prop pass-through and the basis of the conformance suite (RND-DOM-36..49); it is not avoided for list items. Its per-item cost is part of the M5 measurement of §B.
+
+*Added to §B (deferred to a measurement, folded into the M5 measurement issue):* a generator-emitted `SetParametersAsync` per part (the page reports under 10% at 10,000 instances on .NET 10, less later; hand-written it is rejected, generated it is free to try); the per-item render cost of list parts including the unmatched bag.
+
+*Verification items added (tracked in ADR 14 and its issues):* Blazor's known-immutable set in `ChangeDetection` covers enums and nullable enums, so leaf parts whose parameters are enums and primitives get the built-in render skip (M0; read `ChangeDetection.cs` in aspnetcore `release/11.0`); the Combobox `virtualized` path (CMB-API-22) works with the consumer windowing items through Blazor's `Virtualize` component (M5, L4).

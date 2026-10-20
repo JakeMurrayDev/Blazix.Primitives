@@ -48,10 +48,13 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | 11 `--fail-on-flaky-tests` with `retries: 0` is a guard only | first nightly | — |
 | 15 the citation-migration tool works on the shallow clone (history depth) | before the first re-pin | — |
 | 16 frame caching for substitutes; `[JSImport]` transport inside twins | M5; M4–M6 | measurements (ADR 16) |
+| 16 `ChangeDetection`'s known-immutable set covers enums and nullable enums | M0 | read `ChangeDetection.cs` in aspnetcore `release/11.0`; note in ADR 16 |
+| 16 generator-emitted `SetParametersAsync` and per-item unmatched-bag cost | M5 | part of the M5 list-part measurement |
+| 16 Combobox `virtualized` (CMB-API-22) with Blazor `Virtualize` | M5 | permanent L4 test |
 
 ### 3. Tracking, linking, SDK
 
-* **Tracking:** one GitHub issue per item, label `verification`, assigned to its milestone (GitHub milestones M0–M6). The ADR line links the issue and, once closed, names the test or the finding. Created 2026-10-20: issues 1–15 for the rows of §1 and 16–26 for the rows of §2, in table order (`https://github.com/JakeMurrayDev/Blazix.Primitives/issues/<n>`).
+* **Tracking:** one GitHub issue per item, label `verification`, assigned to its milestone (GitHub milestones M0–M6). The ADR line links the issue and, once closed, names the test or the finding. Created 2026-10-20: issues 1–15 for the rows of §1 and 16–26 for the rows of §2, in table order; issues 27–29 for the three rows added by ADR 16's amendment (`https://github.com/JakeMurrayDev/Blazix.Primitives/issues/<n>`).
 * **Permanent tests** are tagged so a grep lists them and the ADR lines can cite them: `@verifies ADR-05/3` in a TypeScript title, `[Trait("Verifies", "ADR05-3")]` in C#.
 * **Spikes** live in `spikes/<item>/`, excluded from the solution, and are deleted when the item closes.
 * **SDK:** the user installs the official RC2 package (side by side with 10.x); the repository's `global.json` pins it (ADR 10); the union spike runs the same day.
