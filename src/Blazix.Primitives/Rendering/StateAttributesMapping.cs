@@ -51,6 +51,30 @@ public sealed class StateAttributesMapping<TState>
     /// </summary>
     public bool TryProject<TValue>(string field, TValue value, StateAttributeWriter writer)
     {
-        throw new NotImplementedException();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (!string.Equals(entries[i].Key, field, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (entries[i].Value is not StateFieldProjection<TValue> projection)
+            {
+                throw new InvalidOperationException($"The mapping for '{field}' projects a {entries[i].Value.GetType().GenericTypeArguments[0].Name}, but the field is a {typeof(TValue).Name}.");
+            }
+
+            StateDataAttribute[]? result = projection(value);
+            if (result is not null)
+            {
+                for (int j = 0; j < result.Length; j++)
+                {
+                    writer.Set(result[j].Name, result[j].Value);
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 }

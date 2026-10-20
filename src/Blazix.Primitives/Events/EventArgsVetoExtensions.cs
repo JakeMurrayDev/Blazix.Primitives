@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Blazix.Primitives;
 
 /// <summary>
@@ -9,15 +11,23 @@ namespace Blazix.Primitives;
 /// </summary>
 public static class EventArgsVetoExtensions
 {
+    private static readonly ConditionalWeakTable<EventArgs, object> s_vetoed = new();
+    private static readonly object s_marker = new();
+
     /// <summary>Stops the handlers after the current one in this dispatch's chain.</summary>
     public static void PreventPartHandler(this EventArgs e)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(e);
+        s_vetoed.AddOrUpdate(e, s_marker);
     }
 
     /// <summary>Whether <see cref="PreventPartHandler"/> was called on this event.</summary>
     public static bool PartHandlerPrevented(this EventArgs e)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(e);
+        return s_vetoed.TryGetValue(e, out _);
     }
+
+    /// <summary>Clears the flag; used after a chain ran on the shared <see cref="EventArgs.Empty"/> instance, which outlives the dispatch.</summary>
+    internal static void ClearPartHandlerVeto(this EventArgs e) => s_vetoed.Remove(e);
 }

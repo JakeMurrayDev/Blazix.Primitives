@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Blazix.Primitives.Rendering;
 
 /// <summary>
@@ -10,9 +12,8 @@ public sealed class PartIdGenerator
     /// <summary>The prefix of every generated id; a DOM-level literal that keeps Base UI's form (ADR 08 §4).</summary>
     public const string Prefix = "base-ui-";
 
+    private int last;
+
     /// <summary>Draws the next id.</summary>
-    public string Next()
-    {
-        throw new NotImplementedException();
-    }
+    public string Next() => Prefix + (++last).ToString(CultureInfo.InvariantCulture);
 }
