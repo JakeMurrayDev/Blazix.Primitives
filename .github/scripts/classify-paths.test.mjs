@@ -136,7 +136,11 @@ describe('full L4', () => {
   it('a push to main runs everything, whatever changed', () => {
     const result = run(['docs/README.md'], { event: 'push' });
     expect(result.l4).toBe('full');
-    expect(result.docs).toBe(true);
+    expect(result).toMatchObject({ docs: true, code: true });
+  });
+
+  it('a push to main runs every job even when the diff is unavailable (a new branch has no earlier commit)', () => {
+    expect(run([], { event: 'push' })).toMatchObject({ docs: true, code: true, l4: 'full', runL4: true });
   });
 });
 
