@@ -294,10 +294,9 @@ public sealed class PartStateGeneratorTests
             {
                 public bool Open { get; init; }
             }
-
-            [PartState]
-            public partial record struct {|BLZX1001:AStructRecord|}(bool Open);
             """;
+
+        // A record struct never reaches the generator: [PartState] is AttributeTargets.Class, so the compiler rejects it (CS0592).
 
         await RunAsync(source);
     }
