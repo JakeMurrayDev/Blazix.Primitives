@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Blazix.Primitives.Analyzers;
 
@@ -31,5 +32,150 @@ public sealed class FixedCascadeAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
+        context.RegisterCompilationStartAction(start =>
+        {
+            INamedTypeSymbol? builder = start.Compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder");
+            INamedTypeSymbol? cascadingValue = start.Compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.CascadingValue`1");
+            if (builder is null || cascadingValue is null)
+            {
+                return;
+            }
+
+            start.RegisterOperationAction(operation => AnalyzeInvocation(operation, builder, cascadingValue), OperationKind.Invocation);
+        });
+    }
+
+    private static void AnalyzeInvocation(OperationAnalysisContext context, INamedTypeSymbol builder, INamedTypeSymbol cascadingValue)
+    {
+        IInvocationOperation invocation = (IInvocationOperation)context.Operation;
+        IMethodSymbol method = invocation.TargetMethod;
+        if (method.Name != "OpenComponent" || !SymbolEqualityComparer.Default.Equals(method.ContainingType, builder))
+        {
+            return;
+        }
+
+        ITypeSymbol? valueType = CascadedValueType(invocation, method, cascadingValue);
+        if (valueType is null || SetsIsFixedToTrue(invocation, builder))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(
+            s_rule,
+            invocation.Syntax.GetLocation(),
+            valueType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+    }
+
+    // The T of the CascadingValue<T> being opened, from OpenComponent<CascadingValue<T>>(seq) or OpenComponent(seq, typeof(CascadingValue<T>)).
+    private static ITypeSymbol? CascadedValueType(IInvocationOperation invocation, IMethodSymbol method, INamedTypeSymbol cascadingValue)
+    {
+        ITypeSymbol? component = null;
+        if (method.IsGenericMethod)
+        {
+            component = method.TypeArguments[0];
+        }
+        else
+        {
+            foreach (IArgumentOperation argument in invocation.Arguments)
+            {
+                if (Unwrap(argument.Value) is ITypeOfOperation typeOf)
+                {
+                    component = typeOf.TypeOperand;
+                }
+            }
+        }
+
+        return component is INamedTypeSymbol named && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, cascadingValue)
+            ? named.TypeArguments[0]
+            : null;
+    }
+
+    // Walks the statements after the OpenComponent in its block, on the same builder, until the matching CloseComponent.
+    private static bool SetsIsFixedToTrue(IInvocationOperation open, INamedTypeSymbol builder)
+    {
+        if (open.Parent is not IExpressionStatementOperation statement || statement.Parent is not IBlockOperation block)
+        {
+            return false;
+        }
+
+        ISymbol? receiver = ReceiverSymbol(open.Instance);
+        int depth = 0;
+        bool after = false;
+        foreach (IOperation operation in block.Operations)
+        {
+            if (!after)
+            {
+                after = ReferenceEquals(operation, statement);
+                continue;
+            }
+
+            if (operation is not IExpressionStatementOperation { Operation: IInvocationOperation call }
+                || !SymbolEqualityComparer.Default.Equals(call.TargetMethod.ContainingType, builder)
+                || !SymbolEqualityComparer.Default.Equals(ReceiverSymbol(call.Instance), receiver))
+            {
+                continue;
+            }
+
+            string name = call.TargetMethod.Name;
+            if (name.StartsWith("Open", StringComparison.Ordinal))
+            {
+                depth++;
+            }
+            else if (name.StartsWith("Close", StringComparison.Ordinal))
+            {
+                if (depth == 0)
+                {
+                    return false;
+                }
+
+                depth--;
+            }
+            else if (depth == 0 && (name == "AddComponentParameter" || name == "AddAttribute") && IsFixedTrue(call))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsFixedTrue(IInvocationOperation call)
+    {
+        bool namesIsFixed = false;
+        bool valueIsTrue = false;
+        foreach (IArgumentOperation argument in call.Arguments)
+        {
+            Optional<object?> constant = Unwrap(argument.Value).ConstantValue;
+            switch (argument.Parameter?.Name)
+            {
+                case "name":
+                    namesIsFixed = constant.HasValue && constant.Value is "IsFixed";
+                    break;
+                case "value":
+                    valueIsTrue = constant.HasValue && constant.Value is true;
+                    break;
+            }
+        }
+
+        return namesIsFixed && valueIsTrue;
+    }
+
+    private static ISymbol? ReceiverSymbol(IOperation? instance) => (instance is null ? null : Unwrap(instance)) switch
+    {
+        ILocalReferenceOperation local => local.Local,
+        IParameterReferenceOperation parameter => parameter.Parameter,
+        IFieldReferenceOperation field => field.Field,
+        IPropertyReferenceOperation property => property.Property,
+        _ => null,
+    };
+
+    private static IOperation Unwrap(IOperation operation)
+    {
+        while (operation is IConversionOperation conversion)
+        {
+            operation = conversion.Operand;
+        }
+
+        return operation;
     }
 }
