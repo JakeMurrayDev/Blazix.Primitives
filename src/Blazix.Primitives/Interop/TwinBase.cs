@@ -37,37 +37,6 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         this.optionsTypeInfo = optionsTypeInfo;
     }
 
-    /// <summary>Returns the URL of a module that ships with the library.</summary>
-    /// <param name="module">The module's file name without extension, for example <c>button</c>.</param>
-    /// <returns><c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</returns>
-    protected static string LibraryModule(string module) => $"./_content/Blazix.Primitives/js/{module}.js";
-
-    /// <summary>
-    /// Attaches the module to an element. Attaching is idempotent per element: a repeated call for the same element
-    /// returns the existing handle and sends nothing to JavaScript.
-    /// </summary>
-    /// <param name="element">The element to attach to.</param>
-    /// <param name="options">The options sent with <c>attach</c>.</param>
-    /// <returns>The handle for the element.</returns>
-    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
-    public ValueTask<TwinHandle<TOptions>> AttachAsync(ElementReference element, TOptions options)
-    {
-        return AttachAsync(element.Id, element, options);
-    }
-
-    /// <summary>
-    /// Attaches the module to the element with the given id. Used when the part has no
-    /// <see cref="ElementReference"/>, which is the case when a consumer substitutes the element through a callback.
-    /// </summary>
-    /// <param name="elementId">The id of the element in the document.</param>
-    /// <param name="options">The options sent with <c>attach</c>.</param>
-    /// <returns>The handle for the element.</returns>
-    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
-    public ValueTask<TwinHandle<TOptions>> AttachAsync(string elementId, TOptions options)
-    {
-        return AttachAsync(elementId, elementId, options);
-    }
-
     /// <inheritdoc />
     /// <remarks>Disposes every live handle, the module reference and the .NET object reference. Idempotent.</remarks>
     public async ValueTask DisposeAsync()
@@ -97,6 +66,37 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
                 // The circuit is gone; nothing to release on the JavaScript side.
             }
         }
+    }
+
+    /// <summary>Returns the URL of a module that ships with the library.</summary>
+    /// <param name="module">The module's file name without extension, for example <c>button</c>.</param>
+    /// <returns><c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</returns>
+    protected static string LibraryModule(string module) => $"./_content/Blazix.Primitives/js/{module}.js";
+
+    /// <summary>
+    /// Attaches the module to an element. Attaching is idempotent per element: a repeated call for the same element
+    /// returns the existing handle and sends nothing to JavaScript.
+    /// </summary>
+    /// <param name="element">The element to attach to.</param>
+    /// <param name="options">The options sent with <c>attach</c>.</param>
+    /// <returns>The handle for the element.</returns>
+    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
+    public ValueTask<TwinHandle<TOptions>> AttachAsync(ElementReference element, TOptions options)
+    {
+        return AttachAsync(element.Id, element, options);
+    }
+
+    /// <summary>
+    /// Attaches the module to the element with the given id. Used when the part has no
+    /// <see cref="ElementReference"/>, which is the case when a consumer substitutes the element through a callback.
+    /// </summary>
+    /// <param name="elementId">The id of the element in the document.</param>
+    /// <param name="options">The options sent with <c>attach</c>.</param>
+    /// <returns>The handle for the element.</returns>
+    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
+    public ValueTask<TwinHandle<TOptions>> AttachAsync(string elementId, TOptions options)
+    {
+        return AttachAsync(elementId, elementId, options);
     }
 
     /// <summary>

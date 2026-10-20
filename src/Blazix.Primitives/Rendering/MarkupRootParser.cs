@@ -18,16 +18,6 @@ internal static class MarkupRootParser
         "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
     };
 
-    /// <summary>Represents the root element read from a markup block.</summary>
-    /// <param name="TagName">The element's tag name as written.</param>
-    /// <param name="Attributes">
-    /// The attributes of the start tag in source order, with HTML-decoded values; a valueless attribute has the empty string.
-    /// </param>
-    /// <param name="InnerMarkup">
-    /// The markup between the start tag and the end tag, or <see langword="null"/> for a self-closing or void element.
-    /// </param>
-    public readonly record struct Root(string TagName, List<KeyValuePair<string, string>> Attributes, string? InnerMarkup);
-
     /// <summary>Tries to read <paramref name="markup"/> as a single root element.</summary>
     /// <param name="markup">The content of the markup frame; leading and trailing white space is ignored.</param>
     /// <param name="root">When this method returns <see langword="true"/>, the root element; otherwise, the default value.</param>
@@ -262,4 +252,14 @@ internal static class MarkupRootParser
     }
 
     private static bool IsNameChar(char c) => char.IsLetterOrDigit(c) || c == '-' || c == ':' || c == '_';
+
+    /// <summary>Represents the root element read from a markup block.</summary>
+    /// <param name="TagName">The element's tag name as written.</param>
+    /// <param name="Attributes">
+    /// The attributes of the start tag in source order, with HTML-decoded values; a valueless attribute has the empty string.
+    /// </param>
+    /// <param name="InnerMarkup">
+    /// The markup between the start tag and the end tag, or <see langword="null"/> for a self-closing or void element.
+    /// </param>
+    public readonly record struct Root(string TagName, List<KeyValuePair<string, string>> Attributes, string? InnerMarkup);
 }

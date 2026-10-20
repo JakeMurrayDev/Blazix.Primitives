@@ -31,6 +31,9 @@ public readonly struct AttributeValue : IUnion
     private readonly bool boolean;
     private readonly AttributeValueKind kind;
 
+    [ThreadStatic]
+    private static RenderTreeBuilder? s_unpackBuilder;
+
     /// <summary>Initializes a new instance of the <see cref="AttributeValue"/> struct that holds a string.</summary>
     /// <param name="value">The string value.</param>
     public AttributeValue(string value)
@@ -322,9 +325,6 @@ public readonly struct AttributeValue : IUnion
     {
         return new EventCallback(handler.Target as IHandleEvent, handler).InvokeAsync(arg);
     }
-
-    [ThreadStatic]
-    private static RenderTreeBuilder? s_unpackBuilder;
 }
 
 /// <summary>Specifies the case held by an <see cref="AttributeValue"/>.</summary>

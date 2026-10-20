@@ -266,14 +266,14 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         readonly object IEnumerator.Current => Current;
 
         /// <inheritdoc />
+        public readonly void Dispose()
+        {
+        }
+
+        /// <inheritdoc />
         public bool MoveNext() => ++index < list.count;
 
         /// <inheritdoc />
         public void Reset() => index = -1;
-
-        /// <inheritdoc />
-        public readonly void Dispose()
-        {
-        }
     }
 }

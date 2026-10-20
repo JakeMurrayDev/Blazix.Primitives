@@ -135,6 +135,9 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
         });
     }
 
+    /// <inheritdoc />
+    public void Dispose() => renderState.Dispose();
+
     // ADR 16 rule 8
     /// <inheritdoc />
     /// <remarks>
@@ -158,9 +161,6 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
 
     /// <inheritdoc />
     void IPartHost.SetElement(ElementReference? element) => Element = element;
-
-    /// <inheritdoc />
-    public void Dispose() => renderState.Dispose();
 
     private async Task AwaitAndDispatchAsync(Task task)
     {
