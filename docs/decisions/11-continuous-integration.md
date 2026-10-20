@@ -50,8 +50,8 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 
 ## Verification items
 
-* The path-to-spec mapping of the scoped L4 run classifies a PR that touches both a family and a shared folder as full L4 (test with a synthetic PR in M0).
-* `--fail-on-flaky-tests` with `retries: 0` behaves as intended (no test can be reported flaky, so the flag is a guard only); confirm on the first nightly run.
+* The path-to-spec mapping of the scoped L4 run classifies a PR that touches both a family and a shared folder as full L4 (test with a synthetic PR in M0). **Verified 2026-10-20:** `.github/scripts/classify-paths.test.mjs` "a family folder and a shared folder together are full L4 (the synthetic pull request of issue 22)", and the synthetic pull request [#47](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/47), which touches `src/Blazix.Primitives/Button/` and `src/Blazix.Primitives/Rendering/`: the `changes` job logged `l4=full` with `families=button` and the shared path as the reason, and both browser jobs ran every spec ([run](https://github.com/JakeMurrayDev/Blazix.Primitives/actions/runs/39436665099)). [issue 22](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/22).
+* `--fail-on-flaky-tests` with `retries: 0` behaves as intended (no test can be reported flaky, so the flag is a guard only); confirm on the first nightly run. **Nightly in place 2026-10-20, not yet confirmed:** `.github/workflows/nightly.yml` runs full L4 in both modes with `--repeat-each 3` over four shards and `.github/scripts/nightly-summary.mjs` prints `Flaky tests: N` and fails on a non-zero count; the pipeline ran once on a pull request before the merge ([#50](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/50), [run](https://github.com/JakeMurrayDev/Blazix.Primitives/actions/runs/39436377880): 94 test runs, failed 0, `Flaky tests: 0`, `Quarantined: 0`). The finding for this item comes from the first scheduled run on `main`. [issue 23](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/23).
 
 ## Considered options
 
