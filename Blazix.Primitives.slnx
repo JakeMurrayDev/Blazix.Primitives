@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Blazix.Primitives.Analyzers/Blazix.Primitives.Analyzers.csproj" />
+    <Project Path="src/Blazix.Primitives.Generators/Blazix.Primitives.Generators.csproj" />
     <Project Path="src/Blazix.Primitives/Blazix.Primitives.csproj" />
   </Folder>
   <Folder Name="/tests/">
