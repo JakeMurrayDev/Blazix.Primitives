@@ -1,9 +1,19 @@
 namespace Blazix.Primitives;
 
-/// <summary>Base UI's <c>getHighlightReason</c> (EVD-ALG-11): the reason of a highlight change from the event that caused it.</summary>
+// EVD-ALG-11
+/// <summary>
+/// Provides Base UI's <c>getHighlightReason</c>: the reason for a highlight change, derived from the event that caused it.
+/// </summary>
 internal static class HighlightReason
 {
-    /// <summary><see cref="EventReason.None"/> without an event; <see cref="EventReason.Keyboard"/> for <c>key*</c> types; <see cref="EventReason.Pointer"/> for <c>mouse*</c> and <c>pointer*</c> types; otherwise <see cref="EventReason.None"/>.</summary>
+    /// <summary>
+    /// Derives the reason for a highlight change from the event that caused it.
+    /// </summary>
+    /// <param name="event">The snapshot of the event, or <see langword="null"/> when there was none.</param>
+    /// <returns>
+    /// <see cref="EventReason.Keyboard"/> for <c>key*</c> event types, <see cref="EventReason.Pointer"/> for <c>mouse*</c> and
+    /// <c>pointer*</c> types, and <see cref="EventReason.None"/> for any other type or when <paramref name="event"/> is <see langword="null"/>.
+    /// </returns>
     public static EventReason From(EventSnapshot? @event)
     {
         if (@event is null)

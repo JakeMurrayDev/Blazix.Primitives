@@ -70,3 +70,7 @@ One `package.json` at the repository root owns the Node toolchain (one `node_mod
 * One Roslyn project for generator and analyzers (the convention analyzers would ship to consumers or need per-rule packing tricks).
 * A demo app from day one (a third application to keep green while the API is still moving).
 * `package.json` inside the library project (a second `node_modules` for the L3 and L4 tooling).
+
+## Amendments
+
+**2026-10-20, time control and diagnostics through a page hook (M0 Track 3; chosen by the user the same day).** §1's fixture-host row and the Consequences read: Kestrel consumes `TimeProvider` as a singleton (a scoped registration fails host validation), so the host registers one `HarnessTimeProvider` that routes to the circuit's `FakeTimeProvider` by the renderer's synchronization context; a browser test advances time through `window.blazixFixture.advanceTime`, which invokes a `[JSInvokable]` method on the page's own session, on both render modes, so timers fire on the renderer's dispatcher and control is scoped to the page, which is what parallel Playwright workers against one host process need. Captured diagnostics are read through `/_fixture/diagnostics/{token}` on Server and through the page hook on WebAssembly; `/_fixture/ready` is the readiness URL for `webServer`. The "test-only endpoints for `TimeProvider` control" of §1 and the Consequences are therefore the page hook plus the diagnostics endpoint; ADR 06 §2's clock rule is unchanged.

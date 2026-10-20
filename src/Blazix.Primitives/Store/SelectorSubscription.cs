@@ -1,12 +1,17 @@
 namespace Blazix.Primitives.Store;
 
+// ADR 05 §1, UTL-STA-25..27; UTL §4.2.3
 /// <summary>
-/// The reactive read of UTL §4.2.3 (<c>useStore</c>, <c>store.useState</c>) for one owner (ADR 05 §1, UTL-STA-25..27):
-/// one store subscription however many selections the owner makes; on every notification each selection is re-evaluated
-/// and <c>onSelectionChanged</c> runs once if any of them changed by <see cref="Equality.Is{T}(T, T)"/>. A part creates it
-/// in <c>OnInitialized</c> with <c>StateHasChanged</c> as the callback, reads <see cref="StoreSelection{TState, TValue}.Value"/>
-/// while rendering, and disposes it with the part. A notification whose selections are all unchanged allocates nothing.
+/// Represents the reactive read of a store for one owner (Base UI's <c>useStore</c> and <c>store.useState</c>): one store
+/// subscription for any number of selections, with one callback per notification that changed at least one of them.
 /// </summary>
+/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <remarks>
+/// On every notification each selection is re-evaluated, and the callback runs once if any of them changed by
+/// <see cref="Equality.Is{T}(T, T)"/>. A part normally gets one through <c>PartBase.SubscribeTo</c>, which passes
+/// <c>StateHasChanged</c> as the callback; it reads <see cref="StoreSelection{TState, TValue}.Value"/> while rendering, and the
+/// subscription is disposed with the part. A notification whose selections are all unchanged allocates nothing.
+/// </remarks>
 public sealed class SelectorSubscription<TState> : IDisposable
     where TState : class, IStoreState<TState>
 {
@@ -15,7 +20,12 @@ public sealed class SelectorSubscription<TState> : IDisposable
     private readonly List<ISelectionRefresh<TState>> selections = [];
     private IDisposable? subscription;
 
-    /// <summary>Subscribes once to <paramref name="store"/>; <paramref name="onSelectionChanged"/> runs after a notification in which at least one selection changed.</summary>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SelectorSubscription{TState}"/> class and subscribes once to <paramref name="store"/>.
+    /// </summary>
+    /// <param name="store">The store to read.</param>
+    /// <param name="onSelectionChanged">The callback that runs after a notification in which at least one selection changed.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> or <paramref name="onSelectionChanged"/> is <see langword="null"/>.</exception>
     public SelectorSubscription(Store<TState> store, Action onSelectionChanged)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -25,7 +35,13 @@ public sealed class SelectorSubscription<TState> : IDisposable
         subscription = store.Subscribe(OnStoreChanged);
     }
 
-    /// <summary>Adds a selection of <c>selector(state)</c>, evaluated now against the current record and again on every notification.</summary>
+    /// <summary>
+    /// Adds a selection that holds the result of <paramref name="selector"/> for the latest record.
+    /// </summary>
+    /// <typeparam name="TValue">The type of the selected value.</typeparam>
+    /// <param name="selector">The selector, evaluated now against the current record and again on every notification.</param>
+    /// <returns>The new selection.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="selector"/> is <see langword="null"/>.</exception>
     public StoreSelection<TState, TValue> Select<TValue>(Func<TState, TValue> selector)
     {
         ArgumentNullException.ThrowIfNull(selector);
@@ -34,7 +50,15 @@ public sealed class SelectorSubscription<TState> : IDisposable
         return selection;
     }
 
-    /// <summary>Adds a selection of <c>selector(state, arg)</c>, evaluated now against the current record and again on every notification or argument change.</summary>
+    /// <summary>
+    /// Adds a selection that holds the result of <paramref name="selector"/> for the latest record and an argument.
+    /// </summary>
+    /// <typeparam name="TArg">The type of the selector's argument.</typeparam>
+    /// <typeparam name="TValue">The type of the selected value.</typeparam>
+    /// <param name="selector">The selector, evaluated now against the current record and again on every notification or argument change.</param>
+    /// <param name="arg">The initial argument.</param>
+    /// <returns>The new selection.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="selector"/> is <see langword="null"/>.</exception>
     public StoreSelection<TState, TArg, TValue> Select<TArg, TValue>(Func<TState, TArg, TValue> selector, TArg arg)
     {
         ArgumentNullException.ThrowIfNull(selector);
@@ -67,20 +91,33 @@ public sealed class SelectorSubscription<TState> : IDisposable
     }
 }
 
-/// <summary>One selection of a <see cref="SelectorSubscription{TState}"/>: holds <c>selector(state)</c> for the latest record, replaced only when the new result differs by <see cref="Equality.Is{T}(T, T)"/>.</summary>
+/// <summary>
+/// Represents one selection of a <see cref="SelectorSubscription{TState}"/>.
+/// </summary>
+/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TValue">The type of the selected value.</typeparam>
+/// <remarks>The held value is replaced only when the selector's new result differs from it by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
 public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
     where TState : class, IStoreState<TState>
 {
     private readonly Func<TState, TValue> selector;
     private TValue value;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StoreSelection{TState, TValue}"/> class and evaluates it against <paramref name="state"/>.
+    /// </summary>
+    /// <param name="selector">The selector.</param>
+    /// <param name="state">The current record.</param>
     internal StoreSelection(Func<TState, TValue> selector, TState state)
     {
         this.selector = selector;
         value = selector(state);
     }
 
-    /// <summary>The selector's result for the latest record.</summary>
+    /// <summary>
+    /// Gets the selector's result for the latest record.
+    /// </summary>
+    /// <value>The value selected from the record of the latest notification, or from the current record at creation.</value>
     public TValue Value => value;
 
     /// <inheritdoc />
@@ -97,7 +134,13 @@ public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
     }
 }
 
-/// <summary>One selection with an argument of a <see cref="SelectorSubscription{TState}"/>: holds <c>selector(state, Arg)</c> for the latest record, replaced only when the new result differs by <see cref="Equality.Is{T}(T, T)"/>.</summary>
+/// <summary>
+/// Represents one selection that takes an argument, in a <see cref="SelectorSubscription{TState}"/>.
+/// </summary>
+/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TArg">The type of the selector's argument.</typeparam>
+/// <typeparam name="TValue">The type of the selected value.</typeparam>
+/// <remarks>The held value is replaced only when the selector's new result differs from it by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
 public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TState>
     where TState : class, IStoreState<TState>
 {
@@ -106,6 +149,13 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
     private TArg arg;
     private TValue value;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="StoreSelection{TState, TArg, TValue}"/> class and evaluates it against the
+    /// current record of <paramref name="store"/>.
+    /// </summary>
+    /// <param name="selector">The selector.</param>
+    /// <param name="arg">The initial argument.</param>
+    /// <param name="store">The store whose current record the selection reads when the argument changes.</param>
     internal StoreSelection(Func<TState, TArg, TValue> selector, TArg arg, Store<TState> store)
     {
         this.selector = selector;
@@ -114,13 +164,21 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
         value = selector(store.State, arg);
     }
 
-    /// <summary>The selector's result for the latest record and <see cref="Arg"/>.</summary>
+    /// <summary>
+    /// Gets the selector's result for the latest record and <see cref="Arg"/>.
+    /// </summary>
+    /// <value>The value selected from the record of the latest notification, or from the current record at creation or at the last argument change.</value>
     public TValue Value => value;
 
+    // UTL-STA-18
     /// <summary>
-    /// The argument. Setting a different one (by <see cref="Equality.Is{T}(T, T)"/>) re-evaluates <see cref="Value"/> at once
-    /// without calling back, as a render with new selector arguments reads the new result (UTL-STA-18).
+    /// Gets or sets the argument passed to the selector.
     /// </summary>
+    /// <value>The current argument.</value>
+    /// <remarks>
+    /// Setting an argument that differs by <see cref="Equality.Is{T}(T, T)"/> re-evaluates <see cref="Value"/> at once without
+    /// calling back, as a render with new selector arguments reads the new result.
+    /// </remarks>
     public TArg Arg
     {
         get => arg;
@@ -148,9 +206,16 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
     }
 }
 
-/// <summary>Re-evaluates a selection against a new record and reports whether its value changed.</summary>
+/// <summary>
+/// Defines how a selection is re-evaluated against a new record.
+/// </summary>
+/// <typeparam name="TState">The immutable state record.</typeparam>
 internal interface ISelectionRefresh<TState>
 {
-    /// <summary>Evaluates the selection against <paramref name="state"/>, keeps the result when it differs from the held value by <see cref="Equality.Is{T}(T, T)"/>, and returns whether it did.</summary>
+    /// <summary>
+    /// Evaluates the selection against <paramref name="state"/> and keeps the result when it differs from the held value.
+    /// </summary>
+    /// <param name="state">The new record.</param>
+    /// <returns><see langword="true"/> if the result differed by <see cref="Equality.Is{T}(T, T)"/> and was kept; otherwise, <see langword="false"/>.</returns>
     bool Refresh(TState state);
 }

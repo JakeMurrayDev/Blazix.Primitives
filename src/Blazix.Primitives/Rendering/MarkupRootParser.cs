@@ -2,13 +2,15 @@ using System.Net;
 
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>
-/// Reads the single root element of a static markup block. The Razor compiler folds a substitute element with no
-/// dynamic parts (<c>&lt;Render&gt;&lt;div class="x"&gt;…&lt;/div&gt;&lt;/Render&gt;</c>) into one markup frame, so the
-/// frame rewrite (ADR 02 decision 1) parses the open tag for the attributes to merge and keeps the inner markup as
-/// one markup child. Only what Razor emits for static HTML is handled: a start tag with quoted, unquoted or valueless
-/// attributes, a self-closing or void element, or a matching end tag that closes the root at the end of the block.
-/// </summary>
+// ADR 02 decision 1
+/// <summary>Reads the single root element of a static markup block.</summary>
+/// <remarks>
+/// The Razor compiler folds a substitute element with no dynamic parts
+/// (<c>&lt;Render&gt;&lt;div class="x"&gt;…&lt;/div&gt;&lt;/Render&gt;</c>) into one markup frame, so the frame rewrite
+/// parses the open tag for the attributes to merge and keeps the inner markup as one markup child. Only what Razor emits
+/// for static HTML is handled: a start tag with quoted, unquoted or valueless attributes, a self-closing or void element,
+/// or a matching end tag that closes the root at the end of the block.
+/// </remarks>
 internal static class MarkupRootParser
 {
     private static readonly HashSet<string> s_voidElements = new(StringComparer.OrdinalIgnoreCase)
@@ -16,8 +18,24 @@ internal static class MarkupRootParser
         "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
     };
 
+    /// <summary>Represents the root element read from a markup block.</summary>
+    /// <param name="TagName">The element's tag name as written.</param>
+    /// <param name="Attributes">
+    /// The attributes of the start tag in source order, with HTML-decoded values; a valueless attribute has the empty string.
+    /// </param>
+    /// <param name="InnerMarkup">
+    /// The markup between the start tag and the end tag, or <see langword="null"/> for a self-closing or void element.
+    /// </param>
     public readonly record struct Root(string TagName, List<KeyValuePair<string, string>> Attributes, string? InnerMarkup);
 
+    /// <summary>Tries to read <paramref name="markup"/> as a single root element.</summary>
+    /// <param name="markup">The content of the markup frame; leading and trailing white space is ignored.</param>
+    /// <param name="root">When this method returns <see langword="true"/>, the root element; otherwise, the default value.</param>
+    /// <param name="reason">
+    /// When this method returns <see langword="false"/>, a short description of why the markup could not be read;
+    /// otherwise, the empty string.
+    /// </param>
+    /// <returns><see langword="true"/> if the markup is one element; otherwise, <see langword="false"/>.</returns>
     public static bool TryParse(string markup, out Root root, out string reason)
     {
         root = default;

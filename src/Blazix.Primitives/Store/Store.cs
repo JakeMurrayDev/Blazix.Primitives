@@ -1,16 +1,24 @@
 namespace Blazix.Primitives.Store;
 
+// UTL §4.2.1; ADR 05 §1; UTL-ALG-03
 /// <summary>
-/// The observable state container of UTL §4.2.1 (Base UI's <c>Store</c>; ADR 05 §1): one immutable record, replaced on
-/// every write and readable synchronously through <see cref="State"/>, and an ordered set of listeners notified
-/// synchronously, in subscription order, with the UTL-ALG-03 recursion guard (a nested write runs its own full pass and
-/// the outer pass stops). Equality is <see cref="Equality.Is{T}(T, T)"/>.
-/// <para>
-/// A store does not marshal: write to it on the renderer's synchronization context (part handlers, lifecycle methods,
-/// twin callbacks), so listeners that render run there too. A C# timer callback goes through <c>InvokeAsync</c> first.
-/// </para>
+/// Represents an observable state container (Base UI's <c>Store</c>): one immutable record and an ordered set of listeners
+/// that are notified synchronously after every write.
 /// </summary>
 /// <typeparam name="TState">The immutable state record.</typeparam>
+/// <remarks>
+/// <para>
+/// Every write replaces the record, which is readable synchronously through <see cref="State"/>. Listeners run in
+/// subscription order. A listener that writes during a pass starts a nested pass that notifies every listener with the
+/// newer record, and the outer pass stops, so no listener receives a stale record. Equality is
+/// <see cref="Equality.Is{T}(T, T)"/>.
+/// </para>
+/// <para>
+/// A store does not marshal between threads: write to it on the renderer's synchronization context (part handlers,
+/// lifecycle methods, interop callbacks), so that listeners which render run there too. A timer callback goes through
+/// <c>InvokeAsync</c> first.
+/// </para>
+/// </remarks>
 public class Store<TState>
     where TState : class, IStoreState<TState>
 {
@@ -22,20 +30,33 @@ public class Store<TState>
     private int notifyDepth;
     private bool hasTombstones;
 
-    /// <summary>Creates a store holding <paramref name="state"/> (not <c>null</c>) and no listeners. Each instance is independent (UTL-STA-14).</summary>
+    // UTL-STA-14
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Store{TState}"/> class that holds <paramref name="state"/> and has no listeners.
+    /// </summary>
+    /// <param name="state">The initial record.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="state"/> is <see langword="null"/>.</exception>
     public Store(TState state)
     {
         ArgumentNullException.ThrowIfNull(state);
         this.state = state;
     }
 
-    /// <summary>The current record (UTL-STA-07). Never mutate it; write through the store.</summary>
+    // UTL-STA-07
+    /// <summary>
+    /// Gets the current record.
+    /// </summary>
+    /// <value>The record written last. It is replaced on every write and is never mutated; write through the store instead.</value>
     public TState State => state;
 
+    // UTL-STA-13
     /// <summary>
-    /// Registers <paramref name="listener"/> (UTL-STA-13): it runs after every write with the new record. Registering the
-    /// same delegate instance twice has no further effect. Disposing the result unregisters it, even mid-notification.
+    /// Registers a listener that runs after every write with the new record.
     /// </summary>
+    /// <param name="listener">The listener to call with each new record.</param>
+    /// <returns>An object whose <see cref="IDisposable.Dispose"/> unregisters <paramref name="listener"/>, even during a notification pass.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="listener"/> is <see langword="null"/>.</exception>
+    /// <remarks>Registering the same delegate instance twice has no further effect.</remarks>
     public IDisposable Subscribe(Action<TState> listener)
     {
         ArgumentNullException.ThrowIfNull(listener);
@@ -47,12 +68,17 @@ public class Store<TState>
         return new Subscription(this, listener);
     }
 
+    // UTL-STA-08, UTL-ALG-03
     /// <summary>
-    /// Replaces the record with <paramref name="next"/> and calls every listener with it, in subscription order; does
-    /// nothing when <paramref name="next"/> is the current record (same reference). When a listener writes during the
-    /// pass, that nested write notifies every listener with the newer record and the outer pass stops, so the listeners
-    /// it had not reached never see the stale record (UTL-STA-08, UTL-ALG-03).
+    /// Replaces the record with <paramref name="next"/> and calls every listener with it, in subscription order.
     /// </summary>
+    /// <param name="next">The new record.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="next"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// Nothing happens when <paramref name="next"/> is the current record (the same reference). When a listener writes during
+    /// the pass, that nested write notifies every listener with the newer record and the outer pass stops, so the listeners it
+    /// had not reached never see the stale record.
+    /// </remarks>
     public void SetState(TState next)
     {
         ArgumentNullException.ThrowIfNull(next);
@@ -87,28 +113,46 @@ public class Store<TState>
         }
     }
 
+    // UTL-STA-11; ADR 05 §1
     /// <summary>
-    /// Writes <c>change(State)</c> (ADR 05 §1's <c>Update(state =&gt; state with { … })</c>) with one notification, unless
-    /// every member is equal to the current one by <see cref="Equality.Is{T}(T, T)"/> (UTL-STA-11).
+    /// Writes the record that <paramref name="change"/> returns for the current one, with one notification.
     /// </summary>
+    /// <param name="change">A function from the current record to the new one, typically <c>state =&gt; state with { … }</c>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="change"/> is <see langword="null"/>.</exception>
+    /// <remarks>Nothing happens when every member of the result equals the current one by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
     public void Update(Func<TState, TState> change)
     {
         ArgumentNullException.ThrowIfNull(change);
         Write(change(state));
     }
 
+    // UTL-STA-11
     /// <summary>
-    /// Writes <c>change(State, arg)</c> with one notification, unless every member of the result is equal to the current
-    /// one by <see cref="Equality.Is{T}(T, T)"/>. Passing the values as <paramref name="arg"/> lets <paramref name="change"/>
-    /// be a static lambda that allocates no closure (UTL-STA-11).
+    /// Writes the record that <paramref name="change"/> returns for the current one and <paramref name="arg"/>, with one notification.
     /// </summary>
+    /// <typeparam name="TArg">The type of the value passed to <paramref name="change"/>.</typeparam>
+    /// <param name="change">A function from the current record and <paramref name="arg"/> to the new record.</param>
+    /// <param name="arg">The value passed to <paramref name="change"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="change"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// Nothing happens when every member of the result equals the current one by <see cref="Equality.Is{T}(T, T)"/>. Passing
+    /// the values as <paramref name="arg"/> lets <paramref name="change"/> be a static lambda that allocates no closure.
+    /// </remarks>
     public void Update<TArg>(Func<TState, TArg, TState> change, TArg arg)
     {
         ArgumentNullException.ThrowIfNull(change);
         Write(change(state, arg));
     }
 
-    /// <summary>Writes one member (UTL-STA-10): nothing happens when it already equals <paramref name="value"/> by <see cref="Equality.Is{T}(T, T)"/>.</summary>
+    // UTL-STA-10
+    /// <summary>
+    /// Writes one member of the record.
+    /// </summary>
+    /// <typeparam name="TValue">The type of the member.</typeparam>
+    /// <param name="field">The key of the member to write.</param>
+    /// <param name="value">The new value of the member.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="field"/> is <see langword="null"/>.</exception>
+    /// <remarks>Nothing happens when the member already equals <paramref name="value"/> by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
     public void Set<TValue>(StoreField<TState, TValue> field, TValue value)
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -118,31 +162,59 @@ public class Store<TState>
         }
     }
 
-    /// <summary>Replaces the record with a copy holding the same values and notifies (UTL-STA-12), e.g. when a nested store changed.</summary>
+    // UTL-STA-12
+    /// <summary>
+    /// Replaces the record with a copy that holds the same values and notifies every listener.
+    /// </summary>
+    /// <remarks>Use it to re-broadcast when an object the record holds, such as a nested store, has changed.</remarks>
     public void NotifyAll()
     {
         SetState(TState.Copy(state));
     }
 
-    /// <summary>Evaluates a named selector against the current record without subscribing (UTL-STA-17).</summary>
+    // UTL-STA-17
+    /// <summary>
+    /// Evaluates a selector against the current record without subscribing.
+    /// </summary>
+    /// <typeparam name="TValue">The type of the selected value.</typeparam>
+    /// <param name="selector">The selector, typically a <c>static readonly</c> field of the store.</param>
+    /// <returns>The result of <paramref name="selector"/> for <see cref="State"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="selector"/> is <see langword="null"/>.</exception>
     public TValue Select<TValue>(Func<TState, TValue> selector)
     {
         ArgumentNullException.ThrowIfNull(selector);
         return selector(state);
     }
 
-    /// <summary>Evaluates a named selector with an argument against the current record without subscribing (UTL-STA-17).</summary>
+    // UTL-STA-17
+    /// <summary>
+    /// Evaluates a selector that takes an argument against the current record without subscribing.
+    /// </summary>
+    /// <typeparam name="TArg">The type of the selector's argument.</typeparam>
+    /// <typeparam name="TValue">The type of the selected value.</typeparam>
+    /// <param name="selector">The selector, typically a <c>static readonly</c> field of the store.</param>
+    /// <param name="arg">The argument passed to <paramref name="selector"/>.</param>
+    /// <returns>The result of <paramref name="selector"/> for <see cref="State"/> and <paramref name="arg"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="selector"/> is <see langword="null"/>.</exception>
     public TValue Select<TArg, TValue>(Func<TState, TArg, TValue> selector, TArg arg)
     {
         ArgumentNullException.ThrowIfNull(selector);
         return selector(state, arg);
     }
 
+    // UTL-STA-24
     /// <summary>
-    /// Observes a selection (UTL-STA-24): calls <paramref name="listener"/> at once with <c>(current, current, store)</c>,
-    /// then after every notification whose selection differs by <see cref="Equality.Is{T}(T, T)"/> with
-    /// <c>(new, previous, store)</c>. Disposing the result stops it.
+    /// Calls a listener with the current selection now and again whenever the selection changes.
     /// </summary>
+    /// <typeparam name="TValue">The type of the selected value.</typeparam>
+    /// <param name="selector">The selector to observe.</param>
+    /// <param name="listener">The listener, called with the new value, the previous value and this store.</param>
+    /// <returns>An object whose <see cref="IDisposable.Dispose"/> stops the observation.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="selector"/> or <paramref name="listener"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// <paramref name="listener"/> runs once at once with <c>(current, current, store)</c>, then after every notification whose
+    /// selection differs from the previous one by <see cref="Equality.Is{T}(T, T)"/>, with <c>(new, previous, store)</c>.
+    /// </remarks>
     public IDisposable Observe<TValue>(Func<TState, TValue> selector, Action<TValue, TValue, Store<TState>> listener)
     {
         ArgumentNullException.ThrowIfNull(selector);
