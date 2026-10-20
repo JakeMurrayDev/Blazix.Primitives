@@ -22,6 +22,7 @@ public class Store<TState>
     private int notifyDepth;
     private bool hasTombstones;
 
+    /// <summary>Creates a store holding <paramref name="state"/> (not <c>null</c>) and no listeners. Each instance is independent (UTL-STA-14).</summary>
     public Store(TState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -46,7 +47,12 @@ public class Store<TState>
         return new Subscription(this, listener);
     }
 
-    /// <summary>Replaces the record and notifies, unless <paramref name="next"/> is the current record (UTL-STA-08, UTL-ALG-03).</summary>
+    /// <summary>
+    /// Replaces the record with <paramref name="next"/> and calls every listener with it, in subscription order; does
+    /// nothing when <paramref name="next"/> is the current record (same reference). When a listener writes during the
+    /// pass, that nested write notifies every listener with the newer record and the outer pass stops, so the listeners
+    /// it had not reached never see the stale record (UTL-STA-08, UTL-ALG-03).
+    /// </summary>
     public void SetState(TState next)
     {
         ArgumentNullException.ThrowIfNull(next);
@@ -91,7 +97,11 @@ public class Store<TState>
         Write(change(state));
     }
 
-    /// <summary>The closure-free form of <see cref="Update(Func{TState, TState})"/>.</summary>
+    /// <summary>
+    /// Writes <c>change(State, arg)</c> with one notification, unless every member of the result is equal to the current
+    /// one by <see cref="Equality.Is{T}(T, T)"/>. Passing the values as <paramref name="arg"/> lets <paramref name="change"/>
+    /// be a static lambda that allocates no closure (UTL-STA-11).
+    /// </summary>
     public void Update<TArg>(Func<TState, TArg, TState> change, TArg arg)
     {
         ArgumentNullException.ThrowIfNull(change);

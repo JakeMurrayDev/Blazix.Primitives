@@ -15,6 +15,7 @@ public sealed class SelectorSubscription<TState> : IDisposable
     private readonly List<ISelectionRefresh<TState>> selections = [];
     private IDisposable? subscription;
 
+    /// <summary>Subscribes once to <paramref name="store"/>; <paramref name="onSelectionChanged"/> runs after a notification in which at least one selection changed.</summary>
     public SelectorSubscription(Store<TState> store, Action onSelectionChanged)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -24,7 +25,7 @@ public sealed class SelectorSubscription<TState> : IDisposable
         subscription = store.Subscribe(OnStoreChanged);
     }
 
-    /// <summary>Adds a selection, evaluated now against the current record.</summary>
+    /// <summary>Adds a selection of <c>selector(state)</c>, evaluated now against the current record and again on every notification.</summary>
     public StoreSelection<TState, TValue> Select<TValue>(Func<TState, TValue> selector)
     {
         ArgumentNullException.ThrowIfNull(selector);
@@ -33,7 +34,7 @@ public sealed class SelectorSubscription<TState> : IDisposable
         return selection;
     }
 
-    /// <summary>Adds a selection with an argument, evaluated now against the current record.</summary>
+    /// <summary>Adds a selection of <c>selector(state, arg)</c>, evaluated now against the current record and again on every notification or argument change.</summary>
     public StoreSelection<TState, TArg, TValue> Select<TArg, TValue>(Func<TState, TArg, TValue> selector, TArg arg)
     {
         ArgumentNullException.ThrowIfNull(selector);
@@ -65,7 +66,7 @@ public sealed class SelectorSubscription<TState> : IDisposable
     }
 }
 
-/// <summary>One selection of a <see cref="SelectorSubscription{TState}"/>.</summary>
+/// <summary>One selection of a <see cref="SelectorSubscription{TState}"/>: holds <c>selector(state)</c> for the latest record, replaced only when the new result differs by <see cref="Equality.Is{T}(T, T)"/>.</summary>
 public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
     where TState : class, IStoreState<TState>
 {
@@ -94,7 +95,7 @@ public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
     }
 }
 
-/// <summary>One selection with an argument of a <see cref="SelectorSubscription{TState}"/>.</summary>
+/// <summary>One selection with an argument of a <see cref="SelectorSubscription{TState}"/>: holds <c>selector(state, Arg)</c> for the latest record, replaced only when the new result differs by <see cref="Equality.Is{T}(T, T)"/>.</summary>
 public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TState>
     where TState : class, IStoreState<TState>
 {

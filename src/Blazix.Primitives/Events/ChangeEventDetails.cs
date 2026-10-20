@@ -36,6 +36,6 @@ public class ChangeEventDetails
     /// <summary>Cancels the request: an uncontrolled component does not commit and the follow-up effects do not run (EVD-EVT-05..09).</summary>
     public void Cancel() => canceled = true;
 
-    /// <summary>Lets the native event keep propagating where the part would stop it (EVD §4.4).</summary>
+    /// <summary>Sets <see cref="IsPropagationAllowed"/>: the part then does not stop the native event's propagation where it otherwise would (Escape on a nested popup; EVD §4.4).</summary>
     public void AllowPropagation() => propagationAllowed = true;
 }

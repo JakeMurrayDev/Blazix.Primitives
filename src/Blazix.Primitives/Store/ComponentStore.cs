@@ -15,12 +15,19 @@ public class ComponentStore<TState> : Store<TState>
     // The mode first seen per field by SyncControlledValue, kept only while development warnings are on (UTL-EDGE-25).
     private Dictionary<object, bool>? controlledModes;
 
+    /// <summary>Creates a component store holding <paramref name="state"/>, with no listeners and no <see cref="Logger"/>.</summary>
     public ComponentStore(TState state)
         : base(state)
     {
     }
 
-    /// <summary>Where the store writes its development warnings (UTL-EDGE-25); see the <c>Blazix.Primitives.DevelopmentWarnings</c> switch.</summary>
+    /// <summary>
+    /// The logger for the store's development warning: when <see cref="SyncControlledValue{TValue}"/> is called with a
+    /// <c>controlled</c> flag different from the first one it saw for that field, it logs, at <c>Error</c> and on every such
+    /// call, "A component is changing the [un]controlled state of {field} to be [un]controlled. Elements should not switch
+    /// from uncontrolled to controlled (or vice versa)." Written only while the <c>Blazix.Primitives.DevelopmentWarnings</c>
+    /// AppContext switch is on; <c>null</c> writes nothing (UTL-EDGE-25).
+    /// </summary>
     public ILogger? Logger { get; set; }
 
     /// <summary>

@@ -13,13 +13,18 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     private ComponentStore<TState>? store;
     private TValue? value;
 
+    /// <summary>Creates the helper for one member, <paramref name="field"/>, whose reset value is <c>default</c>.</summary>
     public SyncedValueWithCleanup(StoreField<TState, TValue?> field)
     {
         ArgumentNullException.ThrowIfNull(field);
         this.field = field;
     }
 
-    /// <summary>Synchronises <paramref name="value"/> into <paramref name="store"/>.</summary>
+    /// <summary>
+    /// The first call writes <paramref name="value"/> into <paramref name="store"/> when the member is not strictly equal
+    /// to it. A later call with the same store and a value equal by <see cref="Equality.Is{T}(T, T)"/> does nothing; with a
+    /// different store or value it first sets the member to <c>default</c> in the previous store, then writes as above.
+    /// </summary>
     public void Sync(ComponentStore<TState> store, TValue? value)
     {
         ArgumentNullException.ThrowIfNull(store);

@@ -12,6 +12,10 @@ public sealed class StoreField<TState, TValue>
     private readonly Func<TState, TValue> get;
     private readonly Func<TState, TValue, TState> with;
 
+    /// <summary>
+    /// Creates the key: <paramref name="name"/> names the member in warnings, <paramref name="get"/> reads it from a record,
+    /// <paramref name="with"/> returns a copy of a record with the member replaced (<c>(s, v) =&gt; s with { X = v }</c>).
+    /// </summary>
     public StoreField(string name, Func<TState, TValue> get, Func<TState, TValue, TState> with)
     {
         ArgumentNullException.ThrowIfNull(name);

@@ -1,6 +1,6 @@
 namespace Blazix.Primitives;
 
-/// <summary>The details of <c>TabsRoot.OnValueChange</c> (EVD §3.7): <see cref="ChangeEventDetails"/> plus <see cref="ActivationDirection"/>.</summary>
+/// <summary>The details of <c>TabsRoot.OnValueChange</c>: <see cref="ChangeEventDetails"/> plus <see cref="ActivationDirection"/>, the direction from the previously active tab to the new one (EVD §3.7).</summary>
 public class TabsChangeEventDetails : ChangeEventDetails
 {
     /// <summary>Creates Tabs details with the direction from the previous tab to the new one.</summary>
