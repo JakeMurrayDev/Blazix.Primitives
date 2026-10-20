@@ -62,13 +62,20 @@ csharp_indent_switch_labels = true
 # IDE1006 must be raised explicitly for the naming rules below to be enforced in the build.
 dotnet_diagnostic.IDE1006.severity = warning
 
-# Naming: private fields are camelCase with no underscore prefix, no `s_`, no `m_` (ADR 08 §5),
-# static readonly ones included. Private constants are PascalCase: the more specific symbol group wins.
+# Naming (ADR 08 §5 as amended 2026-10-20): private instance fields are camelCase with no prefix, private static
+# fields (readonly or not) are camelCase behind `s_`, constants are PascalCase. `_x` and `m_x` are rejected.
+# Where a field fits two groups the more specific one wins; probed with a throwaway file (see the Track 0 pull request).
 dotnet_naming_style.pascal_case_style.capitalization = pascal_case
 dotnet_naming_style.camel_case_style.capitalization = camel_case
+dotnet_naming_style.s_camel_case_style.capitalization = camel_case
+dotnet_naming_style.s_camel_case_style.required_prefix = s_
 
 dotnet_naming_symbols.constant_fields.applicable_kinds = field
 dotnet_naming_symbols.constant_fields.required_modifiers = const
+
+dotnet_naming_symbols.private_static_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_fields.required_modifiers = static
 
 dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private
@@ -76,6 +83,10 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_rule.constants_are_pascal_case.symbols = constant_fields
 dotnet_naming_rule.constants_are_pascal_case.style = pascal_case_style
 dotnet_naming_rule.constants_are_pascal_case.severity = warning
+
+dotnet_naming_rule.private_static_fields_have_s_prefix.symbols = private_static_fields
+dotnet_naming_rule.private_static_fields_have_s_prefix.style = s_camel_case_style
+dotnet_naming_rule.private_static_fields_have_s_prefix.severity = warning
 
 dotnet_naming_rule.private_fields_are_camel_case.symbols = private_fields
 dotnet_naming_rule.private_fields_are_camel_case.style = camel_case_style
