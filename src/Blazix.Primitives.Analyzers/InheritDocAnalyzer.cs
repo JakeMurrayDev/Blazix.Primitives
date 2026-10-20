@@ -42,8 +42,154 @@ public sealed class InheritDocAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
-        // The tests-first stub: it registers nothing, so every violation test is red until the implementation lands.
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
+        context.RegisterSymbolAction(AnalyzeMember, SymbolKind.Method, SymbolKind.Property, SymbolKind.Event);
+    }
+
+    private static void AnalyzeMember(SymbolAnalysisContext context)
+    {
+        ISymbol member = context.Symbol;
+        if (member.IsImplicitlyDeclared
+            || member is IMethodSymbol { MethodKind: not (MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation) }
+            || !OverridesOrImplements(member))
+        {
+            return;
+        }
+
+        foreach (SyntaxReference reference in member.DeclaringSyntaxReferences)
+        {
+            SyntaxNode declaration = reference.GetSyntax(context.CancellationToken);
+            if (declaration is VariableDeclaratorSyntax { Parent.Parent: EventFieldDeclarationSyntax eventField })
+            {
+                declaration = eventField;
+            }
+
+            if (declaration.SyntaxTree.Options.DocumentationMode == DocumentationMode.None)
+            {
+                continue;
+            }
+
+            if (Problem(declaration) is { } problem)
+            {
+                Location location = member.Locations.FirstOrDefault(l => l.SourceTree == declaration.SyntaxTree) ?? declaration.GetLocation();
+                context.ReportDiagnostic(Diagnostic.Create(s_rule, location, DisplayName(member), problem));
+            }
+        }
+    }
+
+    // An explicit implementation reads `IDisposable.Dispose`; every other member its own name.
+    private static string DisplayName(ISymbol member)
+    {
+        ISymbol? implemented = member switch
+        {
+            IMethodSymbol method => method.ExplicitInterfaceImplementations.FirstOrDefault(),
+            IPropertySymbol property => property.ExplicitInterfaceImplementations.FirstOrDefault(),
+            IEventSymbol @event => @event.ExplicitInterfaceImplementations.FirstOrDefault(),
+            _ => null,
+        };
+        return implemented is null
+            ? member.Name
+            : implemented.ContainingType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) + "." + implemented.Name;
+    }
+
+    private static bool OverridesOrImplements(ISymbol member)
+    {
+        if (member.IsOverride)
+        {
+            return true;
+        }
+
+        bool isExplicit = member switch
+        {
+            IMethodSymbol method => !method.ExplicitInterfaceImplementations.IsEmpty,
+            IPropertySymbol property => !property.ExplicitInterfaceImplementations.IsEmpty,
+            IEventSymbol @event => !@event.ExplicitInterfaceImplementations.IsEmpty,
+            _ => false,
+        };
+        if (isExplicit)
+        {
+            return true;
+        }
+
+        INamedTypeSymbol? type = member.ContainingType;
+        if (type is null)
+        {
+            return false;
+        }
+
+        foreach (INamedTypeSymbol implemented in type.AllInterfaces)
+        {
+            foreach (ISymbol interfaceMember in implemented.GetMembers(member.Name))
+            {
+                if (SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(interfaceMember), member))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // What is wrong with the declaration's documentation comment, or null when it is <inheritdoc /> with only the allowed
+    // additions.
+    private static string? Problem(SyntaxNode declaration)
+    {
+        DocumentationCommentTriviaSyntax? comment = null;
+        foreach (SyntaxTrivia trivia in declaration.GetLeadingTrivia())
+        {
+            if (trivia.GetStructure() is DocumentationCommentTriviaSyntax structure)
+            {
+                comment = structure;
+            }
+        }
+
+        if (comment is null)
+        {
+            return "add `/// <inheritdoc />`";
+        }
+
+        bool inherits = false;
+        foreach (XmlNodeSyntax node in comment.Content)
+        {
+            string? name = node switch
+            {
+                XmlElementSyntax element => element.StartTag.Name.LocalName.ValueText,
+                XmlEmptyElementSyntax empty => empty.Name.LocalName.ValueText,
+                _ => null,
+            };
+            if (name is null)
+            {
+                if (node is XmlTextSyntax text && !IsBlank(text))
+                {
+                    return "move its text into `<remarks>` or remove it";
+                }
+
+                continue;
+            }
+
+            if (!s_allowedElements.Contains(name))
+            {
+                return $"remove `<{name}>`";
+            }
+
+            inherits |= name == "inheritdoc";
+        }
+
+        return inherits ? null : "add `<inheritdoc />`";
+    }
+
+    private static bool IsBlank(XmlTextSyntax text)
+    {
+        foreach (SyntaxToken token in text.TextTokens)
+        {
+            if (token.IsKind(SyntaxKind.XmlTextLiteralToken) && !string.IsNullOrWhiteSpace(token.ValueText))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
