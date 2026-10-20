@@ -1,7 +1,8 @@
 namespace Blazix.Primitives.Store;
 
+// UTL-STA-20
 /// <summary>
-/// <c>useSyncedValueWithCleanup</c> (UTL-STA-20): one per call site, held by the part. <see cref="Sync"/> on every parameter
+/// <c>useSyncedValueWithCleanup</c>: one per call site, held by the part. <see cref="Sync"/> on every parameter
 /// set writes the value as <see cref="ComponentStore{TState}.SyncValue{TValue}"/> does; when the value or the store changed
 /// since the last call it first resets the member to <c>default</c> in the previous store. <see cref="Dispose"/> (from the
 /// part's own dispose) resets it in the last store.

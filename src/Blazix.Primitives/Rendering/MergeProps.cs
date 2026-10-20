@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>A function-form input of <see cref="MergeProps"/>: receives the attributes accumulated so far and returns the attributes that replace them (RND-EVT-11).</summary>
+// RND-EVT-11
+/// <summary>A function-form input of <see cref="MergeProps"/>: receives the attributes accumulated so far and returns the attributes that replace them.</summary>
 public delegate AttributeList AttributeGetter(AttributeList accumulated);
 
 /// <summary>
@@ -30,13 +31,14 @@ public readonly struct MergeInput
     public static implicit operator MergeInput(AttributeGetter? getter) => new(null, getter);
 }
 
+// RND-ALG-02..06, ADR 02 decision 4; ADR 02 decision 3; ADR 16 rule 5
 /// <summary>
-/// The public attribute merge (RND-ALG-02..06, ADR 02 decision 4): inputs merge left to right; a later input's plain
+/// The public attribute merge: inputs merge left to right; a later input's plain
 /// attributes win, its class is placed first, its style keys win, and its handler runs first with the veto of
 /// <see cref="EventArgsVetoExtensions.PreventPartHandler"/> stopping the handlers after it. A handler is any entry whose
-/// name starts with <c>on</c> (any casing) and whose value is a callback or delegate (ADR 02 decision 3); it is stored
+/// name starts with <c>on</c> (any casing) and whose value is a callback or delegate; it is stored
 /// under the lowercase name Blazor's event dispatch expects. Nothing here is memoised; the pipeline memoises its own
-/// class and style merges per part (ADR 16 rule 5).
+/// class and style merges per part.
 /// </summary>
 public static class MergeProps
 {
@@ -96,7 +98,8 @@ public static class MergeProps
         return merged.ToDictionary();
     }
 
-    /// <summary><c>mergeClassNames(ours, theirs)</c> (RND-ALG-05): <paramref name="theirs"/> first, a space, then <paramref name="ours"/>; empty operands are skipped.</summary>
+    // RND-ALG-05
+    /// <summary><c>mergeClassNames(ours, theirs)</c>: <paramref name="theirs"/> first, a space, then <paramref name="ours"/>; empty operands are skipped.</summary>
     public static string? MergeClassNames(string? ours, string? theirs)
     {
         if (!string.IsNullOrEmpty(theirs))
@@ -107,10 +110,11 @@ public static class MergeProps
         return ours;
     }
 
+    // RND-DOM-16; RND-ALG-06
     /// <summary>
-    /// The style merge of RND-ALG-06 over inline style strings: each is split into declarations (on <c>;</c> outside
-    /// parentheses and quotes) and merged by property name, <paramref name="theirs"/> winning, with first-seen order kept
-    /// (RND-DOM-16). A single non-empty operand is returned as given.
+    /// Merges inline style strings: each is split into declarations (on <c>;</c> outside
+    /// parentheses and quotes) and merged by property name, <paramref name="theirs"/> winning, with first-seen order kept.
+    /// A single non-empty operand is returned as given.
     /// </summary>
     public static string? MergeStyles(string? ours, string? theirs)
     {
@@ -124,13 +128,15 @@ public static class MergeProps
         return hasOurs ? StyleDeclarations.Merge(ours!, theirs!) : theirs;
     }
 
-    /// <summary>Whether an entry is a handler under ADR 02 decision 3: an <c>on</c>-prefixed name (any casing) with a callback or delegate value.</summary>
+    // ADR 02 decision 3
+    /// <summary>Whether an entry is a handler: an <c>on</c>-prefixed name (any casing) with a callback or delegate value.</summary>
     public static bool IsHandler(string name, in AttributeValue value)
     {
         return value.IsHandler && name.Length > 2 && (name[0] is 'o' or 'O') && (name[1] is 'n' or 'N');
     }
 
-    /// <summary>Merges one entry into <paramref name="merged"/> under the rules above (the <c>mergeInto</c> loop body of RND-ALG-02).</summary>
+    // RND-ALG-02
+    /// <summary>Merges one entry into <paramref name="merged"/> under the rules above (Base UI's <c>mergeInto</c> loop body).</summary>
     internal static void MergeEntry(AttributeList merged, string name, AttributeValue value)
     {
         if (string.Equals(name, ClassAttribute, StringComparison.OrdinalIgnoreCase))

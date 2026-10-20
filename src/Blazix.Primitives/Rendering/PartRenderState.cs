@@ -3,15 +3,17 @@ using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>What the pipeline needs from the component that owns a render: the event receiver (ADR 16 rule 8) and the element slot.</summary>
+// ADR 16 rule 8
+/// <summary>What the pipeline needs from the component that owns a render: the event receiver and the element slot.</summary>
 internal interface IPartHost : IHandleEvent
 {
     void SetElement(ElementReference? element);
 }
 
+// ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3
 /// <summary>
-/// The per-instance state of the pipeline (ADR 16 rules 2, 3, 5, 7): the attribute lists it fills each render, the
-/// scratch builder of the frame rewrite, the handler slots of ADR 02 decision 3, the class and style memo, and the one
+/// The per-instance state of the pipeline, kept so a render allocates as little as possible: the attribute lists it fills
+/// each render, the scratch builder of the frame rewrite, the one real handler per event name, the class and style memo, and the one
 /// element-capture delegate. Owned by <see cref="PartBase{TState}"/> and <see cref="RenderElement{TState}"/>.
 /// </summary>
 internal sealed class PartRenderState : IDisposable
@@ -64,7 +66,8 @@ internal sealed class PartRenderState : IDisposable
         }
     }
 
-    /// <summary>The real handler for <paramref name="eventName"/> (ADR 02 decision 3): one callback, created once, whose dispatch runs the substitute's and the consumer's handlers before <paramref name="handler"/>.</summary>
+    // ADR 02 decision 3
+    /// <summary>The real handler for <paramref name="eventName"/>: one callback, created once, whose dispatch runs the substitute's and the consumer's handlers before <paramref name="handler"/>.</summary>
     public EventCallback CreateHandler<TArgs>(string eventName, Func<TArgs, Task> handler)
         where TArgs : EventArgs
     {
@@ -119,7 +122,8 @@ internal sealed class HandlerSlot(string name)
     }
 }
 
-/// <summary>The last inputs and output of the class merge, compared by reference (ADR 16 rule 5).</summary>
+// ADR 16 rule 5
+/// <summary>The last inputs and output of the class merge, compared by reference.</summary>
 internal struct ClassMemo
 {
     private string? substitute;
@@ -171,7 +175,8 @@ internal struct ClassMemo
     }
 }
 
-/// <summary>The last inputs and output of the style merge, compared by reference (ADR 16 rule 5).</summary>
+// ADR 16 rule 5
+/// <summary>The last inputs and output of the style merge, compared by reference.</summary>
 internal struct StyleMemo
 {
     private string? part;

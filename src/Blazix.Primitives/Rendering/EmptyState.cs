@@ -1,6 +1,7 @@
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>The state of a part or <see cref="RenderElement{TState}"/> that has none (RND-STA-02): projects nothing.</summary>
+// RND-STA-02
+/// <summary>The state of a part or <see cref="RenderElement{TState}"/> that has none: projects nothing.</summary>
 [PartState]
 public sealed partial record EmptyState
 {

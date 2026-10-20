@@ -1,7 +1,8 @@
 namespace Blazix.Primitives;
 
+// EVD §3.3, §3.7
 /// <summary>
-/// The details of <c>OnItemHighlighted</c> (EVD §3.3, §3.7): <see cref="GenericEventDetails"/> plus the highlighted
+/// The details of <c>OnItemHighlighted</c>: <see cref="GenericEventDetails"/> plus the highlighted
 /// <see cref="Index"/>, <c>-1</c> when the highlight was cleared.
 /// </summary>
 public class HighlightEventDetails : GenericEventDetails

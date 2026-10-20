@@ -2,9 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace Blazix.Primitives;
 
+// ADR 04 §3; EVD §3.5, EVD-API-05
 /// <summary>
 /// The DOM interface of the native event an <see cref="EventSnapshot"/> was taken from: the most derived of the interfaces
-/// EVD §3.5 names. It replaces EVD-API-05's <c>instanceof</c> test (ADR 04 §3); <see cref="EventSnapshot.IsInstanceOf"/>
+/// below. It stands in for JavaScript's <c>instanceof</c> test on the event; <see cref="EventSnapshot.IsInstanceOf"/>
 /// answers <c>instanceof</c> with the DOM's inheritance (a <c>PointerEvent</c> is a <c>MouseEvent</c>). Serialised as the
 /// interface name, e.g. <c>"PointerEvent"</c>.
 /// </summary>

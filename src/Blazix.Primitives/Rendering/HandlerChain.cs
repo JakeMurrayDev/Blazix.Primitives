@@ -2,8 +2,9 @@ using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Rendering;
 
+// RND-ALG-04 as settled by ADR 02 decision 3
 /// <summary>
-/// Runs handlers in precedence order with the veto (RND-ALG-04 as settled by ADR 02 decision 3): each handler is
+/// Runs handlers in precedence order with the veto: each handler is
 /// invoked as Blazor's renderer would invoke it; after each one, if the argument is an <see cref="EventArgs"/> on
 /// which <see cref="EventArgsVetoExtensions.PreventPartHandler"/> was called, the rest of the chain is skipped.
 /// Shared by <see cref="MergeProps"/> (which closes over two handlers) and the pipeline (substitute, consumer, part).
@@ -47,7 +48,8 @@ internal static class HandlerChain
         }
     }
 
-    /// <summary>The part's chain: the substitute's and the consumer's handlers, then the part's typed handler (RND-EVT-02), stopping at a veto.</summary>
+    // RND-EVT-02
+    /// <summary>The part's chain: the substitute's and the consumer's handlers, then the part's typed handler, stopping at a veto.</summary>
     public static async Task InvokeAsync<TArgs>(TArgs args, AttributeValue substitute, AttributeValue consumer, Func<TArgs, Task> part)
         where TArgs : EventArgs
     {
@@ -82,7 +84,8 @@ internal static class HandlerChain
         }
     }
 
-    /// <summary>Wraps <paramref name="first"/> then <paramref name="second"/> into one callback value (the public merge's chain, RND-EVT-02).</summary>
+    // RND-EVT-02
+    /// <summary>Wraps <paramref name="first"/> then <paramref name="second"/> into one callback value (the public merge's chain).</summary>
     public static AttributeValue Chain(AttributeValue first, AttributeValue second)
     {
         if (!second.IsHandler)

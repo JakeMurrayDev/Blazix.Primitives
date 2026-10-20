@@ -1,7 +1,8 @@
 namespace Blazix.Primitives.Store;
 
+// ADR 05 §1, UTL-STA-25..27; UTL §4.2.3
 /// <summary>
-/// The reactive read of UTL §4.2.3 (<c>useStore</c>, <c>store.useState</c>) for one owner (ADR 05 §1, UTL-STA-25..27):
+/// The reactive read of a store (Base UI's <c>useStore</c> and <c>store.useState</c>) for one owner:
 /// one store subscription however many selections the owner makes; on every notification each selection is re-evaluated
 /// and <c>onSelectionChanged</c> runs once if any of them changed by <see cref="Equality.Is{T}(T, T)"/>. A part creates it
 /// in <c>OnInitialized</c> with <c>StateHasChanged</c> as the callback, reads <see cref="StoreSelection{TState, TValue}.Value"/>
@@ -117,9 +118,10 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
     /// <summary>The selector's result for the latest record and <see cref="Arg"/>.</summary>
     public TValue Value => value;
 
+    // UTL-STA-18
     /// <summary>
     /// The argument. Setting a different one (by <see cref="Equality.Is{T}(T, T)"/>) re-evaluates <see cref="Value"/> at once
-    /// without calling back, as a render with new selector arguments reads the new result (UTL-STA-18).
+    /// without calling back, as a render with new selector arguments reads the new result.
     /// </summary>
     public TArg Arg
     {

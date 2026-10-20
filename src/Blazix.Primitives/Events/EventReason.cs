@@ -1,9 +1,11 @@
 namespace Blazix.Primitives;
 
+// EVD §3.5; glossary "Reason"; ADR 05 §3, named by ADR 08 §4; EVD §4.3.7
 /// <summary>
-/// The cause of a request (EVD §3.5; glossary "Reason"): the 36 Base UI reasons in one enum (ADR 05 §3, named by ADR 08 §4).
-/// Members are the PascalCase forms of the kebab-case literals, in the order of EVD §3.5; <see cref="EventReasonExtensions.ToLiteral"/>
-/// gives the literal. Which reasons a callback may emit is documentation (EVD §4.3.7), not a type.
+/// The cause of a request: the 36 Base UI reasons in one enum.
+/// Members are the PascalCase forms of Base UI's kebab-case literals, in Base UI's catalogue order;
+/// <see cref="EventReasonExtensions.ToLiteral"/> gives the literal. Which reasons a given callback may emit is stated on
+/// that callback, not encoded in a type.
 /// </summary>
 public enum EventReason
 {
@@ -116,10 +118,12 @@ public enum EventReason
     WindowResize,
 }
 
-/// <summary>The literal form of <see cref="EventReason"/> (ADR 05 §3): a <c>switch</c>, no reflection.</summary>
+// ADR 05 §3
+/// <summary>The literal form of <see cref="EventReason"/>: a <c>switch</c>, no reflection.</summary>
 public static class EventReasonExtensions
 {
-    /// <summary>The kebab-case Base UI literal of <paramref name="reason"/> (EVD §3.5), e.g. <c>trigger-press</c>.</summary>
+    // EVD §3.5
+    /// <summary>The kebab-case Base UI literal of <paramref name="reason"/>, e.g. <c>trigger-press</c>.</summary>
     public static string ToLiteral(this EventReason reason)
     {
         return reason switch

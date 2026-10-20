@@ -11,7 +11,8 @@ using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>The inputs of one render of a part or <see cref="RenderElement{TState}"/> (RND §6.1 in Blazor terms).</summary>
+// RND §6.1
+/// <summary>The inputs of one render of a part or <see cref="RenderElement{TState}"/>.</summary>
 internal readonly struct RenderInputs<TState>
     where TState : class, IPartState<TState>
 {
@@ -38,11 +39,12 @@ internal readonly struct RenderInputs<TState>
     public bool Enabled { get; init; }
 }
 
+// ADR 02 decision 4; RND-ALG-01/02/05/06/07/08; ADR 02 decision 1
 /// <summary>
-/// The one static function every part renders through (ADR 02 decision 4; RND-ALG-01/02/05/06/07/08): state
+/// The one static function every part renders through: state
 /// projection, the merge of part-supplied and consumer-supplied attributes with class, style and handlers treated
 /// specially, the class and style functions, and then the default element, the substitute callback, or the frame
-/// rewrite of the substitute element (ADR 02 decision 1).
+/// rewrite of the substitute element.
 /// </summary>
 internal static class RenderPipeline
 {
@@ -59,10 +61,11 @@ internal static class RenderPipeline
     public static void Render<TState>(RenderTreeBuilder builder, PartRenderState state, IPartHost host, in RenderInputs<TState> inputs)
         where TState : class, IPartState<TState>
     {
+        // ADR 02 decision 1 (always on, ADR 02 Amendments 2026-10-20).
         if (inputs.Render is not null && inputs.RenderFunction is not null)
         {
             throw new InvalidOperationException(
-                "Blazix: `Render` and `RenderFunction` are mutually exclusive. Supply the substitute element in `Render` or the substitute callback in `RenderFunction`, not both (ADR 02 decision 1).");
+                "Blazix: `Render` and `RenderFunction` are mutually exclusive. Supply the substitute element in `Render` or the substitute callback in `RenderFunction`, not both.");
         }
 
         if (!inputs.Enabled)
@@ -665,10 +668,11 @@ internal static class RenderPipeline
 
         private static string? AsString(in AttributeValue value) => value.TryGetValue(out string text) ? text : null;
 
+        // RND-EDGE-03
         private static InvalidOperationException InvalidRoot(string what)
         {
             return new InvalidOperationException(
-                $"Blazix: the `Render` fragment must have exactly one root that is an element or a component, because that root is re-emitted with the part's merged attributes in place of the default element (RND-EDGE-03). It rendered {what}.");
+                $"Blazix: the `Render` fragment must have exactly one root that is an element or a component, because that root is re-emitted with the part's merged attributes in place of the default element. It rendered {what}.");
         }
 
         // ADR 04 Amendments 2026-10-18 item 3: Blazor's event directives are applied after the library's JavaScript
@@ -680,13 +684,14 @@ internal static class RenderPipeline
                 return;
             }
 
+            // ADR 04 Amendments 2026-10-18 item 3, always on (2026-10-20).
             string directive = name.StartsWith(PreventDefaultPrefix, StringComparison.Ordinal)
                 ? $"@{name[PreventDefaultPrefix.Length..]}:preventDefault"
                 : name.StartsWith(StopPropagationPrefix, StringComparison.Ordinal)
                     ? $"@{name[StopPropagationPrefix.Length..]}:stopPropagation"
                     : name;
             throw new InvalidOperationException(
-                $"Blazix: `{directive}` is not supported on {where}. Blazor applies event directives after the library's JavaScript listeners have run, so they cannot take part in its dispatch. Call `e.PreventPartHandler()` from a C# handler to stop the part's handler, or call `preventDefault()` from a JavaScript listener on the element to cancel the browser default (ADR 04).");
+                $"Blazix: `{directive}` is not supported on {where}. Blazor applies event directives after the library's JavaScript listeners have run, so they cannot take part in its dispatch. Call `e.PreventPartHandler()` from a C# handler to stop the part's handler, or call `preventDefault()` from a JavaScript listener on the element to cancel the browser default.");
         }
     }
 }

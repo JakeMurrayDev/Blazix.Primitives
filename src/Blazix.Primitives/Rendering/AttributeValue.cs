@@ -10,9 +10,10 @@ using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Blazix.Primitives.Rendering;
 
+// ADR 05 §4, ADR 02 Amendments 2026-10-17
 /// <summary>
 /// One attribute value of the merged attribute list: a string, a boolean, an untyped
-/// <see cref="EventCallback"/> or a delegate (ADR 05 §4, ADR 02 Amendments 2026-10-17). A hand-written
+/// <see cref="EventCallback"/> or a delegate. A hand-written
 /// <c>[Union]</c> struct with the non-boxing access pattern (<see cref="HasValue"/>, <see cref="TryGetValue(out string)"/>
 /// and its siblings); <see cref="Value"/> exists because the union contract requires it and is never read by the library.
 /// The default instance has no value and stands for an absent attribute.
@@ -63,8 +64,9 @@ public readonly struct AttributeValue : IUnion
     /// <summary>Whether the value is a handler: a callback or a delegate.</summary>
     public bool IsHandler => kind is AttributeValueKind.Callback or AttributeValueKind.Delegate;
 
+    // ADR 05 §4
     /// <inheritdoc />
-    /// <remarks>Boxes the boolean and callback cases; the library never reads it (ADR 05 §4).</remarks>
+    /// <remarks>Boxes the boolean and callback cases; the library never reads it.</remarks>
     public object? Value => kind switch
     {
         AttributeValueKind.String => reference,
@@ -82,12 +84,13 @@ public readonly struct AttributeValue : IUnion
 
     public static implicit operator AttributeValue(MulticastDelegate value) => new(value);
 
+    // ADR 05 Amendments 2026-10-20
     /// <summary>
     /// Converts a value of the shape Blazor's attribute APIs accept into the union: <c>null</c> is absent, strings and
     /// booleans are themselves, an <see cref="EventCallback"/> or delegate is a handler, a boxed <see cref="EventCallback{TValue}"/>
     /// is unpacked to its untyped form, and anything else is its string representation. This is the conversion the
-    /// unmatched-attribute bag and the <see cref="MergeProps"/> dictionary overload go through (ADR 05 Amendments 2026-10-20:
-    /// those carry case values, never unions).
+    /// unmatched-attribute bag and the <see cref="MergeProps"/> dictionary overload go through: those carry case values,
+    /// never the union itself, because a union boxed to <see cref="object"/> hides its case.
     /// </summary>
     public static AttributeValue FromObject(object? value)
     {

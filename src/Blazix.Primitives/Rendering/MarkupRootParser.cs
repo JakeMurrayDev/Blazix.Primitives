@@ -2,10 +2,11 @@ using System.Net;
 
 namespace Blazix.Primitives.Rendering;
 
+// ADR 02 decision 1
 /// <summary>
 /// Reads the single root element of a static markup block. The Razor compiler folds a substitute element with no
 /// dynamic parts (<c>&lt;Render&gt;&lt;div class="x"&gt;…&lt;/div&gt;&lt;/Render&gt;</c>) into one markup frame, so the
-/// frame rewrite (ADR 02 decision 1) parses the open tag for the attributes to merge and keeps the inner markup as
+/// frame rewrite parses the open tag for the attributes to merge and keeps the inner markup as
 /// one markup child. Only what Razor emits for static HTML is handled: a start tag with quoted, unquoted or valueless
 /// attributes, a self-closing or void element, or a matching end tag that closes the root at the end of the block.
 /// </summary>

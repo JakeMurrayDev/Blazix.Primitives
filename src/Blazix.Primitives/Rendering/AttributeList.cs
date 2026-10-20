@@ -6,11 +6,12 @@ namespace Blazix.Primitives.Rendering;
 /// <summary>One entry of an <see cref="AttributeList"/>.</summary>
 public readonly record struct AttributeEntry(string Name, AttributeValue Value);
 
+// ADR 02 Amendments 2026-10-17; ADR 02; RND-DOM-19 (relaxed)
 /// <summary>
-/// The typed entry list the pipeline and <see cref="MergeProps"/> work on (ADR 02 Amendments 2026-10-17): ordered,
+/// The typed entry list the pipeline and <see cref="MergeProps"/> work on: ordered,
 /// keyed by attribute name (ordinal), with replace-in-place so a later value keeps the position at which the name was
-/// first seen. Setting an absent value removes the entry: Blazor emits no frame for <c>null</c>, and RND-DOM-19's
-/// "explicit undefined still overrides" is relaxed for the port (ADR 02). Names are compared as given; the merge
+/// first seen. Setting an absent value removes the entry, because Blazor emits no frame for <c>null</c>; an absent value
+/// therefore cannot override an earlier one. Names are compared as given; the merge
 /// normalises the names it treats specially (<c>class</c>, <c>style</c>, handlers).
 /// </summary>
 public sealed class AttributeList : IReadOnlyList<AttributeEntry>
@@ -138,7 +139,8 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         }
     }
 
-    /// <summary>The entries as the dictionary shape Blazor's <c>@attributes</c> accepts; the case values are boxed (ADR 05 §4, an accepted cost of the substitute callback).</summary>
+    // ADR 05 §4
+    /// <summary>The entries as the dictionary shape Blazor's <c>@attributes</c> accepts; the case values are boxed, an accepted cost of the substitute callback.</summary>
     public Dictionary<string, object> ToDictionary()
     {
         Dictionary<string, object> result = new(count, StringComparer.Ordinal);

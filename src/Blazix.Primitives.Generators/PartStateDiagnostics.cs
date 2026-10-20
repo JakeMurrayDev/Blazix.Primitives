@@ -16,10 +16,11 @@ internal static class PartStateDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    // ADR 08 §3
     public static readonly DiagnosticDescriptor NotSealed = new(
         "BLZX1002",
         "A [PartState] record must be sealed",
-        "'{0}' is marked [PartState] but is not sealed; a state record is a leaf (ADR 08 §3)",
+        "'{0}' is marked [PartState] but is not sealed; a state record is a leaf type that nothing derives from",
         Category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);

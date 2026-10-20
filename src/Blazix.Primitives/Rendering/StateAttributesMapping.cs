@@ -1,9 +1,10 @@
 namespace Blazix.Primitives.Rendering;
 
+// ADR 02 decision 4; RND §4.4
 /// <summary>
-/// The custom attribute mapping of RND §4.4 for a state record <typeparamref name="TState"/>: per field (by property
+/// A custom mapping from state fields to <c>data-*</c> attributes for a state record <typeparamref name="TState"/>: per field (by property
 /// name) a <see cref="StateFieldProjection{TValue}"/> that replaces the default projection of that field. The shared
-/// mappings (transition status, the family-specific ones) are hand-written on top of this (ADR 02 decision 4).
+/// mappings (transition status, the family-specific ones) are hand-written on top of this.
 /// </summary>
 public sealed class StateAttributesMapping<TState>
 {
@@ -44,9 +45,10 @@ public sealed class StateAttributesMapping<TState>
         return false;
     }
 
+    // RND-DOM-07
     /// <summary>
     /// Called by the generated projection for each field: applies the field's mapping, if any, writing its result and
-    /// returning <c>true</c> (also when the mapping returned <c>null</c>, RND-DOM-07); returns <c>false</c> when the
+    /// returning <c>true</c> (also when the mapping returned <c>null</c>, which writes nothing); returns <c>false</c> when the
     /// field is unmapped so the default projection runs.
     /// </summary>
     public bool TryProject<TValue>(string field, TValue value, StateAttributeWriter writer)

@@ -1,6 +1,7 @@
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>The sink generated projections and custom mappings write to: a name-keyed set where a later write to the same name wins (RND-DOM-09).</summary>
+// RND-DOM-09
+/// <summary>The sink generated projections and custom mappings write to: a name-keyed set where a later write to the same name wins.</summary>
 public readonly struct StateAttributeWriter
 {
     private readonly AttributeList target;

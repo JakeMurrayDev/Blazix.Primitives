@@ -4,11 +4,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Blazix.Primitives;
 
+// ADR 05 Amendments 2026-10-18, item 1; EVD-STA-05; EVD-ALG-08, EVD-STA-01..06, UTL-STA-01..06; ADR 05 §1/§2; glossary "Controlled / uncontrolled", "Request"; EVD-EDGE-01
 /// <summary>
-/// A controlled/uncontrolled value (EVD-ALG-08, EVD-STA-01..06, UTL-STA-01..06; ADR 05 §1/§2; glossary "Controlled /
-/// uncontrolled" and "Request"). The value is controlled iff its parameter was supplied at the first parameter set, and
-/// stays so for the lifetime of the part (ADR 05 Amendments 2026-10-18, item 1): supplying or removing it later only
-/// raises the EVD-EDGE-01 warning, and a removed controlled value falls back to the initial default (EVD-STA-05).
+/// A value that is either controlled by the consumer or held by the part. The value is controlled iff its parameter was supplied at the first parameter set, and
+/// stays so for the lifetime of the part: supplying or removing it later only
+/// raises a development warning that the component is switching between controlled and uncontrolled, and a removed controlled value falls back to the initial default.
 /// A request runs compute → <c>OnValueChange(args)</c> → stop if canceled → <c>ValueChanged(value)</c> → commit when
 /// uncontrolled; the caller runs the follow-up effects when <see cref="RequestAsync"/> returns <c>true</c>.
 /// <see cref="NotifyAsync"/> and <see cref="CommitAsync"/> are the two halves for a request that continues into a parent.
@@ -30,7 +30,8 @@ public sealed class Controlled<T>
     private T initialDefault = default!;
     private HashSet<string>? loggedWarnings;
 
-    /// <summary>Creates the helper; <paramref name="name"/> and <paramref name="state"/> parameterise the warnings (EVD-EDGE-01/02).</summary>
+    // EVD-EDGE-01/02
+    /// <summary>Creates the helper; <paramref name="name"/> and <paramref name="state"/> parameterise the warnings.</summary>
     public Controlled(string name, string state = "value", ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -43,9 +44,10 @@ public sealed class Controlled<T>
     /// <summary>Whether the value parameter was supplied at the first parameter set. Fixed for the lifetime.</summary>
     public bool IsControlled => isControlled;
 
+    // EVD-STA-03
     /// <summary>
     /// The current value: the controlled parameter while controlled and supplied, otherwise the uncontrolled value
-    /// (initialised from the default parameter as supplied, never invoked when it is a delegate: EVD-STA-03).
+    /// (initialised from the default parameter as supplied, never invoked when it is a delegate).
     /// </summary>
     public T Value => isControlled && controlledSupplied ? controlledValue : uncontrolledValue;
 
@@ -60,9 +62,11 @@ public sealed class Controlled<T>
         Update(valueSupplied, value!, defaultValueSupplied, defaultValue!);
     }
 
+    // EVD-EDGE-01/02
     /// <summary>
     /// The parameter set in its raw form: whether each parameter was supplied and its value. The first call fixes the mode
-    /// and the uncontrolled value; later calls track the controlled value and raise EVD-EDGE-01/02.
+    /// and the uncontrolled value; later calls track the controlled value and raise the development warnings for a mode switch
+    /// and for a default that changes after the first parameter set.
     /// </summary>
     public void Update(bool valueSupplied, T value, bool defaultValueSupplied, T defaultValue)
     {
@@ -100,7 +104,8 @@ public sealed class Controlled<T>
         }
     }
 
-    /// <summary>Stores <paramref name="value"/> when uncontrolled; a no-op when controlled (UTL-STA-04, EVD-STA-04).</summary>
+    // UTL-STA-04, EVD-STA-04
+    /// <summary>Stores <paramref name="value"/> when uncontrolled; a no-op when controlled.</summary>
     public void SetValueIfUncontrolled(T value)
     {
         if (!isControlled)
@@ -109,9 +114,10 @@ public sealed class Controlled<T>
         }
     }
 
+    // EVD-ALG-03 step 2
     /// <summary>
     /// The first half of a request: invokes <paramref name="onValueChange"/> and returns <c>true</c> unless the details are
-    /// now canceled. A part whose request continues into a parent (EVD-ALG-03 step 2: a toggle into its group) calls this,
+    /// now canceled. A part whose request continues into a parent (a toggle into its group) calls this,
     /// then the parent's request with the same details, then <see cref="CommitAsync"/> only if neither was canceled.
     /// </summary>
     public async Task<bool> NotifyAsync(T value, ChangeEventDetails details, EventCallback<ValueChangeEventArgs<T>> onValueChange)
@@ -128,13 +134,13 @@ public sealed class Controlled<T>
         SetValueIfUncontrolled(value);
     }
 
+    // EVD-ALG-03 with ADR 05 §2's added step; ADR 05 Amendments 2026-10-18, item 2
     /// <summary>
-    /// Runs one request (EVD-ALG-03 with ADR 05 §2's added step): <paramref name="onValueChange"/> with
+    /// Runs one request: <paramref name="onValueChange"/> with
     /// <paramref name="value"/> and <paramref name="details"/>; if the details are canceled, stop and return <c>false</c>;
     /// otherwise <paramref name="valueChanged"/>, the commit when uncontrolled, and <c>true</c>.
     /// <para>
-    /// <paramref name="nativeTextEdit"/> marks a request whose source is a native text edit on a text control (ADR 05
-    /// Amendments 2026-10-18, item 2): when uncontrolled, a canceled request still fires <paramref name="valueChanged"/> and
+    /// <paramref name="nativeTextEdit"/> marks a request whose source is a native text edit on a text control: when uncontrolled, a canceled request still fires <paramref name="valueChanged"/> and
     /// commits, because the browser already changed the text, and returns <c>false</c> so the follow-up effects stay
     /// suppressed. When controlled the flag changes nothing.
     /// </para>

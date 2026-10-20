@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Blazix.Primitives.Rendering;
 
+// RND §3.2, ADR 02 decision 4
 /// <summary>
-/// The public rendering pipeline, Base UI's <c>useRender</c> (RND §3.2, ADR 02 decision 4), for consumers building
+/// The public rendering pipeline, Base UI's <c>useRender</c>, for consumers building
 /// their own components over the same static function as the library's parts: a <see cref="Render"/> element or
 /// <see cref="RenderFunction"/> callback, a <see cref="State"/> projected to <c>data-*</c> attributes with an optional
 /// <see cref="StateAttributesMapping"/>, the <see cref="Props"/> to put on the element, <see cref="Enabled"/> and
@@ -20,31 +21,38 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
         renderState = new PartRenderState(this);
     }
 
-    /// <summary>The substitute element (RND-STR-03).</summary>
+    // RND-STR-03
+    /// <summary>The substitute element.</summary>
     [Parameter]
     public RenderFragment? Render { get; set; }
 
-    /// <summary>The substitute callback (RND-STR-04). Exclusive with <see cref="Render"/>.</summary>
+    // RND-STR-04
+    /// <summary>The substitute callback. Exclusive with <see cref="Render"/>.</summary>
     [Parameter]
     public RenderFragment<RenderProps<TState>>? RenderFunction { get; set; }
 
-    /// <summary>The state object; <c>null</c> behaves as an empty state (RND-STA-02/03): nothing is projected and a substitute callback receives a <c>null</c> state.</summary>
+    // RND-STA-02/03
+    /// <summary>The state object; <c>null</c> behaves as an empty state: nothing is projected and a substitute callback receives a <c>null</c> state.</summary>
     [Parameter]
     public TState? State { get; set; }
 
-    /// <summary>The custom projection per state field (RND-DOM-06..09).</summary>
+    // RND-DOM-06..09
+    /// <summary>The custom projection per state field.</summary>
     [Parameter]
     public StateAttributesMapping<TState>? StateAttributesMapping { get; set; }
 
-    /// <summary>The attributes to put on the element, merged over the state attributes (RND §2.1 row 2); a single object, not a list. Values are case values of <see cref="AttributeValue"/>, boxed callbacks included.</summary>
+    // RND §2.1 row 2
+    /// <summary>The attributes to put on the element, merged over the state attributes; a single object, not a list. Values are case values of <see cref="AttributeValue"/>, boxed callbacks included.</summary>
     [Parameter]
     public IReadOnlyDictionary<string, object>? Props { get; set; }
 
-    /// <summary><c>false</c> renders nothing (RND-DOM-25).</summary>
+    // RND-DOM-25
+    /// <summary><c>false</c> renders nothing.</summary>
     [Parameter]
     public bool Enabled { get; set; } = true;
 
-    /// <summary>The tag rendered when <see cref="Render"/> and <see cref="RenderFunction"/> are absent (RND-STR-08/09).</summary>
+    // RND-STR-08/09
+    /// <summary>The tag rendered when <see cref="Render"/> and <see cref="RenderFunction"/> are absent.</summary>
     [Parameter]
     public string DefaultTagName { get; set; } = "div";
 
@@ -71,8 +79,9 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
         });
     }
 
+    // ADR 16 rule 8
     /// <inheritdoc />
-    /// <remarks>ADR 16 rule 8, as for <see cref="PartBase{TState}"/>: no render unless requested; exceptions route to the error boundary.</remarks>
+    /// <remarks>As for <see cref="PartBase{TState}"/>: no render unless requested; exceptions route to the error boundary.</remarks>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
         Task task;

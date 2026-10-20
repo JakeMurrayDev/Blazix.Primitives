@@ -1,10 +1,11 @@
 namespace Blazix.Primitives;
 
+// EVD-API-09, ADR 05 §3; EVD-EVT-21; EVD-EDGE-07
 /// <summary>
-/// The details of a popup's open-change request (EVD-API-09, ADR 05 §3): <see cref="ChangeEventDetails"/> plus
+/// The details of a popup's open-change request: <see cref="ChangeEventDetails"/> plus
 /// <see cref="PreventUnmountOnClose"/>. The popup reads <see cref="UnmountOnClosePrevented"/> after the callback, and only
-/// for a close that was not canceled (EVD-EVT-21). On parts whose type is shared with a popup root but that never unmount
-/// (menu checkbox item, menu radio group) the call has no effect (EVD-EDGE-07).
+/// for a close that was not canceled. On parts whose type is shared with a popup root but that never unmount
+/// (menu checkbox item, menu radio group) the call has no effect.
 /// </summary>
 public class OpenChangeEventDetails : ChangeEventDetails
 {

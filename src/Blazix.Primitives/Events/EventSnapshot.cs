@@ -2,8 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace Blazix.Primitives;
 
+// ADR 04 §3, EVD-API-04/05; EVD-API-04
 /// <summary>
-/// <c>details.event</c> in C#: a snapshot of the native event that caused a request (ADR 04 §3, EVD-API-04/05). JavaScript
+/// <c>details.event</c> in C#: a snapshot of the native event that caused a request. JavaScript
 /// takes the snapshot inside the dispatch and serialises it with exactly these JSON property names:
 /// <list type="table">
 /// <item><term><c>kind</c></term><description><see cref="Kind"/>, the DOM interface name as a string (<c>"PointerEvent"</c>).</description></item>
@@ -17,12 +18,13 @@ namespace Blazix.Primitives;
 /// <item><term><c>defaultPrevented</c></term><description><see cref="DefaultPrevented"/>.</description></item>
 /// <item><term><c>timeStamp</c></term><description><see cref="TimeStamp"/>, milliseconds as <c>event.timeStamp</c>.</description></item>
 /// </list>
-/// The placeholder for a request with no native event (EVD-API-04) is a snapshot with <see cref="Type"/> <c>"base-ui"</c>
+/// The placeholder for a request with no native event is a snapshot with <see cref="Type"/> <c>"base-ui"</c>
 /// and <see cref="Kind"/> <see cref="EventKind.Event"/>, made fresh per request by <see cref="CreatePlaceholder"/>.
 /// </summary>
 public sealed record EventSnapshot
 {
-    /// <summary>The <see cref="Type"/> of the placeholder snapshot (EVD-API-04).</summary>
+    // EVD-API-04
+    /// <summary>The <see cref="Type"/> of the placeholder snapshot.</summary>
     public const string PlaceholderType = "base-ui";
 
     /// <summary>The most derived DOM interface of the native event.</summary>
@@ -61,7 +63,8 @@ public sealed record EventSnapshot
     [JsonPropertyName("pointerType")]
     public string? PointerType { get; init; }
 
-    /// <summary><c>UIEvent.detail</c>; a keyboard-generated click has 0 (EVD-EVT-27).</summary>
+    // EVD-EVT-27
+    /// <summary><c>UIEvent.detail</c>; a keyboard-generated click has 0.</summary>
     [JsonPropertyName("detail")]
     public int Detail { get; init; }
 
@@ -81,7 +84,8 @@ public sealed record EventSnapshot
     [JsonPropertyName("timeStamp")]
     public double TimeStamp { get; init; }
 
-    /// <summary>A fresh placeholder snapshot, <see cref="Type"/> <c>base-ui</c> (EVD-API-04).</summary>
+    // EVD-API-04
+    /// <summary>A fresh placeholder snapshot, <see cref="Type"/> <c>base-ui</c>.</summary>
     public static EventSnapshot CreatePlaceholder() => new() { Kind = EventKind.Event, Type = PlaceholderType };
 
     /// <summary>

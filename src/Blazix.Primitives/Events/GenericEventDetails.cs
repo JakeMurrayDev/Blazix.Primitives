@@ -1,13 +1,15 @@
 namespace Blazix.Primitives;
 
+// EVD §3.2, EVD-API-02
 /// <summary>
-/// The details of a notification that cannot be canceled (EVD §3.2, EVD-API-02): <see cref="Reason"/> and
+/// The details of a notification that cannot be canceled: <see cref="Reason"/> and
 /// <see cref="Event"/> only, no cancel, propagation or trigger. Used by <c>OnValueCommitted</c>, <c>OnValueInvalid</c>,
 /// <c>OnValueComplete</c> and <c>OnFormSubmit</c>.
 /// </summary>
 public class GenericEventDetails
 {
-    /// <summary>Creates details as EVD-ALG-02 does: the placeholder event when <paramref name="event"/> is <c>null</c>.</summary>
+    // EVD-ALG-02
+    /// <summary>Creates details carrying <paramref name="event"/> or, when it is <c>null</c>, a fresh placeholder event.</summary>
     public GenericEventDetails(EventReason reason, EventSnapshot? @event = null)
     {
         Reason = reason;

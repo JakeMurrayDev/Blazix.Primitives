@@ -2,8 +2,9 @@ using System.Runtime.CompilerServices;
 
 namespace Blazix.Primitives.Store;
 
+// ADR 05 §1 (Is<T>)
 /// <summary>
-/// The store's equality, ADR 05 §1's <c>Is&lt;T&gt;</c>: JavaScript's <c>Object.is</c> decided by the static type, with no
+/// The store's equality: JavaScript's <c>Object.is</c> decided by the static type, with no
 /// boxing. Value types compare by value through <see cref="EqualityComparer{T}.Default"/>, except that floating-point
 /// <c>NaN</c> equals <c>NaN</c> and <c>0</c> differs from <c>-0</c> as in <c>Object.is</c>; <see cref="string"/> compares by
 /// value (ordinal); every other reference type, records included, compares by reference, never structurally. A value

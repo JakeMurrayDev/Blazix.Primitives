@@ -2,10 +2,11 @@ using System.Text;
 
 namespace Blazix.Primitives.Rendering;
 
+// ADR 02 decision 2; RND-DOM-16
 /// <summary>
-/// Inline style strings as declarations (ADR 02 decision 2): split on <c>;</c> outside parentheses and quotes, each
-/// declaration <c>name: value</c> trimmed, merged by name with first-seen order kept and the later value winning
-/// (RND-DOM-16), serialised as <c>name: value; name: value;</c>.
+/// Inline style strings as declarations: split on <c>;</c> outside parentheses and quotes, each
+/// declaration <c>name: value</c> trimmed, merged by name with first-seen order kept and the later value winning,
+/// serialised as <c>name: value; name: value;</c>.
 /// </summary>
 internal static class StyleDeclarations
 {

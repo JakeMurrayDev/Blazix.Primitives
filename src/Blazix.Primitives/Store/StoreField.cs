@@ -1,7 +1,8 @@
 namespace Blazix.Primitives.Store;
 
+// ADR 05 §1
 /// <summary>
-/// A typed key of a state record (ADR 05 §1's typed <c>Set&lt;TValue&gt;</c> accessors): how to read one member and how to
+/// A typed key of a state record, used by <see cref="Store{TState}.Set{TValue}"/>: how to read one member and how to
 /// produce a copy with that member replaced. Declare one per member as a <c>static readonly</c> field, so writes allocate
 /// nothing but the new record:
 /// <code>public static readonly StoreField&lt;CounterState, int&gt; Count = new(nameof(Count), s =&gt; s.Count, (s, v) =&gt; s with { Count = v });</code>
