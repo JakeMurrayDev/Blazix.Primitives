@@ -1,0 +1,99 @@
+name: ci
+
+# ADR 11 §1-§2. Track 0 carries the two jobs that need nothing but the repository: docs-lint and build-and-test.
+# The browser jobs, the red check, the nightly run and the pack artifact arrive with Tracks 3 and 4.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One run per ref; a newer push to a pull request cancels the older run, a push to main never cancels.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  # Decides which of the two required jobs has work to do. A job skipped by `if` reports success to a required
+  # check, so a docs-only pull request runs only docs-lint and a code-only one only build-and-test.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          predicate-quantifier: every
+          filters: |
+            docs:
+              - 'docs/**'
+            code:
+              - '**'
+              - '!docs/**'
+
+  docs-lint:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint the documents and compare with the accepted baseline
+        run: |
+          # check_docs.py exits 1 while the seven accepted React-term mentions exist, so the output is compared, not the exit code.
+          # The first line counts documents and requirements and changes with every amendment; its numbers are masked on both sides.
+          # Anything else that differs (a new finding, a vanished one, untagged Test lines) fails the job.
+          python3 docs/_tools/check_docs.py > docs-lint.actual.txt || true
+          mask() { sed -E '1s/^[0-9]+ docs, [0-9]+ requirements, [0-9]+ prefixes;/N docs, N requirements, N prefixes;/' "$1"; }
+          diff -u <(mask .github/workflows/docs-lint.baseline.txt) <(mask docs-lint.actual.txt)
+
+  build-and-test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # L1, L2 and the generator tests. The fixture host is not built here (ADR 09 §3); the browser jobs build it.
+      TEST_PROJECTS: >-
+        tests/Blazix.Primitives.Tests
+        tests/Blazix.Primitives.Tests.Components
+        tests/Blazix.Primitives.Tests.Generators
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # MinVer reads tags and commit height
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Restore
+        run: for project in $TEST_PROJECTS; do dotnet restore "$project"; done
+      - name: Build
+        run: for project in $TEST_PROJECTS; do dotnet build "$project" -c Release --no-restore; done
+      - name: Test (.NET)
+        run: for project in $TEST_PROJECTS; do dotnet test --project "$project" -c Release --no-build; done
+      - name: Install Node packages
+        run: npm ci
+      - name: Test (JavaScript)
+        run: npm run test:js
