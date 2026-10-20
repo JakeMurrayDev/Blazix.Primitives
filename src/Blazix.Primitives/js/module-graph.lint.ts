@@ -2,18 +2,18 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 
-// The import rules of the JavaScript modules (ADR 04 section 1) and the list that makes them checkable. Read by
+// The import rules of the JavaScript modules and the list that makes them checkable (js/CONTEXT.md has the rules). Read by
 // module-graph.lint.test.ts, which fails the build when a rule is broken. This file is not a module of the library.
 
 /** mechanism: one per architecture document; component: one component's loops; shared: the twin contract and entry points. */
 export type ModuleKind = 'mechanism' | 'component' | 'shared';
 
 /**
- * The kind of every module under js/, by file name without extension. Adding a module amends ADR 04 section 1 and adds
- * a row here; a file this list does not name fails the lint.
+ * The kind of every module under js/, by file name without extension. Adding a module is a recorded decision and adds a
+ * row here; a file this list does not name fails the lint.
  */
 export const moduleKinds: Record<string, ModuleKind> = {
-  // Mechanism modules (ADR 04 section 1, and the placement rule of the amendment of 2026-10-18).
+  // Mechanism modules: one per architecture document.
   positioning: 'mechanism',
   interactions: 'mechanism',
   'focus-manager': 'mechanism',
@@ -36,7 +36,7 @@ export const moduleKinds: Record<string, ModuleKind> = {
   toast: 'component',
   'context-menu': 'component',
   'navigation-menu': 'component',
-  // Shared helpers: the twin contract (ADR 04 section 3), the event snapshot, the platform flags and the initializer.
+  // Shared helpers: the twin contract, the event snapshot, the platform flags and the initializer.
   twin: 'shared',
   decide: 'shared',
   'event-info': 'shared',
@@ -44,7 +44,7 @@ export const moduleKinds: Record<string, ModuleKind> = {
   initializer: 'shared',
 };
 
-/** The only package a component module may import (ADR 11 section 5). */
+/** The only package a component module may import. */
 const componentPackages = new Set(['@floating-ui/dom']);
 
 const stripComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
@@ -66,7 +66,7 @@ export function checkGraph(modules: { name: string; imports: string[] }[], kinds
   for (const { name, imports } of modules) {
     const kind = kinds[name];
     if (kind === undefined) {
-      problems.push(`${name}: no kind is named for this module (add it to moduleKinds; adding a module amends ADR 04 section 1)`);
+      problems.push(`${name}: no kind is named for this module (add it to moduleKinds; see js/CONTEXT.md)`);
       continue;
     }
     for (const specifier of imports) {

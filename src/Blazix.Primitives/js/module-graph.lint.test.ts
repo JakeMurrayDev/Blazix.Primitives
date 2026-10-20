@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkGraph, extractImports, moduleKinds, readModules, type ModuleKind } from './module-graph.lint';
 
-// The module-graph lint (ADR 11 section 5, ADR 04 section 1): a mechanism module never imports a component module;
+// The module-graph lint (the rules and the traceability are in js/CONTEXT.md): a mechanism module never imports a component module;
 // a component module imports only mechanism modules, the shared helpers and the vendored Floating UI. The list of
 // modules and their kinds is `moduleKinds`, the only place a module's kind is written down; a file under js/ that the
-// list does not name fails, because adding a module amends ADR 04 section 1.
+// list does not name fails, because adding a module is a decision that is recorded.
 const kinds: Record<string, ModuleKind> = {
   positioning: 'mechanism',
   dom: 'mechanism',
