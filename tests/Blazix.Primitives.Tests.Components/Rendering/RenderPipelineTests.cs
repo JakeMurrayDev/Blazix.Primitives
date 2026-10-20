@@ -189,7 +189,7 @@ public sealed class RenderPipelineTests : IDisposable
                 renderCalls.Add(props);
                 builder.OpenElement(0, "span");
                 builder.AddMultipleAttributes(1, props.Attributes);
-                builder.AddAttribute(2, "data-active", props.State!.Open ? "true" : "false");
+                builder.AddAttribute(2, "data-active", props.State.Open ? "true" : "false");
                 builder.CloseElement();
             })));
 
@@ -198,7 +198,6 @@ public sealed class RenderPipelineTests : IDisposable
         Assert.Equal("sample-root", first.Attributes["class"]);
         Assert.Equal("custom", first.Attributes["data-testid"]);
         Assert.Equal("padding: 10px", first.Attributes["style"]);
-        Assert.NotNull(first.State);
         Assert.True(first.State.Open);
         IElement element = cut.Find("[data-testid=custom]");
         Assert.Equal("SPAN", element.TagName, ignoreCase: true);

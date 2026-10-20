@@ -389,7 +389,7 @@ internal static class RenderPipeline
         private readonly void EmitCallback()
         {
             host.SetElement(null);
-            RenderProps<TState> props = new(merged.ToDictionary(), inputs.State, inputs.ChildContent);
+            RenderProps<TState> props = new(merged.ToDictionary(), inputs.State!, inputs.ChildContent);
             builder.AddContent(HostSequence, inputs.RenderFunction, props);
         }
 

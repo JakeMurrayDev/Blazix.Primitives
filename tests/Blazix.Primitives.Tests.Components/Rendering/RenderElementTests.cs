@@ -135,14 +135,15 @@ public sealed class RenderElementTests : IDisposable
     [Trait("Requirement", "RND-STA-02")]
     public void Handles_undefined_state()
     {
-        IRenderedComponent<RenderElement<ActiveIndexState>> cut = context.Render<RenderElement<ActiveIndexState>>(p => p
+        // Base UI's `state: undefined` is an element with no state: in C# the state type is EmptyState and State is omitted.
+        IRenderedComponent<RenderElement<EmptyState>> cut = context.Render<RenderElement<EmptyState>>(p => p
             .Add(x => x.Props, new Dictionary<string, object> { ["class"] = "test-class", ["data-from-props"] = "value" }));
 
         IElement div = Root(cut);
         Assert.Equal("DIV", div.TagName, ignoreCase: true);
         Assert.Equal("test-class", div.GetAttribute("class"));
         Assert.Equal("value", div.GetAttribute("data-from-props"));
-        Assert.Null(div.GetAttribute("data-active"));
+        Assert.Equal(["data-from-props"], div.Attributes.Select(attribute => attribute.Name).Where(name => name.StartsWith("data-", StringComparison.Ordinal)));
     }
 
     [Fact(DisplayName = "supports custom stateAttributesMapping for kebab-case conversion")]

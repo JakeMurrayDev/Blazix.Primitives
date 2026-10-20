@@ -14,6 +14,7 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     where TState : class, IPartState<TState>
 {
     private readonly PartRenderState renderState;
+    private TState? state;
 
     /// <summary>Initializes a new instance of the <see cref="RenderElement{TState}"/> class.</summary>
     public RenderElement()
@@ -45,11 +46,12 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     // RND-STA-02/03
     /// <summary>Gets or sets the state object.</summary>
     /// <value>
-    /// The state, or <see langword="null"/>. A <see langword="null"/> state behaves as an empty state: nothing is projected
-    /// and a substitute callback receives a <see langword="null"/> state.
+    /// The state projected to <c>data-*</c> attributes and passed to <see cref="RenderFunction"/>. It is required unless
+    /// <typeparamref name="TState"/> is <see cref="EmptyState"/>, in which case an omitted state is
+    /// <see cref="EmptyState.Instance"/>.
     /// </value>
     [Parameter]
-    public TState? State { get; set; }
+    public TState State { get; set; } = null!;
 
     // RND-DOM-06..09
     /// <summary>Gets or sets the custom mapping from state fields to <c>data-*</c> attributes.</summary>
@@ -92,6 +94,28 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
 
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">
+    /// <see cref="State"/> is <see langword="null"/> and <typeparamref name="TState"/> is not <see cref="EmptyState"/>.
+    /// </exception>
+    protected override void OnParametersSet()
+    {
+        if (State is not null)
+        {
+            state = State;
+        }
+        else if (typeof(TState) == typeof(EmptyState))
+        {
+            // Base UI's useRender defaults the state to {}; EmptyState is that record and projects nothing.
+            state = (TState)(object)EmptyState.Instance;
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Blazix: `RenderElement<{typeof(TState).Name}>` needs a `State`. Only `RenderElement<EmptyState>` may omit it.");
+        }
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">
     /// Both <see cref="Render"/> and <see cref="RenderFunction"/> are set; the <see cref="Render"/> fragment does not have
     /// exactly one root element or component; or a Blazor event directive (<c>@on…:preventDefault</c> or
     /// <c>@on…:stopPropagation</c>) is applied to the part or its substitute element.
@@ -100,7 +124,7 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     {
         RenderPipeline.Render(builder, renderState, this, new RenderInputs<TState>
         {
-            State = State,
+            State = state,
             Mapping = StateAttributesMapping,
             ConsumerAttributes = Props,
             Render = Render,

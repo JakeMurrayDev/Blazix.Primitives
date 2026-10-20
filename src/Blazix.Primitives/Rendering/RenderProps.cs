@@ -13,12 +13,11 @@ namespace Blazix.Primitives.Rendering;
 /// Blazor's <c>@attributes</c> accepts.
 /// </param>
 /// <param name="State">
-/// The state object. It is never <see langword="null"/> for a part; it is <see langword="null"/> when a
-/// <see cref="RenderElement{TState}"/> has no <see cref="RenderElement{TState}.State"/>.
+/// The state object. A stateless <see cref="RenderElement{TState}"/> passes <see cref="EmptyState.Instance"/>.
 /// </param>
 /// <param name="ChildContent">The content to render inside the element, or <see langword="null"/>.</param>
 /// <remarks>
 /// Nothing is merged after the callback returns; the callback is expected to splat <see cref="Attributes"/> (including
 /// the <c>id</c>) onto the element it renders.
 /// </remarks>
-public sealed record RenderProps<TState>(IReadOnlyDictionary<string, object> Attributes, TState? State, RenderFragment? ChildContent);
+public sealed record RenderProps<TState>(IReadOnlyDictionary<string, object> Attributes, TState State, RenderFragment? ChildContent);
