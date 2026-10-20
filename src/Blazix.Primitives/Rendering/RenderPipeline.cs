@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Rendering;
 
 // RND §6.1
 /// <summary>Holds the inputs of one render of a part or <see cref="RenderElement{TState}"/>.</summary>
-/// <typeparam name="TState">The state record type.</typeparam>
+/// <typeparam name="TState">The type of the part's state record.</typeparam>
 internal readonly struct RenderInputs<TState>
     where TState : class, IPartState<TState>
 {
@@ -60,7 +60,7 @@ internal static class RenderPipeline
     private const string StopPropagationPrefix = "__internal_stopPropagation_";
 
     /// <summary>Renders one part or <see cref="RenderElement{TState}"/> to <paramref name="builder"/>.</summary>
-    /// <typeparam name="TState">The state record type.</typeparam>
+    /// <typeparam name="TState">The type of the part's state record.</typeparam>
     /// <param name="builder">The render tree builder of the owning component.</param>
     /// <param name="state">The per-instance pipeline state of the owning component.</param>
     /// <param name="host">The owning component, which receives events and the rendered element.</param>
@@ -96,7 +96,7 @@ internal static class RenderPipeline
     }
 
     /// <summary>Holds the locals of one render.</summary>
-    /// <typeparam name="TState">The state record type.</typeparam>
+    /// <typeparam name="TState">The type of the part's state record.</typeparam>
     /// <remarks>It is a struct so the pipeline allocates nothing of its own per render.</remarks>
     private ref struct Pass<TState>(RenderTreeBuilder builder, PartRenderState state, IPartHost host, in RenderInputs<TState> inputs)
         where TState : class, IPartState<TState>
@@ -325,7 +325,7 @@ internal static class RenderPipeline
             return i;
         }
 
-        // Rows 3–5 for class and style (memoised, ADR 16 rule 5), then one real handler per event (ADR 02 decision 3).
+        // Rows 3–5 for class and style (memoized, ADR 16 rule 5), then one real handler per event (ADR 02 decision 3).
         private void Finish(string? classFunction, string? styleFunction)
         {
             string? cls = state.ClassMemo.Merge(substituteClass, consumerClass, classFunction, partClass);

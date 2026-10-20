@@ -5,11 +5,12 @@ namespace Blazix.Primitives.Store;
 /// Represents the reactive read of a store for one owner (Base UI's <c>useStore</c> and <c>store.useState</c>): one store
 /// subscription for any number of selections, with one callback per notification that changed at least one of them.
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <remarks>
 /// On every notification each selection is re-evaluated, and the callback runs once if any of them changed by
-/// <see cref="Equality.Is{T}(T, T)"/>. A part normally gets one through <c>PartBase.SubscribeTo</c>, which passes
-/// <c>StateHasChanged</c> as the callback; it reads <see cref="StoreSelection{TState, TValue}.Value"/> while rendering, and the
+/// <see cref="Equality.Is{T}(T, T)"/>. A part normally gets one through
+/// <see cref="Rendering.PartBase{TState}.SubscribeTo{TStoreState}(Store{TStoreState})"/>, which passes
+/// <see cref="Microsoft.AspNetCore.Components.ComponentBase.StateHasChanged"/> as the callback; it reads <see cref="StoreSelection{TState, TValue}.Value"/> while rendering, and the
 /// subscription is disposed with the part. A notification whose selections are all unchanged allocates nothing.
 /// </remarks>
 public sealed class SelectorSubscription<TState> : IDisposable
@@ -94,7 +95,7 @@ public sealed class SelectorSubscription<TState> : IDisposable
 /// <summary>
 /// Represents one selection of a <see cref="SelectorSubscription{TState}"/>.
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <typeparam name="TValue">The type of the selected value.</typeparam>
 /// <remarks>The held value is replaced only when the selector's new result differs from it by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
 public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
@@ -137,7 +138,7 @@ public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
 /// <summary>
 /// Represents one selection that takes an argument, in a <see cref="SelectorSubscription{TState}"/>.
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <typeparam name="TArg">The type of the selector's argument.</typeparam>
 /// <typeparam name="TValue">The type of the selected value.</typeparam>
 /// <remarks>The held value is replaced only when the selector's new result differs from it by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
@@ -209,7 +210,7 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
 /// <summary>
 /// Defines how a selection is re-evaluated against a new record.
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 internal interface ISelectionRefresh<TState>
 {
     /// <summary>

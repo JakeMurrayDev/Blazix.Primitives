@@ -1,14 +1,13 @@
 namespace Blazix.Primitives.Rendering;
 
-// ADR 02 decision 4; RND §4.4
+// ADR 02 decision 4; RND §4.4. The shared mappings (transition status, the family-specific ones) are hand-written on top of this type.
 /// <summary>
 /// Represents a custom mapping from the fields of a state record to <c>data-*</c> attributes.
 /// </summary>
-/// <typeparam name="TState">The state record whose fields are mapped.</typeparam>
+/// <typeparam name="TState">The type of the part's state record whose fields are mapped.</typeparam>
 /// <remarks>
 /// For each mapped field, identified by property name, a <see cref="StateFieldProjection{TValue}"/> replaces the default
-/// projection of that field. The shared mappings (transition status and the family-specific ones) are hand-written on
-/// top of this type.
+/// projection of that field.
 /// </remarks>
 public sealed class StateAttributesMapping<TState>
 {
@@ -20,7 +19,7 @@ public sealed class StateAttributesMapping<TState>
 
     /// <summary>Maps <paramref name="field"/> to <paramref name="projection"/>.</summary>
     /// <typeparam name="TValue">The type of the field.</typeparam>
-    /// <param name="field">The property name of the field, as given by <c>nameof</c>.</param>
+    /// <param name="field">The property name of the field, as given by <see langword="nameof"/>.</param>
     /// <param name="projection">The projection that replaces the default projection of the field.</param>
     /// <returns>This mapping, so that calls can be chained.</returns>
     /// <exception cref="ArgumentNullException">
@@ -87,7 +86,7 @@ public sealed class StateAttributesMapping<TState>
 
             if (entries[i].Value is not StateFieldProjection<TValue> projection)
             {
-                throw new InvalidOperationException($"The mapping for '{field}' projects a {entries[i].Value.GetType().GenericTypeArguments[0].Name}, but the field is a {typeof(TValue).Name}.");
+                throw new InvalidOperationException($"Blazix: the mapping for `{field}` projects a `{entries[i].Value.GetType().GenericTypeArguments[0].Name}`, but the field is a `{typeof(TValue).Name}`.");
             }
 
             StateDataAttribute[]? result = projection(value);

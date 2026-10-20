@@ -9,7 +9,7 @@ namespace Blazix.Primitives;
 /// and the method that writes them.
 /// </summary>
 /// <remarks>
-/// Warnings are off unless the app turns on the <see cref="SwitchName"/> runtime switch, with <c>AppContext.SetSwitch</c>
+/// Warnings are off unless the app turns on the <see cref="SwitchName"/> runtime switch, with <see cref="AppContext.SetSwitch(string, bool)"/>
 /// or with <c>&lt;RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" /&gt;</c> in a
 /// Debug build. They are written to the logger the part was given, at <see cref="LogLevel.Error"/>, as Base UI writes them
 /// to <c>console.error</c>.
@@ -17,12 +17,12 @@ namespace Blazix.Primitives;
 internal static partial class DevelopmentWarnings
 {
     /// <summary>
-    /// The name of the runtime switch that turns development warnings on.
+    /// Represents the name of the runtime switch that turns development warnings on.
     /// </summary>
     internal const string SwitchName = "Blazix.Primitives.DevelopmentWarnings";
 
     /// <summary>
-    /// Gets a value that indicates whether development warnings are written.
+    /// Gets a value indicating whether development warnings are written.
     /// </summary>
     /// <value><see langword="true"/> if the <see cref="SwitchName"/> switch is on; otherwise, <see langword="false"/>.</value>
     [FeatureSwitchDefinition(SwitchName)]

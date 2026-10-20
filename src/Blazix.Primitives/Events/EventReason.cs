@@ -5,7 +5,7 @@ namespace Blazix.Primitives;
 /// Specifies the cause of a request: one member for each of Base UI's 36 reasons.
 /// </summary>
 /// <remarks>
-/// Members are the PascalCase forms of Base UI's kebab-case literals, in Base UI's catalogue order;
+/// Members are the PascalCase forms of Base UI's kebab-case literals, in Base UI's catalog order;
 /// <see cref="EventReasonExtensions.ToLiteral"/> returns the literal. Which reasons a callback can report is stated on that
 /// callback, not encoded in a type.
 /// </remarks>
@@ -92,7 +92,7 @@ public enum EventReason
     /// <summary>A scrub area drag changed the value (<c>scrub</c>).</summary>
     Scrub,
 
-    /// <summary>The filter query is reset because its popup closed (<c>popup-close</c>).</summary>
+    /// <summary>The filter query was reset because its popup closed (<c>popup-close</c>).</summary>
     PopupClose,
 
     /// <summary>A press-open was aborted (<c>cancel-open</c>).</summary>

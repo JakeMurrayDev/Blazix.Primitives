@@ -65,7 +65,7 @@ public readonly struct MergeInput
 /// A handler is any entry whose name starts with <c>on</c> (any casing) and whose value is a callback or delegate; it is
 /// stored under the lowercase name Blazor's event dispatch expects.
 /// </para>
-/// <para>Nothing here is memoised; the render pipeline memoises its own class and style merges per part.</para>
+/// <para>Nothing here is memoized; the render pipeline memoizes its own class and style merges per part.</para>
 /// </remarks>
 public static class MergeProps
 {
@@ -183,7 +183,7 @@ public static class MergeProps
     /// <param name="ours">The earlier style string.</param>
     /// <param name="theirs">The later style string, whose declarations win.</param>
     /// <returns>
-    /// The merged declarations serialised as <c>name: value; name: value;</c>; the single non-empty operand as given when
+    /// The merged declarations serialized as <c>name: value; name: value;</c>; the single non-empty operand as given when
     /// only one is non-empty; or <see langword="null"/> when both are <see langword="null"/>, empty or white space.
     /// </returns>
     /// <remarks>

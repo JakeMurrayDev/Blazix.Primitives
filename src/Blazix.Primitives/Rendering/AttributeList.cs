@@ -22,7 +22,7 @@ public readonly record struct AttributeEntry(string Name, AttributeValue Value);
 /// because Blazor emits no frame for <see langword="null"/>; an absent value therefore cannot override an earlier one.
 /// </para>
 /// <para>
-/// Names are compared as given. The merge normalises the names it treats specially (<c>class</c>, <c>style</c> and
+/// Names are compared as given. The merge normalizes the names it treats specially (<c>class</c>, <c>style</c> and
 /// handlers).
 /// </para>
 /// </remarks>
@@ -50,6 +50,7 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
     public int Count => count;
 
     /// <inheritdoc />
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative or not less than <see cref="Count"/>.</exception>
     public AttributeEntry this[int index]
     {
         get
@@ -61,7 +62,7 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
 
     /// <summary>Returns the position of the entry named <paramref name="name"/>.</summary>
     /// <param name="name">The attribute name, compared ordinally.</param>
-    /// <returns>The zero-based index of the entry, or -1 if the list has no entry with that name.</returns>
+    /// <returns>The zero-based index of the entry, or <c>-1</c> if the list has no entry with that name.</returns>
     public int IndexOf(string name)
     {
         AttributeEntry[] items = entries;
@@ -222,9 +223,10 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
     }
 
     /// <summary>
-    /// Returns an enumerator that iterates through the entries in order without allocating.
+    /// Returns an enumerator that iterates through the entries in order.
     /// </summary>
     /// <returns>An <see cref="Enumerator"/> positioned before the first entry.</returns>
+    /// <remarks>The enumerator is a struct, so iterating allocates nothing.</remarks>
     public Enumerator GetEnumerator() => new(this);
 
     /// <inheritdoc />
@@ -244,7 +246,8 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         entries[count] = default;
     }
 
-    /// <summary>Enumerates the entries of an <see cref="AttributeList"/> in order without allocating.</summary>
+    /// <summary>Enumerates the entries of an <see cref="AttributeList"/> in order.</summary>
+    /// <remarks>The enumerator is a struct, so iterating allocates nothing.</remarks>
     public struct Enumerator : IEnumerator<AttributeEntry>
     {
         private readonly AttributeList list;

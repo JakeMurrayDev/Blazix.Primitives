@@ -4,9 +4,10 @@ namespace Blazix.Primitives.Store;
 
 // ADR 05 §1 (Is<T>)
 /// <summary>
-/// Provides the store's equality: JavaScript's <c>Object.is</c>, decided by the static type and computed without boxing.
+/// Provides the store's equality: JavaScript's <c>Object.is</c>, decided by the static type.
 /// </summary>
 /// <remarks>
+/// The comparison never boxes a value.
 /// Value types compare by value through <see cref="EqualityComparer{T}.Default"/>, except that a floating-point <c>NaN</c>
 /// equals <c>NaN</c> and <c>0</c> differs from <c>-0</c>, as in <c>Object.is</c>. <see cref="string"/> compares by ordinal
 /// value. Every other reference type, records included, compares by reference, never structurally. A value whose static
@@ -17,7 +18,7 @@ public static class Equality
     /// <summary>
     /// Determines whether two values are the same by JavaScript's <c>Object.is</c> for the static type <typeparamref name="T"/>.
     /// </summary>
-    /// <typeparam name="T">The static type of the values.</typeparam>
+    /// <typeparam name="T">The type of the values, which decides how they are compared.</typeparam>
     /// <param name="left">The first value.</param>
     /// <param name="right">The second value.</param>
     /// <returns><see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are the same; otherwise, <see langword="false"/>.</returns>
@@ -76,7 +77,7 @@ public static class Equality
     /// <summary>
     /// Determines whether two values are equal by JavaScript's <c>===</c>.
     /// </summary>
-    /// <typeparam name="T">The static type of the values.</typeparam>
+    /// <typeparam name="T">The type of the values, which decides how they are compared.</typeparam>
     /// <param name="left">The first value.</param>
     /// <param name="right">The second value.</param>
     /// <returns>

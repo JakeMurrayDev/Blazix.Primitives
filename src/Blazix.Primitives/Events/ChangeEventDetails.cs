@@ -50,13 +50,13 @@ public class ChangeEventDetails
     public EventTrigger? Trigger { get; internal set; }
 
     /// <summary>
-    /// Gets a value that indicates whether <see cref="Cancel"/> has been called on this object.
+    /// Gets a value indicating whether <see cref="Cancel"/> has been called on this object.
     /// </summary>
     /// <value><see langword="true"/> after <see cref="Cancel"/> has been called; otherwise, <see langword="false"/>.</value>
     public bool IsCanceled => canceled;
 
     /// <summary>
-    /// Gets a value that indicates whether <see cref="AllowPropagation"/> has been called on this object.
+    /// Gets a value indicating whether <see cref="AllowPropagation"/> has been called on this object.
     /// </summary>
     /// <value><see langword="true"/> after <see cref="AllowPropagation"/> has been called; otherwise, <see langword="false"/>.</value>
     public bool IsPropagationAllowed => propagationAllowed;

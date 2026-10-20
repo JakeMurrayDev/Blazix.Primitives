@@ -3,7 +3,7 @@ using System.Net;
 namespace Blazix.Primitives.Rendering;
 
 // ADR 02 decision 1
-/// <summary>Reads the single root element of a static markup block.</summary>
+/// <summary>Provides a reader for the single root element of a static markup block.</summary>
 /// <remarks>
 /// The Razor compiler folds a substitute element with no dynamic parts
 /// (<c>&lt;Render&gt;&lt;div class="x"&gt;…&lt;/div&gt;&lt;/Render&gt;</c>) into one markup frame, so the frame rewrite

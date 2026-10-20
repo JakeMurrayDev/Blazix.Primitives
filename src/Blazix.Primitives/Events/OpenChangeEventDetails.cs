@@ -5,7 +5,7 @@ namespace Blazix.Primitives;
 /// Represents the details of a popup's open-change request, which can also keep a closing popup mounted.
 /// </summary>
 /// <remarks>
-/// The popup reads whether <see cref="PreventUnmountOnClose"/> was called after the callback returns, and honours it only
+/// The popup reads whether <see cref="PreventUnmountOnClose"/> was called after the callback returns, and honors it only
 /// for a close that was not canceled. On parts whose details type is shared with a popup root but that never unmount
 /// (menu checkbox item, menu radio group), the call has no effect.
 /// </remarks>
@@ -25,7 +25,7 @@ public class OpenChangeEventDetails : ChangeEventDetails
     }
 
     /// <summary>
-    /// Gets a value that indicates whether <see cref="PreventUnmountOnClose"/> has been called on this object.
+    /// Gets a value indicating whether <see cref="PreventUnmountOnClose"/> has been called on this object.
     /// </summary>
     /// <value><see langword="true"/> after <see cref="PreventUnmountOnClose"/> has been called; otherwise, <see langword="false"/>.</value>
     internal bool UnmountOnClosePrevented => unmountOnClosePrevented;

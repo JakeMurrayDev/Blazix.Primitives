@@ -4,9 +4,6 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 // ADR 02 consequences
 /// <summary>Provides the extension method that registers the services the library's parts need.</summary>
-/// <remarks>
-/// <see cref="AddBlazixPrimitives"/> is the one line a consumer adds to service registration to use the library's parts.
-/// </remarks>
 public static class BlazixPrimitivesServiceCollectionExtensions
 {
     // ADR 02 decision 5

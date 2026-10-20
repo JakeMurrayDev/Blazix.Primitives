@@ -4,7 +4,7 @@ namespace Blazix.Primitives.Rendering;
 /// <summary>
 /// Defines the typed projection of a part state record's own public primitive properties to <c>data-*</c> attributes.
 /// </summary>
-/// <typeparam name="TSelf">The state record that implements the interface.</typeparam>
+/// <typeparam name="TSelf">The type of the state record that implements the interface.</typeparam>
 /// <remarks>
 /// The generator implements this interface for every <c>sealed partial record</c> marked with
 /// <see cref="PartStateAttribute"/>. The projection follows the declaration order of the properties.

@@ -58,7 +58,11 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IRea
         return hash;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Returns an enumerator that iterates through the array.
+    /// </summary>
+    /// <returns>An enumerator positioned before the first element.</returns>
+    /// <remarks>The enumerator is a struct, so iterating allocates nothing.</remarks>
     public ImmutableArray<T>.Enumerator GetEnumerator() => items.GetEnumerator();
 
     /// <inheritdoc />

@@ -17,9 +17,9 @@ namespace Blazix.Primitives.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is a hand-written <c>[Union]</c> struct with the non-boxing access pattern: <see cref="HasValue"/>,
-/// <see cref="TryGetValue(out string)"/> and its siblings. <see cref="Value"/> exists because the union contract requires
-/// it and is never read by the library.
+/// This is a hand-written union, marked <see cref="UnionAttribute"/>, with the non-boxing access pattern:
+/// <see cref="HasValue"/>, <see cref="TryGetValue(out string)"/> and its siblings. <see cref="Value"/> exists because
+/// <see cref="IUnion"/> requires it.
 /// </para>
 /// <para>The default instance has no value and stands for an absent attribute.</para>
 /// </remarks>
@@ -70,7 +70,7 @@ public readonly struct AttributeValue : IUnion
 
     /// <summary>Gets a value indicating whether a value is held.</summary>
     /// <value>
-    /// <see langword="true"/> if a value is held; <see langword="false"/> for the absent value, which the default instance is.
+    /// <see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.
     /// </value>
     public bool HasValue => kind != AttributeValueKind.None;
 
@@ -80,7 +80,7 @@ public readonly struct AttributeValue : IUnion
 
     // ADR 05 §4
     /// <inheritdoc />
-    /// <remarks>Boxes the boolean and callback cases; the library never reads it.</remarks>
+    /// <remarks>Reading it boxes the Boolean and callback cases.</remarks>
     public object? Value => kind switch
     {
         AttributeValueKind.String => reference,
@@ -122,7 +122,7 @@ public readonly struct AttributeValue : IUnion
     /// string representation of anything else.
     /// </returns>
     /// <remarks>
-    /// The unmatched-attribute bag and <see cref="MergeProps.MergeDictionaries"/> go through this conversion. Those carry
+    /// The unmatched bag and <see cref="MergeProps.MergeDictionaries"/> go through this conversion. Those carry
     /// case values, never the union itself, because a union boxed to <see cref="object"/> hides its case.
     /// </remarks>
     public static AttributeValue FromObject(object? value)
@@ -257,7 +257,7 @@ public readonly struct AttributeValue : IUnion
         {
             AttributeValueKind.Callback => callback.InvokeAsync(arg),
             AttributeValueKind.Delegate => InvokeDelegateAsync((MulticastDelegate)reference!, arg),
-            _ => throw new InvalidOperationException("The attribute value is not a handler."),
+            _ => throw new InvalidOperationException("Blazix: the attribute value is not a handler, so it cannot be invoked."),
         };
     }
 
@@ -268,8 +268,8 @@ public readonly struct AttributeValue : IUnion
     /// <param name="sequence">The sequence number of the attribute frame.</param>
     /// <param name="name">The attribute name.</param>
     /// <remarks>
-    /// The value is added through the typed <see cref="RenderTreeBuilder.AddAttribute(int, string, string)"/> overload of
-    /// its case. The absent value adds nothing.
+    /// The value is added through the typed <c>AddAttribute</c> overload that matches its case. The absent value adds
+    /// nothing.
     /// </remarks>
     public void EmitTo(RenderTreeBuilder builder, int sequence, string name)
     {
@@ -328,14 +328,14 @@ public readonly struct AttributeValue : IUnion
 /// <summary>Specifies the case held by an <see cref="AttributeValue"/>.</summary>
 public enum AttributeValueKind : byte
 {
-    /// <summary>No value is held; the attribute is absent.</summary>
+    /// <summary>No value is held, so the attribute is absent.</summary>
     None,
-    /// <summary>A <see cref="string"/> value.</summary>
+    /// <summary>The value is a <see cref="string"/>.</summary>
     String,
-    /// <summary>A <see cref="bool"/> value.</summary>
+    /// <summary>The value is a <see cref="bool"/>.</summary>
     Boolean,
-    /// <summary>An untyped <see cref="EventCallback"/> that has a delegate.</summary>
+    /// <summary>The value is an untyped <see cref="EventCallback"/> that has a delegate.</summary>
     Callback,
-    /// <summary>A <see cref="MulticastDelegate"/> handler.</summary>
+    /// <summary>The value is a <see cref="MulticastDelegate"/> handler.</summary>
     Delegate,
 }

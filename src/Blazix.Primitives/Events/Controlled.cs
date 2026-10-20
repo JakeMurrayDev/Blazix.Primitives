@@ -58,9 +58,9 @@ public sealed class Controlled<T>
     }
 
     /// <summary>
-    /// Gets a value that indicates whether the value parameter was supplied at the first parameter set.
+    /// Gets a value indicating whether the value parameter was supplied at the first parameter set.
     /// </summary>
-    /// <value><see langword="true"/> if the value is controlled by the consumer; otherwise, <see langword="false"/>. Fixed for the lifetime of the instance.</value>
+    /// <value><see langword="true"/> if the value is controlled by the consumer; otherwise, <see langword="false"/>. The value is fixed for the lifetime of the instance.</value>
     public bool IsControlled => isControlled;
 
     // EVD-STA-03
@@ -76,10 +76,10 @@ public sealed class Controlled<T>
     /// <summary>
     /// Reads the value and default parameters from a parameter set.
     /// </summary>
-    /// <param name="parameters">The parameters passed to <c>SetParametersAsync</c>.</param>
+    /// <param name="parameters">The parameters passed to <see cref="ComponentBase.SetParametersAsync(ParameterView)"/>.</param>
     /// <param name="valueParameterName">The name of the value parameter, such as <c>Checked</c>.</param>
     /// <param name="defaultValueParameterName">The name of the default parameter, such as <c>DefaultChecked</c>.</param>
-    /// <remarks>Call it from <c>SetParametersAsync</c> before the base call, on every parameter set. It calls <see cref="Update"/>.</remarks>
+    /// <remarks>Call it from <see cref="ComponentBase.SetParametersAsync(ParameterView)"/> before the base call, on every parameter set. It calls <see cref="Update"/>.</remarks>
     public void SetParameters(ParameterView parameters, string valueParameterName, string defaultValueParameterName)
     {
         bool valueSupplied = parameters.TryGetValue(valueParameterName, out T? value);
@@ -218,7 +218,7 @@ public sealed class Controlled<T>
         return false;
     }
 
-    // Base UI compares JSON serialisations (EVD-EDGE-02/03), which the port cannot produce for an arbitrary T without
+    // Base UI compares JSON serializations (EVD-EDGE-02/03), which the port cannot produce for an arbitrary T without
     // reflection. Equal by EqualityComparer<T>.Default, by structure for arrays and tuples, or item by item for other
     // sequences counts as equal; a comparison that throws counts as equal, as two "__unserializable__" strings would.
     private static bool SameForDevelopment(bool leftSupplied, T left, bool rightSupplied, T right)

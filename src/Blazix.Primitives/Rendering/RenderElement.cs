@@ -8,17 +8,13 @@ namespace Blazix.Primitives.Rendering;
 /// Renders an element through the same static render pipeline as the library's parts, for consumers building their own
 /// components; this is Base UI's <c>useRender</c>.
 /// </summary>
-/// <typeparam name="TState">The state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
-/// <remarks>
-/// The component takes a <see cref="Render"/> element or <see cref="RenderFunction"/> callback, a <see cref="State"/>
-/// projected to <c>data-*</c> attributes with an optional <see cref="StateAttributesMapping"/>, the <see cref="Props"/>
-/// to put on the element, <see cref="Enabled"/> and <see cref="DefaultTagName"/>. <see cref="ChildContent"/> is the
-/// Razor form of <c>props.children</c>.
-/// </remarks>
+/// <typeparam name="TState">The type of the state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
+/// <remarks><see cref="ChildContent"/> is the Razor form of Base UI's <c>props.children</c>.</remarks>
 public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposable
     where TState : class, IPartState<TState>
 {
     private readonly PartRenderState renderState;
+    private TState? state;
 
     /// <summary>Initializes a new instance of the <see cref="RenderElement{TState}"/> class.</summary>
     public RenderElement()
@@ -50,14 +46,15 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     // RND-STA-02/03
     /// <summary>Gets or sets the state object.</summary>
     /// <value>
-    /// The state, or <see langword="null"/>. A <see langword="null"/> state behaves as an empty state: nothing is projected
-    /// and a substitute callback receives a <see langword="null"/> state.
+    /// The state projected to <c>data-*</c> attributes and passed to <see cref="RenderFunction"/>. It is required unless
+    /// <typeparamref name="TState"/> is <see cref="EmptyState"/>, in which case an omitted state is
+    /// <see cref="EmptyState.Instance"/>.
     /// </value>
     [Parameter]
-    public TState? State { get; set; }
+    public TState State { get; set; } = null!;
 
     // RND-DOM-06..09
-    /// <summary>Gets or sets the custom projection per state field.</summary>
+    /// <summary>Gets or sets the custom mapping from state fields to <c>data-*</c> attributes.</summary>
     /// <value>The mapping, or <see langword="null"/> for the default projection only.</value>
     [Parameter]
     public StateAttributesMapping<TState>? StateAttributesMapping { get; set; }
@@ -74,7 +71,8 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     // RND-DOM-25
     /// <summary>Gets or sets a value indicating whether the element renders.</summary>
     /// <value>
-    /// <see langword="true"/> to render; <see langword="false"/> renders nothing. The default is <see langword="true"/>.
+    /// <see langword="true"/> to render the element; <see langword="false"/> to render nothing. The default is
+    /// <see langword="true"/>.
     /// </value>
     [Parameter]
     public bool Enabled { get; set; } = true;
@@ -95,11 +93,38 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     public ElementReference? Element { get; private set; }
 
     /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="State"/> is <see langword="null"/> and <typeparamref name="TState"/> is not <see cref="EmptyState"/>.
+    /// </exception>
+    protected override void OnParametersSet()
+    {
+        if (State is not null)
+        {
+            state = State;
+        }
+        else if (typeof(TState) == typeof(EmptyState))
+        {
+            // Base UI's useRender defaults the state to {}; EmptyState is that record and projects nothing.
+            state = (TState)(object)EmptyState.Instance;
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Blazix: `RenderElement<{typeof(TState).Name}>` needs a `State`. Only `RenderElement<EmptyState>` may omit it.");
+        }
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">
+    /// Both <see cref="Render"/> and <see cref="RenderFunction"/> are set; the <see cref="Render"/> fragment does not have
+    /// exactly one root element or component; or a Blazor event directive (<c>@on…:preventDefault</c> or
+    /// <c>@on…:stopPropagation</c>) is applied to the part or its substitute element.
+    /// </exception>
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         RenderPipeline.Render(builder, renderState, this, new RenderInputs<TState>
         {
-            State = State,
+            State = state,
             Mapping = StateAttributesMapping,
             ConsumerAttributes = Props,
             Render = Render,
@@ -112,7 +137,10 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
 
     // ADR 16 rule 8
     /// <inheritdoc />
-    /// <remarks>As for <see cref="PartBase{TState}"/>: no render unless requested; exceptions route to the error boundary.</remarks>
+    /// <remarks>
+    /// As for <see cref="PartBase{TState}"/>, the component re-renders only when it requests a render itself, and an
+    /// exception routes to the nearest error boundary.
+    /// </remarks>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
         Task task;

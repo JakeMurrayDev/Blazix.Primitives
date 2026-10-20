@@ -19,14 +19,14 @@ namespace Blazix.Primitives.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FixedCascadeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The id of the diagnostic this analyzer reports.</summary>
+    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>BLZX2001</c>.</summary>
     public const string DiagnosticId = "BLZX2001";
 
     // ADR 16 rule 9
     private static readonly DiagnosticDescriptor s_rule = new(
         DiagnosticId,
         "A library cascade must be fixed",
-        "CascadingValue<{0}> is rendered without IsFixed set to true; library cascades are fixed and change reaches parts by subscription",
+        "Blazix: `CascadingValue<{0}>` is rendered without `IsFixed` set to `true`; library cascades are fixed and change reaches parts by subscription",
         "Blazix.Primitives",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,

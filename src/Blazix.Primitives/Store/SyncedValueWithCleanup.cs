@@ -2,14 +2,14 @@ namespace Blazix.Primitives.Store;
 
 // UTL-STA-20
 /// <summary>
-/// Copies a parameter into one member of a store's record and resets the member when the part goes away or the store
-/// changes (Base UI's <c>useSyncedValueWithCleanup</c>).
+/// Represents the copy of one parameter into a member of a store's record that resets the member when the part goes
+/// away or the store changes (Base UI's <c>useSyncedValueWithCleanup</c>).
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <typeparam name="TValue">The type of the member; its reset value is <see langword="default"/>.</typeparam>
 /// <remarks>
 /// Create one per call site and keep it in a field of the part. Call <see cref="Sync"/> on every parameter set and
-/// <see cref="Dispose"/> from the part's own dispose.
+/// <see cref="Dispose"/> from the part's own <see cref="IDisposable.Dispose"/>.
 /// </remarks>
 public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     where TState : class, IStoreState<TState>
@@ -60,7 +60,7 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     }
 
     /// <inheritdoc />
-    /// <remarks>Sets the member to <c>default</c> in the last store passed to <see cref="Sync"/>, then forgets that store, so a second call does nothing.</remarks>
+    /// <remarks>Sets the member to <see langword="default"/> in the last store passed to <see cref="Sync"/>, then forgets that store, so a second call does nothing.</remarks>
     public void Dispose()
     {
         store?.Set(field, default);

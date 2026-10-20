@@ -15,9 +15,10 @@ internal interface IPartHost : IHandleEvent
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3
-/// <summary>Holds the per-instance state of the render pipeline, kept so a render allocates as little as possible.</summary>
+/// <summary>Holds the per-instance state of the render pipeline.</summary>
 /// <remarks>
-/// The state is the attribute lists the pipeline fills each render, the scratch builder of the frame rewrite, the one real
+/// The state is kept per instance so that a render allocates as little as possible.
+/// It is made of the attribute lists the pipeline fills each render, the scratch builder of the frame rewrite, the one real
 /// handler per event name, the class and style memo, and the one element-capture delegate. It is owned by
 /// <see cref="PartBase{TState}"/> and <see cref="RenderElement{TState}"/>.
 /// </remarks>
@@ -73,7 +74,7 @@ internal sealed class PartRenderState : IDisposable
 
     // ADR 02 decision 3
     /// <summary>Creates the real handler for <paramref name="eventName"/>.</summary>
-    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <typeparam name="TArgs">The type of the event arguments.</typeparam>
     /// <param name="eventName">The event's attribute name; it is stored in lowercase.</param>
     /// <param name="handler">The part's own handler, which runs last.</param>
     /// <returns>
@@ -130,10 +131,10 @@ internal sealed class HandlerSlot(string name)
 
     public AttributeValue Part;
 
-    /// <summary>The callback that <see cref="PartRenderState.CreateHandler{TArgs}"/> made for this name, if any.</summary>
+    /// <summary>Holds the callback that <see cref="PartRenderState.CreateHandler{TArgs}"/> made for this name, if any.</summary>
     public EventCallback Typed;
 
-    /// <summary>The generic chain callback, made on first need.</summary>
+    /// <summary>Holds the generic chain callback, made on first need.</summary>
     public EventCallback Outer;
 
     public void Reset()

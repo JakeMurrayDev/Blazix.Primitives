@@ -5,16 +5,11 @@ using Microsoft.AspNetCore.Components.Rendering;
 namespace Blazix.Primitives.Rendering;
 
 // ADR 02 decision 4; glossary "Part base"; ADR 08 §5
-/// <summary>Serves as the base class of every library part.</summary>
-/// <typeparam name="TState">The part's state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
-/// <remarks>
-/// <para>
-/// A part owns the state object, the unmatched attribute bag (<see cref="AdditionalAttributes"/>),
-/// <see cref="ClassValue"/> and <see cref="StyleValue"/>, <see cref="Render"/> and <see cref="RenderFunction"/>,
-/// <see cref="Enabled"/> and <see cref="Element"/>, and calls the static render pipeline from
-/// <see cref="BuildRenderTree"/>.
-/// </para>
-/// </remarks>
+/// <summary>
+/// Serves as the base class of every library part: it owns the parameters every part shares and renders the part's one
+/// host element through the render pipeline.
+/// </summary>
+/// <typeparam name="TState">The type of the part's state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
 public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     where TState : class, IPartState<TState>
 {
@@ -87,7 +82,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     // RND-DOM-25
     /// <summary>Gets or sets a value indicating whether the part renders.</summary>
     /// <value>
-    /// <see langword="true"/> to render; <see langword="false"/> renders nothing and does no work. The default is
+    /// <see langword="true"/> to render the part; <see langword="false"/> to render nothing and do no work. The default is
     /// <see langword="true"/>.
     /// </value>
     [Parameter]
@@ -136,13 +131,14 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     // RND-DOM-32 precedence (2)–(3)
     /// <summary>Gets the part's id.</summary>
     /// <value>
-    /// The consumer's <c>id</c> string if supplied, including the empty string; otherwise, the generated id.
+    /// The consumer's <c>id</c> string if supplied, including the empty string; otherwise, the generated id, or
+    /// <see langword="null"/> when the part draws no generated id.
     /// </value>
     protected string? Id => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) && supplied is string text ? text : generatedId;
 
     // RND-DOM-27
     /// <inheritdoc />
-    /// <remarks>Draws the generated id when <see cref="UsesGeneratedId"/> is set (drawn in render order) and calls <see cref="SubscribeSelectors"/>; a part that overrides this calls the base.</remarks>
+    /// <remarks>Draws the generated id when <see cref="UsesGeneratedId"/> is <see langword="true"/> (drawn in render order) and calls <see cref="SubscribeSelectors"/>; a part that overrides this calls the base.</remarks>
     protected override void OnInitialized()
     {
         if (UsesGeneratedId)
@@ -154,6 +150,11 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     }
 
     /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">
+    /// Both <see cref="Render"/> and <see cref="RenderFunction"/> are set; the <see cref="Render"/> fragment does not have
+    /// exactly one root element or component; or a Blazor event directive (<c>@on…:preventDefault</c> or
+    /// <c>@on…:stopPropagation</c>) is applied to the part or its substitute element.
+    /// </exception>
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         AttributeList partAttributes = renderState.PartAttributes;
@@ -188,7 +189,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
 
     // ADR 16 rule 8
     /// <inheritdoc />
-    /// <remarks>The part re-renders only when it calls <see cref="ComponentBase.StateHasChanged"/> itself, so a cancelled request or a handler on a disabled part renders nothing; an exception, synchronous or from the returned task, routes through <see cref="ComponentBase.DispatchExceptionAsync"/> so error boundaries keep working.</remarks>
+    /// <remarks>The part re-renders only when it calls <see cref="ComponentBase.StateHasChanged"/> itself, so a canceled request or a handler on a disabled part renders nothing; an exception, synchronous or from the returned task, routes through <see cref="ComponentBase.DispatchExceptionAsync"/> so error boundaries keep working.</remarks>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
         Task task;
@@ -239,10 +240,12 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
 
     // ADR 05 §1, UTL-STA-25/27
     /// <summary>Subscribes this part to <paramref name="store"/> and returns the subscription to add selections to.</summary>
-    /// <typeparam name="TStoreState">The state type of the store.</typeparam>
+    /// <typeparam name="TStoreState">The type of the store's state record.</typeparam>
     /// <param name="store">The store to subscribe to.</param>
     /// <returns>
-    /// The subscription; add selections to it with <c>Select(selector)</c> or <c>Select(selector, arg)</c>.
+    /// The subscription; add selections to it with
+    /// <see cref="SelectorSubscription{TStoreState}.Select{TValue}(Func{TStoreState, TValue})"/> or
+    /// <see cref="SelectorSubscription{TStoreState}.Select{TArg, TValue}(Func{TStoreState, TArg, TValue}, TArg)"/>.
     /// </returns>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">This part has already subscribed to a store.</exception>
@@ -260,7 +263,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         if (selectorSubscription is not null)
         {
             throw new InvalidOperationException(
-                $"{GetType().Name} already subscribed to a store. A part has one store subscription: add every selection to the subscription SubscribeTo returned.");
+                $"Blazix: `{GetType().Name}` already subscribed to a store. A part has one store subscription: add every selection to the subscription `SubscribeTo` returned.");
         }
 
         SelectorSubscription<TStoreState> subscription = new(store, StateHasChanged);
@@ -270,7 +273,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
 
     // ADR 02 decision 3, ADR 16 rule 2; RND-EVT-02/03
     /// <summary>Creates the one real handler for <paramref name="eventName"/>.</summary>
-    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <typeparam name="TArgs">The type of the event arguments.</typeparam>
     /// <param name="eventName">The event's attribute name, such as <c>onclick</c>; it is stored in lowercase.</param>
     /// <param name="handler">The part's own handler, which runs last.</param>
     /// <returns>The callback to add from <see cref="AddPartAttributes"/> every render.</returns>
@@ -288,7 +291,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         => renderState.CreateHandler(eventName, handler);
 
     /// <summary>Creates the one real handler for <paramref name="eventName"/> from a synchronous handler.</summary>
-    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <typeparam name="TArgs">The type of the event arguments.</typeparam>
     /// <param name="eventName">The event's attribute name, such as <c>onclick</c>; it is stored in lowercase.</param>
     /// <param name="handler">The part's own handler, which runs last.</param>
     /// <returns>The callback to add from <see cref="AddPartAttributes"/> every render.</returns>

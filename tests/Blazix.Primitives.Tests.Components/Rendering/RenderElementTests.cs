@@ -135,14 +135,15 @@ public sealed class RenderElementTests : IDisposable
     [Trait("Requirement", "RND-STA-02")]
     public void Handles_undefined_state()
     {
-        IRenderedComponent<RenderElement<ActiveIndexState>> cut = context.Render<RenderElement<ActiveIndexState>>(p => p
+        // Base UI's `state: undefined` is an element with no state: in C# the state type is EmptyState and State is omitted.
+        IRenderedComponent<RenderElement<EmptyState>> cut = context.Render<RenderElement<EmptyState>>(p => p
             .Add(x => x.Props, new Dictionary<string, object> { ["class"] = "test-class", ["data-from-props"] = "value" }));
 
         IElement div = Root(cut);
         Assert.Equal("DIV", div.TagName, ignoreCase: true);
         Assert.Equal("test-class", div.GetAttribute("class"));
         Assert.Equal("value", div.GetAttribute("data-from-props"));
-        Assert.Null(div.GetAttribute("data-active"));
+        Assert.Equal(["data-from-props"], div.Attributes.Select(attribute => attribute.Name).Where(name => name.StartsWith("data-", StringComparison.Ordinal)));
     }
 
     [Fact(DisplayName = "supports custom stateAttributesMapping for kebab-case conversion")]
@@ -176,6 +177,44 @@ public sealed class RenderElementTests : IDisposable
         cut.Render(p => p.Add(x => x.Enabled, true).AddChildContent("content"));
         Assert.Equal("content", Root(cut).TextContent);
         Assert.NotNull(cut.Instance.Element);
+    }
+
+    [Fact(DisplayName = "a stateless element passes the shared empty state to its callback")]
+    [Trait("Requirement", "RND-STA-02")]
+    public void A_stateless_element_passes_the_shared_empty_state_to_its_callback()
+    {
+        EmptyState? received = null;
+        context.Render<RenderElement<EmptyState>>(p => p
+            .Add(x => x.RenderFunction, (RenderFragment<RenderProps<EmptyState>>)(props => builder =>
+            {
+                received = props.State;
+                builder.OpenElement(0, "span");
+                builder.AddMultipleAttributes(1, props.Attributes);
+                builder.CloseElement();
+            })));
+
+        Assert.Same(EmptyState.Instance, received);
+    }
+
+    [Fact(DisplayName = "the stateless form compiles and renders in markup")]
+    [Trait("Requirement", "RND-STA-02")]
+    public void The_stateless_form_compiles_and_renders_in_markup()
+    {
+        IRenderedComponent<Consumers.StatelessElementConsumer> cut = context.Render<Consumers.StatelessElementConsumer>();
+
+        IElement element = cut.Find("span");
+        Assert.DoesNotContain(element.Attributes, attribute => attribute.Name.StartsWith("data-", StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "an element whose state type has fields requires a State")]
+    [Trait("Requirement", "RND-STA-02")]
+    public void An_element_whose_state_type_has_fields_requires_a_State()
+    {
+        InvalidOperationException missing = Assert.Throws<InvalidOperationException>(() => context.Render<RenderElement<ActiveIndexState>>());
+        Assert.StartsWith("Blazix: ", missing.Message, StringComparison.Ordinal);
+        Assert.Contains("`State`", missing.Message, StringComparison.Ordinal);
+
+        Assert.Throws<InvalidOperationException>(() => context.Render<RenderElement<ActiveIndexState>>(p => p.Add(x => x.State, null!)));
     }
 
     private static IElement Root<TState>(IRenderedComponent<RenderElement<TState>> cut)

@@ -7,14 +7,13 @@ namespace Blazix.Primitives.Rendering;
 /// Represents what a substitute callback receives: the merged attributes, the state object, and the content to render
 /// inside the element.
 /// </summary>
-/// <typeparam name="TState">The state record type.</typeparam>
+/// <typeparam name="TState">The type of the part's state record.</typeparam>
 /// <param name="Attributes">
 /// The merged attribute set (state attributes, part attributes, consumer attributes, class and style) as the dictionary
 /// Blazor's <c>@attributes</c> accepts.
 /// </param>
 /// <param name="State">
-/// The state object; <see langword="null"/> when a <see cref="RenderElement{TState}"/> has no
-/// <see cref="RenderElement{TState}.State"/>.
+/// The state object. A stateless <see cref="RenderElement{TState}"/> passes <see cref="EmptyState.Instance"/>.
 /// </param>
 /// <param name="ChildContent">The content to render inside the element, or <see langword="null"/>.</param>
 /// <remarks>
