@@ -39,7 +39,7 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     public bool IsDisposed => disposed;
 
     /// <summary>Sends new options to the module's <c>update</c>. A no-op once disposed or once the circuit is gone.</summary>
-    /// <param name="options">The options record to serialise and send.</param>
+    /// <param name="options">The options record to serialize and send.</param>
     /// <returns>A task that completes when the module has applied the options.</returns>
     public async ValueTask UpdateAsync(TOptions options)
     {
