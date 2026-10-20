@@ -35,8 +35,23 @@ public sealed class NullableUnionParameterAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
-        // The tests-first stub: it registers nothing, so every violation test is red until the implementation lands.
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
+        context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
+    }
+
+    private static void AnalyzeProperty(SymbolAnalysisContext context)
+    {
+        IPropertySymbol property = (IPropertySymbol)context.Symbol;
+        if (!ConventionSymbols.IsUnion(property.Type) || !ConventionSymbols.IsComponentParameter(property))
+        {
+            return;
+        }
+
+        string type = property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        foreach (Location location in property.Locations)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(s_rule, location, property.Name, type));
+        }
     }
 }
