@@ -1,0 +1,25 @@
+@inject ActivationCounter Counter
+
+@*
+    The prerender fixture (ADR 06 §2: dedicated fixtures with prerendering on; issues 3 and 13). The host renders two
+    roots of it; each takes its activation number when it first renders interactively.
+*@
+<FixtureContainer Name="prerender" data-root="@RootIndex" data-activation-order="@order">
+    root @RootIndex
+</FixtureContainer>
+
+@code {
+    private int? order;
+
+    [Parameter]
+    public int RootIndex { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            order = Counter.Next();
+        }
+    }
+}

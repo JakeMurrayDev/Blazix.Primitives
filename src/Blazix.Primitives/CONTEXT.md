@@ -7,7 +7,7 @@ The library: every part of the port and the machinery the parts share. It is the
 - `docs/components/<family>.md` for each family folder; `docs/architecture/*.md` for `Rendering/`, `Store/`, `Events/`, `Interop/` and `js/`.
 - Decision records 02 (pipeline), 04 (interop boundary), 05 (state store, event details), 08 (naming, member order), 16 (performance).
 - The generator (`../Blazix.Primitives.Generators`) and the analyzers (`../Blazix.Primitives.Analyzers`), consumed as analyzers at compile time.
-- `node_modules` at the repository root for the TypeScript build (esbuild, `@floating-ui/dom` 1.8.0).
+- `node_modules` at the repository root for the TypeScript build (esbuild, `@floating-ui/dom` 1.8.0); `node` at build time only (`BlazixSkipJsBuild=true` with prebuilt outputs skips it).
 
 ## Job
 
@@ -16,7 +16,7 @@ Implements the parts as C# classes in the namespace `Blazix.Primitives` (flat `F
 ## Outputs
 
 - `Blazix.Primitives.dll` and the `Blazix.Primitives` NuGet package (library, generator as an analyzer asset, built JavaScript as static web assets, `LICENSE`, `THIRD-PARTY-NOTICES.md`), with `BaseUIVersion` metadata set to the pinned Base UI tag.
-- `wwwroot/js/` is esbuild output: ignored by git, rebuilt by `npm run build:js`, never edited.
+- `wwwroot/` is esbuild output (the initializer and `js/<module>.js`): ignored by git, rebuilt by the `BlazixBuildJs` target on every build (or `npm run build:js`), never edited; `js/CONTEXT.md` has the toolchain rules.
 - Consumed by every project under `tests/`.
 
 ## Human check

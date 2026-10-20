@@ -7,13 +7,15 @@
     "node": ">=24"
   },
   "scripts": {
-    "build:js": "node -e \"console.log('build:js is a placeholder until Track 3 adds the esbuild build (ADR 04 section 4)')\"",
+    "build:js": "node src/Blazix.Primitives/js/build.mjs --root src/Blazix.Primitives --outdir wwwroot --clean wwwroot --configuration Debug --entry js/initializer.ts=Blazix.Primitives.lib.module",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:js": "vitest run --passWithNoTests",
     "test:browser": "playwright test"
   },
   "devDependencies": {
     "@floating-ui/dom": "1.8.0",
     "@playwright/test": "1.64.1",
+    "@types/node": "24.19.1",
     "esbuild": "0.28.2",
     "jsdom": "30.1.3",
     "typescript": "7.0.2",

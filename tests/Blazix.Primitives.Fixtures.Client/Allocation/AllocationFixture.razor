@@ -1,0 +1,83 @@
+@*
+    The allocation probe of ADR-05/3 (issue 11): N comparisons per scenario, measured with GC.GetTotalAllocatedBytes
+    on the WebAssembly interpreter and rendered as bytes per comparison. The `==` scenarios are the control: they
+    cannot allocate. `generic-*` goes through a generic method (`Is<T>`, the ADR 05 shape); `direct-*` calls
+    EqualityComparer<T>.Default.Equals with T fixed at the call site; `equals-*` is the non-generic IEquatable path.
+*@
+<FixtureContainer Name="allocation" data-iterations="@iterations" data-allocated="@allocated" data-scenarios="@string.Join(',', results.Select(r => $"{r.Key}={r.Value}"))">
+    <button type="button" data-measure @onclick="Measure">Measure</button>
+    <dl>
+        @foreach ((string name, long bytes) in results)
+        {
+            <dt>@name</dt>
+            <dd data-scenario="@name">@bytes</dd>
+        }
+    </dl>
+</FixtureContainer>
+
+@code {
+    private const int Iterations = 100_000;
+
+    private readonly Dictionary<string, long> results = [];
+    private int? iterations;
+    private long? allocated;
+
+    private enum Side { Top, Bottom }
+
+    private readonly record struct Point(int X, int Y);
+
+    private static bool Is<T>(T a, T b) => EqualityComparer<T>.Default.Equals(a, b);
+
+    private static readonly (string Name, Func<int, int> Run)[] Scenarios =
+    [
+        ("control-int-operator", n => Loop(n, (a, b) => a == b)),
+        ("generic-int", n => Loop(n, (a, b) => Is(a, b))),
+        ("direct-int", n => Loop(n, (a, b) => EqualityComparer<int>.Default.Equals(a, b))),
+        ("equals-int", n => Loop(n, (a, b) => a.Equals(b))),
+        ("generic-long", n => Loop(n, (a, b) => Is((long)a, (long)b))),
+        ("generic-double", n => Loop(n, (a, b) => Is((double)a, (double)b))),
+        ("generic-bool", n => Loop(n, (a, b) => Is(a % 2 == 0, b % 2 == 0))),
+        ("generic-guid", n => Loop(n, (a, b) => Is(Guid.Empty, Guid.Empty))),
+        ("direct-guid", n => Loop(n, (a, b) => EqualityComparer<Guid>.Default.Equals(Guid.Empty, Guid.Empty))),
+        ("generic-enum", n => Loop(n, (a, b) => Is((Side)(a % 2), (Side)(b % 2)))),
+        ("direct-enum", n => Loop(n, (a, b) => EqualityComparer<Side>.Default.Equals((Side)(a % 2), (Side)(b % 2)))),
+        ("generic-nullable-enum", n => Loop(n, (a, b) => Is<Side?>((Side)(a % 2), (Side)(b % 2)))),
+        ("generic-record-struct", n => Loop(n, (a, b) => Is(new Point(a, 2), new Point(b, 2)))),
+        ("direct-record-struct", n => Loop(n, (a, b) => EqualityComparer<Point>.Default.Equals(new Point(a, 2), new Point(b, 2)))),
+        ("generic-string", n => Loop(n, (a, b) => Is("a", "a"))),
+    ];
+
+    private static int Loop(int count, Func<int, int, bool> compare)
+    {
+        int hits = 0;
+        for (int i = 0; i < count; i++)
+        {
+            // Both operands come from the loop so the compiler cannot fold the comparison.
+            if (compare(i, count - (count - i)))
+            {
+                hits++;
+            }
+        }
+
+        return hits;
+    }
+
+    private void Measure()
+    {
+        results.Clear();
+        long total = 0;
+        foreach ((string name, Func<int, int> run) in Scenarios)
+        {
+            run(16);
+            long before = GC.GetTotalAllocatedBytes(precise: true);
+            run(Iterations);
+            long after = GC.GetTotalAllocatedBytes(precise: true);
+            long perComparison = (after - before) / Iterations;
+            results[name] = perComparison;
+            total += perComparison;
+        }
+
+        iterations = Iterations;
+        allocated = total;
+    }
+}

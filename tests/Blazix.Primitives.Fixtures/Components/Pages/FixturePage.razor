@@ -1,0 +1,67 @@
+@page "/{Mode}/{Fixture}"
+@using Microsoft.AspNetCore.Components.Rendering
+@using Blazix.Primitives.Fixtures.Client
+
+@*
+    The one route of the fixture host (ADR 09 §1): /{mode}/{fixture}. The page itself is static; each fixture root is
+    an interactive island whose render mode comes from the segment, prerendering off unless the catalog says so.
+*@
+<PageTitle>@Fixture (@Mode)</PageTitle>
+
+@if (entry is null || renderMode is null)
+{
+    <h1>Unknown fixture</h1>
+    <p>No fixture <code>@Fixture</code> for mode <code>@Mode</code>.</p>
+}
+else
+{
+    <main data-fixture-page="@Fixture" data-mode="@Mode">
+        @RenderRoots
+    </main>
+}
+
+@code {
+    private FixtureEntry? entry;
+    private IComponentRenderMode? renderMode;
+
+    [Parameter]
+    public required string Mode { get; set; }
+
+    [Parameter]
+    public required string Fixture { get; set; }
+
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        FixtureCatalog.Entries.TryGetValue(Fixture, out entry);
+        bool prerender = entry?.Prerender ?? false;
+        renderMode = Mode switch
+        {
+            "server" => new InteractiveServerRenderMode(prerender),
+            "wasm" => new InteractiveWebAssemblyRenderMode(prerender),
+            _ => null,
+        };
+
+        if ((entry is null || renderMode is null) && HttpContext is not null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        }
+    }
+
+    private void RenderRoots(RenderTreeBuilder builder)
+    {
+        for (int root = 0; root < entry!.Roots; root++)
+        {
+            builder.OpenComponent(0, entry.Component);
+            if (entry.Roots > 1)
+            {
+                builder.AddComponentParameter(1, "RootIndex", root);
+            }
+            builder.AddComponentRenderMode(renderMode!);
+            builder.CloseComponent();
+        }
+    }
+}

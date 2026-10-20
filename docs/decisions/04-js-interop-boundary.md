@@ -77,10 +77,10 @@ Implementation and the browser test suite target Server first and WebAssembly se
 
 ## Verification items
 
-* Server preserves the order between JS-to-.NET invocations and Blazor event dispatches on one circuit.
-* A render queued inside a synchronous invoke on WebAssembly flushes before the JS listener returns (otherwise `decide()` must not rely on rendered state).
+* Server preserves the order between JS-to-.NET invocations and Blazor event dispatches on one circuit. **Verified 2026-10-20 (both modes, the twin base):** `tests/browser/harness.spec.ts` "@verifies ADR-04/1 Server preserves the order between JS-to-.NET invocations and Blazor event dispatches on one circuit": the probe module's element listener reports through the twin before Blazor's document-level dispatcher sees the same click, and five clicks arrive in C# strictly alternating. [issue 6](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/6).
+* A render queued inside a synchronous invoke on WebAssembly flushes before the JS listener returns (otherwise `decide()` must not rely on rendered state). **Verified 2026-10-20 (WebAssembly):** `tests/browser/harness.spec.ts` "@verifies ADR-04/2 on WebAssembly a render queued inside a synchronous invoke flushes before the JS listener returns": the C# `Decide` handler calls `StateHasChanged`, and the module reads the new attribute value before its listener returns. On Server the same module takes the fallback path (`data-verdict-source="fallback"`), as §3 prescribes. [issue 7](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/7).
 * Moving a rendered node and restoring it before disposal never produces a Blazor `insertBefore`/`removeChild` on a foreign parent when the portal node has siblings in its logical parent (the old port avoided this by rendering the portal node as the only child of its wrapper; keep that shape).
-* The esbuild MSBuild integration works on a machine without `node` when `BlazixSkipJsBuild=true` and prebuilt outputs are present (packaging path).
+* The esbuild MSBuild integration works on a machine without `node` when `BlazixSkipJsBuild=true` and prebuilt outputs are present (packaging path). Verified locally 2026-10-20 with `node` off `PATH` (steps in `src/Blazix.Primitives/js/CONTEXT.md`); the manual CI job arrives with Track 4 ([issue 9](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/9), kept open until then).
 
 ## Considered options
 

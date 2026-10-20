@@ -4,21 +4,24 @@ The fixture host: a Blazor Web App that serves every fixture page in both render
 
 ## Inputs
 
-- `../Blazix.Primitives.Fixtures.Client` (the fixture components, WebAssembly-capable) and, from Track 3 on, `../../src/Blazix.Primitives`.
+- `../Blazix.Primitives.Fixtures.Client` (the fixture components, the catalog and the harness services) and, through it, `../../src/Blazix.Primitives`.
 - Decision records 01 (render modes), 06 §2 (browser harness rules) and 09 §1.
-- `tests/browser/*.spec.ts`, which start it with `dotnet run` through Playwright's `webServer` and wait on its readiness endpoint.
+- `tests/browser/*.spec.ts`, which start it with `dotnet run` through Playwright's `webServer` and poll `/_fixture/ready`.
 
 ## Job
 
-Hosts Server and WebAssembly interactivity from the same fixture components; the render mode is a route segment resolved to an `IComponentRenderMode` expression, prerendering is off except on the dedicated prerender fixtures. It carries the test-only endpoints (readiness, `TimeProvider` control, captured diagnostics) because the tests run in another process. Today it is the `dotnet new blazor --interactivity Auto --empty` template and nothing more.
+- `Components/Pages/FixturePage.razor`: the one route, `/{mode}/{fixture}`. The page is static; each root of the catalog entry is an interactive island with `InteractiveServerRenderMode` or `InteractiveWebAssemblyRenderMode` built from the segment, prerendering off unless the entry says otherwise. An unknown mode or fixture answers 404.
+- `Program.cs`: the harness services (`AddFixtureHarness`: one `FixtureSession` per circuit with its `FakeTimeProvider` as `TimeProvider`, the capturing logger provider), the hub options (keep-alive 2 s, client timeout 10 s, mirrored by the initializer), and the test-only endpoints `GET /_fixture/ready` and `GET /_fixture/diagnostics/{token}`.
+- `wwwroot/Blazix.Primitives.Fixtures.lib.module.js`: sets `data-blazix-started` on `<html>` in `afterWebStarted`; sets `BASE_UI_ANIMATIONS_DISABLED` unless `?animations=1`; defines `window.blazixFixture` (`register`, `advanceTime`, `diagnostics`), the per-page channel to the session's `[JSInvokable]` methods.
+- `Components/App.razor`: tags prerendered fixture nodes before Blazor starts (ADR-02/1).
 
 ## Outputs
 
-- A running site on the port Playwright configures; the readiness markers `data-interactive` and `data-blazix-started` are the only thing a test waits for.
+- A running site on the port Playwright configures (`http://127.0.0.1:5197`); the readiness markers `data-interactive` and `data-blazix-started` are the only thing a test waits for.
 - Not built or run by the `build-and-test` job; the browser jobs build it.
 
 ## Human check
 
-- Every fixture container renders `data-interactive="@RendererInfo.IsInteractive"`; no fixture needs a sleep.
-- Test-only endpoints exist only in the host, never in the library.
+- Every fixture container is `FixtureContainer`, so `data-interactive`, `data-renderer` and `data-session` are always there; no fixture needs a sleep.
+- Test-only endpoints and hooks exist only in the host and the client, never in the library.
 - A fixture is a component in the client project, not copy in the host.
