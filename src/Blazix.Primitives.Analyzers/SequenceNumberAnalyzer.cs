@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Blazix.Primitives.Analyzers;
 
@@ -36,5 +37,33 @@ public sealed class SequenceNumberAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
+        context.RegisterCompilationStartAction(start =>
+        {
+            INamedTypeSymbol? builder = start.Compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder");
+            if (builder is null)
+            {
+                return;
+            }
+
+            start.RegisterOperationAction(operation => AnalyzeInvocation(operation, builder), OperationKind.Invocation);
+        });
+    }
+
+    // Every RenderTreeBuilder method that takes a sequence number names the parameter `sequence`.
+    private static void AnalyzeInvocation(OperationAnalysisContext context, INamedTypeSymbol builder)
+    {
+        IInvocationOperation invocation = (IInvocationOperation)context.Operation;
+        if (!SymbolEqualityComparer.Default.Equals(invocation.TargetMethod.ContainingType, builder))
+        {
+            return;
+        }
+
+        foreach (IArgumentOperation argument in invocation.Arguments)
+        {
+            if (argument.Parameter is { Name: "sequence" } && !argument.Value.ConstantValue.HasValue)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(s_rule, argument.Value.Syntax.GetLocation(), argument.Value.Syntax.ToString()));
+            }
+        }
     }
 }

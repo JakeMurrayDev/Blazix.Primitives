@@ -164,7 +164,8 @@ public sealed class SequenceNumberAnalyzerTests
             }
             """;
 
-        await Verify(source, Error(0, "frame.Sequence"));
+        // The testing SDK wraps the source in its own pragma to check suppression, which the source's restore would undo.
+        await Verify(source, skipSuppressionCheck: true, Error(0, "frame.Sequence"));
     }
 
     private static DiagnosticResult Error(int location, string argument)
@@ -174,13 +175,20 @@ public sealed class SequenceNumberAnalyzerTests
             .WithArguments(argument);
     }
 
-    private static async Task Verify(string source, params DiagnosticResult[] expected)
+    private static Task Verify(string source, params DiagnosticResult[] expected) => Verify(source, skipSuppressionCheck: false, expected);
+
+    private static async Task Verify(string source, bool skipSuppressionCheck, params DiagnosticResult[] expected)
     {
         CSharpAnalyzerTest<SequenceNumberAnalyzer, DefaultVerifier> test = new()
         {
             TestCode = source,
             ReferenceAssemblies = s_withComponents,
         };
+        if (skipSuppressionCheck)
+        {
+            test.TestBehaviors |= TestBehaviors.SkipSuppressionCheck;
+        }
+
         test.ExpectedDiagnostics.AddRange(expected);
 
         await test.RunAsync(TestContext.Current.CancellationToken);

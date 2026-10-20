@@ -33,6 +33,6 @@ Known limits, stated once: a consumer handler is invoked the way Blazor invokes 
 ## Human check
 
 - A new part derives from `PartBase<TState>`, creates its handlers once, adds them from `AddPartAttributes`, and names no parameter `Class` or `Style`.
-- Nothing here reflects; `BL0006` and `ASP0006` are suppressed only where the frame rewrite reads and re-emits frames, with the ADR citation.
+- Nothing here reflects; `BL0006` is suppressed only where the frame rewrite reads frames, and `BLZX2002` only where a sequence number is not ours to choose (`Reemit`, `AttributeValue.EmitTo`), each with the ADR citation.
 - The allocation budgets in both test projects only tighten.
-- A sequence number the pipeline emits is one of the named literals in `RenderPipeline`, never a counter or a calculation (a repeated capture repeats its literal); each variable section sits in its own region, and a re-emitted consumer frame keeps its own number inside it (ADR 16 rule 3). `ASP0006` does not run on this project (it ships with `Microsoft.AspNetCore.App`), so `RenderPipelineSequenceTests` is the guard.
+- A sequence number the pipeline emits is one of the named literals in `RenderPipeline`, never a counter or a calculation (a repeated capture repeats its literal); each variable section sits in its own region, and a re-emitted consumer frame keeps its own number inside it (ADR 16 rule 3). `BLZX2002` (`../../Blazix.Primitives.Analyzers`) fails the build on a sequence number that is not a constant expression, and `RenderPipelineSequenceTests` asserts what is emitted; Microsoft's `ASP0006` does not run on this project (it ships with `Microsoft.AspNetCore.App`) and would reject named constants.

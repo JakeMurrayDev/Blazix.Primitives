@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 
 // BL0006: the frame rewrite reads the consumer fragment's frames through the public GetFrames() (ADR 02 decision 1).
-// ASP0006 is suppressed on Reemit alone, where the sequence number is the consumer's own compiled one (ADR 16 rule 3).
-// The analyzer ships with Microsoft.AspNetCore.App, which this library does not reference, so it does not run here
-// today; when it does, it also flags the named constants below, which stand for the literals of rule 3.
+// BLZX2002 (the analyzers project; Microsoft's ASP0006 ships with Microsoft.AspNetCore.App, which this library does not
+// reference, and would reject named constants) requires a constant sequence number. It is suppressed on Reemit alone,
+// where the number is the consumer's own compiled one (ADR 16 rule 3).
 #pragma warning disable BL0006
 
 namespace Blazix.Primitives.Rendering;
@@ -549,7 +549,7 @@ internal static class RenderPipeline
         }
 
         // Re-emits one frame and its subtree verbatim, with its original sequence numbers (ADR 16 rule 3).
-#pragma warning disable ASP0006
+#pragma warning disable BLZX2002
         [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "The component type comes from the consumer's own OpenComponent<T> call in the scratch render, which already preserved its members.")]
         private readonly void Reemit(ArrayRange<RenderTreeFrame> frames, int index)
         {
@@ -629,7 +629,7 @@ internal static class RenderPipeline
                     break;
             }
         }
-#pragma warning restore ASP0006
+#pragma warning restore BLZX2002
 
         // The single root of the fragment: whitespace-only text is skipped and a lone region is looked into (RND-EDGE-03).
         private static int FindRoot(ArrayRange<RenderTreeFrame> frames)

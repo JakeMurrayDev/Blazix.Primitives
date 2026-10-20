@@ -4,9 +4,8 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 
 // BL0006: reading RenderTreeFrame through the public GetFrames() is ADR 02 decision 1 (verified against the API docs);
-// the advisory is re-checked at each SDK bump. ASP0006: the sequence number is the caller's literal passed through.
+// the advisory is re-checked at each SDK bump.
 #pragma warning disable BL0006
-#pragma warning disable ASP0006
 
 namespace Blazix.Primitives.Rendering;
 
@@ -261,6 +260,8 @@ public readonly struct AttributeValue : IUnion
         };
     }
 
+    // BLZX2002: the sequence number is the caller's constant, passed through (ADR 16 rule 3).
+#pragma warning disable BLZX2002
     /// <summary>
     /// Adds the value as an attribute of the element or component most recently opened on <paramref name="builder"/>.
     /// </summary>
@@ -289,6 +290,7 @@ public readonly struct AttributeValue : IUnion
                 break;
         }
     }
+#pragma warning restore BLZX2002
 
     /// <inheritdoc />
     public override string ToString() => kind switch
