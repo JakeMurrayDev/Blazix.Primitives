@@ -26,7 +26,7 @@ No component in the library builds on this Separator, and it builds on no other 
 <Separator>            required, 1          default element: div
 ```
 
-- **SEP-STR-01** — MUST. `Separator` MUST render exactly one host element (default `<div>`) and no other elements; it has no sub-parts (not a useEffect), no required ancestor and no ancestor-provided shared state, so it may be placed anywhere.
+- **SEP-STR-01** — MUST. `Separator` MUST render exactly one host element (default `<div>`) and no other elements; it has no sub-parts, no required ancestor and no ancestor-provided shared state, so it may be placed anywhere.
   Source: `separator/Separator.tsx:12-27`. Test: [L2] `Separator.test.tsx` "renders a div with the `separator` role".
 
 The part is structural only: it emits attributes derived from its parameters and attaches no event handlers.
