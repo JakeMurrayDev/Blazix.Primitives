@@ -64,3 +64,5 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - ToggleGroup: `toggleMultiple` renamed `multiple` (v1.0.0-beta.4); Toolbar: no `cols` (removed v1.0.0-beta.5), no Home/End.
 - Form: `onClearErrors` removed in v1.0.0-alpha.9; not a prop in 1.9.0.
 - NumberField: no `role="spinbutton"`/`aria-value*`, no PageUp/PageDown, no Enter commit, no `pattern`, no cursor CSS variables.
+
+<!-- track 0 probe: proves a docs-only pull request runs only docs-lint; closed unmerged -->
