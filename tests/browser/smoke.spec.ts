@@ -54,6 +54,21 @@ test.describe('probe twin', () => {
   });
 });
 
+// The library's first real twin (issue 33, deliverable 10): the `button` fixture attaches `ButtonTwin` to plain
+// elements; the probe above stays as the harness canary. The UBT rows themselves are in button-behavior.spec.ts.
+test.describe('button twin', () => {
+  test('attaches the button module and a keyboard activation reaches C# as one click', async ({ page, mode }) => {
+    const fixture = await gotoFixture(page, mode, 'button');
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    const nonNative = fixture.locator('[data-case="non-native"]');
+
+    await nonNative.locator('[data-button]').press('Enter');
+
+    await expect(nonNative).toHaveAttribute('data-clicks', '1');
+    await expect(nonNative).toHaveAttribute('data-last-click', 'detail=0 shift=False');
+  });
+});
+
 test.describe('harness channels', () => {
   test('advanceTime drives a C# timer under the fixture TimeProvider without waiting', async ({ page, mode }) => {
     const probe = await gotoFixture(page, mode, 'probe');
