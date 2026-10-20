@@ -20,10 +20,10 @@ You need the .NET 11 **RC2** SDK (`11.0.100-rc.2.26504.105`, pinned in [global.j
 ```bash
 dotnet build -c Release                                  # whole solution; warnings are errors
 dotnet test --solution Blazix.Primitives.slnx -c Release # L1, L2 and the generator tests (Microsoft.Testing.Platform, see global.json)
-npm ci && npm run test:js                                # the Node toolchain and L3; L4 is `npm run test:browser`
+npm ci && npm run test:js                                # the Node toolchain and L3 (no tests yet, exit 0)
 ```
 
-`dotnet test` runs on Microsoft.Testing.Platform (`test.runner` in `global.json`), so a single project is selected with `dotnet test --project tests/Blazix.Primitives.Tests`, not as a positional argument. CI builds and tests the three test projects without the fixture host (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
+L4 (`npm run test:browser`) has no specs until M0 track 3. `dotnet test` runs on Microsoft.Testing.Platform (`test.runner` in `global.json`), so a single project is selected with `dotnet test --project tests/Blazix.Primitives.Tests`, not as a positional argument. CI builds and tests the three test projects without the fixture host (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ## Working in this repository
 
