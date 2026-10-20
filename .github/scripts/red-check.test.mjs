@@ -10,6 +10,7 @@ import {
   parseVitestList,
   playwrightOutcomes,
   summarize,
+  vitestFailedFiles,
   vitestOutcomes,
 } from './red-check.mjs';
 
@@ -201,6 +202,68 @@ describe('outcomes', () => {
       'tests/browser/tabs.spec.ts::broken': 'failed',
       'tests/browser/tabs.spec.ts::parked': 'skipped',
     });
+  });
+});
+
+describe('a vitest file that does not load', () => {
+  // Against the base's src/, a test file for a module the pull request adds cannot import it: vitest reports the file as
+  // a failed suite with no per-test results. That is the same red as a .NET project that does not build.
+  const report = JSON.stringify({
+    testResults: [
+      {
+        name: `${root}/src/Blazix.Primitives/js/dom.test.ts`,
+        status: 'failed',
+        message: 'Failed to resolve import "./dom.js" from "src/Blazix.Primitives/js/dom.test.ts". Does the file exist?',
+        assertionResults: [],
+      },
+      {
+        name: `${root}/src/Blazix.Primitives/js/twin.test.ts`,
+        status: 'passed',
+        message: '',
+        assertionResults: [{ ancestorTitles: [], title: 'attaches', status: 'passed' }],
+      },
+      {
+        name: `${root}/src/Blazix.Primitives/js/decide.test.ts`,
+        status: 'failed',
+        message: '',
+        assertionResults: [{ ancestorTitles: [], title: 'falls back', status: 'failed' }],
+      },
+    ],
+  });
+
+  it('is a failed file with no per-test results; a file whose tests ran and failed is not one', () => {
+    expect(vitestFailedFiles(report, root)).toEqual(['src/Blazix.Primitives/js/dom.test.ts']);
+  });
+
+  it('counts every added test of such a file as red, and says why', () => {
+    const added = ['src/Blazix.Primitives/js/dom.test.ts::reads the flags', 'src/Blazix.Primitives/js/dom.test.ts::outer > inner'];
+    const verdict = judge(added, new Map(), { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] });
+    expect(verdict).toMatchObject({ red: added, unloadable: added, passed: [], notRun: [], ok: true });
+  });
+
+  it('still reports as not run a test whose file ran but which produced no result', () => {
+    const outcomes = new Map([['src/Blazix.Primitives/js/twin.test.ts::attaches', 'passed']]);
+    const added = ['src/Blazix.Primitives/js/dom.test.ts::reads the flags', 'src/Blazix.Primitives/js/twin.test.ts::filtered out'];
+    const verdict = judge(added, outcomes, { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] });
+    expect(verdict.red).toEqual(['src/Blazix.Primitives/js/dom.test.ts::reads the flags']);
+    expect(verdict.notRun).toEqual(['src/Blazix.Primitives/js/twin.test.ts::filtered out']);
+    expect(verdict.ok).toBe(false);
+  });
+
+  it('fails when another added test of the layer passes, whatever the unloadable file says', () => {
+    const outcomes = new Map([['src/Blazix.Primitives/js/twin.test.ts::attaches', 'passed']]);
+    const added = ['src/Blazix.Primitives/js/dom.test.ts::reads the flags', 'src/Blazix.Primitives/js/twin.test.ts::attaches'];
+    expect(judge(added, outcomes, { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] }).ok).toBe(false);
+  });
+
+  it('is named in the summary', () => {
+    const added = ['src/Blazix.Primitives/js/dom.test.ts::a', 'src/Blazix.Primitives/js/dom.test.ts::b'];
+    const verdict = judge(added, new Map(), { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] });
+    const { markdown, ok } = summarize([{ layer: 'l3', added, exempt: [], verdict }]);
+    expect(ok).toBe(true);
+    expect(markdown).toContain('| l3 | 2 | 2 | 0 |');
+    expect(markdown).toContain('red: the test file does not load against the base');
+    expect(markdown).toContain('`src/Blazix.Primitives/js/dom.test.ts` (2 tests)');
   });
 });
 
