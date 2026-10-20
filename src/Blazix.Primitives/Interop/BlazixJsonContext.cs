@@ -9,4 +9,10 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(EventSnapshot))]
+[JsonSerializable(typeof(ButtonOptions))]
+[JsonSerializable(typeof(ButtonInteraction))]
+[JsonSerializable(typeof(ButtonHoldEvent))]
+[JsonSerializable(typeof(NativeButtonMismatch))]
+[JsonSerializable(typeof(DomOptions))]
+[JsonSerializable(typeof(ImageStatusChange))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;
