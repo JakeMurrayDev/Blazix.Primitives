@@ -1,0 +1,137 @@
+@using Blazix.Primitives.Interop
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+@*
+    The `button-behavior` fixture (tests/browser/button-behavior.spec.ts, smoke.spec.ts): plain elements, each with its own
+    ButtonTwin, the clicks Blazor's own onclick receives counted per case, and a sync button the tests use as a barrier.
+    Not a part: the attributes a button part renders (role, tabindex, type) are written here by hand; the UBT rows
+    that test them wait for Button and Toggle in M1. The tall spacer makes the page scrollable for the link row.
+*@
+<FixtureContainer Name="button-behavior" data-attached="@(attached ? "true" : "false")" data-sync="@sync">
+    <button type="button" data-sync-button @onclick="() => sync++">Sync</button>
+
+    <div data-case="non-native" data-clicks="@nonNative.Clicks" data-last-click="@nonNative.LastClick">
+        <span role="button" tabindex="0" data-button @ref="nonNative.Element" @onclick="e => nonNative.Count(e)">Save</span>
+    </div>
+
+    <div data-case="veto" data-clicks="@veto.Clicks" data-decisions="@veto.Decisions">
+        <span role="button" tabindex="0" data-button @ref="veto.Element" @onclick="e => veto.Count(e)">Vetoed</span>
+    </div>
+
+    <div data-case="composite-veto" data-clicks="@compositeVeto.Clicks" data-decisions="@compositeVeto.Decisions">
+        <span role="button" tabindex="0" data-button @ref="compositeVeto.Element" @onclick="e => compositeVeto.Count(e)">Vetoed item</span>
+    </div>
+
+    <div data-case="link" data-clicks="@link.Clicks">
+        <a href="@LinkHref" role="button" tabindex="0" data-button @ref="link.Element" @onclick="e => link.Count(e)">Go</a>
+    </div>
+
+    <div data-case="native-composite" data-clicks="@nativeComposite.Clicks">
+        <button type="button" data-button @ref="nativeComposite.Element" @onclick="e => nativeComposite.Count(e)">Item</button>
+    </div>
+
+    <form data-case="submit" data-submits="@submits" @onsubmit="() => submits++">
+        <button type="submit" data-button @ref="submit.Element">Submit</button>
+    </form>
+
+    <form data-case="reset" data-resets="@resets" @onreset="() => resets++">
+        <button type="reset" data-button @ref="reset.Element">Reset</button>
+    </form>
+
+    <div data-case="nested" data-clicks="@nested.Clicks">
+        <span role="button" tabindex="0" data-button @ref="nested.Element" @onclick="e => nested.Count(e)">Nested</span>
+    </div>
+
+    <div style="height: 3000px" aria-hidden="true"></div>
+</FixtureContainer>
+
+@code {
+    private readonly Case nonNative = new(new ButtonOptions { Native = false });
+    private readonly Case veto = new(new ButtonOptions { Native = false }) { Veto = true };
+    private readonly Case compositeVeto = new(new ButtonOptions { Native = false, Composite = true }) { Veto = true };
+    private readonly Case link = new(new ButtonOptions { Native = false });
+    private readonly Case nativeComposite = new(new ButtonOptions { Composite = true });
+    private readonly Case submit = new(new ButtonOptions { Composite = true });
+    private readonly Case reset = new(new ButtonOptions { Composite = true });
+    // Two twins on one element, as when a part substitutes another button-like part.
+    private readonly Case nested = new(new ButtonOptions { Native = false, Composite = true }) { Twins = 2 };
+    private readonly List<ButtonTwin> twins = [];
+    private bool attached;
+    private int sync;
+    private int submits;
+    private int resets;
+
+    // An absolute URL: the host's <base href="/"> would resolve a bare fragment against the site root.
+    private string LinkHref => $"{new Uri(Navigation.Uri).GetLeftPart(UriPartial.Path)}#ubt-target";
+
+    private IEnumerable<Case> Cases => [nonNative, veto, compositeVeto, link, nativeComposite, submit, reset, nested];
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        foreach (Case buttonCase in Cases)
+        {
+            for (int i = 0; i < buttonCase.Twins; i++)
+            {
+                ButtonTwin twin = new(Js);
+                if (buttonCase.Veto)
+                {
+                    twin.ActivationDecider = _ => Decide(buttonCase);
+                }
+
+                twins.Add(twin);
+                await twin.AttachAsync(buttonCase.Element, buttonCase.Options);
+            }
+        }
+
+        attached = true;
+        StateHasChanged();
+    }
+
+    // Runs inside the browser's key dispatch on WebAssembly: a consumer handler that called PreventPartHandler().
+    private DecisionPolicy Decide(Case buttonCase)
+    {
+        buttonCase.Decisions++;
+        StateHasChanged();
+        return DecisionPolicy.Stop;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        foreach (ButtonTwin twin in twins)
+        {
+            await twin.DisposeAsync();
+        }
+    }
+
+    private sealed class Case(ButtonOptions options)
+    {
+        public ElementReference Element { get; set; }
+
+        public ButtonOptions Options { get; } = options;
+
+        public bool Veto { get; init; }
+
+        public int Twins { get; init; } = 1;
+
+        public int Clicks { get; private set; }
+
+        public int Decisions { get; set; }
+
+        public string LastClick { get; private set; } = "";
+
+        public void Count(MouseEventArgs e)
+        {
+            Clicks++;
+            LastClick = $"detail={e.Detail} shift={e.ShiftKey}";
+        }
+    }
+}
