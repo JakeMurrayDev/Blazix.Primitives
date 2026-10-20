@@ -42,7 +42,8 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 
 ## Verification items
 
-* The two items of §B, tracked in ADR 14.
+* The two items of §B, tracked in ADR 14 ([issue 25](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/25), [issue 26](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/26)).
+* Added by Amendments 2026-10-20: Blazor's known-immutable set in `ChangeDetection` covers enums and nullable enums ([issue 27](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/27)). **Verified 2026-10-20 by reading `ChangeDetection.cs` in aspnetcore `release/11.0`: covered**; the dated finding is in Amendments below. The generator-emitted `SetParametersAsync` and per-item bag cost ([issue 28](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/28), M5) and Combobox `virtualized` with `Virtualize` ([issue 29](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/29), M5) stay open.
 
 ## Considered options
 
