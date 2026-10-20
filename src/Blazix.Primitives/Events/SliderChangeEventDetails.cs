@@ -7,7 +7,7 @@ public class SliderChangeEventDetails : ChangeEventDetails
     public SliderChangeEventDetails(EventReason reason, int activeThumbIndex, EventSnapshot? @event = null, EventTrigger? trigger = null)
         : base(reason, @event, trigger)
     {
-        throw new NotImplementedException();
+        ActiveThumbIndex = activeThumbIndex;
     }
 
     /// <summary>The index of the active thumb at the time of the change.</summary>

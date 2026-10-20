@@ -1,3 +1,4 @@
+using System.Collections;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
@@ -17,20 +18,36 @@ namespace Blazix.Primitives;
 /// <typeparam name="T">The value type.</typeparam>
 public sealed class Controlled<T>
 {
+    private readonly string name;
+    private readonly string state;
+    private readonly ILogger? logger;
+    private bool initialized;
+    private bool isControlled;
+    private bool controlledSupplied;
+    private T controlledValue = default!;
+    private T uncontrolledValue = default!;
+    private bool initialDefaultSupplied;
+    private T initialDefault = default!;
+    private HashSet<string>? loggedWarnings;
+
     /// <summary>Creates the helper; <paramref name="name"/> and <paramref name="state"/> parameterise the warnings (EVD-EDGE-01/02).</summary>
     public Controlled(string name, string state = "value", ILogger? logger = null)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(state);
+        this.name = name;
+        this.state = state;
+        this.logger = logger;
     }
 
     /// <summary>Whether the value parameter was supplied at the first parameter set. Fixed for the lifetime.</summary>
-    public bool IsControlled => throw new NotImplementedException();
+    public bool IsControlled => isControlled;
 
     /// <summary>
     /// The current value: the controlled parameter while controlled and supplied, otherwise the uncontrolled value
     /// (initialised from the default parameter as supplied, never invoked when it is a delegate: EVD-STA-03).
     /// </summary>
-    public T Value => throw new NotImplementedException();
+    public T Value => isControlled && controlledSupplied ? controlledValue : uncontrolledValue;
 
     /// <summary>
     /// Reads the value and default parameters from <paramref name="parameters"/> with <see cref="ParameterView.TryGetValue{TValue}(string, out TValue)"/>.
@@ -38,7 +55,9 @@ public sealed class Controlled<T>
     /// </summary>
     public void SetParameters(ParameterView parameters, string valueParameterName, string defaultValueParameterName)
     {
-        throw new NotImplementedException();
+        bool valueSupplied = parameters.TryGetValue(valueParameterName, out T? value);
+        bool defaultValueSupplied = parameters.TryGetValue(defaultValueParameterName, out T? defaultValue);
+        Update(valueSupplied, value!, defaultValueSupplied, defaultValue!);
     }
 
     /// <summary>
@@ -47,13 +66,47 @@ public sealed class Controlled<T>
     /// </summary>
     public void Update(bool valueSupplied, T value, bool defaultValueSupplied, T defaultValue)
     {
-        throw new NotImplementedException();
+        controlledSupplied = valueSupplied;
+        controlledValue = valueSupplied ? value : default!;
+        if (!initialized)
+        {
+            initialized = true;
+            isControlled = valueSupplied;
+            initialDefaultSupplied = defaultValueSupplied;
+            initialDefault = defaultValueSupplied ? defaultValue : default!;
+            uncontrolledValue = initialDefault;
+            return;
+        }
+
+        if (logger is null || !DevelopmentWarnings.IsEnabled)
+        {
+            return;
+        }
+
+        if (isControlled != valueSupplied)
+        {
+            Warn(string.Join(
+                '\n',
+                $"A component is changing the {(isControlled ? "" : "un")}controlled {state} state of {name} to be {(isControlled ? "un" : "")}controlled.",
+                "Elements should not switch from uncontrolled to controlled (or vice versa).",
+                $"Decide between using a controlled or uncontrolled {name} element for the lifetime of the component.",
+                "The nature of the state is determined during the first render. It's considered controlled if the value is not `undefined`.",
+                "More info: https://fb.me/react-controlled-components"));
+        }
+
+        if (!isControlled && !SameForDevelopment(initialDefaultSupplied, initialDefault, defaultValueSupplied, defaultValue))
+        {
+            Warn($"A component is changing the default {state} state of an uncontrolled {name} after being initialized. To suppress this warning opt to use a controlled {name}.");
+        }
     }
 
     /// <summary>Stores <paramref name="value"/> when uncontrolled; a no-op when controlled (UTL-STA-04, EVD-STA-04).</summary>
     public void SetValueIfUncontrolled(T value)
     {
-        throw new NotImplementedException();
+        if (!isControlled)
+        {
+            uncontrolledValue = value;
+        }
     }
 
     /// <summary>
@@ -61,15 +114,18 @@ public sealed class Controlled<T>
     /// now canceled. A part whose request continues into a parent (EVD-ALG-03 step 2: a toggle into its group) calls this,
     /// then the parent's request with the same details, then <see cref="CommitAsync"/> only if neither was canceled.
     /// </summary>
-    public Task<bool> NotifyAsync(T value, ChangeEventDetails details, EventCallback<ValueChangeEventArgs<T>> onValueChange)
+    public async Task<bool> NotifyAsync(T value, ChangeEventDetails details, EventCallback<ValueChangeEventArgs<T>> onValueChange)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(details);
+        await onValueChange.InvokeAsync(new ValueChangeEventArgs<T>(value, details));
+        return !details.IsCanceled;
     }
 
     /// <summary>The second half of a request: invokes <paramref name="valueChanged"/>, then commits when uncontrolled.</summary>
-    public Task CommitAsync(T value, EventCallback<T> valueChanged)
+    public async Task CommitAsync(T value, EventCallback<T> valueChanged)
     {
-        throw new NotImplementedException();
+        await valueChanged.InvokeAsync(value);
+        SetValueIfUncontrolled(value);
     }
 
     /// <summary>
@@ -83,13 +139,68 @@ public sealed class Controlled<T>
     /// suppressed. When controlled the flag changes nothing.
     /// </para>
     /// </summary>
-    public Task<bool> RequestAsync(
+    public async Task<bool> RequestAsync(
         T value,
         ChangeEventDetails details,
         EventCallback<ValueChangeEventArgs<T>> onValueChange,
         EventCallback<T> valueChanged,
         bool nativeTextEdit = false)
     {
-        throw new NotImplementedException();
+        if (await NotifyAsync(value, details, onValueChange))
+        {
+            await CommitAsync(value, valueChanged);
+            return true;
+        }
+
+        if (nativeTextEdit && !isControlled)
+        {
+            await CommitAsync(value, valueChanged);
+        }
+
+        return false;
+    }
+
+    // Base UI compares JSON serialisations (EVD-EDGE-02/03), which the port cannot produce for an arbitrary T without
+    // reflection. Equal by EqualityComparer<T>.Default, by structure for arrays and tuples, or item by item for other
+    // sequences counts as equal; a comparison that throws counts as equal, as two "__unserializable__" strings would.
+    private static bool SameForDevelopment(bool leftSupplied, T left, bool rightSupplied, T right)
+    {
+        if (leftSupplied != rightSupplied)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (EqualityComparer<T>.Default.Equals(left, right))
+            {
+                return true;
+            }
+
+            if (left is IStructuralEquatable structural && right is not null)
+            {
+                return structural.Equals(right, StructuralComparisons.StructuralEqualityComparer);
+            }
+
+            if (left is IEnumerable leftItems and not string && right is IEnumerable rightItems and not string)
+            {
+                return leftItems.Cast<object?>().SequenceEqual(rightItems.Cast<object?>());
+            }
+
+            return false;
+        }
+        catch (Exception)
+        {
+            return true;
+        }
+    }
+
+    private void Warn(string message)
+    {
+        loggedWarnings ??= new HashSet<string>(StringComparer.Ordinal);
+        if (loggedWarnings.Add(message))
+        {
+            DevelopmentWarnings.Write(logger!, message);
+        }
     }
 }

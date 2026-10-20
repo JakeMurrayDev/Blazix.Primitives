@@ -14,13 +14,22 @@ namespace Blazix.Primitives.Store;
 public class Store<TState>
     where TState : class, IStoreState<TState>
 {
+    // Insertion-ordered and iterated live (UTL §8.2): a listener removed during a pass becomes a null tombstone so the
+    // pass skips it, and one added during a pass is appended and reached. Tombstones are compacted when no pass runs.
+    private readonly List<Action<TState>?> listeners = [];
+    private TState state;
+    private int updateTick;
+    private int notifyDepth;
+    private bool hasTombstones;
+
     public Store(TState state)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(state);
+        this.state = state;
     }
 
     /// <summary>The current record (UTL-STA-07). Never mutate it; write through the store.</summary>
-    public TState State => throw new NotImplementedException();
+    public TState State => state;
 
     /// <summary>
     /// Registers <paramref name="listener"/> (UTL-STA-13): it runs after every write with the new record. Registering the
@@ -28,13 +37,48 @@ public class Store<TState>
     /// </summary>
     public IDisposable Subscribe(Action<TState> listener)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(listener);
+        if (IndexOf(listener) < 0)
+        {
+            listeners.Add(listener);
+        }
+
+        return new Subscription(this, listener);
     }
 
     /// <summary>Replaces the record and notifies, unless <paramref name="next"/> is the current record (UTL-STA-08, UTL-ALG-03).</summary>
     public void SetState(TState next)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(next);
+        if (ReferenceEquals(state, next))
+        {
+            return;
+        }
+
+        state = next;
+        int tick = ++updateTick;
+        notifyDepth++;
+        try
+        {
+            for (int i = 0; i < listeners.Count; i++)
+            {
+                if (tick != updateTick)
+                {
+                    // A listener wrote again: that nested pass has already notified everyone with the newer record.
+                    return;
+                }
+
+                listeners[i]?.Invoke(next);
+            }
+        }
+        finally
+        {
+            if (--notifyDepth == 0 && hasTombstones)
+            {
+                listeners.RemoveAll(static listener => listener is null);
+                hasTombstones = false;
+            }
+        }
     }
 
     /// <summary>
@@ -43,37 +87,45 @@ public class Store<TState>
     /// </summary>
     public void Update(Func<TState, TState> change)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(change);
+        Write(change(state));
     }
 
     /// <summary>The closure-free form of <see cref="Update(Func{TState, TState})"/>.</summary>
     public void Update<TArg>(Func<TState, TArg, TState> change, TArg arg)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(change);
+        Write(change(state, arg));
     }
 
     /// <summary>Writes one member (UTL-STA-10): nothing happens when it already equals <paramref name="value"/> by <see cref="Equality.Is{T}(T, T)"/>.</summary>
     public void Set<TValue>(StoreField<TState, TValue> field, TValue value)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(field);
+        if (!Equality.Is(field.Get(state), value))
+        {
+            SetState(field.With(state, value));
+        }
     }
 
     /// <summary>Replaces the record with a copy holding the same values and notifies (UTL-STA-12), e.g. when a nested store changed.</summary>
     public void NotifyAll()
     {
-        throw new NotImplementedException();
+        SetState(TState.Copy(state));
     }
 
     /// <summary>Evaluates a named selector against the current record without subscribing (UTL-STA-17).</summary>
     public TValue Select<TValue>(Func<TState, TValue> selector)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(selector);
+        return selector(state);
     }
 
     /// <summary>Evaluates a named selector with an argument against the current record without subscribing (UTL-STA-17).</summary>
     public TValue Select<TArg, TValue>(Func<TState, TArg, TValue> selector, TArg arg)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(selector);
+        return selector(state, arg);
     }
 
     /// <summary>
@@ -83,6 +135,64 @@ public class Store<TState>
     /// </summary>
     public IDisposable Observe<TValue>(Func<TState, TValue> selector, Action<TValue, TValue, Store<TState>> listener)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(selector);
+        ArgumentNullException.ThrowIfNull(listener);
+        TValue previous = selector(state);
+        listener(previous, previous, this);
+        return Subscribe(next =>
+        {
+            TValue value = selector(next);
+            if (!Equality.Is(previous, value))
+            {
+                TValue old = previous;
+                previous = value;
+                listener(value, old, this);
+            }
+        });
+    }
+
+    private void Write(TState next)
+    {
+        if (!ReferenceEquals(next, state) && !TState.ShallowEquals(state, next))
+        {
+            SetState(next);
+        }
+    }
+
+    private int IndexOf(Action<TState> listener)
+    {
+        for (int i = 0; i < listeners.Count; i++)
+        {
+            if (ReferenceEquals(listeners[i], listener))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void Unsubscribe(Action<TState> listener)
+    {
+        int index = IndexOf(listener);
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (notifyDepth > 0)
+        {
+            listeners[index] = null;
+            hasTombstones = true;
+        }
+        else
+        {
+            listeners.RemoveAt(index);
+        }
+    }
+
+    private sealed class Subscription(Store<TState> store, Action<TState> listener) : IDisposable
+    {
+        public void Dispose() => store.Unsubscribe(listener);
     }
 }

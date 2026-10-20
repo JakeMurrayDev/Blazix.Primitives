@@ -10,7 +10,7 @@ public class HighlightEventDetails : GenericEventDetails
     public HighlightEventDetails(EventReason reason, int index, EventSnapshot? @event = null)
         : base(reason, @event)
     {
-        throw new NotImplementedException();
+        Index = index;
     }
 
     /// <summary>The index of the highlighted item; <c>-1</c> when the highlight is cleared.</summary>

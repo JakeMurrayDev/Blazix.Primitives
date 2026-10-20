@@ -10,7 +10,8 @@ public class GenericEventDetails
     /// <summary>Creates details as EVD-ALG-02 does: the placeholder event when <paramref name="event"/> is <c>null</c>.</summary>
     public GenericEventDetails(EventReason reason, EventSnapshot? @event = null)
     {
-        throw new NotImplementedException();
+        Reason = reason;
+        Event = @event ?? EventSnapshot.CreatePlaceholder();
     }
 
     /// <summary>Why the notification was made.</summary>

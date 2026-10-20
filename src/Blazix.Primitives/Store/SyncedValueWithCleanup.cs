@@ -9,20 +9,40 @@ namespace Blazix.Primitives.Store;
 public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     where TState : class, IStoreState<TState>
 {
+    private readonly StoreField<TState, TValue?> field;
+    private ComponentStore<TState>? store;
+    private TValue? value;
+
     public SyncedValueWithCleanup(StoreField<TState, TValue?> field)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(field);
+        this.field = field;
     }
 
     /// <summary>Synchronises <paramref name="value"/> into <paramref name="store"/>.</summary>
     public void Sync(ComponentStore<TState> store, TValue? value)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(store);
+        if (this.store is not null)
+        {
+            if (ReferenceEquals(this.store, store) && Equality.Is(this.value, value))
+            {
+                // Nothing the effect depends on changed, so it does not run again.
+                return;
+            }
+
+            this.store.Set(field, default);
+        }
+
+        this.store = store;
+        this.value = value;
+        store.SyncValue(field, value);
     }
 
     /// <summary>Resets the member to <c>default</c> in the last store.</summary>
     public void Dispose()
     {
-        throw new NotImplementedException();
+        store?.Set(field, default);
+        store = null;
     }
 }

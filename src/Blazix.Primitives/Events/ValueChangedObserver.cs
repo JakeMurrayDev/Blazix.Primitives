@@ -1,3 +1,5 @@
+using Blazix.Primitives.Store;
+
 namespace Blazix.Primitives;
 
 /// <summary>
@@ -8,14 +10,30 @@ namespace Blazix.Primitives;
 /// </summary>
 internal sealed class ValueChangedObserver<T>
 {
+    private readonly Action<T> onChange;
+    private T recorded;
+
     public ValueChangedObserver(T initialValue, Action<T> onChange)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(onChange);
+        recorded = initialValue;
+        this.onChange = onChange;
     }
 
     /// <summary>Compares <paramref name="value"/> with the recorded value, notifies, and records it.</summary>
     public void Observe(T value)
     {
-        throw new NotImplementedException();
+        // Base UI's effect re-runs only when the value changed by Object.is (its dependency list), then compares with !==.
+        if (Equality.Is(recorded, value))
+        {
+            return;
+        }
+
+        if (!Equality.StrictEquals(recorded, value))
+        {
+            onChange(recorded);
+        }
+
+        recorded = value;
     }
 }

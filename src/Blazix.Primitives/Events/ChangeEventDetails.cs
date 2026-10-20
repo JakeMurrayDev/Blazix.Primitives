@@ -7,10 +7,15 @@ namespace Blazix.Primitives;
 /// </summary>
 public class ChangeEventDetails
 {
+    private bool canceled;
+    private bool propagationAllowed;
+
     /// <summary>Creates details as EVD-ALG-01 does: not canceled, propagation not allowed, the placeholder event when <paramref name="event"/> is <c>null</c>.</summary>
     public ChangeEventDetails(EventReason reason, EventSnapshot? @event = null, EventTrigger? trigger = null)
     {
-        throw new NotImplementedException();
+        Reason = reason;
+        Event = @event ?? EventSnapshot.CreatePlaceholder();
+        Trigger = trigger;
     }
 
     /// <summary>Why the request was made.</summary>
@@ -23,20 +28,14 @@ public class ChangeEventDetails
     public EventTrigger? Trigger { get; internal set; }
 
     /// <summary>Whether <see cref="Cancel"/> has been called on this object.</summary>
-    public bool IsCanceled => throw new NotImplementedException();
+    public bool IsCanceled => canceled;
 
     /// <summary>Whether <see cref="AllowPropagation"/> has been called on this object.</summary>
-    public bool IsPropagationAllowed => throw new NotImplementedException();
+    public bool IsPropagationAllowed => propagationAllowed;
 
     /// <summary>Cancels the request: an uncontrolled component does not commit and the follow-up effects do not run (EVD-EVT-05..09).</summary>
-    public void Cancel()
-    {
-        throw new NotImplementedException();
-    }
+    public void Cancel() => canceled = true;
 
     /// <summary>Lets the native event keep propagating where the part would stop it (EVD §4.4).</summary>
-    public void AllowPropagation()
-    {
-        throw new NotImplementedException();
-    }
+    public void AllowPropagation() => propagationAllowed = true;
 }

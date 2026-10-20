@@ -8,6 +8,8 @@ namespace Blazix.Primitives;
 /// </summary>
 public class OpenChangeEventDetails : ChangeEventDetails
 {
+    private bool unmountOnClosePrevented;
+
     /// <inheritdoc cref="ChangeEventDetails(EventReason, EventSnapshot?, EventTrigger?)"/>
     public OpenChangeEventDetails(EventReason reason, EventSnapshot? @event = null, EventTrigger? trigger = null)
         : base(reason, @event, trigger)
@@ -15,11 +17,8 @@ public class OpenChangeEventDetails : ChangeEventDetails
     }
 
     /// <summary>Whether <see cref="PreventUnmountOnClose"/> has been called on this object.</summary>
-    internal bool UnmountOnClosePrevented => throw new NotImplementedException();
+    internal bool UnmountOnClosePrevented => unmountOnClosePrevented;
 
     /// <summary>Keeps a closing popup mounted, in its closing phase, until the root's <c>unmount</c> action is called.</summary>
-    public void PreventUnmountOnClose()
-    {
-        throw new NotImplementedException();
-    }
+    public void PreventUnmountOnClose() => unmountOnClosePrevented = true;
 }

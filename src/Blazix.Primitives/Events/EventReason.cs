@@ -122,6 +122,45 @@ public static class EventReasonExtensions
     /// <summary>The kebab-case Base UI literal of <paramref name="reason"/> (EVD §3.5), e.g. <c>trigger-press</c>.</summary>
     public static string ToLiteral(this EventReason reason)
     {
-        throw new NotImplementedException();
+        return reason switch
+        {
+            EventReason.None => "none",
+            EventReason.TriggerPress => "trigger-press",
+            EventReason.TriggerHover => "trigger-hover",
+            EventReason.TriggerFocus => "trigger-focus",
+            EventReason.OutsidePress => "outside-press",
+            EventReason.ItemPress => "item-press",
+            EventReason.ClosePress => "close-press",
+            EventReason.LinkPress => "link-press",
+            EventReason.ClearPress => "clear-press",
+            EventReason.ChipRemovePress => "chip-remove-press",
+            EventReason.TrackPress => "track-press",
+            EventReason.IncrementPress => "increment-press",
+            EventReason.DecrementPress => "decrement-press",
+            EventReason.InputChange => "input-change",
+            EventReason.InputClear => "input-clear",
+            EventReason.InputBlur => "input-blur",
+            EventReason.InputPaste => "input-paste",
+            EventReason.InputPress => "input-press",
+            EventReason.FocusOut => "focus-out",
+            EventReason.EscapeKey => "escape-key",
+            EventReason.CloseWatcher => "close-watcher",
+            EventReason.ListNavigation => "list-navigation",
+            EventReason.Keyboard => "keyboard",
+            EventReason.Pointer => "pointer",
+            EventReason.Drag => "drag",
+            EventReason.Wheel => "wheel",
+            EventReason.Scrub => "scrub",
+            EventReason.PopupClose => "popup-close",
+            EventReason.CancelOpen => "cancel-open",
+            EventReason.SiblingOpen => "sibling-open",
+            EventReason.Disabled => "disabled",
+            EventReason.Missing => "missing",
+            EventReason.Initial => "initial",
+            EventReason.ImperativeAction => "imperative-action",
+            EventReason.Swipe => "swipe",
+            EventReason.WindowResize => "window-resize",
+            _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
+        };
     }
 }

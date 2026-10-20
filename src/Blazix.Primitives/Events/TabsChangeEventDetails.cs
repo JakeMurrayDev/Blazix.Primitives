@@ -7,7 +7,7 @@ public class TabsChangeEventDetails : ChangeEventDetails
     public TabsChangeEventDetails(EventReason reason, TabsActivationDirection activationDirection, EventSnapshot? @event = null, EventTrigger? trigger = null)
         : base(reason, @event, trigger)
     {
-        throw new NotImplementedException();
+        ActivationDirection = activationDirection;
     }
 
     /// <summary>The direction from the previously active tab to the new one; <see cref="TabsActivationDirection.None"/> for automatic changes.</summary>

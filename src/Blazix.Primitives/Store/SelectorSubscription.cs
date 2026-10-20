@@ -10,27 +10,58 @@ namespace Blazix.Primitives.Store;
 public sealed class SelectorSubscription<TState> : IDisposable
     where TState : class, IStoreState<TState>
 {
+    private readonly Store<TState> store;
+    private readonly Action onSelectionChanged;
+    private readonly List<ISelectionRefresh<TState>> selections = [];
+    private IDisposable? subscription;
+
     public SelectorSubscription(Store<TState> store, Action onSelectionChanged)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(onSelectionChanged);
+        this.store = store;
+        this.onSelectionChanged = onSelectionChanged;
+        subscription = store.Subscribe(OnStoreChanged);
     }
 
     /// <summary>Adds a selection, evaluated now against the current record.</summary>
     public StoreSelection<TState, TValue> Select<TValue>(Func<TState, TValue> selector)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(selector);
+        StoreSelection<TState, TValue> selection = new(selector, store.State);
+        selections.Add(selection);
+        return selection;
     }
 
     /// <summary>Adds a selection with an argument, evaluated now against the current record.</summary>
     public StoreSelection<TState, TArg, TValue> Select<TArg, TValue>(Func<TState, TArg, TValue> selector, TArg arg)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(selector);
+        StoreSelection<TState, TArg, TValue> selection = new(selector, arg, store);
+        selections.Add(selection);
+        return selection;
     }
 
     /// <summary>Unsubscribes from the store; the selections keep their last values.</summary>
     public void Dispose()
     {
-        throw new NotImplementedException();
+        subscription?.Dispose();
+        subscription = null;
+    }
+
+    private void OnStoreChanged(TState state)
+    {
+        // Every selection is refreshed, so each holds the value for this record even when an earlier one changed.
+        bool changed = false;
+        for (int i = 0; i < selections.Count; i++)
+        {
+            changed |= selections[i].Refresh(state);
+        }
+
+        if (changed)
+        {
+            onSelectionChanged();
+        }
     }
 }
 
@@ -38,17 +69,28 @@ public sealed class SelectorSubscription<TState> : IDisposable
 public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
     where TState : class, IStoreState<TState>
 {
+    private readonly Func<TState, TValue> selector;
+    private TValue value;
+
     internal StoreSelection(Func<TState, TValue> selector, TState state)
     {
-        throw new NotImplementedException();
+        this.selector = selector;
+        value = selector(state);
     }
 
     /// <summary>The selector's result for the latest record.</summary>
-    public TValue Value => throw new NotImplementedException();
+    public TValue Value => value;
 
     bool ISelectionRefresh<TState>.Refresh(TState state)
     {
-        throw new NotImplementedException();
+        TValue next = selector(state);
+        if (Equality.Is(value, next))
+        {
+            return false;
+        }
+
+        value = next;
+        return true;
     }
 }
 
@@ -56,13 +98,21 @@ public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
 public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TState>
     where TState : class, IStoreState<TState>
 {
-    internal StoreSelection(Func<TState, TArg, TValue> selector, TArg arg, TState state)
+    private readonly Func<TState, TArg, TValue> selector;
+    private readonly Store<TState> store;
+    private TArg arg;
+    private TValue value;
+
+    internal StoreSelection(Func<TState, TArg, TValue> selector, TArg arg, Store<TState> store)
     {
-        throw new NotImplementedException();
+        this.selector = selector;
+        this.store = store;
+        this.arg = arg;
+        value = selector(store.State, arg);
     }
 
     /// <summary>The selector's result for the latest record and <see cref="Arg"/>.</summary>
-    public TValue Value => throw new NotImplementedException();
+    public TValue Value => value;
 
     /// <summary>
     /// The argument. Setting a different one (by <see cref="Equality.Is{T}(T, T)"/>) re-evaluates <see cref="Value"/> at once
@@ -70,13 +120,27 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
     /// </summary>
     public TArg Arg
     {
-        get => throw new NotImplementedException();
-        set => throw new NotImplementedException();
+        get => arg;
+        set
+        {
+            if (!Equality.Is(arg, value))
+            {
+                arg = value;
+                this.value = selector(store.State, value);
+            }
+        }
     }
 
     bool ISelectionRefresh<TState>.Refresh(TState state)
     {
-        throw new NotImplementedException();
+        TValue next = selector(state, arg);
+        if (Equality.Is(value, next))
+        {
+            return false;
+        }
+
+        value = next;
+        return true;
     }
 }
 

@@ -82,10 +82,7 @@ public sealed record EventSnapshot
     public double TimeStamp { get; init; }
 
     /// <summary>A fresh placeholder snapshot, <see cref="Type"/> <c>base-ui</c> (EVD-API-04).</summary>
-    public static EventSnapshot CreatePlaceholder()
-    {
-        throw new NotImplementedException();
-    }
+    public static EventSnapshot CreatePlaceholder() => new() { Kind = EventKind.Event, Type = PlaceholderType };
 
     /// <summary>
     /// <c>event instanceof kind</c> under the DOM's inheritance: every snapshot is an <see cref="EventKind.Event"/>;
@@ -94,7 +91,14 @@ public sealed record EventSnapshot
     /// </summary>
     public bool IsInstanceOf(EventKind kind)
     {
-        throw new NotImplementedException();
+        return kind switch
+        {
+            EventKind.Event => true,
+            EventKind.UIEvent => Kind is EventKind.UIEvent or EventKind.FocusEvent or EventKind.MouseEvent or EventKind.PointerEvent
+                or EventKind.WheelEvent or EventKind.TouchEvent or EventKind.KeyboardEvent or EventKind.InputEvent,
+            EventKind.MouseEvent => Kind is EventKind.MouseEvent or EventKind.PointerEvent or EventKind.WheelEvent,
+            _ => Kind == kind,
+        };
     }
 }
 

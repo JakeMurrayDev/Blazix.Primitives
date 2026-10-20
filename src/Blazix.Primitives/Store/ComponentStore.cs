@@ -12,6 +12,9 @@ namespace Blazix.Primitives.Store;
 public class ComponentStore<TState> : Store<TState>
     where TState : class, IStoreState<TState>
 {
+    // The mode first seen per field by SyncControlledValue, kept only while development warnings are on (UTL-EDGE-25).
+    private Dictionary<object, bool>? controlledModes;
+
     public ComponentStore(TState state)
         : base(state)
     {
@@ -27,7 +30,11 @@ public class ComponentStore<TState> : Store<TState>
     /// </summary>
     public void SyncValue<TValue>(StoreField<TState, TValue> field, TValue value)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(field);
+        if (!Equality.StrictEquals(field.Get(State), value))
+        {
+            Set(field, value);
+        }
     }
 
     /// <summary>
@@ -37,7 +44,7 @@ public class ComponentStore<TState> : Store<TState>
     /// </summary>
     public void SyncValues<TValues>(Func<TState, TValues, TState> apply, TValues values)
     {
-        throw new NotImplementedException();
+        Update(apply, values);
     }
 
     /// <summary>
@@ -47,6 +54,32 @@ public class ComponentStore<TState> : Store<TState>
     /// </summary>
     public void SyncControlledValue<TValue>(StoreField<TState, TValue> field, bool controlled, TValue value)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(field);
+        if (Logger is not null && DevelopmentWarnings.IsEnabled)
+        {
+            WarnOnModeSwitch(field, controlled);
+        }
+
+        if (controlled && !Equality.Is(field.Get(State), value))
+        {
+            SetState(field.With(State, value));
+        }
+    }
+
+    private void WarnOnModeSwitch<TValue>(StoreField<TState, TValue> field, bool controlled)
+    {
+        controlledModes ??= new Dictionary<object, bool>(ReferenceEqualityComparer.Instance);
+        if (!controlledModes.TryGetValue(field, out bool wasControlled))
+        {
+            controlledModes.Add(field, controlled);
+            return;
+        }
+
+        if (wasControlled != controlled)
+        {
+            DevelopmentWarnings.Write(
+                Logger!,
+                $"A component is changing the {(wasControlled ? "" : "un")}controlled state of {field.Name} to be {(wasControlled ? "un" : "")}controlled. Elements should not switch from uncontrolled to controlled (or vice versa).");
+        }
     }
 }
