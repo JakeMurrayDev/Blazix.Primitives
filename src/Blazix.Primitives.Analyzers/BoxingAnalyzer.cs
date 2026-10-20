@@ -18,7 +18,8 @@ namespace Blazix.Primitives.Analyzers;
 /// <c>RenderTreeBuilder.AddComponentParameter</c>, the argument of <c>RenderTreeBuilder.AddMultipleAttributes</c>, the
 /// argument arrays of the <c>Invoke*</c> methods of <c>IJSRuntime</c> and <c>IJSObjectReference</c> (with the in-process
 /// interfaces and the extension methods on them), and a value stored into a dictionary of <c>string</c> to
-/// <c>object</c>, the type of the unmatched attribute bag.
+/// <c>object</c>, the type of the unmatched attribute bag. A value-type operand of a string concatenation whose type
+/// overrides <c>ToString</c> is not reported: the compiler calls <c>ToString</c> instead of boxing it.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class BoxingAnalyzer : DiagnosticAnalyzer
@@ -44,7 +45,7 @@ public sealed class BoxingAnalyzer : DiagnosticAnalyzer
         "Blazix.Primitives",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "A value type converted to `object` or to an interface allocates on every call. Library code passes value types through typed overloads and generics; the only conversions allowed are into Blazor's own `object` contracts: the value of `RenderTreeBuilder.AddAttribute` and `AddComponentParameter`, the argument of `AddMultipleAttributes`, the argument arrays of the JavaScript interop `Invoke*` methods, and a value stored into a dictionary of `string` to `object`.");
+        description: "A value type converted to `object` or to an interface allocates on every call. Library code passes value types through typed overloads and generics; the only conversions allowed are into Blazor's own `object` contracts: the value of `RenderTreeBuilder.AddAttribute` and `AddComponentParameter`, the argument of `AddMultipleAttributes`, the argument arrays of the JavaScript interop `Invoke*` methods, and a value stored into a dictionary of `string` to `object`. A string concatenation calls `ToString` on its value-type operands, which boxes an enum or a struct without its own `ToString`; interpolation does not box.");
 
     // ADR 05 §4; ADR 16 §C
     private static readonly DiagnosticDescriptor s_enumRule = new(
@@ -87,9 +88,14 @@ public sealed class BoxingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        ITypeSymbol unwrapped = ConventionSymbols.UnwrapNullable(source);
+        if (IsConcatenatedWithoutBox(conversion, unwrapped))
+        {
+            return;
+        }
+
         string operand = conversion.Operand.Syntax.ToString();
         string target = conversion.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        ITypeSymbol unwrapped = ConventionSymbols.UnwrapNullable(source);
         if (ConventionSymbols.IsUnion(unwrapped))
         {
             context.ReportDiagnostic(Diagnostic.Create(
@@ -146,6 +152,32 @@ public sealed class BoxingAnalyzer : DiagnosticAnalyzer
             "GetValues" or "GetNames" => "list the members it needs instead",
             _ => null,
         };
+    }
+
+    // The compiler turns a value-type operand of a string concatenation into a constrained ToString() call, not a box: a
+    // type with its own ToString allocates nothing; an enum or a struct without one is boxed by the call, and is reported.
+    private static bool IsConcatenatedWithoutBox(IConversionOperation conversion, ITypeSymbol type)
+    {
+        bool concatenated = conversion.Parent switch
+        {
+            IBinaryOperation { OperatorKind: BinaryOperatorKind.Add, Type.SpecialType: SpecialType.System_String } => true,
+            ICompoundAssignmentOperation { OperatorKind: BinaryOperatorKind.Add, Type.SpecialType: SpecialType.System_String } => true,
+            _ => false,
+        };
+        if (!concatenated || type.TypeKind == TypeKind.Enum)
+        {
+            return false;
+        }
+
+        foreach (ISymbol member in type.GetMembers("ToString"))
+        {
+            if (member is IMethodSymbol { IsOverride: true, Parameters.Length: 0 })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The enum's own argument conversion is reported once, as the enum member call.
