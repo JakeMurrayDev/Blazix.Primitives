@@ -66,6 +66,11 @@ public sealed class BoxingAnalyzerTests
             public int Number => value;
         }
 
+        public readonly struct Labeled
+        {
+            public override string ToString() => "labeled";
+        }
+
         public enum Reason { None, Press }
 
         [Flags]
@@ -187,6 +192,48 @@ public sealed class BoxingAnalyzerTests
                 private static void Log(object value) { }
 
                 private static Plain Pass(Plain value) => value;
+            }
+            """ + UnionShim;
+
+        await Verify(source, ValueError(0, operand, type, target));
+    }
+
+    // The compiler turns `"a" + value` into a constrained `value.ToString()` call, not a box: a type that overrides
+    // ToString allocates nothing; an enum or a struct without its own ToString is boxed by that call at run time.
+    [Fact]
+    [Trait("Requirement", "ADR05-4")]
+    public async Task String_concatenation_of_a_value_type_with_its_own_ToString_is_accepted()
+    {
+        const string source = Usings + """
+            internal static class Code
+            {
+                public static string Run(int index, bool flag, char letter, int? maybe, Labeled labeled, string text)
+                {
+                    text += index;
+                    return "a" + index + flag + letter + maybe + labeled + text + index + "b";
+                }
+            }
+            """ + UnionShim;
+
+        await Verify(source);
+    }
+
+    [Theory]
+    [Trait("Requirement", "ADR05-4")]
+    [InlineData("_ = \"a\" + {|#0:reason|};", "reason", "Reason", "object")]
+    [InlineData("_ = {|#0:reason|} + \"a\";", "reason", "Reason", "object")]
+    [InlineData("_ = \"a\" + {|#0:maybeReason|};", "maybeReason", "Reason?", "object")]
+    [InlineData("_ = \"a\" + {|#0:plain|};", "plain", "Plain", "object")]
+    [InlineData("text += {|#0:reason|};", "reason", "Reason", "object")]
+    public async Task String_concatenation_of_an_enum_or_a_struct_without_its_own_ToString_is_an_error(string statement, string operand, string type, string target)
+    {
+        string source = Usings + $$"""
+            internal static class Code
+            {
+                public static void Run(Reason reason, Reason? maybeReason, Plain plain, string text)
+                {
+                    {{statement}}
+                }
             }
             """ + UnionShim;
 
