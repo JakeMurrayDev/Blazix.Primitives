@@ -100,8 +100,10 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
 ```
 
 What the base provides: `AdditionalAttributes` (the bag), `ChildContent`, `Render`, `RenderFunction`, `ClassValue`,
-`StyleValue`, `Enabled`, `Element`, `GeneratedId`, `Id`, `CreateHandler`, `SubscribeSelectors` (the store seam of
-ADR 05 §1), `IHandleEvent` and `IDisposable`. What a part supplies: `DefaultTagName`, `State`, optionally
+`StyleValue`, `Enabled`, `Element`, `GeneratedId`, `Id`, `CreateHandler`, `SubscribeSelectors` (called once
+before the first render; a part that reads a store overrides it, calls `SubscribeTo(store)` once and adds its
+selections with `Select(selector)` / `Select(selector, arg)`; the part then re-renders only when a selection changed, and
+the subscription is disposed with the part, ADR 05 §1), `IHandleEvent` and `IDisposable`. What a part supplies: `DefaultTagName`, `State`, optionally
 `StateAttributesMapping`, `UsesGeneratedId` and `AddPartAttributes`. Internal elements (hidden inputs, indicators)
 are rendered inline by the part inside `ChildContent` or through `AddPartAttributes`, never as a nested library
 component (ADR 16 rule 10).

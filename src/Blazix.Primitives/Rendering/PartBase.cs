@@ -16,6 +16,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
 {
     private readonly PartRenderState renderState;
     private string? generatedId;
+    private IDisposable? selectorSubscription;
 
     protected PartBase()
     {
@@ -155,9 +156,10 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     }
 
     /// <summary>
-    /// The seam for the store selector subscription of ADR 05 §1, wired by the store track: called once from
-    /// <see cref="OnInitialized"/>; a subscribing part calls <see cref="ComponentBase.StateHasChanged"/> from its
-    /// subscription when a selection changed and releases it in <see cref="Dispose(bool)"/>.
+    /// Called once from <see cref="OnInitialized"/>, before the first render; does nothing by default. A part that reads a
+    /// store overrides it, calls <see cref="SubscribeTo{TStoreState}"/> once and adds its selections to the returned
+    /// subscription, which then re-renders the part only when a selection changed and is disposed with the part
+    /// (ADR 05 §1).
     /// </summary>
     protected virtual void SubscribeSelectors()
     {
@@ -174,7 +176,16 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     protected SelectorSubscription<TStoreState> SubscribeTo<TStoreState>(Store<TStoreState> store)
         where TStoreState : class, IStoreState<TStoreState>
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(store);
+        if (selectorSubscription is not null)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} already subscribed to a store. A part has one store subscription (ADR 05 §1): add every selection to the subscription SubscribeTo returned.");
+        }
+
+        SelectorSubscription<TStoreState> subscription = new(store, StateHasChanged);
+        selectorSubscription = subscription;
+        return subscription;
     }
 
     /// <summary>
@@ -203,6 +214,8 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     {
         if (disposing)
         {
+            selectorSubscription?.Dispose();
+            selectorSubscription = null;
             renderState.Dispose();
         }
     }
