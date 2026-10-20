@@ -4,6 +4,7 @@ name: nightly
 # the flake hunt. The gate runs with retries 0 and --fail-on-flaky-tests; here a test that fails once in three runs is a
 # failure, and the summary lists the failures, the flaky count (a guard: it stays 0) and the quarantine count.
 on:
+  pull_request:
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:

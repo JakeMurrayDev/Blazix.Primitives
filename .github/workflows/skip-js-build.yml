@@ -4,6 +4,7 @@ name: skip-js-build
 # Node when BlazixSkipJsBuild=true and the JavaScript outputs come prebuilt. The outputs are the js-outputs artifact of
 # the latest successful ci run on main (the pack job uploads them). Run it before every tagged release.
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       run-id:
@@ -20,7 +21,20 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
 jobs:
+  produce-js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: dotnet build src/Blazix.Primitives -c Release
+      - uses: actions/upload-artifact@v6
+        with:
+          name: js-outputs
+          path: src/Blazix.Primitives/wwwroot
+
   build-without-node:
+    needs: produce-js
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -38,17 +52,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - name: Find the prebuilt JavaScript
         id: run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          INPUT_RUN_ID: ${{ inputs.run-id }}
-        run: |
-          run_id="$INPUT_RUN_ID"
-          if [ -z "$run_id" ]; then
-            run_id=$(gh run list --workflow ci.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-          fi
-          test -n "$run_id" || { echo "no successful ci run on main to take the JavaScript from"; exit 1; }
-          echo "id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "Using the js-outputs artifact of ci run $run_id" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v7
         with:
           name: js-outputs
