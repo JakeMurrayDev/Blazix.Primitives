@@ -16,6 +16,14 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- The Base UI release this package ports (ADR 10 §2); a re-pin (ADR 15) edits this value. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BaseUIVersion</_Parameter1>
+      <_Parameter2>v1.9.0</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <!-- The licence and the third-party notices travel inside the package (ADR 07 decision 4). -->
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" Visible="false" />
