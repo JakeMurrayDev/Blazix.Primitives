@@ -229,11 +229,15 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
     /// <remarks>The enumerator is a struct, so iterating allocates nothing.</remarks>
     public Enumerator GetEnumerator() => new(this);
 
+    // BLZX2005: the interface contract returns the enumerator as an interface, which boxes the struct; `foreach` over an
+    // AttributeList binds to the struct GetEnumerator above and allocates nothing.
+#pragma warning disable BLZX2005
     /// <inheritdoc />
     IEnumerator<AttributeEntry> IEnumerable<AttributeEntry>.GetEnumerator() => GetEnumerator();
 
     /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+#pragma warning restore BLZX2005
 
     private void RemoveAt(int index)
     {
@@ -262,18 +266,21 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         /// <inheritdoc />
         public readonly AttributeEntry Current => list.entries[index];
 
+        // BLZX2005: the non-generic interface returns the entry as object; the typed Current above does not box.
+#pragma warning disable BLZX2005
         /// <inheritdoc />
         readonly object IEnumerator.Current => Current;
+#pragma warning restore BLZX2005
+
+        /// <inheritdoc />
+        public readonly void Dispose()
+        {
+        }
 
         /// <inheritdoc />
         public bool MoveNext() => ++index < list.count;
 
         /// <inheritdoc />
         public void Reset() => index = -1;
-
-        /// <inheritdoc />
-        public readonly void Dispose()
-        {
-        }
     }
 }

@@ -36,6 +36,14 @@ public sealed class SelectorSubscription<TState> : IDisposable
         subscription = store.Subscribe(OnStoreChanged);
     }
 
+    /// <inheritdoc />
+    /// <remarks>Unsubscribes from the store; the selections keep their last values. Calling it again does nothing.</remarks>
+    public void Dispose()
+    {
+        subscription?.Dispose();
+        subscription = null;
+    }
+
     /// <summary>
     /// Adds a selection that holds the result of <paramref name="selector"/> for the latest record.
     /// </summary>
@@ -66,14 +74,6 @@ public sealed class SelectorSubscription<TState> : IDisposable
         StoreSelection<TState, TArg, TValue> selection = new(selector, arg, store);
         selections.Add(selection);
         return selection;
-    }
-
-    /// <inheritdoc />
-    /// <remarks>Unsubscribes from the store; the selections keep their last values. Calling it again does nothing.</remarks>
-    public void Dispose()
-    {
-        subscription?.Dispose();
-        subscription = null;
     }
 
     private void OnStoreChanged(TState state)

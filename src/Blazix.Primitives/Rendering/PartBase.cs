@@ -187,6 +187,28 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         });
     }
 
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>Releases the resources the part holds.</summary>
+    /// <param name="disposing">
+    /// <see langword="true"/> to release the store subscription and the render state; <see langword="false"/> to release
+    /// nothing.
+    /// </param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            selectorSubscription?.Dispose();
+            selectorSubscription = null;
+            renderState.Dispose();
+        }
+    }
+
     // ADR 16 rule 8
     /// <inheritdoc />
     /// <remarks>The part re-renders only when it calls <see cref="ComponentBase.StateHasChanged"/> itself, so a canceled request or a handler on a disabled part renders nothing; an exception, synchronous or from the returned task, routes through <see cref="ComponentBase.DispatchExceptionAsync"/> so error boundaries keep working.</remarks>
@@ -207,13 +229,6 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
 
     /// <inheritdoc />
     void IPartHost.SetElement(ElementReference? element) => Element = element;
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
 
     /// <summary>Adds the part-supplied attributes of this render.</summary>
     /// <param name="attributes">The list to add to. The generated id is added to it before this method is called.</param>
@@ -309,21 +324,6 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
             handler(args);
             return Task.CompletedTask;
         });
-    }
-
-    /// <summary>Releases the resources the part holds.</summary>
-    /// <param name="disposing">
-    /// <see langword="true"/> to release the store subscription and the render state; <see langword="false"/> to release
-    /// nothing.
-    /// </param>
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            selectorSubscription?.Dispose();
-            selectorSubscription = null;
-            renderState.Dispose();
-        }
     }
 
     private async Task AwaitAndDispatchAsync(Task task)

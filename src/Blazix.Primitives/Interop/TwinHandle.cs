@@ -38,32 +38,6 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     /// <value><see langword="true"/> once disposed; otherwise <see langword="false"/>.</value>
     public bool IsDisposed => disposed;
 
-    /// <summary>Sends new options to the module's <c>update</c>. A no-op once disposed or once the circuit is gone.</summary>
-    /// <param name="options">The options record to serialize and send.</param>
-    /// <returns>A task that completes when the module has applied the options.</returns>
-    public async ValueTask UpdateAsync(TOptions options)
-    {
-        if (disposed)
-        {
-            return;
-        }
-
-        IJSObjectReference? handle = await reference.ConfigureAwait(false);
-        if (handle is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await handle.InvokeVoidAsync("update", JsonSerializer.Serialize(options, optionsTypeInfo)).ConfigureAwait(false);
-        }
-        catch (JSDisconnectedException)
-        {
-            // The circuit is gone; the browser has already discarded the module and its handles.
-        }
-    }
-
     /// <inheritdoc />
     /// <remarks>Calls the module's <c>dispose</c> and releases the JavaScript reference. Idempotent: a second call does nothing.</remarks>
     public async ValueTask DisposeAsync()
@@ -86,6 +60,32 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
         {
             await handle.InvokeVoidAsync("dispose").ConfigureAwait(false);
             await handle.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone; the browser has already discarded the module and its handles.
+        }
+    }
+
+    /// <summary>Sends new options to the module's <c>update</c>. A no-op once disposed or once the circuit is gone.</summary>
+    /// <param name="options">The options record to serialize and send.</param>
+    /// <returns>A task that completes when the module has applied the options.</returns>
+    public async ValueTask UpdateAsync(TOptions options)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        IJSObjectReference? handle = await reference.ConfigureAwait(false);
+        if (handle is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await handle.InvokeVoidAsync("update", JsonSerializer.Serialize(options, optionsTypeInfo)).ConfigureAwait(false);
         }
         catch (JSDisconnectedException)
         {

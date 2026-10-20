@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Library-internal convention analyzers: member order, field prefix, boxing, fixed cascades, constant sequence numbers (ADR 08 §5, ADR 16).
-       Referenced by the library as an analyzer only and never packed (ADR 09 §1). -->
+  <!-- Library-internal convention analyzers: fixed cascades, constant sequence numbers, member order, field prefix, boxing,
+       nullable union parameters, <inheritdoc /> (ADR 05 §4, ADR 08 §5, ADR 16). Referenced by the library and the generator
+       as an analyzer only and never packed (ADR 09 §1). -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>latest</LangVersion>

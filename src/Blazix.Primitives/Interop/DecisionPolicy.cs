@@ -35,7 +35,8 @@ internal static class DecisionPolicyLiterals
             DecisionPolicy.Stop => "stop",
             DecisionPolicy.Start => "start",
             DecisionPolicy.PreventAndStop => "prevent-and-stop",
-            _ => throw new ArgumentOutOfRangeException(nameof(policy), policy, null),
+            // The value is formatted as an integer: passing the enum as the actual value would box it.
+            _ => throw new ArgumentOutOfRangeException(nameof(policy), $"Blazix: `{(int)policy}` is not a member of `DecisionPolicy`."),
         };
     }
 }

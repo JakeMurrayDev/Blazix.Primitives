@@ -204,7 +204,11 @@ internal static class RenderPipeline
                 else if (MergeProps.IsHandler(entry.Name, entry.Value))
                 {
                     HandlerSlot slot = state.GetOrAddSlot(MergeProps.HandlerName(entry.Name));
+                    // BLZX2005: Blazor's EventCallback has no typed equality, only Equals(object), so this comparison boxes the
+                    // slot's callback once per part handler per render; issue 57 removes it.
+#pragma warning disable BLZX2005
                     if (!(entry.Value.TryGetValue(out EventCallback callback) && callback.Equals(slot.Typed)))
+#pragma warning restore BLZX2005
                     {
                         slot.Part = entry.Value;
                     }

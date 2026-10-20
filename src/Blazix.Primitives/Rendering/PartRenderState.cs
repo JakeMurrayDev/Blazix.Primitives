@@ -27,6 +27,10 @@ internal sealed class PartRenderState : IDisposable
     private readonly IPartHost host;
     private RenderTreeBuilder? scratch;
 
+    public ClassMemo ClassMemo;
+
+    public StyleMemo StyleMemo;
+
     public PartRenderState(IPartHost host)
     {
         this.host = host;
@@ -43,11 +47,14 @@ internal sealed class PartRenderState : IDisposable
 
     public Action<ElementReference> CaptureAction { get; }
 
-    public ClassMemo ClassMemo;
-
-    public StyleMemo StyleMemo;
-
     public RenderTreeBuilder Scratch => scratch ??= new RenderTreeBuilder();
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        scratch?.Dispose();
+        scratch = null;
+    }
 
     public HandlerSlot GetOrAddSlot(string name)
     {
@@ -109,13 +116,6 @@ internal sealed class PartRenderState : IDisposable
 
         return slot.Outer;
     }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        scratch?.Dispose();
-        scratch = null;
-    }
 }
 
 /// <summary>
@@ -123,8 +123,6 @@ internal sealed class PartRenderState : IDisposable
 /// </summary>
 internal sealed class HandlerSlot(string name)
 {
-    public string Name { get; } = name;
-
     public AttributeValue Substitute;
 
     public AttributeValue Consumer;
@@ -136,6 +134,8 @@ internal sealed class HandlerSlot(string name)
 
     /// <summary>Holds the generic chain callback, made on first need.</summary>
     public EventCallback Outer;
+
+    public string Name { get; } = name;
 
     public void Reset()
     {

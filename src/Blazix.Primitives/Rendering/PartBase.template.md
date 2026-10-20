@@ -3,7 +3,10 @@
 The shape every library part takes (ADR 02 decision 4, ADR 08 §5, ADR 16). Members follow the eleven-group order:
 constants, fields, private properties, parameter properties, public properties, internal properties, lifecycle
 methods, dispose, public methods, internal methods, private methods. Private instance fields carry no prefix,
-private static fields are `s_camelCase`, constants are PascalCase.
+private static fields are `s_camelCase`, constants are PascalCase. The build checks the order (BLZX2003, with the
+placements of `src/Blazix.Primitives.Analyzers/CONTEXT.md`: constructors after the fields, protected members with the
+public ones, `BuildRenderTree` with the lifecycle methods, nested types last) and the `/// <inheritdoc />` on every
+override (BLZX2007).
 
 ```csharp
 using Blazix.Primitives.Rendering;
@@ -12,11 +15,16 @@ using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives;
 
-/// <summary>The state record (ADR 08 §3): sealed, partial, [PartState]; the generator projects it to data-* attributes.</summary>
+// ADR 08 §3: the state record is sealed, partial and [PartState]; the generator projects it to data-* attributes.
+/// <summary>Represents the state of a switch root, which the part exposes as data attributes.</summary>
+/// <param name="Checked">A value indicating whether the switch is on.</param>
+/// <param name="Disabled">A value indicating whether the switch ignores user interaction.</param>
+/// <param name="AnchorHidden">A value indicating whether the anchor is hidden; JavaScript writes its attribute, so the projection skips it.</param>
 [PartState]
 public sealed partial record SwitchRootState(bool Checked, bool Disabled, [property: MirroredField] bool AnchorHidden);
 
-/// <summary>Switch.Root (docs/components/switch.md).</summary>
+// Base UI's Switch.Root; the contract is docs/components/switch.md.
+/// <summary>Represents a control that turns a setting on or off: Base UI's <c>Switch.Root</c>, rendered as a <c>button</c>.</summary>
 public sealed class SwitchRoot : PartBase<SwitchRootState>
 {
     // 1. constants
@@ -27,6 +35,8 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     private SwitchRootState? state;
     private bool isChecked;
 
+    // constructors follow the fields
+    /// <summary>Initializes a new instance of the <see cref="SwitchRoot"/> class.</summary>
     public SwitchRoot()
     {
         onClick = CreateHandler<MouseEventArgs>("onclick", HandleClickAsync);
@@ -41,44 +51,50 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     [Parameter]
     public bool Disabled { get; set; }
 
-    // 5. public properties
+    // 5. public properties (protected members order as public: the base's hooks the part fills in)
     public bool Checked => isChecked;
+
+    /// <inheritdoc />
+    protected override string DefaultTagName => DefaultTag;
+
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => true;
+
+    /// <inheritdoc />
+    protected override SwitchRootState State => state ??= new SwitchRootState(isChecked, Disabled, AnchorHidden: false);
 
     // 6. internal properties
 
     // 7. lifecycle methods: the base draws the generated id and calls SubscribeSelectors from OnInitialized
-    protected override string DefaultTagName => DefaultTag;
-
-    protected override bool UsesGeneratedId => true;
-
-    protected override SwitchRootState State => state ??= new SwitchRootState(isChecked, Disabled, AnchorHidden: false);
-
+    /// <inheritdoc />
     protected override void OnInitialized()
     {
         isChecked = DefaultChecked;
         base.OnInitialized();
     }
 
+    /// <inheritdoc />
     protected override void OnParametersSet()
     {
         state = null;
     }
 
-    /// <summary>Part-supplied attributes (RND §2.1 row 2): role, ARIA, the handlers. The generated id is already added.</summary>
+    // 8. dispose (release twins and subscriptions here; call base)
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+    }
+
+    // 9. public methods (protected ones too)
+    // Part-supplied attributes (RND §2.1 row 2): role, ARIA, the handlers. The generated id is already added.
+    /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
         attributes.Set("role", "switch");
         attributes.Set("aria-checked", isChecked ? "true" : "false");
         attributes.Set("onclick", onClick);
     }
-
-    // 8. dispose (release twins and subscriptions here; call base)
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-    }
-
-    // 9. public methods
 
     // 10. internal methods
 

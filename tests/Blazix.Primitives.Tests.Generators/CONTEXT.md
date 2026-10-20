@@ -6,11 +6,11 @@ Tests for the generator and the analyzers, on the Roslyn testing SDK.
 
 - `../../src/Blazix.Primitives.Generators` and `../../src/Blazix.Primitives.Analyzers` (project references).
 - `Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing` and `...Analyzer.Testing`, pinned in `Directory.Packages.props` with the compiler packages they must match.
-- Decision records 05, 08 §5 and 16 rules 3 and 9 for the behaviour under test.
+- Decision records 05 §4, 08 §5 (with their Amendments 2026-10-20) and 16 rules 3 and 9 and §C for the behaviour under test; `src/Blazix.Primitives.Analyzers/CONTEXT.md` for the analyzers' placements and allow-list.
 
 ## Job
 
-Runs each generator and analyzer against source text and compares the diagnostics and the generated output with the expected ones: `CSharpSourceGeneratorTest` for the generator, `CSharpAnalyzerTest` for the analyzers. A violation test and a compliant test per rule. The reference assemblies come from the testing SDK, which downloads them on first use.
+Runs each generator and analyzer against source text and compares the diagnostics and the generated output with the expected ones: `CSharpSourceGeneratorTest` for the generator, `CSharpAnalyzerTest` for the analyzers. A violation test per case, a compliant test and a suppression test per rule. The reference assemblies come from the testing SDK, which downloads them on first use: .NET 10 with `Microsoft.AspNetCore.Components` (and `Microsoft.JSInterop`) 10.0, the newest it resolves. Two consequences for the analyzer tests: the union tests declare `System.Runtime.CompilerServices.UnionAttribute` and `IUnion` in their source (they ship with .NET 11) and set the language version to preview for a declared `union`; the `<inheritdoc />` tests pin the documentation mode to `Diagnose`, as the library builds.
 
 ## Outputs
 

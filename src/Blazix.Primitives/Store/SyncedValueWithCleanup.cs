@@ -29,6 +29,14 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
         this.field = field;
     }
 
+    /// <inheritdoc />
+    /// <remarks>Sets the member to <see langword="default"/> in the last store passed to <see cref="Sync"/>, then forgets that store, so a second call does nothing.</remarks>
+    public void Dispose()
+    {
+        store?.Set(field, default);
+        store = null;
+    }
+
     /// <summary>
     /// Copies <paramref name="value"/> into the member of <paramref name="store"/>'s record.
     /// </summary>
@@ -57,13 +65,5 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
         this.store = store;
         this.value = value;
         store.SyncValue(field, value);
-    }
-
-    /// <inheritdoc />
-    /// <remarks>Sets the member to <see langword="default"/> in the last store passed to <see cref="Sync"/>, then forgets that store, so a second call does nothing.</remarks>
-    public void Dispose()
-    {
-        store?.Set(field, default);
-        store = null;
     }
 }
