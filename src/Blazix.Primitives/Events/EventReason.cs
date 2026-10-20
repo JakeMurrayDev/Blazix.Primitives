@@ -173,7 +173,8 @@ public static class EventReasonExtensions
             EventReason.ImperativeAction => "imperative-action",
             EventReason.Swipe => "swipe",
             EventReason.WindowResize => "window-resize",
-            _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null),
+            // The value is formatted as an integer: passing the enum as the actual value would box it.
+            _ => throw new ArgumentOutOfRangeException(nameof(reason), $"Blazix: `{(int)reason}` is not a member of `EventReason`."),
         };
     }
 }

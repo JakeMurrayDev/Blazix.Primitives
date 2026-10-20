@@ -139,7 +139,8 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         return JsonSerializer.Deserialize(json, typeInfo) ?? throw new JsonException($"The payload '{typeof(TPayload).Name}' deserialised to null.");
     }
 
-    private async ValueTask<TwinHandle<TOptions>> AttachAsync(string key, object elementOrId, TOptions options)
+    // Generic over the target so an ElementReference reaches the interop argument array unboxed until that call.
+    private async ValueTask<TwinHandle<TOptions>> AttachAsync<TTarget>(string key, TTarget elementOrId, TOptions options)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -167,7 +168,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     // A JSDisconnectedException means the Server circuit is gone and the part is being torn down: the attach yields
     // a handle that is already a no-op rather than an exception in OnAfterRenderAsync (null = disconnected).
-    private async Task<IJSObjectReference?> AttachCoreAsync(object elementOrId, TOptions options)
+    private async Task<IJSObjectReference?> AttachCoreAsync<TTarget>(TTarget elementOrId, TOptions options)
     {
         IJSObjectReference? imported = await ImportAsync().ConfigureAwait(false);
         if (imported is null)
