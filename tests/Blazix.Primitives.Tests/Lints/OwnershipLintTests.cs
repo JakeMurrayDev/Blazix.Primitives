@@ -233,8 +233,9 @@ public sealed class OwnershipLintTests
             family => Directory.Exists(Path.Combine(src, string.Concat(family.Split('-').Select(word => char.ToUpperInvariant(word[0]) + word[1..])))),
             OwnershipLint.MirroredFields(typeof(PartStateAttribute).Assembly));
 
-        TestContext.Current.SendDiagnosticMessage(
-            $"ownership lint: {report.Checked.Count} of {documents.Count} families have a folder and were checked ({report.JsRows} JS-owned rows); {report.Skipped.Count} skipped: no folder under src/Blazix.Primitives/ yet");
+        string summary =
+            $"ownership lint: {report.Checked.Count} of {documents.Count} families have a folder and were checked ({report.JsRows} JS-owned rows); {report.Skipped.Count} skipped: no folder under src/Blazix.Primitives/ yet";
+        TestContext.Current.TestOutputHelper?.WriteLine(summary);
         Assert.Empty(report.Violations);
         Assert.Equal(documents.Count, report.Checked.Count + report.Skipped.Count);
     }
