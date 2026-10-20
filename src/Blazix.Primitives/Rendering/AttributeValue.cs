@@ -80,7 +80,9 @@ public readonly struct AttributeValue : IUnion
     /// <value><see langword="true"/> if the value is a callback or a delegate; otherwise, <see langword="false"/>.</value>
     public bool IsHandler => kind is AttributeValueKind.Callback or AttributeValueKind.Delegate;
 
-    // ADR 05 §4
+    // ADR 05 §4. BLZX2005: IUnion requires an object-typed Value, so reading it boxes the Boolean and callback cases;
+    // the library reads the cases through TryGetValue and Kind instead.
+#pragma warning disable BLZX2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes the Boolean and callback cases.</remarks>
     public object? Value => kind switch
@@ -91,6 +93,7 @@ public readonly struct AttributeValue : IUnion
         AttributeValueKind.Delegate => reference,
         _ => null,
     };
+#pragma warning restore BLZX2005
 
     /// <summary>Converts a string to an <see cref="AttributeValue"/> that holds it.</summary>
     /// <param name="value">The string value.</param>
