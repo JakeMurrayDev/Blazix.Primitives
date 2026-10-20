@@ -11,3 +11,4 @@ BLZX2003 | Blazix.Primitives | Error | MemberOrderAnalyzer, ADR 08 §5
 BLZX2004 | Blazix.Primitives | Error | FieldPrefixAnalyzer, ADR 08 §5
 BLZX2005 | Blazix.Primitives | Error | BoxingAnalyzer, ADR 05 §4, ADR 16 §C
 BLZX2006 | Blazix.Primitives | Error | NullableUnionParameterAnalyzer, ADR 05 and ADR 08 Amendments 2026-10-20
+BLZX2007 | Blazix.Primitives | Error | InheritDocAnalyzer, ADR 08 Amendments 2026-10-20
