@@ -62,6 +62,53 @@ describe('listing tests', () => {
   });
 });
 
+describe('Playwright output lists a test once per project', () => {
+  const project = (projectName, status) => ({ projectName, results: [{ status }], status: 'skipped' });
+
+  it('names each test once, however many projects it runs in', () => {
+    const output = JSON.stringify({
+      suites: [
+        {
+          title: 'trial.spec.ts',
+          file: 'trial.spec.ts',
+          specs: [],
+          suites: [
+            {
+              title: 'trial',
+              specs: [
+                { title: 'moves', tests: [project('server', 'passed')] },
+                { title: 'moves', tests: [project('wasm', 'passed')] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(parsePlaywrightList(output)).toEqual(['tests/browser/trial.spec.ts::trial > moves']);
+  });
+
+  it('counts a test as passed when it passed in either project, even if it failed in the other', () => {
+    const output = JSON.stringify({
+      suites: [
+        {
+          file: 'trial.spec.ts',
+          specs: [
+            { title: 'moves', tests: [project('server', 'failed')] },
+            { title: 'moves', tests: [project('wasm', 'passed')] },
+            { title: 'broken', tests: [project('server', 'failed')] },
+            { title: 'broken', tests: [project('wasm', 'skipped')] },
+          ],
+          suites: [],
+        },
+      ],
+    });
+    expect(Object.fromEntries(playwrightOutcomes(output))).toEqual({
+      'tests/browser/trial.spec.ts::moves': 'passed',
+      'tests/browser/trial.spec.ts::broken': 'failed',
+    });
+  });
+});
+
 describe('added names', () => {
   it('are the names on the head that the base does not have', () => {
     expect(addedNames(['a', 'b'], ['a', 'b', 'c', 'd'])).toEqual(['c', 'd']);
