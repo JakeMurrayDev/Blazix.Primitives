@@ -14,7 +14,7 @@
 
 <SampleRoot data-testid="callback" class="c" DefaultOpen="true">
     <RenderFunction Context="props">
-        <section @attributes="props.Attributes" data-state-open="@(props.State.Open ? "yes" : "no")">
+        <section @attributes="props.Attributes" data-state-open="@(props.State!.Open ? "yes" : "no")">
             @props.ChildContent
         </section>
     </RenderFunction>

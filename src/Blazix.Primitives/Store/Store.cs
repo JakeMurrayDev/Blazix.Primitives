@@ -5,7 +5,7 @@ namespace Blazix.Primitives.Store;
 /// Represents an observable state container (Base UI's <c>Store</c>): one immutable record and an ordered set of listeners
 /// that are notified synchronously after every write.
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <remarks>
 /// <para>
 /// Every write replaces the record, which is readable synchronously through <see cref="State"/>. Listeners run in
@@ -15,8 +15,8 @@ namespace Blazix.Primitives.Store;
 /// </para>
 /// <para>
 /// A store does not marshal between threads: write to it on the renderer's synchronization context (part handlers,
-/// lifecycle methods, interop callbacks), so that listeners which render run there too. A timer callback goes through
-/// <c>InvokeAsync</c> first.
+/// lifecycle methods, interop callbacks), so that listeners that render run there too. A timer callback goes through
+/// <see cref="Microsoft.AspNetCore.Components.ComponentBase.InvokeAsync(System.Action)"/> first.
 /// </para>
 /// </remarks>
 public class Store<TState>
@@ -212,7 +212,7 @@ public class Store<TState>
     /// <returns>An object whose <see cref="IDisposable.Dispose"/> stops the observation.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="selector"/> or <paramref name="listener"/> is <see langword="null"/>.</exception>
     /// <remarks>
-    /// <paramref name="listener"/> runs once at once with <c>(current, current, store)</c>, then after every notification whose
+    /// <paramref name="listener"/> runs immediately with <c>(current, current, store)</c>, then after every notification whose
     /// selection differs from the previous one by <see cref="Equality.Is{T}(T, T)"/>, with <c>(new, previous, store)</c>.
     /// </remarks>
     public IDisposable Observe<TValue>(Func<TState, TValue> selector, Action<TValue, TValue, Store<TState>> listener)

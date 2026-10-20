@@ -29,68 +29,68 @@ public sealed record EventSnapshot
 {
     // EVD-API-04
     /// <summary>
-    /// The <see cref="Type"/> of the placeholder snapshot, <c>base-ui</c>.
+    /// Represents the <see cref="Type"/> of the placeholder snapshot, <c>base-ui</c>.
     /// </summary>
     public const string PlaceholderType = "base-ui";
 
     /// <summary>
-    /// Gets the most derived DOM interface of the native event.
+    /// Gets or sets the most derived DOM interface of the native event.
     /// </summary>
     /// <value>The event's interface; <see cref="EventKind.Event"/> for the placeholder.</value>
     [JsonPropertyName("kind")]
     public EventKind Kind { get; init; }
 
     /// <summary>
-    /// Gets the type of the native event, <c>event.type</c>.
+    /// Gets or sets the type of the native event, <c>event.type</c>.
     /// </summary>
     /// <value>The event type, such as <c>click</c>; <c>base-ui</c> for the placeholder. The default is the empty string.</value>
     [JsonPropertyName("type")]
     public string Type { get; init; } = "";
 
     /// <summary>
-    /// Gets the key value of a keyboard event, <c>KeyboardEvent.key</c>.
+    /// Gets or sets the key value of a keyboard event, <c>KeyboardEvent.key</c>.
     /// </summary>
     /// <value>The key value, or <see langword="null"/> on non-keyboard events.</value>
     [JsonPropertyName("key")]
     public string? Key { get; init; }
 
     /// <summary>
-    /// Gets the physical key code of a keyboard event, <c>KeyboardEvent.code</c>.
+    /// Gets or sets the physical key code of a keyboard event, <c>KeyboardEvent.code</c>.
     /// </summary>
     /// <value>The key code, or <see langword="null"/> on non-keyboard events.</value>
     [JsonPropertyName("code")]
     public string? Code { get; init; }
 
     /// <summary>
-    /// Gets a value that indicates whether the Alt key was down.
+    /// Gets or sets a value indicating whether the Alt key was down.
     /// </summary>
     /// <value><see langword="true"/> if the Alt modifier was active; otherwise, <see langword="false"/>.</value>
     [JsonPropertyName("altKey")]
     public bool AltKey { get; init; }
 
     /// <summary>
-    /// Gets a value that indicates whether the Control key was down.
+    /// Gets or sets a value indicating whether the Control key was down.
     /// </summary>
     /// <value><see langword="true"/> if the Control modifier was active; otherwise, <see langword="false"/>.</value>
     [JsonPropertyName("ctrlKey")]
     public bool CtrlKey { get; init; }
 
     /// <summary>
-    /// Gets a value that indicates whether the Meta key was down.
+    /// Gets or sets a value indicating whether the Meta key was down.
     /// </summary>
     /// <value><see langword="true"/> if the Meta modifier was active; otherwise, <see langword="false"/>.</value>
     [JsonPropertyName("metaKey")]
     public bool MetaKey { get; init; }
 
     /// <summary>
-    /// Gets a value that indicates whether the Shift key was down.
+    /// Gets or sets a value indicating whether the Shift key was down.
     /// </summary>
     /// <value><see langword="true"/> if the Shift modifier was active; otherwise, <see langword="false"/>.</value>
     [JsonPropertyName("shiftKey")]
     public bool ShiftKey { get; init; }
 
     /// <summary>
-    /// Gets the kind of pointer, <c>PointerEvent.pointerType</c>.
+    /// Gets or sets the kind of pointer, <c>PointerEvent.pointerType</c>.
     /// </summary>
     /// <value><c>mouse</c>, <c>touch</c> or <c>pen</c>, or <see langword="null"/> on non-pointer events.</value>
     [JsonPropertyName("pointerType")]
@@ -98,35 +98,35 @@ public sealed record EventSnapshot
 
     // EVD-EVT-27
     /// <summary>
-    /// Gets the event detail, <c>UIEvent.detail</c>.
+    /// Gets or sets the event detail, <c>UIEvent.detail</c>.
     /// </summary>
     /// <value>The click count for a click; 0 for a keyboard-generated click.</value>
     [JsonPropertyName("detail")]
     public int Detail { get; init; }
 
     /// <summary>
-    /// Gets the mouse buttons that were down, <c>MouseEvent.buttons</c>.
+    /// Gets or sets the mouse buttons that were down, <c>MouseEvent.buttons</c>.
     /// </summary>
     /// <value>A bit mask of the pressed buttons.</value>
     [JsonPropertyName("buttons")]
     public int Buttons { get; init; }
 
     /// <summary>
-    /// Gets the event target.
+    /// Gets or sets the event target.
     /// </summary>
     /// <value>The target's id and tag name, or <see langword="null"/> when the event had no element target.</value>
     [JsonPropertyName("target")]
     public EventTargetInfo? Target { get; init; }
 
     /// <summary>
-    /// Gets a value that indicates whether the native event's default action had been prevented when the snapshot was taken.
+    /// Gets or sets a value indicating whether the native event's default action had been prevented when the snapshot was taken.
     /// </summary>
     /// <value><see langword="true"/> if <c>event.defaultPrevented</c> was set; otherwise, <see langword="false"/>.</value>
     [JsonPropertyName("defaultPrevented")]
     public bool DefaultPrevented { get; init; }
 
     /// <summary>
-    /// Gets the time at which the native event was created, <c>event.timeStamp</c>.
+    /// Gets or sets the time at which the native event was created, <c>event.timeStamp</c>.
     /// </summary>
     /// <value>The time stamp in milliseconds.</value>
     [JsonPropertyName("timeStamp")]
@@ -167,14 +167,14 @@ public sealed record EventSnapshot
 public sealed record EventTargetInfo
 {
     /// <summary>
-    /// Gets the target element's <c>id</c>.
+    /// Gets or sets the target element's <c>id</c>.
     /// </summary>
     /// <value>The id, or <see langword="null"/> when the element has none.</value>
     [JsonPropertyName("id")]
     public string? Id { get; init; }
 
     /// <summary>
-    /// Gets the target element's tag name as the DOM reports it.
+    /// Gets or sets the target element's tag name as the DOM reports it.
     /// </summary>
     /// <value>The tag name, upper case for HTML elements, or <see langword="null"/>.</value>
     [JsonPropertyName("tagName")]

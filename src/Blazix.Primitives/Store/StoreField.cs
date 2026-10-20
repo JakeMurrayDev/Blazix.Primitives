@@ -5,7 +5,7 @@ namespace Blazix.Primitives.Store;
 /// Represents a typed key of one member of a state record: how to read the member and how to copy the record with the
 /// member replaced.
 /// </summary>
-/// <typeparam name="TState">The state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <typeparam name="TValue">The type of the member.</typeparam>
 /// <remarks>
 /// <see cref="Store{TState}.Set{TValue}(StoreField{TState, TValue}, TValue)"/> and the sync methods of

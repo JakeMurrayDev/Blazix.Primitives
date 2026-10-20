@@ -4,7 +4,7 @@ namespace Blazix.Primitives.Store;
 /// <summary>
 /// Defines the two operations a store performs on its immutable state record: copying it and comparing it member by member.
 /// </summary>
-/// <typeparam name="TSelf">The state record type that implements the interface.</typeparam>
+/// <typeparam name="TSelf">The type of the state record that implements the interface.</typeparam>
 /// <remarks>
 /// A generic store cannot copy or compare a record without reflection, so the record supplies both operations.
 /// Implement them on the <c>sealed record</c>:

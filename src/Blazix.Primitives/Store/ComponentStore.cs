@@ -5,9 +5,9 @@ namespace Blazix.Primitives.Store;
 // UTL-STA-15; ADR 16 rule 9; UTL §4.2.2; ADR 05 §1; ADR 01 decision 4 (UTL-STA-19..22 met on both render modes)
 /// <summary>
 /// Represents the store a component owns (Base UI's <c>ReactStore</c>): a <see cref="Store{TState}"/> plus the methods that
-/// copy parameters into the store from <c>OnParametersSet</c>.
+/// copy parameters into the store from <see cref="Microsoft.AspNetCore.Components.ComponentBase.OnParametersSet"/>.
 /// </summary>
-/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <remarks>
 /// Parts call the sync methods before the render that carries a new parameter. The non-reactive context bag is the
 /// subclass's own typed fields and properties: element references, callbacks and timers, none of which notify. A part

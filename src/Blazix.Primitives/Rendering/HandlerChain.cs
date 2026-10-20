@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 namespace Blazix.Primitives.Rendering;
 
 // RND-ALG-04 as settled by ADR 02 decision 3
-/// <summary>Runs attribute handlers in precedence order, stopping when a handler vetoes the rest.</summary>
+/// <summary>Provides the chain that runs attribute handlers in precedence order, stopping when a handler vetoes the rest.</summary>
 /// <remarks>
 /// Each handler is invoked as Blazor's renderer would invoke it. After each one, if the argument is an
 /// <see cref="EventArgs"/> on which <see cref="EventArgsVetoExtensions.PreventPartHandler"/> was called, the rest of the
@@ -60,7 +60,7 @@ internal static class HandlerChain
     /// <summary>
     /// Runs a part's chain: the substitute's handler, then the consumer's, then the part's typed handler, stopping at a veto.
     /// </summary>
-    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <typeparam name="TArgs">The type of the event arguments.</typeparam>
     /// <param name="args">The event argument passed to each handler.</param>
     /// <param name="substitute">The substitute element's handler, or a value that is not a handler.</param>
     /// <param name="consumer">The consumer's handler, or a value that is not a handler.</param>

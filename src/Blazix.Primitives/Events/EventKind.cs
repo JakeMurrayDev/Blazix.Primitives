@@ -14,33 +14,33 @@ namespace Blazix.Primitives;
 [JsonConverter(typeof(JsonStringEnumConverter<EventKind>))]
 public enum EventKind
 {
-    /// <summary>An event with no more specific interface, including the <c>base-ui</c> placeholder (<c>Event</c>).</summary>
+    /// <summary>The event has no more specific interface; this includes the <c>base-ui</c> placeholder (<c>Event</c>).</summary>
     Event,
 
-    /// <summary>A user-interface event such as a window resize (<c>UIEvent</c>).</summary>
+    /// <summary>The event is a user-interface event, such as a window resize (<c>UIEvent</c>).</summary>
     UIEvent,
 
-    /// <summary>A focus event (<c>FocusEvent</c>).</summary>
+    /// <summary>The event is a focus event (<c>FocusEvent</c>).</summary>
     FocusEvent,
 
-    /// <summary>A mouse event (<c>MouseEvent</c>).</summary>
+    /// <summary>The event is a mouse event (<c>MouseEvent</c>).</summary>
     MouseEvent,
 
-    /// <summary>A pointer event, which is also a mouse event (<c>PointerEvent</c>).</summary>
+    /// <summary>The event is a pointer event, which is also a mouse event (<c>PointerEvent</c>).</summary>
     PointerEvent,
 
-    /// <summary>A wheel event, which is also a mouse event (<c>WheelEvent</c>).</summary>
+    /// <summary>The event is a wheel event, which is also a mouse event (<c>WheelEvent</c>).</summary>
     WheelEvent,
 
-    /// <summary>A touch event (<c>TouchEvent</c>).</summary>
+    /// <summary>The event is a touch event (<c>TouchEvent</c>).</summary>
     TouchEvent,
 
-    /// <summary>A keyboard event (<c>KeyboardEvent</c>).</summary>
+    /// <summary>The event is a keyboard event (<c>KeyboardEvent</c>).</summary>
     KeyboardEvent,
 
-    /// <summary>An input event (<c>InputEvent</c>).</summary>
+    /// <summary>The event is an input event (<c>InputEvent</c>).</summary>
     InputEvent,
 
-    /// <summary>A clipboard event (<c>ClipboardEvent</c>).</summary>
+    /// <summary>The event is a clipboard event (<c>ClipboardEvent</c>).</summary>
     ClipboardEvent,
 }
