@@ -145,16 +145,19 @@ public sealed class StoreStateGenerator : IIncrementalGenerator
                     ISymbol member = compared[i];
                     ITypeSymbol type = MemberType(member);
                     string memberName = Identifier(member.Name);
-                    string? comparison = Comparison(type, "left." + memberName, "right." + memberName);
+                    string? comparison = Comparison(type, member.Name, "left." + memberName, "right." + memberName);
                     if (comparison is null)
                     {
                         Location location = member.Locations.Length > 0 ? member.Locations[0] : identifierLocation;
+                        ITypeSymbol structType = type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType
+                            ? nullableType.TypeArguments[0]
+                            : type;
                         diagnostics.Add(DiagnosticInfo.Create(
                             StoreStateDiagnostics.BoxedMember,
                             location,
                             member.Name,
                             name,
-                            type.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)));
+                            structType.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)));
                         comparison = Equality + ".Is(left." + memberName + ", right." + memberName + ")";
                     }
 
@@ -239,7 +242,7 @@ public sealed class StoreStateGenerator : IIncrementalGenerator
     // different from -0, strings by ordinal value, every other reference type by reference) written for the member's own
     // type, so that the comparison is neither a generic call nor an EqualityComparer<T> call, both of which box a value
     // type on the WebAssembly interpreter. Null when a struct has neither an == operator nor IEquatable<T>.
-    private static string? Comparison(ITypeSymbol type, string left, string right)
+    private static string? Comparison(ITypeSymbol type, string memberName, string left, string right)
     {
         if (type is ITypeParameterSymbol)
         {
@@ -265,48 +268,62 @@ public sealed class StoreStateGenerator : IIncrementalGenerator
         if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
         {
             ITypeSymbol underlying = nullable.TypeArguments[0];
-            string leftValue = left + ".GetValueOrDefault()";
-            string rightValue = right + ".GetValueOrDefault()";
-            string? values = SameFloatingPoint(underlying, leftValue, rightValue);
-            if (values is null)
+            if (!IsFloatingPoint(underlying) && !IsElementReference(underlying) && HasEqualityOperator(underlying))
             {
-                if (HasEqualityOperator(underlying))
-                {
-                    return left + " == " + right;
-                }
-
-                if (!IsEquatable(underlying))
-                {
-                    return null;
-                }
-
-                values = leftValue + ".Equals(" + rightValue + ")";
+                // The lifted operator: equal when both are null or both hold equal values.
+                return left + " == " + right;
             }
 
-            return "(" + left + ".HasValue ? " + right + ".HasValue && " + values + " : !" + right + ".HasValue)";
+            string suffix = char.ToUpperInvariant(memberName[0]) + memberName.Substring(1);
+            string leftValue = "left" + suffix;
+            string rightValue = "right" + suffix;
+            string? values = ValueComparison(underlying, leftValue, rightValue);
+            return values is null
+                ? null
+                : "(" + left + " is { } " + leftValue + " ? " + right + " is { } " + rightValue + " && " + values + " : " + right + " is null)";
         }
 
-        return SameFloatingPoint(type, left, right)
-            ?? (HasEqualityOperator(type) ? left + " == " + right
-            : IsEquatable(type) ? left + ".Equals(" + right + ")"
-            : null);
+        return ValueComparison(type, left, right);
     }
 
-    // Object.is on IEEE values: identical bits, or both NaN (JavaScript has one NaN, so the payload does not matter).
-    private static string? SameFloatingPoint(ITypeSymbol type, string left, string right)
+    // The comparison of two values of a non-nullable value type.
+    private static string? ValueComparison(ITypeSymbol type, string left, string right)
     {
-        (string Bits, string IsNaN)? functions = type.SpecialType switch
+        if (IsFloatingPoint(type))
+        {
+            return SameFloatingPoint(type, left, right);
+        }
+
+        if (IsElementReference(type))
+        {
+            // An element handle is identity, as Object.is on a DOM node is: the same id from the same renderer.
+            return "(string.Equals(" + left + ".Id, " + right + ".Id) && object.ReferenceEquals(" + left + ".Context, " + right + ".Context))";
+        }
+
+        if (HasEqualityOperator(type))
+        {
+            return left + " == " + right;
+        }
+
+        return IsEquatable(type) ? left + ".Equals(" + right + ")" : null;
+    }
+
+    private static bool IsFloatingPoint(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_Double or SpecialType.System_Single || type.ToDisplayString() == "System.Half";
+
+    // Blazor's ElementReference has neither == nor IEquatable<T>, and a popup store holds several.
+    private static bool IsElementReference(ITypeSymbol type) =>
+        type.ToDisplayString() == "Microsoft.AspNetCore.Components.ElementReference";
+
+    // Object.is on IEEE values: identical bits, or both NaN (JavaScript has one NaN, so the payload does not matter).
+    private static string SameFloatingPoint(ITypeSymbol type, string left, string right)
+    {
+        (string Bits, string IsNaN) f = type.SpecialType switch
         {
             SpecialType.System_Double => ("global::System.BitConverter.DoubleToInt64Bits", "double.IsNaN"),
             SpecialType.System_Single => ("global::System.BitConverter.SingleToInt32Bits", "float.IsNaN"),
-            _ when type.ToDisplayString() == "System.Half" => ("global::System.BitConverter.HalfToInt16Bits", "global::System.Half.IsNaN"),
-            _ => null,
+            _ => ("global::System.BitConverter.HalfToInt16Bits", "global::System.Half.IsNaN"),
         };
-        if (functions is not { } f)
-        {
-            return null;
-        }
-
         return "(" + f.Bits + "(" + left + ") == " + f.Bits + "(" + right + ") || (" + f.IsNaN + "(" + left + ") && " + f.IsNaN + "(" + right + ")))";
     }
 

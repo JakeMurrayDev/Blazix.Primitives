@@ -20,13 +20,16 @@ Each comparison is the store's `Equality.Is` rule (`Object.is` by the static typ
 | Member type | Comparison |
 |---|---|
 | `bool`, a number other than floating point, `char`, `decimal`, `nint`, an enum | `==`, and the lifted `==` for the nullable form |
-| `double`, `float`, `Half` | identical bits or both `NaN`, inlined (`BitConverter.DoubleToInt64Bits`, `double.IsNaN`). `==` would make `NaN` differ from itself and `0` equal `-0`. The nullable form is `HasValue` on both sides, then the same comparison of the values |
+| `double`, `float`, `Half` | identical bits or both `NaN`, inlined (`BitConverter.DoubleToInt64Bits`, `double.IsNaN`). `==` would make `NaN` differ from itself and `0` equal `-0` |
 | `string` | `string.Equals(a, b)`, ordinal |
 | any other reference type: a record, a store, a class, an interface, `object`, a delegate, an array | `object.ReferenceEquals` |
+| Blazor's `ElementReference` | `string.Equals` on `Id` and `object.ReferenceEquals` on `Context`: an element handle is identity, the same element from the same renderer, as `Object.is` on a DOM node is. `ElementReference` has neither `==` nor `IEquatable<T>`, and a popup store holds several, so it is named here rather than left to boxing |
 | a struct with an `==` operator taking two of it (`Guid`, a record struct) | `==`, lifted for the nullable form |
-| a struct with only `IEquatable<T>` (a tuple) | `a.Equals(b)`, and `HasValue` on both sides, then `Equals`, for the nullable form |
-| a struct with neither | `Equality.Is`, which boxes it, with warning BLZX1011 (`ElementReference` and `EventCallback` are such structs) |
+| a struct with only `IEquatable<T>` (a tuple, which has no `==` operator in metadata) | `a.Equals(b)` |
+| a struct with neither | `Equality.Is`, which boxes it, with warning BLZX1011 (`EventCallback` is one: it exposes nothing comparable without boxing) |
 | a type parameter | `Equality.Is`, because how it compares is known only at instantiation |
+
+The nullable form of a floating-point type, of `ElementReference` and of an `IEquatable`-only struct is `left.X is { } leftX ? right.X is { } rightX && <the comparison of leftX and rightX> : right.X is null`. Where a struct has both an `==` operator and `IEquatable<T>`, `==` is used: it is the shorter form and is lifted for nullable members.
 
 Diagnostics: BLZX1005 not a record class, BLZX1006 not sealed, BLZX1007 the record or a containing type not partial, BLZX1008 the record does not implement `IStoreState` of itself, BLZX1009 the record declares `Copy` or `ShallowEquals` itself (that member is then not generated), BLZX1010 the record derives from another record, whose members it could not compare, all errors, and BLZX1011, a warning, for a struct member compared through `Equality.Is`. After BLZX1006, BLZX1008 and BLZX1010 the members are still generated, so the record's diagnostic is the only error rather than a cascade of unimplemented-member errors.
 
