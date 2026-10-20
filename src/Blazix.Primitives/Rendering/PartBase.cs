@@ -5,13 +5,16 @@ using Microsoft.AspNetCore.Components.Rendering;
 namespace Blazix.Primitives.Rendering;
 
 // ADR 02 decision 4; glossary "Part base"; ADR 08 §5
-/// <summary>
-/// The base class of every library part: owns the state object, the unmatched
-/// attribute bag, <see cref="ClassValue"/>/<see cref="StyleValue"/>, <see cref="Render"/>/<see cref="RenderFunction"/>,
-/// <see cref="Enabled"/> and <see cref="Element"/>, and calls the static pipeline from <see cref="BuildRenderTree"/>.
-/// Member order and the contributor template: <c>Rendering/PartBase.template.md</c>.
-/// </summary>
+/// <summary>Serves as the base class of every library part.</summary>
 /// <typeparam name="TState">The part's state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
+/// <remarks>
+/// <para>
+/// A part owns the state object, the unmatched attribute bag (<see cref="AdditionalAttributes"/>),
+/// <see cref="ClassValue"/> and <see cref="StyleValue"/>, <see cref="Render"/> and <see cref="RenderFunction"/>,
+/// <see cref="Enabled"/> and <see cref="Element"/>, and calls the static render pipeline from
+/// <see cref="BuildRenderTree"/>.
+/// </para>
+/// </remarks>
 public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     where TState : class, IPartState<TState>
 {
@@ -19,6 +22,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     private string? generatedId;
     private IDisposable? selectorSubscription;
 
+    /// <summary>Initializes a new instance of the <see cref="PartBase{TState}"/> class.</summary>
     protected PartBase()
     {
         renderState = new PartRenderState(this);
@@ -28,66 +32,112 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
     // RND-API-04; the consumer-supplied attributes of RND §2.1
-    /// <summary>Every attribute the consumer passed that is not a parameter: <c>id</c>, <c>class</c>, <c>style</c>, <c>aria-*</c>, <c>data-*</c>, handlers.</summary>
+    /// <summary>Gets or sets every attribute the consumer passed that is not a parameter.</summary>
+    /// <value>
+    /// The unmatched attributes, such as <c>id</c>, <c>class</c>, <c>style</c>, <c>aria-*</c>, <c>data-*</c> and handlers;
+    /// or <see langword="null"/>.
+    /// </value>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    /// <summary>The content rendered inside the host element (Base UI's <c>children</c>).</summary>
+    /// <summary>Gets or sets the content rendered inside the host element, Base UI's <c>children</c>.</summary>
+    /// <value>The child content, or <see langword="null"/>.</value>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
     // RND-STR-03
-    /// <summary>The substitute element: a fragment whose single root element or component is re-emitted with the merged attributes.</summary>
+    /// <summary>Gets or sets the substitute element.</summary>
+    /// <value>
+    /// A fragment whose single root element or component is re-emitted with the merged attributes in place of the default
+    /// element, or <see langword="null"/>.
+    /// </value>
     [Parameter]
     public RenderFragment? Render { get; set; }
 
     // RND-STR-04
-    /// <summary>The substitute callback: receives the merged attributes, the state and the child content; nothing is merged after it. Exclusive with <see cref="Render"/>.</summary>
+    /// <summary>Gets or sets the substitute callback.</summary>
+    /// <value>
+    /// A fragment that receives the merged attributes, the state and the child content, or <see langword="null"/>.
+    /// </value>
+    /// <remarks>
+    /// Nothing is merged after the callback. This parameter is exclusive with <see cref="Render"/>; a render with both set
+    /// throws <see cref="InvalidOperationException"/>.
+    /// </remarks>
     [Parameter]
     public RenderFragment<RenderProps<TState>>? RenderFunction { get; set; }
 
     // ADR 02 decision 2, ADR 08 §2
-    /// <summary>Base UI's <c>className</c> as a function of state; the plain <c>class</c> string arrives through the bag and comes first.</summary>
+    /// <summary>Gets or sets Base UI's <c>className</c> as a function of state.</summary>
+    /// <value>A function from the state to a class string, or <see langword="null"/>.</value>
+    /// <remarks>
+    /// The plain <c>class</c> string arrives through <see cref="AdditionalAttributes"/> and comes first.
+    /// </remarks>
     [Parameter]
     public Func<TState, string?>? ClassValue { get; set; }
 
-    /// <summary>Base UI's <c>style</c> as a function of state; the plain <c>style</c> string arrives through the bag and its keys are overridden by this one's.</summary>
+    /// <summary>Gets or sets Base UI's <c>style</c> as a function of state.</summary>
+    /// <value>A function from the state to an inline style string, or <see langword="null"/>.</value>
+    /// <remarks>
+    /// The plain <c>style</c> string arrives through <see cref="AdditionalAttributes"/>, and its keys are overridden by this
+    /// function's.
+    /// </remarks>
     [Parameter]
     public Func<TState, string?>? StyleValue { get; set; }
 
     // RND-DOM-25
-    /// <summary><c>false</c> renders nothing and does no work.</summary>
+    /// <summary>Gets or sets a value indicating whether the part renders.</summary>
+    /// <value>
+    /// <see langword="true"/> to render; <see langword="false"/> renders nothing and does no work. The default is
+    /// <see langword="true"/>.
+    /// </value>
     [Parameter]
     public bool Enabled { get; set; } = true;
 
     // RND-DOM-20..24 as relaxed by ADR 02
-    /// <summary>
-    /// The host element: set after the first render of the default or substitute
-    /// element, <c>null</c> while disabled, under a substitute callback and under a substitute whose root is a component.
-    /// </summary>
+    /// <summary>Gets the host element.</summary>
+    /// <value>
+    /// The rendered element, set after the first render of the default or substitute element; <see langword="null"/>
+    /// while disabled, under a substitute callback, and under a substitute whose root is a component.
+    /// </value>
     public ElementReference? Element { get; private set; }
 
     // RND-STR-02
-    /// <summary>The tag of the default element.</summary>
+    /// <summary>Gets the tag of the default element.</summary>
+    /// <value>The tag name of the element rendered when no substitute is supplied.</value>
     protected abstract string DefaultTagName { get; }
 
     // RND §4.3
-    /// <summary>The state object of this render. Return the same instance while nothing changed.</summary>
+    /// <summary>Gets the state object of this render.</summary>
+    /// <value>The current state.</value>
+    /// <remarks>An implementation returns the same instance while nothing changed.</remarks>
     protected abstract TState State { get; }
 
     // RND-DOM-06..09
-    /// <summary>The custom attribute mapping, or <c>null</c> for the default projection only.</summary>
+    /// <summary>Gets the custom attribute mapping.</summary>
+    /// <value>The mapping, or <see langword="null"/> for the default projection only. The default is <see langword="null"/>.</value>
     protected virtual StateAttributesMapping<TState>? StateAttributesMapping => null;
 
     // RND-DOM-27
-    /// <summary>Whether this part draws a generated id at first render. Parts that emit an <c>id</c> or an IDREF return <c>true</c>.</summary>
+    /// <summary>Gets a value indicating whether this part draws a generated id at first render.</summary>
+    /// <value>
+    /// <see langword="true"/> to draw a generated id; otherwise, <see langword="false"/>. The default is
+    /// <see langword="false"/>.
+    /// </value>
+    /// <remarks>Parts that emit an <c>id</c> or an IDREF return <see langword="true"/>.</remarks>
     protected virtual bool UsesGeneratedId => false;
 
-    /// <summary>The generated id (<c>base-ui-&lt;n&gt;</c>), drawn once at first render when <see cref="UsesGeneratedId"/>; otherwise <c>null</c>.</summary>
+    /// <summary>Gets the generated id.</summary>
+    /// <value>
+    /// The id, in the form <c>base-ui-&lt;n&gt;</c>, drawn once at first render when <see cref="UsesGeneratedId"/> is
+    /// <see langword="true"/>; otherwise, <see langword="null"/>.
+    /// </value>
     protected string? GeneratedId => generatedId;
 
     // RND-DOM-32 precedence (2)–(3)
-    /// <summary>The part's id: the consumer's <c>id</c> if supplied (including the empty string), else the generated one.</summary>
+    /// <summary>Gets the part's id.</summary>
+    /// <value>
+    /// The consumer's <c>id</c> string if supplied, including the empty string; otherwise, the generated id.
+    /// </value>
     protected string? Id => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) && supplied is string text ? text : generatedId;
 
     // RND-DOM-27
@@ -164,31 +214,44 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>Adds the part-supplied attributes of this render (role, ARIA, handlers created by <see cref="CreateHandler{TArgs}(string, Func{TArgs, Task})"/>). The generated id is added before this is called.</summary>
+    /// <summary>Adds the part-supplied attributes of this render.</summary>
+    /// <param name="attributes">The list to add to. The generated id is added to it before this method is called.</param>
+    /// <remarks>
+    /// Part-supplied attributes are the role, ARIA attributes and handlers created by
+    /// <see cref="CreateHandler{TArgs}(string, Func{TArgs, Task})"/>. The base implementation adds nothing.
+    /// </remarks>
     protected virtual void AddPartAttributes(AttributeList attributes)
     {
     }
 
     // ADR 05 §1
     /// <summary>
-    /// Called once from <see cref="OnInitialized"/>, before the first render; does nothing by default. A part that reads a
-    /// store overrides it, calls <see cref="SubscribeTo{TStoreState}"/> once and adds its selections to the returned
-    /// subscription, which then re-renders the part only when a selection changed and is disposed with the part.
-    ///
+    /// Subscribes the part to the store it reads; called once from <see cref="OnInitialized"/>, before the first render.
     /// </summary>
+    /// <remarks>
+    /// The base implementation does nothing. A part that reads a store overrides this method, calls
+    /// <see cref="SubscribeTo{TStoreState}"/> once and adds its selections to the returned subscription, which then
+    /// re-renders the part only when a selection changed and is disposed with the part.
+    /// </remarks>
     protected virtual void SubscribeSelectors()
     {
     }
 
     // ADR 05 §1, UTL-STA-25/27
-    /// <summary>
-    /// Subscribes this part to <paramref name="store"/> and returns the subscription to add selections to with
-    /// <c>Select(selector)</c> or <c>Select(selector, arg)</c>. On every store notification each selection is re-evaluated,
-    /// and the part calls <see cref="ComponentBase.StateHasChanged"/> once when at least one changed by
-    /// <see cref="Equality.Is{T}(T, T)"/>; a notification that changes no selection renders nothing. The subscription is
-    /// disposed with the part. Call it from <see cref="SubscribeSelectors"/>, at most once per part (one subscription per
-    /// part); a second call throws <see cref="InvalidOperationException"/>.
-    /// </summary>
+    /// <summary>Subscribes this part to <paramref name="store"/> and returns the subscription to add selections to.</summary>
+    /// <typeparam name="TStoreState">The state type of the store.</typeparam>
+    /// <param name="store">The store to subscribe to.</param>
+    /// <returns>
+    /// The subscription; add selections to it with <c>Select(selector)</c> or <c>Select(selector, arg)</c>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">This part has already subscribed to a store.</exception>
+    /// <remarks>
+    /// On every store notification each selection is re-evaluated, and the part calls
+    /// <see cref="ComponentBase.StateHasChanged"/> once when at least one changed by <see cref="Equality.Is{T}(T, T)"/>; a
+    /// notification that changes no selection renders nothing. The subscription is disposed with the part. Call this method
+    /// from <see cref="SubscribeSelectors"/>, at most once per part: a part has one store subscription.
+    /// </remarks>
     protected SelectorSubscription<TStoreState> SubscribeTo<TStoreState>(Store<TStoreState> store)
         where TStoreState : class, IStoreState<TStoreState>
     {
@@ -206,17 +269,34 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     }
 
     // ADR 02 decision 3, ADR 16 rule 2; RND-EVT-02/03
-    /// <summary>
-    /// Creates the one real handler for <paramref name="eventName"/>: call it once in
-    /// the constructor or <see cref="OnInitialized"/>, keep the result in a field, and add it from
-    /// <see cref="AddPartAttributes"/> every render. On dispatch it runs the substitute element's handler, then the
-    /// consumer's, then <paramref name="handler"/>, stopping at a veto.
-    /// </summary>
+    /// <summary>Creates the one real handler for <paramref name="eventName"/>.</summary>
+    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <param name="eventName">The event's attribute name, such as <c>onclick</c>; it is stored in lowercase.</param>
+    /// <param name="handler">The part's own handler, which runs last.</param>
+    /// <returns>The callback to add from <see cref="AddPartAttributes"/> every render.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="eventName"/> or <paramref name="handler"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="eventName"/> is empty.</exception>
+    /// <remarks>
+    /// Call this method once in the constructor or <see cref="OnInitialized"/>, keep the result in a field, and add it from
+    /// <see cref="AddPartAttributes"/> every render. On dispatch the callback runs the substitute element's handler, then
+    /// the consumer's, then <paramref name="handler"/>, stopping at a veto.
+    /// </remarks>
     protected EventCallback CreateHandler<TArgs>(string eventName, Func<TArgs, Task> handler)
         where TArgs : EventArgs
         => renderState.CreateHandler(eventName, handler);
 
-    /// <summary>The synchronous form of <see cref="CreateHandler{TArgs}(string, Func{TArgs, Task})"/>.</summary>
+    /// <summary>Creates the one real handler for <paramref name="eventName"/> from a synchronous handler.</summary>
+    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <param name="eventName">The event's attribute name, such as <c>onclick</c>; it is stored in lowercase.</param>
+    /// <param name="handler">The part's own handler, which runs last.</param>
+    /// <returns>The callback to add from <see cref="AddPartAttributes"/> every render.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="eventName"/> or <paramref name="handler"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="eventName"/> is empty.</exception>
+    /// <remarks>This is the synchronous form of <see cref="CreateHandler{TArgs}(string, Func{TArgs, Task})"/>.</remarks>
     protected EventCallback CreateHandler<TArgs>(string eventName, Action<TArgs> handler)
         where TArgs : EventArgs
     {
@@ -228,6 +308,11 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         });
     }
 
+    /// <summary>Releases the resources the part holds.</summary>
+    /// <param name="disposing">
+    /// <see langword="true"/> to release the store subscription and the render state; <see langword="false"/> to release
+    /// nothing.
+    /// </param>
     protected virtual void Dispose(bool disposing)
     {
         if (disposing)

@@ -3,11 +3,12 @@ using System.Text;
 namespace Blazix.Primitives.Rendering;
 
 // ADR 02 decision 2; RND-DOM-16
-/// <summary>
-/// Inline style strings as declarations: split on <c>;</c> outside parentheses and quotes, each
-/// declaration <c>name: value</c> trimmed, merged by name with first-seen order kept and the later value winning,
-/// serialised as <c>name: value; name: value;</c>.
-/// </summary>
+/// <summary>Parses, merges and serialises inline style strings as lists of declarations.</summary>
+/// <remarks>
+/// A style string is split on <c>;</c> outside parentheses and quotes, and each declaration <c>name: value</c> is trimmed.
+/// Declarations are merged by name with first-seen order kept and the later value winning, and serialised as
+/// <c>name: value; name: value;</c>.
+/// </remarks>
 internal static class StyleDeclarations
 {
     public static string Merge(string ours, string theirs)

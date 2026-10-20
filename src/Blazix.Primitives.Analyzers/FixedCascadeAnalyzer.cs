@@ -7,15 +7,19 @@ namespace Blazix.Primitives.Analyzers;
 
 // ADR 05 §1; ADR 02 decision 4; ADR 16 rule 9
 /// <summary>
-/// Requires every <c>CascadingValue&lt;T&gt;</c> the library renders to be <c>IsFixed = true</c>, so that change reaches parts by
-/// subscription only. The library renders from C#, so a cascade is an
-/// <c>OpenComponent&lt;CascadingValue&lt;T&gt;&gt;</c> (or <c>OpenComponent(seq, typeof(CascadingValue&lt;T&gt;))</c>) on a
-/// <c>RenderTreeBuilder</c>; between it and its <c>CloseComponent</c>, at the same nesting depth and in the same block,
-/// an <c>AddComponentParameter</c> or <c>AddAttribute</c> must set <c>IsFixed</c> to the constant <c>true</c>.
+/// Requires every <c>CascadingValue&lt;T&gt;</c> the library renders to set <c>IsFixed</c> to <see langword="true"/>, so that
+/// change reaches parts by subscription only.
 /// </summary>
+/// <remarks>
+/// The library renders from C#, so a cascade is an <c>OpenComponent&lt;CascadingValue&lt;T&gt;&gt;</c> (or
+/// <c>OpenComponent(seq, typeof(CascadingValue&lt;T&gt;))</c>) on a <c>RenderTreeBuilder</c>. Between it and its
+/// <c>CloseComponent</c>, at the same nesting depth and in the same block, an <c>AddComponentParameter</c> or
+/// <c>AddAttribute</c> must set <c>IsFixed</c> to the constant <see langword="true"/>.
+/// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FixedCascadeAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The id of the diagnostic this analyzer reports.</summary>
     public const string DiagnosticId = "BLZX2001";
 
     // ADR 16 rule 9

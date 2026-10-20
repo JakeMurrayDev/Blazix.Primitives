@@ -4,18 +4,27 @@ namespace Blazix.Primitives.Store;
 
 // UTL-STA-15; ADR 16 rule 9; UTL §4.2.2; ADR 05 §1; ADR 01 decision 4 (UTL-STA-19..22 met on both render modes)
 /// <summary>
-/// A component's store (Base UI's <c>ReactStore</c>): a <see cref="Store{TState}"/> plus the prop-to-store sync that
-/// parts call from <c>OnParametersSet</c>, before the render that carries the new parameter. The non-reactive context bag is the subclass's own typed fields and properties: element
-/// references, callbacks and timers that never notify. A part cascades its store with <c>IsFixed = true</c>
-/// and re-renders through a <see cref="SelectorSubscription{TState}"/>.
+/// Represents the store a component owns (Base UI's <c>ReactStore</c>): a <see cref="Store{TState}"/> plus the methods that
+/// copy parameters into the store from <c>OnParametersSet</c>.
 /// </summary>
+/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <remarks>
+/// Parts call the sync methods before the render that carries a new parameter. The non-reactive context bag is the
+/// subclass's own typed fields and properties: element references, callbacks and timers, none of which notify. A part
+/// cascades its store with <c>IsFixed = true</c> and re-renders through a <see cref="SelectorSubscription{TState}"/>.
+/// </remarks>
 public class ComponentStore<TState> : Store<TState>
     where TState : class, IStoreState<TState>
 {
     // The mode first seen per field by SyncControlledValue, kept only while development warnings are on (UTL-EDGE-25).
     private Dictionary<object, bool>? controlledModes;
 
-    /// <summary>Creates a component store holding <paramref name="state"/>, with no listeners and no <see cref="Logger"/>.</summary>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ComponentStore{TState}"/> class that holds <paramref name="state"/>, with no
+    /// listeners and no <see cref="Logger"/>.
+    /// </summary>
+    /// <param name="state">The initial record.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="state"/> is <see langword="null"/>.</exception>
     public ComponentStore(TState state)
         : base(state)
     {
@@ -23,20 +32,30 @@ public class ComponentStore<TState> : Store<TState>
 
     // UTL-EDGE-25
     /// <summary>
-    /// The logger for the store's development warning: when <see cref="SyncControlledValue{TValue}"/> is called with a
-    /// <c>controlled</c> flag different from the first one it saw for that field, it logs, at <c>Error</c> and on every such
-    /// call, "A component is changing the [un]controlled state of {field} to be [un]controlled. Elements should not switch
-    /// from uncontrolled to controlled (or vice versa)." Written only while the <c>Blazix.Primitives.DevelopmentWarnings</c>
-    /// AppContext switch is on; <c>null</c> writes nothing.
+    /// Gets or sets the logger that receives the store's development warning.
     /// </summary>
+    /// <value>The logger, or <see langword="null"/> to write nothing. The default is <see langword="null"/>.</value>
+    /// <remarks>
+    /// When <see cref="SyncControlledValue{TValue}"/> is called with a <c>controlled</c> flag different from the first one it saw
+    /// for that field, the store logs, at <see cref="LogLevel.Error"/> and on every such call, "A component is changing the
+    /// [un]controlled state of {field} to be [un]controlled. Elements should not switch from uncontrolled to controlled (or vice
+    /// versa)." The warning is written only while the <c>Blazix.Primitives.DevelopmentWarnings</c> switch is on.
+    /// </remarks>
     public ILogger? Logger { get; set; }
 
     // UTL-STA-19
     /// <summary>
-    /// <c>useSyncedValue</c>: writes <paramref name="value"/> when the member is not strictly equal to it
-    /// (JavaScript <c>!==</c>, then <see cref="Set{TValue}"/>'s <c>Object.is</c>). Call it on every parameter set, on the
-    /// store the part currently holds.
+    /// Copies a parameter into one member of the record when the member is not strictly equal to it (Base UI's <c>useSyncedValue</c>).
     /// </summary>
+    /// <typeparam name="TValue">The type of the member.</typeparam>
+    /// <param name="field">The key of the member.</param>
+    /// <param name="value">The parameter's value.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="field"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// The member is written when it differs from <paramref name="value"/> by JavaScript's <c>!==</c>, and then only if
+    /// <see cref="Store{TState}.Set{TValue}(StoreField{TState, TValue}, TValue)"/> also finds it different. Call it on every
+    /// parameter set, on the store the part currently holds.
+    /// </remarks>
     public void SyncValue<TValue>(StoreField<TState, TValue> field, TValue value)
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -48,10 +67,13 @@ public class ComponentStore<TState> : Store<TState>
 
     // UTL-STA-21
     /// <summary>
-    /// <c>useSyncedValues</c>: writes <c>apply(State, values)</c> with one notification, and nothing when every
-    /// member already equals the result's (<see cref="Store{TState}.Update{TArg}(Func{TState, TArg, TState}, TArg)"/>).
-    /// <typeparamref name="TValues"/> is typically a value tuple of the synced parameters.
+    /// Copies several parameters into the record with one notification (Base UI's <c>useSyncedValues</c>).
     /// </summary>
+    /// <typeparam name="TValues">The type that carries the parameters, typically a value tuple.</typeparam>
+    /// <param name="apply">A function from the current record and <paramref name="values"/> to the new record.</param>
+    /// <param name="values">The parameters' values.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="apply"/> is <see langword="null"/>.</exception>
+    /// <remarks>Nothing is written when every member of the result equals the current one by <see cref="Equality.Is{T}(T, T)"/>.</remarks>
     public void SyncValues<TValues>(Func<TState, TValues, TState> apply, TValues values)
     {
         Update(apply, values);
@@ -59,11 +81,19 @@ public class ComponentStore<TState> : Store<TState>
 
     // UTL-STA-22; UTL-EDGE-25
     /// <summary>
-    /// <c>useControlledProp</c>: when <paramref name="controlled"/> is <c>true</c> and the member differs from
-    /// <paramref name="value"/> by <see cref="Equality.Is{T}(T, T)"/>, writes it; when <c>false</c> the member is left to the
+    /// Copies a controlled parameter into one member of the record while the parameter is supplied (Base UI's <c>useControlledProp</c>).
+    /// </summary>
+    /// <typeparam name="TValue">The type of the member.</typeparam>
+    /// <param name="field">The key of the member.</param>
+    /// <param name="controlled"><see langword="true"/> if the consumer supplied the parameter; otherwise, <see langword="false"/>.</param>
+    /// <param name="value">The parameter's value, used only when <paramref name="controlled"/> is <see langword="true"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="field"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// When <paramref name="controlled"/> is <see langword="true"/> and the member differs from <paramref name="value"/> by
+    /// <see cref="Equality.Is{T}(T, T)"/>, the member is written; when it is <see langword="false"/>, the member is left to the
     /// component. A <paramref name="controlled"/> flag different from the first one seen for this field logs a development
     /// warning through <see cref="Logger"/> on every such call.
-    /// </summary>
+    /// </remarks>
     public void SyncControlledValue<TValue>(StoreField<TState, TValue> field, bool controlled, TValue value)
     {
         ArgumentNullException.ThrowIfNull(field);

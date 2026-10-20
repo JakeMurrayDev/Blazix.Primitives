@@ -6,16 +6,26 @@ namespace Blazix.Primitives;
 
 // ADR 05 Amendments 2026-10-18, item 1; EVD-STA-05; EVD-ALG-08, EVD-STA-01..06, UTL-STA-01..06; ADR 05 §1/§2; glossary "Controlled / uncontrolled", "Request"; EVD-EDGE-01
 /// <summary>
-/// A value that is either controlled by the consumer or held by the part. The value is controlled iff its parameter was supplied at the first parameter set, and
-/// stays so for the lifetime of the part: supplying or removing it later only
-/// raises a development warning that the component is switching between controlled and uncontrolled, and a removed controlled value falls back to the initial default.
-/// A request runs compute → <c>OnValueChange(args)</c> → stop if canceled → <c>ValueChanged(value)</c> → commit when
-/// uncontrolled; the caller runs the follow-up effects when <see cref="RequestAsync"/> returns <c>true</c>.
-/// <see cref="NotifyAsync"/> and <see cref="CommitAsync"/> are the two halves for a request that continues into a parent.
-/// Development warnings go to the logger only while the <c>Blazix.Primitives.DevelopmentWarnings</c> switch is on;
-/// each distinct message is logged once per instance.
+/// Represents a value that is either controlled by the consumer or held by the part, and runs the requests that change it.
 /// </summary>
-/// <typeparam name="T">The value type.</typeparam>
+/// <typeparam name="T">The type of the value.</typeparam>
+/// <remarks>
+/// <para>
+/// The value is controlled if and only if its parameter was supplied at the first parameter set, and it stays so for the
+/// lifetime of the part. Supplying or removing the parameter later only raises a development warning that the component
+/// is switching between controlled and uncontrolled, and a removed controlled value falls back to the initial default.
+/// </para>
+/// <para>
+/// A request runs <c>OnValueChange(args)</c>, stops if the details were canceled, then runs <c>ValueChanged(value)</c> and
+/// commits when uncontrolled; the caller runs the follow-up effects when <see cref="RequestAsync"/> returns
+/// <see langword="true"/>. <see cref="NotifyAsync"/> and <see cref="CommitAsync"/> are the two halves for a request that
+/// continues into a parent.
+/// </para>
+/// <para>
+/// Development warnings go to the logger only while the <c>Blazix.Primitives.DevelopmentWarnings</c> switch is on; each
+/// distinct message is logged once per instance.
+/// </para>
+/// </remarks>
 public sealed class Controlled<T>
 {
     private readonly string name;
@@ -31,7 +41,13 @@ public sealed class Controlled<T>
     private HashSet<string>? loggedWarnings;
 
     // EVD-EDGE-01/02
-    /// <summary>Creates the helper; <paramref name="name"/> and <paramref name="state"/> parameterise the warnings.</summary>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Controlled{T}"/> class.
+    /// </summary>
+    /// <param name="name">The component name used in development warnings, such as <c>SwitchRoot</c>.</param>
+    /// <param name="state">The name of the value used in development warnings, such as <c>checked</c>. The default is <c>value</c>.</param>
+    /// <param name="logger">The logger that receives development warnings, or <see langword="null"/> to write none.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> or <paramref name="state"/> is <see langword="null"/>.</exception>
     public Controlled(string name, string state = "value", ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -41,20 +57,29 @@ public sealed class Controlled<T>
         this.logger = logger;
     }
 
-    /// <summary>Whether the value parameter was supplied at the first parameter set. Fixed for the lifetime.</summary>
+    /// <summary>
+    /// Gets a value that indicates whether the value parameter was supplied at the first parameter set.
+    /// </summary>
+    /// <value><see langword="true"/> if the value is controlled by the consumer; otherwise, <see langword="false"/>. Fixed for the lifetime of the instance.</value>
     public bool IsControlled => isControlled;
 
     // EVD-STA-03
     /// <summary>
-    /// The current value: the controlled parameter while controlled and supplied, otherwise the uncontrolled value
-    /// (initialised from the default parameter as supplied, never invoked when it is a delegate).
+    /// Gets the current value.
     /// </summary>
+    /// <value>
+    /// The controlled parameter while the value is controlled and the parameter is supplied; otherwise, the uncontrolled
+    /// value, initialized from the default parameter as supplied (a delegate is stored, never invoked).
+    /// </value>
     public T Value => isControlled && controlledSupplied ? controlledValue : uncontrolledValue;
 
     /// <summary>
-    /// Reads the value and default parameters from <paramref name="parameters"/> with <see cref="ParameterView.TryGetValue{TValue}(string, out TValue)"/>.
-    /// Call it from <c>SetParametersAsync</c> before the base call, on every parameter set.
+    /// Reads the value and default parameters from a parameter set.
     /// </summary>
+    /// <param name="parameters">The parameters passed to <c>SetParametersAsync</c>.</param>
+    /// <param name="valueParameterName">The name of the value parameter, such as <c>Checked</c>.</param>
+    /// <param name="defaultValueParameterName">The name of the default parameter, such as <c>DefaultChecked</c>.</param>
+    /// <remarks>Call it from <c>SetParametersAsync</c> before the base call, on every parameter set. It calls <see cref="Update"/>.</remarks>
     public void SetParameters(ParameterView parameters, string valueParameterName, string defaultValueParameterName)
     {
         bool valueSupplied = parameters.TryGetValue(valueParameterName, out T? value);
@@ -64,10 +89,16 @@ public sealed class Controlled<T>
 
     // EVD-EDGE-01/02
     /// <summary>
-    /// The parameter set in its raw form: whether each parameter was supplied and its value. The first call fixes the mode
-    /// and the uncontrolled value; later calls track the controlled value and raise the development warnings for a mode switch
-    /// and for a default that changes after the first parameter set.
+    /// Records one parameter set in raw form: whether each parameter was supplied, and its value.
     /// </summary>
+    /// <param name="valueSupplied"><see langword="true"/> if the value parameter was supplied; otherwise, <see langword="false"/>.</param>
+    /// <param name="value">The value parameter, used only when <paramref name="valueSupplied"/> is <see langword="true"/>.</param>
+    /// <param name="defaultValueSupplied"><see langword="true"/> if the default parameter was supplied; otherwise, <see langword="false"/>.</param>
+    /// <param name="defaultValue">The default parameter, used only when <paramref name="defaultValueSupplied"/> is <see langword="true"/>.</param>
+    /// <remarks>
+    /// The first call fixes <see cref="IsControlled"/> and the uncontrolled value. Later calls track the controlled value and
+    /// raise the development warnings for a mode switch and for a default that changes after the first parameter set.
+    /// </remarks>
     public void Update(bool valueSupplied, T value, bool defaultValueSupplied, T defaultValue)
     {
         controlledSupplied = valueSupplied;
@@ -105,7 +136,11 @@ public sealed class Controlled<T>
     }
 
     // UTL-STA-04, EVD-STA-04
-    /// <summary>Stores <paramref name="value"/> when uncontrolled; a no-op when controlled.</summary>
+    /// <summary>
+    /// Stores a value when the value is uncontrolled.
+    /// </summary>
+    /// <param name="value">The value to store.</param>
+    /// <remarks>Does nothing when the value is controlled.</remarks>
     public void SetValueIfUncontrolled(T value)
     {
         if (!isControlled)
@@ -116,10 +151,17 @@ public sealed class Controlled<T>
 
     // EVD-ALG-03 step 2
     /// <summary>
-    /// The first half of a request: invokes <paramref name="onValueChange"/> and returns <c>true</c> unless the details are
-    /// now canceled. A part whose request continues into a parent (a toggle into its group) calls this,
-    /// then the parent's request with the same details, then <see cref="CommitAsync"/> only if neither was canceled.
+    /// Runs the first half of a request: invokes <paramref name="onValueChange"/> with the requested value and its details.
     /// </summary>
+    /// <param name="value">The requested value.</param>
+    /// <param name="details">The request's details.</param>
+    /// <param name="onValueChange">The consumer's change callback.</param>
+    /// <returns>A task whose result is <see langword="true"/> unless <paramref name="details"/> is canceled after the callback.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="details"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// A part whose request continues into a parent (a toggle into its group) calls this, then the parent's request with the
+    /// same details, then <see cref="CommitAsync"/> only if neither was canceled.
+    /// </remarks>
     public async Task<bool> NotifyAsync(T value, ChangeEventDetails details, EventCallback<ValueChangeEventArgs<T>> onValueChange)
     {
         ArgumentNullException.ThrowIfNull(details);
@@ -127,7 +169,12 @@ public sealed class Controlled<T>
         return !details.IsCanceled;
     }
 
-    /// <summary>The second half of a request: invokes <paramref name="valueChanged"/>, then commits when uncontrolled.</summary>
+    /// <summary>
+    /// Runs the second half of a request: invokes <paramref name="valueChanged"/>, then stores the value when uncontrolled.
+    /// </summary>
+    /// <param name="value">The value to commit.</param>
+    /// <param name="valueChanged">The binding callback of <c>@bind-Value</c>.</param>
+    /// <returns>A task that completes when the callback has run and the value is stored.</returns>
     public async Task CommitAsync(T value, EventCallback<T> valueChanged)
     {
         await valueChanged.InvokeAsync(value);
@@ -136,15 +183,20 @@ public sealed class Controlled<T>
 
     // EVD-ALG-03 with ADR 05 §2's added step; ADR 05 Amendments 2026-10-18, item 2
     /// <summary>
-    /// Runs one request: <paramref name="onValueChange"/> with
-    /// <paramref name="value"/> and <paramref name="details"/>; if the details are canceled, stop and return <c>false</c>;
-    /// otherwise <paramref name="valueChanged"/>, the commit when uncontrolled, and <c>true</c>.
-    /// <para>
-    /// <paramref name="nativeTextEdit"/> marks a request whose source is a native text edit on a text control: when uncontrolled, a canceled request still fires <paramref name="valueChanged"/> and
-    /// commits, because the browser already changed the text, and returns <c>false</c> so the follow-up effects stay
-    /// suppressed. When controlled the flag changes nothing.
-    /// </para>
+    /// Runs one request: the change callback, then, unless the details were canceled, the binding callback and the commit.
     /// </summary>
+    /// <param name="value">The requested value.</param>
+    /// <param name="details">The request's details.</param>
+    /// <param name="onValueChange">The consumer's change callback, invoked first.</param>
+    /// <param name="valueChanged">The binding callback of <c>@bind-Value</c>, invoked when the request is not canceled.</param>
+    /// <param name="nativeTextEdit"><see langword="true"/> if the request comes from a native text edit on a text control; otherwise, <see langword="false"/>.</param>
+    /// <returns>A task whose result is <see langword="true"/> if the request was applied, so the caller runs its follow-up effects; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="details"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// When <paramref name="nativeTextEdit"/> is <see langword="true"/> and the value is uncontrolled, a canceled request still
+    /// invokes <paramref name="valueChanged"/> and commits, because the browser has already changed the text, and returns
+    /// <see langword="false"/> so the follow-up effects stay suppressed. When the value is controlled, the flag changes nothing.
+    /// </remarks>
     public async Task<bool> RequestAsync(
         T value,
         ChangeEventDetails details,

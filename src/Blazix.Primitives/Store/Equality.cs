@@ -4,15 +4,23 @@ namespace Blazix.Primitives.Store;
 
 // ADR 05 §1 (Is<T>)
 /// <summary>
-/// The store's equality: JavaScript's <c>Object.is</c> decided by the static type, with no
-/// boxing. Value types compare by value through <see cref="EqualityComparer{T}.Default"/>, except that floating-point
-/// <c>NaN</c> equals <c>NaN</c> and <c>0</c> differs from <c>-0</c> as in <c>Object.is</c>; <see cref="string"/> compares by
-/// value (ordinal); every other reference type, records included, compares by reference, never structurally. A value
-/// whose static type is <see cref="object"/> or an interface compares by reference even when it holds a boxed value.
+/// Provides the store's equality: JavaScript's <c>Object.is</c>, decided by the static type and computed without boxing.
 /// </summary>
+/// <remarks>
+/// Value types compare by value through <see cref="EqualityComparer{T}.Default"/>, except that a floating-point <c>NaN</c>
+/// equals <c>NaN</c> and <c>0</c> differs from <c>-0</c>, as in <c>Object.is</c>. <see cref="string"/> compares by ordinal
+/// value. Every other reference type, records included, compares by reference, never structurally. A value whose static
+/// type is <see cref="object"/> or an interface compares by reference even when it holds a boxed value.
+/// </remarks>
 public static class Equality
 {
-    /// <summary><c>Object.is(left, right)</c> for the static type <typeparamref name="T"/>.</summary>
+    /// <summary>
+    /// Determines whether two values are the same by JavaScript's <c>Object.is</c> for the static type <typeparamref name="T"/>.
+    /// </summary>
+    /// <typeparam name="T">The static type of the values.</typeparam>
+    /// <param name="left">The first value.</param>
+    /// <param name="right">The second value.</param>
+    /// <returns><see langword="true"/> if <paramref name="left"/> and <paramref name="right"/> are the same; otherwise, <see langword="false"/>.</returns>
     public static bool Is<T>(T left, T right)
     {
         // Every branch below is a JIT-time constant for a value-type T, so a call compiles to one comparison.
@@ -65,7 +73,15 @@ public static class Equality
         return ReferenceEquals(left, right);
     }
 
-    /// <summary>JavaScript's <c>===</c>: as <see cref="Is{T}(T, T)"/>, except that <c>NaN</c> differs from itself and <c>0</c> equals <c>-0</c>.</summary>
+    /// <summary>
+    /// Determines whether two values are equal by JavaScript's <c>===</c>.
+    /// </summary>
+    /// <typeparam name="T">The static type of the values.</typeparam>
+    /// <param name="left">The first value.</param>
+    /// <param name="right">The second value.</param>
+    /// <returns>
+    /// The result of <see cref="Is{T}(T, T)"/>, except that <c>NaN</c> is never equal to itself and <c>0</c> equals <c>-0</c>.
+    /// </returns>
     internal static bool StrictEquals<T>(T left, T right)
     {
         if (typeof(T) == typeof(double))

@@ -3,12 +3,16 @@ using System.Collections.Immutable;
 
 namespace Blazix.Primitives.Generators;
 
-/// <summary>An immutable array with element-wise equality, so a generator model that holds one stays cacheable by the incremental pipeline.</summary>
+/// <summary>Represents an immutable array with element-wise equality.</summary>
+/// <typeparam name="T">The type of the elements in the array.</typeparam>
+/// <remarks>A generator model that holds one stays cacheable by the incremental pipeline.</remarks>
 internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IReadOnlyList<T>
     where T : IEquatable<T>
 {
     private readonly ImmutableArray<T> items;
 
+    /// <summary>Initializes a new instance of the <see cref="EquatableArray{T}"/> struct.</summary>
+    /// <param name="items">The elements of the array; a default array is treated as empty.</param>
     public EquatableArray(ImmutableArray<T> items)
     {
         this.items = items.IsDefault ? ImmutableArray<T>.Empty : items;

@@ -2,18 +2,32 @@ namespace Blazix.Primitives.Rendering;
 
 // ADR 02 decision 4; RND §4.4
 /// <summary>
-/// A custom mapping from state fields to <c>data-*</c> attributes for a state record <typeparamref name="TState"/>: per field (by property
-/// name) a <see cref="StateFieldProjection{TValue}"/> that replaces the default projection of that field. The shared
-/// mappings (transition status, the family-specific ones) are hand-written on top of this.
+/// Represents a custom mapping from the fields of a state record to <c>data-*</c> attributes.
 /// </summary>
+/// <typeparam name="TState">The state record whose fields are mapped.</typeparam>
+/// <remarks>
+/// For each mapped field, identified by property name, a <see cref="StateFieldProjection{TValue}"/> replaces the default
+/// projection of that field. The shared mappings (transition status and the family-specific ones) are hand-written on
+/// top of this type.
+/// </remarks>
 public sealed class StateAttributesMapping<TState>
 {
     private readonly List<KeyValuePair<string, Delegate>> entries = [];
 
-    /// <summary>The number of fields mapped.</summary>
+    /// <summary>Gets the number of fields mapped.</summary>
+    /// <value>The number of mapped fields.</value>
     public int Count => entries.Count;
 
-    /// <summary>Maps <paramref name="field"/> (the property name, <c>nameof</c>) to <paramref name="projection"/>; a later mapping of the same field replaces the earlier one.</summary>
+    /// <summary>Maps <paramref name="field"/> to <paramref name="projection"/>.</summary>
+    /// <typeparam name="TValue">The type of the field.</typeparam>
+    /// <param name="field">The property name of the field, as given by <c>nameof</c>.</param>
+    /// <param name="projection">The projection that replaces the default projection of the field.</param>
+    /// <returns>This mapping, so that calls can be chained.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="field"/> or <paramref name="projection"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="field"/> is empty.</exception>
+    /// <remarks>A later mapping of the same field replaces the earlier one.</remarks>
     public StateAttributesMapping<TState> Map<TValue>(string field, StateFieldProjection<TValue> projection)
     {
         ArgumentException.ThrowIfNullOrEmpty(field);
@@ -31,7 +45,9 @@ public sealed class StateAttributesMapping<TState>
         return this;
     }
 
-    /// <summary>Whether <paramref name="field"/> has a mapping.</summary>
+    /// <summary>Determines whether <paramref name="field"/> has a mapping.</summary>
+    /// <param name="field">The property name of the field, compared ordinally.</param>
+    /// <returns><see langword="true"/> if the field has a mapping; otherwise, <see langword="false"/>.</returns>
     public bool Contains(string field)
     {
         for (int i = 0; i < entries.Count; i++)
@@ -46,11 +62,20 @@ public sealed class StateAttributesMapping<TState>
     }
 
     // RND-DOM-07
-    /// <summary>
-    /// Called by the generated projection for each field: applies the field's mapping, if any, writing its result and
-    /// returning <c>true</c> (also when the mapping returned <c>null</c>, which writes nothing); returns <c>false</c> when the
-    /// field is unmapped so the default projection runs.
-    /// </summary>
+    /// <summary>Applies the mapping of <paramref name="field"/>, if there is one, and writes its result.</summary>
+    /// <typeparam name="TValue">The type of the field.</typeparam>
+    /// <param name="field">The property name of the field.</param>
+    /// <param name="value">The field's value.</param>
+    /// <param name="writer">The sink the mapping's attributes are written to.</param>
+    /// <returns>
+    /// <see langword="true"/> if the field is mapped, also when the mapping returned <see langword="null"/>, which writes
+    /// nothing; <see langword="false"/> if the field is unmapped, so the default projection runs.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// The mapping for <paramref name="field"/> is not a <see cref="StateFieldProjection{TValue}"/> that accepts
+    /// <typeparamref name="TValue"/>.
+    /// </exception>
+    /// <remarks>The generated projection calls this method for each field.</remarks>
     public bool TryProject<TValue>(string field, TValue value, StateAttributeWriter writer)
     {
         for (int i = 0; i < entries.Count; i++)

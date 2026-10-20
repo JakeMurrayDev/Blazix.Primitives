@@ -12,7 +12,8 @@ using Microsoft.AspNetCore.Components.RenderTree;
 namespace Blazix.Primitives.Rendering;
 
 // RND §6.1
-/// <summary>The inputs of one render of a part or <see cref="RenderElement{TState}"/>.</summary>
+/// <summary>Holds the inputs of one render of a part or <see cref="RenderElement{TState}"/>.</summary>
+/// <typeparam name="TState">The state record type.</typeparam>
 internal readonly struct RenderInputs<TState>
     where TState : class, IPartState<TState>
 {
@@ -40,12 +41,12 @@ internal readonly struct RenderInputs<TState>
 }
 
 // ADR 02 decision 4; RND-ALG-01/02/05/06/07/08; ADR 02 decision 1
-/// <summary>
-/// The one static function every part renders through: state
-/// projection, the merge of part-supplied and consumer-supplied attributes with class, style and handlers treated
-/// specially, the class and style functions, and then the default element, the substitute callback, or the frame
-/// rewrite of the substitute element.
-/// </summary>
+/// <summary>Provides the one static function that every part renders through.</summary>
+/// <remarks>
+/// A render performs the state projection; the merge of part-supplied and consumer-supplied attributes, with class,
+/// style and handlers treated specially; the class and style functions; and then emits the default element, the
+/// substitute callback, or the frame rewrite of the substitute element.
+/// </remarks>
 internal static class RenderPipeline
 {
     private const int HostSequence = 0;
@@ -58,6 +59,21 @@ internal static class RenderPipeline
     private const string PreventDefaultPrefix = "__internal_preventDefault_";
     private const string StopPropagationPrefix = "__internal_stopPropagation_";
 
+    /// <summary>Renders one part or <see cref="RenderElement{TState}"/> to <paramref name="builder"/>.</summary>
+    /// <typeparam name="TState">The state record type.</typeparam>
+    /// <param name="builder">The render tree builder of the owning component.</param>
+    /// <param name="state">The per-instance pipeline state of the owning component.</param>
+    /// <param name="host">The owning component, which receives events and the rendered element.</param>
+    /// <param name="inputs">The inputs of this render.</param>
+    /// <exception cref="InvalidOperationException">
+    /// Both a substitute element and a substitute callback are supplied; the substitute element does not have exactly one
+    /// root that is an element or a component; or an attribute is a Blazor event directive such as
+    /// <c>@onclick:preventDefault</c>, which parts and substitutes do not support.
+    /// </exception>
+    /// <remarks>
+    /// When <see cref="RenderInputs{TState}.Enabled"/> is <see langword="false"/>, nothing is rendered and the host's
+    /// element is released.
+    /// </remarks>
     public static void Render<TState>(RenderTreeBuilder builder, PartRenderState state, IPartHost host, in RenderInputs<TState> inputs)
         where TState : class, IPartState<TState>
     {
@@ -79,7 +95,9 @@ internal static class RenderPipeline
         pass.Run();
     }
 
-    /// <summary>The locals of one render; a struct so the pipeline allocates nothing of its own per render.</summary>
+    /// <summary>Holds the locals of one render.</summary>
+    /// <typeparam name="TState">The state record type.</typeparam>
+    /// <remarks>It is a struct so the pipeline allocates nothing of its own per render.</remarks>
     private ref struct Pass<TState>(RenderTreeBuilder builder, PartRenderState state, IPartHost host, in RenderInputs<TState> inputs)
         where TState : class, IPartState<TState>
     {

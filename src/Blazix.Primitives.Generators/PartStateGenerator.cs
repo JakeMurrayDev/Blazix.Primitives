@@ -9,10 +9,13 @@ namespace Blazix.Primitives.Generators;
 
 // RND-ALG-07; ADR 02 decision 4 as amended by ADR 05
 /// <summary>
-/// Emits, for every <c>sealed partial record</c> marked <c>[PartState]</c>, the typed projection of its own public
-/// primitive properties to <c>data-*</c> attributes in declaration order, so nothing is reflected at render time, and the
-/// consumer-facing diagnostics BLZX1001–BLZX1004.
+/// Generates, for every <c>sealed partial record</c> marked <c>[PartState]</c>, the typed projection of its properties to
+/// <c>data-*</c> attributes, and reports the diagnostics for records that cannot be projected.
 /// </summary>
+/// <remarks>
+/// The projection covers the record's own public primitive properties in declaration order, so nothing is reflected at
+/// render time. The consumer-facing diagnostics are BLZX1001 through BLZX1004.
+/// </remarks>
 [Generator(LanguageNames.CSharp)]
 public sealed class PartStateGenerator : IIncrementalGenerator
 {
@@ -259,6 +262,7 @@ public sealed class PartStateGenerator : IIncrementalGenerator
         string interfaceName = Rendering + ".IPartState<" + fullName + ">";
         source.Append(indent).Append("partial record ").Append(node.Identifier.ValueText).Append(node.TypeParameterList?.ToString() ?? string.Empty).Append(" : ").Append(interfaceName).Append('\n');
         source.Append(indent).Append("{\n");
+        source.Append(indent).Append("    /// <inheritdoc />\n");
         source.Append(indent).Append("    void ").Append(interfaceName).Append(".ProjectStateAttributes(").Append(Rendering).Append(".StateAttributesMapping<").Append(fullName).Append(">? mapping, ").Append(Rendering).Append(".StateAttributeWriter writer)\n");
         source.Append(indent).Append("    {\n");
         if (body.Length > 0)

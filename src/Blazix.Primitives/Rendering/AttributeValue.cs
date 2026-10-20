@@ -12,12 +12,17 @@ namespace Blazix.Primitives.Rendering;
 
 // ADR 05 §4, ADR 02 Amendments 2026-10-17
 /// <summary>
-/// One attribute value of the merged attribute list: a string, a boolean, an untyped
-/// <see cref="EventCallback"/> or a delegate. A hand-written
-/// <c>[Union]</c> struct with the non-boxing access pattern (<see cref="HasValue"/>, <see cref="TryGetValue(out string)"/>
-/// and its siblings); <see cref="Value"/> exists because the union contract requires it and is never read by the library.
-/// The default instance has no value and stands for an absent attribute.
+/// Represents one attribute value of a merged attribute list: a string, a Boolean, an untyped
+/// <see cref="EventCallback"/> or a delegate.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This is a hand-written <c>[Union]</c> struct with the non-boxing access pattern: <see cref="HasValue"/>,
+/// <see cref="TryGetValue(out string)"/> and its siblings. <see cref="Value"/> exists because the union contract requires
+/// it and is never read by the library.
+/// </para>
+/// <para>The default instance has no value and stands for an absent attribute.</para>
+/// </remarks>
 [Union]
 public readonly struct AttributeValue : IUnion
 {
@@ -27,41 +32,50 @@ public readonly struct AttributeValue : IUnion
     private readonly bool boolean;
     private readonly AttributeValueKind kind;
 
-    /// <summary>Creates the string case.</summary>
+    /// <summary>Initializes a new instance of the <see cref="AttributeValue"/> struct that holds a string.</summary>
+    /// <param name="value">The string value.</param>
     public AttributeValue(string value)
     {
         reference = value;
         kind = AttributeValueKind.String;
     }
 
-    /// <summary>Creates the boolean case.</summary>
+    /// <summary>Initializes a new instance of the <see cref="AttributeValue"/> struct that holds a Boolean.</summary>
+    /// <param name="value">The Boolean value.</param>
     public AttributeValue(bool value)
     {
         boolean = value;
         kind = AttributeValueKind.Boolean;
     }
 
-    /// <summary>Creates the <see cref="EventCallback"/> case; an empty callback is the absent value.</summary>
+    /// <summary>Initializes a new instance of the <see cref="AttributeValue"/> struct that holds an <see cref="EventCallback"/>.</summary>
+    /// <param name="value">The callback. A callback with no delegate produces the absent value.</param>
     public AttributeValue(EventCallback value)
     {
         callback = value;
         kind = value.HasDelegate ? AttributeValueKind.Callback : AttributeValueKind.None;
     }
 
-    /// <summary>Creates the delegate case.</summary>
+    /// <summary>Initializes a new instance of the <see cref="AttributeValue"/> struct that holds a delegate.</summary>
+    /// <param name="value">The delegate.</param>
     public AttributeValue(MulticastDelegate value)
     {
         reference = value;
         kind = AttributeValueKind.Delegate;
     }
 
-    /// <summary>The kind of value held, <see cref="AttributeValueKind.None"/> for the absent value.</summary>
+    /// <summary>Gets the kind of value held.</summary>
+    /// <value>The case of the value, or <see cref="AttributeValueKind.None"/> for the absent value.</value>
     public AttributeValueKind Kind => kind;
 
-    /// <summary>Whether a value is held; the default instance holds none.</summary>
+    /// <summary>Gets a value indicating whether a value is held.</summary>
+    /// <value>
+    /// <see langword="true"/> if a value is held; <see langword="false"/> for the absent value, which the default instance is.
+    /// </value>
     public bool HasValue => kind != AttributeValueKind.None;
 
-    /// <summary>Whether the value is a handler: a callback or a delegate.</summary>
+    /// <summary>Gets a value indicating whether the value is a handler.</summary>
+    /// <value><see langword="true"/> if the value is a callback or a delegate; otherwise, <see langword="false"/>.</value>
     public bool IsHandler => kind is AttributeValueKind.Callback or AttributeValueKind.Delegate;
 
     // ADR 05 §4
@@ -76,22 +90,41 @@ public readonly struct AttributeValue : IUnion
         _ => null,
     };
 
+    /// <summary>Converts a string to an <see cref="AttributeValue"/> that holds it.</summary>
+    /// <param name="value">The string value.</param>
+    /// <returns>An <see cref="AttributeValue"/> of kind <see cref="AttributeValueKind.String"/>.</returns>
     public static implicit operator AttributeValue(string value) => new(value);
 
+    /// <summary>Converts a Boolean to an <see cref="AttributeValue"/> that holds it.</summary>
+    /// <param name="value">The Boolean value.</param>
+    /// <returns>An <see cref="AttributeValue"/> of kind <see cref="AttributeValueKind.Boolean"/>.</returns>
     public static implicit operator AttributeValue(bool value) => new(value);
 
+    /// <summary>Converts an <see cref="EventCallback"/> to an <see cref="AttributeValue"/> that holds it.</summary>
+    /// <param name="value">The callback.</param>
+    /// <returns>
+    /// An <see cref="AttributeValue"/> of kind <see cref="AttributeValueKind.Callback"/>, or the absent value when
+    /// <paramref name="value"/> has no delegate.
+    /// </returns>
     public static implicit operator AttributeValue(EventCallback value) => new(value);
 
+    /// <summary>Converts a delegate to an <see cref="AttributeValue"/> that holds it.</summary>
+    /// <param name="value">The delegate.</param>
+    /// <returns>An <see cref="AttributeValue"/> of kind <see cref="AttributeValueKind.Delegate"/>.</returns>
     public static implicit operator AttributeValue(MulticastDelegate value) => new(value);
 
     // ADR 05 Amendments 2026-10-20
-    /// <summary>
-    /// Converts a value of the shape Blazor's attribute APIs accept into the union: <c>null</c> is absent, strings and
-    /// booleans are themselves, an <see cref="EventCallback"/> or delegate is a handler, a boxed <see cref="EventCallback{TValue}"/>
-    /// is unpacked to its untyped form, and anything else is its string representation. This is the conversion the
-    /// unmatched-attribute bag and the <see cref="MergeProps"/> dictionary overload go through: those carry case values,
-    /// never the union itself, because a union boxed to <see cref="object"/> hides its case.
-    /// </summary>
+    /// <summary>Converts a value of the shape Blazor's attribute APIs accept to an <see cref="AttributeValue"/>.</summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>
+    /// The absent value for <see langword="null"/>; the string or Boolean itself for a string or Boolean; a handler value for
+    /// an <see cref="EventCallback"/> or a delegate; the untyped form of a boxed <see cref="EventCallback{TValue}"/>; and the
+    /// string representation of anything else.
+    /// </returns>
+    /// <remarks>
+    /// The unmatched-attribute bag and <see cref="MergeProps.MergeDictionaries"/> go through this conversion. Those carry
+    /// case values, never the union itself, because a union boxed to <see cref="object"/> hides its case.
+    /// </remarks>
     public static AttributeValue FromObject(object? value)
     {
         switch (value)
@@ -111,10 +144,15 @@ public readonly struct AttributeValue : IUnion
         }
     }
 
-    /// <summary>
-    /// Converts an attribute value read back from a <see cref="RenderTreeFrame"/>: the builder has already reduced it to
-    /// a string, a boxed <c>true</c> (or the empty string on WebAssembly), an untyped callback or a delegate.
-    /// </summary>
+    /// <summary>Converts an attribute value read back from a <see cref="RenderTreeFrame"/> to an <see cref="AttributeValue"/>.</summary>
+    /// <param name="value">
+    /// The frame's attribute value. The builder has already reduced it to a string, a boxed <see langword="true"/> (or the
+    /// empty string on WebAssembly), an untyped callback or a delegate.
+    /// </param>
+    /// <returns>
+    /// The absent value for <see langword="null"/>; the matching case for a string, Boolean, <see cref="EventCallback"/> or
+    /// delegate; and the string representation of anything else.
+    /// </returns>
     public static AttributeValue FromFrameValue(object? value)
     {
         return value switch
@@ -128,6 +166,14 @@ public readonly struct AttributeValue : IUnion
         };
     }
 
+    /// <summary>Gets the string value, if this instance holds one.</summary>
+    /// <param name="value">
+    /// When this method returns, the string value if the kind is <see cref="AttributeValueKind.String"/>; otherwise,
+    /// <see cref="string.Empty"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the kind is <see cref="AttributeValueKind.String"/>; otherwise, <see langword="false"/>.
+    /// </returns>
     public bool TryGetValue(out string value)
     {
         if (kind == AttributeValueKind.String)
@@ -140,18 +186,42 @@ public readonly struct AttributeValue : IUnion
         return false;
     }
 
+    /// <summary>Gets the Boolean value, if this instance holds one.</summary>
+    /// <param name="value">
+    /// When this method returns, the Boolean value if the kind is <see cref="AttributeValueKind.Boolean"/>; otherwise,
+    /// <see langword="false"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the kind is <see cref="AttributeValueKind.Boolean"/>; otherwise, <see langword="false"/>.
+    /// </returns>
     public bool TryGetValue(out bool value)
     {
         value = boolean;
         return kind == AttributeValueKind.Boolean;
     }
 
+    /// <summary>Gets the callback, if this instance holds one.</summary>
+    /// <param name="value">
+    /// When this method returns, the callback if the kind is <see cref="AttributeValueKind.Callback"/>; otherwise, an
+    /// <see cref="EventCallback"/> with no delegate.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the kind is <see cref="AttributeValueKind.Callback"/>; otherwise, <see langword="false"/>.
+    /// </returns>
     public bool TryGetValue(out EventCallback value)
     {
         value = callback;
         return kind == AttributeValueKind.Callback;
     }
 
+    /// <summary>Gets the delegate, if this instance holds one.</summary>
+    /// <param name="value">
+    /// When this method returns, the delegate if the kind is <see cref="AttributeValueKind.Delegate"/>; otherwise,
+    /// <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the kind is <see cref="AttributeValueKind.Delegate"/>; otherwise, <see langword="false"/>.
+    /// </returns>
     public bool TryGetValue(out MulticastDelegate value)
     {
         if (kind == AttributeValueKind.Delegate)
@@ -164,13 +234,23 @@ public readonly struct AttributeValue : IUnion
         return false;
     }
 
-    /// <summary>The case value boxed, for the places Blazor's own contracts force an <c>object</c> slot (component parameters, the attribute dictionary of a substitute callback).</summary>
+    /// <summary>Returns the case value boxed to <see cref="object"/>.</summary>
+    /// <returns>The string, Boolean, callback or delegate held, or <see langword="null"/> for the absent value.</returns>
+    /// <remarks>
+    /// Use this in the places where Blazor's own contracts force an <see cref="object"/> slot: component parameters and the
+    /// attribute dictionary of a substitute callback.
+    /// </remarks>
     public object? ToObject() => Value;
 
-    /// <summary>
-    /// Invokes a handler value the way Blazor's renderer would: a callback through its receiver, a delegate wrapped
-    /// with its target as the receiver (the renderer's own rule for delegate attribute values).
-    /// </summary>
+    /// <summary>Invokes a handler value the way Blazor's renderer would.</summary>
+    /// <param name="arg">The event argument passed to the handler.</param>
+    /// <returns>A task that completes when the handler has finished.</returns>
+    /// <exception cref="InvalidOperationException">The value is not a handler.</exception>
+    /// <remarks>
+    /// A callback is invoked through its receiver. A delegate is wrapped in an <see cref="EventCallback"/> with its target as
+    /// the receiver when the target implements <see cref="IHandleEvent"/>, which is the renderer's own rule for delegate
+    /// attribute values.
+    /// </remarks>
     public Task InvokeAsync(object? arg)
     {
         return kind switch
@@ -181,7 +261,16 @@ public readonly struct AttributeValue : IUnion
         };
     }
 
-    /// <summary>Emits the value as an attribute of the element or component most recently opened on <paramref name="builder"/> through the typed overload of its case.</summary>
+    /// <summary>
+    /// Adds the value as an attribute of the element or component most recently opened on <paramref name="builder"/>.
+    /// </summary>
+    /// <param name="builder">The render tree builder to add the attribute to.</param>
+    /// <param name="sequence">The sequence number of the attribute frame.</param>
+    /// <param name="name">The attribute name.</param>
+    /// <remarks>
+    /// The value is added through the typed <see cref="RenderTreeBuilder.AddAttribute(int, string, string)"/> overload of
+    /// its case. The absent value adds nothing.
+    /// </remarks>
     public void EmitTo(RenderTreeBuilder builder, int sequence, string name)
     {
         switch (kind)
@@ -236,12 +325,17 @@ public readonly struct AttributeValue : IUnion
     private static RenderTreeBuilder? s_unpackBuilder;
 }
 
-/// <summary>The cases of <see cref="AttributeValue"/>.</summary>
+/// <summary>Specifies the case held by an <see cref="AttributeValue"/>.</summary>
 public enum AttributeValueKind : byte
 {
+    /// <summary>No value is held; the attribute is absent.</summary>
     None,
+    /// <summary>A <see cref="string"/> value.</summary>
     String,
+    /// <summary>A <see cref="bool"/> value.</summary>
     Boolean,
+    /// <summary>An untyped <see cref="EventCallback"/> that has a delegate.</summary>
     Callback,
+    /// <summary>A <see cref="MulticastDelegate"/> handler.</summary>
     Delegate,
 }

@@ -3,11 +3,13 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Blazix.Primitives.Generators;
 
-/// <summary>The consumer-facing diagnostics of the <c>[PartState]</c> generator. Every id has a test in <c>Tests.Generators</c>.</summary>
+/// <summary>Provides the consumer-facing diagnostics that the <see cref="PartStateGenerator"/> reports.</summary>
+/// <remarks>Every diagnostic id has a test in <c>Tests.Generators</c>.</remarks>
 internal static class PartStateDiagnostics
 {
     private const string Category = "Blazix.Primitives";
 
+    /// <summary>The BLZX1001 diagnostic, reported when a <c>[PartState]</c> type is not a record class.</summary>
     public static readonly DiagnosticDescriptor NotARecordClass = new(
         "BLZX1001",
         "A [PartState] type must be a sealed partial record class",
@@ -17,6 +19,7 @@ internal static class PartStateDiagnostics
         isEnabledByDefault: true);
 
     // ADR 08 §3
+    /// <summary>The BLZX1002 diagnostic, reported when a <c>[PartState]</c> record is not sealed.</summary>
     public static readonly DiagnosticDescriptor NotSealed = new(
         "BLZX1002",
         "A [PartState] record must be sealed",
@@ -25,6 +28,7 @@ internal static class PartStateDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>The BLZX1003 diagnostic, reported when a property of a <c>[PartState]</c> record has a type that cannot be projected.</summary>
     public static readonly DiagnosticDescriptor NotPrimitiveProperty = new(
         "BLZX1003",
         "A [PartState] property must be projectable",
@@ -33,6 +37,7 @@ internal static class PartStateDiagnostics
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    /// <summary>The BLZX1004 diagnostic, reported when a <c>[PartState]</c> record or one of its containing types is not partial.</summary>
     public static readonly DiagnosticDescriptor NotPartial = new(
         "BLZX1004",
         "A [PartState] record and its containing types must be partial",
@@ -42,7 +47,18 @@ internal static class PartStateDiagnostics
         isEnabledByDefault: true);
 }
 
-/// <summary>A diagnostic to report, in an equatable form the incremental pipeline can cache.</summary>
+/// <summary>Represents a diagnostic to report, in an equatable form that the incremental pipeline can cache.</summary>
+/// <param name="Id">The diagnostic id, such as <c>BLZX1001</c>.</param>
+/// <param name="FilePath">The path of the source file that contains the diagnostic location.</param>
+/// <param name="SpanStart">The start of the location's text span.</param>
+/// <param name="SpanLength">The length of the location's text span.</param>
+/// <param name="StartLine">The zero-based line on which the location starts.</param>
+/// <param name="StartCharacter">The zero-based character on which the location starts.</param>
+/// <param name="EndLine">The zero-based line on which the location ends.</param>
+/// <param name="EndCharacter">The zero-based character on which the location ends.</param>
+/// <param name="Argument0">The first message format argument.</param>
+/// <param name="Argument1">The second message format argument, or an empty string.</param>
+/// <param name="Argument2">The third message format argument, or an empty string.</param>
 internal sealed record DiagnosticInfo(
     string Id,
     string FilePath,
@@ -56,6 +72,13 @@ internal sealed record DiagnosticInfo(
     string Argument1,
     string Argument2)
 {
+    /// <summary>Creates a <see cref="DiagnosticInfo"/> for the specified descriptor at the specified location.</summary>
+    /// <param name="descriptor">The descriptor of the diagnostic to report.</param>
+    /// <param name="location">The location to report the diagnostic at.</param>
+    /// <param name="argument0">The first message format argument.</param>
+    /// <param name="argument1">The second message format argument, if the message has one.</param>
+    /// <param name="argument2">The third message format argument, if the message has one.</param>
+    /// <returns>The equatable form of the diagnostic.</returns>
     public static DiagnosticInfo Create(DiagnosticDescriptor descriptor, Location location, string argument0, string argument1 = "", string argument2 = "")
     {
         FileLinePositionSpan lineSpan = location.GetLineSpan();
@@ -73,6 +96,8 @@ internal sealed record DiagnosticInfo(
             argument2);
     }
 
+    /// <summary>Converts this instance back to a <see cref="Diagnostic"/> that can be reported.</summary>
+    /// <returns>The diagnostic, with its descriptor, location and message arguments restored.</returns>
     public Diagnostic ToDiagnostic()
     {
         DiagnosticDescriptor descriptor = Id switch

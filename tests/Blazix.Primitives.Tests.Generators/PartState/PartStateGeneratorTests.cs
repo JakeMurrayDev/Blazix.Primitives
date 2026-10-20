@@ -53,6 +53,7 @@ public sealed class PartStateGeneratorTests
 
             partial record SwitchRootState : global::Blazix.Primitives.Rendering.IPartState<global::Probe.SwitchRootState>
             {
+                /// <inheritdoc />
                 void global::Blazix.Primitives.Rendering.IPartState<global::Probe.SwitchRootState>.ProjectStateAttributes(global::Blazix.Primitives.Rendering.StateAttributesMapping<global::Probe.SwitchRootState>? mapping, global::Blazix.Primitives.Rendering.StateAttributeWriter writer)
                 {
                     if (mapping is null || !mapping.TryProject("Checked", this.Checked, writer))
@@ -182,6 +183,7 @@ public sealed class PartStateGeneratorTests
 
             partial record PositionerState : global::Blazix.Primitives.Rendering.IPartState<global::Probe.PositionerState>
             {
+                /// <inheritdoc />
                 void global::Blazix.Primitives.Rendering.IPartState<global::Probe.PositionerState>.ProjectStateAttributes(global::Blazix.Primitives.Rendering.StateAttributesMapping<global::Probe.PositionerState>? mapping, global::Blazix.Primitives.Rendering.StateAttributeWriter writer)
                 {
                     if (mapping is null || !mapping.TryProject("Open", this.Open, writer))
@@ -222,6 +224,7 @@ public sealed class PartStateGeneratorTests
 
             partial record EmptyState : global::Blazix.Primitives.Rendering.IPartState<global::Probe.EmptyState>
             {
+                /// <inheritdoc />
                 void global::Blazix.Primitives.Rendering.IPartState<global::Probe.EmptyState>.ProjectStateAttributes(global::Blazix.Primitives.Rendering.StateAttributesMapping<global::Probe.EmptyState>? mapping, global::Blazix.Primitives.Rendering.StateAttributeWriter writer)
                 {
                 }
@@ -261,6 +264,7 @@ public sealed class PartStateGeneratorTests
                 {
                     partial record NestedState : global::Blazix.Primitives.Rendering.IPartState<global::Outer.Inner.NestedState>
                     {
+                        /// <inheritdoc />
                         void global::Blazix.Primitives.Rendering.IPartState<global::Outer.Inner.NestedState>.ProjectStateAttributes(global::Blazix.Primitives.Rendering.StateAttributesMapping<global::Outer.Inner.NestedState>? mapping, global::Blazix.Primitives.Rendering.StateAttributeWriter writer)
                         {
                             if (mapping is null || !mapping.TryProject("Active", this.Active, writer))
@@ -323,6 +327,7 @@ public sealed class PartStateGeneratorTests
 
             partial record OpenState : global::Blazix.Primitives.Rendering.IPartState<global::Probe.OpenState>
             {
+                /// <inheritdoc />
                 void global::Blazix.Primitives.Rendering.IPartState<global::Probe.OpenState>.ProjectStateAttributes(global::Blazix.Primitives.Rendering.StateAttributesMapping<global::Probe.OpenState>? mapping, global::Blazix.Primitives.Rendering.StateAttributeWriter writer)
                 {
                     if (mapping is null || !mapping.TryProject("Open", this.Open, writer))
@@ -364,6 +369,7 @@ public sealed class PartStateGeneratorTests
 
             partial record SliderState : global::Blazix.Primitives.Rendering.IPartState<global::Probe.SliderState>
             {
+                /// <inheritdoc />
                 void global::Blazix.Primitives.Rendering.IPartState<global::Probe.SliderState>.ProjectStateAttributes(global::Blazix.Primitives.Rendering.StateAttributesMapping<global::Probe.SliderState>? mapping, global::Blazix.Primitives.Rendering.StateAttributeWriter writer)
                 {
                     if (mapping is null || !mapping.TryProject("Dragging", this.Dragging, writer))

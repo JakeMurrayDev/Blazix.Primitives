@@ -4,18 +4,23 @@ using Microsoft.AspNetCore.Components.Rendering;
 namespace Blazix.Primitives.Rendering;
 
 // ADR 16 rule 8
-/// <summary>What the pipeline needs from the component that owns a render: the event receiver and the element slot.</summary>
+/// <summary>
+/// Defines what the render pipeline needs from the component that owns a render: the event receiver and the element slot.
+/// </summary>
 internal interface IPartHost : IHandleEvent
 {
+    /// <summary>Stores the rendered element.</summary>
+    /// <param name="element">The rendered element, or <see langword="null"/> when there is none.</param>
     void SetElement(ElementReference? element);
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3
-/// <summary>
-/// The per-instance state of the pipeline, kept so a render allocates as little as possible: the attribute lists it fills
-/// each render, the scratch builder of the frame rewrite, the one real handler per event name, the class and style memo, and the one
-/// element-capture delegate. Owned by <see cref="PartBase{TState}"/> and <see cref="RenderElement{TState}"/>.
-/// </summary>
+/// <summary>Holds the per-instance state of the render pipeline, kept so a render allocates as little as possible.</summary>
+/// <remarks>
+/// The state is the attribute lists the pipeline fills each render, the scratch builder of the frame rewrite, the one real
+/// handler per event name, the class and style memo, and the one element-capture delegate. It is owned by
+/// <see cref="PartBase{TState}"/> and <see cref="RenderElement{TState}"/>.
+/// </remarks>
 internal sealed class PartRenderState : IDisposable
 {
     private readonly IPartHost host;
@@ -67,7 +72,18 @@ internal sealed class PartRenderState : IDisposable
     }
 
     // ADR 02 decision 3
-    /// <summary>The real handler for <paramref name="eventName"/>: one callback, created once, whose dispatch runs the substitute's and the consumer's handlers before <paramref name="handler"/>.</summary>
+    /// <summary>Creates the real handler for <paramref name="eventName"/>.</summary>
+    /// <typeparam name="TArgs">The event argument type.</typeparam>
+    /// <param name="eventName">The event's attribute name; it is stored in lowercase.</param>
+    /// <param name="handler">The part's own handler, which runs last.</param>
+    /// <returns>
+    /// One callback, created once, whose dispatch runs the substitute's and the consumer's handlers before
+    /// <paramref name="handler"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="eventName"/> or <paramref name="handler"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="eventName"/> is empty.</exception>
     public EventCallback CreateHandler<TArgs>(string eventName, Func<TArgs, Task> handler)
         where TArgs : EventArgs
     {
@@ -78,7 +94,11 @@ internal sealed class PartRenderState : IDisposable
         return slot.Typed;
     }
 
-    /// <summary>The chain callback for a slot with no typed part handler but more than one outer handler, created once per slot.</summary>
+    /// <summary>
+    /// Returns the chain callback for a slot with no typed part handler but more than one outer handler.
+    /// </summary>
+    /// <param name="slot">The handler slot.</param>
+    /// <returns>The slot's chain callback, created once per slot.</returns>
     public EventCallback OuterChain(HandlerSlot slot)
     {
         if (!slot.Outer.HasDelegate)
@@ -97,7 +117,9 @@ internal sealed class PartRenderState : IDisposable
     }
 }
 
-/// <summary>The handlers of one event name across the three sources, refreshed each render and read at dispatch.</summary>
+/// <summary>
+/// Holds the handlers of one event name across the three sources, refreshed each render and read at dispatch.
+/// </summary>
 internal sealed class HandlerSlot(string name)
 {
     public string Name { get; } = name;
@@ -108,7 +130,7 @@ internal sealed class HandlerSlot(string name)
 
     public AttributeValue Part;
 
-    /// <summary>The callback <see cref="PartRenderState.CreateHandler{TArgs}"/> made for this name, if any.</summary>
+    /// <summary>The callback that <see cref="PartRenderState.CreateHandler{TArgs}"/> made for this name, if any.</summary>
     public EventCallback Typed;
 
     /// <summary>The generic chain callback, made on first need.</summary>
@@ -123,7 +145,7 @@ internal sealed class HandlerSlot(string name)
 }
 
 // ADR 16 rule 5
-/// <summary>The last inputs and output of the class merge, compared by reference.</summary>
+/// <summary>Holds the last inputs and output of the class merge, whose inputs are compared by reference.</summary>
 internal struct ClassMemo
 {
     private string? substitute;
@@ -176,7 +198,7 @@ internal struct ClassMemo
 }
 
 // ADR 16 rule 5
-/// <summary>The last inputs and output of the style merge, compared by reference.</summary>
+/// <summary>Holds the last inputs and output of the style merge, whose inputs are compared by reference.</summary>
 internal struct StyleMemo
 {
     private string? part;

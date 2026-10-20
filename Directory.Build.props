@@ -13,6 +13,12 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' != ''">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <!-- The two shipped assemblies produce XML documentation; under warnings-as-errors a public or protected member without a
+       documentation comment (CS1591) or a cref, paramref or typeparamref that does not resolve fails the build. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Blazix.Primitives' Or '$(MSBuildProjectName)' == 'Blazix.Primitives.Generators'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
   <!-- The library only. -->
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Blazix.Primitives'">
     <!-- ADR 16 rule 1: reflection or dynamic code in the library fails the build. -->

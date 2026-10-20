@@ -5,62 +5,93 @@ namespace Blazix.Primitives.Rendering;
 
 // RND §3.2, ADR 02 decision 4
 /// <summary>
-/// The public rendering pipeline, Base UI's <c>useRender</c>, for consumers building
-/// their own components over the same static function as the library's parts: a <see cref="Render"/> element or
-/// <see cref="RenderFunction"/> callback, a <see cref="State"/> projected to <c>data-*</c> attributes with an optional
-/// <see cref="StateAttributesMapping"/>, the <see cref="Props"/> to put on the element, <see cref="Enabled"/> and
-/// <see cref="DefaultTagName"/>. <see cref="ChildContent"/> is the Razor form of <c>props.children</c>.
+/// Renders an element through the same static render pipeline as the library's parts, for consumers building their own
+/// components; this is Base UI's <c>useRender</c>.
 /// </summary>
+/// <typeparam name="TState">The state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
+/// <remarks>
+/// The component takes a <see cref="Render"/> element or <see cref="RenderFunction"/> callback, a <see cref="State"/>
+/// projected to <c>data-*</c> attributes with an optional <see cref="StateAttributesMapping"/>, the <see cref="Props"/>
+/// to put on the element, <see cref="Enabled"/> and <see cref="DefaultTagName"/>. <see cref="ChildContent"/> is the
+/// Razor form of <c>props.children</c>.
+/// </remarks>
 public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposable
     where TState : class, IPartState<TState>
 {
     private readonly PartRenderState renderState;
 
+    /// <summary>Initializes a new instance of the <see cref="RenderElement{TState}"/> class.</summary>
     public RenderElement()
     {
         renderState = new PartRenderState(this);
     }
 
     // RND-STR-03
-    /// <summary>The substitute element.</summary>
+    /// <summary>Gets or sets the substitute element.</summary>
+    /// <value>
+    /// A fragment whose single root element or component is re-emitted with the merged attributes in place of the default
+    /// element, or <see langword="null"/>.
+    /// </value>
     [Parameter]
     public RenderFragment? Render { get; set; }
 
     // RND-STR-04
-    /// <summary>The substitute callback. Exclusive with <see cref="Render"/>.</summary>
+    /// <summary>Gets or sets the substitute callback.</summary>
+    /// <value>
+    /// A fragment that receives the merged attributes, the state and the child content, or <see langword="null"/>.
+    /// </value>
+    /// <remarks>
+    /// This parameter is exclusive with <see cref="Render"/>; a render with both set throws
+    /// <see cref="InvalidOperationException"/>.
+    /// </remarks>
     [Parameter]
     public RenderFragment<RenderProps<TState>>? RenderFunction { get; set; }
 
     // RND-STA-02/03
-    /// <summary>The state object; <c>null</c> behaves as an empty state: nothing is projected and a substitute callback receives a <c>null</c> state.</summary>
+    /// <summary>Gets or sets the state object.</summary>
+    /// <value>
+    /// The state, or <see langword="null"/>. A <see langword="null"/> state behaves as an empty state: nothing is projected
+    /// and a substitute callback receives a <see langword="null"/> state.
+    /// </value>
     [Parameter]
     public TState? State { get; set; }
 
     // RND-DOM-06..09
-    /// <summary>The custom projection per state field.</summary>
+    /// <summary>Gets or sets the custom projection per state field.</summary>
+    /// <value>The mapping, or <see langword="null"/> for the default projection only.</value>
     [Parameter]
     public StateAttributesMapping<TState>? StateAttributesMapping { get; set; }
 
     // RND §2.1 row 2
-    /// <summary>The attributes to put on the element, merged over the state attributes; a single object, not a list. Values are case values of <see cref="AttributeValue"/>, boxed callbacks included.</summary>
+    /// <summary>Gets or sets the attributes to put on the element.</summary>
+    /// <value>
+    /// A single dictionary, not a list, merged over the state attributes; or <see langword="null"/>.
+    /// </value>
+    /// <remarks>Values are case values of <see cref="AttributeValue"/>, boxed callbacks included.</remarks>
     [Parameter]
     public IReadOnlyDictionary<string, object>? Props { get; set; }
 
     // RND-DOM-25
-    /// <summary><c>false</c> renders nothing.</summary>
+    /// <summary>Gets or sets a value indicating whether the element renders.</summary>
+    /// <value>
+    /// <see langword="true"/> to render; <see langword="false"/> renders nothing. The default is <see langword="true"/>.
+    /// </value>
     [Parameter]
     public bool Enabled { get; set; } = true;
 
     // RND-STR-08/09
-    /// <summary>The tag rendered when <see cref="Render"/> and <see cref="RenderFunction"/> are absent.</summary>
+    /// <summary>Gets or sets the tag rendered when <see cref="Render"/> and <see cref="RenderFunction"/> are absent.</summary>
+    /// <value>The tag name. The default is <c>div</c>.</value>
     [Parameter]
     public string DefaultTagName { get; set; } = "div";
 
-    /// <summary>The content rendered inside the element.</summary>
+    /// <summary>Gets or sets the content rendered inside the element.</summary>
+    /// <value>The child content, or <see langword="null"/>.</value>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
-    /// <summary>The rendered element, under the same rules as <see cref="PartBase{TState}.Element"/>.</summary>
+    /// <summary>Gets the rendered element.</summary>
+    /// <value>The element, under the same rules as <see cref="PartBase{TState}.Element"/>.</value>
     public ElementReference? Element { get; private set; }
 
     /// <inheritdoc />

@@ -4,41 +4,43 @@ namespace Blazix.Primitives;
 
 // ADR 04 §3; EVD §3.5, EVD-API-05
 /// <summary>
-/// The DOM interface of the native event an <see cref="EventSnapshot"/> was taken from: the most derived of the interfaces
-/// below. It stands in for JavaScript's <c>instanceof</c> test on the event; <see cref="EventSnapshot.IsInstanceOf"/>
-/// answers <c>instanceof</c> with the DOM's inheritance (a <c>PointerEvent</c> is a <c>MouseEvent</c>). Serialised as the
-/// interface name, e.g. <c>"PointerEvent"</c>.
+/// Specifies the DOM interface of the native event an <see cref="EventSnapshot"/> was taken from.
 /// </summary>
+/// <remarks>
+/// The value is the most derived of the interfaces listed. It stands in for JavaScript's <c>instanceof</c> test on the
+/// event; <see cref="EventSnapshot.IsInstanceOf"/> answers <c>instanceof</c> with the DOM's inheritance (a
+/// <c>PointerEvent</c> is a <c>MouseEvent</c>). The value is serialized as the interface name, for example <c>"PointerEvent"</c>.
+/// </remarks>
 [JsonConverter(typeof(JsonStringEnumConverter<EventKind>))]
 public enum EventKind
 {
-    /// <summary><c>Event</c>: any event with no more specific interface, and the <c>base-ui</c> placeholder.</summary>
+    /// <summary>An event with no more specific interface, including the <c>base-ui</c> placeholder (<c>Event</c>).</summary>
     Event,
 
-    /// <summary><c>UIEvent</c> (window resize).</summary>
+    /// <summary>A user-interface event such as a window resize (<c>UIEvent</c>).</summary>
     UIEvent,
 
-    /// <summary><c>FocusEvent</c>.</summary>
+    /// <summary>A focus event (<c>FocusEvent</c>).</summary>
     FocusEvent,
 
-    /// <summary><c>MouseEvent</c>.</summary>
+    /// <summary>A mouse event (<c>MouseEvent</c>).</summary>
     MouseEvent,
 
-    /// <summary><c>PointerEvent</c>, a <c>MouseEvent</c>.</summary>
+    /// <summary>A pointer event, which is also a mouse event (<c>PointerEvent</c>).</summary>
     PointerEvent,
 
-    /// <summary><c>WheelEvent</c>, a <c>MouseEvent</c>.</summary>
+    /// <summary>A wheel event, which is also a mouse event (<c>WheelEvent</c>).</summary>
     WheelEvent,
 
-    /// <summary><c>TouchEvent</c>.</summary>
+    /// <summary>A touch event (<c>TouchEvent</c>).</summary>
     TouchEvent,
 
-    /// <summary><c>KeyboardEvent</c>.</summary>
+    /// <summary>A keyboard event (<c>KeyboardEvent</c>).</summary>
     KeyboardEvent,
 
-    /// <summary><c>InputEvent</c>.</summary>
+    /// <summary>An input event (<c>InputEvent</c>).</summary>
     InputEvent,
 
-    /// <summary><c>ClipboardEvent</c>.</summary>
+    /// <summary>A clipboard event (<c>ClipboardEvent</c>).</summary>
     ClipboardEvent,
 }

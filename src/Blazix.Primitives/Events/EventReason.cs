@@ -2,128 +2,137 @@ namespace Blazix.Primitives;
 
 // EVD §3.5; glossary "Reason"; ADR 05 §3, named by ADR 08 §4; EVD §4.3.7
 /// <summary>
-/// The cause of a request: the 36 Base UI reasons in one enum.
-/// Members are the PascalCase forms of Base UI's kebab-case literals, in Base UI's catalogue order;
-/// <see cref="EventReasonExtensions.ToLiteral"/> gives the literal. Which reasons a given callback may emit is stated on
-/// that callback, not encoded in a type.
+/// Specifies the cause of a request: one member for each of Base UI's 36 reasons.
 /// </summary>
+/// <remarks>
+/// Members are the PascalCase forms of Base UI's kebab-case literals, in Base UI's catalogue order;
+/// <see cref="EventReasonExtensions.ToLiteral"/> returns the literal. Which reasons a callback can report is stated on that
+/// callback, not encoded in a type.
+/// </remarks>
 public enum EventReason
 {
-    /// <summary><c>none</c>: no specific interaction, or a programmatic or automatic change.</summary>
+    /// <summary>The change had no specific interaction, or was programmatic or automatic (<c>none</c>).</summary>
     None,
 
-    /// <summary><c>trigger-press</c>: the trigger was clicked or pressed.</summary>
+    /// <summary>The trigger was clicked or pressed (<c>trigger-press</c>).</summary>
     TriggerPress,
 
-    /// <summary><c>trigger-hover</c>: the pointer entered or left a hover-enabled trigger or its popup.</summary>
+    /// <summary>The pointer entered or left a hover-enabled trigger or its popup (<c>trigger-hover</c>).</summary>
     TriggerHover,
 
-    /// <summary><c>trigger-focus</c>: the trigger received or lost keyboard focus.</summary>
+    /// <summary>The trigger received or lost keyboard focus (<c>trigger-focus</c>).</summary>
     TriggerFocus,
 
-    /// <summary><c>outside-press</c>: a press landed outside the popup and its triggers.</summary>
+    /// <summary>A press landed outside the popup and its triggers (<c>outside-press</c>).</summary>
     OutsidePress,
 
-    /// <summary><c>item-press</c>: a list item, menu item or option was activated.</summary>
+    /// <summary>A list item, menu item or option was activated (<c>item-press</c>).</summary>
     ItemPress,
 
-    /// <summary><c>close-press</c>: a dedicated Close part was activated.</summary>
+    /// <summary>A dedicated Close part was activated (<c>close-press</c>).</summary>
     ClosePress,
 
-    /// <summary><c>link-press</c>: a navigation menu link with close-on-click was activated.</summary>
+    /// <summary>A navigation menu link with close-on-click was activated (<c>link-press</c>).</summary>
     LinkPress,
 
-    /// <summary><c>clear-press</c>: a Clear part was activated.</summary>
+    /// <summary>A Clear part was activated (<c>clear-press</c>).</summary>
     ClearPress,
 
-    /// <summary><c>chip-remove-press</c>: a chip's remove button was activated.</summary>
+    /// <summary>A chip's remove button was activated (<c>chip-remove-press</c>).</summary>
     ChipRemovePress,
 
-    /// <summary><c>track-press</c>: the slider control or track was pressed.</summary>
+    /// <summary>The slider control or track was pressed (<c>track-press</c>).</summary>
     TrackPress,
 
-    /// <summary><c>increment-press</c>: the number field's increment button was pressed.</summary>
+    /// <summary>The number field's increment button was pressed (<c>increment-press</c>).</summary>
     IncrementPress,
 
-    /// <summary><c>decrement-press</c>: the number field's decrement button was pressed.</summary>
+    /// <summary>The number field's decrement button was pressed (<c>decrement-press</c>).</summary>
     DecrementPress,
 
-    /// <summary><c>input-change</c>: text was typed or a composition committed into a text input.</summary>
+    /// <summary>Text was typed or a composition committed into a text input (<c>input-change</c>).</summary>
     InputChange,
 
-    /// <summary><c>input-clear</c>: the text input became empty.</summary>
+    /// <summary>The text input became empty (<c>input-clear</c>).</summary>
     InputClear,
 
-    /// <summary><c>input-blur</c>: the number field input lost focus and its text was committed.</summary>
+    /// <summary>The number field input lost focus and its text was committed (<c>input-blur</c>).</summary>
     InputBlur,
 
-    /// <summary><c>input-paste</c>: text was pasted.</summary>
+    /// <summary>Text was pasted (<c>input-paste</c>).</summary>
     InputPaste,
 
-    /// <summary><c>input-press</c>: the combobox or autocomplete input was pressed to open.</summary>
+    /// <summary>The combobox or autocomplete input was pressed to open (<c>input-press</c>).</summary>
     InputPress,
 
-    /// <summary><c>focus-out</c>: focus left the popup.</summary>
+    /// <summary>Focus left the popup (<c>focus-out</c>).</summary>
     FocusOut,
 
-    /// <summary><c>escape-key</c>: Escape was pressed.</summary>
+    /// <summary>Escape was pressed (<c>escape-key</c>).</summary>
     EscapeKey,
 
-    /// <summary><c>close-watcher</c>: the platform close watcher requested a close.</summary>
+    /// <summary>The platform close watcher requested a close (<c>close-watcher</c>).</summary>
     CloseWatcher,
 
-    /// <summary><c>list-navigation</c>: an arrow key opened the popup or closed a submenu.</summary>
+    /// <summary>An arrow key opened the popup or closed a submenu (<c>list-navigation</c>).</summary>
     ListNavigation,
 
-    /// <summary><c>keyboard</c>: a keyboard interaction that is not list navigation.</summary>
+    /// <summary>A keyboard interaction other than list navigation changed a value or a highlight (<c>keyboard</c>).</summary>
     Keyboard,
 
-    /// <summary><c>pointer</c>: a hover moved the highlight.</summary>
+    /// <summary>A hover moved the highlight (<c>pointer</c>).</summary>
     Pointer,
 
-    /// <summary><c>drag</c>: a slider thumb was dragged.</summary>
+    /// <summary>A slider thumb was dragged (<c>drag</c>).</summary>
     Drag,
 
-    /// <summary><c>wheel</c>: the mouse wheel changed a value.</summary>
+    /// <summary>The mouse wheel changed a value (<c>wheel</c>).</summary>
     Wheel,
 
-    /// <summary><c>scrub</c>: a scrub area drag changed the value.</summary>
+    /// <summary>A scrub area drag changed the value (<c>scrub</c>).</summary>
     Scrub,
 
-    /// <summary><c>popup-close</c>: the filter query is reset because its popup closed.</summary>
+    /// <summary>The filter query is reset because its popup closed (<c>popup-close</c>).</summary>
     PopupClose,
 
-    /// <summary><c>cancel-open</c>: a press-open was aborted.</summary>
+    /// <summary>A press-open was aborted (<c>cancel-open</c>).</summary>
     CancelOpen,
 
-    /// <summary><c>sibling-open</c>: a sibling submenu opened or the parent menu closed.</summary>
+    /// <summary>A sibling submenu opened or the parent menu closed (<c>sibling-open</c>).</summary>
     SiblingOpen,
 
-    /// <summary><c>disabled</c>: the component became disabled.</summary>
+    /// <summary>The component became disabled (<c>disabled</c>).</summary>
     Disabled,
 
-    /// <summary><c>missing</c>: the selected tab was removed or never matched.</summary>
+    /// <summary>The selected tab was removed or never matched (<c>missing</c>).</summary>
     Missing,
 
-    /// <summary><c>initial</c>: the first automatic selection.</summary>
+    /// <summary>A component made its first automatic selection (<c>initial</c>).</summary>
     Initial,
 
-    /// <summary><c>imperative-action</c>: an imperative open or close through actions or a handle.</summary>
+    /// <summary>Code opened or closed the popup through its actions or a handle (<c>imperative-action</c>).</summary>
     ImperativeAction,
 
-    /// <summary><c>swipe</c>: a drawer swipe gesture.</summary>
+    /// <summary>A drawer swipe gesture opened, closed or moved the drawer (<c>swipe</c>).</summary>
     Swipe,
 
-    /// <summary><c>window-resize</c>: the window resized while a select popup was aligned to its trigger.</summary>
+    /// <summary>The window resized while a select popup was aligned to its trigger (<c>window-resize</c>).</summary>
     WindowResize,
 }
 
 // ADR 05 §3
-/// <summary>The literal form of <see cref="EventReason"/>: a <c>switch</c>, no reflection.</summary>
+/// <summary>
+/// Provides the literal form of an <see cref="EventReason"/>.
+/// </summary>
 public static class EventReasonExtensions
 {
     // EVD §3.5
-    /// <summary>The kebab-case Base UI literal of <paramref name="reason"/>, e.g. <c>trigger-press</c>.</summary>
+    /// <summary>
+    /// Returns Base UI's kebab-case literal for a reason.
+    /// </summary>
+    /// <param name="reason">The reason.</param>
+    /// <returns>The literal, for example <c>trigger-press</c> for <see cref="EventReason.TriggerPress"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="reason"/> is not a member of <see cref="EventReason"/>.</exception>
     public static string ToLiteral(this EventReason reason)
     {
         return reason switch
