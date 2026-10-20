@@ -29,3 +29,4 @@ TestResults/
 __pycache__/
 *.pyc
 .vitest/
+red-check-results/
