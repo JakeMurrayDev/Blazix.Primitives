@@ -1,0 +1,28 @@
+# pinned Base UI clone and vendored packages (re-create from the tag in docs/conventions.md §1)
+reference/
+
+# OS and IDE
+.DS_Store
+*.user
+*.suo
+.vs/
+.idea/
+*.DotSettings.user
+
+# build output
+bin/
+obj/
+artifacts/
+node_modules/
+src/Blazix.Primitives/wwwroot/js/
+
+# test output
+test-results/
+playwright-report/
+blob-report/
+TestResults/
+.playwright/
+
+# python
+__pycache__/
+*.pyc

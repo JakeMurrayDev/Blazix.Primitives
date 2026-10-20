@@ -1,0 +1,43 @@
+# ADR 12 — Implementation order and milestones
+
+| | |
+|---|---|
+| Status | accepted (2026-10-20) |
+| Project | Blazix.Primitives |
+| Decides | the order in which the infrastructure and the components are built; the first vertical slice; the grouping of components into milestones; what each milestone delivers |
+| Affects | no requirement IDs; ADR 04 §6 (Server first, applied per component), ADR 10 (a tag per milestone), ADR 13 (done per component), ADR 14 (which verification item blocks which milestone) |
+
+## Context
+
+The accepted ADRs imply pipeline (02) → store and `Controlled<T>` (05) → twins and JavaScript modules (04) → simple parts → popups, and ADR 04 §6 says Server first. The documents' pilots were Switch and Collapsible. Switch mentions Field or Form 52 times and its §13 tests render it inside `Field.Root` and `Form`, so a Switch slice drags in FFI (126 requirements), Field (139), Form (48) and the `form` JavaScript module. Toggle mentions Field once and needs only the pipeline, `Controlled<T>`, event details and the `button` module. Collapsible needs those plus the `transitions` and `dom` modules, handover at attach and three relaxation rows, which makes it the first real exercise of ADRs 01 and 04. RadioGroup cites the composite mechanism 33 times; Accordion three times. The popup families share FLT, PSH, `portal`, `focus-manager`, `interactions`, `scroll-lock` and `positioning`, so the first popup pays for all of them.
+
+## Decision
+
+**Foundations first, then slices grouped by shared mechanism (option M-A).**
+
+| Milestone | Delivers | Why this grouping |
+|---|---|---|
+| M0 Foundations | repository and CI (ADRs 07–11); `PartBase<TState>`, pipeline, frame rewrite, `MergeProps`, ids, projection generator (ADR 02); store, `Controlled<T>`, details and reasons (ADR 05); twin base, initializer, esbuild, `dom` and `button` modules (ADR 04); fixture host, readiness markers, browser projects, red-check job, ownership and module-graph lints (ADR 11); the conformance suite on a sample part; allocation-budget tests (ADR 16); M0's verification items closed (ADR 14) | everything every part needs; done means L1–L3 green and an L4 smoke test green on both modes |
+| M1 First slice | Toggle, Collapsible, Separator, Button, Avatar, Progress, Meter; the `transitions` module | the smallest parts that exercise the pipeline, requests, a JavaScript loop, handover at attach, relaxations and the optimistic convergent write |
+| M2 Form family | FFI and the `form` module; Field, Fieldset, Form, Input, Switch, Checkbox, CheckboxGroup, Radio; the `composite` module and RadioGroup close the milestone | one shared mechanism, nine documents |
+| M3 Composite | Tabs, ToggleGroup, Toolbar, Accordion | the composite module's remaining consumers |
+| M4 Popup core | `positioning` (bundled Floating UI, ADR 03), `interactions`, `focus-manager`, `portal`, `scroll-lock`; popup store and handles (PSH); Popover, Tooltip, PreviewCard, Dialog, AlertDialog | the shared popup layer, proven on the five simplest popups |
+| M5 Lists | Menu, ContextMenu, Menubar, Select, Combobox, Autocomplete, NavigationMenu | list navigation over the popup layer |
+| M6 Loops and the rest | Slider, ScrollArea, NumberField, OtpField, Drawer (`swipe`), Toast (`toast` module, `ToastManager`) | the component modules with their own frame-rate loops |
+
+Rules: within a milestone a component is built and taken through L4 on Server first, then WebAssembly (ADR 04 §6), and is done only on both (ADR 13). Each milestone ends with a tag `v0.<n>.0-preview.1` (ADR 10); `1.0.0` closes M6. A verification item assigned to a milestone (ADR 14) is closed before that milestone's first component is declared done.
+
+## Consequences
+
+* M0 ships no component; the first implemented components arrive with M1.
+* Switch, a documentation pilot, is implemented in M2 with its Field dependencies rather than first.
+* The milestone table is the project's progress view; the documents' status column shows `implemented` per component (ADR 13), not an in-progress state.
+
+## Verification items
+
+* None beyond those ADR 14 assigns to M0 and M1.
+
+## Considered options
+
+* A strict vertical slice first (Switch end to end, Field and FFI included): about 500 requirements across four documents and two modules before any pipeline or twin mistake is found.
+* All infrastructure and all JavaScript modules first, then all parts: months without a component on both modes, the Server-floor assumptions untested against real parts the longest.

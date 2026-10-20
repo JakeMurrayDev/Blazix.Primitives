@@ -1,0 +1,65 @@
+# ADR 05 — State, store, controlled values and event details
+
+| | |
+|---|---|
+| Status | accepted (2026-10-17) |
+| Project | Blazix.Primitives |
+| Decides | whether the store/selector model is ported; how controlled/uncontrolled values are exposed in Blazor; the shape of the event-details object and the reason set; two project-wide constraints (no boxing; .NET 11 / C# 15 with union types) |
+| Affects | UTL-STA-01..36, UTL-ALG-03/04; PSH-STA-01..46, PSH-ALG-*; EVD-API-01..13, EVD-STA-01..10, EVD-EVT-01..27, EVD-ALG-01..11, EVD-EDGE-01/02; every component's controlled prop pairs and `on*Change` callbacks; RND-ALG-07 (amends ADR 02) |
+
+## Context
+
+Base UI holds plain controlled/uncontrolled values for simple components (`useControlled`, EVD-ALG-08) and a `ReactStore` for every popup family and the floating layer: one immutable record, listeners notified synchronously in subscription order with the nested-write rule UTL-ALG-03, `Object.is` equality, selectors with arguments, reactive reads that re-render only on change, a non-reactive context bag, and prop-to-store sync helpers (UTL §4.2). The popup store has 18 common fields, eleven selectors and 46 STA requirements; handles expose a stack of attached stores or an inert fallback store (PSH-STA-34..40). Ordering is observable (EVD-ALG-04, PSH-STA-44). Change callbacks receive `(value, details)` where `details` is one mutable object carrying `reason`, the native event, the trigger, `cancel()`, `allowPropagation()` and live accessors (EVD-ALG-01), shared along child-then-parent chains (EVD-EVT-04).
+
+Blazor facts: a `CascadingValue` whose value changes re-renders every subscriber; a fixed one re-renders none, so parts must subscribe and re-render themselves (UTL §8.2, and the old port's slider pitfalls). `ParameterView.TryGetValue` reports whether a parameter was supplied, which gives "controlled iff supplied at first render" exactly. `@bind-Open` expands to `Open` plus `OpenChanged`. Store notifications run on the renderer's synchronization context.
+
+The user added two constraints during this decision: **minimal to no boxing** anywhere the port controls allocation, and **.NET 11 / C# 15**, using union types. C# 15 facts (Microsoft docs, 2026-09): a compiler-generated `union` is a struct storing `object?`, so it boxes value-type cases; the non-boxing access pattern (`HasValue`, `TryGetValue(out T)`) on a hand-written `[Union]` struct avoids that; runtime support exists from .NET 11 Preview 5 and parts of the proposal are still unimplemented.
+
+## Decision
+
+### 1. Store (option ST1)
+
+`Store<TState>` and `ComponentStore<TState>` are ported per UTL-STA-07..27: an immutable state record class, ordered listeners with the UTL-ALG-03 nesting rule (a nested write runs its own full pass and aborts the outer one), `Update(state => state with { … })` and typed `Set<TValue>` accessors, `NotifyAll`, `Subscribe`, `Observe`, named selectors `Func<TState, TValue>` and `Func<TState, TArg, TValue>`, and a non-reactive context bag of typed fields. Equality is `Is<T>`: value types and `string` by value, every other reference type by reference, matching `Object.is`; store fields that are C# records are compared by reference, never structurally. `PartBase` gains a selector subscription: one subscription per part, every selection re-evaluated per notification, `StateHasChanged` only when a selection changed (UTL-STA-25/27). Prop-to-store sync (`useSyncedValue`, `useSyncedValues`, `useControlledProp`) runs in `OnParametersSet`; UTL §8.1 sanctions this because only the store is touched. The store is cascaded fixed (`IsFixed = true`). The store is used exactly where Base UI uses it (UTL §4.2 "Used by"); simple components keep plain fields plus `Controlled<T>` implementing EVD-ALG-08 and EVD-STA-01..06. Handles port as `PopupHandle<TPayload>` with the attached-store stack, pointer listeners and the inert fallback store (`NullStore`, PSH-STA-34..40); detached triggers subscribe to the pointer.
+
+### 2. Controlled values in Blazor (option A2)
+
+Every value exposes `Value`, `ValueChanged` (`EventCallback<T>`) and `DefaultValue` (names per component: `Open`/`OpenChanged`/`DefaultOpen`, `Checked`/…), plus `OnValueChange: EventCallback<ValueChangeEventArgs<T>>` carrying the details. Controlled iff `Value` was supplied at first `SetParametersAsync` (`ParameterView.TryGetValue`), fixed for the component's lifetime (EVD-STA-01). Request sequence (EVD-ALG-03/04 unchanged, with one added step): compute → `OnValueChange(args)` → if `IsCanceled` stop → `ValueChanged(value)` → commit when uncontrolled → follow-up side effects. `@bind-Value` therefore works, and `ValueChanged` fires only from the component's own request path, so EVD-STA-06 holds. The two-callback shape is a documented superset of Base UI's one callback.
+
+### 3. Event details and reasons (option R1)
+
+`ChangeEventDetails` is a mutable class: `Reason` (enum), `Event` (the snapshot record of ADR 04), `Trigger` (record of trigger id and `ElementReference`), `Cancel()`, `AllowPropagation()`, live `IsCanceled`/`IsPropagationAllowed`. `OpenChangeEventDetails : ChangeEventDetails` adds `PreventUnmountOnClose()`. Component extensions are subclasses (`TabsChangeEventDetails.ActivationDirection`, `SliderChangeEventDetails.ActiveThumbIndex`, `HighlightEventDetails.Index`). `GenericEventDetails` carries `Reason` and `Event` only (EVD-API-02). One object flows through chained callbacks (EVD-EVT-04/09). The callback argument is `readonly record struct ValueChangeEventArgs<T>(T Value, ChangeEventDetails Details)`; `EventCallback<ValueChangeEventArgs<T>>` delivers it without boxing. Reasons are one `enum BaseUIEventReason` with the 36 members of EVD §3.5 and a `ToLiteral()` extension producing the kebab-case literal; per-callback subsets remain documentation (EVD §4.3.7). Dev warnings EVD-EDGE-01/02 are kept behind a debug switch.
+
+### 4. Project-wide constraints
+
+* **No boxing where the port controls it.** Generic store, selectors and listeners; enum reasons; typed `EventCallback<T>`; the pipeline's attribute bag is a typed entry list with a hand-written non-boxing `[Union] struct AttributeValue(string, bool, EventCallback, Delegate)` emitted through `RenderTreeBuilder`'s typed `AddAttribute` overloads; state projection is source-generated (amends ADR 02). Boxing forced by Blazor's own contracts is accepted and minimised: `CaptureUnmatchedValues` is `Dictionary<string, object>`; `IJSObjectReference.InvokeAsync` takes `object?[]`, so twins pass one options record per call rather than scalars.
+* **.NET 11 and C# 15.** Union types are used for reference-typed alternatives: `Render` as `RenderFragment | RenderFragment<RenderProps<TState>>`, `ClassValue`/`StyleValue` as `string | Func<TState, string?>`, `Anchor` cases that are reference types. Value-typed alternatives (`double | double[]` for Slider, anything with `ElementReference`) use hand-written `[Union]` structs with the non-boxing access pattern, or stay as two typed parameters. `closed` hierarchies are used where exhaustive matching over a library-defined set helps (details subclasses). Targeting a preview runtime is accepted; the fallback for any union feature that slips is the two-parameter shape of ADR 02.
+
+## Consequences
+
+* ADR 02 is amended (see its Amendments section): projection by source generator; union-typed single parameters where cases are reference types, with the Razor-binding verification item below.
+* A `Controlled<T>` helper and the store library are the first implementation deliverables after the pipeline; every component doc's §4 can cite UTL/PSH/EVD IDs unchanged.
+* Consumers who use `@bind-Value` and also need `reason` or `cancel()` subscribe to both callbacks; the docs state the order.
+
+## Verification items
+
+* The Razor compiler binds `class="x"` / `Render="@fragment"` / `ClassValue="@func"` to a union-typed `[Parameter]` (implicit union conversion through component attribute binding), on the .NET 11 preview SDK. Not testable on this machine today (SDK 10.0.301 installed).
+* Whether component parameters bind case-insensitively (`class` to a parameter named `Class`). **Verified 2026-10-18 (SDK 10.0.301): yes** — `<Part class="x" />` compiles to `AddComponentParameter(1, nameof(Part.Class), "x")`. Consequences: a part that declares a parameter named `Class` or `Style` captures the consumer's plain attribute (it no longer reaches the unmatched bag), so the single union-typed `Class`/`Style` parameters of §4 are viable once union binding is verified on the .NET 11 SDK; until then parts must not name any parameter `Class` or `Style`, and ADR 02 P1's bag channel stands.
+* `EqualityComparer<T>.Default` specialisation for value types inside `Is<T>` does not box on the WebAssembly runtime (interpreter and AOT).
+* Union features listed as not yet implemented in the C# 15 proposal do not include anything the parameter shapes above rely on; re-check at each preview.
+
+## Considered options
+
+* Plain C# state with cascading snapshots everywhere (re-render storms on list popups; PSH-STA restated ad hoc); stores everywhere including Switch (machinery Base UI does not use).
+* Literal controlled API without `@bind` support (consumers write the two-way update by hand).
+* Per-callback reason enums mirroring the TypeScript unions (about thirty overlapping enums and a generic details hierarchy that shared mechanisms cannot create without knowing the component); string constants (no exhaustiveness, typos compile).
+
+## Amendments
+
+**2026-10-18, from the second-pass review (settles field §16 Q13, input §16 Q3, autocomplete §16 Q2, toast §16 manager shape, FFI §10 Q9's FLD-STA-12 item).**
+
+1. **Controlled mode is fixed at the first parameter set for every part**, including `Field.Control`, `Input` and `Autocomplete`, whose Base UI implementations re-decide on every render and tolerate switching (FLD-STA-12, INP-API-01, AUT-API-01/EDGE-01). The switching clauses are relaxed for the port; supplying or removing `Value` after the first parameter set raises the same development-time warning as EVD-EDGE-01/02. No test exercises switching.
+2. **One exception to the request sequence of §2**: for a request whose source is a native text edit on an uncontrolled text control (`input` events on Combobox/Autocomplete inputs, Field.Control, Input, NumberField, OTP slots), the commit proceeds regardless of `Cancel()`, because the browser has already changed the DOM and reverting typed text would be new behaviour; `Cancel()` still suppresses the follow-up effects Base UI suppresses (AUT-EVT-02 and its Combobox counterpart stay as written).
+3. **Toast manager shape** (TST-API-10): `ToastManager` is a class exposing the same methods as `createToastManager()` (add, update, close, promise) and a subscription event usable outside the component tree; it is not a `Store<TState>`. `Toast.Provider` takes a manager as a parameter or creates its own, and the equivalent of `useToastManager` is the provider's cascaded instance.
+
+
+**2026-10-20, by ADR 08 (product-name rule).** The reason enum of §3 is named `EventReason` (previously `BaseUIEventReason`); its 36 members are the PascalCase forms of EVD §3.5's literals (`trigger-press` → `TriggerPress`, `none` → `None`) and `ToLiteral()` is unchanged. The union types named in §4 follow ADR 08 §3 (`ClassValue<TState>`, `RenderValue<TState>`, `AnchorValue`, `SliderValue`, `AttributeValue`).
