@@ -43,16 +43,16 @@ function* playwrightSpecs(suite, titles) {
   for (const child of suite.suites ?? []) yield* playwrightSpecs(child, [...titles, child.title]);
 }
 
-/** @param {string} text the output of `playwright test --list --reporter=json` */
+/** @param {string} text the output of `playwright test --list --reporter=json`, which has one spec per project */
 export function parsePlaywrightList(text) {
   const report = JSON.parse(text);
-  const keys = [];
+  const keys = new Set();
   for (const fileSuite of report.suites ?? []) {
     for (const { titles } of playwrightSpecs(fileSuite, [])) {
-      keys.push(`tests/browser/${fileSuite.file}::${titles.join(' > ')}`);
+      keys.add(`tests/browser/${fileSuite.file}::${titles.join(' > ')}`);
     }
   }
-  return keys;
+  return [...keys];
 }
 
 /** The names `head` has more of than `base`: a multiset difference that keeps the head's order. */
@@ -106,6 +106,8 @@ export function vitestOutcomes(text, root) {
   return outcomes;
 }
 
+const rank = { passed: 2, failed: 1, skipped: 0 };
+
 /** A test that passes in any project counts as passed; otherwise one that failed counts as failed. */
 export function playwrightOutcomes(text) {
   const outcomes = new Map();
@@ -113,7 +115,10 @@ export function playwrightOutcomes(text) {
     for (const { spec, titles } of playwrightSpecs(fileSuite, [])) {
       const statuses = spec.tests.map((test) => test.results.at(-1)?.status ?? 'skipped');
       const status = statuses.includes('passed') ? 'passed' : statuses.some((s) => s !== 'skipped') ? 'failed' : 'skipped';
-      outcomes.set(`tests/browser/${fileSuite.file}::${titles.join(' > ')}`, status);
+      const key = `tests/browser/${fileSuite.file}::${titles.join(' > ')}`;
+      // One spec per project: keep the best result of the projects.
+      const known = outcomes.get(key);
+      if (known === undefined || rank[known] < rank[status]) outcomes.set(key, status);
     }
   }
   return outcomes;
