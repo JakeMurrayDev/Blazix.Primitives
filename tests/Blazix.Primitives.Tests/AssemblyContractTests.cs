@@ -11,7 +11,7 @@ public sealed class AssemblyContractTests
 {
     // Prefixes (case-insensitive) of packages that would turn L1 into a layer above it: the bUnit
     // renderer, the in-process web host, the browser driver and the WebAssembly client runtime.
-    private static readonly string[] forbiddenPackagePrefixes =
+    private static readonly string[] s_forbiddenPackagePrefixes =
     [
         "bunit",
         "Microsoft.AspNetCore.Mvc.Testing",
@@ -19,24 +19,24 @@ public sealed class AssemblyContractTests
         "Microsoft.Playwright",
     ];
 
-    private static readonly Assembly library = Assembly.Load("Blazix.Primitives");
+    private static readonly Assembly s_library = Assembly.Load("Blazix.Primitives");
 
     [Fact]
     public void Library_is_marked_trimmable()
     {
-        Assert.Equal("True", MetadataValue(library, "IsTrimmable"));
+        Assert.Equal("True", MetadataValue(s_library, "IsTrimmable"));
     }
 
     [Fact]
     public void Library_is_marked_aot_compatible()
     {
-        Assert.Equal("True", MetadataValue(library, "IsAotCompatible"));
+        Assert.Equal("True", MetadataValue(s_library, "IsAotCompatible"));
     }
 
     [Fact]
     public void Library_records_the_Base_UI_version_it_ports()
     {
-        Assert.Equal("v1.9.0", MetadataValue(library, "BaseUIVersion"));
+        Assert.Equal("v1.9.0", MetadataValue(s_library, "BaseUIVersion"));
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class AssemblyContractTests
             .ToArray();
 
         string[] offenders = libraries
-            .Where(name => forbiddenPackagePrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            .Where(name => s_forbiddenPackagePrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
             .Concat(libraries.Where(name => name.StartsWith("Blazix.Primitives.Fixtures", StringComparison.Ordinal)))
             .ToArray();
 
