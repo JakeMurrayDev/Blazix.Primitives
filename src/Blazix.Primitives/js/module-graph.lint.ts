@@ -89,11 +89,11 @@ export function checkGraph(modules: { name: string; imports: string[] }[], kinds
   return problems;
 }
 
-/** @param directory the js/ folder @returns every module in it (tests, declarations and lint files excluded) with its imports */
+/** @param directory the js/ folder @returns every module in it (tests, test support, declarations and lint files excluded) with its imports */
 export function readModules(directory: string): { name: string; imports: string[] }[] {
   return readdirSync(directory, { recursive: true, encoding: 'utf8' })
     .map((file) => file.split('\\').join('/'))
-    .filter((file) => file.endsWith('.ts') && !/\.(?:test|lint|d)\.ts$/.test(file) && !/(?:^|\/)(?:node_modules|chunks)\//.test(file))
+    .filter((file) => file.endsWith('.ts') && !/\.(?:test|lint|d)\.ts$/.test(file) && !/(?:^|\/)(?:node_modules|chunks|test-support)\//.test(file))
     .sort()
     .map((file) => ({ name: file.slice(0, -'.ts'.length), imports: extractImports(readFileSync(posix.join(directory.split('\\').join('/'), file), 'utf8')) }));
 }
