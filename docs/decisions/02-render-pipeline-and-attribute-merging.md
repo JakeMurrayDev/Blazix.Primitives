@@ -55,7 +55,7 @@ One shared implementation therefore satisfies RND-DOM-36..49 for every part; the
 ## Verification items
 
 * Confirm that interactive activation replaces the prerendered subtree rather than reconciling attributes, and that multiple interactive roots activate in document order (affects how often RND-DOM-29's divergence case occurs).
-* Confirm the frame re-emitter preserves `@key` and `@ref` semantics across re-renders for a substitute whose root is a consumer component (RND-DOM-43, RND-DOM-45).
+* Confirm the frame re-emitter preserves `@key` and `@ref` semantics across re-renders for a substitute whose root is a consumer component (RND-DOM-43, RND-DOM-45). **Verified 2026-10-20 (M0 track 1, [issue 4](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/4)): yes** — the re-emitter writes the consumer's `@key` with `SetKey` on the re-emitted component frame and re-emits its `@ref` as a component reference capture, so across re-renders of the part (its own `StateHasChanged` and new parameters) the consumer component keeps one instance, its capture action receives that instance, and a changed key disposes the instance and recaptures the new one. Permanent L2 tests: `SubstituteComponentIdentityTests` in `tests/Blazix.Primitives.Tests.Components/Rendering/`, tagged `[Trait("Verifies", "ADR02-2")]`.
 * Measure the scratch-render cost on a list part (Menu items) before deciding whether the element form caches frames between renders.
 
 ## Considered options

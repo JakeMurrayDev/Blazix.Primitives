@@ -4,7 +4,7 @@ L1: xUnit with no Blazor. The reference graph enforces the layer rule.
 
 ## Inputs
 
-- `../../src/Blazix.Primitives` (the only project reference; never bUnit, never a Blazor test host).
+- `../../src/Blazix.Primitives` (the only library reference; never bUnit, never a Blazor test host) and the `[PartState]` generator as an analyzer, so the project's own test state records (`Rendering/TestStates.cs`) are projected as a consumer's would be.
 - The `Test:` lines tagged `[L1]` in `docs/components/*.md` and `docs/architecture/*.md`; decision records 06 §1 and 16 rule 7.
 - `docs/components/*.md` at test time, for the ownership lint (ADR 11 §5).
 

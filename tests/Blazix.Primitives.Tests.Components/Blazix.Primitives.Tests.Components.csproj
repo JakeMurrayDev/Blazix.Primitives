@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <!-- L2 (ADR 06 §1): bUnit, including the twin contract tests. -->
+  <!-- L2 (ADR 06 §1): bUnit, including the twin contract tests. The Razor SDK compiles the .razor test components and fixtures that exercise the consumer-facing forms (substitute elements written as markup). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);BL0006</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +16,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
+    <!-- The [PartState] generator runs on this project's own state records, as it does in a consumer's project. -->
+    <ProjectReference Include="..\..\src\Blazix.Primitives.Generators\Blazix.Primitives.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
