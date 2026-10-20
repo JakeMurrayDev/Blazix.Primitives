@@ -15,6 +15,18 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    The library's convention analyzers check the generator's own code too (member order, field prefix, <inheritdoc />).
+    The boxing rule is off here: it guards the library at run time, and the generator runs inside the compiler.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);BLZX2005</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Blazix.Primitives.Analyzers\Blazix.Primitives.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
   <!-- Release tracking for the diagnostics (RS2008); the first shipped release moves the rows from Unshipped to Shipped. -->
   <ItemGroup>
     <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
