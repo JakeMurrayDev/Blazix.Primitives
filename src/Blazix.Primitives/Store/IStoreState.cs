@@ -6,12 +6,11 @@ namespace Blazix.Primitives.Store;
 /// </summary>
 /// <typeparam name="TSelf">The state record type that implements the interface.</typeparam>
 /// <remarks>
-/// A generic store cannot copy or compare a record without reflection, so the record supplies both operations.
-/// Implement them on the <c>sealed record</c>:
+/// A generic store cannot copy or compare a record without reflection, so the record supplies both operations. Mark the
+/// <c>sealed partial record</c> with <see cref="StoreStateAttribute"/> and the generator writes both:
 /// <code>
-/// public static CounterState Copy(CounterState state) =&gt; state with { };
-/// public static bool ShallowEquals(CounterState left, CounterState right) =&gt;
-///     Equality.Is(left.Count, right.Count) &amp;&amp; Equality.Is(left.Label, right.Label);
+/// [StoreState]
+/// public sealed partial record CounterState(int Count, string Label) : IStoreState&lt;CounterState&gt;;
 /// </code>
 /// </remarks>
 public interface IStoreState<TSelf>

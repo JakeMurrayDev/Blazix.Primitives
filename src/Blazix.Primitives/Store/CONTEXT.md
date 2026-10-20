@@ -16,7 +16,8 @@ The public surface, with what each member does (requirement IDs follow for trace
   - `static TSelf Copy(TSelf state)`: returns `state with { }`.
   - `static bool ShallowEquals(TSelf left, TSelf right)`: `true` when every member is equal by `Equality.Is`.
 
-  `NotifyAll` must give the record a new reference whose members are all `Object.is`-equal (UTL-STA-12), and a write whose every member is `Object.is`-equal must be a no-op (UTL-STA-10/11). These two members are exactly what those rules need, and the no-reflection rule (ADR 16 rule 1) leaves a generic store no other way to copy or compare a record. They are hand-written for now; a generator could emit them.
+  `NotifyAll` must give the record a new reference whose members are all `Object.is`-equal (UTL-STA-12), and a write whose every member is `Object.is`-equal must be a no-op (UTL-STA-10/11). These two members are exactly what those rules need, and the no-reflection rule (ADR 16 rule 1) leaves a generic store no other way to copy or compare a record. Nobody writes them by hand: see `[StoreState]`.
+- `StoreStateAttribute`, `[StoreState]`: marks a state record, declared `[StoreState] public sealed partial record XState(…) : IStoreState<XState>;`. The `[StoreState]` generator (`src/Blazix.Primitives.Generators`) writes both members of `IStoreState` into it. `Copy` is `state with { }`. `ShallowEquals` compares every instance member that `with` copies, in declaration order, stopping at the first difference: positional, auto-implemented, get-only and init-only properties through the property, whatever their accessibility, and fields directly. A computed property, which holds no value of its own, and static members take no part. Each comparison follows `Equality.Is` for the member's static type but is written out for that type rather than calling the generic `Is<T>`, so that it never boxes (see the Generators contract for the table). A member holding a record or a store therefore compares by reference. The record must be sealed, partial (with its containing types), implement `IStoreState` of itself, derive from no other record and declare neither member itself (BLZX1005..1010). A struct member with neither `==` nor `IEquatable<T>` falls back to `Equality.Is` with warning BLZX1011.
 - `StoreField<TState, TValue>(string name, Func<TState, TValue> get, Func<TState, TValue, TState> with)`: a typed key for one member, declared `static readonly` per member. `Get(state)` reads the member; `With(state, value)` returns a copy with the member replaced; `Name` names it in warnings.
 - `Store<TState>(TState state)`, where `TState : class, IStoreState<TState>`:
   - `State`: the current record. Replaced on every write, never mutated (UTL-STA-07).
@@ -48,10 +49,10 @@ The public surface, with what each member does (requirement IDs follow for trace
 ## Outputs
 
 - The stores of the popup families and the floating layer (UTL §4.2 "Used by").
-- Tested at L1 by `tests/Blazix.Primitives.Tests/Store/`, including the notification budget (zero bytes for N subscribers whose selections did not change).
+- Tested at L1 by `tests/Blazix.Primitives.Tests/Store/`, including the notification budget (zero bytes for N subscribers whose selections did not change) and a generated `ShallowEquals` over a record with every kind of member (zero bytes on CoreCLR; the WebAssembly interpreter cost is pinned by Track 3's harness test).
 
 ## Human check
 
-- Every `IStoreState.ShallowEquals` names every member of its record.
+- Every state record is marked `[StoreState]` and declares neither `Copy` nor `ShallowEquals` (BLZX1009 rejects a hand-written one), so no comparison can miss a member.
 - No store field is compared structurally; a record member is compared by reference.
 - The notification budget stays at zero (ADR 16 rule 7: budgets only tighten).

@@ -4,14 +4,14 @@ namespace Blazix.Primitives.Tests.Store;
 
 /// <summary>
 /// The generated <c>Copy</c> and <c>ShallowEquals</c> of a <c>[StoreState]</c> record (ADR 05 §1; UTL-STA-11/12) agree
-/// with the hand-written members they replace, on every state record of the store tests: each case below gives the
-/// verdict both must return. A record or store held as a member is equal only to itself, a string by value, a double by
-/// <c>Object.is</c>.
+/// with the hand-written members they replaced, on every state record of the store tests: each case below gives the
+/// verdict both must return, and each record's former hand-written comparison is kept here, verbatim, as the reference.
+/// A record or store held as a member is equal only to itself, a string by value, a double by <c>Object.is</c>.
 /// </summary>
 public sealed class StoreStateGenerationTests
 {
     [Fact]
-    public void TestState_generated_ShallowEquals_agrees_with_the_hand_written_one()
+    public void TestState_generated_ShallowEquals_agrees_with_the_hand_written_one_it_replaced()
     {
         TestState state = new(1, "a");
         AssertAgree(
@@ -22,12 +22,12 @@ public sealed class StoreStateGenerationTests
                 ("Value differs", state, state with { Value = 2 }, false),
                 ("Label differs", state, state with { Label = "b" }, false),
             ],
-            TestState.ShallowEquals,
-            static (left, right) => GeneratedTestState.ShallowEquals(new(left.Value, left.Label), new(right.Value, right.Label)));
+            static (left, right) => Equality.Is(left.Value, right.Value) && Equality.Is(left.Label, right.Label),
+            TestState.ShallowEquals);
     }
 
     [Fact]
-    public void CounterState_generated_ShallowEquals_agrees_with_the_hand_written_one()
+    public void CounterState_generated_ShallowEquals_agrees_with_the_hand_written_one_it_replaced()
     {
         CounterState state = new(1, 2);
         AssertAgree(
@@ -37,12 +37,12 @@ public sealed class StoreStateGenerationTests
                 ("Count differs", state, state with { Count = 3 }, false),
                 ("Multiplier differs", state, state with { Multiplier = 3 }, false),
             ],
-            CounterState.ShallowEquals,
-            static (left, right) => GeneratedCounterState.ShallowEquals(new(left.Count, left.Multiplier), new(right.Count, right.Multiplier)));
+            static (left, right) => Equality.Is(left.Count, right.Count) && Equality.Is(left.Multiplier, right.Multiplier),
+            CounterState.ShallowEquals);
     }
 
     [Fact]
-    public void ParentState_generated_ShallowEquals_agrees_with_the_hand_written_one()
+    public void ParentState_generated_ShallowEquals_agrees_with_the_hand_written_one_it_replaced()
     {
         ParentState state = new(1);
         AssertAgree(
@@ -51,12 +51,12 @@ public sealed class StoreStateGenerationTests
                 ("copy", state, state with { }, true),
                 ("Count differs", state, state with { Count = 2 }, false),
             ],
-            ParentState.ShallowEquals,
-            static (left, right) => GeneratedParentState.ShallowEquals(new(left.Count), new(right.Count)));
+            static (left, right) => Equality.Is(left.Count, right.Count),
+            ParentState.ShallowEquals);
     }
 
     [Fact]
-    public void ChildState_generated_ShallowEquals_agrees_with_the_hand_written_one()
+    public void ChildState_generated_ShallowEquals_agrees_with_the_hand_written_one_it_replaced()
     {
         ComponentStore<ParentState> parent = new(new ParentState(1));
         ComponentStore<ParentState> sameValues = new(new ParentState(1));
@@ -70,12 +70,12 @@ public sealed class StoreStateGenerationTests
                 ("another store with the same state", state, state with { Parent = sameValues }, false),
                 ("parent removed", state, state with { Parent = null }, false),
             ],
-            ChildState.ShallowEquals,
-            static (left, right) => GeneratedChildState.ShallowEquals(new(left.Count, left.Parent), new(right.Count, right.Parent)));
+            static (left, right) => Equality.Is(left.Count, right.Count) && Equality.Is(left.Parent, right.Parent),
+            ChildState.ShallowEquals);
     }
 
     [Fact]
-    public void ValuesState_generated_ShallowEquals_agrees_with_the_hand_written_one()
+    public void ValuesState_generated_ShallowEquals_agrees_with_the_hand_written_one_it_replaced()
     {
         ValuesState state = new(new Dictionary<string, string> { ["a"] = "1" });
         AssertAgree(
@@ -84,12 +84,12 @@ public sealed class StoreStateGenerationTests
                 ("copy", state, state with { }, true),
                 ("another dictionary with the same entries", state, new ValuesState(new Dictionary<string, string> { ["a"] = "1" }), false),
             ],
-            ValuesState.ShallowEquals,
-            static (left, right) => GeneratedValuesState.ShallowEquals(new(left.Values), new(right.Values)));
+            static (left, right) => Equality.Is(left.Values, right.Values),
+            ValuesState.ShallowEquals);
     }
 
     [Fact]
-    public void ShapeState_generated_ShallowEquals_agrees_with_the_hand_written_one()
+    public void ShapeState_generated_ShallowEquals_agrees_with_the_hand_written_one_it_replaced()
     {
         ShapeState state = new(new Point(0, 0), 0.5, "x");
         AssertAgree(
@@ -104,19 +104,19 @@ public sealed class StoreStateGenerationTests
                 ("node removed", state, state with { Node = null }, false),
                 ("empty node and no node", state with { Node = string.Empty }, state with { Node = null }, false),
             ],
-            ShapeState.ShallowEquals,
-            static (left, right) => GeneratedShapeState.ShallowEquals(new(left.Origin, left.Ratio, left.Node), new(right.Origin, right.Ratio, right.Node)));
+            static (left, right) => Equality.Is(left.Origin, right.Origin) && Equality.Is(left.Ratio, right.Ratio) && Equality.Is(left.Node, right.Node),
+            ShapeState.ShallowEquals);
     }
 
     [Fact]
     public void Generated_Copy_returns_a_new_record_with_the_same_members()
     {
-        AssertCopies(new GeneratedTestState(1, "a"));
-        AssertCopies(new GeneratedCounterState(1, 2));
-        AssertCopies(new GeneratedParentState(1));
-        AssertCopies(new GeneratedChildState(1, new ComponentStore<ParentState>(new ParentState(1))));
-        AssertCopies(new GeneratedValuesState(new Dictionary<string, string> { ["a"] = "1" }));
-        AssertCopies(new GeneratedShapeState(new Point(0, 0), double.NaN, "x"));
+        AssertCopies(new TestState(1, "a"));
+        AssertCopies(new CounterState(1, 2));
+        AssertCopies(new ParentState(1));
+        AssertCopies(new ChildState(1, new ComponentStore<ParentState>(new ParentState(1))));
+        AssertCopies(new ValuesState(new Dictionary<string, string> { ["a"] = "1" }));
+        AssertCopies(new ShapeState(new Point(0, 0), double.NaN, "x"));
     }
 
     private static void AssertAgree<TState>(
@@ -149,23 +149,3 @@ public sealed class StoreStateGenerationTests
         Assert.True(TState.ShallowEquals(state, copy));
     }
 }
-
-// The same members as the hand-written records in TestStates.cs, with Copy and ShallowEquals generated.
-
-[StoreState]
-public sealed partial record GeneratedTestState(int Value, string Label) : IStoreState<GeneratedTestState>;
-
-[StoreState]
-public sealed partial record GeneratedCounterState(int Count, int Multiplier) : IStoreState<GeneratedCounterState>;
-
-[StoreState]
-public sealed partial record GeneratedParentState(int Count) : IStoreState<GeneratedParentState>;
-
-[StoreState]
-public sealed partial record GeneratedChildState(int Count, ComponentStore<ParentState>? Parent) : IStoreState<GeneratedChildState>;
-
-[StoreState]
-public sealed partial record GeneratedValuesState(IReadOnlyDictionary<string, string> Values) : IStoreState<GeneratedValuesState>;
-
-[StoreState]
-public sealed partial record GeneratedShapeState(Point Origin, double Ratio, string? Node) : IStoreState<GeneratedShapeState>;

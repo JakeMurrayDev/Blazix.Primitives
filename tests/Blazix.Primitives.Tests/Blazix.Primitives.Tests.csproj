@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
-    <!-- The [PartState] generator runs on this project's own state records, as it does in a consumer's project. -->
+    <!-- The generators run on this project's own state records ([PartState], [StoreState]), as they do in a consumer's project. -->
     <ProjectReference Include="..\..\src\Blazix.Primitives.Generators\Blazix.Primitives.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>

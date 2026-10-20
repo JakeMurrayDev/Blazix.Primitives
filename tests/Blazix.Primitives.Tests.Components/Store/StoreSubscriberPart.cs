@@ -5,20 +5,14 @@ using Microsoft.AspNetCore.Components;
 namespace Blazix.Primitives.Tests.Components.Store;
 
 /// <summary>A store record with two members, so a write can change one selection and leave the other alone.</summary>
-public sealed record CounterStoreState(int Count, int Multiplier) : IStoreState<CounterStoreState>
+[StoreState]
+public sealed partial record CounterStoreState(int Count, int Multiplier) : IStoreState<CounterStoreState>
 {
     public static readonly StoreField<CounterStoreState, int> CountField = new(nameof(Count), s => s.Count, (s, v) => s with { Count = v });
     public static readonly StoreField<CounterStoreState, int> MultiplierField = new(nameof(Multiplier), s => s.Multiplier, (s, v) => s with { Multiplier = v });
 
     public static readonly Func<CounterStoreState, int> CountSelector = s => s.Count;
     public static readonly Func<CounterStoreState, bool> IsEven = s => s.Count % 2 == 0;
-
-    /// <inheritdoc />
-    public static CounterStoreState Copy(CounterStoreState state) => state with { };
-
-    /// <inheritdoc />
-    public static bool ShallowEquals(CounterStoreState left, CounterStoreState right) =>
-        Equality.Is(left.Count, right.Count) && Equality.Is(left.Multiplier, right.Multiplier);
 }
 
 /// <summary>The state of <see cref="StoreSubscriberPart"/>: the two selections it reads.</summary>
