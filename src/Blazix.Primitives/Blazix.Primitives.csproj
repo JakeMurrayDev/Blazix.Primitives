@@ -16,6 +16,12 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- L1 and L2 test the library's internal helpers (store equality, the value-changed observer, highlight reasons). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Blazix.Primitives.Tests" />
+    <InternalsVisibleTo Include="Blazix.Primitives.Tests.Components" />
+  </ItemGroup>
+
   <!-- The Base UI release this package ports (ADR 10 §2); a re-pin (ADR 15) edits this value. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">

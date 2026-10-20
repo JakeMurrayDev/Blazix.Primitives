@@ -1,3 +1,4 @@
+using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
@@ -15,6 +16,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
 {
     private readonly PartRenderState renderState;
     private string? generatedId;
+    private IDisposable? selectorSubscription;
 
     protected PartBase()
     {
@@ -154,12 +156,36 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     }
 
     /// <summary>
-    /// The seam for the store selector subscription of ADR 05 §1, wired by the store track: called once from
-    /// <see cref="OnInitialized"/>; a subscribing part calls <see cref="ComponentBase.StateHasChanged"/> from its
-    /// subscription when a selection changed and releases it in <see cref="Dispose(bool)"/>.
+    /// Called once from <see cref="OnInitialized"/>, before the first render; does nothing by default. A part that reads a
+    /// store overrides it, calls <see cref="SubscribeTo{TStoreState}"/> once and adds its selections to the returned
+    /// subscription, which then re-renders the part only when a selection changed and is disposed with the part
+    /// (ADR 05 §1).
     /// </summary>
     protected virtual void SubscribeSelectors()
     {
+    }
+
+    /// <summary>
+    /// Subscribes this part to <paramref name="store"/> and returns the subscription to add selections to with
+    /// <c>Select(selector)</c> or <c>Select(selector, arg)</c>. On every store notification each selection is re-evaluated,
+    /// and the part calls <see cref="ComponentBase.StateHasChanged"/> once when at least one changed by
+    /// <see cref="Equality.Is{T}(T, T)"/>; a notification that changes no selection renders nothing. The subscription is
+    /// disposed with the part. Call it from <see cref="SubscribeSelectors"/>, at most once per part (one subscription per
+    /// part, ADR 05 §1, UTL-STA-25/27); a second call throws <see cref="InvalidOperationException"/>.
+    /// </summary>
+    protected SelectorSubscription<TStoreState> SubscribeTo<TStoreState>(Store<TStoreState> store)
+        where TStoreState : class, IStoreState<TStoreState>
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        if (selectorSubscription is not null)
+        {
+            throw new InvalidOperationException(
+                $"{GetType().Name} already subscribed to a store. A part has one store subscription (ADR 05 §1): add every selection to the subscription SubscribeTo returned.");
+        }
+
+        SelectorSubscription<TStoreState> subscription = new(store, StateHasChanged);
+        selectorSubscription = subscription;
+        return subscription;
     }
 
     /// <summary>
@@ -188,6 +214,8 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     {
         if (disposing)
         {
+            selectorSubscription?.Dispose();
+            selectorSubscription = null;
             renderState.Dispose();
         }
     }
