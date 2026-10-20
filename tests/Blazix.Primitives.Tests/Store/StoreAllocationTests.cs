@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Tests.Store;
 
@@ -81,7 +82,7 @@ public sealed class StoreAllocationTests
         // Equal in every member, so that no comparison short-circuits the ones after it.
         EveryKindState left = new(
             true, 1, 2L, double.NaN, -0.0f, (Half)1, 3m, 'k', EventReason.Drag, EventReason.Wheel, 4, null, Guid.Empty, null, (5, 6), (7, 8),
-            "label", new Point(0, 0), new ComponentStore<ParentState>(new ParentState(1)), new object(), [9]);
+            new ElementReference("element", new TestElementContext()), new ElementReference("anchor"), "label", new Point(0, 0), new ComponentStore<ParentState>(new ParentState(1)), new object(), [9]);
         EveryKindState right = left with { };
         bool result = false;
         for (int i = 0; i < 4; i++)

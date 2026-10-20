@@ -3,7 +3,8 @@ namespace Blazix.Primitives.Tests.Generators.StoreState;
 /// <summary>
 /// The library types the generated code references, as source: the generator tests compile against the testing SDK's
 /// reference assemblies and never against the library, so the contract the generated code targets is written out here
-/// and must match <c>src/Blazix.Primitives/Store</c> member for member.
+/// and must match <c>src/Blazix.Primitives/Store</c> member for member. Blazor's <c>ElementReference</c>, which the
+/// generator compares by its members, is written out with the two members it reads.
 /// </summary>
 internal static class LibraryShims
 {
@@ -32,6 +33,20 @@ internal static class LibraryShims
             public class Store<TState>
                 where TState : class, IStoreState<TState>
             {
+            }
+        }
+
+        namespace Microsoft.AspNetCore.Components
+        {
+            public abstract class ElementReferenceContext
+            {
+            }
+
+            public readonly struct ElementReference
+            {
+                public string Id { get; }
+
+                public ElementReferenceContext? Context { get; }
             }
         }
         """;

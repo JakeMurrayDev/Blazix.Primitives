@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Tests.Store;
 
@@ -109,6 +110,29 @@ public sealed class StoreStateGenerationTests
     }
 
     [Fact]
+    public void ElementState_generated_ShallowEquals_agrees_with_Equality_Is()
+    {
+        // No record held an element reference before the generator, so the reference is the generic Equality.Is a
+        // hand-written comparison would have called: the id by value and the context by reference.
+        TestElementContext context = new();
+        ElementState state = new(new ElementReference("a", context), new ElementReference("b", context));
+        AssertAgree(
+            [
+                ("same record", state, state, true),
+                ("copy", state, state with { }, true),
+                ("equal id, another string instance", state, state with { Element = new ElementReference(new string('a', 1), context) }, true),
+                ("both without an anchor", state with { Anchor = null }, state with { Anchor = null }, true),
+                ("another element", state, state with { Element = new ElementReference("c", context) }, false),
+                ("same id, another renderer's context", state, state with { Element = new ElementReference("a", new TestElementContext()) }, false),
+                ("same id, no context", state, state with { Element = new ElementReference("a") }, false),
+                ("anchor removed", state, state with { Anchor = null }, false),
+                ("another anchor", state, state with { Anchor = new ElementReference("d", context) }, false),
+            ],
+            static (left, right) => Equality.Is(left.Element, right.Element) && Equality.Is(left.Anchor, right.Anchor),
+            ElementState.ShallowEquals);
+    }
+
+    [Fact]
     public void Generated_Copy_returns_a_new_record_with_the_same_members()
     {
         AssertCopies(new TestState(1, "a"));
@@ -117,6 +141,7 @@ public sealed class StoreStateGenerationTests
         AssertCopies(new ChildState(1, new ComponentStore<ParentState>(new ParentState(1))));
         AssertCopies(new ValuesState(new Dictionary<string, string> { ["a"] = "1" }));
         AssertCopies(new ShapeState(new Point(0, 0), double.NaN, "x"));
+        AssertCopies(new ElementState(new ElementReference("a", new TestElementContext()), null));
     }
 
     private static void AssertAgree<TState>(

@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Tests.Store;
 
@@ -64,8 +65,8 @@ public sealed partial record ShapeState(Point Origin, double Ratio, string? Node
 
 /// <summary>
 /// A member of every kind the generated comparison distinguishes: primitives, floating point, decimal, char, an enum and
-/// their nullable forms, a struct with <c>==</c> and its nullable form, a tuple (IEquatable only) and its nullable form, a
-/// string, a record, a store, <c>object</c> and an interface.
+/// their nullable forms, a struct with <c>==</c> and its nullable form, a tuple (IEquatable only) and its nullable form, an
+/// element reference and its nullable form, a string, a record, a store, <c>object</c> and an interface.
 /// </summary>
 [StoreState]
 public sealed partial record EveryKindState(
@@ -85,8 +86,17 @@ public sealed partial record EveryKindState(
     Guid? OwnerId,
     (int Row, int Column) Cell,
     (int Row, int Column)? PreviousCell,
+    ElementReference Element,
+    ElementReference? Anchor,
     string Label,
     Point Origin,
     ComponentStore<ParentState>? Parent,
     object Payload,
     IReadOnlyList<int> Items) : IStoreState<EveryKindState>;
+
+/// <summary>Element references as members, as a popup store holds them: compared by id and context, never boxed.</summary>
+[StoreState]
+public sealed partial record ElementState(ElementReference Element, ElementReference? Anchor) : IStoreState<ElementState>;
+
+/// <summary>A renderer's element reference context, for references that differ only by it.</summary>
+public sealed class TestElementContext : ElementReferenceContext;
