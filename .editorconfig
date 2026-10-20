@@ -59,8 +59,11 @@ csharp_new_line_before_finally = true
 csharp_indent_case_contents = true
 csharp_indent_switch_labels = true
 
-# Naming: private fields carry no underscore prefix, no `s_`, no `m_` (ADR 08 §5).
-# Constants are PascalCase and are matched first, so they are exempt from the camelCase rule.
+# IDE1006 must be raised explicitly for the naming rules below to be enforced in the build.
+dotnet_diagnostic.IDE1006.severity = warning
+
+# Naming: private fields are camelCase with no underscore prefix, no `s_`, no `m_` (ADR 08 §5),
+# static readonly ones included. Private constants are PascalCase: the more specific symbol group wins.
 dotnet_naming_style.pascal_case_style.capitalization = pascal_case
 dotnet_naming_style.camel_case_style.capitalization = camel_case
 
