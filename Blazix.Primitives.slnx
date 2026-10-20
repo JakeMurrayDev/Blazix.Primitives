@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Blazix.Primitives.Tests.Components/Blazix.Primitives.Tests.Components.csproj" />
+    <Project Path="tests/Blazix.Primitives.Tests.Generators/Blazix.Primitives.Tests.Generators.csproj" />
     <Project Path="tests/Blazix.Primitives.Tests/Blazix.Primitives.Tests.csproj" />
   </Folder>
 </Solution>
