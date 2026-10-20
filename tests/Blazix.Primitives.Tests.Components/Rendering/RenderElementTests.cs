@@ -178,6 +178,44 @@ public sealed class RenderElementTests : IDisposable
         Assert.NotNull(cut.Instance.Element);
     }
 
+    [Fact(DisplayName = "a stateless element passes the shared empty state to its callback")]
+    [Trait("Requirement", "RND-STA-02")]
+    public void A_stateless_element_passes_the_shared_empty_state_to_its_callback()
+    {
+        EmptyState? received = null;
+        context.Render<RenderElement<EmptyState>>(p => p
+            .Add(x => x.RenderFunction, (RenderFragment<RenderProps<EmptyState>>)(props => builder =>
+            {
+                received = props.State;
+                builder.OpenElement(0, "span");
+                builder.AddMultipleAttributes(1, props.Attributes);
+                builder.CloseElement();
+            })));
+
+        Assert.Same(EmptyState.Instance, received);
+    }
+
+    [Fact(DisplayName = "the stateless form compiles and renders in markup")]
+    [Trait("Requirement", "RND-STA-02")]
+    public void The_stateless_form_compiles_and_renders_in_markup()
+    {
+        IRenderedComponent<Consumers.StatelessElementConsumer> cut = context.Render<Consumers.StatelessElementConsumer>();
+
+        IElement element = cut.Find("span");
+        Assert.DoesNotContain(element.Attributes, attribute => attribute.Name.StartsWith("data-", StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "an element whose state type has fields requires a State")]
+    [Trait("Requirement", "RND-STA-02")]
+    public void An_element_whose_state_type_has_fields_requires_a_State()
+    {
+        InvalidOperationException missing = Assert.Throws<InvalidOperationException>(() => context.Render<RenderElement<ActiveIndexState>>());
+        Assert.StartsWith("Blazix: ", missing.Message, StringComparison.Ordinal);
+        Assert.Contains("`State`", missing.Message, StringComparison.Ordinal);
+
+        Assert.Throws<InvalidOperationException>(() => context.Render<RenderElement<ActiveIndexState>>(p => p.Add(x => x.State, null!)));
+    }
+
     private static IElement Root<TState>(IRenderedComponent<RenderElement<TState>> cut)
         where TState : class, IPartState<TState>
         => cut.Nodes.OfType<IElement>().Single();
