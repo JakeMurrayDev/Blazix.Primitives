@@ -88,14 +88,15 @@ jobs:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
+      - name: Install Node packages
+        # Before the .NET build: the library's BlazixBuildJs target runs esbuild from the root node_modules (ADR 04 §4).
+        run: npm ci
       - name: Restore
         run: for project in $TEST_PROJECTS; do dotnet restore "$project"; done
       - name: Build
         run: for project in $TEST_PROJECTS; do dotnet build "$project" -c Release --no-restore; done
       - name: Test (.NET)
         run: for project in $TEST_PROJECTS; do dotnet test --project "$project" -c Release --no-build; done
-      - name: Install Node packages
-        run: npm ci
       - name: Test (JavaScript)
         run: npm run test:js
 
