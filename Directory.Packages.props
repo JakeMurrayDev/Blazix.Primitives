@@ -26,6 +26,10 @@
 
   <ItemGroup Label="Roslyn (generator, analyzers and their tests)">
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <!-- The testing SDK depends on Workspaces 3.8.0, which pins Common (= 3.8.0): raise it to the compiler's band (NU1608). -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
+    <!-- Patched floor for a transitive of the testing SDK's NuGet.Packaging (NU1902/NU1903 on 9.0.6). -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing" Version="1.1.4" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
   </ItemGroup>
