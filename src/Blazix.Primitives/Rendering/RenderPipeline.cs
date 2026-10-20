@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 
 // BL0006: the frame rewrite reads the consumer fragment's frames through the public GetFrames() (ADR 02 decision 1).
-// ASP0006: re-emitted frames keep their own literal sequence numbers inside their own region (ADR 16 rule 3); the
-// pipeline's own frames use literals.
+// ASP0006 is suppressed on Reemit alone, where the sequence number is the consumer's own compiled one (ADR 16 rule 3).
+// The analyzer ships with Microsoft.AspNetCore.App, which this library does not reference, so it does not run here
+// today; when it does, it also flags the named constants below, which stand for the literals of rule 3.
 #pragma warning disable BL0006
-#pragma warning disable ASP0006
 
 namespace Blazix.Primitives.Rendering;
 
@@ -49,6 +49,14 @@ internal readonly struct RenderInputs<TState>
 /// </remarks>
 internal static class RenderPipeline
 {
+    // Every sequence number the pipeline emits itself is one of these literals, never a counter or a calculation, so the
+    // diff can match a render's frames with the last render's (ADR 16 rule 3). Frames re-emitted from the consumer's
+    // fragment keep the consumer's numbers inside the children region, which is their own sequence space. The merged
+    // attributes share one number, as Blazor's own attribute splatting does. A part's element takes its own capture at
+    // CaptureSequence and a consumer's capture before the children at ConsumerCaptureSequence; a substitute component
+    // has no capture of the part's, so its consumer captures take CaptureSequence. A capture after the children takes
+    // TrailingCaptureSequence. Razor emits at most one capture per element or component, so a second one comes only from a
+    // hand-written fragment; it repeats the literal, which is how the diff recognises a loop.
     private const int HostSequence = 0;
     private const int AttributeSequence = 1;
     private const int CaptureSequence = 2;
@@ -404,18 +412,25 @@ internal static class RenderPipeline
 
             bool regionOpen = false;
             bool hasChildren = false;
-            int captureSequence = ConsumerCaptureSequence;
             for (int i = childrenStart; i < end; i += SubtreeLength(in frames.Array[i]))
             {
                 ref RenderTreeFrame frame = ref frames.Array[i];
                 switch (frame.FrameType)
                 {
                     case RenderTreeFrameType.ElementReferenceCapture:
-                        CloseChildrenRegion(ref regionOpen, ref captureSequence);
-                        builder.AddElementReferenceCapture(captureSequence++, frame.ElementReferenceCaptureAction);
+                        CloseChildrenRegion(ref regionOpen);
+                        if (hasChildren)
+                        {
+                            builder.AddElementReferenceCapture(TrailingCaptureSequence, frame.ElementReferenceCaptureAction);
+                        }
+                        else
+                        {
+                            builder.AddElementReferenceCapture(ConsumerCaptureSequence, frame.ElementReferenceCaptureAction);
+                        }
+
                         break;
                     case RenderTreeFrameType.NamedEvent:
-                        CloseChildrenRegion(ref regionOpen, ref captureSequence);
+                        CloseChildrenRegion(ref regionOpen);
                         builder.AddNamedEvent(frame.NamedEventType, frame.NamedEventAssignedName);
                         break;
                     case RenderTreeFrameType.Attribute:
@@ -446,13 +461,12 @@ internal static class RenderPipeline
             builder.CloseElement();
         }
 
-        private readonly void CloseChildrenRegion(ref bool regionOpen, ref int captureSequence)
+        private readonly void CloseChildrenRegion(ref bool regionOpen)
         {
             if (regionOpen)
             {
                 builder.CloseRegion();
                 regionOpen = false;
-                captureSequence = Math.Max(captureSequence, TrailingCaptureSequence);
             }
         }
 
@@ -509,14 +523,13 @@ internal static class RenderPipeline
                 builder.AddComponentParameter(AttributeSequence, "ChildContent", inputs.ChildContent);
             }
 
-            int captureSequence = CaptureSequence;
             for (int i = captureStart; i < end; i += SubtreeLength(in frames.Array[i]))
             {
                 ref RenderTreeFrame frame = ref frames.Array[i];
                 switch (frame.FrameType)
                 {
                     case RenderTreeFrameType.ComponentReferenceCapture:
-                        builder.AddComponentReferenceCapture(captureSequence++, frame.ComponentReferenceCaptureAction);
+                        builder.AddComponentReferenceCapture(CaptureSequence, frame.ComponentReferenceCaptureAction);
                         break;
                     case RenderTreeFrameType.ComponentRenderMode:
                         builder.AddComponentRenderMode(frame.ComponentRenderMode);
@@ -536,6 +549,7 @@ internal static class RenderPipeline
         }
 
         // Re-emits one frame and its subtree verbatim, with its original sequence numbers (ADR 16 rule 3).
+#pragma warning disable ASP0006
         [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "The component type comes from the consumer's own OpenComponent<T> call in the scratch render, which already preserved its members.")]
         private readonly void Reemit(ArrayRange<RenderTreeFrame> frames, int index)
         {
@@ -615,6 +629,7 @@ internal static class RenderPipeline
                     break;
             }
         }
+#pragma warning restore ASP0006
 
         // The single root of the fragment: whitespace-only text is skipped and a lone region is looked into (RND-EDGE-03).
         private static int FindRoot(ArrayRange<RenderTreeFrame> frames)
