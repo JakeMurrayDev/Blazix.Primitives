@@ -569,7 +569,7 @@ describe('observers', () => {
     vi.stubGlobal('IntersectionObserver', undefined);
     expect(() => observeIntersection(document.createElement('div'), vi.fn())()).not.toThrow();
 
-    const instances: { callback: IntersectionObserverCallback; options: IntersectionObserverInit | undefined; disconnect: ReturnType<typeof vi.fn> }[] = [];
+    const instances: { callback: IntersectionObserverCallback; options?: IntersectionObserverInit | undefined; disconnect: ReturnType<typeof vi.fn> }[] = [];
     vi.stubGlobal(
       'IntersectionObserver',
       class {
@@ -643,9 +643,10 @@ describe('useInitialLiveRegionTextMutation', () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] });
     });
 
+    /** Runs the animation frame and then the task the marker waits for, nothing later. */
     function paint() {
       vi.advanceTimersToNextFrame();
-      vi.advanceTimersByTime(0);
+      vi.advanceTimersToNextTimer();
     }
 
     it('does not overwrite text that changes before the reset', () => {

@@ -35,13 +35,15 @@
     The JavaScript build (ADR 04 §4). esbuild emits the initializer and one ESM entry per module of ADR 04 §1 into
     wwwroot/, which is build output and ignored by git. `node` is needed at build time only; `-p:BlazixSkipJsBuild=true`
     skips the step and requires the outputs to be present (the packaging path, ADR 04 verification item 4).
-    Phase B adds `<BlazixJsEntry Include="js/dom.ts" Out="js/dom" />` and the button entry; `js/CONTEXT.md` has the rules.
+    One entry per module of ADR 04 §1; `js/CONTEXT.md` has the rules for adding one.
   -->
   <PropertyGroup>
     <BlazixJsBuildScript>$(MSBuildProjectDirectory)/js/build.mjs</BlazixJsBuildScript>
   </PropertyGroup>
   <ItemGroup>
     <BlazixJsEntry Include="js/initializer.ts" Out="Blazix.Primitives.lib.module" />
+    <BlazixJsEntry Include="js/dom.ts" Out="js/dom" />
+    <BlazixJsEntry Include="js/button.ts" Out="js/button" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 
