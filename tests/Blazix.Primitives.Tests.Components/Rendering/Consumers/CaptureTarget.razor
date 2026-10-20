@@ -1,0 +1,8 @@
+@* A consumer component that spreads what it receives onto a span: the target of a substitute component root. *@
+<span @attributes="Attributes">@ChildContent</span>
+
+@code {
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
