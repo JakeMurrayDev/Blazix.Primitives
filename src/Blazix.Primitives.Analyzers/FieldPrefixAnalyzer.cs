@@ -37,8 +37,30 @@ public sealed class FieldPrefixAnalyzer : DiagnosticAnalyzer
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
-        // The tests-first stub: it registers nothing, so every violation test is red until the implementation lands.
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
+        context.RegisterSymbolAction(AnalyzeField, SymbolKind.Field);
+    }
+
+    private static void AnalyzeField(SymbolAnalysisContext context)
+    {
+        IFieldSymbol field = (IFieldSymbol)context.Symbol;
+        if (field.IsImplicitlyDeclared || field.IsConst || field.DeclaredAccessibility == Accessibility.Private)
+        {
+            return;
+        }
+
+        string? prefix = field.Name.StartsWith("m_", StringComparison.Ordinal) ? "m_"
+            : field.Name.StartsWith("_", StringComparison.Ordinal) ? "_"
+            : null;
+        if (prefix is null)
+        {
+            return;
+        }
+
+        foreach (Location location in field.Locations)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(s_rule, location, field.Name, prefix));
+        }
     }
 }
