@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | Status | accepted (2026-10-20) |
+| Revised | 2026-10-20 |
 | Project | Blazix.Primitives |
 | Decides | which Blazor performance techniques are rules from M0, which wait for a measurement, and which are rejected because they contradict an accepted decision |
 | Affects | no requirement IDs; applies ADR 01 decision 1, ADR 02 decisions 3–4, ADR 04 §3–§4 and ADR 05 §4 without changing them |
@@ -62,3 +63,5 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 *Added to §B (deferred to a measurement, folded into the M5 measurement issue):* a generator-emitted `SetParametersAsync` per part (the page reports under 10% at 10,000 instances on .NET 10, less later; hand-written it is rejected, generated it is free to try); the per-item render cost of list parts including the unmatched bag.
 
 *Verification items added (tracked in ADR 14 and its issues):* Blazor's known-immutable set in `ChangeDetection` covers enums and nullable enums, so leaf parts whose parameters are enums and primitives get the built-in render skip (M0; read `ChangeDetection.cs` in aspnetcore `release/11.0`); the Combobox `virtualized` path (CMB-API-22) works with the consumer windowing items through Blazor's `Virtualize` component (M5, L4).
+
+**2026-10-20, finding for the first item above (M0 track 1, [issue 27](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/27)): covered.** `ChangeDetection.IsKnownImmutableType` in aspnetcore `release/11.0` (`src/Components/Components/src/ChangeDetection.cs`) accepts any type whose `Type.GetTypeCode` is not `TypeCode.Object`, and an enum's type code is that of its underlying integral type, so every enum is known-immutable and compared by `Equals`. A nullable enum parameter reaches `MayHaveChanged<T1, T2>` boxed, which is the underlying enum value or `null`, so it is covered by the same test (the null case by the null comparison that precedes it). The set also holds `string`, `DateTime`, `decimal`, `Guid`, `DateOnly`, `TimeOnly` and, through `IEventCallback`, `EventCallback` and `EventCallback<T>` (compared by receiver and delegate). What it means for leaf parts: a part whose parameters are all primitives, strings, enums or nullable enums is skipped by Blazor when its parent re-renders with equal values; a part that receives `ChildContent`, a `Func`, a record or an `EventCallback` wrapping a lambda the parent recreates each render is not, since those compare by reference, which is the premise of rule 2 and of ADR 02's one instance per part. No action follows.
