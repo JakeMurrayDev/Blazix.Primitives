@@ -1,6 +1,5 @@
 namespace Blazix.Primitives.Interop;
 
-// ADR 04 §3 (options records), ADR 04 Amendments 2026-10-18 (handover at attach).
 /// <summary>
 /// The base of every twin options record. A twin serialises its options record to JSON and hands it to the
 /// JavaScript module on <c>attach</c> and on every <c>update</c>.

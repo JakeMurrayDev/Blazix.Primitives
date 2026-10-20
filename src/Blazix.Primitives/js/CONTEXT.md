@@ -18,6 +18,13 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
 - `initializer.ts` → `wwwroot/Blazix.Primitives.lib.module.js`: imports `platform` and registers custom event types (none yet).
 - `build.mjs`: the esbuild step. One ESM entry per `BlazixJsEntry` item of the csproj into `wwwroot/`, shared code as `js/chunks/*`, `legalComments: 'inline'` so the Floating UI banner survives, sourcemaps and no minification in Debug.
 
+## Traceability (the sources carry no specification references)
+
+- `twin.ts`, `decide.ts`: ADR 04 §3 (contract, decision points, fallback policies), ADR 02 decision 1 (the substitute callback passes the generated id), ADR 04 Amendments 2026-10-18 (handover at attach), ADR 01 decision 1 (the synchronous invoke serves decisions only).
+- `event-info.ts`: ADR 04 §3, EVD-API-04 (the placeholder) and EVD-API-05 (`kind`).
+- `platform.ts`: UTL-ALG-11, UTL-EDGE-01..09 (shared-utilities.md §4.16).
+- `initializer.ts`, `build.mjs`: ADR 04 §4, ADR 07 (the Floating UI licence banner).
+
 ## Toolchain rules
 
 - The csproj target `BlazixBuildJs` runs `node js/build.mjs` before the static-web-assets pipeline enumerates `wwwroot` (`BlazixRegisterJs`, `BeforeTargets="ResolveProjectStaticWebAssets"`), so generated files are packed. `node` is needed at build time only.

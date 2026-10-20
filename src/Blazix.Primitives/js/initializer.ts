@@ -1,5 +1,5 @@
-// The JS initializer (ADR 04 §4), built to wwwroot/Blazix.Primitives.lib.module.js. Importing `platform` computes the
-// flags once per page (UTL-ALG-11); the modules share the same chunk, so no module recomputes them. Custom event
+// The JS initializer, built to wwwroot/Blazix.Primitives.lib.module.js. Importing `platform` computes the
+// flags once per page; the modules share the same chunk, so no module recomputes them. Custom event
 // types are registered here as they appear (none yet).
 import { platform } from './platform';
 

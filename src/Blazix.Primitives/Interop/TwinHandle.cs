@@ -4,7 +4,6 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Interop;
 
-// ADR 04 §3: attach(elementOrId, options) → handle with update(options) and dispose().
 /// <summary>
 /// The handle of one attached element: the JavaScript object the module returned from <c>attach</c>, with
 /// <see cref="UpdateAsync"/> to send new options and an idempotent <see cref="DisposeAsync"/> to detach.

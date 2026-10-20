@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The esbuild step of ADR 04 §4, run from MSBuild before the C# build (node at build time only).
+// The esbuild step, run from MSBuild before the C# build (node at build time only).
 //
 //   node build.mjs --root <project dir> --outdir <dir relative to root> --configuration Debug|Release \
 //                  [--clean <dir relative to root>] [--manifest <file>] --entry <source>=<output name> [--entry ...]
@@ -9,7 +9,7 @@
 // emitted files (relative to root, one per line) for MSBuild to register as static web assets without globbing.
 //
 // One ESM entry per module into the output directory, shared code as chunks under js/chunks/, legal comments
-// kept inline so the Floating UI banner survives (ADR 07), sourcemaps and no minification in Debug.
+// kept inline so the Floating UI licence banner survives, sourcemaps and no minification in Debug.
 import * as esbuild from 'esbuild';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';

@@ -1,4 +1,4 @@
-// The event snapshot a module sends to C# (ADR 04 §3): `details.event`. The property names and the `kind` values
+// The event snapshot a module sends to C#: `details.event`. The property names and the `kind` values
 // mirror `Events/EventSnapshot.cs` and `Events/EventKind.cs` (Track 2), which are the one place that defines them.
 
 export type EventKind =
@@ -35,7 +35,6 @@ export interface EventInfo {
   timeStamp: number;
 }
 
-// EVD-API-04.
 /**
  * Creates the placeholder snapshot for a request that no browser event caused: `kind` `Event`, `type` `base-ui`.
  * @returns A fresh placeholder.

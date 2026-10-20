@@ -1,4 +1,4 @@
-// `decide(point, eventInfo, fallbackPolicy)` of ADR 04 §3 as a free function over a handle's channel, so a module
+// `decide(point, eventInfo, fallbackPolicy)` as a free function over a handle's channel, so a module
 // reads `decide(twin, 'escape', event, 'prevent-and-stop')` where the ADR says it does.
 import type { DecisionPolicy, TwinChannel } from './twin';
 

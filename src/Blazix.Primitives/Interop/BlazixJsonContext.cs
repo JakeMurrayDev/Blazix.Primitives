@@ -2,7 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace Blazix.Primitives.Interop;
 
-// ADR 16 rule 4: one source-generated context for every interop payload.
 /// <summary>
 /// The library's source-generated JSON context for JavaScript interop. Every twin options record, every callback
 /// payload and the event snapshot are listed here, so no interop payload is serialised through reflection. Options

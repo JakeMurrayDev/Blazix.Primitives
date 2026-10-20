@@ -1,4 +1,4 @@
-// The JavaScript half of the twin contract (ADR 04 §3): what every module receives from `attach` and what it
+// The JavaScript half of the twin contract: what every module receives from `attach` and what it
 // hands back. No module-level registries: everything a handle needs lives in the handle's closure.
 import { eventInfo } from './event-info';
 
@@ -8,7 +8,7 @@ export interface DotNetTwin {
   invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T>;
 }
 
-// Mirrors `DecisionPolicy` in C# (ADR 04 §3).
+// Mirrors `DecisionPolicy` in C#.
 /** The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously. */
 export type DecisionPolicy = 'run' | 'stop' | 'start' | 'prevent-and-stop';
 
@@ -76,7 +76,7 @@ export function createTwinChannel(twin: DotNetTwin): TwinChannel {
   };
 }
 
-// ADR 02: a substitute callback leaves the part without an ElementReference, so the generated id is passed instead.
+// A substitute callback leaves the part without an ElementReference, so the generated id is passed instead.
 /**
  * Resolves `attach`'s first argument: the element itself, or the id of the element in the document.
  * @param elementOrId The element, or its `id` attribute.

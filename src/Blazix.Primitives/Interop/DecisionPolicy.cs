@@ -1,6 +1,5 @@
 namespace Blazix.Primitives.Interop;
 
-// ADR 04 §3 (decision points and fallback policies), ADR 01 relaxation table.
 /// <summary>
 /// The verdict of a decision point: what the JavaScript module does with the browser dispatch it owns. On
 /// WebAssembly the C# handler chain returns one of these values synchronously inside the dispatch; on Server the

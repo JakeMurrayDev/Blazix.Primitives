@@ -6,9 +6,6 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Interop;
 
-// ADR 04 §3 (contract and decision points), ADR 06 Amendments 2026-10-18 rule 2 (idempotent attach and dispose),
-// ADR 08 §3 (<Module>Twin names), ADR 16 rule 4 (one JSON context), ADR 01 decision 1 (the synchronous invoke
-// is used for decisions only).
 /// <summary>
 /// The C# half of one JavaScript module. A twin imports its module lazily on first use, attaches parts to it
 /// (<c>attach(elementOrId, options)</c> returning a handle per element), owns the single
