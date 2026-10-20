@@ -1,0 +1,58 @@
+== Rendered cases (what each parameter received at runtime)
+A1   <div data-case="A1" data-holds="RenderFragment">from RenderFragment field</div>
+A2   <div data-case="A2" data-holds="RenderFragment&lt;RenderProps&lt;CheckedState&gt;&gt;">from typed field, Checked=True</div>
+A4b  <div data-case="A4b" data-holds="RenderFragment&lt;RenderProps&lt;CheckedState&gt;&gt;">inline typed lambda, Checked=True</div>
+A5b  <div data-case="A5b" data-holds="RenderFragment">inline RenderFragment lambda</div>
+B1   <div data-case="B1" data-holds="string" data-resolved="x"></div>
+B1b  <div data-case="B1b" data-holds="string" data-resolved="&quot;x&quot;"></div>
+B2   <div data-case="B2" data-holds="Func&lt;CheckedState, string?&gt;" data-resolved="on"></div>
+B3b  <div data-case="B3b" data-holds="Func&lt;CheckedState, string?&gt;" data-resolved="on"></div>
+B4b  <div data-case="B4b" data-holds="Func&lt;CheckedState, string?&gt;" data-resolved="on"></div>
+C1   <div data-case="C1" data-classvalue="null" data-bag="class=x"></div>
+C2   <div data-case="C2" data-classvalue="func:on" data-bag="class=x"></div>
+D1   <div data-case="D1" data-modal="bool:True" data-matched="bool True"></div>
+D2   <div data-case="D2" data-modal="TrapFocus" data-matched="TrapFocusLiteral"></div>
+D3   <div data-case="D3" data-modal="bool:False" data-matched="bool False"></div>
+G1   <div data-case="G1" data-tstate="CheckedState" data-holds="RenderFragment"></div>
+N1   THREW SwitchExpressionException: Non-exhaustive switch expression failed to match its input.
+Unmatched value was Probe.ClassValue`1[Probe.CheckedState].
+N2   <div data-case="N2" data-resolved="x"></div>
+R2   <div data-case="R2" data-anchor="string:x" data-plain="null" data-flag="null"></div>
+R4   <div data-case="R4" data-anchor="null" data-plain="null" data-flag="True"></div>
+
+== Case E: what the compiler emits for a declared union
+RenderValue`1: struct, sealed=True, readonly=False
+  attribute : System.Runtime.CompilerServices.UnionAttribute, System.Private.CoreLib
+  interface : System.Runtime.CompilerServices.IUnion
+  field     : Object <Value>k__BackingField
+  property  : Object Value
+  ctor      : (RenderFragment)
+  ctor      : (RenderFragment`1)
+ClassValue`1: struct, sealed=True, readonly=False
+  attribute : System.Runtime.CompilerServices.UnionAttribute, System.Private.CoreLib
+  interface : System.Runtime.CompilerServices.IUnion
+  field     : Object <Value>k__BackingField
+  property  : Object Value
+  ctor      : (String)
+  ctor      : (Func`2)
+
+== Case D: the hand-written [Union] struct
+ModalValue: struct, sealed=True, readonly=True
+  attribute : System.Runtime.CompilerServices.UnionAttribute, System.Private.CoreLib
+  interface : System.Runtime.CompilerServices.IUnion
+  field     : Boolean _bool
+  field     : Boolean _isTrapFocus
+  field     : Int32 ValueReads
+  property  : ModalValue TrapFocus
+  property  : Object Value
+  property  : Boolean HasValue
+  ctor      : (Boolean)
+  ctor      : (TrapFocusLiteral)
+  method    : TryGetValue(out Boolean&)
+  method    : TryGetValue(out TrapFocusLiteral&)
+  method    : op_Implicit(Boolean)
+  method    : Describe()
+
+== Boxing observations
+ModalValue: 100k conversions + 200k matches allocated 0 bytes, Value getter read 0 times (count=150000)
+ClassValue<CheckedState> (generated, reference cases): 100k conversions + matches allocated 56 bytes (count=250000)

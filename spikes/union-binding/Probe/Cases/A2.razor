@@ -1,0 +1,2 @@
+<PartA Case="A2" Render="@typedFragment" />
+@code { private RenderFragment<RenderProps<CheckedState>> typedFragment = props => builder => builder.AddContent(0, $"from typed field, Checked={props.State.Checked}"); }

@@ -1,0 +1,17 @@
+@* Variant of case A on a generic part: can the Razor compiler infer TState from a union-typed argument? *@
+@typeparam TState
+<div data-case="@Case" data-tstate="@typeof(TState).Name" data-holds="@Holds"></div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public RenderValue<TState>? Render { get; set; }
+
+    private string Holds => Render is { } u
+        ? u switch
+        {
+            RenderFragment => "RenderFragment",
+            RenderFragment<RenderProps<TState>> => "RenderFragment<RenderProps<TState>>",
+        }
+        : "null";
+}

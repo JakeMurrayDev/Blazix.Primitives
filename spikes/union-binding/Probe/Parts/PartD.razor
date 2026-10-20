@@ -1,0 +1,14 @@
+@* Case D: a hand-written [Union] struct parameter. *@
+<div data-case="@Case" data-modal="@Modal.Describe()" data-matched="@Matched"></div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public ModalValue Modal { get; set; }
+
+    private string Matched => Modal switch
+    {
+        bool b => $"bool {b}",
+        TrapFocusLiteral => "TrapFocusLiteral",
+    };
+}

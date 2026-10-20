@@ -1,0 +1,24 @@
+@* Case B: ClassValue as string | Func<CheckedState, string?>; the parameter shares the union's name (ADR 08 §3). *@
+<div data-case="@Case" data-holds="@Holds" data-resolved="@Resolved"></div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public ClassValue<CheckedState>? ClassValue { get; set; }
+
+    private string Holds => ClassValue is { } u
+        ? u switch
+        {
+            string => "string",
+            Func<CheckedState, string?> => "Func<CheckedState, string?>",
+        }
+        : "null";
+
+    private string Resolved => ClassValue is { } u
+        ? u switch
+        {
+            string s => s,
+            Func<CheckedState, string?> f => f(new CheckedState(true)) ?? "(null)",
+        }
+        : "(none)";
+}

@@ -1,0 +1,3 @@
+@* Workaround for B4: cast the method group to the case's delegate type. *@
+<PartB Case="B4b" ClassValue="@((Func<CheckedState, string?>)ClassFromState)" />
+@code { private string? ClassFromState(CheckedState s) => s.Checked ? "on" : null; }

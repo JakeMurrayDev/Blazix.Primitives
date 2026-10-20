@@ -1,0 +1,2 @@
+@* Workaround for A4: cast the inline lambda to the case's delegate type; the union conversion then applies. *@
+<PartA Case="A4b" Render="@((RenderFragment<RenderProps<CheckedState>>)(props => builder => builder.AddContent(0, $"inline typed lambda, Checked={props.State.Checked}")))" />

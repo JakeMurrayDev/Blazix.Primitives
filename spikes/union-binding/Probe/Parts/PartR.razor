@@ -1,0 +1,12 @@
+@* Razor rule probe: when does the compiler emit a string literal vs a C# expression for a non-@ value? *@
+<div data-case="@Case" data-anchor="@(Anchor?.Describe() ?? "null")" data-plain="@(Plain?.Text ?? "null")" data-flag="@(Flag?.Flag.ToString() ?? "null")"></div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public StringOrLiteral? Anchor { get; set; }
+
+    [Parameter] public PlainFromString? Plain { get; set; }
+
+    [Parameter] public PlainFromBool? Flag { get; set; }
+}

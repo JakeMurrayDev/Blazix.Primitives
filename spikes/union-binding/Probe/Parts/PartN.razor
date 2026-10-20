@@ -1,0 +1,14 @@
+@* Gap probe: a NON-nullable union parameter the consumer may omit. default(U) has Value == null. *@
+<div data-case="@Case" data-resolved="@Resolved"></div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public ClassValue<CheckedState> ClassValue { get; set; }
+
+    private string Resolved => ClassValue switch
+    {
+        string s => s,
+        Func<CheckedState, string?> f => f(new CheckedState(true)) ?? "(null)",
+    };
+}

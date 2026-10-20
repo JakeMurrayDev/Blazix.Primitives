@@ -1,0 +1,22 @@
+@* Case C: declares ClassValue and the unmatched bag, no parameter named Class; does class="x" reach the bag? *@
+<div data-case="@Case" data-classvalue="@Holds" data-bag="@Bag"></div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public ClassValue<CheckedState>? ClassValue { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Attributes { get; set; }
+
+    private string Holds => ClassValue is { } u
+        ? u switch
+        {
+            string s => $"string:{s}",
+            Func<CheckedState, string?> f => $"func:{f(new CheckedState(true))}",
+        }
+        : "null";
+
+    private string Bag => Attributes is null
+        ? "(no bag)"
+        : string.Join(";", Attributes.Select(kv => $"{kv.Key}={kv.Value}"));
+}

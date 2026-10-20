@@ -1,0 +1,24 @@
+@* Case A: a compiler-generated union parameter (RenderFragment | RenderFragment<RenderProps<CheckedState>>). *@
+<div data-case="@Case" data-holds="@Holds">@Output</div>
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+
+    [Parameter] public RenderValue<CheckedState>? Render { get; set; }
+
+    private string Holds => Render is { } u
+        ? u switch
+        {
+            RenderFragment => "RenderFragment",
+            RenderFragment<RenderProps<CheckedState>> => "RenderFragment<RenderProps<CheckedState>>",
+        }
+        : "null";
+
+    private RenderFragment? Output => Render is { } u
+        ? u switch
+        {
+            RenderFragment f => f,
+            RenderFragment<RenderProps<CheckedState>> t => t(new RenderProps<CheckedState>(new CheckedState(true))),
+        }
+        : null;
+}
