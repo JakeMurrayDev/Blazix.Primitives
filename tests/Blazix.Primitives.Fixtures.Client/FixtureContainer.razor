@@ -24,11 +24,13 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
+    /// <inheritdoc />
     protected override void OnInitialized()
     {
         Registry.BindCurrentContext(Session);
     }
 
+    /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || !RendererInfo.IsInteractive)

@@ -66,6 +66,7 @@ public sealed class FixtureSession : IDisposable
         return JsonSerializer.Serialize(Snapshot(), FixtureJsonContext.Default.DiagnosticArray);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         registry.Remove(this);

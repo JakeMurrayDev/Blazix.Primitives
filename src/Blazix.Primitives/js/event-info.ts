@@ -35,7 +35,11 @@ export interface EventInfo {
   timeStamp: number;
 }
 
-/** The placeholder for a request that no browser event caused (EVD-API-04): `kind` Event, `type` base-ui. */
+// EVD-API-04.
+/**
+ * Creates the placeholder snapshot for a request that no browser event caused: `kind` `Event`, `type` `base-ui`.
+ * @returns A fresh placeholder.
+ */
 export function placeholderEvent(): EventInfo {
   return {
     kind: 'Event',
@@ -95,7 +99,11 @@ function targetOf(event: Event): EventTargetInfo | null {
   return null;
 }
 
-/** Snapshots a browser event inside its dispatch; `undefined` yields the placeholder. */
+/**
+ * Snapshots a browser event inside its dispatch.
+ * @param event The event, or `undefined` for a request with no browser event.
+ * @returns The snapshot, or the placeholder.
+ */
 export function eventInfo(event: Event | undefined): EventInfo {
   if (event === undefined) {
     return placeholderEvent();

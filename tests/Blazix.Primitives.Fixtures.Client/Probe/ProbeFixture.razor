@@ -39,6 +39,7 @@
     private string timer = "idle";
     private readonly List<string> log = [];
 
+    /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || !RendererInfo.IsInteractive)
@@ -107,6 +108,7 @@
         Logger.LogWarning("probe warning {Count}", warnings);
     }
 
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         armed?.Dispose();

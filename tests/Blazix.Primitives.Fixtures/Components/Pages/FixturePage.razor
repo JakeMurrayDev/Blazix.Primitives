@@ -33,6 +33,7 @@ else
     [CascadingParameter]
     public HttpContext? HttpContext { get; set; }
 
+    /// <inheritdoc />
     protected override void OnParametersSet()
     {
         FixtureCatalog.Entries.TryGetValue(Fixture, out entry);

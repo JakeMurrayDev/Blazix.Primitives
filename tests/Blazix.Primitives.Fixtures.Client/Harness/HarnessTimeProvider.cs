@@ -11,14 +11,19 @@ public sealed class HarnessTimeProvider(FixtureSessionRegistry registry) : TimeP
 {
     private TimeProvider Current => registry.TryGetCurrent(out FixtureSession? session) ? session.Clock : System;
 
+    /// <inheritdoc />
     public override TimeZoneInfo LocalTimeZone => Current.LocalTimeZone;
 
+    /// <inheritdoc />
     public override long TimestampFrequency => Current.TimestampFrequency;
 
+    /// <inheritdoc />
     public override DateTimeOffset GetUtcNow() => Current.GetUtcNow();
 
+    /// <inheritdoc />
     public override long GetTimestamp() => Current.GetTimestamp();
 
+    /// <inheritdoc />
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         return Current.CreateTimer(callback, state, dueTime, period);

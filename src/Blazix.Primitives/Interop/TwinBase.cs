@@ -6,12 +6,16 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Interop;
 
+// ADR 04 §3 (contract and decision points), ADR 06 Amendments 2026-10-18 rule 2 (idempotent attach and dispose),
+// ADR 08 §3 (<Module>Twin names), ADR 16 rule 4 (one JSON context), ADR 01 decision 1 (the synchronous invoke
+// is used for decisions only).
 /// <summary>
-/// The twin base (ADR 04 §3): the C# half of one JavaScript module. It imports the module lazily on first use,
-/// attaches parts (<c>attach(elementOrId, options) → handle</c>), owns the <see cref="DotNetObjectReference{TValue}"/>
-/// the module calls back through, and answers decision points. Parts talk to twins, never to <see cref="IJSRuntime"/>.
+/// The C# half of one JavaScript module. A twin imports its module lazily on first use, attaches parts to it
+/// (<c>attach(elementOrId, options)</c> returning a handle per element), owns the single
+/// <see cref="DotNetObjectReference{TValue}"/> the module calls back through, and answers the module's decision
+/// points. Parts talk to twins and never to <see cref="IJSRuntime"/>.
 /// </summary>
-/// <typeparam name="TTwin">The concrete twin (<c>&lt;Module&gt;Twin</c>, ADR 08 §3), whose public <c>[JSInvokable]</c> methods are the module's callbacks.</typeparam>
+/// <typeparam name="TTwin">The concrete twin, whose public <c>[JSInvokable]</c> methods are the module's callbacks.</typeparam>
 /// <typeparam name="TOptions">The module's options record, listed in <see cref="BlazixJsonContext"/>.</typeparam>
 internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] TTwin, TOptions> : IAsyncDisposable
     where TTwin : TwinBase<TTwin, TOptions>
@@ -25,9 +29,10 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     private Task<IJSObjectReference?>? module;
     private bool disposed;
 
-    /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly app.</param>
+    /// <summary>Initializes a new instance of the <see cref="TwinBase{TTwin, TOptions}"/> class.</summary>
+    /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
     /// <param name="modulePath">The module URL, for example <c>./_content/Blazix.Primitives/js/button.js</c>.</param>
-    /// <param name="optionsTypeInfo">The options record's entry in <see cref="BlazixJsonContext"/>.</param>
+    /// <param name="optionsTypeInfo">The entry of <typeparamref name="TOptions"/> in <see cref="BlazixJsonContext"/>.</param>
     protected TwinBase(IJSRuntime jsRuntime, string modulePath, JsonTypeInfo<TOptions> optionsTypeInfo)
     {
         this.jsRuntime = jsRuntime;
@@ -35,25 +40,39 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         this.optionsTypeInfo = optionsTypeInfo;
     }
 
-    /// <summary>The URL of a library module: <c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</summary>
+    /// <summary>Returns the URL of a module that ships with the library.</summary>
+    /// <param name="module">The module's file name without extension, for example <c>button</c>.</param>
+    /// <returns><c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</returns>
     protected static string LibraryModule(string module) => $"./_content/Blazix.Primitives/js/{module}.js";
 
     /// <summary>
-    /// Attaches the module to the part's element. Idempotent per element: a repeated attach returns the existing
-    /// handle and sends nothing (ADR 06 Amendments 2026-10-18, rule 2).
+    /// Attaches the module to an element. Attaching is idempotent per element: a repeated call for the same element
+    /// returns the existing handle and sends nothing to JavaScript.
     /// </summary>
+    /// <param name="element">The element to attach to.</param>
+    /// <param name="options">The options sent with <c>attach</c>.</param>
+    /// <returns>The handle for the element.</returns>
+    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
     public ValueTask<TwinHandle<TOptions>> AttachAsync(ElementReference element, TOptions options)
     {
         return AttachAsync(element.Id, element, options);
     }
 
-    /// <summary>Attaches by the part's generated id when no <see cref="ElementReference"/> exists (substitute callback, ADR 02).</summary>
+    /// <summary>
+    /// Attaches the module to the element with the given id. Used when the part has no
+    /// <see cref="ElementReference"/>, which is the case when a consumer substitutes the element through a callback.
+    /// </summary>
+    /// <param name="elementId">The id of the element in the document.</param>
+    /// <param name="options">The options sent with <c>attach</c>.</param>
+    /// <returns>The handle for the element.</returns>
+    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
     public ValueTask<TwinHandle<TOptions>> AttachAsync(string elementId, TOptions options)
     {
         return AttachAsync(elementId, elementId, options);
     }
 
-    /// <summary>Disposes every live handle, the module reference and the .NET object reference. Idempotent.</summary>
+    /// <inheritdoc />
+    /// <remarks>Disposes every live handle, the module reference and the .NET object reference. Idempotent.</remarks>
     public async ValueTask DisposeAsync()
     {
         if (disposed)
@@ -84,16 +103,21 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     }
 
     /// <summary>
-    /// Answers the JavaScript probe that detects, per handle and at run time, whether this runtime supports a
-    /// synchronous JS-to-.NET call (<c>js/decide.ts</c>). Only WebAssembly ever reaches this method.
+    /// Answers the probe with which JavaScript detects, per handle and at run time, whether the runtime supports a
+    /// synchronous call from JavaScript into .NET. Only WebAssembly ever completes this call; Blazor Server rejects
+    /// synchronous calls before they reach .NET.
     /// </summary>
+    /// <returns>Always <see langword="true"/>.</returns>
     [JSInvokable]
     public bool Ping() => true;
 
     /// <summary>
-    /// A decision point (ADR 04 §3): JavaScript calls this synchronously on WebAssembly with the event snapshot and
-    /// receives the verdict as its literal. The C# chain runs inside the browser's dispatch.
+    /// Resolves a decision point. JavaScript calls this synchronously on WebAssembly, inside the browser's event
+    /// dispatch, with the snapshot of the event; the C# handler chain runs and its verdict is returned as a literal.
     /// </summary>
+    /// <param name="point">The name of the decision point, for example <c>activate</c> or <c>escape</c>.</param>
+    /// <param name="eventJson">The JSON of the <see cref="EventSnapshot"/> JavaScript took inside the dispatch.</param>
+    /// <returns>The verdict as <c>run</c>, <c>stop</c>, <c>start</c> or <c>prevent-and-stop</c>.</returns>
     [JSInvokable]
     public string Decide(string point, string eventJson)
     {
@@ -101,10 +125,18 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         return OnDecide(point, snapshot).ToLiteral();
     }
 
-    /// <summary>Runs the C# chain of one decision point and returns the verdict.</summary>
+    /// <summary>Runs the C# handler chain of one decision point and returns the verdict.</summary>
+    /// <param name="point">The name of the decision point.</param>
+    /// <param name="snapshot">The snapshot of the event being dispatched.</param>
+    /// <returns>What the module should do with the dispatch.</returns>
     protected abstract DecisionPolicy OnDecide(string point, EventSnapshot snapshot);
 
-    /// <summary>Deserialises a callback payload through its source-generated type info; a <see langword="null"/> payload is an error.</summary>
+    /// <summary>Parses a callback payload through its source-generated type information.</summary>
+    /// <typeparam name="TPayload">The payload record.</typeparam>
+    /// <param name="json">The JSON the module sent.</param>
+    /// <param name="typeInfo">The entry of <typeparamref name="TPayload"/> in <see cref="BlazixJsonContext"/>.</param>
+    /// <returns>The parsed payload.</returns>
+    /// <exception cref="JsonException">The JSON is not valid or deserialises to <see langword="null"/>.</exception>
     protected static TPayload Deserialize<TPayload>(string json, JsonTypeInfo<TPayload> typeInfo)
     {
         return JsonSerializer.Deserialize(json, typeInfo) ?? throw new JsonException($"The payload '{typeof(TPayload).Name}' deserialised to null.");

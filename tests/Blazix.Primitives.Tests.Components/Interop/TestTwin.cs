@@ -40,6 +40,7 @@ internal sealed class TestTwin(IJSRuntime jsRuntime) : TwinBase<TestTwin, TestTw
         Reported.Add(Deserialize(payloadJson, TestTwinJsonContext.Default.TestTwinPayload));
     }
 
+    /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
         Decisions.Add((point, snapshot));

@@ -9,22 +9,27 @@ namespace Blazix.Primitives.Fixtures.Client.Harness;
 /// </summary>
 public sealed class CapturingLoggerProvider(FixtureSessionRegistry registry) : ILoggerProvider
 {
+    /// <inheritdoc />
     public ILogger CreateLogger(string categoryName) => new CapturingLogger(categoryName, registry);
 
+    /// <inheritdoc />
     public void Dispose()
     {
     }
 
     private sealed class CapturingLogger(string category, FixtureSessionRegistry registry) : ILogger
     {
+        /// <inheritdoc />
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull
         {
             return null;
         }
 
+        /// <inheritdoc />
         public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
 
+        /// <inheritdoc />
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             if (IsEnabled(logLevel) && registry.TryGetCurrent(out FixtureSession session))

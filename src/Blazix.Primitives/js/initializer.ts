@@ -11,13 +11,19 @@ function registerCustomEventTypes(_blazor: BlazorLike): void {
   // None yet.
 }
 
-/** Blazor Web App hook, after blazor.web.js started. */
+/**
+ * Blazor Web App hook, called after blazor.web.js has started.
+ * @param blazor The Blazor object, used to register custom event types.
+ */
 export function afterWebStarted(blazor: BlazorLike): void {
   void platform;
   registerCustomEventTypes(blazor);
 }
 
-/** Legacy hook for a standalone Server or WebAssembly host (not a Web App). */
+/**
+ * Hook for a standalone Server or WebAssembly host that is not a Web App.
+ * @param blazor The Blazor object, used to register custom event types.
+ */
 export function afterStarted(blazor: BlazorLike): void {
   void platform;
   registerCustomEventTypes(blazor);

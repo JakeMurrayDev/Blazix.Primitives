@@ -13,6 +13,7 @@
     private int ticks;
     private int pings;
 
+    /// <inheritdoc />
     protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender && RendererInfo.IsInteractive)
@@ -38,6 +39,7 @@
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         stopping.Cancel();
