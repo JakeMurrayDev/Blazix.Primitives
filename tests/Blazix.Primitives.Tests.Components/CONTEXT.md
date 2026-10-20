@@ -4,7 +4,7 @@ L2: bUnit, including the twin contract tests.
 
 ## Inputs
 
-- `../../src/Blazix.Primitives`, and bUnit and `Microsoft.Extensions.TimeProvider.Testing` from `Directory.Packages.props`; the `[PartState]` generator as an analyzer, so the project's own state records are projected as a consumer's would be.
+- `../../src/Blazix.Primitives`, and bUnit and `Microsoft.Extensions.TimeProvider.Testing` from `Directory.Packages.props`; the generators as an analyzer, so the project's own state records are projected (`[PartState]`) and given their `Copy` and `ShallowEquals` (`[StoreState]`) as a consumer's would be.
 - The `Test:` lines tagged `[L2]` in `docs/components/*.md`; the conformance suite RND-DOM-36..49; decision record 06 §1.
 - The project uses the Razor SDK so `.razor` test consumers (`Rendering/Consumers/`) exercise the consumer-facing forms: a substitute written as static markup, `<Render>` and `<RenderFunction Context="props">` child content.
 

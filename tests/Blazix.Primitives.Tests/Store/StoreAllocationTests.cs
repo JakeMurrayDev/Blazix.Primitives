@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Tests.Store;
 
@@ -71,5 +72,34 @@ public sealed class StoreAllocationTests
         static bool Measure() =>
             Equality.Is(1, 2) ^ Equality.Is(0.0, -0.0) ^ Equality.Is<double?>(double.NaN, null) ^ Equality.Is(EventReason.Drag, EventReason.Wheel)
             ^ Equality.Is((1, 2.0), (1, 2.0)) ^ Equality.Is("a", "b");
+    }
+
+    [Fact(DisplayName = "a generated ShallowEquals over every kind of member allocates nothing")]
+    [Trait("Requirement", "ADR16-7")]
+    [Trait("Requirement", "UTL-STA-11")]
+    public void A_generated_ShallowEquals_over_every_kind_of_member_allocates_nothing()
+    {
+        // Equal in every member, so that no comparison short-circuits the ones after it.
+        EveryKindState left = new(
+            true, 1, 2L, double.NaN, -0.0f, (Half)1, 3m, 'k', EventReason.Drag, EventReason.Wheel, 4, null, Guid.Empty, null, (5, 6), (7, 8),
+            new ElementReference("element", new TestElementContext()), new ElementReference("anchor"), "label", new Point(0, 0), new ComponentStore<ParentState>(new ParentState(1)), new object(), [9]);
+        EveryKindState right = left with { };
+        bool result = false;
+        for (int i = 0; i < 4; i++)
+        {
+            result ^= EveryKindState.ShallowEquals(left, right);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 1000; i++)
+        {
+            result ^= EveryKindState.ShallowEquals(left, right);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(EveryKindState.ShallowEquals(left, right));
+        Assert.Equal(0, allocated);
+        GC.KeepAlive(result);
     }
 }

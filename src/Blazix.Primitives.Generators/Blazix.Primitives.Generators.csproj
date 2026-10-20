@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The [PartState] projection generator and the consumer-facing diagnostics (ADR 09 §1).
+  <!-- The [PartState] projection and [StoreState] Copy/ShallowEquals generators and their consumer-facing diagnostics (ADR 09 §1).
        Packed into the library's package as an analyzer asset (see src/Blazix.Primitives). -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
