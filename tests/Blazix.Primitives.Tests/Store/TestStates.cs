@@ -95,3 +95,32 @@ public sealed record ShapeState(Point Origin, double Ratio, string? Node) : ISto
     public static bool ShallowEquals(ShapeState left, ShapeState right) =>
         Equality.Is(left.Origin, right.Origin) && Equality.Is(left.Ratio, right.Ratio) && Equality.Is(left.Node, right.Node);
 }
+
+/// <summary>
+/// A member of every kind the generated comparison distinguishes: primitives, floating point, decimal, char, an enum and
+/// their nullable forms, a struct with <c>==</c> and its nullable form, a tuple (IEquatable only) and its nullable form, a
+/// string, a record, a store, <c>object</c> and an interface.
+/// </summary>
+[StoreState]
+public sealed partial record EveryKindState(
+    bool Flag,
+    int Count,
+    long Ticks,
+    double Ratio,
+    float Scale,
+    Half Precision,
+    decimal Amount,
+    char Key,
+    EventReason Reason,
+    EventReason? LastReason,
+    int? Index,
+    double? Limit,
+    Guid Id,
+    Guid? OwnerId,
+    (int Row, int Column) Cell,
+    (int Row, int Column)? PreviousCell,
+    string Label,
+    Point Origin,
+    ComponentStore<ParentState>? Parent,
+    object Payload,
+    IReadOnlyList<int> Items) : IStoreState<EveryKindState>;
