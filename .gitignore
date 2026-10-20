@@ -28,3 +28,4 @@ TestResults/
 # python
 __pycache__/
 *.pyc
+.vitest/
