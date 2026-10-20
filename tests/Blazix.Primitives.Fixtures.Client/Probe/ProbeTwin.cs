@@ -17,7 +17,7 @@ internal sealed class ProbeTwin(IJSRuntime jsRuntime) : TwinBase<ProbeTwin, Prob
     public event Action<ProbeClick>? Clicked;
 
     /// <summary>The C# chain of the module's one decision point, <c>activate</c>.</summary>
-    public Func<string, JsEventInfo, DecisionPolicy>? Decider { get; set; }
+    public Func<string, EventSnapshot, DecisionPolicy>? Decider { get; set; }
 
     [JSInvokable]
     public void OnClick(string payloadJson)
@@ -25,8 +25,8 @@ internal sealed class ProbeTwin(IJSRuntime jsRuntime) : TwinBase<ProbeTwin, Prob
         Clicked?.Invoke(Deserialize(payloadJson, FixtureJsonContext.Default.ProbeClick));
     }
 
-    protected override DecisionPolicy OnDecide(string point, JsEventInfo eventInfo)
+    protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
-        return Decider?.Invoke(point, eventInfo) ?? DecisionPolicy.Run;
+        return Decider?.Invoke(point, snapshot) ?? DecisionPolicy.Run;
     }
 }

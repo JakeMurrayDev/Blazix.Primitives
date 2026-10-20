@@ -27,7 +27,7 @@ internal sealed class TestTwin(IJSRuntime jsRuntime) : TwinBase<TestTwin, TestTw
 {
     public const string ModulePath = "./_content/Blazix.Primitives/js/test-twin.js";
 
-    public List<(string Point, JsEventInfo Event)> Decisions { get; } = [];
+    public List<(string Point, EventSnapshot Event)> Decisions { get; } = [];
 
     public List<TestTwinPayload> Reported { get; } = [];
 
@@ -40,9 +40,9 @@ internal sealed class TestTwin(IJSRuntime jsRuntime) : TwinBase<TestTwin, TestTw
         Reported.Add(Deserialize(payloadJson, TestTwinJsonContext.Default.TestTwinPayload));
     }
 
-    protected override DecisionPolicy OnDecide(string point, JsEventInfo eventInfo)
+    protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
-        Decisions.Add((point, eventInfo));
+        Decisions.Add((point, snapshot));
         return NextVerdict;
     }
 }

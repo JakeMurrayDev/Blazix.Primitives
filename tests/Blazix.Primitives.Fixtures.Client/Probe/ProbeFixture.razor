@@ -51,7 +51,7 @@
         handle = await twin.AttachAsync(probe, InitialOptions);
     }
 
-    private DecisionPolicy Decide(string point, JsEventInfo eventInfo)
+    private DecisionPolicy Decide(string point, EventSnapshot snapshot)
     {
         // Runs inside the browser's click dispatch on WebAssembly (ADR 04 §3). The render this queues must be in
         // the DOM before the module's listener returns (ADR-04/2).

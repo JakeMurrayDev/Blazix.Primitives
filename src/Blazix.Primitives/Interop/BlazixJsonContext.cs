@@ -8,5 +8,5 @@ namespace Blazix.Primitives.Interop;
 /// twin serialises itself; callback payloads arrive as JSON strings the twin deserialises itself.
 /// </summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
-[JsonSerializable(typeof(JsEventInfo))]
+[JsonSerializable(typeof(EventSnapshot))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

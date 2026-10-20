@@ -95,14 +95,14 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// receives the verdict as its literal. The C# chain runs inside the browser's dispatch.
     /// </summary>
     [JSInvokable]
-    public string Decide(string point, string eventInfoJson)
+    public string Decide(string point, string eventJson)
     {
-        JsEventInfo eventInfo = Deserialize(eventInfoJson, BlazixJsonContext.Default.JsEventInfo);
-        return OnDecide(point, eventInfo).ToLiteral();
+        EventSnapshot snapshot = Deserialize(eventJson, BlazixJsonContext.Default.EventSnapshot);
+        return OnDecide(point, snapshot).ToLiteral();
     }
 
     /// <summary>Runs the C# chain of one decision point and returns the verdict.</summary>
-    protected abstract DecisionPolicy OnDecide(string point, JsEventInfo eventInfo);
+    protected abstract DecisionPolicy OnDecide(string point, EventSnapshot snapshot);
 
     /// <summary>Deserialises a callback payload through its source-generated type info; a <see langword="null"/> payload is an error.</summary>
     protected static TPayload Deserialize<TPayload>(string json, JsonTypeInfo<TPayload> typeInfo)

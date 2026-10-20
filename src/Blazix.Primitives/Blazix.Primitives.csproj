@@ -21,8 +21,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
   </ItemGroup>
 
-  <!-- The twins are internal (ADR 08 §1); the L2 twin contract tests and the fixture probe twin derive from the base. -->
+  <!--
+    L1 and L2 test the library's internal helpers (store equality, the value-changed observer, highlight reasons);
+    the twins are internal (ADR 08 §1), so the L2 twin contract tests and the fixture probe twin derive from the base.
+  -->
   <ItemGroup>
+    <InternalsVisibleTo Include="Blazix.Primitives.Tests" />
     <InternalsVisibleTo Include="Blazix.Primitives.Tests.Components" />
     <InternalsVisibleTo Include="Blazix.Primitives.Fixtures.Client" />
   </ItemGroup>

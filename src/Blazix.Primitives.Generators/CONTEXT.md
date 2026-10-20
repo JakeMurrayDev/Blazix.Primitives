@@ -10,7 +10,7 @@ The Roslyn source generator that ships to consumers inside the library's package
 
 ## Job
 
-Emits typed code that projects each `[PartState]` record to its `data-*` attributes in declaration order, so no reflection runs at render time (the ADR 02 amendment recorded in ADR 05), and reports the consumer-facing diagnostics. It contains no component behaviour and no rendering code.
+Emits typed code that projects each `[PartState]` record to its `data-*` attributes in declaration order, so no reflection runs at render time (the ADR 02 amendment recorded in ADR 05), and reports the consumer-facing diagnostics. `PartStateGenerator` implements `Blazix.Primitives.Rendering.IPartState<TSelf>` on every `sealed partial record` marked `[PartState]`: a bool emits `data-<name>=""` when true, a number or char its invariant string when non-zero, a string when non-empty, an enum the kebab-case form of its member, nullable forms when they have a value; a property marked `[MirroredField]` is skipped; a custom mapping for the field (`StateAttributesMapping<TState>.TryProject`) replaces the default. Diagnostics: BLZX1001 not a record class, BLZX1002 not sealed, BLZX1003 a property that cannot be projected, BLZX1004 the record or a containing type not partial. `AnalyzerReleases.*.md` track the rule ids (RS2008). It contains no component behaviour and no rendering code.
 
 ## Outputs
 

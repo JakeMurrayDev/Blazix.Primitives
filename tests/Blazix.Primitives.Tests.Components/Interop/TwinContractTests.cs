@@ -124,22 +124,23 @@ public sealed class TwinContractTests
         using BunitContext context = new();
         TestTwin twin = new(context.JSInterop.JSRuntime) { NextVerdict = DecisionPolicy.PreventAndStop };
         const string eventJson = """
-            {"kind":"keyboard","type":"keydown","key":"Escape","code":"Escape","altKey":false,"ctrlKey":false,
-             "metaKey":false,"shiftKey":true,"detail":0,"buttons":0,"button":-1,
-             "target":{"tagName":"button","id":"base-ui-1"},"defaultPrevented":false,"timeStamp":1234.5}
+            {"kind":"KeyboardEvent","type":"keydown","key":"Escape","code":"Escape","altKey":false,"ctrlKey":false,
+             "metaKey":false,"shiftKey":true,"detail":0,"buttons":0,
+             "target":{"id":"base-ui-1","tagName":"BUTTON"},"defaultPrevented":false,"timeStamp":1234.5}
             """;
 
         string verdict = twin.Decide("escape", eventJson);
 
         Assert.Equal("prevent-and-stop", verdict);
-        (string point, JsEventInfo e) = Assert.Single(twin.Decisions);
+        (string point, EventSnapshot e) = Assert.Single(twin.Decisions);
         Assert.Equal("escape", point);
-        Assert.Equal("keyboard", e.Kind);
+        Assert.Equal(EventKind.KeyboardEvent, e.Kind);
+        Assert.True(e.IsInstanceOf(EventKind.UIEvent));
         Assert.Equal("keydown", e.Type);
         Assert.Equal("Escape", e.Key);
         Assert.True(e.ShiftKey);
         Assert.False(e.AltKey);
-        Assert.Equal("button", e.Target?.TagName);
+        Assert.Equal("BUTTON", e.Target?.TagName);
         Assert.Equal("base-ui-1", e.Target?.Id);
         Assert.Equal(1234.5, e.TimeStamp);
     }
@@ -154,7 +155,7 @@ public sealed class TwinContractTests
         using BunitContext context = new();
         TestTwin twin = new(context.JSInterop.JSRuntime) { NextVerdict = Enum.Parse<DecisionPolicy>(policy) };
 
-        Assert.Equal(literal, twin.Decide("any", """{"kind":"base-ui","type":"base-ui"}"""));
+        Assert.Equal(literal, twin.Decide("any", """{"kind":"Event","type":"base-ui"}"""));
     }
 
     [Fact]
@@ -179,13 +180,13 @@ public sealed class TwinContractTests
     }
 
     [Fact]
-    public void The_library_JSON_context_covers_the_event_info_record()
+    public void The_library_JSON_context_covers_the_event_snapshot()
     {
-        JsEventInfo roundTrip = JsonSerializer.Deserialize(
-            JsonSerializer.Serialize(new JsEventInfo { Kind = "pointer", Type = "pointerdown", PointerType = "mouse", Buttons = 1 }, BlazixJsonContext.Default.JsEventInfo),
-            BlazixJsonContext.Default.JsEventInfo)!;
+        EventSnapshot roundTrip = JsonSerializer.Deserialize(
+            JsonSerializer.Serialize(new EventSnapshot { Kind = EventKind.PointerEvent, Type = "pointerdown", PointerType = "mouse", Buttons = 1 }, BlazixJsonContext.Default.EventSnapshot),
+            BlazixJsonContext.Default.EventSnapshot)!;
 
-        Assert.Equal("pointer", roundTrip.Kind);
+        Assert.Equal(EventKind.PointerEvent, roundTrip.Kind);
         Assert.Equal("mouse", roundTrip.PointerType);
         Assert.Equal(1, roundTrip.Buttons);
     }

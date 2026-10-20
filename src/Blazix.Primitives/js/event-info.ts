@@ -1,11 +1,21 @@
-// The event snapshot a module sends to C# (ADR 04 §3). The property names mirror the C# record
-// `Blazix.Primitives.Interop.JsEventInfo` (camel-cased), which is the one place that defines them.
+// The event snapshot a module sends to C# (ADR 04 §3): `details.event`. The property names and the `kind` values
+// mirror `Events/EventSnapshot.cs` and `Events/EventKind.cs` (Track 2), which are the one place that defines them.
 
-export type EventKind = 'keyboard' | 'pointer' | 'mouse' | 'touch' | 'focus' | 'generic' | 'base-ui';
+export type EventKind =
+  | 'Event'
+  | 'UIEvent'
+  | 'FocusEvent'
+  | 'MouseEvent'
+  | 'PointerEvent'
+  | 'WheelEvent'
+  | 'TouchEvent'
+  | 'KeyboardEvent'
+  | 'InputEvent'
+  | 'ClipboardEvent';
 
 export interface EventTargetInfo {
-  tagName: string;
   id: string | null;
+  tagName: string | null;
 }
 
 export interface EventInfo {
@@ -20,66 +30,79 @@ export interface EventInfo {
   pointerType: string | null;
   detail: number;
   buttons: number;
-  button: number;
   target: EventTargetInfo | null;
   defaultPrevented: boolean;
   timeStamp: number;
 }
 
-/** The placeholder for a request that no browser event caused (EVD-API-05's `base-ui` form). */
-export const baseUiEvent: EventInfo = Object.freeze({
-  kind: 'base-ui',
-  type: 'base-ui',
-  key: null,
-  code: null,
-  altKey: false,
-  ctrlKey: false,
-  metaKey: false,
-  shiftKey: false,
-  pointerType: null,
-  detail: 0,
-  buttons: 0,
-  button: -1,
-  target: null,
-  defaultPrevented: false,
-  timeStamp: 0,
-});
+/** The placeholder for a request that no browser event caused (EVD-API-04): `kind` Event, `type` base-ui. */
+export function placeholderEvent(): EventInfo {
+  return {
+    kind: 'Event',
+    type: 'base-ui',
+    key: null,
+    code: null,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    pointerType: null,
+    detail: 0,
+    buttons: 0,
+    target: null,
+    defaultPrevented: false,
+    timeStamp: 0,
+  };
+}
 
+/** The most derived DOM interface of the event, checked most-derived first. */
 function kindOf(event: Event): EventKind {
   if (event instanceof KeyboardEvent) {
-    return 'keyboard';
+    return 'KeyboardEvent';
   }
   if (typeof PointerEvent !== 'undefined' && event instanceof PointerEvent) {
-    return 'pointer';
+    return 'PointerEvent';
+  }
+  if (event instanceof WheelEvent) {
+    return 'WheelEvent';
   }
   if (event instanceof MouseEvent) {
-    return 'mouse';
+    return 'MouseEvent';
   }
   if (typeof TouchEvent !== 'undefined' && event instanceof TouchEvent) {
-    return 'touch';
+    return 'TouchEvent';
   }
   if (event instanceof FocusEvent) {
-    return 'focus';
+    return 'FocusEvent';
   }
-  return 'generic';
+  if (typeof InputEvent !== 'undefined' && event instanceof InputEvent) {
+    return 'InputEvent';
+  }
+  if (typeof ClipboardEvent !== 'undefined' && event instanceof ClipboardEvent) {
+    return 'ClipboardEvent';
+  }
+  if (event instanceof UIEvent) {
+    return 'UIEvent';
+  }
+  return 'Event';
 }
 
 function targetOf(event: Event): EventTargetInfo | null {
   const target = event.target;
   if (target instanceof Element) {
-    return { tagName: target.tagName.toLowerCase(), id: target.id || null };
+    return { id: target.id || null, tagName: target.tagName };
   }
   return null;
 }
 
-/** Snapshots a browser event; `undefined` yields the `base-ui` placeholder. */
+/** Snapshots a browser event inside its dispatch; `undefined` yields the placeholder. */
 export function eventInfo(event: Event | undefined): EventInfo {
   if (event === undefined) {
-    return baseUiEvent;
+    return placeholderEvent();
   }
   const kind = kindOf(event);
-  const keyboard = kind === 'keyboard' ? (event as KeyboardEvent) : null;
-  const mouse = kind === 'pointer' || kind === 'mouse' ? (event as MouseEvent) : null;
+  const keyboard = kind === 'KeyboardEvent' ? (event as KeyboardEvent) : null;
+  const mouse = event instanceof MouseEvent ? event : null;
   const modifiers = keyboard ?? mouse;
   return {
     kind,
@@ -90,10 +113,9 @@ export function eventInfo(event: Event | undefined): EventInfo {
     ctrlKey: modifiers?.ctrlKey ?? false,
     metaKey: modifiers?.metaKey ?? false,
     shiftKey: modifiers?.shiftKey ?? false,
-    pointerType: kind === 'pointer' ? (event as PointerEvent).pointerType : null,
+    pointerType: kind === 'PointerEvent' ? (event as PointerEvent).pointerType : null,
     detail: event instanceof UIEvent ? event.detail : 0,
     buttons: mouse?.buttons ?? 0,
-    button: mouse?.button ?? -1,
     target: targetOf(event),
     defaultPrevented: event.defaultPrevented,
     timeStamp: event.timeStamp,

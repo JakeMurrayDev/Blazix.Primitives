@@ -13,7 +13,7 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
 
 - `twin.ts`: what every module receives from `attach(elementOrId, optionsJson, dotNetRef)` and hands back (`{ update(optionsJson), dispose() }`); `createTwinChannel` gives a handle its `decide` and `report`; `resolveElement`, `parseOptions`, `applyConsumerStyle` (handover at attach). No module-level registries: a handle's state lives in its closure.
 - `decide.ts`: `decide(twin, point, event, fallback)`. The render mode is detected from the runtime, per channel, on the first decision: one `Ping` through `invokeMethod`, which Blazor Server's dispatcher rejects synchronously and WebAssembly's answers. WebAssembly then runs the C# chain inside the dispatch; everywhere else the fallback policy is returned without a call.
-- `event-info.ts`: the event snapshot. Its property names mirror `Interop/JsEventInfo.cs`, which is the one place that defines them.
+- `event-info.ts`: the event snapshot. Its property names mirror `Events/EventSnapshot.cs` (Track 2), which is the one place that defines them; `kind` is the DOM interface name.
 - `platform.ts`: UTL-ALG-11, computed once per page when the chunk loads; the `dom` module owns and re-exports it (Phase B).
 - `initializer.ts` → `wwwroot/Blazix.Primitives.lib.module.js`: imports `platform` and registers custom event types (none yet).
 - `build.mjs`: the esbuild step. One ESM entry per `BlazixJsEntry` item of the csproj into `wwwroot/`, shared code as `js/chunks/*`, `legalComments: 'inline'` so the Floating UI banner survives, sourcemaps and no minification in Debug.
