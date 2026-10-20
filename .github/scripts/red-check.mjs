@@ -106,6 +106,17 @@ export function vitestOutcomes(text, root) {
   return outcomes;
 }
 
+/**
+ * Files vitest could not load (an import that does not resolve): a failed suite with no per-test results. Against the
+ * base's src/ this is what a test file for a module the pull request adds looks like.
+ * @param {string} text vitest's JSON reporter output @param {string} root the repository root
+ */
+export function vitestFailedFiles(text, root) {
+  return (JSON.parse(text).testResults ?? [])
+    .filter((file) => file.status === 'failed' && (file.assertionResults ?? []).length === 0)
+    .map((file) => relative(root, file.name));
+}
+
 const rank = { passed: 2, failed: 1, skipped: 0 };
 
 /** A test that passes in any project counts as passed; otherwise one that failed counts as failed. */
@@ -129,13 +140,17 @@ export function playwrightOutcomes(text) {
 /**
  * @param {string[]} added the added test names of one layer
  * @param {Map<string, string>} outcomes what running them against the base branch's src/ produced
- * @param {{ buildFailed?: boolean }} [options] a layer that does not build against the base has every added test red
+ * @param {{ buildFailed?: boolean, failedFiles?: string[] }} [options] a layer that does not build against the base has
+ *   every added test red; so does every added test of a vitest file that does not load (`failedFiles`)
  */
-export function judge(added, outcomes, { buildFailed = false } = {}) {
-  const verdict = { red: [], passed: [], skipped: [], notRun: [], ok: true };
+export function judge(added, outcomes, { buildFailed = false, failedFiles = [] } = {}) {
+  const verdict = { red: [], unloadable: [], passed: [], skipped: [], notRun: [], ok: true };
   for (const name of added) {
     const outcome = buildFailed ? 'failed' : outcomes.get(name);
-    if (outcome === 'failed') verdict.red.push(name);
+    if (outcome === undefined && failedFiles.includes(name.split('::')[0] ?? '')) {
+      verdict.red.push(name);
+      verdict.unloadable.push(name);
+    } else if (outcome === 'failed') verdict.red.push(name);
     else if (outcome === 'passed') verdict.passed.push(name);
     else if (outcome === 'skipped') verdict.skipped.push(name);
     else verdict.notRun.push(name);
@@ -164,6 +179,16 @@ export function summarize(layers) {
   for (const { layer, exempt, verdict } of layers) {
     if (verdict && verdict.passed.length > 0) {
       lines.push('', `**${layer}: each of these passes against the base branch's src/, so it proves nothing about the change:**`, names(verdict.passed));
+    }
+    const unloadable = verdict?.unloadable ?? [];
+    if (unloadable.length > 0) {
+      const perFile = new Map();
+      for (const name of unloadable) perFile.set(name.split('::')[0], (perFile.get(name.split('::')[0]) ?? 0) + 1);
+      lines.push(
+        '',
+        `**${layer}: red: the test file does not load against the base's src/ (it imports a module the pull request adds), so its tests fail there:**`,
+        [...perFile].map(([file, count]) => `- \`${file}\` (${count} tests)`).join('\n'),
+      );
     }
     if (verdict && verdict.notRun.length > 0) {
       lines.push('', `**${layer}: these tests did not run against the base branch's src/ (a filter or host problem), so they cannot be shown red:**`, names(verdict.notRun));
@@ -232,7 +257,9 @@ function runLayer(layer, added, resultsDir) {
   if (config.kind === 'vitest') {
     const report = join(resultsDir, `${layer}.json`);
     run('npx', ['vitest', 'run', 'src/Blazix.Primitives/js', '--reporter=json', `--outputFile=${report}`], { allowFailure: true });
-    return { buildFailed: false, outcomes: existsSync(report) ? vitestOutcomes(readFileSync(report, 'utf8'), cwd) : new Map() };
+    if (!existsSync(report)) return { buildFailed: false, outcomes: new Map(), failedFiles: [] };
+    const text = readFileSync(report, 'utf8');
+    return { buildFailed: false, outcomes: vitestOutcomes(text, cwd), failedFiles: vitestFailedFiles(text, cwd) };
   }
   // The fixture host is part of what the base branch's src/ must build for.
   if (!dotnetBuild('tests/Blazix.Primitives.Fixtures', cwd)) return { buildFailed: true, outcomes: new Map() };
@@ -277,8 +304,8 @@ function main() {
     spawnSync('git', ['checkout', 'HEAD', '--', ':(glob)src/Blazix.Primitives/js/**/*.test.ts'], { stdio: 'ignore' });
     for (const result of results) {
       if (result.added.length === 0) continue;
-      const { buildFailed, outcomes } = runLayer(result.layer, result.added, join(process.cwd(), 'red-check-results'));
-      result.verdict = judge(result.added, outcomes, { buildFailed });
+      const { buildFailed, outcomes, failedFiles } = runLayer(result.layer, result.added, join(process.cwd(), 'red-check-results'));
+      result.verdict = judge(result.added, outcomes, { buildFailed, failedFiles });
     }
   }
 
