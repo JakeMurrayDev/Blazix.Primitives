@@ -43,7 +43,8 @@ public sealed class SelectorSubscription<TState> : IDisposable
         return selection;
     }
 
-    /// <summary>Unsubscribes from the store; the selections keep their last values.</summary>
+    /// <inheritdoc />
+    /// <remarks>Unsubscribes from the store; the selections keep their last values. Calling it again does nothing.</remarks>
     public void Dispose()
     {
         subscription?.Dispose();
@@ -82,6 +83,7 @@ public sealed class StoreSelection<TState, TValue> : ISelectionRefresh<TState>
     /// <summary>The selector's result for the latest record.</summary>
     public TValue Value => value;
 
+    /// <inheritdoc />
     bool ISelectionRefresh<TState>.Refresh(TState state)
     {
         TValue next = selector(state);
@@ -132,6 +134,7 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
         }
     }
 
+    /// <inheritdoc />
     bool ISelectionRefresh<TState>.Refresh(TState state)
     {
         TValue next = selector(state, arg);
@@ -148,5 +151,6 @@ public sealed class StoreSelection<TState, TArg, TValue> : ISelectionRefresh<TSt
 /// <summary>Re-evaluates a selection against a new record and reports whether its value changed.</summary>
 internal interface ISelectionRefresh<TState>
 {
+    /// <summary>Evaluates the selection against <paramref name="state"/>, keeps the result when it differs from the held value by <see cref="Equality.Is{T}(T, T)"/>, and returns whether it did.</summary>
     bool Refresh(TState state);
 }

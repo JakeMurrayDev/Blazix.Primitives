@@ -44,7 +44,8 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
         store.SyncValue(field, value);
     }
 
-    /// <summary>Resets the member to <c>default</c> in the last store.</summary>
+    /// <inheritdoc />
+    /// <remarks>Sets the member to <c>default</c> in the last store passed to <see cref="Sync"/>, then forgets that store, so a second call does nothing.</remarks>
     public void Dispose()
     {
         store?.Set(field, default);

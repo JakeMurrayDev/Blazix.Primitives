@@ -8,8 +8,10 @@ public sealed record TestState(int Value, string Label) : IStoreState<TestState>
     public static readonly StoreField<TestState, int> ValueField = new(nameof(Value), s => s.Value, (s, v) => s with { Value = v });
     public static readonly StoreField<TestState, string> LabelField = new(nameof(Label), s => s.Label, (s, v) => s with { Label = v });
 
+    /// <inheritdoc />
     public static TestState Copy(TestState state) => state with { };
 
+    /// <inheritdoc />
     public static bool ShallowEquals(TestState left, TestState right) =>
         Equality.Is(left.Value, right.Value) && Equality.Is(left.Label, right.Label);
 }
@@ -25,8 +27,10 @@ public sealed record CounterState(int Count, int Multiplier) : IStoreState<Count
     public static readonly Func<CounterState, int> Doubled = s => s.Count * 2;
     public static readonly Func<CounterState, int> Multiplied = s => s.Count * s.Multiplier;
 
+    /// <inheritdoc />
     public static CounterState Copy(CounterState state) => state with { };
 
+    /// <inheritdoc />
     public static bool ShallowEquals(CounterState left, CounterState right) =>
         Equality.Is(left.Count, right.Count) && Equality.Is(left.Multiplier, right.Multiplier);
 }
@@ -37,8 +41,10 @@ public sealed record ParentState(int Count) : IStoreState<ParentState>
     public static readonly StoreField<ParentState, int> CountField = new(nameof(Count), s => s.Count, (s, v) => s with { Count = v });
     public static readonly Func<ParentState, int> CountSelector = s => s.Count;
 
+    /// <inheritdoc />
     public static ParentState Copy(ParentState state) => state with { };
 
+    /// <inheritdoc />
     public static bool ShallowEquals(ParentState left, ParentState right) => Equality.Is(left.Count, right.Count);
 }
 
@@ -52,8 +58,10 @@ public sealed record ChildState(int Count, ComponentStore<ParentState>? Parent) 
     public static readonly Func<ChildState, ComponentStore<ParentState>?> ParentSelector = s => s.Parent;
     public static readonly Func<ChildState, int> LocalCountSelector = s => s.Count;
 
+    /// <inheritdoc />
     public static ChildState Copy(ChildState state) => state with { };
 
+    /// <inheritdoc />
     public static bool ShallowEquals(ChildState left, ChildState right) =>
         Equality.Is(left.Count, right.Count) && Equality.Is(left.Parent, right.Parent);
 }
@@ -63,8 +71,10 @@ public sealed record ValuesState(IReadOnlyDictionary<string, string> Values) : I
 {
     public static readonly Func<ValuesState, string, string?> ValueByKey = (s, key) => s.Values.TryGetValue(key, out string? value) ? value : null;
 
+    /// <inheritdoc />
     public static ValuesState Copy(ValuesState state) => state with { };
 
+    /// <inheritdoc />
     public static bool ShallowEquals(ValuesState left, ValuesState right) => Equality.Is(left.Values, right.Values);
 }
 
@@ -78,8 +88,10 @@ public sealed record ShapeState(Point Origin, double Ratio, string? Node) : ISto
     public static readonly StoreField<ShapeState, double> RatioField = new(nameof(Ratio), s => s.Ratio, (s, v) => s with { Ratio = v });
     public static readonly StoreField<ShapeState, string?> NodeField = new(nameof(Node), s => s.Node, (s, v) => s with { Node = v });
 
+    /// <inheritdoc />
     public static ShapeState Copy(ShapeState state) => state with { };
 
+    /// <inheritdoc />
     public static bool ShallowEquals(ShapeState left, ShapeState right) =>
         Equality.Is(left.Origin, right.Origin) && Equality.Is(left.Ratio, right.Ratio) && Equality.Is(left.Node, right.Node);
 }

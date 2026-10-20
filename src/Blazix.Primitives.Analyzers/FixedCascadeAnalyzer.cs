@@ -26,8 +26,10 @@ public sealed class FixedCascadeAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true,
         description: "ADR 16 rule 9: a CascadingValue whose value changes re-renders every subscriber; the library cascades fixed values and parts subscribe to the store or context they need.");
 
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(s_rule);
 
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

@@ -203,6 +203,7 @@ public class Store<TState>
 
     private sealed class Subscription(Store<TState> store, Action<TState> listener) : IDisposable
     {
+        /// <inheritdoc />
         public void Dispose() => store.Unsubscribe(listener);
     }
 }

@@ -70,6 +70,7 @@ public sealed class ValueChangeEventArgsAllocationTests
     {
         public int Received { get; set; }
 
+        /// <inheritdoc />
         public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => item.InvokeAsync(arg);
     }
 }
