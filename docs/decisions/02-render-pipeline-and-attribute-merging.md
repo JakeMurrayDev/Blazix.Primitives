@@ -3,7 +3,6 @@
 | | |
 |---|---|
 | Status | accepted (2026-10-17) |
-| Revised | 2026-10-20 |
 | Project | Blazix.Primitives |
 | Decides | how `render`, `className`/`style` functions, handler chaining with `preventBaseUIHandler()`, state data attributes, DOM handles and generated ids map onto Blazor; whether one shared implementation satisfies the conformance obligations RND-DOM-36..49 |
 | Affects | RND-STR-01..09, RND-API-01..11, RND-STA-01..03, RND-DOM-01..33, RND-DOM-36..49, RND-EVT-01..13, RND-ALG-01..15, RND-EDGE-01..09; UBT handler-merging notes (UBT-EVT-01..03); EVD-API-11, EVD-EVT-26/27 |

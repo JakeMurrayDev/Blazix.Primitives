@@ -3,7 +3,6 @@
 | | |
 |---|---|
 | Status | accepted (2026-10-20) |
-| Revised | 2026-10-20 |
 | Project | Blazix.Primitives |
 | Decides | which Blazor performance techniques are rules from M0, which wait for a measurement, and which are rejected because they contradict an accepted decision |
 | Affects | no requirement IDs; applies ADR 01 decision 1, ADR 02 decisions 3–4, ADR 04 §3–§4 and ADR 05 §4 without changing them |
