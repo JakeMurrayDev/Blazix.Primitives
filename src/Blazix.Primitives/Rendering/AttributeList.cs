@@ -30,8 +30,10 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         entries = capacity == 0 ? [] : new AttributeEntry[capacity];
     }
 
+    /// <inheritdoc />
     public int Count => count;
 
+    /// <inheritdoc />
     public AttributeEntry this[int index]
     {
         get
@@ -148,10 +150,13 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         return result;
     }
 
+    /// <inheritdoc />
     public Enumerator GetEnumerator() => new(this);
 
+    /// <inheritdoc />
     IEnumerator<AttributeEntry> IEnumerable<AttributeEntry>.GetEnumerator() => GetEnumerator();
 
+    /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     private void RemoveAt(int index)
@@ -176,14 +181,19 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
             index = -1;
         }
 
+        /// <inheritdoc />
         public readonly AttributeEntry Current => list.entries[index];
 
+        /// <inheritdoc />
         readonly object IEnumerator.Current => Current;
 
+        /// <inheritdoc />
         public bool MoveNext() => ++index < list.count;
 
+        /// <inheritdoc />
         public void Reset() => index = -1;
 
+        /// <inheritdoc />
         public readonly void Dispose()
         {
         }

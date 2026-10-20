@@ -16,6 +16,7 @@ public sealed class RenderElementTests : IDisposable
         context.Services.AddBlazixPrimitives();
     }
 
+    /// <inheritdoc />
     public void Dispose() => context.Dispose();
 
     [Fact(DisplayName = "render props does not overwrite className in a render function when unspecified")]

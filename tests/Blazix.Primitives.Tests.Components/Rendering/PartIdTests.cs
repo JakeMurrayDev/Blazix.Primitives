@@ -15,6 +15,7 @@ public sealed class PartIdTests : IDisposable
         context.Services.AddBlazixPrimitives();
     }
 
+    /// <inheritdoc />
     public void Dispose() => context.Dispose();
 
     [Fact(DisplayName = "returns the provided ID")]

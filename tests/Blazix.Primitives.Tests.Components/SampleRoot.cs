@@ -59,18 +59,23 @@ public sealed class SampleRoot : PartBase<SampleRootState>
     /// <summary>The resolved id (RND-DOM-32 (2)–(3)), exposed for the id tests.</summary>
     public string? ResolvedId => Id;
 
+    /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
+    /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    /// <inheritdoc />
     protected override SampleRootState State => state ??= new SampleRootState(open, Orientation, Label);
 
+    /// <inheritdoc />
     protected override void OnInitialized()
     {
         open = DefaultOpen;
         base.OnInitialized();
     }
 
+    /// <inheritdoc />
     protected override void OnParametersSet()
     {
         state = null;
@@ -79,6 +84,7 @@ public sealed class SampleRoot : PartBase<SampleRootState>
     /// <summary>Requests a render with the current parameters, for render-count and allocation tests.</summary>
     public void Refresh() => StateHasChanged();
 
+    /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
         attributes.Set("role", "group");
@@ -110,23 +116,29 @@ public sealed class SampleRoot : PartBase<SampleRootState>
 /// <summary>A part that supplies no attributes and has an empty state (RND-EDGE-06).</summary>
 public sealed class MinimalPart : PartBase<EmptyState>
 {
+    /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
+    /// <inheritdoc />
     protected override EmptyState State => EmptyState.Instance;
 }
 
 /// <summary>A part whose default element is a <c>button</c> (RND-STR-05).</summary>
 public sealed class ButtonPart : PartBase<EmptyState>
 {
+    /// <inheritdoc />
     protected override string DefaultTagName => "button";
 
+    /// <inheritdoc />
     protected override EmptyState State => EmptyState.Instance;
 }
 
 /// <summary>A part whose default element is an <c>img</c> (RND-STR-06).</summary>
 public sealed class ImagePart : PartBase<EmptyState>
 {
+    /// <inheritdoc />
     protected override string DefaultTagName => "img";
 
+    /// <inheritdoc />
     protected override EmptyState State => EmptyState.Instance;
 }

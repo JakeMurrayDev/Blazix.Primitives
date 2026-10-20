@@ -23,6 +23,7 @@ public sealed class PartHandlerTests : IDisposable
         context.Services.AddBlazixPrimitives();
     }
 
+    /// <inheritdoc />
     public void Dispose() => context.Dispose();
 
     [Fact(DisplayName = "handlers run substitute, then consumer, then part")]
@@ -230,6 +231,7 @@ public sealed class PartHandlerTests : IDisposable
 
     private sealed class Receiver : IHandleEvent
     {
+        /// <inheritdoc />
         public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => item.InvokeAsync(arg);
     }
 }

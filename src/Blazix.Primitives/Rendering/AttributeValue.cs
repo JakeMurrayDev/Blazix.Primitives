@@ -63,7 +63,8 @@ public readonly struct AttributeValue : IUnion
     /// <summary>Whether the value is a handler: a callback or a delegate.</summary>
     public bool IsHandler => kind is AttributeValueKind.Callback or AttributeValueKind.Delegate;
 
-    /// <summary>Required by the union contract. Boxes the boolean and callback cases; the library never reads it.</summary>
+    /// <inheritdoc />
+    /// <remarks>Boxes the boolean and callback cases; the library never reads it (ADR 05 §4).</remarks>
     public object? Value => kind switch
     {
         AttributeValueKind.String => reference,
@@ -197,6 +198,7 @@ public readonly struct AttributeValue : IUnion
         }
     }
 
+    /// <inheritdoc />
     public override string ToString() => kind switch
     {
         AttributeValueKind.String => (string)reference!,

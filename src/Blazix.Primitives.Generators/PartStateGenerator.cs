@@ -19,6 +19,7 @@ public sealed class PartStateGenerator : IIncrementalGenerator
     private const string MirroredFieldAttributeName = "Blazix.Primitives.Rendering.MirroredFieldAttribute";
     private const string Rendering = "global::Blazix.Primitives.Rendering";
 
+    /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         IncrementalValuesProvider<PartStateOutput> outputs = context.SyntaxProvider.ForAttributeWithMetadataName(

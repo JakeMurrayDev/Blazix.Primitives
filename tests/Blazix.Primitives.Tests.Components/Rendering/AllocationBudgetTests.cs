@@ -23,6 +23,7 @@ public sealed class AllocationBudgetTests : IDisposable
         context.Services.AddBlazixPrimitives();
     }
 
+    /// <inheritdoc />
     public void Dispose() => context.Dispose();
 
     [Fact(DisplayName = "a steady-state render of the default element stays within its budget")]

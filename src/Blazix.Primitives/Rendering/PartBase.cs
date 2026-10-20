@@ -76,6 +76,8 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <summary>The id of RND-DOM-32 precedence (2)–(3): the consumer's <c>id</c> if supplied (including the empty string), else the generated one.</summary>
     protected string? Id => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) && supplied is string text ? text : generatedId;
 
+    /// <inheritdoc />
+    /// <remarks>Draws the generated id when <see cref="UsesGeneratedId"/> is set (RND-DOM-27, in render order) and calls <see cref="SubscribeSelectors"/>; a part that overrides this calls the base.</remarks>
     protected override void OnInitialized()
     {
         if (UsesGeneratedId)
@@ -86,6 +88,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         SubscribeSelectors();
     }
 
+    /// <inheritdoc />
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         AttributeList partAttributes = renderState.PartAttributes;
@@ -118,11 +121,8 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         });
     }
 
-    /// <summary>
-    /// ADR 16 rule 8: a part re-renders only when it calls <see cref="ComponentBase.StateHasChanged"/> itself; a
-    /// cancelled request or a handler on a disabled part renders nothing. Exceptions route through
-    /// <see cref="ComponentBase.DispatchExceptionAsync"/> so error boundaries keep working.
-    /// </summary>
+    /// <inheritdoc />
+    /// <remarks>ADR 16 rule 8: the part re-renders only when it calls <see cref="ComponentBase.StateHasChanged"/> itself, so a cancelled request or a handler on a disabled part renders nothing; an exception, synchronous or from the returned task, routes through <see cref="ComponentBase.DispatchExceptionAsync"/> so error boundaries keep working.</remarks>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
         Task task;
@@ -138,8 +138,10 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         return task.IsCompletedSuccessfully ? Task.CompletedTask : AwaitAndDispatchAsync(task);
     }
 
+    /// <inheritdoc />
     void IPartHost.SetElement(ElementReference? element) => Element = element;
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(disposing: true);

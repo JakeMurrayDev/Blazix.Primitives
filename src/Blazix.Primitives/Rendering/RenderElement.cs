@@ -55,6 +55,7 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     /// <summary>The rendered element, under the same rules as <see cref="PartBase{TState}.Element"/>.</summary>
     public ElementReference? Element { get; private set; }
 
+    /// <inheritdoc />
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         RenderPipeline.Render(builder, renderState, this, new RenderInputs<TState>
@@ -70,7 +71,8 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
         });
     }
 
-    /// <summary>ADR 16 rule 8, as for <see cref="PartBase{TState}"/>: no render unless requested; exceptions route to the error boundary.</summary>
+    /// <inheritdoc />
+    /// <remarks>ADR 16 rule 8, as for <see cref="PartBase{TState}"/>: no render unless requested; exceptions route to the error boundary.</remarks>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
         Task task;
@@ -86,8 +88,10 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
         return task.IsCompletedSuccessfully ? Task.CompletedTask : AwaitAndDispatchAsync(task);
     }
 
+    /// <inheritdoc />
     void IPartHost.SetElement(ElementReference? element) => Element = element;
 
+    /// <inheritdoc />
     public void Dispose() => renderState.Dispose();
 
     private async Task AwaitAndDispatchAsync(Task task)

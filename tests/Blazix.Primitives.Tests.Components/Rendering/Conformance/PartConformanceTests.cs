@@ -29,6 +29,7 @@ public abstract class PartConformanceTests<TPart> : IDisposable
 
     protected abstract ConformanceOptions<TPart> Options { get; }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Context.Dispose();

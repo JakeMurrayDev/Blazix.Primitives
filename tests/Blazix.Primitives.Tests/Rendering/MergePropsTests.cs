@@ -556,6 +556,7 @@ public sealed class MergePropsTests
 
     private sealed class Receiver : IHandleEvent
     {
+        /// <inheritdoc />
         public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => item.InvokeAsync(arg);
     }
 }

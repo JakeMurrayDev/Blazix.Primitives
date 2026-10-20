@@ -14,10 +14,13 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IRea
         this.items = items.IsDefault ? ImmutableArray<T>.Empty : items;
     }
 
+    /// <inheritdoc />
     public int Count => items.Length;
 
+    /// <inheritdoc />
     public T this[int index] => items[index];
 
+    /// <inheritdoc />
     public bool Equals(EquatableArray<T> other)
     {
         if (items.Length != other.items.Length)
@@ -36,8 +39,10 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IRea
         return true;
     }
 
+    /// <inheritdoc />
     public override bool Equals(object? obj) => obj is EquatableArray<T> other && Equals(other);
 
+    /// <inheritdoc />
     public override int GetHashCode()
     {
         int hash = 17;
@@ -49,9 +54,12 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IRea
         return hash;
     }
 
+    /// <inheritdoc />
     public ImmutableArray<T>.Enumerator GetEnumerator() => items.GetEnumerator();
 
+    /// <inheritdoc />
     IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IEnumerable<T>)items).GetEnumerator();
 
+    /// <inheritdoc />
     IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)items).GetEnumerator();
 }

@@ -86,6 +86,7 @@ internal sealed class PartRenderState : IDisposable
         return slot.Outer;
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         scratch?.Dispose();

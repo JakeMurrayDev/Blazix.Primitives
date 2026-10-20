@@ -27,6 +27,7 @@ public sealed class ConformanceWrapper : ComponentBase
     /// <summary>The element the attributes were spread onto, once rendered.</summary>
     public ElementReference Inner => inner;
 
+    /// <inheritdoc />
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         if (WrappingAllowed)

@@ -22,6 +22,7 @@ public sealed class RenderPipelineTests : IDisposable
         context.Services.AddBlazixPrimitives();
     }
 
+    /// <inheritdoc />
     public void Dispose() => context.Dispose();
 
     [Fact(DisplayName = "accepts className as function")]
@@ -537,6 +538,7 @@ public sealed class RenderPipelineTests : IDisposable
         [Parameter]
         public RenderFragment? ChildContent { get; set; }
 
+        /// <inheritdoc />
         protected override void BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
         {
             builder.OpenElement(0, "span");
@@ -548,6 +550,7 @@ public sealed class RenderPipelineTests : IDisposable
 
     private sealed class Receiver : IHandleEvent
     {
+        /// <inheritdoc />
         public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => item.InvokeAsync(arg);
     }
 }

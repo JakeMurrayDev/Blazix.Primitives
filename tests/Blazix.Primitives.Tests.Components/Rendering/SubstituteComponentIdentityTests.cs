@@ -19,6 +19,7 @@ public sealed class SubstituteComponentIdentityTests : IDisposable
         context.Services.AddBlazixPrimitives();
     }
 
+    /// <inheritdoc />
     public void Dispose() => context.Dispose();
 
     [Fact(DisplayName = "a consumer component root keeps its instance and its @ref across re-renders of the part")]
@@ -106,8 +107,10 @@ public sealed class SubstituteComponentIdentityTests : IDisposable
 
         public bool Disposed { get; private set; }
 
+        /// <inheritdoc />
         public void Dispose() => Disposed = true;
 
+        /// <inheritdoc />
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
             Renders++;
