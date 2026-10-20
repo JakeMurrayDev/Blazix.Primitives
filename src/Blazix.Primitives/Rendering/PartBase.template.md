@@ -15,11 +15,16 @@ using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives;
 
-/// <summary>The state record (ADR 08 §3): sealed, partial, [PartState]; the generator projects it to data-* attributes.</summary>
+// ADR 08 §3: the state record is sealed, partial and [PartState]; the generator projects it to data-* attributes.
+/// <summary>Represents the state of a switch root, which the part exposes as data attributes.</summary>
+/// <param name="Checked">A value indicating whether the switch is on.</param>
+/// <param name="Disabled">A value indicating whether the switch ignores user interaction.</param>
+/// <param name="AnchorHidden">A value indicating whether the anchor is hidden; JavaScript writes its attribute, so the projection skips it.</param>
 [PartState]
 public sealed partial record SwitchRootState(bool Checked, bool Disabled, [property: MirroredField] bool AnchorHidden);
 
-/// <summary>Switch.Root (docs/components/switch.md).</summary>
+// Base UI's Switch.Root; the contract is docs/components/switch.md.
+/// <summary>Represents a control that turns a setting on or off: Base UI's <c>Switch.Root</c>, rendered as a <c>button</c>.</summary>
 public sealed class SwitchRoot : PartBase<SwitchRootState>
 {
     // 1. constants
