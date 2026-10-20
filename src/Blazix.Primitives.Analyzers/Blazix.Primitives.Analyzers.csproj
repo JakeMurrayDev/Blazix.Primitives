@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Library-internal convention analyzers: member order, field prefix, boxing, fixed cascades (ADR 08 §5, ADR 16).
+  <!-- Library-internal convention analyzers: member order, field prefix, boxing, fixed cascades, constant sequence numbers (ADR 08 §5, ADR 16).
        Referenced by the library as an analyzer only and never packed (ADR 09 §1). -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>

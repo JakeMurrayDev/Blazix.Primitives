@@ -1,0 +1,15 @@
+@* The substitutes a consumer writes in Razor with an @ref and a @key, as templates so a test can read the fragment's own
+   frames: a substitute element and a substitute component. Razor emits the capture after the attributes and the key and
+   before the children, and at most one capture per element or component (a second @ref compiles to a plain attribute). *@
+@code {
+    private ElementReference elementReference;
+    private CaptureTarget? componentReference;
+
+    public ElementReference ElementReference => elementReference;
+
+    public CaptureTarget? ComponentReference => componentReference;
+
+    public RenderFragment ElementSubstitute() => @<span class="x" @key="@("k")" @ref="elementReference">@("text ")<b>bold</b></span>;
+
+    public RenderFragment ComponentSubstitute() => @<CaptureTarget class="x" @key="@("k")" @ref="componentReference">inner</CaptureTarget>;
+}

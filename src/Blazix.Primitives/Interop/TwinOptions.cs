@@ -1,7 +1,7 @@
 namespace Blazix.Primitives.Interop;
 
 /// <summary>
-/// The base of every twin options record. A twin serialises its options record to JSON and hands it to the
+/// The base of every twin options record. A twin serializes its options record to JSON and hands it to the
 /// JavaScript module on <c>attach</c> and on every <c>update</c>.
 /// </summary>
 internal abstract record TwinOptions

@@ -1,0 +1,82 @@
+name: skip-js-build
+
+# ADR 11 section 1 (manual row), ADR 04 verification item 4 (issue 9): the library builds and packs on a machine without
+# Node when BlazixSkipJsBuild=true and the JavaScript outputs come prebuilt. The outputs are the js-outputs artifact of
+# the latest successful ci run on main (the pack job uploads them). Run it before every tagged release.
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: The ci run on main whose js-outputs artifact to build from. Empty means the latest successful push run.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  build-without-node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # MinVer
+      # No setup-node on purpose; npm ci never runs either.
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'package-lock.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Find the prebuilt JavaScript
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RUN_ID: ${{ inputs.run-id }}
+        run: |
+          run_id="$INPUT_RUN_ID"
+          if [ -z "$run_id" ]; then
+            run_id=$(gh run list --workflow ci.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          test -n "$run_id" || { echo "no successful ci run on main to take the JavaScript from"; exit 1; }
+          echo "id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Using the js-outputs artifact of ci run $run_id" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/download-artifact@v7
+        with:
+          name: js-outputs
+          path: src/Blazix.Primitives/wwwroot
+          run-id: ${{ steps.run.outputs.id }}
+          github-token: ${{ github.token }}
+      - name: Take node off PATH
+        id: path
+        run: |
+          # dotnet and the tools MSBuild and MinVer call (git, sh) stay; nothing named node or npm may resolve.
+          restricted="$(dirname "$(command -v dotnet)"):/usr/bin:/bin"
+          PATH="$restricted" bash -c 'if command -v node >/dev/null || command -v npm >/dev/null; then echo "node is still on PATH: $(command -v node)"; exit 1; fi'
+          echo "restricted=$restricted" >> "$GITHUB_OUTPUT"
+      - name: Pack with BlazixSkipJsBuild and no node
+        env:
+          PATH: ${{ steps.path.outputs.restricted }}
+        run: |
+          ! command -v node
+          dotnet pack src/Blazix.Primitives -c Release -o artifacts/packages -p:BlazixSkipJsBuild=true
+      - name: Assert the package content
+        run: node .github/scripts/assert-package.mjs artifacts/packages/*.nupkg
+      - name: A missing output still fails with the clear message
+        env:
+          PATH: ${{ steps.path.outputs.restricted }}
+        run: |
+          mv src/Blazix.Primitives/wwwroot "$RUNNER_TEMP/wwwroot.prebuilt"
+          if dotnet build src/Blazix.Primitives -c Release -p:BlazixSkipJsBuild=true > build.log 2>&1; then
+            echo "the build succeeded without the JavaScript outputs"; exit 1
+          fi
+          grep -q "The JavaScript build output" build.log || { cat build.log; echo "the build failed, but not with the missing-output message"; exit 1; }
+          echo "Without the prebuilt outputs the build fails with the missing-output message, as intended." >> "$GITHUB_STEP_SUMMARY"

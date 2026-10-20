@@ -6,7 +6,7 @@ Tests for the generator and the analyzers, on the Roslyn testing SDK.
 
 - `../../src/Blazix.Primitives.Generators` and `../../src/Blazix.Primitives.Analyzers` (project references).
 - `Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing` and `...Analyzer.Testing`, pinned in `Directory.Packages.props` with the compiler packages they must match.
-- Decision records 05, 08 §5 and 16 rule 9 for the behaviour under test.
+- Decision records 05, 08 §5 and 16 rules 3 and 9 for the behaviour under test.
 
 ## Job
 

@@ -24,3 +24,4 @@ Renders every part through a `BunitContext` (with `Services.AddBlazixPrimitives(
 - Render-count requirements are asserted through bUnit's render counts (ADR 06 §1 amendment).
 - bUnit's markup shows one element-reference capture per element (the first written, the part's own); a second capture is asserted non-null, not located (ADR 06 §1: non-null capture for RND-DOM-44/45).
 - An allocation budget (`Rendering/AllocationBudgetTests`) only tightens (ADR 16 rule 7).
+- `Rendering/RenderPipelineSequenceTests` reads a part's frames through a `Renderer` of its own, because bUnit reaches them only through a protected member; its Razor consumers (`Rendering/Consumers/CaptureConsumer.razor`) expose their fragments so the test can compare the consumer's own sequence numbers with the re-emitted ones.

@@ -1,0 +1,85 @@
+name: nightly
+
+# ADR 11 sections 1 and 4: the full L4 suite on main in both render modes, every test three times over four shards, as
+# the flake hunt. The gate runs with retries 0 and --fail-on-flaky-tests; here a test that fails once in three runs is a
+# failure, and the summary lists the failures, the flaky count (a guard: it stays 0) and the quarantine count.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  browser-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/browser-tests
+        with:
+          project: server
+          shard: ${{ matrix.shard }}
+          shards: 4
+          repeat-each: 3
+
+  browser-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/browser-tests
+        with:
+          project: wasm
+          shard: ${{ matrix.shard }}
+          shards: 4
+          repeat-each: 3
+
+  report:
+    needs: [browser-server, browser-wasm]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Merge the shard reports
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: merged-report.json
+        run: npx playwright merge-reports --reporter html,json ./all-blob-reports
+      - name: Summarize
+        run: node .github/scripts/nightly-summary.mjs merged-report.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: nightly-report
+          path: |
+            playwright-report
+            merged-report.json
+          retention-days: 30

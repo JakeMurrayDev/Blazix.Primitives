@@ -6,3 +6,4 @@
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 BLZX2001 | Blazix.Primitives | Error | FixedCascadeAnalyzer, ADR 16 rule 9
+BLZX2002 | Blazix.Primitives | Error | SequenceNumberAnalyzer, ADR 16 rule 3

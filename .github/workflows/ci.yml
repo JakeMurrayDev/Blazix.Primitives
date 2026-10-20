@@ -1,10 +1,14 @@
 name: ci
 
-# ADR 11 §1-§2. Track 0: docs-lint and build-and-test. Track 3: browser-server and browser-wasm (full L4, two shards
-# each on pull requests) and browser-report (the merged HTML report). Track 4 scopes the browser jobs to the changed
-# family, adds the red check, the nightly run and the pack artifact.
+# ADR 11 sections 1 to 5. The jobs and what triggers them are described in .github/CONTEXT.md.
+#   every pull request: changes (classifies the paths), docs-lint, build-and-test, scoped or full L4 in both render
+#   modes (browser-server, browser-wasm, browser-report), red-check; gate collects them into one required check.
+#   push to main: all of the above with full L4 over four shards, plus pack (the package as an artifact).
+# The nightly full L4 run is nightly.yml; the BlazixSkipJsBuild check is skip-js-build.yml (manual).
 on:
   pull_request:
+    # labeled and unlabeled: the label full-l4 forces a full L4 run (ADR 11 section 1).
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
@@ -21,29 +25,32 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
 jobs:
-  # Decides which of the two required jobs has work to do. A job skipped by `if` reports success to a required
-  # check, so a docs-only pull request runs only docs-lint and a code-only one only build-and-test.
+  # Decides which jobs have work: docs-lint for a change under docs/, build-and-test for a change outside it, and the
+  # browser jobs for the L4 scope .github/scripts/classify-paths.mjs derives from the changed paths and the labels.
+  # A job skipped by `if` reports success to a required check; the gate job below is the one required check.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
     outputs:
-      docs: ${{ steps.filter.outputs.docs }}
-      code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.classify.outputs.docs }}
+      code: ${{ steps.classify.outputs.code }}
+      l4: ${{ steps.classify.outputs.l4 }}
+      run-l4: ${{ steps.classify.outputs.run-l4 }}
+      specs: ${{ steps.classify.outputs.specs }}
     steps:
       - uses: actions/checkout@v7
-      - id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
-          predicate-quantifier: every
-          filters: |
-            docs:
-              - 'docs/**'
-            code:
-              - '**'
-              - '!docs/**'
+          fetch-depth: 0 # the merge base of a pull request
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: node .github/scripts/classify-paths.mjs --event "$EVENT" --base "$BASE" --head "$HEAD" --labels "$LABELS"
 
   docs-lint:
     needs: changes
@@ -61,13 +68,15 @@ jobs:
           mask() { sed -E '1s/^[0-9]+ docs, [0-9]+ requirements, [0-9]+ prefixes;/N docs, N requirements, N prefixes;/' "$1"; }
           diff -u <(mask .github/workflows/docs-lint.baseline.txt) <(mask docs-lint.actual.txt)
 
+  # Build, L1, L2, L3 and the lints that are tests: the ownership lint (L1, Lints namespace), the module-graph lint
+  # (L3, *.lint.test.ts), and the unit tests of the scripts in .github/scripts. The src/ lint is a step.
   build-and-test:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # L1, L2 and the generator tests. The fixture host is not built here (ADR 09 §3); the browser jobs build it.
+      # L1, L2 and the generator tests. The fixture host is not built here (ADR 09 section 3); the browser jobs build it.
       TEST_PROJECTS: >-
         tests/Blazix.Primitives.Tests
         tests/Blazix.Primitives.Tests.Components
@@ -76,42 +85,36 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # MinVer reads tags and commit height
-      - uses: actions/setup-dotnet@v6
-        with:
-          global-json-file: global.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: npm
-      - uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
-          restore-keys: nuget-${{ runner.os }}-
-      - name: Install Node packages
-        # Before the .NET build: the library's BlazixBuildJs target runs esbuild from the root node_modules (ADR 04 §4).
-        run: npm ci
+      - uses: ./.github/actions/setup
+      - name: Lint src/ (specification references, boolean wording, US spelling)
+        run: node .github/scripts/src-lint.mjs
       - name: Restore
         run: for project in $TEST_PROJECTS; do dotnet restore "$project"; done
       - name: Build
         run: for project in $TEST_PROJECTS; do dotnet build "$project" -c Release --no-restore; done
       - name: Test (.NET)
         run: for project in $TEST_PROJECTS; do dotnet test --project "$project" -c Release --no-build; done
+      - name: Ownership lint (families checked and skipped)
+        # Already ran with L1; run alone it prints how many families have a folder and were compared with the registry.
+        run: >-
+          dotnet test --project tests/Blazix.Primitives.Tests -c Release --no-build
+          --filter-method Blazix.Primitives.Tests.Lints.OwnershipLintTests.The_documents_and_the_ownership_registry_agree
+          --show-test-results all
       - name: Test (JavaScript)
         run: npm run test:js
 
-  # L4 (ADR 06 §2, ADR 11 §2): one job per render mode, each a two-shard matrix on pull requests, against the fixture
-  # host that Playwright's webServer starts with `dotnet run`. The steps live in .github/actions/browser-tests; the
-  # fixture host is built there, not in build-and-test (ADR 09 §3). Track 4 scopes these to the changed family.
+  # L4 (ADR 06 section 2, ADR 11 sections 1 and 2): one job per render mode, a two-shard matrix on pull requests and four
+  # shards on main, against the fixture host that Playwright's webServer starts with `dotnet run`. A scoped run passes the
+  # spec files of the changed families; a full run passes none. The steps live in .github/actions/browser-tests.
   browser-server:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.run-l4 == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: ${{ fromJSON(github.event_name == 'push' && '[1,2,3,4]' || '[1,2]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -120,17 +123,18 @@ jobs:
         with:
           project: server
           shard: ${{ matrix.shard }}
-          shards: 2
+          shards: ${{ github.event_name == 'push' && 4 || 2 }}
+          specs: ${{ needs.changes.outputs.specs }}
 
   browser-wasm:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.run-l4 == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: ${{ fromJSON(github.event_name == 'push' && '[1,2,3,4]' || '[1,2]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -139,22 +143,18 @@ jobs:
         with:
           project: wasm
           shard: ${{ matrix.shard }}
-          shards: 2
+          shards: ${{ github.event_name == 'push' && 4 || 2 }}
+          specs: ${{ needs.changes.outputs.specs }}
 
-  # One HTML report per run from the shards' blob reports (ADR 11 §2).
+  # One HTML report per run from the shards' blob reports (ADR 11 section 2).
   browser-report:
     needs: [changes, browser-server, browser-wasm]
-    if: always() && needs.changes.outputs.code == 'true'
+    if: always() && needs.changes.outputs.run-l4 == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: npm
-      - name: Install Node packages
-        run: npm ci
+      - uses: ./.github/actions/setup
       - uses: actions/download-artifact@v7
         with:
           pattern: blob-report-*
@@ -167,3 +167,85 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 14
+
+  # ADR 11 section 3: a test the pull request adds must fail against the base branch's src/. The base is the merge base,
+  # so the tests listed as added are the pull request's own.
+  red-check:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - id: base
+        env:
+          BASE_REF_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          sha=$(git merge-base "$BASE_REF_SHA" HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          # Playwright's browser is needed only when the pull request touches the browser specs.
+          if git diff --name-only "$sha" HEAD | grep -q '^tests/browser/'; then echo "browser=true" >> "$GITHUB_OUTPUT"; else echo "browser=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: ./.github/actions/setup
+        with:
+          playwright: ${{ steps.base.outputs.browser }}
+      - name: Check out the base next to the pull request
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: |
+          git worktree add ../base "$BASE_SHA"
+          ln -s "$PWD/node_modules" ../base/node_modules
+      - name: Run the added tests against the base branch's src/
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: node .github/scripts/red-check.mjs --base-sha "$BASE_SHA" --base-dir ../base
+
+  # ADR 10 decision 5, ADR 11 section 1: every build of main attaches the package, after asserting its content, and the
+  # JavaScript build output that the manual skip-js-build workflow reuses.
+  pack:
+    needs: changes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # MinVer
+      - uses: ./.github/actions/setup
+      - name: Pack
+        run: dotnet pack src/Blazix.Primitives -c Release -o artifacts/packages -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+      - name: Assert the package content
+        run: |
+          ls -l artifacts/packages
+          node .github/scripts/assert-package.mjs artifacts/packages/*.nupkg
+      - uses: actions/upload-artifact@v6
+        with:
+          name: packages
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          retention-days: 30
+      - uses: actions/upload-artifact@v6
+        with:
+          name: js-outputs
+          path: src/Blazix.Primitives/wwwroot
+          retention-days: 30
+
+  # The one required check: the jobs ADR 11 lists (docs-lint, build-and-test, browser-server, browser-wasm, red-check)
+  # report here, and a job skipped by its `if` counts as passed. Matrix jobs have one check per shard, which a branch
+  # protection rule would have to name one by one; this job does not.
+  gate:
+    needs: [changes, docs-lint, build-and-test, browser-server, browser-wasm, browser-report, red-check, pack]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if a job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS"
+          exit 1
