@@ -14,7 +14,7 @@ import {
 } from './red-check.mjs';
 
 // ADR 11 section 3: the pure parts of the red-check job. The inputs below have the shapes the real tools print
-// (`dotnet test --list-tests json`, a JUnit report, `vitest list --json`, vitest's and Playwright's JSON reporters).
+// (`dotnet test --list-tests json`, a JUnit report, vitest's and Playwright's JSON reporters).
 const root = '/work/repo';
 
 describe('listing tests', () => {
@@ -26,14 +26,23 @@ describe('listing tests', () => {
     expect(parseDotnetList(output)).toEqual(['first test', 'theory(x: 1)']);
   });
 
-  it('reads vitest list --json as file::name with the file relative to the repository root', () => {
-    const output = JSON.stringify([
-      { name: 'outer > inner one', file: `${root}/src/Blazix.Primitives/js/dom.test.ts`, location: { line: 2, column: 1 } },
-      { name: 'top level', file: `${root}/src/Blazix.Primitives/js/dom.test.ts`, location: { line: 3, column: 1 } },
-    ]);
-    expect(parseVitestList(output, root)).toEqual([
+  it('reads the names from vitest\'s JSON reporter (vitest list does not expand it.each), relative to the repository root', () => {
+    const json = JSON.stringify({
+      testResults: [
+        {
+          name: `${root}/src/Blazix.Primitives/js/dom.test.ts`,
+          assertionResults: [
+            { ancestorTitles: ['outer'], title: 'inner one', status: 'passed' },
+            { ancestorTitles: [], title: 'allows it when a is b', status: 'passed' },
+            { ancestorTitles: [], title: 'allows it when c is d', status: 'failed' },
+          ],
+        },
+      ],
+    });
+    expect(parseVitestList(json, root)).toEqual([
       'src/Blazix.Primitives/js/dom.test.ts::outer > inner one',
-      'src/Blazix.Primitives/js/dom.test.ts::top level',
+      'src/Blazix.Primitives/js/dom.test.ts::allows it when a is b',
+      'src/Blazix.Primitives/js/dom.test.ts::allows it when c is d',
     ]);
   });
 
