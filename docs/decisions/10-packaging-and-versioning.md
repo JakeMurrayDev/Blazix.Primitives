@@ -36,3 +36,7 @@ Nothing named Blazix exists on NuGet. .NET 11 is at RC2 (SDK `11.0.100-rc.2`, 20
 * `alpha`/`beta` labels (sort below `preview` and say nothing more); a hand-edited version property (drifts and conflicts).
 * Multi-targeting net10.0 (excluded by the union types); waiting for GA before any code (RC2 is go-live and the gap is weeks).
 * GitHub Packages for previews (authentication for no gain while private).
+
+## Amendments
+
+**2026-10-20, the library's framework dependency (M0 Track 3; chosen by the user the same day).** The library references the `Microsoft.AspNetCore.Components.Web` package on the RC2 band (`Directory.Packages.props`) instead of `FrameworkReference Microsoft.AspNetCore.App`: a Blazor WebAssembly project cannot reference a library that carries that framework reference (NETSDK1082, no runtime pack for `browser-wasm`), so the framework reference of the skeleton (Track 0) would have excluded every WebAssembly consumer. The package is the one runtime dependency of `Blazix.Primitives`; §5's rule that package references are pinned to the RC2 band and bumped at GA applies to it.
