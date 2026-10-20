@@ -54,11 +54,11 @@ test.describe('probe twin', () => {
   });
 });
 
-// The library's first real twin (issue 33, deliverable 10): the `button` fixture attaches `ButtonTwin` to plain
+// The library's first real twin (issue 33, deliverable 10): the `button-behavior` fixture attaches `ButtonTwin` to plain
 // elements; the probe above stays as the harness canary. The UBT rows themselves are in button-behavior.spec.ts.
 test.describe('button twin', () => {
   test('attaches the button module and a keyboard activation reaches C# as one click', async ({ page, mode }) => {
-    const fixture = await gotoFixture(page, mode, 'button');
+    const fixture = await gotoFixture(page, mode, 'button-behavior');
     await expect(fixture).toHaveAttribute('data-attached', 'true');
     const nonNative = fixture.locator('[data-case="non-native"]');
 

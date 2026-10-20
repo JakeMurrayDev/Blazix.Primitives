@@ -1,14 +1,14 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers';
 
-// L4 rows of docs/architecture/button-behavior.md (UBT) that need only the `button` module: the `button` fixture
+// L4 rows of docs/architecture/button-behavior.md (UBT) that need only the `button` module: the `button-behavior` fixture
 // attaches `ButtonTwin` to plain elements and counts the clicks that reach C# through Blazor's own `onclick`.
 // The rows that need a part (consumer handler gating, rendered attributes and focusability) wait for Button and
 // Toggle in M1. Titles are Base UI's (useButton.test.tsx, Button.test.tsx).
 
 /** Opens the `button` fixture and waits until every case has its twin attached. */
 async function gotoButtons(page: Page, mode: RenderMode): Promise<Locator> {
-  const fixture = await gotoFixture(page, mode, 'button');
+  const fixture = await gotoFixture(page, mode, 'button-behavior');
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   return fixture;
 }

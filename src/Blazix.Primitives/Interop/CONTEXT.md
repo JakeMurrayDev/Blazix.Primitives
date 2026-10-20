@@ -14,6 +14,10 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
 - `TwinHandle<TOptions>`: `UpdateAsync(options)` and an idempotent `DisposeAsync()`; `update` after `dispose` is a no-op.
 - `TwinOptions`: the base of every options record; `Style` is the consumer's merged style string, sent on `attach` and on every `update` (handover at attach).
 - `DecisionPolicy` and its kebab-case literals (`run`, `stop`, `start`, `prevent-and-stop`).
+- `ButtonTwin` (module `button`): `ButtonOptions` carries the mechanism's configuration (`Disabled`, `FocusableWhenDisabled` with `null` for unspecified, `Native`, `Composite` as the part resolved it, `PressAndHold` with the 400/60 ms and 8 px defaults, `ReportInteractionType`, and `DevelopmentChecks`, which defaults to the development warnings switch). `ActivationDecider` is the C# chain of the `activate` decision point: return `Stop` when a consumer handler called `PreventPartHandler()`. Events: `InteractionReported` (the literal `mouse`, `touch`, `pen`, `keyboard` or empty, with the event), `HoldTicked` (the event that started the sequence, every tick), `HoldStopped` (the release), `HoldClicked` (a click that performs the single action), `NativeButtonMismatched` (the declared mode). The part renders the button attributes itself; the module writes none.
+- `DomTwin` (module `dom`): `DomOptions` turns primitives on per element: `Indeterminate` (the checkbox input's property, re-asserted inside a native click), `LiveRegion` (the announcement marker), `Image` (`ImageLoadOptions`: the source properties, `KeepMounted` to derive from the attached `<img>` instead of a probe, `HideWhenLoaded` for the fallback's id). Event: `ImageStatusChanged` with `loading`, `loaded` or `error`, once per change. The module's measuring and observing helpers have no twin: other modules import them.
+- A part owns its twin: a callback carries no element key, so one twin attached to several elements cannot tell their reports apart. Neither module owns a style property, so their options leave `Style` unset and the part keeps rendering its style.
+- The shared enums these literals become (`InteractionType`, Avatar's `ImageLoadingStatus`) arrive with their first part; the twins pass the literals until then.
 - `BlazixJsonContext`: `EventSnapshot`, every options record and every callback payload. Options and payloads cross the boundary as JSON strings the twin serialises and deserialises itself, so the runtime's own serializer only ever sees strings, `ElementReference` and object references (trim- and AOT-safe without configuring the runtime's resolver).
 
 ## Traceability (the sources carry no specification references)
@@ -22,6 +26,8 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
 - `TwinOptions`: ADR 04 §3 and Amendments 2026-10-18 (handover at attach).
 - `DecisionPolicy`: ADR 04 §3 and ADR 01's relaxation table (the fallback per decision point).
 - `BlazixJsonContext`: ADR 16 rule 4.
+- `ButtonTwin`, `ButtonOptions`, the button payloads: ADR 04 §1 (button row) and §3 (button activation, fallback `run`); UBT-API-01, UBT-ALG-01..07, UBT-EVT-07/08/10, UBT-EDGE-01..03; ADR 01 relaxation table (UBT-KEY-03/04/06).
+- `DomTwin`, `DomOptions`, `ImageLoadOptions`: ADR 04 §1 (dom row), Amendments 2026-10-18 (the Avatar convergent write) and 2026-10-20 (the `indeterminate` and live-region owners); CHK-DOM-13, UTL-A11Y-01..04, AVA-ALG-01/02, AVA-STA-09/12, AVA-EVT-02.
 
 ## Outputs
 
@@ -32,3 +38,4 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
 - A twin's `[JSInvokable]` callback does one state change per message and is never called per frame.
 - A new options record or payload is listed in `BlazixJsonContext` and has an L2 twin contract test.
 - `OnDecide` runs synchronous consumer handlers only; nothing awaits inside a decision (ADR 04 §3).
+- A press-and-hold tick is a report, never a decision: its result is state, so C# stops a sequence by sending `Disabled` (ADR 01 decision 1).
