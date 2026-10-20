@@ -1,3 +1,4 @@
+using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
@@ -160,6 +161,20 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// </summary>
     protected virtual void SubscribeSelectors()
     {
+    }
+
+    /// <summary>
+    /// Subscribes this part to <paramref name="store"/> and returns the subscription to add selections to with
+    /// <c>Select(selector)</c> or <c>Select(selector, arg)</c>. On every store notification each selection is re-evaluated,
+    /// and the part calls <see cref="ComponentBase.StateHasChanged"/> once when at least one changed by
+    /// <see cref="Equality.Is{T}(T, T)"/>; a notification that changes no selection renders nothing. The subscription is
+    /// disposed with the part. Call it from <see cref="SubscribeSelectors"/>, at most once per part (one subscription per
+    /// part, ADR 05 §1, UTL-STA-25/27); a second call throws <see cref="InvalidOperationException"/>.
+    /// </summary>
+    protected SelectorSubscription<TStoreState> SubscribeTo<TStoreState>(Store<TStoreState> store)
+        where TStoreState : class, IStoreState<TStoreState>
+    {
+        throw new NotImplementedException();
     }
 
     /// <summary>
