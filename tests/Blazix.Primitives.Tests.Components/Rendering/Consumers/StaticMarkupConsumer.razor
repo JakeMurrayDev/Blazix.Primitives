@@ -1,0 +1,39 @@
+@* The consumer-facing forms of substitution written in Razor: a static substitute element (compiled to markup), an
+   element with dynamic parts, and the substitute callback with the Context syntax. *@
+<SampleRoot data-testid="static" class="c" style="color: red" DefaultOpen="true">
+    <Render>
+        <span class="x" style="font-size: 16px; color: blue" data-slot="render" title="static">inner text</span>
+    </Render>
+</SampleRoot>
+
+<SampleRoot data-testid="dynamic" class="c">
+    <Render>
+        <span class="@DynamicClass" data-slot="render" @ref="dynamicElement">@DynamicText<b>bold</b></span>
+    </Render>
+</SampleRoot>
+
+<SampleRoot data-testid="callback" class="c" DefaultOpen="true">
+    <RenderFunction Context="props">
+        <section @attributes="props.Attributes" data-open="@props.State.Open">
+            @props.ChildContent
+        </section>
+    </RenderFunction>
+    <ChildContent>child content</ChildContent>
+</SampleRoot>
+
+<SampleRoot data-testid="with-children">
+    <Render><p class="x"></p></Render>
+    <ChildContent>part child</ChildContent>
+</SampleRoot>
+
+<SampleRoot data-testid="two-roots" Render="@TwoRoots" />
+
+@code {
+    [Parameter] public string DynamicClass { get; set; } = "dyn";
+    [Parameter] public string DynamicText { get; set; } = "dynamic text";
+    [Parameter] public RenderFragment? TwoRoots { get; set; }
+
+    private ElementReference dynamicElement;
+
+    public ElementReference DynamicElement => dynamicElement;
+}

@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <!-- L2 (ADR 06 §1): bUnit, including the twin contract tests. -->
+  <!-- L2 (ADR 06 §1): bUnit, including the twin contract tests. The Razor SDK compiles the .razor test components and fixtures that exercise the consumer-facing forms (substitute elements written as markup). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);BL0006</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
