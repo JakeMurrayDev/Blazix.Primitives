@@ -89,6 +89,9 @@ export function classify({ changed, labels, event, families, specFiles }) {
   const reasons = [];
   let l4;
   if (event === 'push') {
+    // Every job has work on main, whatever the diff says (a push to a new branch has no earlier commit to diff against).
+    docs = true;
+    code = true;
     l4 = 'full';
     reasons.push('push to main: full L4');
   } else if (labels.includes('full-l4')) {
@@ -164,8 +167,9 @@ function readOptions(argv) {
   return options;
 }
 
+// Three dots: what the pull request changed since it forked, not what the base branch gained meanwhile.
 function gitChangedPaths(base, head) {
-  return execFileSync('git', ['diff', '--name-only', base, head], { encoding: 'utf8' })
+  return execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' })
     .split('\n')
     .filter((line) => line.length > 0);
 }
@@ -183,7 +187,7 @@ function main() {
         .map((file) => `${browserRoot}${file}`)
     : [];
   // A push to a new branch has no usable "before" commit; the classification is then full anyway.
-  const changed = options['base'] && options['head'] ? gitChangedPaths(options['base'], options['head']) : [];
+  const changed = event !== 'push' && options['base'] && options['head'] ? gitChangedPaths(options['base'], options['head']) : [];
 
   const result = classify({ changed, labels, event, families, specFiles });
   const outputs = formatOutputs(result);
