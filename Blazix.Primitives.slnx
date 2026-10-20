@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Blazix.Primitives/Blazix.Primitives.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Blazix.Primitives.Tests/Blazix.Primitives.Tests.csproj" />
+  </Folder>
+</Solution>
