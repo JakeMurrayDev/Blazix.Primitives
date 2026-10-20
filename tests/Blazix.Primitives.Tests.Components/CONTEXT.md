@@ -4,12 +4,13 @@ L2: bUnit, including the twin contract tests.
 
 ## Inputs
 
-- `../../src/Blazix.Primitives`, and bUnit and `Microsoft.Extensions.TimeProvider.Testing` from `Directory.Packages.props`.
+- `../../src/Blazix.Primitives`, and bUnit and `Microsoft.Extensions.TimeProvider.Testing` from `Directory.Packages.props`; the `[PartState]` generator as an analyzer, so the project's own state records are projected as a consumer's would be.
 - The `Test:` lines tagged `[L2]` in `docs/components/*.md`; the conformance suite RND-DOM-36..49; decision record 06 §1.
+- The project uses the Razor SDK so `.razor` test consumers (`Rendering/Consumers/`) exercise the consumer-facing forms: a substitute written as static markup, `<Render>` and `<RenderFunction Context="props">` child content.
 
 ## Job
 
-Renders every part through a `BunitContext`: the conformance suite, the controlled and uncontrolled contract, request sequences and cancelation for C#-dispatched events, form integration, and the rendered attributes and ARIA that C# owns. Twin contract tests record the `attach`/`update`/`dispose` calls on bUnit's JS interop mock and drive the twin's `[JSInvokable]` callbacks directly. It has no DOM, no focus model and no JavaScript, so anything that needs one goes to L4 (a test never fakes a layer above it).
+Renders every part through a `BunitContext` (with `Services.AddBlazixPrimitives()`): the conformance suite, the controlled and uncontrolled contract, request sequences and cancelation for C#-dispatched events, form integration, and the rendered attributes and ARIA that C# owns. The conformance suite is `Rendering/Conformance/PartConformanceTests<TPart>`: a family derives from it, supplies `ConformanceOptions<TPart>` (tag name, substitution tag, button, wrapping) and inherits every RND-DOM-36..49 test with Base UI's title; `SampleRootConformanceTests` is the reference run on the sample part `SampleRoot`. Twin contract tests record the `attach`/`update`/`dispose` calls on bUnit's JS interop mock and drive the twin's `[JSInvokable]` callbacks directly. It has no DOM, no focus model and no JavaScript, so anything that needs one goes to L4 (a test never fakes a layer above it).
 
 ## Outputs
 
@@ -21,3 +22,5 @@ Renders every part through a `BunitContext`: the conformance suite, the controll
 - A test that pretends to check focus, pointer or keyboard behaviour here is wrong: it belongs in `tests/browser`.
 - Each twin options record has a contract test, so a change to it breaks L2 before L4.
 - Render-count requirements are asserted through bUnit's render counts (ADR 06 §1 amendment).
+- bUnit's markup shows one element-reference capture per element (the first written, the part's own); a second capture is asserted non-null, not located (ADR 06 §1: non-null capture for RND-DOM-44/45).
+- An allocation budget (`Rendering/AllocationBudgetTests`) only tightens (ADR 16 rule 7).
