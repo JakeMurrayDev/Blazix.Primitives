@@ -55,7 +55,7 @@ Members of every class follow the eleven-group order of the old port: constants,
 
 ## Verification items
 
-* Razor binds a literal to a hand-written `[Union]` struct parameter through its implicit conversion (`Modal="true"`, `Modal="@ModalValue.TrapFocus"`) on the .NET 11 SDK; if not, boolean-or-literal props fall back to two parameters (`Modal` and `ModalMode`). Tracked in ADR 14.
+* Razor binds a literal to a hand-written `[Union]` struct parameter through its implicit conversion (`Modal="true"`, `Modal="@ModalValue.TrapFocus"`) on the .NET 11 SDK; if not, boolean-or-literal props fall back to two parameters (`Modal` and `ModalMode`). Tracked in ADR 14. **Verified 2026-10-20 (SDK 11.0.100-rc.2.26504.105): yes** — `Modal="true"`, `Modal="@isModal"` and `Modal="@ModalValue.TrapFocus"` bind to a hand-written `[Union] readonly struct ModalValue(bool, TrapFocusLiteral)` with an implicit conversion from `bool` (`System.Runtime.CompilerServices.UnionAttribute` and `IUnion` in `System.Private.CoreLib`; the compiler also synthesises the case conversions and treats a switch over the case types as exhaustive); the plain string `Modal="trap-focus"` does not bind (CS0103: a non-string parameter's value is C#). With `HasValue` and `TryGetValue(out T)` present, matching never reads `Value` and allocates nothing. The single-parameter shape stands; the `Modal`/`ModalMode` fallback is not needed. Finding recorded on [issue 10](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/10).
 * MUI's trademark position on "Base UI" appearing in an unofficial port's package description and acknowledgements (no API name carries it after this ADR). Tracked in ADR 14.
 
 ## Considered options
