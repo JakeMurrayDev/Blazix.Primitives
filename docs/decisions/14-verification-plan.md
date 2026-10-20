@@ -51,7 +51,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 
 ### 3. Tracking, linking, SDK
 
-* **Tracking:** one GitHub issue per item, label `verification`, assigned to its milestone (GitHub milestones M0–M6). The ADR line links the issue and, once closed, names the test or the finding.
+* **Tracking:** one GitHub issue per item, label `verification`, assigned to its milestone (GitHub milestones M0–M6). The ADR line links the issue and, once closed, names the test or the finding. Created 2026-10-20: issues 1–15 for the rows of §1 and 16–26 for the rows of §2, in table order (`https://github.com/JakeMurrayDev/Blazix.Primitives/issues/<n>`).
 * **Permanent tests** are tagged so a grep lists them and the ADR lines can cite them: `@verifies ADR-05/3` in a TypeScript title, `[Trait("Verifies", "ADR05-3")]` in C#.
 * **Spikes** live in `spikes/<item>/`, excluded from the solution, and are deleted when the item closes.
 * **SDK:** the user installs the official RC2 package (side by side with 10.x); the repository's `global.json` pins it (ADR 10); the union spike runs the same day.
