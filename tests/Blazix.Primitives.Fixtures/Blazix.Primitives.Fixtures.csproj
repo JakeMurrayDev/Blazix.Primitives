@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- L4 host (ADR 09 §1): a Blazor Web App with Server and WebAssembly interactivity. Not built by the L1-L3 CI job. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Blazix.Primitives.Fixtures.Client\Blazix.Primitives.Fixtures.Client.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+
+</Project>
