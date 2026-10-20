@@ -10,7 +10,7 @@ The observable state container and its reactive reads. Namespace `Blazix.Primiti
 ## Job
 
 - `Store<TState>`: one immutable record, an insertion-ordered listener set iterated live, the UTL-ALG-03 recursion guard, `SetState`, `Update`, `Set` through a `StoreField<TState, TValue>`, `NotifyAll`, `Select`, `Observe`. Writes happen on the renderer's synchronization context; the store does not marshal.
-- `IStoreState<TSelf>`: the state record supplies `Copy` (for `NotifyAll`) and `ShallowEquals` (member-wise `Equality.Is`, for `Update`'s no-op skip), because a generic store cannot copy or compare a record without reflection.
+- `IStoreState<TSelf>`: the state record supplies `Copy` (`state with { }`) and `ShallowEquals` (member-wise `Equality.Is`). UTL-STA-12 needs exactly the first (`NotifyAll` renews the reference with `Object.is`-equal members) and UTL-STA-10/11 the second (a write whose every member is `Object.is`-equal is a no-op); under the no-reflection rule (ADR 16 rule 1) a generic store has no other way to copy or compare a record. Hand-written for now; a generator may emit them later.
 - `Equality.Is<T>`: `Object.is` by static type with no boxing (records by reference, `NaN` equal, `-0` distinct).
 - `ComponentStore<TState>`: the prop-to-store sync (`SyncValue`, `SyncValues`, `SyncControlledValue`) parts call from `OnParametersSet`; its subclass's own fields are the non-reactive context bag. `SyncedValueWithCleanup` is the per-site form of `useSyncedValueWithCleanup`.
 - `SelectorSubscription<TState>`: one store subscription per part, every selection re-evaluated per notification, one callback when any changed. A part cascades its store with `IsFixed = true` (checked by BLZX2001).
