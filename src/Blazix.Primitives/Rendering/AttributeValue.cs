@@ -163,6 +163,20 @@ public readonly struct AttributeValue : IUnion
     /// <summary>The case value boxed, for the places Blazor's own contracts force an <c>object</c> slot (component parameters, the attribute dictionary of a substitute callback).</summary>
     public object? ToObject() => Value;
 
+    /// <summary>
+    /// Invokes a handler value the way Blazor's renderer would: a callback through its receiver, a delegate wrapped
+    /// with its target as the receiver (the renderer's own rule for delegate attribute values).
+    /// </summary>
+    public Task InvokeAsync(object? arg)
+    {
+        return kind switch
+        {
+            AttributeValueKind.Callback => callback.InvokeAsync(arg),
+            AttributeValueKind.Delegate => InvokeDelegateAsync((MulticastDelegate)reference!, arg),
+            _ => throw new InvalidOperationException("The attribute value is not a handler."),
+        };
+    }
+
     /// <summary>Emits the value as an attribute of the element or component most recently opened on <paramref name="builder"/> through the typed overload of its case.</summary>
     public void EmitTo(RenderTreeBuilder builder, int sequence, string name)
     {
@@ -206,6 +220,11 @@ public readonly struct AttributeValue : IUnion
         object? unpacked = frames.Count > 1 ? frames.Array[1].AttributeValue : null;
         builder.Clear();
         return unpacked;
+    }
+
+    private static Task InvokeDelegateAsync(MulticastDelegate handler, object? arg)
+    {
+        return new EventCallback(handler.Target as IHandleEvent, handler).InvokeAsync(arg);
     }
 
     [ThreadStatic]

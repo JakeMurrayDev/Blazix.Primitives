@@ -22,6 +22,9 @@ public readonly struct MergeInput
 
     public bool IsAbsent => List is null && Getter is null;
 
+    /// <summary>The absent input (Base UI's <c>undefined</c>).</summary>
+    public static MergeInput Absent => default;
+
     public static implicit operator MergeInput(AttributeList? list) => new(list, null);
 
     public static implicit operator MergeInput(AttributeGetter? getter) => new(null, getter);
@@ -55,7 +58,7 @@ public static class MergeProps
     /// The dictionary form for consumers of <see cref="RenderElement{TState}"/>: values are the case values of
     /// <see cref="AttributeValue"/> boxed (a boxed <see cref="EventCallback{TValue}"/> is accepted and unpacked), never unions.
     /// </summary>
-    public static Dictionary<string, object> Merge(params ReadOnlySpan<IReadOnlyDictionary<string, object>?> inputs)
+    public static Dictionary<string, object> MergeDictionaries(params ReadOnlySpan<IReadOnlyDictionary<string, object>?> inputs)
     {
         throw new NotImplementedException();
     }
