@@ -15,7 +15,7 @@ Runs every cross-boundary requirement once per render mode. `helpers/`:
 - `navigation.ts`: `gotoFixture(page, mode, name)` waits for `html[data-blazix-started]` and `[data-fixture][data-interactive="true"]`, never `networkidle`, never a sleep; returns the container locator.
 - `session.ts`: `advanceTime(page, container, ms)` moves the page's C# `TimeProvider`; `readDiagnostics(page, mode, container)` reads the captured log entries (endpoint on `server`, page hook on `wasm`).
 
-Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin), `button-behavior.spec.ts` (the UBT rows that need only the `button` module; the rest arrive with Button and Toggle in M1), `harness.spec.ts` (the M0 verification items, `@verifies ADR-NN/n` in the title), `wasm-warmup.setup.ts`, then `<family>.spec.ts` from M1.
+Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin), `button-behavior.spec.ts` (the UBT rows that need only the `button` module; the rest arrive with Button and Toggle in M1), `dom.spec.ts` (the `dom` helpers' browser-only Base UI tests, importing the shipped module in the page), `harness.spec.ts` (the M0 verification items, `@verifies ADR-NN/n` in the title), `wasm-warmup.setup.ts`, then `<family>.spec.ts` from M1.
 
 ## Outputs
 
