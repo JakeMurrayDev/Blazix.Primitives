@@ -54,7 +54,7 @@ One shared implementation therefore satisfies RND-DOM-36..49 for every part; the
 
 ## Verification items
 
-* Confirm that interactive activation replaces the prerendered subtree rather than reconciling attributes, and that multiple interactive roots activate in document order (affects how often RND-DOM-29's divergence case occurs).
+* Confirm that interactive activation replaces the prerendered subtree rather than reconciling attributes, and that multiple interactive roots activate in document order (affects how often RND-DOM-29's divergence case occurs). **Verified 2026-10-20 on both render modes (SDK 11.0.100-rc.2.26504.105):** `tests/browser/harness.spec.ts` "@verifies ADR-02/1 interactive activation replaces the prerendered subtree and roots activate in document order". The host tags every prerendered fixture node with an attribute Blazor never rendered before `blazor.web.js` starts; after activation no tagged node remains (replacement, not reconciliation), and two roots of the `prerender` fixture draw activation numbers 1 and 2 in document order from a per-circuit counter. [issue 3](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/3).
 * Confirm the frame re-emitter preserves `@key` and `@ref` semantics across re-renders for a substitute whose root is a consumer component (RND-DOM-43, RND-DOM-45).
 * Measure the scratch-render cost on a list part (Menu items) before deciding whether the element form caches frames between renders.
 

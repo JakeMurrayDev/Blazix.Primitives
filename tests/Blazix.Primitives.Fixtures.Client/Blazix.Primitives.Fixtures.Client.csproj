@@ -10,6 +10,46 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <!-- The harness clock (ADR 06 §2): a FakeTimeProvider registered as TimeProvider, advanced from the tests. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
+  </ItemGroup>
+
+  <!--
+    The probe module (issue 33, deliverable 6) is a test-only module: it is built by the library's esbuild script
+    into this project's wwwroot/js/ (ignored by git) and served at /js/ (the host serves the client project at the site root).
+    The same BlazixSkipJsBuild switch applies, so a build without node needs the outputs in place.
+  -->
+  <PropertyGroup>
+    <BlazixJsBuildScript>$(MSBuildProjectDirectory)/../../src/Blazix.Primitives/js/build.mjs</BlazixJsBuildScript>
+  </PropertyGroup>
+  <ItemGroup>
+    <FixtureJsEntry Include="js/probe.ts" Out="js/probe" />
+    <FixtureJsOutput Include="@(FixtureJsEntry->'wwwroot/%(Out).js')" />
+  </ItemGroup>
+
+  <Target Name="FixtureJsPaths">
+    <PropertyGroup>
+      <FixtureJsManifest>$(IntermediateOutputPath)fixture-js.manifest.txt</FixtureJsManifest>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="FixtureBuildJs" DependsOnTargets="FixtureJsPaths" Condition="'$(BlazixSkipJsBuild)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="node &quot;$(BlazixJsBuildScript)&quot; --root &quot;$(MSBuildProjectDirectory)&quot; --outdir wwwroot --clean wwwroot/js --configuration $(Configuration) --manifest &quot;$(FixtureJsManifest)&quot; @(FixtureJsEntry->'--entry &quot;%(Identity)=%(Out)&quot;', ' ')" />
+  </Target>
+
+  <Target Name="FixtureRegisterJs" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="FixtureJsPaths;FixtureBuildJs" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('%(FixtureJsOutput.Identity)')" Text="The fixture JavaScript output '%(FixtureJsOutput.Identity)' is missing; build with node on PATH." />
+    <ReadLinesFromFile File="$(FixtureJsManifest)" Condition="Exists('$(FixtureJsManifest)')">
+      <Output TaskParameter="Lines" ItemName="_FixtureJsFile" />
+    </ReadLinesFromFile>
+    <ItemGroup Condition="'@(_FixtureJsFile)' != ''">
+      <Content Remove="@(Content)" Condition="!Exists('%(Content.FullPath)')" />
+      <Content Include="@(_FixtureJsFile)" Exclude="@(Content)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

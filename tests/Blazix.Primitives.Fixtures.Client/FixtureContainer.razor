@@ -1,0 +1,48 @@
+@inject FixtureSession Session
+@inject FixtureSessionRegistry Registry
+@inject IJSRuntime Js
+
+@*
+    The container every fixture renders (ADR 06 §2): the readiness marker data-interactive, the renderer's name
+    (ADR-09/1), and the session token the tests use to reach this page's clock and diagnostics.
+*@
+<div data-fixture="@Name"
+     data-interactive="@(RendererInfo.IsInteractive ? "true" : "false")"
+     data-renderer="@RendererInfo.Name"
+     data-session="@Session.Token"
+     @attributes="AdditionalAttributes">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Registry.BindCurrentContext(Session);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        try
+        {
+            await Js.InvokeVoidAsync("blazixFixture.register", Session.Token, Session.Reference);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is gone before the hook was registered; nothing to reach any more.
+        }
+    }
+}

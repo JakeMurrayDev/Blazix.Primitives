@@ -1,0 +1,46 @@
+@implements IDisposable
+
+@*
+    The keep-alive fixture of ADR-06/2 (issue 14): a real-time tick every 500 ms from the circuit, so a test can
+    watch the circuit live past the SignalR timeout under page.clock, then answer a click.
+*@
+<FixtureContainer Name="keep-alive" data-ticks="@ticks" data-pings="@pings">
+    <button type="button" data-ping @onclick="() => pings++">Ping</button>
+</FixtureContainer>
+
+@code {
+    private readonly CancellationTokenSource stopping = new();
+    private int ticks;
+    private int pings;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            _ = TickAsync();
+        }
+    }
+
+    private async Task TickAsync()
+    {
+        // Deliberately the system clock, not the session's fake TimeProvider: the point is real time passing.
+        using PeriodicTimer timer = new(TimeSpan.FromMilliseconds(500));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stopping.Token))
+            {
+                ticks++;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        stopping.Cancel();
+        stopping.Dispose();
+    }
+}

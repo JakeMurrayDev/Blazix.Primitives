@@ -1,7 +1,8 @@
 name: ci
 
-# ADR 11 §1-§2. Track 0 carries the two jobs that need nothing but the repository: docs-lint and build-and-test.
-# The browser jobs, the red check, the nightly run and the pack artifact arrive with Tracks 3 and 4.
+# ADR 11 §1-§2. Track 0: docs-lint and build-and-test. Track 3: browser-server and browser-wasm (full L4, two shards
+# each on pull requests) and browser-report (the merged HTML report). Track 4 scopes the browser jobs to the changed
+# family, adds the red check, the nightly run and the pack artifact.
 on:
   pull_request:
   push:
@@ -97,3 +98,71 @@ jobs:
         run: npm ci
       - name: Test (JavaScript)
         run: npm run test:js
+
+  # L4 (ADR 06 §2, ADR 11 §2): one job per render mode, each a two-shard matrix on pull requests, against the fixture
+  # host that Playwright's webServer starts with `dotnet run`. The steps live in .github/actions/browser-tests; the
+  # fixture host is built there, not in build-and-test (ADR 09 §3). Track 4 scopes these to the changed family.
+  browser-server:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/browser-tests
+        with:
+          project: server
+          shard: ${{ matrix.shard }}
+          shards: 2
+
+  browser-wasm:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/browser-tests
+        with:
+          project: wasm
+          shard: ${{ matrix.shard }}
+          shards: 2
+
+  # One HTML report per run from the shards' blob reports (ADR 11 §2).
+  browser-report:
+    needs: [changes, browser-server, browser-wasm]
+    if: always() && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install Node packages
+        run: npm ci
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Merge the shard reports
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - uses: actions/upload-artifact@v6
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14

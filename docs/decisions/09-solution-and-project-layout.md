@@ -61,8 +61,8 @@ One `package.json` at the repository root owns the Node toolchain (one `node_mod
 
 ## Verification items
 
-* A Blazor Web App can select the interactive render mode per route from an `IComponentRenderMode` expression with prerendering disabled, while serving the WebAssembly client's static assets from the same host (M0, the first fixture).
-* Playwright's `webServer` starts the fixture host with `dotnet run` and its readiness URL check works with the host's readiness endpoint (M0).
+* A Blazor Web App can select the interactive render mode per route from an `IComponentRenderMode` expression with prerendering disabled, while serving the WebAssembly client's static assets from the same host (M0, the first fixture). **Verified 2026-10-20:** `tests/Blazix.Primitives.Fixtures/Components/Pages/FixturePage.razor` (`/{mode}/{fixture}`, `RenderTreeBuilder.AddComponentRenderMode` with `new InteractiveServerRenderMode(prerender)` / `new InteractiveWebAssemblyRenderMode(prerender)` from the catalog entry) and `tests/browser/harness.spec.ts` "@verifies ADR-09/1 the route segment selects the render mode and the fixture renders without prerendering" (`data-renderer` reads `Server` or `WebAssembly`; the static response carries no fixture markup). Two facts for the next fixtures: the client project's `wwwroot` is served at the site root, not under `_content/`, and the library must reference the `Microsoft.AspNetCore.Components.Web` package rather than the `Microsoft.AspNetCore.App` framework for the client to reference it (NETSDK1082). [issue 18](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/18).
+* Playwright's `webServer` starts the fixture host with `dotnet run` and its readiness URL check works with the host's readiness endpoint (M0). **Verified 2026-10-20:** `playwright.config.ts` (`dotnet run --project tests/Blazix.Primitives.Fixtures`, `url: /_fixture/ready`, `reuseExistingServer` outside CI) and `tests/browser/harness.spec.ts` "@verifies ADR-09/2 webServer started the host through dotnet run and its readiness endpoint answers". [issue 19](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/19).
 
 ## Considered options
 

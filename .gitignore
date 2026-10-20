@@ -14,7 +14,9 @@ bin/
 obj/
 artifacts/
 node_modules/
-src/Blazix.Primitives/wwwroot/js/
+# esbuild output (ADR 04 §4): the library's whole wwwroot and the fixture client's js/ are generated
+src/Blazix.Primitives/wwwroot/
+tests/Blazix.Primitives.Fixtures.Client/wwwroot/js/
 
 # test output
 test-results/

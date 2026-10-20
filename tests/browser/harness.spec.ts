@@ -86,14 +86,38 @@ test.describe('twin base', () => {
 });
 
 test.describe('store', () => {
+  // Finding 2026-10-20 (issue 11), .NET 11 RC2 WebAssembly interpreter, Debug: EqualityComparer<T>.Default.Equals
+  // allocates per comparison for int/long/double/bool (32 B), Guid (48 B) and a record struct (96 B), whether reached
+  // through a generic Is<T> or with T fixed at the call site; it allocates nothing for enums, nullable enums and
+  // strings, and neither do `==` and IEquatable<T>.Equals. The ADR's assertion stays as written and is marked as an
+  // expected failure: the day the interpreter stops boxing, this test fails as "passed unexpectedly" and ADR 05 is revisited.
   test('@verifies ADR-05/3 EqualityComparer<T>.Default does not allocate for value types on the WebAssembly interpreter', async ({ page, mode }) => {
+    test.skip(mode !== 'wasm', 'the item is about the WebAssembly runtime; Server runs CoreCLR');
+    test.fail(true, 'the .NET 11 RC2 interpreter boxes primitives and structs inside EqualityComparer<T>.Default (issue 11)');
+    const probe = await gotoFixture(page, mode, 'allocation');
+
+    await probe.locator('[data-measure]').click();
+
+    await expect(probe).toHaveAttribute('data-iterations', /^[1-9]\d*$/);
+    for (const scenario of ['generic-int', 'direct-int', 'generic-guid', 'generic-record-struct']) {
+      await expect(probe.locator(`[data-scenario="${scenario}"]`)).toHaveText('0');
+    }
+  });
+
+  test('@verifies ADR-05/3 the measured allocation profile of the interpreter: zero for ==, IEquatable<T>, enums and strings', async ({ page, mode }) => {
     test.skip(mode !== 'wasm', 'the item is about the WebAssembly runtime; Server runs CoreCLR');
     const probe = await gotoFixture(page, mode, 'allocation');
 
     await probe.locator('[data-measure]').click();
 
     await expect(probe).toHaveAttribute('data-iterations', /^[1-9]\d*$/);
-    await expect(probe).toHaveAttribute('data-allocated', '0');
+    for (const scenario of ['control-int-operator', 'equals-int', 'generic-enum', 'direct-enum', 'generic-nullable-enum', 'generic-string']) {
+      await expect(probe.locator(`[data-scenario="${scenario}"]`)).toHaveText('0');
+    }
+    // The boxing path, pinned so a change in either direction is noticed.
+    for (const scenario of ['generic-int', 'direct-int']) {
+      await expect(probe.locator(`[data-scenario="${scenario}"]`)).not.toHaveText('0');
+    }
   });
 });
 

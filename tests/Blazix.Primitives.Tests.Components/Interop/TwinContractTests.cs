@@ -17,9 +17,7 @@ public sealed class TwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
-        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
-        handle.SetupVoid("update", _ => true);
-        handle.SetupVoid("dispose", _ => true);
+        BunitJSModuleInterop handle = SetupHandle(module);
         await using TestTwin twin = new(context.JSInterop.JSRuntime);
 
         TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { Style = "color: red", Threshold = 3 });
@@ -28,11 +26,11 @@ public sealed class TwinContractTests
 
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
-        Assert.Equal("""{"style":"color: red","threshold":3}""", attach.Arguments[1]);
+        Assert.Equal("""{"threshold":3,"style":"color: red"}""", attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<TestTwin>>(attach.Arguments[2]);
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
-        Assert.Equal("""{"style":"color: blue","threshold":4}""", update.Arguments[0]);
+        Assert.Equal("""{"threshold":4,"style":"color: blue"}""", update.Arguments[0]);
 
         Assert.Single(handle.Invocations["dispose"]);
     }
@@ -42,7 +40,7 @@ public sealed class TwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
-        module.SetupModule("attach", _ => true);
+        SetupHandle(module);
         await using TestTwin twin = new(context.JSInterop.JSRuntime);
 
         Assert.Empty(context.JSInterop.Invocations);
@@ -59,7 +57,7 @@ public sealed class TwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
-        module.SetupModule("attach", _ => true);
+        SetupHandle(module);
         await using TestTwin twin = new(context.JSInterop.JSRuntime);
 
         TwinHandle<TestTwinOptions> first = await twin.AttachAsync("base-ui-1", new TestTwinOptions());
@@ -74,8 +72,7 @@ public sealed class TwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
-        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
-        handle.SetupVoid("dispose", _ => true);
+        BunitJSModuleInterop handle = SetupHandle(module);
         await using TestTwin twin = new(context.JSInterop.JSRuntime);
 
         TwinHandle<TestTwinOptions> first = await twin.AttachAsync("base-ui-1", new TestTwinOptions());
@@ -93,8 +90,7 @@ public sealed class TwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
-        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
-        handle.SetupVoid("dispose", _ => true);
+        BunitJSModuleInterop handle = SetupHandle(module);
         TestTwin twin = new(context.JSInterop.JSRuntime);
         TwinHandle<TestTwinOptions> first = await twin.AttachAsync("base-ui-1", new TestTwinOptions());
         await twin.AttachAsync("base-ui-2", new TestTwinOptions());
@@ -111,7 +107,7 @@ public sealed class TwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
-        module.SetupModule("attach", _ => true);
+        SetupHandle(module);
         await using TestTwin twin = new(context.JSInterop.JSRuntime);
         Microsoft.AspNetCore.Components.ElementReference element = new("element-1");
 
@@ -149,14 +145,14 @@ public sealed class TwinContractTests
     }
 
     [Theory]
-    [InlineData(DecisionPolicy.Run, "run")]
-    [InlineData(DecisionPolicy.Stop, "stop")]
-    [InlineData(DecisionPolicy.Start, "start")]
-    [InlineData(DecisionPolicy.PreventAndStop, "prevent-and-stop")]
-    public void Every_decision_policy_has_the_kebab_case_literal_the_JavaScript_helper_expects(DecisionPolicy policy, string literal)
+    [InlineData(nameof(DecisionPolicy.Run), "run")]
+    [InlineData(nameof(DecisionPolicy.Stop), "stop")]
+    [InlineData(nameof(DecisionPolicy.Start), "start")]
+    [InlineData(nameof(DecisionPolicy.PreventAndStop), "prevent-and-stop")]
+    public void Every_decision_policy_has_the_kebab_case_literal_the_JavaScript_helper_expects(string policy, string literal)
     {
         using BunitContext context = new();
-        TestTwin twin = new(context.JSInterop.JSRuntime) { NextVerdict = policy };
+        TestTwin twin = new(context.JSInterop.JSRuntime) { NextVerdict = Enum.Parse<DecisionPolicy>(policy) };
 
         Assert.Equal(literal, twin.Decide("any", """{"kind":"base-ui","type":"base-ui"}"""));
     }
@@ -192,5 +188,14 @@ public sealed class TwinContractTests
         Assert.Equal("pointer", roundTrip.Kind);
         Assert.Equal("mouse", roundTrip.PointerType);
         Assert.Equal(1, roundTrip.Buttons);
+    }
+
+    /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
+    private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
+    {
+        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+        return handle;
     }
 }

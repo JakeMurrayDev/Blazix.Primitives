@@ -1,0 +1,60 @@
+name: Browser tests
+description: One shard of one L4 Playwright project against the fixture host (ADR 06 §2, ADR 11 §2).
+inputs:
+  project:
+    description: The Playwright project, server or wasm.
+    required: true
+  shard:
+    description: The shard index, 1-based.
+    required: true
+  shards:
+    description: The shard count.
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: npm
+    - uses: actions/cache@v6
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
+        restore-keys: nuget-${{ runner.os }}-
+    - name: Install Node packages
+      shell: bash
+      run: npm ci
+    - name: Resolve the Playwright version
+      id: playwright
+      shell: bash
+      run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v6
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+    - name: Install the Playwright browser
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+    - name: Install the Playwright browser's system dependencies
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps chromium
+    - name: Build the fixture host
+      shell: bash
+      run: dotnet build tests/Blazix.Primitives.Fixtures -c Debug
+    - name: Test (browser)
+      # The wasm project depends on wasm-warmup, which Playwright runs first in the same invocation.
+      shell: bash
+      run: npx playwright test --project=${{ inputs.project }} --shard=${{ inputs.shard }}/${{ inputs.shards }} --fail-on-flaky-tests
+    - uses: actions/upload-artifact@v6
+      if: always()
+      with:
+        name: blob-report-${{ inputs.project }}-${{ inputs.shard }}
+        path: blob-report
+        retention-days: 7

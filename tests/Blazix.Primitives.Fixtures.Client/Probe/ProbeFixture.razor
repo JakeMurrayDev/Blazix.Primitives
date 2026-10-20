@@ -1,0 +1,119 @@
+@using Blazix.Primitives.Interop
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject TimeProvider Time
+@inject ILogger<ProbeFixture> Logger
+
+@*
+    The harness canary (issue 33, deliverable 6; tests/browser/smoke.spec.ts and harness.spec.ts). A plain fixture
+    component, not a part: it attaches the probe twin on its first interactive render and reflects everything the
+    module reports into data attributes the tests read.
+*@
+<FixtureContainer Name="probe"
+                  data-flipped="@(flipped ? "true" : "false")"
+                  data-clicks="@clicks"
+                  data-blazor-clicks="@blazorClicks"
+                  data-log="@string.Join(',', log)"
+                  data-decisions="@decisions"
+                  data-timer="@timer"
+                  data-warnings="@warnings">
+    <button type="button" @ref="probe" data-probe @onclick="OnBlazorClick">Probe</button>
+    <button type="button" data-probe-update @onclick="UpdateStyleAsync">Update style</button>
+    <button type="button" data-probe-dispose @onclick="DisposeHandleAsync">Dispose</button>
+    <button type="button" data-probe-timer @onclick="ArmTimer">Arm a 10 s timer</button>
+    <button type="button" data-probe-warn @onclick="Warn">Log a warning</button>
+</FixtureContainer>
+
+@code {
+    private static readonly ProbeOptions InitialOptions = new() { Style = "color: rgb(1, 2, 3)", Label = "probe" };
+
+    private ElementReference probe;
+    private ProbeTwin? twin;
+    private TwinHandle<ProbeOptions>? handle;
+    private ITimer? armed;
+    private bool flipped;
+    private int clicks;
+    private int blazorClicks;
+    private int decisions;
+    private int warnings;
+    private string timer = "idle";
+    private readonly List<string> log = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        twin = new ProbeTwin(Js) { Decider = Decide };
+        twin.Clicked += OnTwinClick;
+        handle = await twin.AttachAsync(probe, InitialOptions);
+    }
+
+    private DecisionPolicy Decide(string point, JsEventInfo eventInfo)
+    {
+        // Runs inside the browser's click dispatch on WebAssembly (ADR 04 §3). The render this queues must be in
+        // the DOM before the module's listener returns (ADR-04/2).
+        decisions++;
+        StateHasChanged();
+        return DecisionPolicy.Run;
+    }
+
+    private void OnTwinClick(ProbeClick click)
+    {
+        flipped = true;
+        clicks = click.Count;
+        log.Add(click.Source);
+        StateHasChanged();
+    }
+
+    private void OnBlazorClick()
+    {
+        blazorClicks++;
+        log.Add("blazor-click");
+    }
+
+    private async Task UpdateStyleAsync()
+    {
+        if (handle is not null)
+        {
+            await handle.UpdateAsync(InitialOptions with { Style = "color: rgb(4, 5, 6)" });
+        }
+    }
+
+    private async Task DisposeHandleAsync()
+    {
+        if (handle is not null)
+        {
+            await handle.DisposeAsync();
+        }
+    }
+
+    private void ArmTimer()
+    {
+        timer = "armed";
+        armed?.Dispose();
+        armed = Time.CreateTimer(_ => _ = InvokeAsync(() =>
+        {
+            timer = "fired";
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(10), Timeout.InfiniteTimeSpan);
+    }
+
+    private void Warn()
+    {
+        warnings++;
+        Logger.LogWarning("probe warning {Count}", warnings);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        armed?.Dispose();
+        if (twin is not null)
+        {
+            twin.Clicked -= OnTwinClick;
+            await twin.DisposeAsync();
+        }
+    }
+}

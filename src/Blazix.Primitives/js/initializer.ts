@@ -1,0 +1,24 @@
+// The JS initializer (ADR 04 §4), built to wwwroot/Blazix.Primitives.lib.module.js. Importing `platform` computes the
+// flags once per page (UTL-ALG-11); the modules share the same chunk, so no module recomputes them. Custom event
+// types are registered here as they appear (none yet).
+import { platform } from './platform';
+
+interface BlazorLike {
+  registerCustomEventType(eventName: string, options: object): void;
+}
+
+function registerCustomEventTypes(_blazor: BlazorLike): void {
+  // None yet.
+}
+
+/** Blazor Web App hook, after blazor.web.js started. */
+export function afterWebStarted(blazor: BlazorLike): void {
+  void platform;
+  registerCustomEventTypes(blazor);
+}
+
+/** Legacy hook for a standalone Server or WebAssembly host (not a Web App). */
+export function afterStarted(blazor: BlazorLike): void {
+  void platform;
+  registerCustomEventTypes(blazor);
+}

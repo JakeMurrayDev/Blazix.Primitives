@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -15,6 +15,9 @@
 <body>
     <Routes />
     <ReconnectModal />
+    @* Tags every prerendered fixture node before Blazor starts (ADR-02/1, issue 3): an attribute Blazor never rendered
+       survives reconciliation and vanishes with replacement. *@
+    <script>for (const node of document.querySelectorAll('[data-fixture]')) node.setAttribute('data-prerendered-node', '');</script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
