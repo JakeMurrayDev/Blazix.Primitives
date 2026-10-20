@@ -32,9 +32,9 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
   1. `dotnet build src/Blazix.Primitives -c Release` with node on `PATH` (produces `wwwroot/`).
   2. `PATH=$(echo "$PATH" | tr ':' '\n' | grep -v node | paste -sd: -) dotnet build src/Blazix.Primitives -c Release -p:BlazixSkipJsBuild=true` → succeeds.
   3. `rm -r src/Blazix.Primitives/wwwroot` then step 2 → fails with the `BlazixRegisterJs` error naming the missing output.
-  Track 4 adds the manual CI job (ADR 11 §1, issue 9).
+  The manual CI job `.github/workflows/skip-js-build.yml` (ADR 11 §1, [issue 9](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/9)) repeats this on a runner without Node from the `js-outputs` artifact of the latest `main` build: run it before every tagged release.
 - Adding a module: a `<BlazixJsEntry Include="js/<module>.ts" Out="js/<module>" />` item, `js/<module>.test.ts` beside it (L3, vitest in jsdom), and a `<Module>Twin` in `Interop/` with its options record in `BlazixJsonContext`.
-- A mechanism module never imports a component module (ADR 04 §1); the L3 import-graph test of ADR 11 §5 enforces it from Track 4.
+- A mechanism module never imports a component module (ADR 04 §1); `module-graph.lint.test.ts` (L3, ADR 11 §5) enforces it, and a component module imports only mechanism modules, the shared helpers and `@floating-ui/dom`. `module-graph.lint.ts` holds `moduleKinds`, the one list that names every module's kind: adding a module adds a row there (and amends ADR 04 §1), or the lint fails on the file it does not know. The two `*.lint.*` files are not modules of the library.
 
 ## Outputs
 

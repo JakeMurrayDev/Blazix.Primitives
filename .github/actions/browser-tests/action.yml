@@ -1,5 +1,5 @@
 name: Browser tests
-description: One shard of one L4 Playwright project against the fixture host (ADR 06 §2, ADR 11 §2).
+description: One shard of one L4 Playwright project against the fixture host (ADR 06 section 2, ADR 11 sections 1 to 4).
 inputs:
   project:
     description: The Playwright project, server or wasm.
@@ -10,48 +10,37 @@ inputs:
   shards:
     description: The shard count.
     required: true
+  specs:
+    description: Space-separated spec files of a scoped run; empty runs every spec.
+    required: false
+    default: ""
+  repeat-each:
+    description: How many times each test runs (the nightly flake hunt uses 3).
+    required: false
+    default: "1"
 runs:
   using: composite
   steps:
-    - uses: actions/setup-dotnet@v6
+    - uses: ./.github/actions/setup
       with:
-        global-json-file: global.json
-    - uses: actions/setup-node@v7
-      with:
-        node-version-file: .node-version
-        cache: npm
-    - uses: actions/cache@v6
-      with:
-        path: ~/.nuget/packages
-        key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj') }}
-        restore-keys: nuget-${{ runner.os }}-
-    - name: Install Node packages
-      shell: bash
-      run: npm ci
-    - name: Resolve the Playwright version
-      id: playwright
-      shell: bash
-      run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-    - uses: actions/cache@v6
-      id: playwright-cache
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-    - name: Install the Playwright browser
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: npx playwright install --with-deps chromium
-    - name: Install the Playwright browser's system dependencies
-      if: steps.playwright-cache.outputs.cache-hit == 'true'
-      shell: bash
-      run: npx playwright install-deps chromium
+        playwright: "true"
     - name: Build the fixture host
       shell: bash
       run: dotnet build tests/Blazix.Primitives.Fixtures -c Debug
     - name: Test (browser)
-      # The wasm project depends on wasm-warmup, which Playwright runs first in the same invocation.
+      # The wasm project depends on wasm-warmup, which Playwright runs first in the same invocation. A shard of a scoped
+      # run may hold no test at all, which is not a failure. Retries stay 0 and --fail-on-flaky-tests guards the gate (ADR 11 section 4).
       shell: bash
-      run: npx playwright test --project=${{ inputs.project }} --shard=${{ inputs.shard }}/${{ inputs.shards }} --fail-on-flaky-tests
+      env:
+        PROJECT: ${{ inputs.project }}
+        SHARD: ${{ inputs.shard }}
+        SHARDS: ${{ inputs.shards }}
+        SPECS: ${{ inputs.specs }}
+        REPEAT_EACH: ${{ inputs.repeat-each }}
+      run: |
+        args=("--project=$PROJECT" "--shard=$SHARD/$SHARDS" --fail-on-flaky-tests --pass-with-no-tests "--repeat-each=$REPEAT_EACH")
+        read -ra spec_files <<< "$SPECS"
+        npx playwright test "${args[@]}" "${spec_files[@]}"
     - uses: actions/upload-artifact@v6
       if: always()
       with:

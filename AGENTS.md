@@ -26,6 +26,7 @@ Blazor port of MUI Base UI v1.9.0, built documentation-first. This file routes; 
 | `src/Blazix.Primitives/js/` | TypeScript modules (one per decision-record-04 module) with their vitest tests beside them |
 | `src/Blazix.Primitives.Generators/`, `src/Blazix.Primitives.Analyzers/` | shipped generator; internal convention analyzers |
 | `tests/Blazix.Primitives.Tests*`, `tests/Blazix.Primitives.Fixtures*`, `tests/browser/` | L1, L2, generator tests; the fixture host; L4 specs |
+| `.github/` | CI: workflows, composite actions, the scripts they run (with their tests); contract = `.github/CONTEXT.md`, decision record 11 |
 | `spikes/` | throwaway verification probes, excluded from the solution |
 
 ## How to work here

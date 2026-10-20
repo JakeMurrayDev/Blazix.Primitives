@@ -1,0 +1,45 @@
+name: Set up the toolchain
+description: The SDK from global.json, Node from .node-version, the NuGet and npm caches, npm ci, and optionally the Playwright browser (ADR 11 section 2).
+inputs:
+  playwright:
+    description: Install the Playwright browser and its system dependencies ("true" or "false").
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: npm # keyed on package-lock.json
+    - uses: actions/cache@v6
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'package-lock.json', '**/*.csproj') }}
+        restore-keys: nuget-${{ runner.os }}-
+    - name: Install Node packages
+      # Before any .NET build: the library's BlazixBuildJs target runs esbuild from the root node_modules (ADR 04 section 4).
+      shell: bash
+      run: npm ci
+    - name: Resolve the Playwright version
+      if: inputs.playwright == 'true'
+      id: playwright
+      shell: bash
+      run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v6
+      if: inputs.playwright == 'true'
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ hashFiles('global.json', 'package-lock.json') }}
+    - name: Install the Playwright browser
+      if: inputs.playwright == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+    - name: Install the Playwright browser's system dependencies
+      if: inputs.playwright == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps chromium
