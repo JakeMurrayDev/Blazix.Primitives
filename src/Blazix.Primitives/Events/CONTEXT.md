@@ -10,7 +10,7 @@ Event details, reasons and the controlled-value helper: what a part hands to a c
 
 ## Job
 
-- `ChangeEventDetails` (and `OpenChangeEventDetails`, `TabsChangeEventDetails`, `SliderChangeEventDetails`), `GenericEventDetails` (and `HighlightEventDetails`): one mutable object per request, live `IsCanceled` / `IsPropagationAllowed`, shared along a child-then-parent chain. Plain classes, not `closed` (see ADR 05's checklist amendment).
+- `ChangeEventDetails` (and `OpenChangeEventDetails`, `TabsChangeEventDetails`, `SliderChangeEventDetails`), `GenericEventDetails` (and `HighlightEventDetails`): one mutable object per request, live `IsCanceled` / `IsPropagationAllowed`, shared along a child-then-parent chain. Plain classes, not `closed` (ADR 05 Amendments 2026-10-20, closed hierarchies not applied to the details types).
 - `EventReason` with `ToLiteral()`; `ValueChangeEventArgs<T>`; `EventTrigger`.
 - `EventSnapshot`, `details.Event` in C#: the shape below is the contract with the JavaScript that takes the snapshot (ADR 04 §3).
 - `Controlled<T>`: controlled iff the value parameter was supplied at the first parameter set; the request sequence `OnValueChange` → stop if canceled → `ValueChanged` → commit when uncontrolled; `NotifyAsync`/`CommitAsync` for a request that continues into a parent.
