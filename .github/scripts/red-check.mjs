@@ -265,9 +265,11 @@ function main() {
   }
 
   if (results.some((result) => result.added.length > 0)) {
-    // The base branch's src/, the pull request's tests/ and fixtures.
+    // The base branch's src/, the pull request's tests/ and fixtures. The L3 tests sit beside the modules under src/, so
+    // the pull request's *.test.ts files under js/ are put back after the swap.
     rmSync('src', { recursive: true, force: true });
     execFileSync('git', ['checkout', baseSha, '--', 'src']);
+    spawnSync('git', ['checkout', 'HEAD', '--', ':(glob)src/Blazix.Primitives/js/**/*.test.ts'], { stdio: 'ignore' });
     for (const result of results) {
       if (result.added.length === 0) continue;
       const { buildFailed, outcomes } = runLayer(result.layer, result.added, join(process.cwd(), 'red-check-results'));
