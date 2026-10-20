@@ -4,7 +4,7 @@ Convention analyzers for the library's own code. They never ship.
 
 ## Inputs
 
-- Decision record 08 §5 (member order of eleven groups, no underscore field prefix, boxing) and decision record 16 rule 9 (every `CascadingValue` the library renders is `IsFixed`).
+- Decision record 08 §5 (member order of eleven groups, field prefix (`s_` on private statics, none elsewhere), boxing) and decision record 16 rule 9 (every `CascadingValue` the library renders is `IsFixed`).
 - The library's compilation, as an analyzer reference from `../Blazix.Primitives`.
 - `Microsoft.CodeAnalysis.CSharp` (pinned in `Directory.Packages.props`); the project targets `netstandard2.0` with a current `LangVersion`.
 

@@ -21,7 +21,7 @@ Implements the parts as C# classes in the namespace `Blazix.Primitives` (flat `F
 
 ## Human check
 
-- A new type sits in the right namespace and follows the member order of ADR 08 §5; no field has an underscore prefix.
+- A new type sits in the right namespace and follows the member order of ADR 08 §5; private static fields are `s_camelCase`, other private fields carry no prefix.
 - Nothing in the library uses reflection; the build is warning-free.
 - A family folder changes together with its component document and its `tests/browser/<family>.spec.ts`.
 - `BaseUIVersion` and the package description still name the Base UI pin in `docs/conventions.md` §1.
