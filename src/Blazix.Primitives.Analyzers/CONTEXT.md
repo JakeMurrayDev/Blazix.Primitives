@@ -26,7 +26,7 @@ Enforces, at build time and with warnings as errors, the conventions that `.edit
 
 ### Member order (BLZX2003)
 
-Members appear in these groups, in this order; within a group any order is accepted. The rows marked *placement* are this analyzer's answer where decision record 08 §5 is silent, put to the user with the M0 track 5 pull request (issue 52).
+Members appear in these groups, in this order; within a group any order is accepted. The rows marked *placement* are where decision record 08 §5 is silent: the M0 track 5 recommendations, chosen by the user on 2026-10-20 (pull request 56; recorded in decision record 08 Amendments 2026-10-20).
 
 1. constants (`const` fields of any accessibility)
 2. fields (every other field, static or instance, of any accessibility); field-like and accessor events (*placement*)
@@ -56,11 +56,11 @@ A value type may convert to `object` or an interface only into Blazor's own `obj
 - an element of the argument array (written out or built for `params`) of an `Invoke*` method of `IJSRuntime` or `IJSObjectReference`, their in-process interfaces (`IJSInProcessRuntime`, `IJSInProcessObjectReference`) and the extension methods on them (`InvokeVoidAsync`, ...);
 - a value stored into a dictionary of `string` to `object`, the type of the unmatched attribute bag: an indexer write or `Add`/`TryAdd` on a type implementing `IDictionary<string, object>` or `IReadOnlyDictionary<string, object>`, or the value of a `KeyValuePair<string, object>`.
 
-A union is rejected at those sites too. A value-type operand of a string concatenation (`+`, `+=`) is not a box when its type overrides `ToString`: the compiler emits a constrained `ToString()` call (checked on SDK 11.0.100-rc.2, no `box` opcode), so `"a" + index` passes, while an enum or a struct without its own `ToString` is reported, since that call boxes it at run time; interpolation boxes neither. Calibration on `main` (M0 track 5): 9 hits before the allow-list, 9 after it; 3 fixed, 6 suppressed where a platform contract forces the box (`AttributeList`'s interface enumerator members, `AttributeValue.Value` for `IUnion`, `EventCallback.Equals(object)` in `RenderPipeline`). Not seen by the rule: an unconstrained type parameter converted to `object` (not known to be a value type), and a receiver boxed by calling a non-overridden `object` member on a struct.
+A union is rejected at those sites too. A value-type operand of a string concatenation (`+`, `+=`) is not a box when its type overrides `ToString`: the compiler emits a constrained `ToString()` call (checked on SDK 11.0.100-rc.2, no `box` opcode), so `"a" + index` passes, while an enum or a struct without its own `ToString` is reported, since that call boxes it at run time; interpolation boxes neither. Calibration on `main` (M0 track 5): 9 hits before the allow-list, 9 after it; 3 fixed, 6 suppressed where a platform contract forces the box (`AttributeList`'s interface enumerator members, `AttributeValue.Value` for `IUnion`, `EventCallback.Equals(object)` in `RenderPipeline`, whose removal is issue 57). The allow-list, the suppressions, the concatenation case and the unseen cases below were chosen by the user on 2026-10-20 (pull request 56; decision record 05 Amendments 2026-10-20). Not seen by the rule: an unconstrained type parameter converted to `object` (not known to be a value type), and a receiver boxed by calling a non-overridden `object` member on a struct.
 
 ### Scope
 
-The library runs all seven rules. The generator runs all but BLZX2005, which `NoWarn` turns off in its project file: the boxing rule guards the library at run time, and the generator runs inside the compiler.
+The library runs all seven rules. The generator runs all but BLZX2005, which `NoWarn` turns off in its project file: the boxing rule guards the library at run time, and the generator runs inside the compiler (chosen by the user on 2026-10-20, pull request 56).
 
 ## Outputs
 
