@@ -1,0 +1,16 @@
+47 docs, 6040 requirements, 47 prefixes; untagged Test lines: 0
+
+architecture/rendering-and-composition.md
+  - RND-ALG-14: React API name in statement
+  - RND-EDGE-03: React API name in statement
+
+architecture/shared-utilities.md
+  - UTL-STA-18: React API name in statement
+  - UTL-STA-34: React API name in statement
+
+components/form.md
+  - FRM-API-07: React API name in statement
+
+components/menu.md
+  - MNU-EDGE-08: React API name in statement
+  - MNU-A11Y-02: React API name in statement

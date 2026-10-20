@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <RootNamespace>Blazix.Primitives</RootNamespace>
+    <PackageId>Blazix.Primitives</PackageId>
+    <Description>Unofficial Blazor port of MUI Base UI v1.9.0: headless, accessible primitives for Blazor Server and WebAssembly.</Description>
+    <Authors>Jake Alexander Murray</Authors>
+    <Copyright>Copyright (c) 2026 Jake Alexander Murray</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>blazor;headless;primitives;accessibility;base-ui</PackageTags>
+    <RepositoryUrl>https://github.com/JakeMurrayDev/Blazix.Primitives</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- The Base UI release this package ports (ADR 10 §2); a re-pin (ADR 15) edits this value. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BaseUIVersion</_Parameter1>
+      <_Parameter2>v1.9.0</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- The generator and the analyzers run inside the library's own compilation; neither becomes a package dependency. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Blazix.Primitives.Generators\Blazix.Primitives.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\Blazix.Primitives.Analyzers\Blazix.Primitives.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- The generator ships to consumers as an analyzer asset; the analyzers project does not (ADR 10 §1). -->
+  <ItemGroup>
+    <None Include="..\Blazix.Primitives.Generators\bin\$(Configuration)\netstandard2.0\Blazix.Primitives.Generators.dll"
+          Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+  <!-- The licence and the third-party notices travel inside the package (ADR 07 decision 4). -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+</Project>
