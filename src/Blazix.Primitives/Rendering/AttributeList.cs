@@ -3,16 +3,29 @@ using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Rendering;
 
-/// <summary>One entry of an <see cref="AttributeList"/>.</summary>
+/// <summary>Represents one entry of an <see cref="AttributeList"/>: an attribute name and its value.</summary>
+/// <param name="Name">The attribute name.</param>
+/// <param name="Value">The attribute value.</param>
 public readonly record struct AttributeEntry(string Name, AttributeValue Value);
 
+// ADR 02 Amendments 2026-10-17; ADR 02; RND-DOM-19 (relaxed)
 /// <summary>
-/// The typed entry list the pipeline and <see cref="MergeProps"/> work on (ADR 02 Amendments 2026-10-17): ordered,
-/// keyed by attribute name (ordinal), with replace-in-place so a later value keeps the position at which the name was
-/// first seen. Setting an absent value removes the entry: Blazor emits no frame for <c>null</c>, and RND-DOM-19's
-/// "explicit undefined still overrides" is relaxed for the port (ADR 02). Names are compared as given; the merge
-/// normalises the names it treats specially (<c>class</c>, <c>style</c>, handlers).
+/// Represents the ordered, name-keyed list of attributes that the render pipeline and <see cref="MergeProps"/> work on.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Entries are keyed by attribute name with ordinal comparison. Setting a name that is already present replaces its value
+/// in place, so a later value keeps the position at which the name was first seen.
+/// </para>
+/// <para>
+/// Setting an absent value (one whose <see cref="AttributeValue.HasValue"/> is <see langword="false"/>) removes the entry,
+/// because Blazor emits no frame for <see langword="null"/>; an absent value therefore cannot override an earlier one.
+/// </para>
+/// <para>
+/// Names are compared as given. The merge normalises the names it treats specially (<c>class</c>, <c>style</c> and
+/// handlers).
+/// </para>
+/// </remarks>
 public sealed class AttributeList : IReadOnlyList<AttributeEntry>
 {
     private const int DefaultCapacity = 8;
@@ -20,11 +33,14 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
     private AttributeEntry[] entries;
     private int count;
 
+    /// <summary>Initializes a new instance of the <see cref="AttributeList"/> class with room for eight entries.</summary>
     public AttributeList()
         : this(DefaultCapacity)
     {
     }
 
+    /// <summary>Initializes a new instance of the <see cref="AttributeList"/> class with the specified initial capacity.</summary>
+    /// <param name="capacity">The number of entries the list can hold before it grows.</param>
     public AttributeList(int capacity)
     {
         entries = capacity == 0 ? [] : new AttributeEntry[capacity];
@@ -43,7 +59,9 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         }
     }
 
-    /// <summary>The position of <paramref name="name"/>, or -1.</summary>
+    /// <summary>Returns the position of the entry named <paramref name="name"/>.</summary>
+    /// <param name="name">The attribute name, compared ordinally.</param>
+    /// <returns>The zero-based index of the entry, or -1 if the list has no entry with that name.</returns>
     public int IndexOf(string name)
     {
         AttributeEntry[] items = entries;
@@ -58,8 +76,17 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         return -1;
     }
 
+    /// <summary>Determines whether the list has an entry named <paramref name="name"/>.</summary>
+    /// <param name="name">The attribute name, compared ordinally.</param>
+    /// <returns><see langword="true"/> if the list has an entry with that name; otherwise, <see langword="false"/>.</returns>
     public bool Contains(string name) => IndexOf(name) >= 0;
 
+    /// <summary>Gets the value of the entry named <paramref name="name"/>.</summary>
+    /// <param name="name">The attribute name, compared ordinally.</param>
+    /// <param name="value">
+    /// When this method returns, the value of the entry, if one was found; otherwise, the default (absent) value.
+    /// </param>
+    /// <returns><see langword="true"/> if the list has an entry with that name; otherwise, <see langword="false"/>.</returns>
     public bool TryGetValue(string name, out AttributeValue value)
     {
         int index = IndexOf(name);
@@ -73,7 +100,14 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         return true;
     }
 
-    /// <summary>Sets <paramref name="name"/> to <paramref name="value"/>, keeping the first-seen position; an absent value removes the entry.</summary>
+    /// <summary>Sets the entry named <paramref name="name"/> to <paramref name="value"/>.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The value to set. An absent value removes the entry.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// An existing entry keeps its first-seen position; a new entry is appended. An absent value removes the entry if
+    /// there is one.
+    /// </remarks>
     public void Set(string name, AttributeValue value)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -102,14 +136,40 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         entries[count++] = new AttributeEntry(name, value);
     }
 
+    /// <summary>Sets the entry named <paramref name="name"/> to a string value.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The string value, or <see langword="null"/> to remove the entry.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <remarks>An existing entry keeps its first-seen position; a new entry is appended.</remarks>
     public void Set(string name, string? value) => Set(name, value is null ? default : new AttributeValue(value));
 
+    /// <summary>Sets the entry named <paramref name="name"/> to a Boolean value.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The Boolean value.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <remarks>An existing entry keeps its first-seen position; a new entry is appended.</remarks>
     public void Set(string name, bool value) => Set(name, new AttributeValue(value));
 
+    /// <summary>Sets the entry named <paramref name="name"/> to a callback.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The callback. A callback with no delegate is the absent value and removes the entry.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <remarks>An existing entry keeps its first-seen position; a new entry is appended.</remarks>
     public void Set(string name, EventCallback value) => Set(name, new AttributeValue(value));
 
+    /// <summary>Sets the entry named <paramref name="name"/> to a delegate.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">The delegate, or <see langword="null"/> to remove the entry.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <remarks>An existing entry keeps its first-seen position; a new entry is appended.</remarks>
     public void Set(string name, MulticastDelegate? value) => Set(name, value is null ? default : new AttributeValue(value));
 
+    /// <summary>Removes the entry named <paramref name="name"/>.</summary>
+    /// <param name="name">The attribute name, compared ordinally.</param>
+    /// <returns>
+    /// <see langword="true"/> if an entry was removed; <see langword="false"/> if the list had no entry with that name.
+    /// </returns>
+    /// <remarks>The entries after the removed one move up one position.</remarks>
     public bool Remove(string name)
     {
         int index = IndexOf(name);
@@ -122,13 +182,19 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         return true;
     }
 
+    /// <summary>Removes all entries from the list.</summary>
+    /// <remarks>The capacity is kept, so the list can be refilled without allocating.</remarks>
     public void Clear()
     {
         Array.Clear(entries, 0, count);
         count = 0;
     }
 
-    /// <summary>Copies every entry of <paramref name="source"/> into this list in order, replacing same-named entries.</summary>
+    /// <summary>
+    /// Copies every entry of <paramref name="source"/> into this list in order, replacing entries with the same name.
+    /// </summary>
+    /// <param name="source">The list to copy from.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     public void SetRange(AttributeList source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -138,7 +204,12 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         }
     }
 
-    /// <summary>The entries as the dictionary shape Blazor's <c>@attributes</c> accepts; the case values are boxed (ADR 05 §4, an accepted cost of the substitute callback).</summary>
+    // ADR 05 §4
+    /// <summary>Copies the entries into a dictionary of the shape Blazor's <c>@attributes</c> accepts.</summary>
+    /// <returns>
+    /// A new dictionary keyed by attribute name (ordinal) whose values are the boxed case values of the entries.
+    /// </returns>
+    /// <remarks>Boxing the case values is an accepted cost of the substitute callback, which receives this dictionary.</remarks>
     public Dictionary<string, object> ToDictionary()
     {
         Dictionary<string, object> result = new(count, StringComparer.Ordinal);
@@ -150,7 +221,10 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         return result;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Returns an enumerator that iterates through the entries in order without allocating.
+    /// </summary>
+    /// <returns>An <see cref="Enumerator"/> positioned before the first entry.</returns>
     public Enumerator GetEnumerator() => new(this);
 
     /// <inheritdoc />
@@ -170,6 +244,7 @@ public sealed class AttributeList : IReadOnlyList<AttributeEntry>
         entries[count] = default;
     }
 
+    /// <summary>Enumerates the entries of an <see cref="AttributeList"/> in order without allocating.</summary>
     public struct Enumerator : IEnumerator<AttributeEntry>
     {
         private readonly AttributeList list;

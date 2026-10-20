@@ -1,11 +1,16 @@
 namespace Blazix.Primitives.Store;
 
+// UTL-STA-20
 /// <summary>
-/// <c>useSyncedValueWithCleanup</c> (UTL-STA-20): one per call site, held by the part. <see cref="Sync"/> on every parameter
-/// set writes the value as <see cref="ComponentStore{TState}.SyncValue{TValue}"/> does; when the value or the store changed
-/// since the last call it first resets the member to <c>default</c> in the previous store. <see cref="Dispose"/> (from the
-/// part's own dispose) resets it in the last store.
+/// Copies a parameter into one member of a store's record and resets the member when the part goes away or the store
+/// changes (Base UI's <c>useSyncedValueWithCleanup</c>).
 /// </summary>
+/// <typeparam name="TState">The immutable state record.</typeparam>
+/// <typeparam name="TValue">The type of the member; its reset value is <see langword="default"/>.</typeparam>
+/// <remarks>
+/// Create one per call site and keep it in a field of the part. Call <see cref="Sync"/> on every parameter set and
+/// <see cref="Dispose"/> from the part's own dispose.
+/// </remarks>
 public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     where TState : class, IStoreState<TState>
 {
@@ -13,7 +18,11 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     private ComponentStore<TState>? store;
     private TValue? value;
 
-    /// <summary>Creates the helper for one member, <paramref name="field"/>, whose reset value is <c>default</c>.</summary>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SyncedValueWithCleanup{TState, TValue}"/> class for one member.
+    /// </summary>
+    /// <param name="field">The key of the member.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="field"/> is <see langword="null"/>.</exception>
     public SyncedValueWithCleanup(StoreField<TState, TValue?> field)
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -21,10 +30,16 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     }
 
     /// <summary>
-    /// The first call writes <paramref name="value"/> into <paramref name="store"/> when the member is not strictly equal
-    /// to it. A later call with the same store and a value equal by <see cref="Equality.Is{T}(T, T)"/> does nothing; with a
-    /// different store or value it first sets the member to <c>default</c> in the previous store, then writes as above.
+    /// Copies <paramref name="value"/> into the member of <paramref name="store"/>'s record.
     /// </summary>
+    /// <param name="store">The store the part currently holds.</param>
+    /// <param name="value">The parameter's value.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    /// The first call writes <paramref name="value"/> when the member is not strictly equal to it. A later call with the same
+    /// store and a value equal by <see cref="Equality.Is{T}(T, T)"/> does nothing. A later call with a different store or value
+    /// first sets the member to <see langword="default"/> in the previous store, then writes as the first call does.
+    /// </remarks>
     public void Sync(ComponentStore<TState> store, TValue? value)
     {
         ArgumentNullException.ThrowIfNull(store);
