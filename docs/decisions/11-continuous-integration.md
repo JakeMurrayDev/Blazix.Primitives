@@ -20,7 +20,7 @@ The repository is private until the first release (ADR 07) and private repositor
 | every pull request | `docs-lint` when `docs/` changed; `build-and-test` (build, L1, L2, L3, the ownership and module-graph lints) when anything outside `docs/` changed; **scoped L4**: a change confined to `src/Blazix.Primitives/<Family>/` or `tests/browser/<family>*` runs that family's specs in both modes; any change under `Rendering/`, `Store/`, `Events/`, `Interop/`, `js/` or the fixture host runs full L4; the label `full-l4` forces full L4 |
 | push to `main` | everything above plus full L4 in both modes, sharded; `dotnet pack` output attached as an artifact (ADR 10) |
 | nightly on `main` | full L4 in both modes with `--repeat-each 3`; the report lists failures and the quarantine count |
-| manual | the `BlazixSkipJsBuild=true` build with prebuilt outputs (ADR 04 verification item), run before every tagged release |
+| manual | the `BlazixSkipJsBuild=true` build with prebuilt outputs (ADR 04 verification item), run before every tagged release: `.github/workflows/skip-js-build.yml` ([issue 9](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/9)) |
 
 Docs-only pull requests run only `docs-lint`.
 

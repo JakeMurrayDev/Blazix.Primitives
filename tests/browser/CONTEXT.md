@@ -20,11 +20,12 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary), `harness.spec.ts` (
 ## Outputs
 
 - Playwright reports, traces and blob reports under `playwright-report/`, `test-results/` and `blob-report/` (ignored by git).
-- Run by the `browser-server` and `browser-wasm` CI jobs, two shards each; the blob reports are merged into one HTML report artifact.
+- Run by the `browser-server` and `browser-wasm` CI jobs: on a pull request a change confined to one family's folder or spec files runs that family's `<family>.spec.ts` files in both modes, a shared path or the label `full-l4` runs everything, and documents-only changes run none (`.github/scripts/classify-paths.mjs`, rule in `.github/CONTEXT.md`); on `main` everything over four shards; nightly everything with `--repeat-each 3` over four shards. Two shards on a pull request; the blob reports are merged into one HTML report artifact.
+- The `red-check` job lists the tests here on the merge base and on the head (`playwright test --list --reporter=json`), and runs the spec files with added tests against the base's `src/` with these specs and the fixture host; a test that passes there fails the pull request. Tests added in a spec must fail against the base mode by mode.
 
 ## Human check
 
 - Each title keeps Base UI's wording and its `@verifies` tag where a verification item applies.
 - Gesture tests use real Playwright mouse and touch input, not `dispatchEvent`.
-- `retries` stays 0; a flaky test is quarantined with `test.fixme`, `@quarantine` and an issue, for at most 14 days.
+- `retries` stays 0; a flaky test is quarantined with `test.fixme`, `@quarantine` and an issue, for at most 14 days. The nightly summary counts the quarantined specs and reports any flaky result (there can be none while `retries` is 0).
 - A test that needs frozen time pauses the clock itself; nothing waits on a timeout.
