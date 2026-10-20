@@ -47,6 +47,41 @@ internal static class HandlerChain
         }
     }
 
+    /// <summary>The part's chain: the substitute's and the consumer's handlers, then the part's typed handler (RND-EVT-02), stopping at a veto.</summary>
+    public static async Task InvokeAsync<TArgs>(TArgs args, AttributeValue substitute, AttributeValue consumer, Func<TArgs, Task> part)
+        where TArgs : EventArgs
+    {
+        try
+        {
+            if (substitute.IsHandler)
+            {
+                await substitute.InvokeAsync(args).ConfigureAwait(false);
+                if (Vetoed(args))
+                {
+                    return;
+                }
+            }
+
+            if (consumer.IsHandler)
+            {
+                await consumer.InvokeAsync(args).ConfigureAwait(false);
+                if (Vetoed(args))
+                {
+                    return;
+                }
+            }
+
+            await part(args).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (ReferenceEquals(args, EventArgs.Empty))
+            {
+                args.ClearPartHandlerVeto();
+            }
+        }
+    }
+
     /// <summary>Wraps <paramref name="first"/> then <paramref name="second"/> into one callback value (the public merge's chain, RND-EVT-02).</summary>
     public static AttributeValue Chain(AttributeValue first, AttributeValue second)
     {

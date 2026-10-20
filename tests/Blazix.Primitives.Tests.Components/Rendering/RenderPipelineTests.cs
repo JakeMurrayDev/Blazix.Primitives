@@ -439,7 +439,7 @@ public sealed class RenderPipelineTests : IDisposable
 
         IElement root = Root(cut);
         Assert.Equal("SECTION", root.TagName, ignoreCase: true);
-        Assert.Equal("text <i>markup</i><span class=\"nested\" blazor:elementReference=\"" + inner!.Value.Id + "\">nested</span><span data-active=\"yes\"></span>", root.InnerHtml);
+        Assert.Equal("text <i>markup</i><span class=\"nested\" blazor:elementreference=\"" + inner!.Value.Id + "\">nested</span><span data-active=\"yes\"></span>", root.InnerHtml);
         Assert.NotNull(child);
         Assert.NotNull(cut.Instance.Element);
     }
@@ -469,8 +469,11 @@ public sealed class RenderPipelineTests : IDisposable
 
         IElement element = cut.Find("[data-testid=dynamic]");
         Assert.Equal("dyn c sample-root", element.GetAttribute("class"));
-        Assert.Equal("dynamic text<b>bold</b>", element.InnerHtml.Replace(" blazor:elementReference=\"" + cut.Instance.DynamicElement.Id + "\"", ""));
-        Assert.Equal(cut.Instance.DynamicElement.Id, element.GetAttribute("blazor:elementReference"));
+        Assert.Equal("dynamic text<b>bold</b>", element.InnerHtml);
+        // The consumer's @ref was captured too (bUnit's markup shows only the element's first capture, the part's own).
+        Assert.False(string.IsNullOrEmpty(cut.Instance.DynamicElement.Id));
+        SampleRoot part = cut.FindComponents<SampleRoot>().Single(c => c.Instance.Element is { } e && e.Id == element.GetAttribute("blazor:elementreference")).Instance;
+        Assert.NotNull(part.Element);
     }
 
     [Fact(DisplayName = "the RenderFunction child-content syntax receives the merged attributes, the state and the child content")]
@@ -482,7 +485,8 @@ public sealed class RenderPipelineTests : IDisposable
         IElement element = cut.Find("[data-testid=callback]");
         Assert.Equal("SECTION", element.TagName, ignoreCase: true);
         Assert.Equal("c sample-root", element.GetAttribute("class"));
-        Assert.Equal("True", element.GetAttribute("data-open"));
+        Assert.Equal("", element.GetAttribute("data-open"));
+        Assert.Equal("yes", element.GetAttribute("data-state-open"));
         Assert.Equal("group", element.GetAttribute("role"));
         Assert.Equal("child content", element.TextContent.Trim());
     }

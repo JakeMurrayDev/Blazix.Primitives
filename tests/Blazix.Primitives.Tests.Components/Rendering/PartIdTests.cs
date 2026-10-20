@@ -57,11 +57,18 @@ public sealed class PartIdTests : IDisposable
     [Trait("Requirement", "RND-DOM-30")]
     public void Generates_an_id_when_the_provided_id_is_removed()
     {
+        // Blazor keeps a parameter the parent stops supplying, so a consumer removes an attribute by rendering it
+        // with a null value (`id="@maybeNull"`) or by rendering a bag without it; both forms are covered.
         IRenderedComponent<SampleRoot> cut = context.Render<SampleRoot>(p => p.AddUnmatched("id", "provided"));
         Assert.Equal("provided", Root(cut).Id);
 
-        cut.Render(_ => { });
+        cut.Render(p => p.AddUnmatched("id", null!));
+        Assert.StartsWith("base-ui-", Root(cut).Id);
 
+        cut.Render(p => p.AddUnmatched("id", "provided"));
+        Assert.Equal("provided", Root(cut).Id);
+
+        cut.Render(p => p.AddUnmatched("data-other", "x"));
         Assert.StartsWith("base-ui-", Root(cut).Id);
     }
 
@@ -75,7 +82,7 @@ public sealed class PartIdTests : IDisposable
         cut.Render(p => p.AddUnmatched("id", "provided"));
         Assert.Equal("provided", Root(cut).Id);
 
-        cut.Render(_ => { });
+        cut.Render(p => p.AddUnmatched("id", null!));
         Assert.Equal(generated, Root(cut).Id);
     }
 

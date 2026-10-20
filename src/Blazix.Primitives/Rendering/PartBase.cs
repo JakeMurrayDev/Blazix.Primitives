@@ -10,10 +10,16 @@ namespace Blazix.Primitives.Rendering;
 /// Member order and the contributor template: <c>Rendering/PartBase.template.md</c> (ADR 08 §5).
 /// </summary>
 /// <typeparam name="TState">The part's state record, a <c>sealed partial record</c> marked <see cref="PartStateAttribute"/>.</typeparam>
-public abstract class PartBase<TState> : ComponentBase, IHandleEvent, IDisposable
+public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     where TState : class, IPartState<TState>
 {
+    private readonly PartRenderState renderState;
     private string? generatedId;
+
+    protected PartBase()
+    {
+        renderState = new PartRenderState(this);
+    }
 
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
@@ -82,7 +88,34 @@ public abstract class PartBase<TState> : ComponentBase, IHandleEvent, IDisposabl
 
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
-        throw new NotImplementedException();
+        AttributeList partAttributes = renderState.PartAttributes;
+        partAttributes.Clear();
+        TState? state = null;
+        if (Enabled)
+        {
+            state = State;
+            if (generatedId is not null)
+            {
+                partAttributes.Set("id", generatedId);
+            }
+
+            AddPartAttributes(partAttributes);
+        }
+
+        RenderPipeline.Render(builder, renderState, this, new RenderInputs<TState>
+        {
+            State = state,
+            Mapping = StateAttributesMapping,
+            PartAttributes = partAttributes,
+            ConsumerAttributes = AdditionalAttributes,
+            ClassValue = ClassValue,
+            StyleValue = StyleValue,
+            Render = Render,
+            RenderFunction = RenderFunction,
+            ChildContent = ChildContent,
+            DefaultTagName = DefaultTagName,
+            Enabled = Enabled,
+        });
     }
 
     /// <summary>
@@ -92,8 +125,20 @@ public abstract class PartBase<TState> : ComponentBase, IHandleEvent, IDisposabl
     /// </summary>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
-        throw new NotImplementedException();
+        Task task;
+        try
+        {
+            task = item.InvokeAsync(arg);
+        }
+        catch (Exception exception)
+        {
+            return DispatchExceptionAsync(exception);
+        }
+
+        return task.IsCompletedSuccessfully ? Task.CompletedTask : AwaitAndDispatchAsync(task);
     }
+
+    void IPartHost.SetElement(ElementReference? element) => Element = element;
 
     public void Dispose()
     {
@@ -123,9 +168,7 @@ public abstract class PartBase<TState> : ComponentBase, IHandleEvent, IDisposabl
     /// </summary>
     protected EventCallback CreateHandler<TArgs>(string eventName, Func<TArgs, Task> handler)
         where TArgs : EventArgs
-    {
-        throw new NotImplementedException();
-    }
+        => renderState.CreateHandler(eventName, handler);
 
     /// <summary>The synchronous form of <see cref="CreateHandler{TArgs}(string, Func{TArgs, Task})"/>.</summary>
     protected EventCallback CreateHandler<TArgs>(string eventName, Action<TArgs> handler)
@@ -141,5 +184,21 @@ public abstract class PartBase<TState> : ComponentBase, IHandleEvent, IDisposabl
 
     protected virtual void Dispose(bool disposing)
     {
+        if (disposing)
+        {
+            renderState.Dispose();
+        }
+    }
+
+    private async Task AwaitAndDispatchAsync(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await DispatchExceptionAsync(exception);
+        }
     }
 }

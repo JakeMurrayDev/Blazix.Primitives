@@ -26,6 +26,7 @@ public sealed class SubstituteComponentIdentityTests : IDisposable
     [Trait("Requirement", "RND-DOM-43")]
     public void A_consumer_component_root_keeps_its_instance_and_its_ref_across_re_renders_of_the_part()
     {
+        Probe.Constructions = 0;
         List<Probe> captured = [];
         IRenderedComponent<SampleRoot> cut = context.Render<SampleRoot>(p => p
             .AddUnmatched("data-testid", "root")
@@ -59,6 +60,7 @@ public sealed class SubstituteComponentIdentityTests : IDisposable
     [Trait("Requirement", "RND-DOM-45")]
     public void A_changed_key_on_a_consumer_component_root_creates_a_new_instance_and_recaptures_it()
     {
+        Probe.Constructions = 0;
         List<Probe> captured = [];
         RenderFragment Substitute(string key) => builder =>
         {

@@ -10,9 +10,16 @@ namespace Blazix.Primitives.Rendering;
 /// <see cref="StateAttributesMapping"/>, the <see cref="Props"/> to put on the element, <see cref="Enabled"/> and
 /// <see cref="DefaultTagName"/>. <see cref="ChildContent"/> is the Razor form of <c>props.children</c>.
 /// </summary>
-public sealed class RenderElement<TState> : ComponentBase, IHandleEvent, IDisposable
+public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposable
     where TState : class, IPartState<TState>
 {
+    private readonly PartRenderState renderState;
+
+    public RenderElement()
+    {
+        renderState = new PartRenderState(this);
+    }
+
     /// <summary>The substitute element (RND-STR-03).</summary>
     [Parameter]
     public RenderFragment? Render { get; set; }
@@ -21,7 +28,7 @@ public sealed class RenderElement<TState> : ComponentBase, IHandleEvent, IDispos
     [Parameter]
     public RenderFragment<RenderProps<TState>>? RenderFunction { get; set; }
 
-    /// <summary>The state object; <c>null</c> behaves as an empty state (RND-STA-02/03).</summary>
+    /// <summary>The state object; <c>null</c> behaves as an empty state (RND-STA-02/03): nothing is projected and a substitute callback receives a <c>null</c> state.</summary>
     [Parameter]
     public TState? State { get; set; }
 
@@ -50,15 +57,48 @@ public sealed class RenderElement<TState> : ComponentBase, IHandleEvent, IDispos
 
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
-        throw new NotImplementedException();
+        RenderPipeline.Render(builder, renderState, this, new RenderInputs<TState>
+        {
+            State = State,
+            Mapping = StateAttributesMapping,
+            ConsumerAttributes = Props,
+            Render = Render,
+            RenderFunction = RenderFunction,
+            ChildContent = ChildContent,
+            DefaultTagName = DefaultTagName,
+            Enabled = Enabled,
+        });
     }
 
+    /// <summary>ADR 16 rule 8, as for <see cref="PartBase{TState}"/>: no render unless requested; exceptions route to the error boundary.</summary>
     Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem item, object? arg)
     {
-        throw new NotImplementedException();
+        Task task;
+        try
+        {
+            task = item.InvokeAsync(arg);
+        }
+        catch (Exception exception)
+        {
+            return DispatchExceptionAsync(exception);
+        }
+
+        return task.IsCompletedSuccessfully ? Task.CompletedTask : AwaitAndDispatchAsync(task);
     }
 
-    public void Dispose()
+    void IPartHost.SetElement(ElementReference? element) => Element = element;
+
+    public void Dispose() => renderState.Dispose();
+
+    private async Task AwaitAndDispatchAsync(Task task)
     {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await DispatchExceptionAsync(exception);
+        }
     }
 }
