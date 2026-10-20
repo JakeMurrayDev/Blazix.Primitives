@@ -30,9 +30,12 @@ export function parseDotnetList(text) {
   return report.testContainers.flatMap((container) => container.tests.map((test) => test.displayName));
 }
 
-/** @param {string} text the output of `vitest list --json` @param {string} root the repository root */
+/**
+ * @param {string} text vitest's JSON reporter output @param {string} root the repository root
+ * Names come from a run, not from `vitest list`, which shows an it.each title once with its placeholder.
+ */
 export function parseVitestList(text, root) {
-  return JSON.parse(text).map((test) => `${relative(root, test.file)}::${test.name}`);
+  return [...vitestOutcomes(text, root).keys()];
 }
 
 function* playwrightSpecs(suite, titles) {
@@ -196,7 +199,11 @@ function listLayer(layer, cwd) {
     return parseDotnetList(run('dotnet', ['test', '--project', config.project, '-c', 'Release', '--no-build', '--list-tests', 'json'], { cwd }).stdout);
   }
   if (config.kind === 'vitest') {
-    return parseVitestList(run('npx', ['vitest', 'list', 'src/Blazix.Primitives/js', '--json'], { cwd }).stdout, cwd);
+    const report = join(cwd, 'red-check-list.json');
+    run('npx', ['vitest', 'run', 'src/Blazix.Primitives/js', '--reporter=json', `--outputFile=${report}`], { cwd, allowFailure: true });
+    const names = existsSync(report) ? parseVitestList(readFileSync(report, 'utf8'), cwd) : [];
+    rmSync(report, { force: true });
+    return names;
   }
   return parsePlaywrightList(run('npx', ['playwright', 'test', '--list', '--reporter=json'], { cwd }).stdout);
 }
