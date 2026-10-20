@@ -191,10 +191,10 @@ function main() {
 
   const result = classify({ changed, labels, event, families, specFiles });
   const outputs = formatOutputs(result);
+  // The log carries the same text as the outputs and the summary, so a run can be read without opening the summary.
+  process.stdout.write(`${outputs}${summary(result)}`);
   if (process.env['GITHUB_OUTPUT']) appendFileSync(process.env['GITHUB_OUTPUT'], outputs);
-  else process.stdout.write(outputs);
   if (process.env['GITHUB_STEP_SUMMARY']) appendFileSync(process.env['GITHUB_STEP_SUMMARY'], summary(result));
-  else process.stderr.write(summary(result));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
