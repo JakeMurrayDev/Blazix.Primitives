@@ -111,7 +111,7 @@ public sealed class AvatarTwinWiringTests : IDisposable
         // The status the element was rendered with travels on every message; the module reads it on attach only.
         interop.ReportImage(cut, "error");
         Assert.Equal(
-            """{"open":false,"mounted":true,"status":"starting","enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0}""",
+            """{"open":false,"mounted":true,"status":"starting","enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0,"externalExit":false}""",
             Assert.Single(interop.TransitionsUpdates).Arguments[0]);
 
         interop.CompleteExit(cut);
@@ -155,7 +155,7 @@ public sealed class AvatarTwinWiringTests : IDisposable
         interop.ReportImage(cut, "loading");
 
         Assert.Equal(
-            """{"open":false,"mounted":false,"enableIdleState":false,"deferEndingState":false,"keepMounted":true,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":true,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0,"openSelector":":not([aria-hidden])"}""",
+            """{"open":false,"mounted":false,"enableIdleState":false,"deferEndingState":false,"keepMounted":true,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":true,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0,"externalExit":false,"openSelector":":not([aria-hidden])"}""",
             Assert.Single(interop.TransitionsAttaches).Arguments[1]);
 
         // A later load is not the first status: the module plays the enter phase, read from the applied render.
