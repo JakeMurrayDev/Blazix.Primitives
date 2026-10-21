@@ -100,6 +100,9 @@ jobs:
           dotnet test --project tests/Blazix.Primitives.Tests -c Release --no-build
           --filter-method Blazix.Primitives.Tests.Lints.OwnershipLintTests.The_documents_and_the_ownership_registry_agree
           --show-test-results all
+      - name: Typecheck (TypeScript)
+        # ADR 11 section 5 (Amendments 2026-10-21): tsc over the modules, the vitest files and the browser specs.
+        run: npm run typecheck
       - name: Test (JavaScript)
         run: npm run test:js
 
