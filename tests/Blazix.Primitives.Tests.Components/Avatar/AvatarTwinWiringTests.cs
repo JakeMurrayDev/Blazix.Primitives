@@ -25,10 +25,11 @@ public sealed class AvatarTwinWiringTests : IDisposable
     public void Attaches_one_dom_twin_to_the_root_in_preload_mode_and_updates_it_on_a_source_change_only()
     {
         IRenderedComponent<AvatarHarness> cut = interop.Render(p => p.Add(x => x.Src, "a.png"));
+        string fallbackId = cut.Find("[data-testid=fallback]").Id!;
 
         JSRuntimeInvocation attach = Assert.Single(interop.DomAttaches);
         Assert.Equal(cut.FindComponent<AvatarRoot>().Instance.Element, Assert.IsType<ElementReference>(attach.Arguments[0]));
-        Assert.Equal("""{"liveRegion":false,"image":{"src":"a.png","keepMounted":false}}""", attach.Arguments[1]);
+        Assert.Equal($$$"""{"liveRegion":false,"image":{"src":"a.png","keepMounted":false,"hideWhenLoaded":"{{{fallbackId}}}"}}""", attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<DomTwin>>(attach.Arguments[2]);
 
         cut.Render(p => p.Add(x => x.ShowFallback, true));
@@ -36,8 +37,21 @@ public sealed class AvatarTwinWiringTests : IDisposable
 
         cut.Render(p => p.Add(x => x.Src, "b.png").Add(x => x.ReferrerPolicy, "no-referrer"));
         JSRuntimeInvocation update = Assert.Single(interop.DomUpdates);
-        Assert.Equal("""{"liveRegion":false,"image":{"src":"b.png","referrerPolicy":"no-referrer","keepMounted":false}}""", update.Arguments[0]);
+        Assert.Equal($$$"""{"liveRegion":false,"image":{"src":"b.png","referrerPolicy":"no-referrer","keepMounted":false,"hideWhenLoaded":"{{{fallbackId}}}"}}""", update.Arguments[0]);
         Assert.Single(interop.DomAttaches);
+    }
+
+    [Fact(DisplayName = "sends every fallback's id to hide when the image loads")]
+    [Trait("Requirement", "AVA-EDGE-02")]
+    public void Sends_every_fallbacks_id_to_hide_when_the_image_loads()
+    {
+        IRenderedComponent<AvatarHarness> cut = interop.Render(p => p.Add(x => x.Src, "a.png").Add(x => x.ShowFallback, false));
+        Assert.DoesNotContain("hideWhenLoaded", (string)Assert.Single(interop.DomAttaches).Arguments[1]!, StringComparison.Ordinal);
+
+        cut.Render(p => p.Add(x => x.ShowFallback, true));
+
+        string fallbackId = cut.Find("[data-testid=fallback]").Id!;
+        Assert.Contains($"\"hideWhenLoaded\":\"{fallbackId}\"", (string)interop.DomUpdates[^1].Arguments[0]!, StringComparison.Ordinal);
     }
 
     [Theory(DisplayName = "drives ImageStatusChanged into the image's status and callback")]

@@ -76,8 +76,9 @@ public sealed class AvatarImageTests : IDisposable
         // The probe is attached to the root's element: the image has no element before it loads.
         JSRuntimeInvocation attach = Assert.Single(interop.DomAttaches);
         Assert.Equal(cut.FindComponent<AvatarRoot>().Instance.Element, Assert.IsType<ElementReference>(attach.Arguments[0]));
+        string fallbackId = cut.Find("[data-testid=fallback]").Id!;
         Assert.Equal(
-            """{"liveRegion":false,"image":{"src":"fallback.png","srcSet":"avatar.png 1x, avatar@2x.png 2x","sizes":"48px","crossOrigin":"anonymous","referrerPolicy":"no-referrer","keepMounted":false}}""",
+            $$$"""{"liveRegion":false,"image":{"src":"fallback.png","srcSet":"avatar.png 1x, avatar@2x.png 2x","sizes":"48px","crossOrigin":"anonymous","referrerPolicy":"no-referrer","keepMounted":false,"hideWhenLoaded":"{{{fallbackId}}}"}}""",
             attach.Arguments[1]);
     }
 

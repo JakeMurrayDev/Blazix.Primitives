@@ -102,4 +102,18 @@ public sealed class AvatarFallbackTests : IDisposable
         Assert.Empty(interop.DomAttaches);
     }
 
+    // Port's own title: the fallback's id is what the `dom` module hides at load (ADR 04 Amendments 2026-10-18), and a
+    // consumer id replaces the generated one.
+    [Fact(DisplayName = "gives the image the ids of the fallbacks to hide when it loads")]
+    [Trait("Requirement", "AVA-DOM-10")]
+    [Trait("Requirement", "AVA-EDGE-02")]
+    public void Gives_the_image_the_ids_of_the_fallbacks_to_hide_when_it_loads()
+    {
+        IRenderedComponent<AvatarHarness> cut = interop.Render(p => p
+            .Add(x => x.Src, "avatar.png")
+            .Add(x => x.FallbackAttributes, new Dictionary<string, object> { ["id"] = "initials" }));
+
+        Assert.Equal("initials", cut.Find("[data-testid=fallback]").Id);
+        Assert.Contains("\"hideWhenLoaded\":\"initials\"", (string)interop.DomAttaches[^1].Arguments[1]!, StringComparison.Ordinal);
+    }
 }

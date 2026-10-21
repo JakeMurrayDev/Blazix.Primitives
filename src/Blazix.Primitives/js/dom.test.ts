@@ -1017,6 +1017,48 @@ describe('AvatarImage', () => {
       return { image, state };
     }
 
+    function fallbacks(...ids: string[]) {
+      return ids.map((id) => {
+        const fallback = document.body.appendChild(document.createElement('span'));
+        fallback.id = id;
+        return fallback;
+      });
+    }
+
+    // AVA-STA-10, AVA-EDGE-02: every fallback of the root is hidden in the synchronous pass of a cached probe.
+    it('does not flash fallback for a cached image during SSR hydration', () => {
+      mockImageLoading({ completeOnSet: true });
+      const [initials, icon] = fallbacks('base-ui-1', 'base-ui-2');
+      const fake = createFakeTwin();
+
+      handles.push(
+        attach(
+          document.body.appendChild(document.createElement('span')),
+          JSON.stringify({ image: { src: 'cached.png', keepMounted: false, hideWhenLoaded: 'base-ui-1 base-ui-2' } } satisfies DomOptions),
+          fake.twin,
+        ),
+      );
+
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toEqual([{ status: 'loaded' }]);
+      expect(initials!.hidden).toBe(true);
+      expect(icon!.hidden).toBe(true);
+    });
+
+    // AVA-ALG-02, AVA-EDGE-03: the first derivation over server HTML finds the image complete and hides the fallbacks.
+    it('renders the image in the server HTML and resolves cached images on hydration', () => {
+      const { image } = renderedImage(true, 40);
+      image.setAttribute('src', 'cached.png');
+      image.setAttribute('aria-hidden', 'true');
+      const [initials, icon] = fallbacks('base-ui-1', 'base-ui-2');
+      const fake = createFakeTwin();
+
+      handles.push(attach(image, JSON.stringify({ image: { src: 'cached.png', keepMounted: true, hideWhenLoaded: 'base-ui-1 base-ui-2' } } satisfies DomOptions), fake.twin));
+
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toEqual([{ status: 'loaded' }]);
+      expect(initials!.hidden).toBe(true);
+      expect(icon!.hidden).toBe(true);
+    });
+
     // AVA-ALG-02, AVA-STA-12, AVA-EVT-02: a render that changes the element's source (a `src` parameter, or a
     // substitute's own `src`) re-derives the status in the batch that applies it, before `update` arrives. The `error`
     // that follows is the element's event, which the part handles in C#.
