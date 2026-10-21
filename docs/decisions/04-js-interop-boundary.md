@@ -144,3 +144,15 @@ Not replicated: CTX-KEY-07 — the port's `context-menu` module does not pass th
 *Decision points (Decision 3), added:* ChipRemove activation (CMB-KEY-10, CMB-PTR-10, CMB-EVT-09) with fallback **stop**; the closed-popup Escape clear (CMB-KEY-05) with fallback **stop when there is something to clear and the root is not inline**, decided in JavaScript from the `update` options `hasValue` and `inline`; the Radio focus-driven selection with fallback **run** (a consumer JavaScript `preventDefault()` on the non-cancelable focus event is honoured as the amendment of 2026-10-18 states). The `context-menu` module prevents the native menu and records the anchor synchronously on both modes; the open request of CTX-EVT-02/CTX-PTR-01 runs inside the dispatch on WebAssembly only (ADR 01 row).
 
 **2026-10-20, the directive-key diagnostic is always on (M0 Track 1, issue 31; chosen by the user the same day).** Item 3 of the 2026-10-18 amendment ("in development the pipeline throws") reads: the pipeline throws in every build when a `__internal_preventDefault_*` or `__internal_stopPropagation_*` key appears in a part's unmatched bag or in a substitute element's attribute frames. See ADR 02 Amendments 2026-10-20.
+
+**2026-10-21, the event snapshot of a request a C# handler starts (Decision 3; M1 track 4, issue 61 Q3; option (b), recommended by the orchestrator and pending the user's answer).** Decision 3's `details.event` is the snapshot JavaScript takes inside the dispatch. A request that a part's C# handler starts has no such snapshot: CollapsibleTrigger's and Toggle's `onclick`, which runs after the `button` module, and any later C#-dispatched key. Such a request builds its snapshot from Blazor's event arguments with the internal `EventSnapshot.FromEventArgs(MouseEventArgs)` / `FromEventArgs(KeyboardEventArgs)`.
+- `Kind` follows the argument type: `PointerEventArgs` → `PointerEvent`, `WheelEventArgs` → `WheelEvent`, other mouse arguments → `MouseEvent`, `KeyboardEventArgs` → `KeyboardEvent`.
+- `Type`, `Detail`, `Buttons`, `AltKey`/`CtrlKey`/`MetaKey`/`ShiftKey`, `PointerType`, `Key` and `Code` are copied.
+- What the C#-built snapshot lacks: `Target` is `null`, `DefaultPrevented` is `false` and `TimeStamp` is `0`. `Kind` reads `MouseEvent` for a click Chromium delivers as a `PointerEvent`; `IsInstanceOf(EventKind.MouseEvent)` holds for both.
+- The keyboard-versus-pointer `detail` and the modifiers survive, which is what the EVD tests read.
+
+The rejected alternatives:
+- (a) The twin reports the click's snapshot. That costs a second message per click on Server (ADR 16 rule 6) and needs fragile pairing with Blazor's dispatch.
+- (c) The `base-ui` placeholder. It loses every field.
+
+The inverse, `snapshot.ToKeyboardEventArgs()`, is what the `activate` decision point hands a consumer's C# key handler. Tested by `tests/Blazix.Primitives.Tests/Events/EventSnapshotFromEventArgsTests.cs`.
