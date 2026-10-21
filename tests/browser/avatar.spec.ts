@@ -51,7 +51,7 @@ function installRecorder(): void {
       interactive: root.closest('[data-fixture]')?.getAttribute('data-interactive') === 'true',
       fallback: visible(root.querySelector('[data-testid=fallback]')),
       image: visible(image),
-      imageHidden: image instanceof HTMLElement && image.hidden,
+      imageHidden: image?.hasAttribute('hidden') ?? false,
       starting: image?.hasAttribute('data-starting-style') ?? false,
       ending: image?.hasAttribute('data-ending-style') ?? false,
       loading: image?.hasAttribute('data-loading') ?? false,
