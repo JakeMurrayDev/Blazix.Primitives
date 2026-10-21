@@ -17,6 +17,26 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
 - `platform.ts`: UTL-ALG-11 as `detectPlatform(navigatorData, webkitBackdrop)`, and `platform`, the page's flags computed once (and frozen) when the chunk loads; the `dom` module owns and re-exports both.
 - `dom.ts` (entry `js/dom`): the helpers other modules import: `ownerDocument`, `ownerWindow`, `isElement`, `isHTMLElement`, `activeElement`, `contains`, `closest`, `getTarget`; `getCssDimensions`, `getElementTransform`, `getPseudoElementBounds`, `isMouseWithinBounds`, `getElementAtPoint`, `isScrollable(X|Y)`, `findScrollableAncestor`, `findScrollableTouchTarget`, `normalizeScrollOffset`, `getMaxScrollOffset`, `valueToPercent`; `observeResize` and `observeIntersection` (no-ops where the observer does not exist); `markLiveRegion`, `probeImage`, `deriveImageStatus`. Its `attach` runs the primitives `DomTwin` turns on: `indeterminate`, the live-region marker (after the next paint: one animation frame, then one task; restored 200 ms later if unchanged; never on iOS) and the image status (one report per change; the synchronous pass of a cached image reports only its result; the fallback gets `hidden` the moment the image loads). The Floating UI DOM predicates Base UI imports are re-implemented here so this module stays out of the positioning chunk.
 - `button.ts` (entry `js/button`): UBT-ALG-01/02 as Base UI writes them, with two port points. A veto from a JavaScript listener that ran before the module (an earlier listener on the element, one on a descendant, or a capture listener on an ancestor) is `event.defaultPrevented`, checked where Base UI checks it; a veto from C# is the verdict of `decide(twin, 'activate', event, 'run')`, asked only where the module is about to act (prevent a key or click). The nested-handler flag is a symbol on the event, set right before each synthetic click, so two handles on one element click once. Also: `dispatchClickWithModifiers`, `isTouchLikePointerType`, `isElementDisabled`, disabled press suppression (click and pointerdown prevented, mousedown left alone), the composite `disabled` property correction, pointer-type classification, the native-mode development check, and the press-and-hold repeater whose ticks, release and single-action clicks are reports.
+- `transitions.ts` (entry `js/transitions`): TRN as a mechanism module.
+  - The page-global frame scheduler: `requestFrame`, `cancelFrame`, `createFrameSlot` and, for tests, `resetFrameScheduler`. Every request made in one task shares one native `requestAnimationFrame`, and cancelling is an O(1) slot.
+  - `getFiniteAnimations`.
+  - `createAnimationsWatcher(element, waitForStartingStyleRemoved, batch)`, Base UI's `useAnimationsFinished`:
+    - the first inspection runs on the next frame, or in the microtask after `data-starting-style` is removed;
+    - a canceled animation is re-inspected for its replacement;
+    - an abort signal stops the callback, the restart and the observer;
+    - `batch` runs the completions ready in one microtask in one flush;
+    - a missing element never completes;
+    - the callback runs synchronously when `getAnimations` is missing or `globalThis.BASE_UI_ANIMATIONS_DISABLED` is set, read at each wait.
+  - `createTransitionMachine(initial, { enableIdleState, deferEndingState }, onCommit)`, Base UI's `useTransitionStatus`: the evaluation step, then the three frame steps, each re-armed only when its dependencies change.
+  - `createRevealController`: the `beforematch` listener with the `reveal` decision point (fallback `run`) and the revert after a 0 ms task and a frame.
+  - Its `attach`: the animated part's handle.
+    - It starts from the `status` and `mounted` C# rendered (the handover) and is from then on the only writer of `data-starting-style` and `data-ending-style`. Each is written only when its value changes, as a renderer diffs.
+    - Reports: `OnStatusChange` (status literal and mounted, once per change), `OnTransitionComplete` (`open: false` when an exit finished, standing for the mounted and status change; `open: true` for an enter when `reportOpenComplete`) and `OnRevealRequest` (when no C# chain ran inside the dispatch).
+    - Exit end, in the completion pass: it removes `data-ending-style` and sets `hidden` on an element C# is about to remove or hide, which is the convergent write.
+    - `hidden="until-found"` while hidden, the persisted `data-starting-style` while hidden, a `MutationObserver` that turns a boolean `hidden` C# renders into the literal before paint, and no `hidden` while open.
+    - `unmountRequests` lets C# end an exit it learned of elsewhere; a request that arrives after a reopen is dropped.
+    - The consumer style is applied only when `options.style` is set.
+    - A repeated `attach` of the same element returns the live handle (a symbol on the element, not a registry); `dispose` is idempotent.
 - `initializer.ts` → `wwwroot/Blazix.Primitives.lib.module.js`: imports `platform` and registers custom event types (none yet).
 - `build.mjs`: the esbuild step. One ESM entry per `BlazixJsEntry` item of the csproj into `wwwroot/`, shared code as `js/chunks/*`, `legalComments: 'inline'` so the Floating UI banner survives, sourcemaps and no minification in Debug.
 
@@ -27,6 +47,18 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
 - `platform.ts`: UTL-ALG-11, UTL-EDGE-01..09 (shared-utilities.md §4.16).
 - `dom.ts`: shared-utilities.md §4.10 (UTL-DOM-18..22), §4.11 (UTL-DOM-23..31, UTL-ALG-12..14), §4.13 (UTL-A11Y-01..04), §4.16; checkbox.md CHK-DOM-13; avatar.md AVA-ALG-01/02, AVA-STA-09..13, AVA-EVT-02; ADR 04 §1 dom row and its 2026-10-18 and 2026-10-20 amendments.
 - `button.ts`: button-behavior.md in full (UBT-ALG-01..08, UBT-KEY, UBT-PTR, UBT-EVT-04..10, UBT-EDGE-01..07); ADR 04 §3 (decision point `activate`, fallback `run`) and Amendments 2026-10-18 (dispatch-time decisions are JavaScript's); ADR 01 decision 1 (a tick is a report).
+- `transitions.ts`: transitions-and-mounting.md (TRN) and its consumers' rows.
+  - TRN-ALG-01..03 and TRN-ALG-07, TRN-ANI-04..15, TRN-STA-03..11/13, TRN-DOM-01/02/08/09, TRN-EDGE-01..03/05/06/08, TRN-EVT-09.
+  - ADR 04 §1 (transitions row), §2 (every animated part; the convergent write), §3 (decision point `reveal`, fallback `run`; open with the orchestrator) and Amendments 2026-10-18 (handover at attach).
+  - ADR 01 relaxation table:
+    - TRN-STA-04/05/07/09 met on both modes, because the flips are frame-timed here;
+    - TRN-ANI-03/09/10 relaxed, with the removal landing about two round trips after the exit on Server and the convergent `hidden` set at exit end meanwhile;
+    - RND-STA-01 for the mirrored `transitionStatus`.
+  - ADR 06 §1 (the synchronous path at L3) and §2 (the `BASE_UI_ANIMATIONS_DISABLED` switch).
+  - Open on 2026-10-21, in the track 5 note of the shared notes:
+    - who writes `data-starting-style` in the opening commit of an already-attached element on Server (TRN-STA-03; today the input arrives with `update`);
+    - the Server timing of the reveal revert;
+    - where the Collapsible measurement passes live.
 - `initializer.ts`, `build.mjs`: ADR 04 §4, ADR 07 (the Floating UI licence banner).
 
 ## Toolchain rules
@@ -39,7 +71,7 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
   The manual CI job `.github/workflows/skip-js-build.yml` (ADR 11 §1, [issue 9](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/9)) repeats this on a runner without Node from the `js-outputs` artifact of the latest `main` build: run it before every tagged release.
 - Adding a module: a `<BlazixJsEntry Include="js/<module>.ts" Out="js/<module>" />` item, `js/<module>.test.ts` beside it (L3, vitest in jsdom, against `test-support/fake-twin.ts`, which records reports and decisions and behaves like Server or, with `synchronous: true`, like WebAssembly), and a `<Module>Twin` in `Interop/` with its options record in `BlazixJsonContext`.
 - L3 titles are Base UI's where a Base UI test observes the module, kept verbatim; other tests carry the port's own titles. Browser-only Base UI tests keep their `it.skipIf(isJSDOM)` and run nowhere until a module-level browser runner exists.
-- A module that owns no style property never calls `applyConsumerStyle`: `dom` and `button` ignore `style`.
+- A module that owns no style property never calls `applyConsumerStyle`: `dom` and `button` ignore `style`; `transitions` applies it only when the part hands its style over (`options.style` set).
 - A mechanism module never imports a component module (ADR 04 §1); `module-graph.lint.test.ts` (L3, ADR 11 §5) enforces it, and a component module imports only mechanism modules, the shared helpers and `@floating-ui/dom`. `module-graph.lint.ts` holds `moduleKinds`, the one list that names every module's kind: adding a module adds a row there (and amends ADR 04 §1), or the lint fails on the file it does not know. The two `*.lint.*` files and `test-support/` (the L3 fake twin) are not modules of the library.
 
 ## Outputs
