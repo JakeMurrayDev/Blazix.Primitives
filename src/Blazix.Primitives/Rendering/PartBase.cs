@@ -230,6 +230,24 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <inheritdoc />
     void IPartHost.SetElement(ElementReference? element) => Element = element;
 
+    /// <inheritdoc />
+    bool IPartHost.ForwardsConsumerHandler(string eventName) => ForwardsConsumerHandler(eventName);
+
+    // ADR 02 Amendments 2026-10-21; UBT-EVT-01/03: a button-like part gates the consumer's handlers while disabled.
+    /// <summary>Determines whether the consumer's handler for an event is rendered on the host element this render.</summary>
+    /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>, whatever casing the consumer used.</param>
+    /// <returns>
+    /// <see langword="true"/> to render the consumer's handler, chained with the substitute's and the part's;
+    /// <see langword="false"/> to leave it off the element, so it is not invoked. The base implementation returns
+    /// <see langword="true"/>.
+    /// </returns>
+    /// <remarks>
+    /// The pipeline asks once per consumer handler on every render, and only for a value that is a handler. A substitute
+    /// element's own handler for the same event is rendered either way. A part that declines a handler can still read it
+    /// from <see cref="AdditionalAttributes"/> and invoke it itself.
+    /// </remarks>
+    protected virtual bool ForwardsConsumerHandler(string eventName) => true;
+
     /// <summary>Adds the part-supplied attributes of this render.</summary>
     /// <param name="attributes">The list to add to. The generated id is added to it before this method is called.</param>
     /// <remarks>
