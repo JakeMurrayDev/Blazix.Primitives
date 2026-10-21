@@ -4,6 +4,7 @@ using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
+using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.Separator;
@@ -42,5 +43,6 @@ public static class FixtureCatalog
         ["collapsible-initially-open"] = new(typeof(CollapsibleInitiallyOpenFixture), Prerender: true),
         ["collapsible-reattach"] = new(typeof(CollapsibleReattachFixture)),
         ["collapsible-hidden-until-found"] = new(typeof(CollapsibleHiddenUntilFoundFixture)),
+        ["meter-basic"] = new(typeof(MeterBasicFixture)),
     };
 }
