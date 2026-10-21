@@ -1,0 +1,18 @@
+@namespace Blazix.Primitives.Tests.Components
+
+@*
+    A root with one value part rendered through its ValueContent template, written as a consumer would in Razor
+    (`<ValueContent Context="...">`); the test passes the template and re-renders the root with new values, so the
+    value part receives them from its parent as it does in an application.
+*@
+<ProgressRoot Value="Value">
+    <ProgressValue ValueContent="Content" />
+</ProgressRoot>
+
+@code {
+    [Parameter]
+    public double? Value { get; set; }
+
+    [Parameter]
+    public RenderFragment<ProgressValueArguments>? Content { get; set; }
+}

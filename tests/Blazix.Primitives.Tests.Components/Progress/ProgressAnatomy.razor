@@ -1,0 +1,48 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Globalization
+
+@*
+    The `TestProgress` of ProgressRoot.test.tsx: a root with a label, a value and a track holding an indicator, each with a
+    data-testid. The test sets the root's parameters through this component, so a re-render reaches the parts as it does in
+    an application (the parent passes new values to the root, the children stay).
+*@
+<ProgressRoot Value="Value" Min="Min" Max="Max" Format="@Format" Culture="Culture" GetAriaValueText="GetAriaValueText" data-testid="root">
+    @if (ShowLabel && LabelId is null)
+    {
+        <ProgressLabel data-testid="label">Upload progress</ProgressLabel>
+    }
+    @if (ShowLabel && LabelId is not null)
+    {
+        <ProgressLabel id="@LabelId" data-testid="label">Upload progress</ProgressLabel>
+    }
+    <ProgressValue data-testid="value" />
+    <ProgressTrack data-testid="track">
+        <ProgressIndicator data-testid="indicator" />
+    </ProgressTrack>
+</ProgressRoot>
+
+@code {
+    [Parameter]
+    public double? Value { get; set; }
+
+    [Parameter]
+    public double Min { get; set; }
+
+    [Parameter]
+    public double Max { get; set; } = 100;
+
+    [Parameter]
+    public string? Format { get; set; }
+
+    [Parameter]
+    public CultureInfo? Culture { get; set; }
+
+    [Parameter]
+    public Func<string, double?, string>? GetAriaValueText { get; set; }
+
+    [Parameter]
+    public bool ShowLabel { get; set; } = true;
+
+    [Parameter]
+    public string? LabelId { get; set; }
+}
