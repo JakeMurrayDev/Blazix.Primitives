@@ -154,19 +154,40 @@ public sealed class TransitionsTwinContractTests
 
     [Fact]
     [Trait("Requirement", "TRN-EVT-09")]
-    public void OnRevealRequest_raises_RevealRequested_with_the_beforematch_snapshot()
+    [Trait("Requirement", "TRN-ANI-34")]
+    public async Task OnRevealRequest_runs_the_reveal_handler_with_the_beforematch_snapshot_and_answers_whether_the_part_is_open()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        bool openAfterRequest = true;
+        TransitionsTwin twin = new(context.JSInterop.JSRuntime)
+        {
+            RevealRequestHandler = snapshot =>
+            {
+                seen.Add(snapshot);
+                return ValueTask.FromResult(openAfterRequest);
+            },
+        };
+
+        bool opened = await twin.OnRevealRequest($$"""{"event":{{BeforeMatchJson}}}""");
+        openAfterRequest = false;
+        bool declined = await twin.OnRevealRequest($$"""{"event":{{BeforeMatchJson}}}""");
+
+        Assert.True(opened);
+        Assert.False(declined);
+        Assert.Equal(2, seen.Count);
+        Assert.Equal(EventKind.Event, seen[0].Kind);
+        Assert.Equal("beforematch", seen[0].Type);
+        Assert.Equal("base-ui-7", seen[0].Target?.Id);
+    }
+
+    [Fact]
+    public async Task Without_a_reveal_handler_the_answer_is_that_the_part_is_not_open()
     {
         using BunitContext context = new();
         TransitionsTwin twin = new(context.JSInterop.JSRuntime);
-        List<EventSnapshot> reported = [];
-        twin.RevealRequested += reported.Add;
 
-        twin.OnRevealRequest($$"""{"event":{{BeforeMatchJson}}}""");
-
-        EventSnapshot snapshot = Assert.Single(reported);
-        Assert.Equal(EventKind.Event, snapshot.Kind);
-        Assert.Equal("beforematch", snapshot.Type);
-        Assert.Equal("base-ui-7", snapshot.Target?.Id);
+        Assert.False(await twin.OnRevealRequest($$"""{"event":{{BeforeMatchJson}}}"""));
     }
 
     [Fact]
@@ -203,19 +224,18 @@ public sealed class TransitionsTwinContractTests
     }
 
     [Fact]
-    public void A_callback_without_a_subscriber_is_a_no_op_and_a_malformed_payload_is_rejected()
+    public async Task A_callback_without_a_subscriber_is_a_no_op_and_a_malformed_payload_is_rejected()
     {
         using BunitContext context = new();
         TransitionsTwin twin = new(context.JSInterop.JSRuntime);
 
         twin.OnStatusChange("""{"status":"idle","mounted":true}""");
         twin.OnTransitionComplete("""{"open":false}""");
-        twin.OnRevealRequest($$"""{"event":{{BeforeMatchJson}}}""");
 
         Assert.Throws<JsonException>(() => twin.OnStatusChange("""{"status":"opening","mounted":true}"""));
         Assert.Throws<JsonException>(() => twin.OnStatusChange("""{"status":1,"mounted":true}"""));
         Assert.Throws<JsonException>(() => twin.OnTransitionComplete("null"));
-        Assert.Throws<JsonException>(() => twin.OnRevealRequest("null"));
+        await Assert.ThrowsAsync<JsonException>(() => twin.OnRevealRequest("null"));
     }
 
     /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>

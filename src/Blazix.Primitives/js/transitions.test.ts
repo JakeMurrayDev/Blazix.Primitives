@@ -1057,6 +1057,96 @@ describe('hidden until found', () => {
     expect(fake.reported<{ event: { type: string; kind: string } }>('OnRevealRequest')).toMatchObject([{ event: { type: 'beforematch', kind: 'Event' } }]);
   });
 
+  /** A Server-like fake twin whose `OnRevealRequest` invocation resolves when the test answers it. */
+  function serverTwin() {
+    const fake = createFakeTwin();
+    const answers: ((open: boolean) => void)[] = [];
+    const invokeMethodAsync = fake.twin.invokeMethodAsync.bind(fake.twin);
+    fake.twin.invokeMethodAsync = <T>(method: string, ...args: unknown[]): Promise<T> => {
+      const recorded = invokeMethodAsync<T>(method, ...args);
+      if (method !== 'OnRevealRequest') {
+        return recorded;
+      }
+      return new Promise<T>((resolve) => answers.push((open) => resolve(open as T)));
+    };
+    return { fake, answer: (open: boolean) => answers.shift()?.(open) };
+  }
+
+  it('on Server, re-collapses the panel one frame after C# answers that the request did not open it', async () => {
+    const { fake, answer } = serverTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, untilFound);
+
+    element.removeAttribute('hidden');
+    element.dispatchEvent(new Event('beforematch'));
+    expect(fake.reported('OnRevealRequest')).toHaveLength(1);
+
+    // A 0 ms task and a frame pass, as they would during the round trip: the panel stays revealed.
+    await flushTasks();
+    runFrame();
+    expect(element.hasAttribute('hidden')).toBe(false);
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+
+    answer(false);
+    await flushTasks();
+    expect(element.hasAttribute('hidden')).toBe(false);
+    runFrame();
+
+    expect(element.getAttribute('hidden')).toBe('until-found');
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+
+    // The skip was disarmed: the next ordinary open shows its starting style.
+    update(handle, { ...untilFound, open: true });
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+  });
+
+  it('on Server, keeps the panel revealed when C# answers that it is open, before its open update arrives', async () => {
+    const { fake, answer } = serverTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, untilFound);
+
+    element.removeAttribute('hidden');
+    element.dispatchEvent(new Event('beforematch'));
+    answer(true);
+    await flushTasks();
+    runFrame();
+    expect(element.hasAttribute('hidden')).toBe(false);
+
+    update(handle, { ...untilFound, open: true });
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+    expect(fake.reported('OnStatusChange')).toEqual([{ status: 'idle', mounted: true }]);
+  });
+
+  it('on Server, an open that arrives before the answer keeps the panel revealed', async () => {
+    const { fake, answer } = serverTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, untilFound);
+
+    element.removeAttribute('hidden');
+    element.dispatchEvent(new Event('beforematch'));
+    update(handle, { ...untilFound, open: true });
+    answer(false);
+    await flushTasks();
+    runFrame();
+
+    expect(element.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('on Server, teardown drops the revert of a pending answer', async () => {
+    const { fake, answer } = serverTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, untilFound);
+
+    element.removeAttribute('hidden');
+    element.dispatchEvent(new Event('beforematch'));
+    handle.dispose();
+    answer(false);
+    await flushTasks();
+    runFrame();
+
+    expect(element.hasAttribute('hidden')).toBe(false);
+  });
+
   it('re-collapses the panel after a 0 ms task and a frame when the open never arrives', async () => {
     const fake = createFakeTwin({ synchronous: true, verdict: 'run' });
     const element = createElement();
