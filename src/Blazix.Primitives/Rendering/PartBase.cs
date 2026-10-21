@@ -233,6 +233,9 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <inheritdoc />
     bool IPartHost.ForwardsConsumerHandler(string eventName) => ForwardsConsumerHandler(eventName);
 
+    /// <inheritdoc />
+    void IPartHost.FinishAttributes(AttributeList attributes) => FinishAttributes(attributes);
+
     // ADR 02 Amendments 2026-10-21; UBT-EVT-01/03: a button-like part gates the consumer's handlers while disabled.
     /// <summary>Determines whether the consumer's handler for an event is rendered on the host element this render.</summary>
     /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>, whatever casing the consumer used.</param>
@@ -247,6 +250,23 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// from <see cref="AdditionalAttributes"/> and invoke it itself.
     /// </remarks>
     protected virtual bool ForwardsConsumerHandler(string eventName) => true;
+
+    // ADR 02 Amendments 2026-10-21 (M1 track 6); ADR 04 Amendments 2026-10-18 (handover at attach): a part that hands its
+    // style over to a JavaScript module renders it once and then freezes it, and puts its own declarations above the
+    // consumer's (COL-DOM-18); a value its document does not merge, such as a collapsible panel's empty id (COL-API-10).
+    /// <summary>Adjusts the merged attributes of this render before the host element is emitted.</summary>
+    /// <param name="attributes">
+    /// The attributes the pipeline merged: the state attributes, the part's, the consumer's and the substitute's, with
+    /// <c>class</c> and <c>style</c> merged and one handler per event.
+    /// </param>
+    /// <remarks>
+    /// The pipeline calls this method once per render, after the merge and before the default element, the substitute
+    /// element or the substitute callback receives the attributes. The base implementation changes nothing. A part
+    /// overrides it only for a value its own contract owns, because whatever it replaces here wins over the consumer.
+    /// </remarks>
+    protected virtual void FinishAttributes(AttributeList attributes)
+    {
+    }
 
     /// <summary>Adds the part-supplied attributes of this render.</summary>
     /// <param name="attributes">The list to add to. The generated id is added to it before this method is called.</param>

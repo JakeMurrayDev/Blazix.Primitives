@@ -17,6 +17,10 @@ internal interface IPartHost : IHandleEvent
     /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>.</param>
     /// <returns><see langword="true"/> to render the consumer's handler; <see langword="false"/> to leave it off.</returns>
     bool ForwardsConsumerHandler(string eventName);
+
+    /// <summary>Adjusts the merged attributes of this render before the element is emitted.</summary>
+    /// <param name="attributes">The merged attributes, with <c>class</c>, <c>style</c> and the handlers already in place.</param>
+    void FinishAttributes(AttributeList attributes);
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3
