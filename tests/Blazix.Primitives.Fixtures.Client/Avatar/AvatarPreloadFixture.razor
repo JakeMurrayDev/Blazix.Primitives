@@ -1,0 +1,50 @@
+@namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures
+@using Blazix.Primitives
+
+@*
+    The `avatar-preload` fixture (tests/browser/avatar.spec.ts): an image in the default (preload) mode and a fallback.
+    The buttons set the image's source: a fresh URL of the page's image (the spec holds or answers its request), a
+    missing one, or none. The image's statuses are rendered as `data-statuses`. With `?animations=1` the image fades in
+    on `data-starting-style` and out on `data-ending-style`, as in AvatarImage.test.tsx's animation tests.
+*@
+<FixtureContainer Name="avatar-preload" data-statuses="@string.Join(',', statuses)">
+    <style>
+        .animation-test-image {
+            transition: opacity 50ms;
+        }
+
+        .animation-test-image[data-starting-style] {
+            opacity: 0;
+        }
+
+        @@keyframes test-exit {
+            to {
+                opacity: 0;
+            }
+        }
+
+        .animation-test-image[data-ending-style] {
+            animation: test-exit 50ms;
+        }
+    </style>
+    <button type="button" data-show-image @onclick="ShowImage">Show image</button>
+    <button type="button" data-missing-image @onclick='() => src = "/missing-avatar.png"'>Missing image</button>
+    <button type="button" data-hide-image @onclick="() => src = null">Hide image</button>
+    <AvatarRoot data-testid="root">
+        <AvatarImage class="animation-test-image" data-testid="image" alt="Jane Doe" Src="@src"
+                     OnLoadingStatusChange="@(status => statuses.Add(LoadingStatusLiteral.Of(status)))" />
+        <AvatarFallback data-testid="fallback">JD</AvatarFallback>
+    </AvatarRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> statuses = [];
+    private string? src;
+    private int shown;
+
+    private void ShowImage()
+    {
+        // A new query each time, so the browser fetches it and the spec can hold or answer the request.
+        src = $"/avatar.png?show={++shown}";
+    }
+}

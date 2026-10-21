@@ -1,0 +1,58 @@
+@namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures
+@using Blazix.Primitives
+
+@*
+    The `avatar-kept-mounted` fixture (tests/browser/avatar.spec.ts): a kept-mounted image with the consumer's `onload`
+    and `onerror` handlers counted, one of which can veto the part's status update, and a fallback. The image starts
+    with a fresh URL of the page's image, so the spec holds or answers its request; the buttons switch to another fresh
+    URL or a missing one. With `?animations=1` the image would play a 50 ms exit on `data-ending-style`, which a kept
+    image must never get.
+*@
+<FixtureContainer Name="avatar-kept-mounted"
+                  data-statuses="@string.Join(',', statuses)"
+                  data-load-calls="@loadCalls"
+                  data-error-calls="@errorCalls"
+                  data-prevent="@(prevent ? "true" : "false")">
+    <style>
+        @@keyframes test-anim {
+            to {
+                opacity: 0;
+            }
+        }
+
+        .animation-test-image[data-ending-style] {
+            animation: test-anim 50ms;
+        }
+    </style>
+    <button type="button" data-prevent-button @onclick="() => prevent = !prevent">Prevent</button>
+    <button type="button" data-next-image @onclick="NextImage">Next image</button>
+    <button type="button" data-missing-image @onclick='() => src = "/missing-avatar.png"'>Missing image</button>
+    <AvatarRoot data-testid="root">
+        <AvatarImage class="animation-test-image" data-testid="image" alt="Jane Doe" KeepMounted="true" Src="@src"
+                     OnLoadingStatusChange="@(status => statuses.Add(LoadingStatusLiteral.Of(status)))"
+                     onload="@((Action<ProgressEventArgs>)OnLoad)" onerror="@((Action<ErrorEventArgs>)OnError)" />
+        <AvatarFallback data-testid="fallback">JD</AvatarFallback>
+    </AvatarRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> statuses = [];
+    private string? src = "/avatar.png?kept=0";
+    private int images;
+    private int loadCalls;
+    private int errorCalls;
+    private bool prevent;
+
+    private void NextImage() => src = $"/avatar.png?kept={++images}";
+
+    private void OnLoad(ProgressEventArgs e)
+    {
+        loadCalls++;
+        if (prevent)
+        {
+            e.PreventPartHandler();
+        }
+    }
+
+    private void OnError(ErrorEventArgs e) => errorCalls++;
+}
