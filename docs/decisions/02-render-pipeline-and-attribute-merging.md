@@ -102,7 +102,7 @@ One shared implementation therefore satisfies RND-DOM-36..49 for every part; the
 
 `Button` declines the three pointer handlers while disabled, and declines the two key handlers always so that it can run them from its own handler. The rejected alternative (G1) was a per-part copy of the bag without the declined entries, written back to `AdditionalAttributes` on each parameter set. Tested by `tests/Blazix.Primitives.Tests.Components/Rendering/ConsumerHandlerForwardingTests.cs`.
 
-**2026-10-21, the part's last word on its merged attributes (M1 track 6, issue 63; proposed to the orchestrator as H1′, awaiting the user's choice).** The handover at attach (ADR 04 Amendments 2026-10-18) needs two things the pipeline did not give a part:
+**2026-10-21, the part's last word on its merged attributes (M1 track 6, issue 63; option H1′, recommended by the orchestrator and chosen by the user the same day).** The handover at attach (ADR 04 Amendments 2026-10-18) needs two things the pipeline did not give a part:
 - its own declarations above the consumer's style (a collapsible panel's `animation-name: none` over the consumer's `animation-name`, COL-DOM-18);
 - the style it rendered frozen from `attach` on, while the consumer's merged string travels to the module (COL-ANI-14, COL-DOM-17).
 
@@ -110,7 +110,7 @@ The Collapsible panel also does not merge the consumer's empty `id` (COL-API-10)
 
 `PartBase<TState>` gains `protected virtual void FinishAttributes(AttributeList attributes)`:
 - The pipeline calls it once per render, after `class`, `style` and the handlers are merged and before the default element, the substitute element or the substitute callback receives the attributes.
-- What the part sets there wins over the consumer, so a part overrides it only for a value its own document owns.
+- What the part sets there wins over the consumer. A part may change there only an attribute its document names as part-owned or gives a documented fallback: the style it hands over to a module (the handover rows of ADR 04 Amendments 2026-10-18) and COL-API-10's empty `id`. Every other attribute keeps decision 2's rule that the consumer wins. The analyzers cannot see this, so it is a human check in `src/Blazix.Primitives/Rendering/CONTEXT.md`.
 - The base changes nothing, and `RenderElement<TState>` answers through `IPartHost` with a no-op.
 - Tested by `tests/Blazix.Primitives.Tests.Components/Rendering/FinishAttributesTests.cs`.
 

@@ -32,6 +32,8 @@ Known limits, stated once: a consumer handler is invoked the way Blazor invokes 
 
 ## Human check
 
+- A part's `FinishAttributes` changes only an attribute its document names as part-owned or gives a documented fallback (a style handed over to a module, COL-API-10's empty `id`); every other attribute keeps the consumer-wins rule of ADR 02 decision 2 (ADR 02 Amendments 2026-10-21). The analyzers cannot see it, and `FinishAttributesTests` shows that such a change would win over the consumer.
+
 - A new part derives from `PartBase<TState>`, creates its handlers once, adds them from `AddPartAttributes`, and names no parameter `Class` or `Style`.
 - Nothing here reflects; `BL0006` is suppressed only where the frame rewrite reads frames, and `BLZX2002` only where a sequence number is not ours to choose (`Reemit`, `AttributeValue.EmitTo`), each with the ADR citation.
 - The allocation budgets in both test projects only tighten.

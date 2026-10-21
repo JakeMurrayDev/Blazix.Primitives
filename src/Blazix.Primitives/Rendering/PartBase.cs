@@ -261,8 +261,10 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// </param>
     /// <remarks>
     /// The pipeline calls this method once per render, after the merge and before the default element, the substitute
-    /// element or the substitute callback receives the attributes. The base implementation changes nothing. A part
-    /// overrides it only for a value its own contract owns, because whatever it replaces here wins over the consumer.
+    /// element or the substitute callback receives the attributes. The base implementation changes nothing. Whatever a part
+    /// sets here wins over the consumer, so a part changes only an attribute that it owns, such as a style it hands over to
+    /// its browser-side behavior, or one whose fallback it defines, such as an empty <c>id</c>; every other attribute
+    /// keeps the consumer's value.
     /// </remarks>
     protected virtual void FinishAttributes(AttributeList attributes)
     {
