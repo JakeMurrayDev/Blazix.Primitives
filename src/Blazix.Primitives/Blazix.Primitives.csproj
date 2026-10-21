@@ -45,6 +45,7 @@
     <BlazixJsEntry Include="js/dom.ts" Out="js/dom" />
     <BlazixJsEntry Include="js/button.ts" Out="js/button" />
     <BlazixJsEntry Include="js/transitions.ts" Out="js/transitions" />
+    <BlazixJsEntry Include="js/collapsible.ts" Out="js/collapsible" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 
