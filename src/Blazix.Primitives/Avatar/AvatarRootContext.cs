@@ -9,6 +9,17 @@ internal sealed class AvatarRootContext
 {
     private readonly List<Action> statusListeners = [];
 
+    /// <summary>Initializes a new instance of the <see cref="AvatarRootContext"/> class.</summary>
+    /// <param name="root">The root that provides the context.</param>
+    public AvatarRootContext(AvatarRoot root)
+    {
+        Root = root;
+    }
+
+    /// <summary>Gets the root that provides the context.</summary>
+    /// <value>The avatar root, whose element hosts the image's detached probe.</value>
+    public AvatarRoot Root { get; }
+
     /// <summary>Gets the status the image most recently reported.</summary>
     /// <value><see cref="ImageLoadingStatus.Idle"/> initially and after an image is removed.</value>
     public ImageLoadingStatus Status { get; private set; }

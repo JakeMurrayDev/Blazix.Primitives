@@ -38,8 +38,8 @@ public static class AvatarImageDataAttributes
 // Base UI's Avatar.Image (avatar/image/AvatarImage.tsx, useImageLoadingStatus.ts); the contract is
 // docs/components/avatar.md.
 //
-// The status. Preload mode (AVA-STA-08..10, AVA-ALG-01): the `dom` module's detached probe, through this part's DomTwin.
-// Kept-mounted mode (AVA-STA-11..14,
+// The status. Preload mode (AVA-STA-08..10, AVA-ALG-01): the `dom` module's detached probe, through this part's DomTwin
+// attached to the root's element, because the <img> exists only once loaded. Kept-mounted mode (AVA-STA-11..14,
 // AVA-ALG-02): the module derives the status from the attached <img> on attach and after a source change; the
 // element's load and error events set it here, after the consumer's handlers, which can veto with PreventPartHandler()
 // (ADR 04 Amendments 2026-10-18 item 1: their result is state). Without an element (a substitute callback, ADR 02's
@@ -494,9 +494,18 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
 
     private async Task SyncImageLoadAsync()
     {
-        // Kept-mounted: the image's own element, if it has one. The preload probe needs a host element of its own.
-        ElementReference? element = KeepMounted ? Element : null;
+        // Preload: the root's element hosts the probe; kept-mounted: the image's own element, if it has one.
+        ElementReference? element = null;
         string? elementId = null;
+        if (KeepMounted)
+        {
+            element = Element;
+        }
+        else
+        {
+            element = Context.Root.HostElement;
+            elementId = element is null ? Context.Root.HostId : null;
+        }
 
         string? key = element?.Id ?? elementId;
         if (key is null)

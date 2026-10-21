@@ -241,6 +241,7 @@ evaluate(src, srcSet, sizes, crossOrigin, referrerPolicy):
 ```
 
   Status writes made in the same synchronous pass collapse: only the last value is committed (AVA-EVT-02).
+  Port note (2026-10-21, M1 track 7, issue 64; chosen by the user 2026-10-21, ADR 04 Amendments 2026-10-21): the probe runs in the `dom` module through the Image's own twin, attached to the Root's element because the `<img>` does not exist before `'loaded'`; under a Root substitute the Root draws a generated id for it, as Button does. A runtime `keepMounted` switch moves the twin between the Root's element and the `<img>`.
   Source: `avatar/image/useImageLoadingStatus.ts:22-68`. Test: [L3] `AvatarImage.test.tsx` "passes responsive image props to the loading probe" (probe `sizes`/`srcset`/`src`), "fires when the image loads", "fires when the image errors", "fires for cached image errors without emitting idle".
 
 ### 4.2 Kept-mounted mode

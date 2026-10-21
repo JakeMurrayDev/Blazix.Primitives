@@ -11,7 +11,10 @@ namespace Blazix.Primitives;
 public sealed partial record AvatarRootState(ImageLoadingStatus ImageLoadingStatus);
 
 // Base UI's Avatar.Root (avatar/root/AvatarRoot.tsx); the contract is docs/components/avatar.md. AVA-STR-01, AVA-API-01,
-// AVA-DOM-08: a span with the consumer's attributes only; the context is cascaded fixed inside it (ADR 16 rule 9).
+// AVA-DOM-08: a span with the consumer's attributes only; the context is cascaded fixed inside it (ADR 16 rule 9). Under a
+// substitute (Render or RenderFunction) the root draws a generated id, the one attribute it may add: the image's detached
+// probe attaches to the root's element and needs to find it without an element reference (ADR 02 decision 1, Button's
+// pattern; the preload attach point chosen by the user 2026-10-21, ADR 04 §3 note).
 /// <summary>
 /// Represents the container of an avatar: Base UI's <c>Avatar.Root</c>, rendered as a <c>span</c>. It holds an
 /// <see cref="AvatarImage"/> and any number of <see cref="AvatarFallback"/> parts and shares the image's loading status
@@ -41,7 +44,7 @@ public sealed class AvatarRoot : PartBase<AvatarRootState>
     /// <summary>Initializes a new instance of the <see cref="AvatarRoot"/> class.</summary>
     public AvatarRoot()
     {
-        context = new AvatarRootContext();
+        context = new AvatarRootContext(this);
         onStatusChanged = StateHasChanged;
         context.AddStatusListener(onStatusChanged);
     }
@@ -54,6 +57,18 @@ public sealed class AvatarRoot : PartBase<AvatarRootState>
 
     /// <inheritdoc />
     protected override StateAttributesMapping<AvatarRootState>? StateAttributesMapping => s_mapping;
+
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => Render is not null || RenderFunction is not null;
+
+    // The element the image's probe attaches to: the element reference, else the id (a substitute's root).
+    /// <summary>Gets the element that hosts the image's detached probe.</summary>
+    /// <value>The root's element, or <see langword="null"/> when it has none.</value>
+    internal ElementReference? HostElement => Element;
+
+    /// <summary>Gets the id that locates the root's element when it has no element reference.</summary>
+    /// <value>The consumer's or the generated id, or <see langword="null"/>.</value>
+    internal string? HostId => Id;
 
     /// <inheritdoc />
     /// <remarks>The child content of the previous render is not carried over: the root replaces it with the cascade of its context.</remarks>
