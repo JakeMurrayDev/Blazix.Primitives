@@ -111,6 +111,7 @@ public sealed class ProgressValueTests : IDisposable
         };
         IRenderedComponent<ProgressAnatomyWithTemplate> cut = context.Render<ProgressAnatomyWithTemplate>(p => p
             .Add(x => x.Value, 30)
+            .Add(x => x.Culture, s_enUs)
             .Add(x => x.Content, content));
         Assert.Equal(new ProgressValueArguments("30%", 30), calls[^1]);
 
