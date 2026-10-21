@@ -516,11 +516,103 @@ export function statusToLiteral(status: TransitionStatus): TransitionStatusLiter
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// `hidden="until-found"` and the `beforematch` reveal (TRN-DOM-08/09, TRN-ALG-07)
+// Attribute writers (TRN-DOM-01/02, TRN-DOM-06/08/09, TRN-EDGE-08)
 // ---------------------------------------------------------------------------------------------------------------
 
-/** The kind of motion a panel's styles define, as the panel last detected it; `null` until detected. */
-export type MotionType = 'css-transition' | 'css-animation' | 'none' | null;
+/** The two transition attributes of one element. */
+export interface TransitionAttributes {
+  /**
+   * Writes `data-starting-style` and `data-ending-style`, each only when its value changes, as a renderer diffs: an
+   * attribute something else changed in between (the browser or the reveal handler) stays as it is until then.
+   * @param starting Whether `data-starting-style` is present: the shown status is `'starting'`, or a hidden
+   * hidden-until-found element keeps its collapsed starting styles.
+   * @param ending Whether `data-ending-style` is present.
+   */
+  write(starting: boolean, ending: boolean): void;
+}
+
+/**
+ * Creates the writer of an element's transition attributes. The first write always applies.
+ * @param element The element.
+ * @returns The writer.
+ */
+export function createTransitionAttributes(element: HTMLElement): TransitionAttributes {
+  let startingWritten: boolean | null = null;
+  let endingWritten: boolean | null = null;
+  return {
+    write(starting, ending) {
+      if (starting !== startingWritten) {
+        startingWritten = starting;
+        element.toggleAttribute(STARTING_STYLE, starting);
+      }
+      if (ending !== endingWritten) {
+        endingWritten = ending;
+        element.toggleAttribute(ENDING_STYLE, ending);
+      }
+    },
+  };
+}
+
+/** The `hidden` attribute of one element, as far as the module writes it. */
+export interface HiddenController {
+  /**
+   * Writes `hidden` when the hidden predicate or the until-found option changed since the last call, and never
+   * otherwise, so the browser's own removal during a reveal stands until the revert. The first call is the mount.
+   * @param hidden Whether the element is closed and not mounted.
+   * @param untilFound Whether it is hidden with the literal `hidden="until-found"`, written on every change to hidden.
+   * @param hideOnChange Whether a change to hidden writes a boolean `hidden` (the convergent write at exit end); not on
+   * the mount, where C# rendered the value.
+   */
+  write(hidden: boolean, untilFound: boolean, hideOnChange: boolean): void;
+  /** Stops turning a boolean `hidden` into the literal. */
+  dispose(): void;
+}
+
+/**
+ * Creates the controller of an element's `hidden` attribute. While the element is hidden until found, a boolean
+ * `hidden` that something else writes (C#'s render) becomes the literal in the microtask after the write, before
+ * paint. A `hidden` the controller wrote is removed once the element is no longer hidden.
+ * @param element The element.
+ * @returns The controller.
+ */
+export function createHiddenController(element: HTMLElement): HiddenController {
+  let state: { hidden: boolean; untilFound: boolean } | null = null;
+  let written = false;
+
+  const observer = new MutationObserver(() => {
+    if (state?.hidden && state.untilFound && element.getAttribute('hidden') === '') {
+      element.setAttribute('hidden', 'until-found');
+    }
+  });
+  observer.observe(element, { attributes: true, attributeFilter: ['hidden'] });
+
+  return {
+    write(hidden, untilFound, hideOnChange) {
+      const previous = state;
+      if (previous !== null && previous.hidden === hidden && previous.untilFound === untilFound) {
+        return;
+      }
+      state = { hidden, untilFound };
+      if (hidden && untilFound) {
+        written = true;
+        element.setAttribute('hidden', 'until-found');
+      } else if (hidden && previous !== null && hideOnChange) {
+        written = true;
+        element.setAttribute('hidden', '');
+      } else if (!hidden && written) {
+        written = false;
+        element.removeAttribute('hidden');
+      }
+    },
+    dispose() {
+      observer.disconnect();
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The `beforematch` reveal (TRN-ALG-07)
+// ---------------------------------------------------------------------------------------------------------------
 
 /** What a reveal controller reads from and does to its element. */
 export interface RevealHost {
@@ -686,12 +778,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   let forcedIdle = false;
   let closeCompleted = false;
   let reported: { status: TransitionStatus; mounted: boolean } = { status: statusFromLiteral(options.status), mounted: options.mounted };
-  // What the module last wrote, so each attribute is written only when its value changes, as a renderer diffs: an
-  // attribute something else changed in between (the browser during a reveal) is left alone until the value changes.
-  let startingWritten: boolean | null = null;
-  let endingWritten: boolean | null = null;
-  let hiddenState: { hidden: boolean; untilFound: boolean } | null = null;
-  let hiddenWritten = false;
+  const attributes = createTransitionAttributes(element);
+  const hiddenController = createHiddenController(element);
 
   const closeWatcher = createAnimationsWatcher(element);
   const openWatcher = createAnimationsWatcher(element, true);
@@ -714,42 +802,15 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const isHidden = (state: TransitionState) => !state.open && !state.mounted;
 
-  const writeTransitionAttributes = (state: TransitionState) => {
+  const writeAttributes = (state: TransitionState) => {
     const shown = shownStatus(state.status);
     // A hidden-until-found element keeps its collapsed starting styles while hidden, so a reveal starts from them.
-    const starting = shown === 'starting' || (options.hiddenUntilFound && isHidden(state));
-    const ending = shown === 'ending';
-    if (starting !== startingWritten) {
-      startingWritten = starting;
-      element.toggleAttribute(STARTING_STYLE, starting);
-    }
-    if (ending !== endingWritten) {
-      endingWritten = ending;
-      element.toggleAttribute(ENDING_STYLE, ending);
-    }
+    attributes.write(shown === 'starting' || (options.hiddenUntilFound && isHidden(state)), shown === 'ending');
   };
 
-  // Written when the hidden predicate or the option changes, and on attach; never after other passes.
-  const writeHidden = (state: TransitionState) => {
-    const hidden = isHidden(state);
-    const untilFound = options.hiddenUntilFound;
-    const previous = hiddenState;
-    if (previous !== null && previous.hidden === hidden && previous.untilFound === untilFound) {
-      return;
-    }
-    hiddenState = { hidden, untilFound };
-    if (hidden && untilFound) {
-      hiddenWritten = true;
-      element.setAttribute('hidden', 'until-found');
-    } else if (hidden && previous !== null && (!options.keepMounted || options.hiddenWhenUnmounted)) {
-      // The optimistic convergent write: the render C# makes for this state removes or hides the element anyway.
-      hiddenWritten = true;
-      element.setAttribute('hidden', '');
-    } else if (!hidden && hiddenWritten) {
-      hiddenWritten = false;
-      element.removeAttribute('hidden');
-    }
-  };
+  // The convergent write at exit end: the render C# makes for this state removes or hides the element anyway.
+  const writeHidden = (state: TransitionState) =>
+    hiddenController.write(isHidden(state), options.hiddenUntilFound, !options.keepMounted || options.hiddenWhenUnmounted);
 
   const report = (state: TransitionState) => {
     const status = shownStatus(state.status);
@@ -815,7 +876,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   const pass = (state: TransitionState) => {
-    writeTransitionAttributes(state);
+    writeAttributes(state);
     writeHidden(state);
     report(state);
     armWatchers(state);
@@ -868,14 +929,6 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     onCommit,
   );
 
-  // A boolean `hidden` C# renders on a hidden-until-found element becomes the literal before paint.
-  const hiddenObserver = new MutationObserver(() => {
-    if (options.hiddenUntilFound && isHidden(machine) && element.getAttribute('hidden') === '') {
-      element.setAttribute('hidden', 'until-found');
-    }
-  });
-  hiddenObserver.observe(element, { attributes: true, attributeFilter: ['hidden'] });
-
   applyStyle();
   applyReveal();
   ready = true;
@@ -913,7 +966,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       openWatcher.cancel();
       reveal?.dispose();
       reveal = null;
-      hiddenObserver.disconnect();
+      hiddenController.dispose();
     },
   };
   element[attachedHandle] = handle;
