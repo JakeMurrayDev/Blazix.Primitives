@@ -98,19 +98,30 @@ public sealed class CollapsibleTriggerTests : IDisposable
         Assert.Equal("custom-trigger-id", cut.Find("button").GetAttribute("id"));
     }
 
-    [Fact(DisplayName = "a trigger's own Disabled overrides the root's")]
+    [Fact(DisplayName = "a trigger's own Disabled overrides the root's for the button, while its state stays the root's")]
     [Trait("Requirement", "COL-API-06")]
     [Trait("Requirement", "COL-DOM-05")]
-    public void A_triggers_own_Disabled_overrides_the_roots()
+    public void A_triggers_own_Disabled_overrides_the_roots_for_the_button_while_its_state_stays_the_roots()
     {
+        CollapsibleTriggerState? seen = null;
         IRenderedComponent<CollapsibleRoot> cut = Context.Render<CollapsibleRoot>(p => p
             .Add(x => x.Disabled, true)
-            .AddChildContent<CollapsibleTrigger>(trigger => trigger.Add(x => x.Disabled, false).AddUnmatched("data-testid", "enabled"))
+            .AddChildContent<CollapsibleTrigger>(trigger => trigger
+                .Add(x => x.Disabled, false)
+                .Add(x => x.ClassValue, (Func<CollapsibleTriggerState, string?>)(state =>
+                {
+                    seen = state;
+                    return null;
+                }))
+                .AddUnmatched("data-testid", "enabled"))
             .AddChildContent<CollapsibleTrigger>(trigger => trigger.AddUnmatched("data-testid", "inherits")));
 
+        // COL-API-06: the override reaches the button mechanism.
         Assert.False(cut.Find("[data-testid=enabled]").HasAttribute("disabled"));
-        Assert.False(cut.Find("[data-testid=enabled]").HasAttribute("data-disabled"));
         Assert.True(cut.Find("[data-testid=inherits]").HasAttribute("disabled"));
+        // COL-DOM-05 (fidelity correction 2026-10-21): the trigger's state is the root's, so data-disabled follows the root.
+        Assert.True(cut.Find("[data-testid=enabled]").HasAttribute("data-disabled"));
+        Assert.True(seen!.Disabled);
 
         cut.Find("[data-testid=enabled]").Click();
         Assert.Equal("true", cut.Find("[data-testid=enabled]").GetAttribute("aria-expanded"));
