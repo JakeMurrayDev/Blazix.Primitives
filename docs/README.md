@@ -28,7 +28,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/alert-dialog.md | ADL | approved | 30 reqs + adoption (opus) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
 | components/avatar.md | AVA | approved | 58 reqs (opus) | |
-| components/button.md | BTN | approved | 29 reqs (opus) | |
+| components/button.md | BTN | implemented | 29 reqs (opus) | |
 | components/checkbox.md | CHK | approved | 151 reqs |
 | components/checkbox-group.md | CKG | approved | 83 reqs |
 | components/collapsible.md | COL | approved | pilot; 104 reqs |
@@ -53,7 +53,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/radio-group.md | RDG | approved | 86 reqs |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
 | components/select.md | SEL | approved | 332 reqs | |
-| components/separator.md | SEP | approved | 14 reqs (opus) | |
+| components/separator.md | SEP | implemented | 14 reqs (opus) | |
 | components/slider.md | SLD | approved | 191 reqs | |
 | components/switch.md | SWT | approved | pilot; 117 reqs |
 | components/tabs.md | TAB | approved | 156 reqs | |

@@ -162,6 +162,9 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     /// <inheritdoc />
     void IPartHost.SetElement(ElementReference? element) => Element = element;
 
+    /// <inheritdoc />
+    bool IPartHost.ForwardsConsumerHandler(string eventName) => true;
+
     private async Task AwaitAndDispatchAsync(Task task)
     {
         try

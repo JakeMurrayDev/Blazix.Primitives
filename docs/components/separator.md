@@ -7,7 +7,8 @@
 | Tests | `packages/react/src/separator/**/*.test.tsx` (1 file) |
 | Docs page | `docs/src/app/(docs)/react/components/separator/page.mdx` |
 | Prefix | `SEP` |
-| Status | approved |
+| Status | implemented |
+| Revised | 2026-10-21 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md) |
@@ -161,6 +162,7 @@ Separator emits no warnings and throws no errors of its own. Inherited dev check
 
 - **SEP-EDGE-01** — MUST. The `orientation` value MUST NOT be validated or normalized: whatever truthy value is supplied is reflected verbatim in `aria-orientation`, `data-orientation` and the state object. (Only `'horizontal'` and `'vertical'` are part of the public type.)
   Source: `separator/Separator.tsx:16-23`. Test: none.
+  Port note (2026-10-21, ADR 08 §3): `orientation` is the enum `Orientation`, whose two members are the two literals, so the "any truthy value" case has no input in a typed port and no test; a value outside the two members, reachable only by a cast, is outside the type's contract.
 - **SEP-EDGE-02** — MUST. No behavior depends on writing direction (RTL) or locale; a vertical separator in a right-to-left layout carries the same attributes.
   Source: `separator/Separator.tsx:1-27` (no direction or locale input). Test: none.
 - **SEP-EDGE-03** — MUST. Server-rendered markup MUST be identical to the client's first render (all attributes are pure functions of the parameters; nothing is applied after mount).

@@ -63,6 +63,13 @@ JavaScript serialises the native event inside its dispatch as one object with ex
 
 A request with no native event carries a fresh placeholder: `kind` `Event`, `type` `base-ui` (EVD-API-04).
 
+A request that a C# handler starts (a C#-dispatched click or key, whose event JavaScript never snapshotted) builds its snapshot from Blazor's arguments with the internal `EventSnapshot.FromEventArgs(MouseEventArgs)` and `FromEventArgs(KeyboardEventArgs)` (ADR 04 Amendments 2026-10-21):
+- `Kind` is `MouseEvent`, `PointerEvent`, `WheelEvent` or `KeyboardEvent`, after the argument type.
+- `Type`, `Detail`, `Buttons`, the four modifiers, `PointerType`, `Key` and `Code` are copied.
+- `Target` is `null`, `DefaultPrevented` is `false` and `TimeStamp` is `0`, because Blazor's arguments do not carry them.
+
+The inverse, `snapshot.ToKeyboardEventArgs()`, is what a decision point hands a consumer's C# key handler (the button module's `activate`).
+
 ### Development warnings
 
 The library's one debug switch is the AppContext switch `Blazix.Primitives.DevelopmentWarnings` (internal `DevelopmentWarnings.IsEnabled`; `DevelopmentWarnings.Write(ILogger, string)` logs at `Error`). Any later development-only check, such as one of the pipeline's, should go through it. EVD-EDGE-01/02 (and the store's UTL-EDGE-25) go to the `ILogger` the part passes, at `Error`, only while the runtime switch `Blazix.Primitives.DevelopmentWarnings` is on (`AppContext.SetSwitch`, or `<RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />` in a Debug build). Each distinct message is logged once per `Controlled<T>` instance. Base UI compares defaults by JSON serialisation; the port compares by `EqualityComparer<T>.Default`, then structurally for arrays and tuples, then item by item for sequences, never throwing.

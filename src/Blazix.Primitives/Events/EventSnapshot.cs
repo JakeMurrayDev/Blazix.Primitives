@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives;
 
@@ -157,6 +158,71 @@ public sealed record EventSnapshot
                 or EventKind.WheelEvent or EventKind.TouchEvent or EventKind.KeyboardEvent or EventKind.InputEvent,
             EventKind.MouseEvent => Kind is EventKind.MouseEvent or EventKind.PointerEvent or EventKind.WheelEvent,
             _ => Kind == kind,
+        };
+    }
+
+    // ADR 04 Amendments 2026-10-21: the details.event of a request a C# handler starts (a C#-dispatched click or key),
+    // which JavaScript did not snapshot. Blazor's arguments carry no target, no default-prevented flag and no time
+    // stamp, so those read null, false and 0; Kind is the argument type's interface (MouseEvent where Chromium's click is
+    // a PointerEvent, which IsInstanceOf(EventKind.MouseEvent) treats alike).
+    /// <summary>Creates a snapshot of a mouse, pointer or wheel event from the arguments Blazor dispatched.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>A snapshot with the event's type, detail, buttons, modifier keys and pointer type; no target.</returns>
+    internal static EventSnapshot FromEventArgs(MouseEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return new EventSnapshot
+        {
+            Kind = e switch
+            {
+                PointerEventArgs => EventKind.PointerEvent,
+                WheelEventArgs => EventKind.WheelEvent,
+                _ => EventKind.MouseEvent,
+            },
+            Type = e.Type ?? "",
+            AltKey = e.AltKey,
+            CtrlKey = e.CtrlKey,
+            MetaKey = e.MetaKey,
+            ShiftKey = e.ShiftKey,
+            PointerType = (e as PointerEventArgs)?.PointerType,
+            Detail = (int)e.Detail,
+            Buttons = (int)e.Buttons,
+        };
+    }
+
+    /// <summary>Creates a snapshot of a keyboard event from the arguments Blazor dispatched.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>A snapshot with the event's type, key, code and modifier keys; no target.</returns>
+    internal static EventSnapshot FromEventArgs(KeyboardEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return new EventSnapshot
+        {
+            Kind = EventKind.KeyboardEvent,
+            Type = e.Type ?? "",
+            Key = e.Key,
+            Code = e.Code,
+            AltKey = e.AltKey,
+            CtrlKey = e.CtrlKey,
+            MetaKey = e.MetaKey,
+            ShiftKey = e.ShiftKey,
+        };
+    }
+
+    // The inverse, for a decision point that runs a consumer's C# key handler inside the dispatch (ButtonTwin's activate).
+    /// <summary>Creates the keyboard event arguments a consumer's handler receives for this snapshot.</summary>
+    /// <returns>Arguments with the snapshot's type, key, code and modifier keys; an absent key or code is the empty string.</returns>
+    internal KeyboardEventArgs ToKeyboardEventArgs()
+    {
+        return new KeyboardEventArgs
+        {
+            Type = Type,
+            Key = Key ?? "",
+            Code = Code ?? "",
+            AltKey = AltKey,
+            CtrlKey = CtrlKey,
+            MetaKey = MetaKey,
+            ShiftKey = ShiftKey,
         };
     }
 }

@@ -12,6 +12,11 @@ internal interface IPartHost : IHandleEvent
     /// <summary>Stores the rendered element.</summary>
     /// <param name="element">The rendered element, or <see langword="null"/> when there is none.</param>
     void SetElement(ElementReference? element);
+
+    /// <summary>Determines whether the consumer's handler for an event is rendered on the element this render.</summary>
+    /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>.</param>
+    /// <returns><see langword="true"/> to render the consumer's handler; <see langword="false"/> to leave it off.</returns>
+    bool ForwardsConsumerHandler(string eventName);
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3

@@ -1,0 +1,16 @@
+@namespace Blazix.Primitives.Tests.Components
+@* "keeps focus and suppresses interactions after becoming disabled": a consumer whose click handler disables the
+   Button it was attached to, as a loading state does. *@
+<Button Disabled="@disabled" FocusableWhenDisabled="true" @onclick="HandleClick">Save</Button>
+
+@code {
+    private bool disabled;
+
+    public int Clicks { get; private set; }
+
+    private void HandleClick(MouseEventArgs e)
+    {
+        Clicks++;
+        disabled = true;
+    }
+}

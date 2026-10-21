@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures
+@using Blazix.Primitives
+@inherits ButtonFixtureBase
+
+@*
+    The `button-loading` fixture (tests/browser/button.spec.ts): a native Button with FocusableWhenDisabled whose
+    consumer click handler disables it, as a loading state does ("keeps focus and suppresses interactions after
+    becoming disabled").
+*@
+<FixtureContainer Name="button-loading" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ButtonCaseFrame Name="loading" Case="loading">
+        <Button @ref="loadingButton" data-button Disabled="@disabled" FocusableWhenDisabled="true" @onclick="Load">Save</Button>
+    </ButtonCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly ButtonCase loading = new();
+    private Button? loadingButton;
+    private bool disabled;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Button?> Buttons => [loadingButton];
+
+    private void Load(MouseEventArgs e)
+    {
+        loading.Click(e);
+        disabled = true;
+    }
+}

@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures
+
+@*
+    One case of a Button fixture (tests/browser/button.spec.ts): the counts of ButtonCase as data attributes, and a
+    native button before and after the case so a spec can focus the one before and press Tab.
+*@
+<div data-case="@Name"
+     data-clicks="@Case.Clicks"
+     data-mousedowns="@Case.MouseDowns"
+     data-pointerdowns="@Case.PointerDowns"
+     data-keydowns="@Case.KeyDowns"
+     data-keyups="@Case.KeyUps"
+     data-mousemoves="@Case.MouseMoves"
+     data-substitute-clicks="@Case.SubstituteClicks"
+     data-ancestor-clicks="@Case.AncestorClicks"
+     data-last-click="@Case.LastClick">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+    <button type="button" data-after>After</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required ButtonCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

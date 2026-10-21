@@ -1,0 +1,33 @@
+@namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures
+@using Blazix.Primitives
+@inherits ButtonFixtureBase
+@inject NavigationManager Navigation
+
+@*
+    The `button-link` fixture (tests/browser/button.spec.ts): a non-native Button rendered as an `<a href>` through
+    Render, with the consumer's click counted. The tall spacer makes the page scrollable, so a Space that was not
+    default-prevented would scroll it.
+*@
+<FixtureContainer Name="button-link" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ButtonCaseFrame Name="link" Case="link">
+        <Button @ref="linkButton" NativeButton="false" @onclick="link.Click">
+            <Render><a href="@LinkHref" data-button></a></Render>
+            <ChildContent>Go</ChildContent>
+        </Button>
+    </ButtonCaseFrame>
+
+    <div style="height: 3000px" aria-hidden="true"></div>
+</FixtureContainer>
+
+@code {
+    private readonly ButtonCase link = new();
+    private Button? linkButton;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Button?> Buttons => [linkButton];
+
+    // An absolute URL: the host's <base href="/"> would resolve a bare fragment against the site root.
+    private string LinkHref => $"{new Uri(Navigation.Uri).GetLeftPart(UriPartial.Path)}#target";
+}
