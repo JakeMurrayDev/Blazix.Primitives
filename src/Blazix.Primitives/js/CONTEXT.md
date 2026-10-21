@@ -27,11 +27,20 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
     - `batch` runs the completions ready in one microtask in one flush;
     - a missing element never completes;
     - the callback runs synchronously when `getAnimations` is missing or `globalThis.BASE_UI_ANIMATIONS_DISABLED` is set, read at each wait.
-  - `createTransitionMachine(initial, { enableIdleState, deferEndingState }, onCommit)`, Base UI's `useTransitionStatus`: the evaluation step, then the three frame steps, each re-armed only when its dependencies change.
-  - `createRevealController`: the `beforematch` listener with the `reveal` decision point (fallback `run`) and the revert after a 0 ms task and a frame.
+  - `evaluateTransition(state, deferEndingState)`: the evaluation step, a pure function. Its C# twin is `Interop/TransitionStatusRules.Evaluate`; one case table, `test-support/transition-evaluation.cases.json`, is read by the L3 and the L1 tests.
+  - `createTransitionMachine(initial, { enableIdleState, deferEndingState }, onCommit)`, Base UI's `useTransitionStatus`: the evaluation step, then the three frame steps, each re-armed only when its dependencies change. `onCommit` is the per-pass hook a component module adds its own pass to.
+  - `createTransitionAttributes(element)`: the diff writer of the two attributes.
+  - `createHiddenController(element)`: `hidden="until-found"` on a change to hidden, the boolean-to-literal rewrite before paint, and the convergent boolean `hidden` at exit end.
+  - `observeOpenInput(element, selector, onChange)`: the open input read from the attributes C# renders, in the `MutationObserver` microtask after the render batch, before paint.
+  - `createRevealController(element, { open, request })`: the `beforematch` listener with the `reveal` decision point (fallback `run`, `consumeSkip()` for the opening pass). The revert runs after a 0 ms task and a frame when the request ran inside the dispatch (WebAssembly), and after C#'s answer and a frame otherwise (Server).
+  - These factories are what the `collapsible` component module composes with `dom`'s reads. That module is built by the Collapsible track: the orchestrator placed the measurement passes there under the placement rule. This module stays Collapsible-unaware.
   - Its `attach`: the animated part's handle.
     - It starts from the `status` and `mounted` C# rendered (the handover) and is from then on the only writer of `data-starting-style` and `data-ending-style`. Each is written only when its value changes, as a renderer diffs.
-    - Reports: `OnStatusChange` (status literal and mounted, once per change), `OnTransitionComplete` (`open: false` when an exit finished, standing for the mounted and status change; `open: true` for an enter when `reportOpenComplete`) and `OnRevealRequest` (when no C# chain ran inside the dispatch).
+    - With `openSelector` set, the open input is read from the DOM after every batch. A late `update` cannot reopen a part a newer batch closed. Without it, the input is `update`'s `open`.
+    - Reports:
+      - `OnStatusChange`: status literal and mounted, once per change;
+      - `OnTransitionComplete`: `open: false` when an exit finished, standing for the mounted and status change; `open: true` for an enter when `reportOpenComplete`;
+      - the invocation `OnRevealRequest`: when no C# chain ran inside the dispatch; it resolves with whether the part is open after the request.
     - Exit end, in the completion pass: it removes `data-ending-style` and sets `hidden` on an element C# is about to remove or hide, which is the convergent write.
     - `hidden="until-found"` while hidden, the persisted `data-starting-style` while hidden, a `MutationObserver` that turns a boolean `hidden` C# renders into the literal before paint, and no `hidden` while open.
     - `unmountRequests` lets C# end an exit it learned of elsewhere; a request that arrives after a reopen is dropped.
@@ -55,10 +64,11 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
     - TRN-ANI-03/09/10 relaxed, with the removal landing about two round trips after the exit on Server and the convergent `hidden` set at exit end meanwhile;
     - RND-STA-01 for the mirrored `transitionStatus`.
   - ADR 06 §1 (the synchronous path at L3) and §2 (the `BASE_UI_ANIMATIONS_DISABLED` switch).
-  - Open on 2026-10-21, in the track 5 note of the shared notes:
-    - who writes `data-starting-style` in the opening commit of an already-attached element on Server (TRN-STA-03; today the input arrives with `update`);
-    - the Server timing of the reveal revert;
-    - where the Collapsible measurement passes live.
+  - Port decisions of 2026-10-21 (track 5 design points), each in its own commits so it can be replaced:
+    - The open input of an attached element is read from the applied batch through `openSelector` (TRN-STA-03..10 on Server; ADR 01 decision 4's "post-commit, pre-paint, DOM-only work" row). The evaluation step exists in both languages, pinned by the shared case table.
+    - `beforematch` is the decision point `reveal`, fallback `run`, whose Server revert waits for C#'s answer plus a frame (TRN-ANI-33/34).
+    - Both were proposed to the user by the orchestrator; the ADR 01 and ADR 04 notes follow the user's answer.
+    - The measurement passes live in a `collapsible` component module (decided by the orchestrator under the placement rule).
 - `initializer.ts`, `build.mjs`: ADR 04 §4, ADR 07 (the Floating UI licence banner).
 
 ## Toolchain rules

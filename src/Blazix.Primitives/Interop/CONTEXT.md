@@ -22,13 +22,16 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
     - the values the element was rendered with, read on `attach` only: `Mounted`, and `Status` as a `TransitionStatus?` travelling as the literal `starting`, `ending`, `idle` or nothing;
     - the machine options `EnableIdleState` and `DeferEndingState`, fixed per part;
     - `KeepMounted`, `HiddenUntilFound`, `HiddenWhenUnmounted` (a container is hidden at exit end; an indicator is not), `SuppressEndingStyle` (a kept element plays no exit), `ReportOpenComplete`, `RevealOnBeforeMatch`, and `UnmountRequests` (a count C# raises to end an exit itself);
+    - `OpenSelector`, the selector the element matches while rendered open (`[data-open]`, `[data-panel-open]`, `:not([aria-hidden])`): when set, the module reads the open input from the DOM after every render, before paint;
     - `Style`, applied only when set.
   - There is no `AnimateInitialOpen` field: C# renders the initial status and sends it as `Status`.
   - Events, each raised once per message:
     - `StatusChanged` (`TransitionStatusChange(TransitionStatus? Status, bool Mounted)`);
-    - `TransitionCompleted` (`false` for an exit, after which the element is unmounted and its status unset; `true` for an enter);
-    - `RevealRequested` (the `beforematch` `EventSnapshot`, sent when no C# chain ran inside the dispatch).
-  - `RevealDecider` (`Func<EventSnapshot, DecisionPolicy>`) is the C# chain of the decision point `reveal`: it requests the open and returns `Stop` when the request was canceled. It runs on WebAssembly only; elsewhere the module applies `run`.
+    - `TransitionCompleted` (`false` for an exit, after which the element is unmounted and its status unset; `true` for an enter).
+  - The reveal:
+    - `RevealDecider` (`Func<EventSnapshot, DecisionPolicy>`) is the C# chain of the decision point `reveal`: it requests the open and returns `Stop` when the request was canceled. It runs on WebAssembly only, inside the dispatch.
+    - Elsewhere the module applies `run` and invokes `OnRevealRequest`, which returns `Task<bool>`: the answer of `RevealRequestHandler` (`Func<EventSnapshot, ValueTask<bool>>`), whether the part is open once the request ran. The module re-collapses the element a frame after a `false` answer.
+- `TransitionStatusRules` (`Initial(open, enableIdleState, animateInitialOpen)` and `Evaluate(open, mounted, status, deferEndingState)`, both returning `(bool Mounted, TransitionStatus? Status)`): the C# half of the machine. It covers a part's first render and the render that applies a new open state. The `transitions` module runs the same evaluation step for an attached element; `js/test-support/transition-evaluation.cases.json` tests both.
 - `TransitionStatus` (`public enum TransitionStatus { Starting, Ending, Idle }`, namespace `Blazix.Primitives`, file `TransitionStatus.cs` beside its first consumer): a part declares `[property: MirroredField] TransitionStatus? TransitionStatus`, `null` being the unset status.
 - A part owns its twin: a callback carries no element key, so one twin attached to several elements cannot tell their reports apart. `dom` and `button` own no style property, so their options leave `Style` unset and the part keeps rendering its style; `transitions` applies `Style` only when a part hands its style over.
 - The shared enums these literals become (`InteractionType`, Avatar's `ImageLoadingStatus`) arrive with their first part; the twins pass the literals until then. `TransitionStatus` arrived with its twin (track 5).
@@ -39,8 +42,9 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
 - `TwinBase`, `TwinHandle`: ADR 04 §3 (contract, decision points), ADR 06 Amendments 2026-10-18 rule 2 (idempotent attach and dispose), ADR 08 §3 (`<Module>Twin`), ADR 01 decision 1 (the synchronous invoke serves decisions only), ADR 02 decision 1 (attach by generated id under a substitute callback).
 - `TwinOptions`: ADR 04 §3 and Amendments 2026-10-18 (handover at attach).
 - `DecisionPolicy`: ADR 04 §3 and ADR 01's relaxation table (the fallback per decision point).
-- `TransitionsTwin`, `TransitionsOptions`, the transitions payloads, `TransitionStatus`:
-  - ADR 04 §1 (transitions row), §2 (mirrored `transitionStatus`; the convergent `hidden`), §3 (decision point `reveal`, fallback `run`, open with the orchestrator) and Amendments 2026-10-18 (handover at attach);
+- `TransitionsTwin`, `TransitionsOptions`, the transitions payloads, `TransitionStatus`, `TransitionStatusRules`:
+  - ADR 04 §1 (transitions row), §2 (mirrored `transitionStatus`; the convergent `hidden`), §3 (decision point `reveal`, fallback `run`, and its Server answer: track 5 design point 2, put to the user) and Amendments 2026-10-18 (handover at attach);
+  - `OpenSelector` and `TransitionStatusRules`: track 5 design point 1, option B (put to the user); ADR 01 decision 2 (the evaluation step in both languages, one case table) and decision 4 ("post-commit, pre-paint, DOM-only work");
   - ADR 08 §3 (Enums row; Amendments 2026-10-21);
   - TRN-API-07, TRN-STA-01, TRN-ANI-03, TRN-ALG-04/05/07, TRN-EVT-09, COL-EDGE-09;
   - ADR 01 relaxation table: TRN-ANI-03/09/10, RND-STA-01 for mirrored fields, TRN-STA-04/05/07/09 met on both modes.
