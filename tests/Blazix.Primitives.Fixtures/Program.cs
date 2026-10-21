@@ -7,6 +7,9 @@ var builder = WebApplication.CreateBuilder(args);
 // The harness (ADR 06 §2, ADR 09 §1): one session per circuit with its fake TimeProvider and captured diagnostics.
 builder.Services.AddFixtureHarness(builder.Logging);
 
+// The services a consumer's Program.cs registers for the library's parts (the first fixture that renders a part needs them).
+builder.Services.AddBlazixPrimitives();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     // Short keep-alive so ADR-06/2 (issue 14) can watch a circuit outlive the SignalR timeout within one test; the

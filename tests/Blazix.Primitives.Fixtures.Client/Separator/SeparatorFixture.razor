@@ -1,0 +1,20 @@
+@using Blazix.Primitives
+
+@*
+    The `separator-showcase` fixture (tests/browser/separator.spec.ts): a horizontal separator, a vertical one and one whose
+    consumer attributes replace the built-in role and aria-orientation. The stylesheet draws all three from
+    data-orientation alone, as a consumer's would.
+*@
+<FixtureContainer Name="separator-showcase">
+    <style>
+        [data-case][data-orientation="horizontal"] { height: 1px; margin: 1rem 0; background: currentColor; }
+        [data-case][data-orientation="vertical"] { display: inline-block; width: 1px; height: 2rem; margin: 0 1rem; vertical-align: middle; background: currentColor; }
+    </style>
+
+    <p>Above</p>
+    <Separator data-case="horizontal" />
+    <p>Between</p>
+    <Separator data-case="vertical" Orientation="Orientation.Vertical" />
+    <Separator data-case="override" role="presentation" aria-orientation="vertical" />
+    <p>Below</p>
+</FixtureContainer>
