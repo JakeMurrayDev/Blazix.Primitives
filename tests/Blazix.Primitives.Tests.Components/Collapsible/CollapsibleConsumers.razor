@@ -1,0 +1,51 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of CollapsibleRoot.test.tsx: a controlled collapsible that applies its own requests ("controlled trigger
+    presses request open and close state changes"), one toggled from outside ("controlled mode"), and a root whose panel
+    the test mounts and unmounts ("unregisters and restores the generated panel id when the panel remounts").
+*@
+@if (Mode == ConsumerMode.Applying)
+{
+    <CollapsibleRoot Open="open" OnOpenChange="args => open = args.Value">
+        <CollapsibleTrigger>trigger</CollapsibleTrigger>
+        <CollapsiblePanel data-panel KeepMounted="KeepMounted">This is panel content</CollapsiblePanel>
+    </CollapsibleRoot>
+}
+else if (Mode == ConsumerMode.External)
+{
+    <CollapsibleRoot Open="open">
+        <CollapsibleTrigger>trigger</CollapsibleTrigger>
+        <CollapsiblePanel data-panel>This is panel content</CollapsiblePanel>
+    </CollapsibleRoot>
+    <button type="button" data-external @onclick="() => open = !open">toggle</button>
+}
+else
+{
+    <CollapsibleRoot DefaultOpen="true">
+        <CollapsibleTrigger />
+        @if (PanelMounted)
+        {
+            <CollapsiblePanel data-testid="panel" />
+        }
+    </CollapsibleRoot>
+}
+
+@code {
+    private bool open;
+
+    public enum ConsumerMode
+    {
+        Applying,
+        External,
+        Remount,
+    }
+
+    [Parameter]
+    public ConsumerMode Mode { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public bool PanelMounted { get; set; } = true;
+}

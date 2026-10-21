@@ -1,0 +1,116 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-reattach` fixture (tests/browser/collapsible.spec.ts): CollapsiblePanel.test.tsx "React.Activity"
+    (COL-ANI-20). Blazor has no Activity: "toggle activity" sets the panel's Enabled, so the element goes away and the
+    module is disposed while the part and its state stay; showing it again renders a new element and attaches again.
+*@
+<FixtureContainer Name="collapsible-reattach" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        .transition-test-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            transition: height 100ms linear;
+        }
+
+        .transition-test-panel[data-starting-style],
+        .transition-test-panel[data-ending-style] {
+            height: 0;
+        }
+
+        @@keyframes panel-slide-down {
+            from {
+                height: 0;
+            }
+
+            to {
+                height: var(--collapsible-panel-height);
+            }
+        }
+
+        .animation-test-panel[data-open] {
+            overflow: hidden;
+            animation: panel-slide-down 100ms linear;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="transition-initially-open" Case="transitionInitial">
+        <button type="button" data-external @onclick="() => transitionInitialVisible = !transitionInitialVisible">toggle activity</button>
+        <CollapsibleRoot @ref="transitionInitialRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="transitionInitialTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="transitionInitialPanel" Enabled="transitionInitialVisible" class="transition-test-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="transition-user-opened" Case="transitionUser">
+        <button type="button" data-external @onclick="() => transitionUserVisible = !transitionUserVisible">toggle activity</button>
+        <CollapsibleRoot @ref="transitionUserRoot" data-root>
+            <CollapsibleTrigger @ref="transitionUserTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="transitionUserPanel" Enabled="transitionUserVisible" class="transition-test-panel" data-panel KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="keyframes-initially-open" Case="keyframesInitial">
+        <button type="button" data-external @onclick="() => keyframesInitialVisible = !keyframesInitialVisible">toggle activity</button>
+        <CollapsibleRoot @ref="keyframesInitialRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="keyframesInitialTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="keyframesInitialPanel" Enabled="keyframesInitialVisible" class="animation-test-panel" data-panel KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="keyframes-user-opened" Case="keyframesUser">
+        <button type="button" data-external @onclick="() => keyframesUserVisible = !keyframesUserVisible">toggle activity</button>
+        <CollapsibleRoot @ref="keyframesUserRoot" data-root>
+            <CollapsibleTrigger @ref="keyframesUserTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="keyframesUserPanel" Enabled="keyframesUserVisible" class="animation-test-panel" data-panel KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="inline-keyframes-user-opened" Case="inlineUser">
+        <button type="button" data-external @onclick="() => inlineUserVisible = !inlineUserVisible">toggle activity</button>
+        <CollapsibleRoot @ref="inlineUserRoot" data-root>
+            <CollapsibleTrigger @ref="inlineUserTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="inlineUserPanel" Enabled="inlineUserVisible" data-panel KeepMounted="true" style="animation-duration: 100ms; animation-name: panel-slide-down; animation-timing-function: linear; overflow: hidden">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase transitionInitial = new();
+    private readonly CollapsibleCase transitionUser = new();
+    private readonly CollapsibleCase keyframesInitial = new();
+    private readonly CollapsibleCase keyframesUser = new();
+    private readonly CollapsibleCase inlineUser = new();
+    private bool transitionInitialVisible = true;
+    private bool transitionUserVisible = true;
+    private bool keyframesInitialVisible = true;
+    private bool keyframesUserVisible = true;
+    private bool inlineUserVisible = true;
+    private CollapsibleRoot? transitionInitialRoot;
+    private CollapsibleTrigger? transitionInitialTrigger;
+    private CollapsiblePanel? transitionInitialPanel;
+    private CollapsibleRoot? transitionUserRoot;
+    private CollapsibleTrigger? transitionUserTrigger;
+    private CollapsiblePanel? transitionUserPanel;
+    private CollapsibleRoot? keyframesInitialRoot;
+    private CollapsibleTrigger? keyframesInitialTrigger;
+    private CollapsiblePanel? keyframesInitialPanel;
+    private CollapsibleRoot? keyframesUserRoot;
+    private CollapsibleTrigger? keyframesUserTrigger;
+    private CollapsiblePanel? keyframesUserPanel;
+    private CollapsibleRoot? inlineUserRoot;
+    private CollapsibleTrigger? inlineUserTrigger;
+    private CollapsiblePanel? inlineUserPanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        transitionInitialRoot, transitionInitialTrigger, transitionInitialPanel, transitionUserRoot, transitionUserTrigger, transitionUserPanel,
+        keyframesInitialRoot, keyframesInitialTrigger, keyframesInitialPanel, keyframesUserRoot, keyframesUserTrigger, keyframesUserPanel,
+        inlineUserRoot, inlineUserTrigger, inlineUserPanel,
+    ];
+}

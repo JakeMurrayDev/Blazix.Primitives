@@ -1,0 +1,26 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+
+@*
+    One case of a Collapsible fixture (tests/browser/collapsible.spec.ts): the OnOpenChange record as data attributes, and a
+    native button before the case so a spec can focus it and press Tab.
+*@
+<div data-case="@Name"
+     data-calls="@Case.Calls"
+     data-last-open="@Case.LastOpen"
+     data-last-reason="@Case.LastReason"
+     data-last-event="@Case.LastEvent"
+     data-last-trigger="@Case.LastTrigger">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required CollapsibleCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

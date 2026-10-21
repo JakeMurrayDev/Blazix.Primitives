@@ -8,12 +8,24 @@ namespace Blazix.Primitives.Tests.Lints;
 /// <remarks>
 /// A family's pull request adds its entries when it adds the part, the state record and the twin options that carry the
 /// value. The <c>[MirroredField]</c> properties of the library's <c>[PartState]</c> records are cross-checked: each one
-/// must be named by an entry's <c>StateField</c>. No family has a folder yet, so the list is empty and the lint skips every
-/// document.
+/// must be named by an entry's <c>StateField</c>.
 /// </remarks>
 internal static class OwnershipRegistry
 {
     /// <summary>Gets the entries written by hand.</summary>
     /// <value>The registry; entries for a family without a folder under <c>src/Blazix.Primitives/</c> are ignored.</value>
-    public static IReadOnlyList<RegistryEntry> Declared { get; } = [];
+    public static IReadOnlyList<RegistryEntry> Declared { get; } =
+    [
+        // Collapsible (M1 track 6): the transitions module on the Root and Trigger, the collapsible module on the Panel.
+        new("collapsible", "Root", "data-starting-style", Writer.Js, "CollapsibleRootState.TransitionStatus"),
+        new("collapsible", "Root", "data-ending-style", Writer.Js, "CollapsibleRootState.TransitionStatus"),
+        new("collapsible", "Trigger", "data-starting-style", Writer.Js, "CollapsibleTriggerState.TransitionStatus"),
+        new("collapsible", "Trigger", "data-ending-style", Writer.Js, "CollapsibleTriggerState.TransitionStatus"),
+        new("collapsible", "Panel", "data-starting-style", Writer.Js, "CollapsiblePanelState.TransitionStatus"),
+        new("collapsible", "Panel", "data-ending-style", Writer.Js, "CollapsiblePanelState.TransitionStatus"),
+        // The `C# (boolean); JS ("until-found")` cell names no attribute in either note, so the lint reads it as JS.
+        new("collapsible", "Panel", "hidden", Writer.Js),
+        new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
+        new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
+    ];
 }

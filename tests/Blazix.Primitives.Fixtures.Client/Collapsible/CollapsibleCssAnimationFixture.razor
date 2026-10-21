@@ -1,0 +1,107 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-css-animation` fixture (tests/browser/collapsible.spec.ts): CollapsiblePanel.test.tsx "CSS
+    animations", one case per Base UI test (the render-function case is in `collapsible-render-function`).
+*@
+<FixtureContainer Name="collapsible-css-animation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes panel-slide-down {
+            from {
+                height: 0;
+            }
+
+            to {
+                height: var(--collapsible-panel-height);
+            }
+        }
+
+        @@keyframes panel-slide-up {
+            from {
+                height: var(--collapsible-panel-height);
+            }
+
+            to {
+                height: 0;
+            }
+        }
+
+        .animation-test-panel[data-open] {
+            overflow: hidden;
+            animation: panel-slide-down 100ms linear;
+        }
+
+        .close-reopen-panel[data-open] {
+            overflow: hidden;
+            animation: panel-slide-down 100ms linear;
+        }
+
+        .close-reopen-panel[data-closed] {
+            overflow: hidden;
+            animation: panel-slide-up 100ms linear;
+        }
+
+        .closing-animation-panel[data-closed] {
+            overflow: hidden;
+            animation: panel-slide-up 100ms linear;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="initially-open" Case="initiallyOpen">
+        <CollapsibleRoot @ref="initiallyOpenRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="initiallyOpenTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="initiallyOpenPanel" class="animation-test-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="close-reopen" Case="closeReopen">
+        <CollapsibleRoot @ref="closeReopenRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="closeReopenTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="closeReopenPanel" class="close-reopen-panel" data-panel KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="closing-keyframe" Case="closingKeyframe">
+        <CollapsibleRoot @ref="closingKeyframeRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="closingKeyframeTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="closingKeyframePanel" class="closing-animation-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="only-open-keyframes" Case="onlyOpenKeyframes">
+        <CollapsibleRoot @ref="onlyOpenRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="onlyOpenTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="onlyOpenPanel" class="animation-test-panel" data-panel KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase initiallyOpen = new();
+    private readonly CollapsibleCase closeReopen = new();
+    private readonly CollapsibleCase closingKeyframe = new();
+    private readonly CollapsibleCase onlyOpenKeyframes = new();
+    private CollapsibleRoot? initiallyOpenRoot;
+    private CollapsibleTrigger? initiallyOpenTrigger;
+    private CollapsiblePanel? initiallyOpenPanel;
+    private CollapsibleRoot? closeReopenRoot;
+    private CollapsibleTrigger? closeReopenTrigger;
+    private CollapsiblePanel? closeReopenPanel;
+    private CollapsibleRoot? closingKeyframeRoot;
+    private CollapsibleTrigger? closingKeyframeTrigger;
+    private CollapsiblePanel? closingKeyframePanel;
+    private CollapsibleRoot? onlyOpenRoot;
+    private CollapsibleTrigger? onlyOpenTrigger;
+    private CollapsiblePanel? onlyOpenPanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        initiallyOpenRoot, initiallyOpenTrigger, initiallyOpenPanel, closeReopenRoot, closeReopenTrigger, closeReopenPanel,
+        closingKeyframeRoot, closingKeyframeTrigger, closingKeyframePanel, onlyOpenRoot, onlyOpenTrigger, onlyOpenPanel,
+    ];
+}
