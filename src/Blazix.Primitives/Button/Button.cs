@@ -28,7 +28,8 @@ public static class ButtonDataAttributes
 //
 // Base UI merges the consumer's props *before* the mechanism (`[elementProps, getButtonProps]`, BTN-DOM-05), so the
 // mechanism gates the consumer's click, mousedown, pointerdown, keydown and keyup handlers (UBT-EVT-01/03). The
-// pipeline merges the consumer after the part, so the part withholds those entries from the bag it hands the pipeline:
+// pipeline merges the consumer after the part, so the part declines those handlers (ForwardsConsumerHandler, ADR 02
+// Amendments 2026-10-21) and the pipeline leaves them off the element:
 // - while disabled, all five, so Blazor has nothing to invoke (the module default-prevents click and pointerdown);
 // - always, keydown and keyup, which the part runs itself from its own handler. On WebAssembly the module's activation
 //   decision point runs the consumer's key handler synchronously inside the dispatch (ADR 04 §3; a
@@ -36,7 +37,7 @@ public static class ButtonDataAttributes
 //   that one dispatch so the consumer's handler runs once. On Server the decision falls back to `run` (ADR 01
 //   relaxation table, BTN-KEY-01) and the part handler always runs the consumer's.
 // Every other handler is forwarded unchanged (UBT-PTR-04), and a substitute element's own handlers are not gated
-// (RND §2.1 row 5). The withheld bag is one dictionary per part, refilled on each parameter set (ADR 16 rule 7).
+// (RND §2.1 row 5).
 /// <summary>
 /// Represents a button that runs an action: Base UI's <c>Button</c>, rendered as a <c>button</c>. It can be replaced by
 /// another element through <see cref="PartBase{TState}.Render"/> while keeping button semantics, and can stay focusable
@@ -51,10 +52,8 @@ public sealed class Button : PartBase<ButtonState>
 
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
-    private IReadOnlyDictionary<string, object>? consumerBag;
-    private Dictionary<string, object>? withheldBag;
-    private object? consumerKeyDown;
-    private object? consumerKeyUp;
+    private AttributeValue consumerKeyDown;
+    private AttributeValue consumerKeyUp;
     private DecidedKey? decidedKeyDown;
     private DecidedKey? decidedKeyUp;
     private ButtonTwin? twin;
@@ -131,7 +130,7 @@ public sealed class Button : PartBase<ButtonState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        WithholdGatedHandlers();
+        FindConsumerKeyHandlers();
     }
 
     /// <inheritdoc />
@@ -212,16 +211,22 @@ public sealed class Button : PartBase<ButtonState>
 
         if (!Disabled)
         {
-            if (consumerKeyDown is not null)
+            if (consumerKeyDown.IsHandler)
             {
                 attributes.Set("onkeydown", onKeyDown);
             }
 
-            if (consumerKeyUp is not null)
+            if (consumerKeyUp.IsHandler)
             {
                 attributes.Set("onkeyup", onKeyUp);
             }
         }
+    }
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName)
+    {
+        return !(IsKeyDown(eventName) || IsKeyUp(eventName) || (Disabled && IsGated(eventName)));
     }
 
     private static bool IsGated(string name)
@@ -267,67 +272,39 @@ public sealed class Button : PartBase<ButtonState>
 
     private void ReportNativeButtonMismatch(bool expectedNative) => DevelopmentLog.ReportNativeButtonMismatch(Logger, expectedNative);
 
-    // Withholds the gated entries of the consumer's bag (see the comment on the class) into the part's own dictionary.
-    // A parameter set that brings no unmatched attribute leaves the property as it was, so the consumer's own bag is kept
-    // to filter again when only Disabled changed.
-    private void WithholdGatedHandlers()
+    // The consumer's key handlers, which the part declines and runs itself (see the comment on the class).
+    private void FindConsumerKeyHandlers()
     {
-        consumerKeyDown = null;
-        consumerKeyUp = null;
-        IReadOnlyDictionary<string, object>? bag = AdditionalAttributes;
-        if (ReferenceEquals(bag, withheldBag))
-        {
-            bag = consumerBag;
-        }
-
-        consumerBag = bag;
-        if (bag is null)
+        consumerKeyDown = default;
+        consumerKeyUp = default;
+        if (AdditionalAttributes is null)
         {
             return;
         }
 
-        bool withhold = false;
-        foreach (KeyValuePair<string, object> pair in bag)
+        foreach (KeyValuePair<string, object> pair in AdditionalAttributes)
         {
-            if (pair.Value is string)
+            bool keyDown = IsKeyDown(pair.Key);
+            if (!keyDown && !IsKeyUp(pair.Key))
             {
                 continue;
             }
 
-            if (IsKeyDown(pair.Key))
+            AttributeValue value = AttributeValue.FromObject(pair.Value);
+            if (!MergeProps.IsHandler(pair.Key, value))
             {
-                consumerKeyDown = pair.Value;
-                withhold = true;
+                continue;
             }
-            else if (IsKeyUp(pair.Key))
+
+            if (keyDown)
             {
-                consumerKeyUp = pair.Value;
-                withhold = true;
+                consumerKeyDown = value;
             }
-            else if (Disabled && IsGated(pair.Key))
+            else
             {
-                withhold = true;
+                consumerKeyUp = value;
             }
         }
-
-        if (!withhold)
-        {
-            AdditionalAttributes = bag;
-            return;
-        }
-
-        withheldBag ??= new Dictionary<string, object>(bag.Count, StringComparer.Ordinal);
-        withheldBag.Clear();
-        foreach (KeyValuePair<string, object> pair in bag)
-        {
-            bool gated = pair.Value is not string && (IsKeyDown(pair.Key) || IsKeyUp(pair.Key) || (Disabled && IsGated(pair.Key)));
-            if (!gated)
-            {
-                withheldBag[pair.Key] = pair.Value;
-            }
-        }
-
-        AdditionalAttributes = withheldBag;
     }
 
     // The activation decision point, on WebAssembly only (ButtonTwin.ActivationDecider): the consumer's key handler
@@ -335,8 +312,8 @@ public sealed class Button : PartBase<ButtonState>
     private DecisionPolicy Decide(EventSnapshot snapshot)
     {
         bool keyUp = string.Equals(snapshot.Type, "keyup", StringComparison.Ordinal);
-        object? consumer = keyUp ? consumerKeyUp : consumerKeyDown;
-        if (consumer is null || Disabled)
+        AttributeValue consumer = keyUp ? consumerKeyUp : consumerKeyDown;
+        if (!consumer.IsHandler || Disabled)
         {
             return DecisionPolicy.Run;
         }
@@ -364,7 +341,7 @@ public sealed class Button : PartBase<ButtonState>
         try
         {
             // Only the synchronous part of the handler can veto; an asynchronous rest runs on (ADR 04 §3).
-            Task task = AttributeValue.FromObject(consumer).InvokeAsync(args);
+            Task task = consumer.InvokeAsync(args);
             if (!task.IsCompleted)
             {
                 _ = ObserveAsync(task);
@@ -398,17 +375,17 @@ public sealed class Button : PartBase<ButtonState>
 
     private Task HandleKeyUpAsync(KeyboardEventArgs e) => RunConsumerKeyHandlerAsync(e, consumerKeyUp, ref decidedKeyUp);
 
-    private Task RunConsumerKeyHandlerAsync(KeyboardEventArgs e, object? consumer, ref DecidedKey? decided)
+    private Task RunConsumerKeyHandlerAsync(KeyboardEventArgs e, AttributeValue consumer, ref DecidedKey? decided)
     {
         // The decider already ran the consumer's handler for the event Blazor dispatches now.
         DecidedKey? pending = decided;
         decided = null;
-        if (consumer is null || Disabled || (pending is { } key && key == DecidedKey.From(e)))
+        if (!consumer.IsHandler || Disabled || (pending is { } key && key == DecidedKey.From(e)))
         {
             return Task.CompletedTask;
         }
 
-        return AttributeValue.FromObject(consumer).InvokeAsync(e);
+        return consumer.InvokeAsync(e);
     }
 
     /// <summary>The key event a decision ran the consumer's handler for, matched against Blazor's dispatch of it.</summary>

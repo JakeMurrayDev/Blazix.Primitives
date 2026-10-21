@@ -14,11 +14,12 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ButtonAllocationBudgetTests : IDisposable
 {
-    // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 616 bytes enabled and 584 disabled, against 504 for
-    // SampleRoot given the same bag. The difference is the part's two passes over the unmatched bag through its
-    // interface (the boxed enumerators) when it withholds the key handler; the withheld dictionary is reused.
-    private const long EnabledRerenderBudgetBytes = 616;
-    private const long DisabledRerenderBudgetBytes = 584;
+    // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 616 bytes enabled and 584 disabled with a copied bag;
+    // tightened the same day to 560 and 528 once the part declines handlers through ForwardsConsumerHandler instead,
+    // against 504 for SampleRoot given the same bag. The rest is the part's one pass over the unmatched bag through its
+    // interface (the boxed enumerator) to find the consumer's key handlers.
+    private const long EnabledRerenderBudgetBytes = 560;
+    private const long DisabledRerenderBudgetBytes = 528;
 
     private readonly BunitContext context = new();
 
