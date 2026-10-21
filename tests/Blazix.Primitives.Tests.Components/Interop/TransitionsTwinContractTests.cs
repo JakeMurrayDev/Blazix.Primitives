@@ -43,6 +43,7 @@ public sealed class TransitionsTwinContractTests
             HiddenUntilFound = true,
             HiddenWhenUnmounted = true,
             RevealOnBeforeMatch = true,
+            OpenSelector = "[data-open]",
             Style = "--collapsible-panel-height: auto",
         });
         await attached.UpdateAsync(new TransitionsOptions
@@ -63,7 +64,7 @@ public sealed class TransitionsTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-7", attach.Arguments[0]);
         Assert.Equal(
-            """{"open":true,"mounted":true,"status":"starting","enableIdleState":true,"deferEndingState":true,"keepMounted":true,"hiddenUntilFound":true,"hiddenWhenUnmounted":true,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":true,"unmountRequests":0,"style":"--collapsible-panel-height: auto"}""",
+            """{"open":true,"mounted":true,"status":"starting","enableIdleState":true,"deferEndingState":true,"keepMounted":true,"hiddenUntilFound":true,"hiddenWhenUnmounted":true,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":true,"unmountRequests":0,"openSelector":"[data-open]","style":"--collapsible-panel-height: auto"}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<TransitionsTwin>>(attach.Arguments[2]);
 

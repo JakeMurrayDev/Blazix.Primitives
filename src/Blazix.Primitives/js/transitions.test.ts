@@ -2,6 +2,10 @@
 // observes the module in isolation (useAnimationsFinished.test.tsx, useTransitionStatus.test.tsx); the port's own
 // titles cover the synchronous animations-disabled path (TRN-ANI-15, TRN-EDGE-01/02), the rows Base UI tests only
 // through components, the until-found write, the reveal and the handle's idempotent attach and dispose.
+/// <reference types="node" />
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ENDING_STYLE,
@@ -10,9 +14,11 @@ import {
   attach,
   createAnimationsWatcher,
   createTransitionMachine,
+  evaluateTransition,
   getFiniteAnimations,
   requestFrame,
   resetFrameScheduler,
+  type TransitionStatusLiteral,
   type TransitionsOptions,
 } from './transitions';
 import type { TwinHandle } from './twin';
@@ -101,6 +107,7 @@ const defaults: TransitionsOptions = {
   reportOpenComplete: false,
   revealOnBeforeMatch: false,
   unmountRequests: 0,
+  openSelector: null,
 };
 
 function attachTo(element: HTMLElement, fake: FakeTwin, options: Partial<TransitionsOptions> = {}): TwinHandle {
@@ -584,6 +591,30 @@ describe('useTransitionStatus', () => {
   });
 });
 
+describe('the evaluation step', () => {
+  interface EvaluationCase {
+    name: string;
+    open: boolean;
+    mounted: boolean;
+    status: TransitionStatusLiteral;
+    deferEndingState: boolean;
+    expected: { mounted: boolean; status: TransitionStatusLiteral };
+  }
+
+  // The table the L1 test of the C# rules reads too: the evaluation step exists in both languages. (jsdom's `URL`
+  // does not resolve file URLs, so the path is joined from the module's own path.)
+  const casesPath = join(dirname(fileURLToPath(import.meta.url)), 'test-support', 'transition-evaluation.cases.json');
+  const { cases } = JSON.parse(readFileSync(casesPath, 'utf8')) as {
+    cases: EvaluationCase[];
+  };
+
+  it.each(cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
+    const result = evaluateTransition({ open: c.open, mounted: c.mounted, status: c.status ?? undefined }, c.deferEndingState);
+
+    expect({ mounted: result.mounted, status: result.status ?? null }).toEqual(c.expected);
+  });
+});
+
 // --- the twin-facing entry ---------------------------------------------------------------------------------------
 
 describe('attach', () => {
@@ -852,6 +883,111 @@ describe('attach', () => {
     await flushTasks();
 
     expect(fake.reported('OnTransitionComplete')).toEqual([]);
+  });
+});
+
+describe('the open input from the applied batch', () => {
+  const panel: Partial<TransitionsOptions> = { keepMounted: true, hiddenWhenUnmounted: true, openSelector: '[data-open]' };
+
+  // What Blazor's render batch does to the element: it applies the attributes C# renders, synchronously.
+  function renderOpen(element: HTMLElement, open: boolean) {
+    element.toggleAttribute('data-open', open);
+    element.toggleAttribute('data-closed', !open);
+    element.toggleAttribute('hidden', false);
+  }
+
+  it('writes data-starting-style in the microtask after the batch that opens the part, before any frame', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    element.setAttribute('data-closed', '');
+    element.setAttribute('hidden', '');
+    attachTo(element, fake, panel);
+
+    renderOpen(element, true);
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+    await Promise.resolve();
+
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+    expect(fake.reported('OnStatusChange')).toEqual([{ status: 'starting', mounted: true }]);
+    expect(frames).toHaveLength(1);
+
+    runFrame();
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+  });
+
+  it('writes data-ending-style in the microtask after the batch that closes the part', async () => {
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const fake = createFakeTwin();
+    const element = createElement(() => []);
+    element.setAttribute('data-open', '');
+    attachTo(element, fake, { ...panel, open: true, mounted: true });
+
+    renderOpen(element, false);
+    await Promise.resolve();
+
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+  });
+
+  it('takes the applied DOM over the open of a late update', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    element.setAttribute('data-closed', '');
+    const handle = attachTo(element, fake, panel);
+
+    renderOpen(element, true);
+    await Promise.resolve();
+    update(handle, { ...panel, open: false });
+
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+    expect(fake.reported('OnStatusChange')).toEqual([{ status: 'starting', mounted: true }]);
+  });
+
+  it('reads the selector on attach, when a batch opened the part before the attach arrived', () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    element.setAttribute('data-open', '');
+
+    attachTo(element, fake, { ...panel, open: false, mounted: false });
+
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+    expect(fake.reported('OnStatusChange')).toEqual([{ status: 'starting', mounted: true }]);
+  });
+
+  it('accepts a selector that matches the absence of an attribute', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    element.setAttribute('aria-hidden', 'true');
+    attachTo(element, fake, { keepMounted: true, suppressEndingStyle: true, openSelector: ':not([aria-hidden])' });
+
+    element.removeAttribute('aria-hidden');
+    await Promise.resolve();
+
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+  });
+
+  it('without a selector the open input is the update', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { keepMounted: true });
+
+    renderOpen(element, true);
+    await Promise.resolve();
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+
+    update(handle, { keepMounted: true, open: true });
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+  });
+
+  it('dispose stops reading the batch', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, panel);
+
+    handle.dispose();
+    renderOpen(element, true);
+    await Promise.resolve();
+
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
   });
 });
 

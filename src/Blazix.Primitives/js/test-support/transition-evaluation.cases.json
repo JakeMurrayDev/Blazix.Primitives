@@ -1,0 +1,23 @@
+{
+  "description": "The evaluation step of the transition status machine (TRN-ALG-01, 'on every evaluation'): C# runs it for the render that first shows an element and for its state, the transitions module for an element that is already attached. One table, read by the L1 test of TransitionStatusRules and the L3 test of evaluateTransition. Each case is the state after an input changed, and the state the same commit renders.",
+  "cases": [
+    { "name": "opening while not mounted mounts the part and starts it", "open": true, "mounted": false, "status": null, "deferEndingState": false, "expected": { "mounted": true, "status": "starting" } },
+    { "name": "opening while not mounted starts it with a deferred ending too", "open": true, "mounted": false, "status": null, "deferEndingState": true, "expected": { "mounted": true, "status": "starting" } },
+    { "name": "opening while not mounted starts it over a stale ending", "open": true, "mounted": false, "status": "ending", "deferEndingState": false, "expected": { "mounted": true, "status": "starting" } },
+    { "name": "opening while not mounted starts it over a stale idle", "open": true, "mounted": false, "status": "idle", "deferEndingState": true, "expected": { "mounted": true, "status": "starting" } },
+    { "name": "an open, mounted part keeps the unset status", "open": true, "mounted": true, "status": null, "deferEndingState": false, "expected": { "mounted": true, "status": null } },
+    { "name": "an open, mounted part keeps starting", "open": true, "mounted": true, "status": "starting", "deferEndingState": false, "expected": { "mounted": true, "status": "starting" } },
+    { "name": "an open, mounted part keeps idle", "open": true, "mounted": true, "status": "idle", "deferEndingState": true, "expected": { "mounted": true, "status": "idle" } },
+    { "name": "a reopen during the exit does not start again", "open": true, "mounted": true, "status": "ending", "deferEndingState": false, "expected": { "mounted": true, "status": "ending" } },
+    { "name": "closing while mounted ends in the same commit", "open": false, "mounted": true, "status": null, "deferEndingState": false, "expected": { "mounted": true, "status": "ending" } },
+    { "name": "closing while mounted and idle ends in the same commit", "open": false, "mounted": true, "status": "idle", "deferEndingState": false, "expected": { "mounted": true, "status": "ending" } },
+    { "name": "closing during the starting phase ends in the same commit", "open": false, "mounted": true, "status": "starting", "deferEndingState": false, "expected": { "mounted": true, "status": "ending" } },
+    { "name": "closing with a deferred ending keeps idle in the closing commit", "open": false, "mounted": true, "status": "idle", "deferEndingState": true, "expected": { "mounted": true, "status": "idle" } },
+    { "name": "closing with a deferred ending keeps starting in the closing commit", "open": false, "mounted": true, "status": "starting", "deferEndingState": true, "expected": { "mounted": true, "status": "starting" } },
+    { "name": "a closed part that is still mounted keeps ending", "open": false, "mounted": true, "status": "ending", "deferEndingState": true, "expected": { "mounted": true, "status": "ending" } },
+    { "name": "unmounting during the ending phase clears the status", "open": false, "mounted": false, "status": "ending", "deferEndingState": false, "expected": { "mounted": false, "status": null } },
+    { "name": "unmounting during a deferred ending phase clears the status", "open": false, "mounted": false, "status": "ending", "deferEndingState": true, "expected": { "mounted": false, "status": null } },
+    { "name": "a closed, unmounted part keeps the unset status", "open": false, "mounted": false, "status": null, "deferEndingState": false, "expected": { "mounted": false, "status": null } },
+    { "name": "a part unmounted before its deferred ending keeps a stale idle", "open": false, "mounted": false, "status": "idle", "deferEndingState": true, "expected": { "mounted": false, "status": "idle" } }
+  ]
+}
