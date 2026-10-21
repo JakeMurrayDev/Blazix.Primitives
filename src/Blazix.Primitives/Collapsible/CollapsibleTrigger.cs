@@ -8,11 +8,15 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
-// COL-STA-07, §3.2 state object (the root's fields); collapsible/trigger/CollapsibleTrigger.tsx:31,50. Disabled is the
-// trigger's effective value (COL-DOM-05, COL-API-06). TransitionStatus is the root's, mirrored (ADR 04 §2).
+// COL-STA-07, §3.2 state object: the root's state, unchanged (collapsible/trigger/CollapsibleTrigger.tsx:31,50), so
+// Disabled is the root's even when the trigger's own Disabled overrides it for the button (COL-DOM-05 as corrected
+// 2026-10-21, COL-API-06). TransitionStatus is the root's, mirrored (ADR 04 §2).
 /// <summary>Represents the state of a collapsible trigger, which the part exposes as data attributes and passes to its class and style functions.</summary>
 /// <param name="Open">A value indicating whether the panel is open; projected as <c>data-panel-open</c> while open.</param>
-/// <param name="Disabled">A value indicating whether the trigger ignores user interaction; projected as <c>data-disabled</c>.</param>
+/// <param name="Disabled">
+/// A value indicating whether the collapsible ignores user interaction, as its root says; projected as
+/// <c>data-disabled</c>. A trigger's own <c>Disabled</c> changes how its button behaves, not this value.
+/// </param>
 /// <param name="TransitionStatus">
 /// The phase of the panel's enter or exit transition, or <see langword="null"/> while none is in progress; its
 /// <c>data-starting-style</c> and <c>data-ending-style</c> attributes are written by the browser-side behavior.
@@ -115,7 +119,7 @@ public sealed class CollapsibleTrigger : PartBase<CollapsibleTriggerState>
     {
         get
         {
-            bool disabled = EffectiveDisabled;
+            bool disabled = rootDisabled!.Value;
             if (state is null || state.Open != open!.Value || state.Disabled != disabled || state.TransitionStatus != status!.Value)
             {
                 state = new CollapsibleTriggerState(open!.Value, disabled, status!.Value);
