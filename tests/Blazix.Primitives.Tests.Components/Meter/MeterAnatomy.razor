@@ -6,7 +6,7 @@
     a value and a track holding an indicator. The test sets the root's parameters through this component, so a re-render
     reaches the parts as it does in an application (the parent passes new values to the root, the children stay).
 *@
-<MeterRoot Value="Value" Min="Min" Max="Max" Format="Format" Culture="Culture" GetAriaValueText="GetAriaValueText" data-testid="meter">
+<MeterRoot Value="Value" Min="Min" Max="Max" Format="@Format" Culture="Culture" GetAriaValueText="GetAriaValueText" data-testid="meter">
     @if (ShowLabel && LabelId is null)
     {
         <MeterLabel data-testid="label">Battery level</MeterLabel>

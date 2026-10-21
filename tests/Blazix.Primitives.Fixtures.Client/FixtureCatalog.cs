@@ -44,5 +44,6 @@ public static class FixtureCatalog
         ["collapsible-reattach"] = new(typeof(CollapsibleReattachFixture)),
         ["collapsible-hidden-until-found"] = new(typeof(CollapsibleHiddenUntilFoundFixture)),
         ["meter-basic"] = new(typeof(MeterBasicFixture)),
+        ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
     };
 }

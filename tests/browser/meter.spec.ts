@@ -1,4 +1,4 @@
-import { test, expect, gotoFixture } from './helpers';
+import { test, expect, gotoFixture, fixtureUrl } from './helpers';
 
 // docs/components/meter.md has no [L4] row: every row is C#-owned and tested at L2. This spec is the one browser clause the
 // document names (MTR-DOM-03 cites MeterIndicator.test.tsx "sets positioning styles" and "sets zero width when value is 0",
@@ -59,5 +59,19 @@ test.describe('Meter', () => {
 
     await fixture.locator('[data-case="label"] [data-remove-label]').click();
     await expect(meter).not.toHaveAttribute('aria-labelledby');
+  });
+
+  // MTR-EDGE-06 as the port reads it (docs §14): the label publishes while it initializes, in the render that creates it,
+  // so the static response of a prerendered page already carries the root's aria-labelledby, and the page keeps it after
+  // the runtime takes over.
+  test('carries aria-labelledby in the server-rendered markup', async ({ page, mode }) => {
+    const html = await (await page.request.get(fixtureUrl(mode, 'meter-prerender'))).text();
+
+    expect(html).toContain('role="meter"');
+    expect(html).toContain('aria-labelledby="battery-label"');
+    expect(html).toContain('aria-valuetext="42%"');
+
+    const fixture = await gotoFixture(page, mode, 'meter-prerender');
+    await expect(fixture.locator('[data-testid="meter"]')).toHaveAttribute('aria-labelledby', 'battery-label');
   });
 });

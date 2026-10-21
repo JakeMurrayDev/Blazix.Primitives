@@ -14,8 +14,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class MeterAllocationBudgetTests : IDisposable
 {
-    // Set from the first measurement (see the pull request); a re-render that reaches Blazor's own per-render work only.
-    private const long RenderBudgetBytes = 1024;
+    // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 344 bytes, all of it Blazor's own per-render work on this
+    // path (SetParametersAsync, the dispatcher, the diff, and the fixed CascadingValue that carries the context re-setting
+    // its parameters): Separator measures 264 for a part with no child component. The root's derived text, the serialized
+    // numbers, the state and the cascade fragment are reused while the inputs are unchanged, so the root adds nothing.
+    private const long RenderBudgetBytes = 344;
 
     private readonly BunitContext context = new();
 

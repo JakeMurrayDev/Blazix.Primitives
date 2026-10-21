@@ -13,7 +13,10 @@ public sealed class MeterLabelConformanceTests : PartConformanceTests<MeterLabel
 {
     public MeterLabelConformanceTests()
     {
-        Context.RenderTree.Add<MeterRoot>(p => p.Add(x => x.Value, 50));
+        // The label publishes its id to the root, which renders again; bUnit drops the element-reference marker of an element
+        // that renders again, which RND-DOM-44/45 look for. A root with its own aria-labelledby ignores the published id and
+        // renders nothing more (MTR-ARIA-06), so the suite sees the first render of the label.
+        Context.RenderTree.Add<MeterRoot>(p => p.Add(x => x.Value, 50).AddUnmatched("aria-labelledby", "conformance"));
     }
 
     /// <inheritdoc />
