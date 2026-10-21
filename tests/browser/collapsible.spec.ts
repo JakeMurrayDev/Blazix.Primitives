@@ -1,4 +1,4 @@
-import { type ElementHandle, type Locator } from '@playwright/test';
+import { type Locator } from '@playwright/test';
 import { test, expect, fixtureUrl, Fixture, readDiagnostics, type Page, type RenderMode } from './helpers';
 
 // The [L4] rows of docs/components/collapsible.md on the Collapsible parts over the `transitions` module (Root, Trigger)
@@ -6,8 +6,8 @@ import { test, expect, fixtureUrl, Fixture, readDiagnostics, type Page, type Ren
 // collapsible/panel/CollapsiblePanel.test.tsx). Every test runs on both render modes; a row in ADR 01's relaxation table
 // asserts its Server substitute on `server` (§9 "Server relaxations"). Animated fixtures open with `?animations=1`
 // (ADR 06 §2: the host disables the animations watcher otherwise), as Base UI's tests that clear
-// BASE_UI_ANIMATIONS_DISABLED do. No sleeps: a state that holds for a few frames is caught by polling every animation
-// frame in the page (`waitForFrameState`), a lasting one by `expect`.
+// BASE_UI_ANIMATIONS_DISABLED do. No sleeps and no frame counting: a state that lasts a few frames is witnessed by a
+// marker the page records (a mutation record, an `animationstart` or `transitionrun` event), a lasting one by `expect`.
 
 type FixtureName =
   | 'collapsible-basic'
@@ -52,14 +52,51 @@ function collapsibleCase(fixture: Locator, name: string) {
   };
 }
 
+/** One motion event or ending-style change of a panel, with the panel's state when it was recorded. */
+interface MotionRecord {
+  kind: 'animationstart' | 'transitionrun' | 'ending';
+  name: string;
+  open: boolean;
+  closed: boolean;
+  height: string;
+  transitionDuration: string;
+}
+
 /**
- * Waits, polling on every animation frame in the page, until `predicate` holds for the element: for states that last
- * only a few frames (a starting or ending style, a running animation), which `expect`'s interval polling can miss.
+ * Records, from now on, the panel's `animationstart` and `transitionrun` events and each time it gains
+ * `data-ending-style`, each with the panel's state at that moment. A motion that lasts 100 ms can be over before a
+ * per-frame poll runs when the page's main thread is busy (the WebAssembly runtime right after a click), and
+ * `getAnimations()` no longer lists a finished animation; its start event and the attribute's mutation record are still
+ * delivered (ADR 06 §2: wait on markers, never on frame counts).
  */
-async function waitForFrameState(element: Locator, predicate: (element: HTMLElement) => boolean, timeout = 10_000): Promise<void> {
-  const handle = (await element.elementHandle({ timeout })) as ElementHandle<HTMLElement>;
-  // The predicate is serialized as the page function, so it may use only its argument.
-  await element.page().waitForFunction(predicate, handle, { polling: 'raf', timeout });
+async function recordMotion(panel: Locator): Promise<void> {
+  await panel.evaluate((node) => {
+    const element = node as HTMLElement;
+    const records: unknown[] = [];
+    (element as unknown as { motion: unknown[] }).motion = records;
+    const record = (kind: string, name: string) => records.push({
+      kind,
+      name,
+      open: element.hasAttribute('data-open'),
+      closed: element.hasAttribute('data-closed'),
+      height: element.style.getPropertyValue('--collapsible-panel-height'),
+      transitionDuration: element.style.transitionDuration,
+    });
+    element.addEventListener('animationstart', (event) => record('animationstart', (event as AnimationEvent).animationName));
+    element.addEventListener('transitionrun', (event) => record('transitionrun', (event as TransitionEvent).propertyName));
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.oldValue === null && element.hasAttribute('data-ending-style')) {
+          record('ending', '');
+        }
+      }
+    }).observe(element, { attributes: true, attributeOldValue: true, attributeFilter: ['data-ending-style'] });
+  });
+}
+
+/** The records of {@link recordMotion}. */
+function motion(panel: Locator): Promise<MotionRecord[]> {
+  return panel.evaluate((node) => (node as unknown as { motion: MotionRecord[] }).motion);
 }
 
 /**
@@ -389,13 +426,12 @@ test.describe('<Collapsible.Panel />', () => {
       const { trigger, panel } = collapsibleCase(fixture, 'closing');
 
       await expect.poll(() => panel.evaluate((node) => node.style.getPropertyValue('--collapsible-panel-height'))).toBe('auto');
+      await recordMotion(panel);
 
       await trigger.click();
 
-      // Both hold only mid-transition, so check them in one snapshot.
-      await waitForFrameState(panel, (node) =>
-        node.hasAttribute('data-ending-style') && /px$/.test(node.style.getPropertyValue('--collapsible-panel-height')),
-      );
+      // Both hold only mid-transition: the ending style arrives on a panel already holding its measured pixel height.
+      await expect.poll(async () => (await motion(panel)).find((record) => record.kind === 'ending')?.height).toMatch(/px$/);
       await expect(panel).toHaveCount(0);
     });
 
@@ -489,10 +525,27 @@ test.describe('<Collapsible.Panel />', () => {
       await expect(panel).toHaveAttribute('data-open');
       await expect(panel).toHaveAttribute('data-animation-started', 'true');
 
+      // The held size lasts from the closing pass until the close completes a few frames later, so the variable is
+      // recorded on each style mutation until the ending style arrives.
+      await panel.evaluate((node) => {
+        const element = node as HTMLElement;
+        const heights: string[] = [];
+        element.dataset.closeHeights = '';
+        new MutationObserver((mutations, observer) => {
+          heights.push(element.style.getPropertyValue('--collapsible-panel-height'));
+          if (mutations.some((mutation) => mutation.attributeName === 'data-ending-style') && element.hasAttribute('data-ending-style')) {
+            element.dataset.closeHeights = heights.join(',');
+            observer.disconnect();
+          }
+        }).observe(element, { attributes: true, attributeFilter: ['style', 'data-ending-style'] });
+      });
       await trigger.click();
-      await waitForFrameState(panel, (node) => node.hasAttribute('data-closed'));
-      // COL-ANI-17: the open side's completion, which resolved during the close, does not clear the held size.
-      await expect.poll(() => panel.evaluate((node) => node.style.getPropertyValue('--collapsible-panel-height'))).toMatch(/px$/);
+      await expect(panel).toHaveAttribute('data-closed');
+      // COL-ANI-17: the open side's completion, which resolved during the close commit, does not clear the held size:
+      // from the closing pass to the ending style, the variable never goes back to auto.
+      await expect(panel).toHaveAttribute('data-close-heights', /px/);
+      const heights = (await panel.getAttribute('data-close-heights'))!.split(',');
+      expect(heights.slice(heights.findIndex((height) => height.endsWith('px')))).not.toContain('auto');
     });
 
     test('does not restart the entrance transition when a close animation finishes after reopening', async ({ page, mode }) => {
@@ -544,14 +597,15 @@ test.describe('<Collapsible.Panel />', () => {
       const { trigger, panel } = collapsibleCase(fixture, 'close-reopen');
 
       expect(await panel.evaluate((node) => node.getAnimations().length)).toBe(0);
+      await recordMotion(panel);
 
       await trigger.click();
-      // The animation runs only while the panel is closing, so check both in one snapshot.
-      await waitForFrameState(panel, (node) => node.hasAttribute('data-closed') && node.getAnimations().length === 1);
+      // The animation runs only while the panel is closing: its start is recorded on the closed panel.
+      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-up' && record.closed)).toBe(true);
 
       await expect(panel).toHaveAttribute('hidden');
       await trigger.click();
-      await waitForFrameState(panel, (node) => node.hasAttribute('data-open') && node.getAnimations().length === 1);
+      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-down' && record.open)).toBe(true);
     });
 
     test('restores measured dimensions before applying a closing keyframe animation', async ({ page, mode }) => {
@@ -559,14 +613,13 @@ test.describe('<Collapsible.Panel />', () => {
       const { trigger, panel } = collapsibleCase(fixture, 'closing-keyframe');
 
       await expect.poll(() => panel.evaluate((node) => node.style.getPropertyValue('--collapsible-panel-height'))).toBe('auto');
+      await recordMotion(panel);
 
       await trigger.click();
-      // All three hold only while the closing animation runs, so check them in one snapshot.
-      await waitForFrameState(panel, (node) =>
-        node.hasAttribute('data-ending-style')
-        && /px$/.test(node.style.getPropertyValue('--collapsible-panel-height'))
-        && node.getAnimations().length === 1,
-      );
+      // All three hold only while the closing animation runs: the closing keyframes start on the closed panel, and the
+      // ending style arrives on a panel holding its measured pixel height.
+      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-up' && record.closed)).toBe(true);
+      await expect.poll(async () => (await motion(panel)).find((record) => record.kind === 'ending')?.height).toMatch(/px$/);
     });
 
     test('still animates on reopen after being initially open when only open keyframes are defined', async ({ page, mode }) => {
@@ -577,10 +630,11 @@ test.describe('<Collapsible.Panel />', () => {
 
       await trigger.click();
       await expect(panel).toHaveAttribute('data-closed');
+      await recordMotion(panel);
 
       await trigger.click();
-      // The animation runs only while the panel is opening, so check both in one snapshot.
-      await waitForFrameState(panel, (node) => node.hasAttribute('data-open') && node.getAnimations().length === 1);
+      // The animation runs only while the panel is opening: its start is recorded on the open panel.
+      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-down' && record.open)).toBe(true);
     });
 
     test('animates on reopen after an initially open panel is removed by the render function', async ({ page, mode }) => {
@@ -750,10 +804,11 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
       await panel.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
       expect(await computed(panel, 'animation-duration')).toBe('0s');
+      await recordMotion(panel);
 
       await trigger.click();
-      // The animation runs only while the panel is closing, so check both in one snapshot.
-      await waitForFrameState(panel, (node) => node.hasAttribute('data-closed') && node.getAnimations().length === 1);
+      // The animation runs only while the panel is closing: its start is recorded on the closed panel.
+      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-up' && record.closed)).toBe(true);
       expect(await computed(panel, 'animation-duration')).toBe('0.123s');
     });
 
@@ -767,12 +822,13 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
       await panel.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
       expect(await computed(panel, 'transition-duration')).toBe('0s');
+      await recordMotion(panel);
 
       await trigger.click();
-      // All three hold only while the closing transition runs, so check them in one snapshot.
-      await waitForFrameState(panel, (node) =>
-        node.hasAttribute('data-ending-style') && node.style.transitionDuration === '123ms' && node.getAnimations().length === 1,
-      );
+      // All three hold only while the closing transition runs: the ending style arrives with the authored inline
+      // duration back, and the closing transition runs.
+      await expect.poll(async () => (await motion(panel)).find((record) => record.kind === 'ending')?.transitionDuration).toBe('123ms');
+      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'transitionrun' && record.name === 'height')).toBe(true);
     });
 
     test('does not suppress a later animated open after a no-motion beforematch open', async ({ page, mode }) => {
