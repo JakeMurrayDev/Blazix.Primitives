@@ -29,7 +29,7 @@ The specification was written in `/Users/jakemurray/Repo/BaseUIPort`, a folder t
 
 ## Verification items
 
-* The esbuild `legalComments` setting keeps the Floating UI banner on the chunk after code splitting (ADR 04 §4); check on the first packaged build.
+* The esbuild `legalComments` setting keeps the Floating UI banner on the chunk after code splitting (ADR 04 §4); check on the first packaged build that contains the `positioning` chunk (M4; Amendments 2026-10-21).
 
 ## Considered options
 
@@ -37,3 +37,7 @@ The specification was written in `/Users/jakemurray/Repo/BaseUIPort`, a folder t
 * Rename `Blazix.BaseUI` to `Blazix.Primitives` and push the new history beside `master`: GitHub redirects the old URL, but readers meet 825 commits and 198 issues and PRs about a different architecture in one repository.
 * Public from the first push: nothing in the repository needs hiding, but the user chose private until the first package release.
 * One `LICENSE` with notices appended (GitHub's licence detection and NuGet's expression stop matching); notices only in the README (the package and the bundle would ship without the notice MIT requires).
+
+## Amendments
+
+**2026-10-21, the banner check is scheduled with M4 (M1 planning; chosen by the user the same day).** The `legalComments` verification item is checked on the first pack that contains the `positioning` chunk, not on the first pack: no module imports `@floating-ui/dom` before M4 (ADR 14 Amendments 2026-10-21, [issue 16](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/16)).

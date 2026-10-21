@@ -18,7 +18,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | ADR item | Milestone | How |
 |---|---|---|
 | 01 `WebAssemblyCallQueue` deferral stays inside one browser task | M0 | read `WebAssemblyRenderer` in aspnetcore `release/11.0`; "Verified" note in ADR 01 |
-| 01 Server round-trip cost of the TRN-ANI-09 row | M1 (Collapsible) | measurement under Playwright network throttling; the result is appended to ADR 01 and decides whether the optimistic hide stays |
+| 01 Server round-trip cost of the TRN-ANI-09 row | M1 (Collapsible) | measurement under Playwright network throttling; the result is appended to ADR 01 and decides whether the optimistic hide stays; closes before Collapsible is declared done, not before M1's first component (Amendments 2026-10-21) |
 | 02 interactive activation replaces the prerendered subtree; roots activate in document order | M0 | permanent L4 test on the prerender fixtures, both modes |
 | 02 the frame re-emitter keeps `@key` and `@ref` for a component root | M0 | permanent L2 tests in the conformance suite |
 | 02 scratch-render cost on a list part | M5 (Menu) | timed measurement; result appended to ADR 02; decides frame caching (ADR 16 B) |
@@ -37,7 +37,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 
 | ADR item | Milestone | How |
 |---|---|---|
-| 07 the Floating UI legal banner survives esbuild chunking | first pack | inspect the chunk |
+| 07 the Floating UI legal banner survives esbuild chunking | M4, the first pack that contains the `positioning` chunk (was "first pack", Amendments 2026-10-21) | inspect the chunk |
 | 08 a `[Union]` struct parameter binds from a Razor literal | now, with the union spike | `spikes/union-binding/` |
 | 08 MUI's trademark position on "Base UI" in the package description | before the first public release | read MUI's trademark policy; ask if unclear |
 | 09 route-segment render mode with prerender off on a Blazor Web App serving WebAssembly assets | M0 | the first fixture |
@@ -71,3 +71,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 ## Considered options
 
 * A verification log file (a second home for what the issues already are); untagged tests (the link from an ADR to its evidence is lost); `dotnet-install.sh` into `~/.dotnet` (works today but leaves two dotnet roots to keep straight).
+
+## Amendments
+
+**2026-10-21 (M1 planning; chosen by the user the same day).** §2: the ADR 07 banner item moves from "first pack" to M4, the first pack that contains the `positioning` chunk, because no module imported `@floating-ui/dom` before the `positioning` module (M0 Track 3 phase B re-implemented Floating UI's DOM predicates in `dom.ts`, so the M0 and M1 packs carry no Floating UI chunk to inspect); [issue 16](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/16) is re-assigned to milestone M4. §1: the ADR 01 round-trip item ([issue 2](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/2)) closes before Collapsible is declared done, per ADR 12 Amendments 2026-10-21, so the pipeline-only M1 families are not held by it.
