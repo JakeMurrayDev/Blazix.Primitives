@@ -806,6 +806,11 @@ export interface TransitionsOptions extends TwinOptions {
   /** How many times C# has asked the module to unmount the element; each increase while closed unmounts it. */
   unmountRequests: number;
   /**
+   * Whether another part's exit ends this element's: no exit watcher is armed, and the exit ends only when
+   * `unmountRequests` increases (the Collapsible Root and Trigger, whose `'ending'` lasts until the panel's ends).
+   */
+  externalExit?: boolean;
+  /**
    * The selector the element matches while C# renders it open. When set, it is the open input, read from the DOM
    * after every render batch, and `open` is not read after `attach`.
    */
@@ -910,7 +915,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   // Each watcher arms whenever its enabled state or the open input changes, aborting the previous wait.
   const armWatchers = (state: TransitionState) => {
-    const closeEnabled = state.mounted && !state.open && (!options.deferEndingState || state.status === 'ending');
+    const closeEnabled = !options.externalExit && state.mounted && !state.open && (!options.deferEndingState || state.status === 'ending');
     const nextCloseKey = `${closeEnabled}|${state.open}`;
     if (nextCloseKey !== closeKey) {
       closeKey = nextCloseKey;

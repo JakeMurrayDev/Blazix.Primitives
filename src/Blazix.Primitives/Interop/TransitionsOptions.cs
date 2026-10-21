@@ -6,6 +6,8 @@ namespace Blazix.Primitives.Interop;
 // and Amendments 2026-10-18 (handover at attach); TRN-ALG-01, TRN §6.1 (machine options per consumer), TRN-API-01..03,
 // TRN-DOM-06..09, TRN-ALG-04 (completion watchers), TRN-ALG-07 (reveal). AnimateInitialOpen has no field: C# renders
 // the initial status (TRN-STA-02/12/13) and sends it as Status, so the module starts from what was rendered.
+// ExternalExit: COL-STA-05, COL-DOM-03/06 (the Root and Trigger stay 'ending' until the Panel's exit ends; ADR 01
+// Amendments 2026-10-21, no new row for parts whose exit another part completes).
 // OpenSelector: ADR 04 Amendments 2026-10-21, the open input read from the applied batch (ADR 01 decision 4,
 // "post-commit, pre-paint, DOM-only work").
 /// <summary>
@@ -76,6 +78,14 @@ internal sealed record TransitionsOptions : TwinOptions
     /// increase while the part is open is dropped. The default is 0.
     /// </value>
     public int UnmountRequests { get; init; }
+
+    /// <summary>Gets a value indicating whether another part's exit ends this element's.</summary>
+    /// <value>
+    /// <see langword="true"/> when the module does not wait for the element's own exit animations and the exit ends only
+    /// when <see cref="UnmountRequests"/> increases, as for a collapsible's root and trigger, whose ending phase lasts
+    /// until the panel's has finished; the default is <see langword="false"/>.
+    /// </value>
+    public bool ExternalExit { get; init; }
 
     /// <summary>Gets the CSS selector that the element matches while the part renders it open.</summary>
     /// <value>
