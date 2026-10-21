@@ -106,3 +106,10 @@ Members of every class follow the eleven-group order of the old port: constants,
 - Its members: the constructors `Duration(int)` and `Duration(TimeSpan)` with implicit conversions from both, `HasValue`, `TryGetValue(out int)`, `TryGetValue(out TimeSpan)`, `Value` (for `IUnion`; it boxes, so the library does not read it) and an internal `ToMilliseconds()`. `null`, and the default instance, mean 0.
 - Razor binds `Delay="300"` to the `int` case and `Delay="@TimeSpan.FromMilliseconds(300)"` to the `TimeSpan` case (probed on SDK 11.0.100-rc.2.26504.105; L2 `DurationBindingTests`); building and reading a `Duration` allocates nothing (L1 `DurationTests`).
 - The file is `src/Blazix.Primitives/Avatar/Duration.cs`, beside its first consumer, `AvatarFallback.Delay`. It is the convention for every later millisecond parameter (Tooltip and Toast delays, M4 and M6), which reuse the type.
+
+**2026-10-21, the enum `ProgressStatus` (M1 track 3, [issue 60](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/60)).**
+- §3's Enums row gains `public enum ProgressStatus { Indeterminate, Progressing, Complete }` in `Blazix.Primitives`: the PascalCase of Base UI's `Progress.Status` literals (progress §3.6, alias `ProgressStatus`), with no sentinel member; family-prefixed because it is one family's.
+- The file is `src/Blazix.Primitives/Progress/ProgressStatus.cs`, beside its first and only consumer, the Progress family (the five `Progress<Part>State` records).
+- The status is projected as exactly one presence attribute (`data-indeterminate`, `data-progressing`, `data-complete`) by one hand-written mapping, never as `data-status` (PRG-DOM-02).
+- The other new public types follow §3 without a new rule: the five state records, the five `Progress<Part>DataAttributes` classes, and the argument record `ProgressValueArguments(string FormattedValue, double? Value)` of the value part's template (as `MeterValueArguments`).
+

@@ -1,0 +1,66 @@
+@namespace Blazix.Primitives.Fixtures.Client.ProgressFixtures
+@using Blazix.Primitives
+
+@*
+    The `progress-basic` fixture (tests/browser/progress.spec.ts). Five cases, each a progress bar a consumer would write:
+    `determinate` (value 33, the indicator rendered as a span, ProgressIndicator.test.tsx "determinate"), `zero` (value 0,
+    "sets zero width when value is 0"), `indeterminate` ("indeterminate": no built-in declaration), `cycle` (the status
+    cycle of ProgressRoot.test.tsx "keeps every composed part synchronized through the status cycle", driven from a button
+    as a parent re-render) and `label` (ProgressLabel.test.tsx "updates and clears the progress bar label association", the
+    PRG-ARIA-07 row, asserted on both render modes).
+*@
+<FixtureContainer Name="progress-basic">
+    <div data-case="determinate">
+        <ProgressRoot Value="33" data-testid="root">
+            <ProgressTrack>
+                <ProgressIndicator data-testid="indicator" Render="@(builder => { builder.OpenElement(0, "span"); builder.CloseElement(); })" />
+            </ProgressTrack>
+        </ProgressRoot>
+    </div>
+
+    <div data-case="zero">
+        <ProgressRoot Value="0" style="width: 100px" data-testid="root">
+            <ProgressTrack>
+                <ProgressIndicator data-testid="indicator" />
+            </ProgressTrack>
+        </ProgressRoot>
+    </div>
+
+    <div data-case="indeterminate">
+        <ProgressRoot Value="@((double?)null)" data-testid="root">
+            <ProgressTrack>
+                <ProgressIndicator data-testid="indicator" />
+            </ProgressTrack>
+        </ProgressRoot>
+    </div>
+
+    <div data-case="cycle">
+        <button type="button" data-set-null @onclick="() => value = null">Indeterminate</button>
+        <button type="button" data-set-50 @onclick="() => value = 50">50</button>
+        <button type="button" data-set-100 @onclick="() => value = 100">100</button>
+        <ProgressRoot Value="value" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")" data-testid="root">
+            <ProgressLabel data-testid="label">Upload progress</ProgressLabel>
+            <ProgressValue data-testid="value" />
+            <ProgressTrack data-testid="track">
+                <ProgressIndicator data-testid="indicator" />
+            </ProgressTrack>
+        </ProgressRoot>
+    </div>
+
+    <div data-case="label">
+        <button type="button" data-change-id @onclick='() => labelId = "label-b"'>Change id</button>
+        <button type="button" data-remove-label @onclick="() => showLabel = false">Remove label</button>
+        <ProgressRoot Value="40" data-testid="root">
+            @if (showLabel)
+            {
+                <ProgressLabel id="@labelId" data-testid="label">Upload progress</ProgressLabel>
+            }
+        </ProgressRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private double? value;
+    private string labelId = "label-a";
+    private bool showLabel = true;
+}
