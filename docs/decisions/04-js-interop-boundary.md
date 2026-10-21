@@ -156,3 +156,18 @@ The rejected alternatives:
 - (c) The `base-ui` placeholder. It loses every field.
 
 The inverse, `snapshot.ToKeyboardEventArgs()`, is what the `activate` decision point hands a consumer's C# key handler. Tested by `tests/Blazix.Primitives.Tests/Events/EventSnapshotFromEventArgsTests.cs`.
+
+**2026-10-21, the open input of an attached animated part and the decision point `reveal` (Decision 3; M1 track 5, issue 62; option B and the `reveal` proposal, chosen by the user the same day).**
+
+*Contract, the open input.*
+- Besides `update(options)`, the `transitions` module reads a part's open state from the attributes C# renders on the part's element.
+- The part names them with a selector in its options, `openSelector`: for example `[data-open]` on the Collapsible Root and Panel, `[data-panel-open]` on the Trigger, and `:not([aria-hidden])` on a kept-mounted `Avatar.Image`.
+- The module reads the selector in a `MutationObserver` callback, which runs after the render batch is applied and before paint. With a selector set, the applied DOM is the input and `update`'s `open` is not read after `attach`, so a late `update` cannot reopen a part that a newer batch closed.
+- Decision 2's single writer stands: JavaScript writes `data-starting-style` and `data-ending-style` from `attach`, and they land with the batch that opens or closes an already-attached element on both modes.
+- C# renders the initial status under the handover and keeps the mounted flag's rules for a newly rendered element. ADR 01 Amendments 2026-10-21 record the evaluation step in both languages.
+
+*Decision points, added.*
+- `reveal`: a `beforematch` on a hidden-until-found panel (TRN-ALG-07, TRN-ANI-32..34, TRN-EVT-09), with fallback **run**.
+- Inside the dispatch the module removes `data-starting-style` and arms the one-shot motion skip before it decides, and restores both on `stop`. On WebAssembly the C# request commits the open inside the decision, and the open render's `update` re-enters the module before `decide` returns, so it finds them already applied.
+- On Server, `run` is returned without a call. The request is then an invocation of the twin's `OnRevealRequest`, whose `Task<bool>` result says whether the part is open once the request ran. A `false` answer, with no open arrived, reverts the panel to `hidden="until-found"` on the next frame. The answer is asynchronous, so ADR 01 decision 1 holds: no synchronous invoke moves state.
+- ADR 01 relaxation table, row added 2026-10-21.

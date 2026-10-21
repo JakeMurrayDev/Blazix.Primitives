@@ -15,4 +15,8 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(NativeButtonMismatch))]
 [JsonSerializable(typeof(DomOptions))]
 [JsonSerializable(typeof(ImageStatusChange))]
+[JsonSerializable(typeof(TransitionsOptions))]
+[JsonSerializable(typeof(TransitionStatusChange))]
+[JsonSerializable(typeof(TransitionCompletion))]
+[JsonSerializable(typeof(RevealRequest))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;
