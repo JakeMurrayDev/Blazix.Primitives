@@ -53,7 +53,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/radio-group.md | RDG | approved | 86 reqs |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
 | components/select.md | SEL | approved | 332 reqs | |
-| components/separator.md | SEP | approved | 14 reqs (opus) | |
+| components/separator.md | SEP | implemented | 14 reqs (opus) | |
 | components/slider.md | SLD | approved | 191 reqs | |
 | components/switch.md | SWT | approved | pilot; 117 reqs |
 | components/tabs.md | TAB | approved | 156 reqs | |

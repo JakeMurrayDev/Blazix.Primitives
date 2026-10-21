@@ -4,6 +4,7 @@ using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
+using Blazix.Primitives.Fixtures.Client.Separator;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -25,5 +26,6 @@ public static class FixtureCatalog
         ["button-custom"] = new(typeof(ButtonCustomFixture)),
         ["button-link"] = new(typeof(ButtonLinkFixture)),
         ["button-loading"] = new(typeof(ButtonLoadingFixture)),
+        ["separator-showcase"] = new(typeof(SeparatorFixture)),
     };
 }

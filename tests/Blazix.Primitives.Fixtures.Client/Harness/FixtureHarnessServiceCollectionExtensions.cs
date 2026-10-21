@@ -7,8 +7,8 @@ public static class FixtureHarnessServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the harness in either host: the session registry and the <see cref="HarnessTimeProvider"/> as
-    /// <see cref="TimeProvider"/> (singletons), the session and the activation counter (scoped), the capturing
-    /// logger provider, and the library's own services, which every part needs.
+    /// <see cref="TimeProvider"/> (singletons), the session and the activation counter (scoped), and the capturing
+    /// logger provider.
     /// </summary>
     public static IServiceCollection AddFixtureHarness(this IServiceCollection services, ILoggingBuilder logging)
     {
@@ -18,7 +18,6 @@ public static class FixtureHarnessServiceCollectionExtensions
         services.AddSingleton<TimeProvider>(new HarnessTimeProvider(registry));
         services.AddScoped<ActivationCounter>();
         logging.AddProvider(new CapturingLoggerProvider(registry));
-        services.AddBlazixPrimitives();
         return services;
     }
 }
