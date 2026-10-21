@@ -7,7 +7,8 @@
 | Tests | `packages/react/src/avatar/**/*.test.tsx` (3 files) |
 | Docs page | `docs/src/app/(docs)/react/components/avatar/page.mdx` |
 | Prefix | `AVA` |
-| Status | approved |
+| Status | implemented |
+| Revised | 2026-10-21 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -106,6 +107,7 @@ None.
   Source: `avatar/image/AvatarImage.tsx:41-52,155-165`, `avatar/image/useImageLoadingStatus.ts:27,50-58`. Test: [L2] `AvatarImage.test.tsx` "passes native image props to the rendered image", "shows the image when only srcSet is provided", "passes responsive image props to the loading probe".
 - **AVA-API-03** — MUST. `crossOrigin` and `referrerPolicy` MUST be forwarded as the `crossorigin` and `referrerpolicy` attributes of the rendered `<img>` and, in preload mode, MUST also configure the probe before its source is set (AVA-ALG-01), so that the probe's request matches the one the `<img>` will make.
   Source: `avatar/image/AvatarImage.tsx:44,170`, `avatar/image/useImageLoadingStatus.ts:46-49`. Test: [L2] `AvatarImage.test.tsx` "passes native image props to the rendered image" (L3 for the probe-configuration order). Docs: CHANGELOG.md v1.0.0-alpha.7 "Support cross origin in useImageLoadingStatus".
+  Port note (2026-10-21, M1 track 7, issue 64; ADR 08 §3): `CrossOrigin` and `ReferrerPolicy` are `string?` parameters forwarded verbatim (`null` renders no attribute and configures the probe without CORS). The empty literal of `crossOrigin` is a valid value, and ADR 08 §3 rejects sentinel members, so no enum is declared.
 - **AVA-API-04** — MUST. `keepMounted` MUST default to `false` (preload mode). When `true`, the probe MUST NOT be created and the status MUST be derived from the rendered element (AVA-ALG-02).
   Source: `avatar/image/AvatarImage.tsx:36,48-52,62-100`. Test: [L2] `AvatarImage.test.tsx` "mounts the image while loading without preloading it", "loads the image without a detached preload". Docs: `components/avatar/page.mdx` §Optimized and lazy-loaded images; CHANGELOG.md v1.8.0 "Add `keepMounted` prop to `<Avatar.Image>`".
 - **AVA-API-05** — MUST. `onLoadingStatusChange` MUST receive exactly one argument, the new `ImageLoadingStatus`; it receives no event or event-details object.
@@ -247,8 +249,10 @@ evaluate(src, srcSet, sizes, crossOrigin, referrerPolicy):
   Source: `avatar/image/AvatarImage.tsx:48-52`, `avatar/image/useImageLoadingStatus.ts:23-25`. Test: [L2] `AvatarImage.test.tsx` "mounts the image while loading without preloading it", "loads the image without a detached preload".
 - **AVA-STA-12** — MUST. In kept-mounted mode the status MUST be (re-)derived from the rendered element (AVA-ALG-02) post-commit, pre-paint after the first commit and after every commit in which any of `keepMounted`, `src`, `srcSet`, `sizes`, `crossOrigin`, `referrerPolicy` changed, and MUST be re-derived when the substitute element parameter (`Render`) changes (a substitute element whose own `src` differs therefore triggers re-derivation).
   Source: `avatar/image/AvatarImage.tsx:62-100`. Test: [L2] `AvatarImage.test.tsx` "resets the status when the src prop changes", "resets the status when a rendered image changes source", "resets the status when the source changes to an unloaded one", "preserves loaded status when the render element changes", "reports an error when there is no source".
+  Port note (2026-10-21, M1 track 7, issue 64): the `dom` module derives on attach and then whenever a render changes the element's `src`, `srcset`, `sizes`, `crossorigin` or `referrerpolicy`, read in a `MutationObserver` callback on the applied batch (ADR 01 decision 4, "post-commit, pre-paint — DOM-only work"). This covers a substitute element whose own `src` changes without a re-derivation after every render; a render that changes none of them changes no status, which Base UI's re-derivation would re-set to the same value without a report (AVA-EVT-01). The module reports each such derivation, and C# drops a status equal to its own, because the element's `load` and `error` events reach C# without the module.
 - **AVA-STA-13** — MUST. In kept-mounted mode, if the internal DOM handle holds no element when re-derivation runs (a substitute that does not forward the handle), the status MUST be left unchanged, so that a status already reported by the element's `load`/`error` events is not overwritten.
   Source: `avatar/image/AvatarImage.tsx:70-75`. Test: [L2] `AvatarImage.test.tsx` "keeps the status reported by an element that does not forward a ref".
+  Port note (2026-10-21, M1 track 7, issue 64): under a substitute callback (`RenderFunction`) the part has no element (ADR 02's relaxation of RND-DOM-20..24), which is this requirement's "no element": nothing derives, and the element's events report through the handlers the callback forwards. The fixture page `avatar-render-function` repeats the title in both render modes.
 - **AVA-STA-14** — MUST. In kept-mounted mode the `<img>`'s `load` event MUST set the status to `'loaded'` and its `error` event to `'error'`. The consumer's `onLoad`/`onError` MUST run first, exactly once per event; if the consumer calls `preventBaseUIHandler()` on the event, the status MUST NOT change. In preload mode no internal `load`/`error` handlers are attached (consumer handlers are forwarded unchanged).
   Source: `avatar/image/AvatarImage.tsx:102-119,170`, RND-EVT-02, RND-EVT-03. Test: [L4] `AvatarImage.test.tsx` "derives the status from the rendered element load event", "keeps the image mounted when it fails to load", "calls the user onError handler", "calls the user onLoad handler", "lets a user handler prevent the status update".
 
@@ -267,6 +271,7 @@ derive():
 ```
 
   Source: `avatar/image/AvatarImage.tsx:58,62-100`. Test: [L3] `AvatarImage.test.tsx` "reports an error when there is no source", "renders the image in the server HTML and resolves cached images on hydration", "resets the status when the source changes to an unloaded one", "does not replay the enter animation for a cached image on hydration".
+  Port note (2026-10-21, M1 track 7, issue 64): the step "mounted flag := true" is C#'s: `AvatarImage` mounts an image whose first known status is `'loaded'` (from the derivation, or from a `load` event that reached C# before it on Server) and attaches its `transitions` twin as already mounted. At L3 that is the `transitions` module's "does not request a frame or write a transition attribute for an element attached open" (`js/transitions.test.ts`, track 5), so "does not replay the enter animation for a cached image on hydration" is not repeated in `js/dom.test.ts`, where it would pass before this track and fail the red check (ADR 11 §3); it runs at L4 in both modes (AVA-ANI-04).
 
 ## 5. Rendered DOM and ARIA
 
@@ -303,6 +308,7 @@ derive():
   Source: `avatar/image/AvatarImage.tsx:102-108`. Test: [L2] `AvatarImage.test.tsx` "marks the not-loaded states with data attributes", "keeps the image hidden from assistive technology after an error", "resets the status when the source changes to an unloaded one", "does not apply the not-loaded state attributes without keepMounted".
 - **AVA-DOM-06** — MUST. `sizes`, `srcset` and `src` MUST be applied to the `<img>` after every other attribute, in the order `sizes`, `srcset`, `src` (so attributes that configure the request, such as `loading`, `crossorigin`, `referrerpolicy`, `sizes`, `srcset`, are in place before the browser starts fetching on `src`). When one of the three is not given, it MUST be absent from the attribute set entirely (not present with an empty/undefined value), so a substitute callback's own value is not overwritten.
   Source: `avatar/image/AvatarImage.tsx:38-43,155-165,170`. Test: [L2] `AvatarImage.test.tsx` "applies the source props after the ones configuring the request", "does not override source props in a render callback".
+  Port note (2026-10-21, M1 track 7, issue 64): the pipeline places part attributes before the consumer's (`src/Blazix.Primitives/Rendering/CONTEXT.md`), so `AvatarImage` hands the pipeline the consumer's attributes with `sizes`, `srcset` and `src` appended, each only when its parameter is not `null`.
 - **AVA-DOM-07** — MUST. When rendering the default `<img>` element and the consumer supplies no `alt`, the element MUST carry `alt=""` (RND-STR-06).
   Source: `internals/useRenderElement.tsx:229-231`. Test: none.
 
