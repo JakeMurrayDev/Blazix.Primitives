@@ -1,8 +1,8 @@
 import { type Locator, type Route } from '@playwright/test';
-import { test, expect, Fixture, fixtureUrl, gotoFixture, type Page, type RenderMode } from './helpers';
+import { test, expect, advanceTime, Fixture, fixtureUrl, gotoFixture, type Page, type RenderMode } from './helpers';
 
 // The [L4] rows of docs/components/avatar.md: AVA-ANI-01..06, AVA-DOM-03, AVA-EDGE-02, AVA-EDGE-03 and AVA-STA-14, on
-// the Avatar parts over the `dom` and `transitions` modules, plus the fixtures' substitute-callback page.
+// the Avatar parts over the `dom` and `transitions` modules, plus the fixtures' delay and substitute-callback pages.
 // Titles are Base UI's (avatar/image/AvatarImage.test.tsx, avatar/fallback/AvatarFallback.test.tsx). Image requests are
 // held or answered with `page.route`, so a load or an error happens when the test says. A recorder in the page takes a
 // snapshot of the avatar at every mutation checkpoint (the end of each task that changed it), which is where the browser
@@ -209,6 +209,19 @@ test.describe('Avatar.Fallback', () => {
     await expect(image).toBeVisible();
     // AVA-ANI-06: no snapshot shows the appearing image and the fallback together.
     expect((await recorded(page)).snapshots.some((s) => s.image && s.fallback)).toBe(false);
+  });
+
+  // Fixture page of the AVA-ANI-07 rows (L2): the delay runs under the C# clock the spec advances.
+  test('shows the fallback when the delay has elapsed', async ({ page, mode }) => {
+    const fixture = await gotoAvatar(page, mode, 'avatar-delay');
+    const { fallback } = parts(fixture);
+    await expect(fallback).toHaveCount(0);
+
+    await advanceTime(page, fixture, 299);
+    await expect(fallback).toHaveCount(0);
+    await advanceTime(page, fixture, 1);
+
+    await expect(fallback).toHaveText('JD');
   });
 });
 

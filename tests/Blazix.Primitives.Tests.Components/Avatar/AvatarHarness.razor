@@ -25,7 +25,7 @@
     }
     @if (ShowFallback)
     {
-        <AvatarFallback data-testid="fallback" @attributes="@FallbackAttributes">JD</AvatarFallback>
+        <AvatarFallback data-testid="fallback" Delay="@(DelaySpan is { } span ? new Duration(span) : new Duration(Delay))" @attributes="@FallbackAttributes">JD</AvatarFallback>
     }
 </AvatarRoot>
 
@@ -59,6 +59,13 @@
 
     [Parameter]
     public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public int Delay { get; set; }
+
+    /// <summary>A delay given as a time span, which replaces <see cref="Delay"/> when set.</summary>
+    [Parameter]
+    public TimeSpan? DelaySpan { get; set; }
 
     [Parameter]
     public RenderFragment? ImageRender { get; set; }

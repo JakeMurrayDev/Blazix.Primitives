@@ -30,6 +30,7 @@ public static class FixtureCatalog
         ["separator-showcase"] = new(typeof(SeparatorFixture)),
         ["avatar-preload"] = new(typeof(AvatarPreloadFixture)),
         ["avatar-kept-mounted"] = new(typeof(AvatarKeptMountedFixture)),
+        ["avatar-delay"] = new(typeof(AvatarDelayFixture)),
         ["avatar-render-function"] = new(typeof(AvatarRenderFunctionFixture)),
         ["avatar-prerender-preload"] = new(typeof(AvatarPrerenderPreloadFixture), Prerender: true),
         ["avatar-prerender-kept-mounted"] = new(typeof(AvatarPrerenderKeptMountedFixture), Prerender: true),
