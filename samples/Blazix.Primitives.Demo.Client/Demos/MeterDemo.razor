@@ -1,0 +1,37 @@
+<div class="DemoScope">
+    <DemoFrame Slug="meter" Note="The same meter with its value under your control.">
+        <Hero>
+            <MeterRoot class="Meter" Value="24">
+                <MeterLabel class="Label">Storage Used</MeterLabel>
+                <MeterValue class="Value" />
+                <MeterTrack class="Track">
+                    <MeterIndicator class="Indicator" />
+                </MeterTrack>
+            </MeterRoot>
+        </Hero>
+        <Variants>
+            <div class="Controlled">
+                <MeterRoot class="Meter" Value="value">
+                    <MeterLabel class="Label">Battery</MeterLabel>
+                    <MeterValue class="Value" />
+                    <MeterTrack class="Track">
+                        <MeterIndicator class="Indicator" />
+                    </MeterTrack>
+                </MeterRoot>
+                <label class="Slider">
+                    Value
+                    <input type="range" min="0" max="100" value="@value" @oninput="OnInput" />
+                </label>
+            </div>
+        </Variants>
+    </DemoFrame>
+</div>
+
+@code {
+    private double value = 60;
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        value = double.Parse(e.Value?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+    }
+}

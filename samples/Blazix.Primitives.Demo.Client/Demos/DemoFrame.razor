@@ -1,0 +1,56 @@
+@*
+    The frame every demo page shares: the heading, the mode badge, the hero demo in the box the Base UI documentation puts
+    its demos in, and an optional second block of variants to try.
+*@
+<div class="DemoFrame">
+    <header class="DemoHeader">
+        <h1>@Entry.Title</h1>
+        <p>@Entry.Summary</p>
+        <ModeBadge />
+    </header>
+
+    <section class="DemoSection" aria-labelledby="hero-heading">
+        <h2 id="hero-heading">Hero demo</h2>
+        <div class="DemoRoot">
+            <div class="DemoPlayground">
+                <figure aria-label="Component demo" data-demo="css-modules" class="DemoPlaygroundInner">
+                    @Hero
+                </figure>
+            </div>
+        </div>
+    </section>
+
+    @if (Variants is not null)
+    {
+        <section class="DemoSection" aria-labelledby="variants-heading">
+            <h2 id="variants-heading">Try it</h2>
+            @if (!string.IsNullOrEmpty(Note))
+            {
+                <p class="DemoNote">@Note</p>
+            }
+            <div class="DemoRoot">
+                <div class="DemoPlayground">
+                    <div data-demo="css-modules" class="DemoPlaygroundInner DemoVariants">
+                        @Variants
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Slug { get; set; }
+
+    [Parameter, EditorRequired]
+    public required RenderFragment Hero { get; set; }
+
+    [Parameter]
+    public RenderFragment? Variants { get; set; }
+
+    [Parameter]
+    public string? Note { get; set; }
+
+    private DemoEntry Entry => DemoCatalog.Find(Slug) ?? throw new InvalidOperationException($"No demo '{Slug}'.");
+}

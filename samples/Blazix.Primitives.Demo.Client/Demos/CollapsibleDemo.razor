@@ -1,0 +1,44 @@
+<div class="DemoScope">
+    <DemoFrame Slug="collapsible" Note="The same collapsible controlled from outside: the toggle below and the trigger both change Open.">
+        <Hero>
+            <CollapsibleRoot class="Collapsible">
+                <CollapsibleTrigger class="Trigger">
+                    Recovery keys
+                    <CaretRightIcon class="Icon" />
+                </CollapsibleTrigger>
+                <CollapsiblePanel class="Panel">
+                    <div class="Content">
+                        <div>alien-bean-pasta</div>
+                        <div>wild-irish-burrito</div>
+                        <div>horse-battery-staple</div>
+                    </div>
+                </CollapsiblePanel>
+            </CollapsibleRoot>
+        </Hero>
+        <Variants>
+            <div class="Controlled">
+                <CollapsibleRoot class="Collapsible" @bind-Open="open">
+                    <CollapsibleTrigger class="Trigger">
+                        Recovery keys
+                        <CaretRightIcon class="Icon" />
+                    </CollapsibleTrigger>
+                    <CollapsiblePanel class="Panel">
+                        <div class="Content">
+                            <div>alien-bean-pasta</div>
+                            <div>wild-irish-burrito</div>
+                            <div>horse-battery-staple</div>
+                        </div>
+                    </CollapsiblePanel>
+                </CollapsibleRoot>
+                <div class="Variant">
+                    <button type="button" class="Control" @onclick="() => open = !open">Toggle from outside</button>
+                    <span class="VariantName">open: <strong data-open-state>@(open ? "true" : "false")</strong></span>
+                </div>
+            </div>
+        </Variants>
+    </DemoFrame>
+</div>
+
+@code {
+    private bool open;
+}

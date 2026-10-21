@@ -1,0 +1,52 @@
+@implements IDisposable
+
+<div class="DemoScope">
+    <DemoFrame Slug="progress" Note="The same progress bar with its value under your control: restart the simulation or make it indeterminate.">
+        <Hero>
+            <ProgressRoot class="Progress" Value="value">
+                <ProgressLabel class="Label">Export data</ProgressLabel>
+                <ProgressValue class="Value" />
+                <ProgressTrack class="Track">
+                    <ProgressIndicator class="Indicator" />
+                </ProgressTrack>
+            </ProgressRoot>
+        </Hero>
+        <Variants>
+            <div class="Controls">
+                <button type="button" class="Control" @onclick="Restart">Restart</button>
+                <button type="button" class="Control" @onclick="MakeIndeterminate">Indeterminate</button>
+            </div>
+        </Variants>
+    </DemoFrame>
+</div>
+
+@code {
+    private readonly Random random = new();
+    private Timer? timer;
+    private double? value = 20;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Simulate changes: from the first interactive render on, not while prerendering.
+            timer = new Timer(_ => InvokeAsync(Advance), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private void Advance()
+    {
+        // An indeterminate bar (no value) stays indeterminate until Restart.
+        if (value is double current)
+        {
+            value = Math.Min(100, Math.Round(current + random.NextDouble() * 25));
+            StateHasChanged();
+        }
+    }
+
+    private void Restart() => value = 20;
+
+    private void MakeIndeterminate() => value = null;
+
+    public void Dispose() => timer?.Dispose();
+}

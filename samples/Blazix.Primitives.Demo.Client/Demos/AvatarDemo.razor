@@ -1,0 +1,42 @@
+<div class="DemoScope">
+    <DemoFrame Slug="avatar" Note="The same avatar with a source you can change. The status is what OnLoadingStatusChange reports.">
+        <Hero>
+            <div style="display: flex; gap: 1rem">
+                <AvatarRoot class="Root">
+                    <AvatarImage Src="https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=128&h=128&dpr=2&q=80"
+                                 width="48"
+                                 height="48"
+                                 class="Image" />
+                    <AvatarFallback Delay="600" class="Fallback">LT</AvatarFallback>
+                </AvatarRoot>
+                <AvatarRoot class="Root">LT</AvatarRoot>
+            </div>
+        </Hero>
+        <Variants>
+            <div class="Variant">
+                <AvatarRoot class="Root">
+                    <AvatarImage Src="@src" width="48" height="48" class="Image" OnLoadingStatusChange="OnStatus" />
+                    <AvatarFallback Delay="300" class="Fallback">LT</AvatarFallback>
+                </AvatarRoot>
+                <span class="VariantName">status: <strong data-status>@status</strong></span>
+            </div>
+            <div class="Sources">
+                <button type="button" class="Control" @onclick="@(() => src = LocalSource)">Local image</button>
+                <button type="button" class="Control" @onclick="@(() => src = "/missing-avatar.png")">Missing image</button>
+                <button type="button" class="Control" @onclick="@(() => src = null)">No image</button>
+            </div>
+        </Variants>
+    </DemoFrame>
+</div>
+
+@code {
+    private const string LocalSource = "/avatar.svg";
+
+    private string? src = LocalSource;
+    private string status = "idle";
+
+    private void OnStatus(ImageLoadingStatus loadingStatus)
+    {
+        status = loadingStatus.ToString().ToLowerInvariant();
+    }
+}

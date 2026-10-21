@@ -1,0 +1,132 @@
+/*
+ * Ported from the Base UI documentation: docs/src/app/(docs)/react/components/collapsible/demos/hero/css-modules/index.module.css
+ * (v1.9.0). Class names and values are unchanged, with two changes Blazor CSS isolation needs:
+ * the nesting (`&`, `@media` inside a rule) is written out in the same order, because isolation does not scope nested
+ * rules; and every selector starts with `::deep`, because the Base UI parts render their own elements, which carry no
+ * scope attribute, so the rules match the descendants of the page's own scoped wrapper element instead.
+ */
+
+::deep .Collapsible {
+  display: flex;
+  width: 12rem;
+  min-height: 9rem;
+  flex-direction: column;
+  justify-content: center;
+  color: oklch(14.5% 0 0deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::deep .Collapsible {
+    color: white;
+  }
+}
+
+::deep .Icon {
+  transition: transform 100ms ease-out;
+}
+
+::deep .Trigger {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.5rem 0 0.75rem;
+  margin: 0;
+  border: 1px solid oklch(14.5% 0 0deg);
+  border-radius: 0;
+  background-color: white;
+  color: oklch(14.5% 0 0deg);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::deep .Trigger {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+  }
+}
+
+@media (hover: hover) {
+  ::deep .Trigger:hover:not([data-disabled]) {
+    background-color: oklch(97% 0 0deg);
+  }
+}
+
+@media (hover: hover) and (prefers-color-scheme: dark) {
+  ::deep .Trigger:hover:not([data-disabled]) {
+    background-color: oklch(26.9% 0 0deg);
+  }
+}
+
+::deep .Trigger:active:not([data-disabled]) {
+  background-color: oklch(92.2% 0 0deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::deep .Trigger:active:not([data-disabled]) {
+    background-color: oklch(37.1% 0 0deg);
+  }
+}
+
+::deep .Trigger:focus-visible {
+  outline: 2px solid oklch(14.5% 0 0deg);
+  outline-offset: -1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::deep .Trigger:focus-visible {
+    outline-color: white;
+  }
+}
+
+::deep .Trigger[data-panel-open] .Icon {
+  transform: rotate(90deg);
+}
+
+::deep .Trigger[data-disabled] {
+  color: oklch(55.6% 0 0deg);
+  border-color: oklch(55.6% 0 0deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::deep .Trigger[data-disabled] {
+    color: oklch(70.8% 0 0deg);
+    border-color: oklch(70.8% 0 0deg);
+  }
+}
+
+::deep .Panel {
+  display: flex;
+  height: var(--collapsible-panel-height);
+  flex-direction: column;
+  justify-content: end;
+  overflow: hidden;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  transition: height 150ms ease-out;
+}
+
+::deep .Panel[hidden]:not([hidden='until-found']) {
+  display: none;
+}
+
+::deep .Panel[data-starting-style],
+::deep .Panel[data-ending-style] {
+  height: 0;
+}
+
+::deep .Content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+}
