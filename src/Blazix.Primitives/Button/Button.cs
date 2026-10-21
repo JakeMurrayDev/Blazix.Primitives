@@ -22,22 +22,9 @@ public static class ButtonDataAttributes
 }
 
 // Base UI's Button (button/Button.tsx); the contract is docs/components/button.md, the mechanism
-// docs/architecture/button-behavior.md (UBT). The attributes of UBT-ALG-03 are written here through
-// ButtonAttributeWriter; keyboard activation, press suppression and the declared-mode check are the `button` module's,
-// reached through one ButtonTwin per part (ADR 04 §1 and §3).
-//
-// Base UI merges the consumer's props *before* the mechanism (`[elementProps, getButtonProps]`, BTN-DOM-05), so the
-// mechanism gates the consumer's click, mousedown, pointerdown, keydown and keyup handlers (UBT-EVT-01/03). The
-// pipeline merges the consumer after the part, so the part declines those handlers (ForwardsConsumerHandler, ADR 02
-// Amendments 2026-10-21) and the pipeline leaves them off the element:
-// - while disabled, all five, so Blazor has nothing to invoke (the module default-prevents click and pointerdown);
-// - always, keydown and keyup, which the part runs itself from its own handler. On WebAssembly the module's activation
-//   decision point runs the consumer's key handler synchronously inside the dispatch (ADR 04 §3; a
-//   `PreventPartHandler()` there answers `stop`), and Blazor then dispatches the same event; the part handler skips
-//   that one dispatch so the consumer's handler runs once. On Server the decision falls back to `run` (ADR 01
-//   relaxation table, BTN-KEY-01) and the part handler always runs the consumer's.
-// Every other handler is forwarded unchanged (UBT-PTR-04), and a substitute element's own handlers are not gated
-// (RND §2.1 row 5).
+// docs/architecture/button-behavior.md (UBT). The mechanism as a part uses it (the attributes of UBT-ALG-03 through
+// ButtonAttributeWriter, the gate of the consumer's handlers, the activation decision point and one ButtonTwin per part,
+// ADR 04 §1 and §3) is ButtonBehavior, shared with CollapsibleTrigger.
 /// <summary>
 /// Represents a button that runs an action: Base UI's <c>Button</c>, rendered as a <c>button</c>. It can be replaced by
 /// another element through <see cref="PartBase{TState}.Render"/> while keeping button semantics, and can stay focusable
@@ -52,22 +39,13 @@ public sealed class Button : PartBase<ButtonState>
 
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
-    private AttributeValue consumerKeyDown;
-    private AttributeValue consumerKeyUp;
-    private DecidedKey? decidedKeyDown;
-    private DecidedKey? decidedKeyUp;
-    private ButtonTwin? twin;
-    private TwinHandle<ButtonOptions>? handle;
-    private ButtonOptions? sentOptions;
-    private string? lateId;
-    private TaskCompletionSource? attachedSource;
-    private bool attached;
+    private ButtonBehavior? behavior;
 
     /// <summary>Initializes a new instance of the <see cref="Button"/> class.</summary>
     public Button()
     {
-        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", HandleKeyDownAsync);
-        onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", HandleKeyUpAsync);
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
+        onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => behavior!.HandleKeyUpAsync(e));
     }
 
     [Inject]
@@ -125,75 +103,37 @@ public sealed class Button : PartBase<ButtonState>
     // can wait for the module's listeners before it presses keys.
     /// <summary>Gets a task that completes when the button's behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached the behavior.</value>
-    internal Task TwinAttached => attached ? Task.CompletedTask : (attachedSource ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+    internal Task TwinAttached => behavior!.TwinAttached;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        behavior = new ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp);
+        base.OnInitialized();
+    }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        FindConsumerKeyHandlers();
+        // BTN-API-02: focusableWhenDisabled always explicit; BTN-EDGE-02: composite inference is M2's composite module.
+        behavior!.Disabled = Disabled;
+        behavior.FocusableWhenDisabled = FocusableWhenDisabled;
+        behavior.Native = NativeButton;
+        behavior.SetConsumerAttributes(AdditionalAttributes);
     }
 
     /// <inheritdoc />
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!Enabled)
-        {
-            // Nothing is rendered: the element the module listened on is gone.
-            if (handle is { } released)
-            {
-                handle = null;
-                sentOptions = null;
-                await released.DisposeAsync();
-            }
-
-            return;
-        }
-
-        if (handle is not null)
-        {
-            ButtonOptions? next = NextOptions();
-            if (next is not null)
-            {
-                sentOptions = next;
-                await handle.UpdateAsync(next);
-            }
-
-            return;
-        }
-
-        string? elementId = null;
-        if (Element is null)
-        {
-            elementId = Id ?? lateId;
-            if (elementId is null)
-            {
-                // A substitute whose root is a component leaves no element reference: render an id, attach next time.
-                lateId = IdGenerator.Next();
-                StateHasChanged();
-                return;
-            }
-        }
-
-        twin ??= CreateTwin();
-        ButtonOptions options = Options();
-        sentOptions = options;
-        handle = elementId is null
-            ? await twin.AttachAsync(Element!.Value, options)
-            : await twin.AttachAsync(elementId, options);
-        attached = true;
-        attachedSource?.TrySetResult();
+        return behavior!.AfterRenderAsync(Enabled, Element, Id, composite: false);
     }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing && twin is not null)
+        if (disposing)
         {
-            twin.NativeButtonMismatched -= ReportNativeButtonMismatch;
-            twin.ActivationDecider = null;
-            _ = twin.DisposeAsync().AsTask();
-            twin = null;
-            handle = null;
+            behavior?.Dispose();
         }
 
         base.Dispose(disposing);
@@ -202,186 +142,12 @@ public sealed class Button : PartBase<ButtonState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
-        if (lateId is not null && Id is null)
-        {
-            attributes.Set("id", lateId);
-        }
-
-        ButtonAttributeWriter.Write(attributes, NativeButton, Disabled, FocusableWhenDisabled, composite: false);
-
-        if (!Disabled)
-        {
-            if (consumerKeyDown.IsHandler)
-            {
-                attributes.Set("onkeydown", onKeyDown);
-            }
-
-            if (consumerKeyUp.IsHandler)
-            {
-                attributes.Set("onkeyup", onKeyUp);
-            }
-        }
+        behavior!.AddAttributes(attributes, Id, composite: false);
     }
 
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName)
     {
-        return !(IsKeyDown(eventName) || IsKeyUp(eventName) || (Disabled && IsGated(eventName)));
-    }
-
-    private static bool IsGated(string name)
-    {
-        return string.Equals(name, "onclick", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, "onmousedown", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, "onpointerdown", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsKeyDown(string name) => string.Equals(name, "onkeydown", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsKeyUp(string name) => string.Equals(name, "onkeyup", StringComparison.OrdinalIgnoreCase);
-
-    private ButtonTwin CreateTwin()
-    {
-        ButtonTwin created = new(JSRuntime) { ActivationDecider = Decide };
-        created.NativeButtonMismatched += ReportNativeButtonMismatch;
-        return created;
-    }
-
-    private ButtonOptions Options()
-    {
-        // BTN-API-02: focusableWhenDisabled always explicit; BTN-EDGE-02: composite inference is M2's composite module.
-        return new ButtonOptions
-        {
-            Disabled = Disabled,
-            FocusableWhenDisabled = FocusableWhenDisabled,
-            Native = NativeButton,
-            Composite = false,
-        };
-    }
-
-    // Compares before constructing, so an unchanged re-render allocates no options record.
-    private ButtonOptions? NextOptions()
-    {
-        if (sentOptions is { } sent && sent.Disabled == Disabled && sent.FocusableWhenDisabled == FocusableWhenDisabled && sent.Native == NativeButton)
-        {
-            return null;
-        }
-
-        return Options();
-    }
-
-    private void ReportNativeButtonMismatch(bool expectedNative) => DevelopmentLog.ReportNativeButtonMismatch(Logger, expectedNative);
-
-    // The consumer's key handlers, which the part declines and runs itself (see the comment on the class).
-    private void FindConsumerKeyHandlers()
-    {
-        consumerKeyDown = default;
-        consumerKeyUp = default;
-        if (AdditionalAttributes is null)
-        {
-            return;
-        }
-
-        foreach (KeyValuePair<string, object> pair in AdditionalAttributes)
-        {
-            bool keyDown = IsKeyDown(pair.Key);
-            if (!keyDown && !IsKeyUp(pair.Key))
-            {
-                continue;
-            }
-
-            AttributeValue value = AttributeValue.FromObject(pair.Value);
-            if (!MergeProps.IsHandler(pair.Key, value))
-            {
-                continue;
-            }
-
-            if (keyDown)
-            {
-                consumerKeyDown = value;
-            }
-            else
-            {
-                consumerKeyUp = value;
-            }
-        }
-    }
-
-    // The activation decision point, on WebAssembly only (ButtonTwin.ActivationDecider): the consumer's key handler
-    // runs here, inside the dispatch, so its PreventPartHandler() can stop the activation (UBT-KEY-03/04/06).
-    private DecisionPolicy Decide(EventSnapshot snapshot)
-    {
-        bool keyUp = string.Equals(snapshot.Type, "keyup", StringComparison.Ordinal);
-        AttributeValue consumer = keyUp ? consumerKeyUp : consumerKeyDown;
-        if (!consumer.IsHandler || Disabled)
-        {
-            return DecisionPolicy.Run;
-        }
-
-        KeyboardEventArgs args = snapshot.ToKeyboardEventArgs();
-        DecidedKey decided = DecidedKey.From(args);
-        if (keyUp)
-        {
-            decidedKeyUp = decided;
-        }
-        else
-        {
-            decidedKeyDown = decided;
-        }
-
-        try
-        {
-            // Only the synchronous part of the handler can veto; an asynchronous rest runs on (ADR 04 §3).
-            Task task = consumer.InvokeAsync(args);
-            if (!task.IsCompleted)
-            {
-                _ = ObserveAsync(task);
-            }
-            else if (task.IsFaulted)
-            {
-                _ = DispatchExceptionAsync(task.Exception!.GetBaseException());
-            }
-        }
-        catch (Exception exception)
-        {
-            _ = DispatchExceptionAsync(exception);
-        }
-
-        return args.PartHandlerPrevented() ? DecisionPolicy.Stop : DecisionPolicy.Run;
-    }
-
-    private async Task ObserveAsync(Task task)
-    {
-        try
-        {
-            await task;
-        }
-        catch (Exception exception) when (!task.IsCanceled)
-        {
-            await DispatchExceptionAsync(exception);
-        }
-    }
-
-    private Task HandleKeyDownAsync(KeyboardEventArgs e) => RunConsumerKeyHandlerAsync(e, consumerKeyDown, ref decidedKeyDown);
-
-    private Task HandleKeyUpAsync(KeyboardEventArgs e) => RunConsumerKeyHandlerAsync(e, consumerKeyUp, ref decidedKeyUp);
-
-    private Task RunConsumerKeyHandlerAsync(KeyboardEventArgs e, AttributeValue consumer, ref DecidedKey? decided)
-    {
-        // The decider already ran the consumer's handler for the event Blazor dispatches now.
-        DecidedKey? pending = decided;
-        decided = null;
-        if (!consumer.IsHandler || Disabled || (pending is { } key && key == DecidedKey.From(e)))
-        {
-            return Task.CompletedTask;
-        }
-
-        return consumer.InvokeAsync(e);
-    }
-
-    /// <summary>The key event a decision ran the consumer's handler for, matched against Blazor's dispatch of it.</summary>
-    private readonly record struct DecidedKey(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey)
-    {
-        public static DecidedKey From(KeyboardEventArgs e) => new(e.Key, e.Code, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
+        return behavior!.ForwardsConsumerHandler(eventName);
     }
 }
