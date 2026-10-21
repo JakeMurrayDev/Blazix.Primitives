@@ -14,8 +14,10 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ProgressAllocationBudgetTests : IDisposable
 {
-    // Set from the first measurement (see the pull request).
-    private const long RenderBudgetBytes = 0;
+    // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 344 bytes, the same as MeterRoot's (MeterAllocationBudgetTests):
+    // all of it Blazor's own per-render work on this path (SetParametersAsync, the dispatcher, the diff, and the fixed
+    // CascadingValue that carries the context re-setting its parameters). The root allocates no state record and no text.
+    private const long RenderBudgetBytes = 344;
 
     private readonly BunitContext context = new();
 
