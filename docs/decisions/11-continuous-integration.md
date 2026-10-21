@@ -41,6 +41,7 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 * **Documents:** `docs/_tools/check_docs.py` on any pull request touching `docs/`; the seven accepted React-term mentions are its allowlist.
 * **Ownership:** an L1 xUnit test parses every component document's `Writer` column and compares it with the code's ownership registry (the custom projection mappings and the twin option records): a `JS` or `C# → JS` row without a registry entry, or a registry entry whose document row says `C#`, fails the build.
 * **Module graph:** an L3 vitest test over the import graph: mechanism modules import no component module; component modules import only mechanism modules and the vendored Floating UI.
+* **TypeScript types** (added 2026-10-21, see Amendments): `npm run typecheck` in the `build-and-test` job.
 
 ## Consequences
 
@@ -59,3 +60,7 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 * Red check by process only (an agent-authored PR can assert a red run it never made, and the reviewer is one person).
 * Retries in the gate (hides exactly the timing defects the port exists to get right).
 * A Python ownership lint over a build-emitted JSON (a second toolchain for one check); ESLint `no-restricted-imports` for the module graph (works, but the rule then lives outside the suite that documents it).
+
+## Amendments
+
+**2026-10-21, the typecheck is a lint ([issue 70](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/70)).** §5 gains a fourth lint: `npm run typecheck` (`tsc -p tsconfig.json --noEmit` over the TypeScript modules, their vitest files and the browser specs) runs in the `build-and-test` job after the setup's `npm ci`, so `gate` fails on a type error. Vitest and Playwright strip types without checking them, so before this a type error in `tests/browser/avatar.spec.ts` reached `main` with every job green (PR 68).
