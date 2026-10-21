@@ -675,7 +675,7 @@ export function deriveImageStatus(element: Element): ImageLoadingStatus | null {
 export interface ImageLoadOptions extends ImageSource {
   /** `true` derives the status from the attached `<img>`; `false` loads a detached probe. */
   keepMounted: boolean;
-  /** The id of an element to hide the moment the image loads (the fallback), ahead of the render that removes it. */
+  /** The ids, separated by spaces, of the elements to hide the moment the image loads (the fallbacks), ahead of the render that removes them. */
   hideWhenLoaded?: string | null;
 }
 
@@ -734,8 +734,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     lastStatus = status;
     const hide = options.image?.hideWhenLoaded;
     if (status === 'loaded' && hide) {
-      // The convergent write: the render C# makes when this status arrives removes the same element.
-      ownerDocument(element).getElementById(hide)?.setAttribute('hidden', '');
+      // The convergent write: the render C# makes when this status arrives removes the same elements.
+      const document = ownerDocument(element);
+      for (const id of hide.split(' ')) {
+        if (id) {
+          document.getElementById(id)?.setAttribute('hidden', '');
+        }
+      }
     }
     twin.report('OnImageStatus', { status });
   };

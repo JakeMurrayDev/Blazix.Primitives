@@ -11,7 +11,9 @@ namespace Blazix.Primitives;
 public sealed partial record AvatarFallbackState(ImageLoadingStatus ImageLoadingStatus);
 
 // Base UI's Avatar.Fallback (avatar/fallback/AvatarFallback.tsx); the contract is docs/components/avatar.md.
-// AVA-DOM-09: rendered exactly while the root's status is not `loaded`; no transition phase.
+// AVA-DOM-09: rendered exactly while the root's status is not `loaded`; no transition phase. The generated id is
+// what the `dom` module hides at load (AVA-DOM-10 against ADR 04 Amendments 2026-10-18: chosen by the user
+// 2026-10-21, the AVA-DOM-10 port note).
 /// <summary>
 /// Represents the content an avatar shows while its image is not loaded, such as initials or an icon: Base UI's
 /// <c>Avatar.Fallback</c>, rendered as a <c>span</c>.
@@ -33,6 +35,7 @@ public sealed class AvatarFallback : PartBase<AvatarFallbackState>
 
     private readonly Action onStatusChanged;
     private AvatarRootContext? context;
+    private string? registeredId;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="AvatarFallback"/> class.</summary>
@@ -58,12 +61,26 @@ public sealed class AvatarFallback : PartBase<AvatarFallbackState>
     protected override StateAttributesMapping<AvatarFallbackState>? StateAttributesMapping => s_mapping;
 
     /// <inheritdoc />
+    protected override bool UsesGeneratedId => true;
+
+    /// <inheritdoc />
     /// <exception cref="InvalidOperationException">The fallback is not inside an <see cref="AvatarRoot"/>.</exception>
     protected override void OnInitialized()
     {
         context = AvatarRootContext.Require(RootContext, nameof(AvatarFallback));
         base.OnInitialized();
         context.AddStatusListener(onStatusChanged);
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        string? id = Id;
+        if (!string.Equals(id, registeredId, StringComparison.Ordinal))
+        {
+            Context.SetFallbackId(registeredId, id);
+            registeredId = id;
+        }
     }
 
     /// <inheritdoc />
@@ -84,7 +101,11 @@ public sealed class AvatarFallback : PartBase<AvatarFallbackState>
         if (disposing && !disposed)
         {
             disposed = true;
-            context?.RemoveStatusListener(onStatusChanged);
+            if (context is not null)
+            {
+                context.RemoveStatusListener(onStatusChanged);
+                context.SetFallbackId(registeredId, null);
+            }
         }
 
         base.Dispose(disposing);

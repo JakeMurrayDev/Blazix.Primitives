@@ -319,6 +319,7 @@ derive():
   Source: `avatar/fallback/AvatarFallback.tsx:23,41-47`. Test: [L2] `AvatarFallback.test.tsx` "should not render the children if the image loaded", "should render the fallback if the image fails to load", "shows the fallback when the delay has elapsed", "shows the fallback immediately when delay is 0", "keeps fallback mounted and image unmounted while the image is loading" (L4 for the load-time hide of the convergent write). Docs: CHANGELOG.md v1.3.0 "Remove fallback transition logic and prevent premature image display".
 - **AVA-DOM-10** — MUST. The Fallback MUST carry no part-supplied attributes; only consumer attributes and children appear.
   Source: `avatar/fallback/AvatarFallback.tsx:41-47`. Test: [L2] `AvatarFallback.test.tsx` conformance suite "Base UI component API".
+  Port note (2026-10-21, M1 track 7, issue 64; ADR 04 Amendments 2026-10-18; chosen by the user 2026-10-21): the Fallback renders one part-supplied attribute, a generated `id` (`base-ui-<n>`) when the consumer supplies none; a consumer `id` is used instead. It is how the `dom` module finds every Fallback of the Root to hide the moment the image loads (the optimistic convergent write of AVA-EDGE-02/03): the Root's context collects the Fallbacks' ids, and the Image sends them, separated by spaces, as `hideWhenLoaded`.
 
 ### 5.4 ARIA
 

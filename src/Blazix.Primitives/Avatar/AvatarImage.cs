@@ -77,6 +77,7 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
 
     private readonly EventCallback onLoad;
     private readonly EventCallback onError;
+    private readonly Action onFallbacksChanged;
     private readonly Action<string> onImageStatus;
     private readonly Action<TransitionStatusChange> onTransitionStatus;
     private readonly Action<bool> onTransitionCompleted;
@@ -103,6 +104,7 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
     {
         onLoad = CreateHandler<ProgressEventArgs>("onload", _ => SetStatusAsync(ImageLoadingStatus.Loaded));
         onError = CreateHandler<Microsoft.AspNetCore.Components.Web.ErrorEventArgs>("onerror", _ => SetStatusAsync(ImageLoadingStatus.Error));
+        onFallbacksChanged = StateHasChanged;
         onImageStatus = literal =>
         {
             // A report of the status the image already has (a re-derivation) changes nothing and costs nothing more.
@@ -196,6 +198,7 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
     {
         context = AvatarRootContext.Require(RootContext, nameof(AvatarImage));
         base.OnInitialized();
+        context.AddFallbackListener(onFallbacksChanged);
         keptMounted = KeepMounted;
     }
 
@@ -252,6 +255,8 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
             disposed = true;
             if (context is not null)
             {
+                context.RemoveFallbackListener(onFallbacksChanged);
+
                 // AVA-STA-06, AVA-EDGE-04: removing any image resets the root.
                 context.SetStatus(ImageLoadingStatus.Idle);
             }
@@ -561,7 +566,8 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
             && string.Equals(sent.Sizes, Sizes, StringComparison.Ordinal)
             && string.Equals(sent.CrossOrigin, CrossOrigin, StringComparison.Ordinal)
             && string.Equals(sent.ReferrerPolicy, ReferrerPolicy, StringComparison.Ordinal)
-            && sent.KeepMounted == KeepMounted)
+            && sent.KeepMounted == KeepMounted
+            && string.Equals(sent.HideWhenLoaded, Context.FallbackIds, StringComparison.Ordinal))
         {
             return null;
         }
@@ -576,6 +582,7 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
                 CrossOrigin = CrossOrigin,
                 ReferrerPolicy = ReferrerPolicy,
                 KeepMounted = KeepMounted,
+                HideWhenLoaded = Context.FallbackIds,
             },
         };
     }
