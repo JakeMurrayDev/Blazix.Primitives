@@ -675,7 +675,7 @@ export function deriveImageStatus(element: Element): ImageLoadingStatus | null {
 export interface ImageLoadOptions extends ImageSource {
   /** `true` derives the status from the attached `<img>`; `false` loads a detached probe. */
   keepMounted: boolean;
-  /** The id of an element to hide the moment the image loads (the fallback), ahead of the render that removes it. */
+  /** The ids, separated by spaces, of the elements to hide the moment the image loads (the fallbacks), ahead of the render that removes them. */
   hideWhenLoaded?: string | null;
 }
 
@@ -688,6 +688,9 @@ export interface DomOptions extends TwinOptions {
   /** The image whose loading status the handle reports. */
   image?: ImageLoadOptions | null;
 }
+
+// The attributes of a kept-mounted `<img>` that start a new request when a render changes them (AVA-STA-12).
+const IMAGE_SOURCE_ATTRIBUTES = ['src', 'srcset', 'sizes', 'crossorigin', 'referrerpolicy'];
 
 function imageKey(image: ImageLoadOptions | null | undefined): string | null {
   return image ? JSON.stringify([image.src, image.srcSet, image.sizes, image.crossOrigin, image.referrerPolicy, image.keepMounted]) : null;
@@ -710,6 +713,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   let supersedeProbe: () => void = noop;
   let evaluatedImage: string | null = null;
   let lastStatus: ImageLoadingStatus | null = null;
+  let stopObservingSource: (() => void) | null = null;
+  let evaluatedKeptMounted = false;
 
   const assertIndeterminate = () => {
     if (options.indeterminate != null && element instanceof ownerWindow(element).HTMLInputElement) {
@@ -729,8 +734,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     lastStatus = status;
     const hide = options.image?.hideWhenLoaded;
     if (status === 'loaded' && hide) {
-      // The convergent write: the render C# makes when this status arrives removes the same element.
-      ownerDocument(element).getElementById(hide)?.setAttribute('hidden', '');
+      // The convergent write: the render C# makes when this status arrives removes the same elements.
+      const document = ownerDocument(element);
+      for (const id of hide.split(' ')) {
+        if (id) {
+          document.getElementById(id)?.setAttribute('hidden', '');
+        }
+      }
     }
     twin.report('OnImageStatus', { status });
   };
@@ -744,23 +754,61 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   };
 
+  // The element's own load and error events set the status in C#, which this module does not see: a derivation after a
+  // source change reports what it finds even when that equals the last report, and C# drops an unchanged status.
+  const deriveFromElement = () => {
+    const status = deriveImageStatus(element);
+    if (status !== null) {
+      lastStatus = null;
+      reportStatus(status);
+    }
+  };
+
+  const stopSourceObserver = () => {
+    stopObservingSource?.();
+    stopObservingSource = null;
+  };
+
+  // A render that changes the source of a kept-mounted image (a parameter, or a substitute element's own `src`)
+  // re-derives the status in the batch that applies it, before paint and before `update` arrives.
+  const observeSource = () => {
+    const MutationObserverImpl = ownerWindow(element).MutationObserver;
+    if (stopObservingSource || typeof MutationObserverImpl !== 'function') {
+      return;
+    }
+    const observer = new MutationObserverImpl(() => {
+      if (!disposed) {
+        deriveFromElement();
+      }
+    });
+    observer.observe(element, { attributes: true, attributeFilter: IMAGE_SOURCE_ATTRIBUTES });
+    stopObservingSource = () => observer.disconnect();
+  };
+
   const applyImage = () => {
     const image = options.image;
+    if (!image?.keepMounted) {
+      stopSourceObserver();
+    }
     const key = imageKey(image);
     if (key === evaluatedImage) {
       return;
     }
+    const wasKeptMounted = evaluatedKeptMounted;
     evaluatedImage = key;
+    evaluatedKeptMounted = image?.keepMounted === true;
     supersedeProbe();
     supersedeProbe = noop;
     if (!image) {
       return;
     }
     if (image.keepMounted) {
-      const status = deriveImageStatus(element);
-      if (status !== null) {
-        reportStatus(status);
+      // The observer has already derived the status for a source change C# rendered; only the first evaluation of a
+      // kept-mounted image derives here.
+      if (!wasKeptMounted) {
+        deriveFromElement();
       }
+      observeSource();
       return;
     }
     supersedeProbe = probeImage(image, reportStatus);
@@ -793,6 +841,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       unmarkLiveRegion = null;
       supersedeProbe();
       supersedeProbe = noop;
+      stopSourceObserver();
     },
   };
 }
