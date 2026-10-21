@@ -96,8 +96,9 @@ function hasNonZeroDuration(value: string): boolean {
     .some((part) => part !== '' && Number.parseFloat(part) > 0);
 }
 
+// COL-ANI-01/02.
 /**
- * Classifies the panel's motion from its computed style (COL-ANI-01/02).
+ * Classifies the panel's motion from its computed style.
  * @param element The panel element.
  * @param suppressedOpenAnimation Whether `animation-name: none` currently suppresses an opening keyframe animation,
  * which still counts as an animation.
@@ -141,9 +142,9 @@ interface PanelStyle {
   setConsumer(style: string | null | undefined): void;
   /** Sets or removes one of the module's own declarations (the size variables, the suppression). */
   setBase(property: string, value: string | null): void;
+  // COL-ANI-05 (the alignment reset), COL-ANI-22 (the 0s override of a reveal open).
   /**
-   * Overrides a property until the returned function runs, which restores what the layers below say (COL-ANI-05,
-   * COL-ANI-22).
+   * Overrides a property until the returned function runs, which restores what the layers below say.
    */
   setTemporary(property: string, value: string, priority?: string): () => void;
 }
