@@ -31,7 +31,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/button.md | BTN | implemented | 29 reqs (opus) | |
 | components/checkbox.md | CHK | approved | 151 reqs |
 | components/checkbox-group.md | CKG | approved | 83 reqs |
-| components/collapsible.md | COL | approved | pilot; 104 reqs |
+| components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
 | components/dialog.md | DLG | approved | 191 reqs |

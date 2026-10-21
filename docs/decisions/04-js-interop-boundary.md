@@ -171,3 +171,15 @@ The inverse, `snapshot.ToKeyboardEventArgs()`, is what the `activate` decision p
 - Inside the dispatch the module removes `data-starting-style` and arms the one-shot motion skip before it decides, and restores both on `stop`. On WebAssembly the C# request commits the open inside the decision, and the open render's `update` re-enters the module before `decide` returns, so it finds them already applied.
 - On Server, `run` is returned without a call. The request is then an invocation of the twin's `OnRevealRequest`, whose `Task<bool>` result says whether the part is open once the request ran. A `false` answer, with no open arrived, reverts the panel to `hidden="until-found"` on the next frame. The answer is asynchronous, so ADR 01 decision 1 holds: no synchronous invoke moves state.
 - ADR 01 relaxation table, row added 2026-10-21.
+
+**2026-10-21, the `collapsible` component module (M1 track 6, issue 63; placed by the orchestrator under the placement rule, issue 62 point 3).** Decision 1's table gains a row:
+
+| Module | Owns | Doc |
+|---|---|---|
+| `collapsible` (component) | the panel's measurement passes interleaved with the transition flips (useCollapsiblePanel: animation type detection, the opening and closing passes with the held and cached size, the alignment reset, the zero-size and no-motion exits, the one-shot suppression of the opening keyframe animation), the until-found write and the `beforematch` reveal of the panel, composed from the `transitions` module's exported factories and `dom`'s reads. `Collapsible.Panel` attaches it; `Accordion.Panel` (M3) attaches the same module | collapsible (COL-ANI-01..30, COL-DOM-12..18) |
+
+The panel's twin is `CollapsibleTwin`; the Collapsible Root and Trigger keep `TransitionsTwin`, with the new `TransitionsOptions.ExternalExit`: their exit ends only when the panel's ends (`UnmountRequests`), as Base UI's root status does (COL-STA-05, COL-DOM-03/06).
+- The module reports the forced idle, the end of the exit, the detected type and the reveal, each once per change.
+- It re-resolves a withheld or replaced element by the panel's id on `update` (COL-ANI-15/18/19).
+- After the closing measurement it computes the element's style, so the closing transition starts from the held pixel size. This matters because the ending flip lands in the next frame's callback, before that frame computes styles.
+- `moduleKinds` has the row, and the module-graph lint holds.

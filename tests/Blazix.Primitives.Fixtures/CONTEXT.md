@@ -14,6 +14,7 @@ The fixture host: a Blazor Web App that serves every fixture page in both render
 - `Program.cs`: the harness services (`AddFixtureHarness`: one `FixtureSession` per circuit with its `FakeTimeProvider` as `TimeProvider`, the capturing logger provider), the hub options (keep-alive 2 s, client timeout 10 s, mirrored by the initializer), and the test-only endpoints `GET /_fixture/ready` and `GET /_fixture/diagnostics/{token}`.
 - `wwwroot/Blazix.Primitives.Fixtures.lib.module.js`: sets `data-blazix-started` on `<html>` in `afterWebStarted`; sets `BASE_UI_ANIMATIONS_DISABLED` unless `?animations=1`; defines `window.blazixFixture` (`register`, `advanceTime`, `diagnostics`), the per-page channel to the session's `[JSInvokable]` methods.
 - `Components/App.razor`: tags prerendered fixture nodes before Blazor starts (ADR-02/1).
+- `Blazix.Primitives.Fixtures.csproj`: turns the library's development warnings on for the Server-rendered fixtures (`RuntimeHostConfigurationOption`), so their messages reach the captured diagnostics (first used by Collapsible, COL-EDGE-02/03).
 
 ## Outputs
 

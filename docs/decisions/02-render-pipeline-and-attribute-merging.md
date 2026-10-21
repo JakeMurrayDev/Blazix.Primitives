@@ -101,3 +101,19 @@ One shared implementation therefore satisfies RND-DOM-36..49 for every part; the
 - The unmatched bag is not copied, so the hook allocates nothing.
 
 `Button` declines the three pointer handlers while disabled, and declines the two key handlers always so that it can run them from its own handler. The rejected alternative (G1) was a per-part copy of the bag without the declined entries, written back to `AdditionalAttributes` on each parameter set. Tested by `tests/Blazix.Primitives.Tests.Components/Rendering/ConsumerHandlerForwardingTests.cs`.
+
+**2026-10-21, the part's last word on its merged attributes (M1 track 6, issue 63; proposed to the orchestrator as H1′, awaiting the user's choice).** The handover at attach (ADR 04 Amendments 2026-10-18) needs two things the pipeline did not give a part:
+- its own declarations above the consumer's style (a collapsible panel's `animation-name: none` over the consumer's `animation-name`, COL-DOM-18);
+- the style it rendered frozen from `attach` on, while the consumer's merged string travels to the module (COL-ANI-14, COL-DOM-17).
+
+The Collapsible panel also does not merge the consumer's empty `id` (COL-API-10).
+
+`PartBase<TState>` gains `protected virtual void FinishAttributes(AttributeList attributes)`:
+- The pipeline calls it once per render, after `class`, `style` and the handlers are merged and before the default element, the substitute element or the substitute callback receives the attributes.
+- What the part sets there wins over the consumer, so a part overrides it only for a value its own document owns.
+- The base changes nothing, and `RenderElement<TState>` answers through `IPartHost` with a no-op.
+- Tested by `tests/Blazix.Primitives.Tests.Components/Rendering/FinishAttributesTests.cs`.
+
+The rejected alternatives were:
+- a narrower handover-only hook, which each handover part (the Collapsible panel, Avatar, every `Positioner` and `Arrow`, `Tabs.Indicator`) would need in its own variant;
+- relaxing COL-DOM-18 and COL-ANI-14, which ADR 04's amendment of 2026-10-18 rules out.
