@@ -1,0 +1,164 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-css-transition` fixture (tests/browser/collapsible.spec.ts): CollapsiblePanel.test.tsx "CSS
+    transitions", one case per Base UI test, each with its own class names.
+*@
+<FixtureContainer Name="collapsible-css-transition" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        .transition-test-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            transition: height 100ms linear;
+        }
+
+        .transition-test-panel[data-starting-style],
+        .transition-test-panel[data-ending-style] {
+            height: 0;
+        }
+
+        .closing-transition-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            transition: height 100ms linear;
+        }
+
+        .closing-transition-panel[data-ending-style] {
+            height: 0;
+        }
+
+        .zero-size-panel {
+            overflow: hidden;
+            width: 0;
+            height: 0;
+            opacity: 1;
+            transition: opacity 10s linear;
+        }
+
+        .zero-size-panel[data-ending-style] {
+            opacity: 0;
+        }
+
+        @@keyframes panel-fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .mixed-motion-panel {
+            height: var(--collapsible-panel-height);
+            transition: height 100ms linear;
+            animation: panel-fade-in 100ms linear;
+        }
+
+        .mixed-motion-panel[data-starting-style] {
+            height: 0;
+        }
+
+        .interruptible-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            transition: height 10s linear;
+        }
+
+        .interruptible-panel[data-starting-style],
+        .interruptible-panel[data-ending-style] {
+            height: 0;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="opening" Case="opening">
+        <CollapsibleRoot @ref="openingRoot" data-root>
+            <CollapsibleTrigger @ref="openingTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel class="transition-test-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="closing" Case="closing">
+        <CollapsibleRoot @ref="closingRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="closingTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="closingPanel" class="closing-transition-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="zero-size" Case="zeroSize">
+        <CollapsibleRoot @ref="zeroSizeRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="zeroSizeTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="zeroSizePanel" class="zero-size-panel" data-panel />
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="mixed" Case="mixed">
+        <CollapsibleRoot @ref="mixedRoot" data-root>
+            <CollapsibleTrigger @ref="mixedTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="mixedPanel" class="mixed-motion-panel" data-panel KeepMounted="true" style="justify-content: center">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="interrupted" Case="interrupted">
+        <CollapsibleRoot @ref="interruptedRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="interruptedTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="interruptedPanel" class="interruptible-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="late-open-animation" Case="lateOpenAnimation">
+        <CollapsibleRoot @ref="lateOpenRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="lateOpenTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="lateOpenPanel" data-panel KeepMounted="true" style="transition: height 10s linear">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="late-close-animation" Case="lateCloseAnimation">
+        <CollapsibleRoot @ref="lateCloseRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="lateCloseTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="lateClosePanel" data-panel style="transition: height 10s linear">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase opening = new();
+    private readonly CollapsibleCase closing = new();
+    private readonly CollapsibleCase zeroSize = new();
+    private readonly CollapsibleCase mixed = new();
+    private readonly CollapsibleCase interrupted = new();
+    private readonly CollapsibleCase lateOpenAnimation = new();
+    private readonly CollapsibleCase lateCloseAnimation = new();
+    private CollapsibleRoot? openingRoot;
+    private CollapsibleTrigger? openingTrigger;
+    private CollapsibleRoot? closingRoot;
+    private CollapsibleTrigger? closingTrigger;
+    private CollapsiblePanel? closingPanel;
+    private CollapsibleRoot? zeroSizeRoot;
+    private CollapsibleTrigger? zeroSizeTrigger;
+    private CollapsiblePanel? zeroSizePanel;
+    private CollapsibleRoot? mixedRoot;
+    private CollapsibleTrigger? mixedTrigger;
+    private CollapsiblePanel? mixedPanel;
+    private CollapsibleRoot? interruptedRoot;
+    private CollapsibleTrigger? interruptedTrigger;
+    private CollapsiblePanel? interruptedPanel;
+    private CollapsibleRoot? lateOpenRoot;
+    private CollapsibleTrigger? lateOpenTrigger;
+    private CollapsiblePanel? lateOpenPanel;
+    private CollapsibleRoot? lateCloseRoot;
+    private CollapsibleTrigger? lateCloseTrigger;
+    private CollapsiblePanel? lateClosePanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        openingRoot, openingTrigger, closingRoot, closingTrigger, closingPanel, zeroSizeRoot, zeroSizeTrigger, zeroSizePanel,
+        mixedRoot, mixedTrigger, mixedPanel, interruptedRoot, interruptedTrigger, interruptedPanel,
+        lateOpenRoot, lateOpenTrigger, lateOpenPanel, lateCloseRoot, lateCloseTrigger, lateClosePanel,
+    ];
+}

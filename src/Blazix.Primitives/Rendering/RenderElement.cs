@@ -165,6 +165,11 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     /// <inheritdoc />
     bool IPartHost.ForwardsConsumerHandler(string eventName) => true;
 
+    /// <inheritdoc />
+    void IPartHost.FinishAttributes(AttributeList attributes)
+    {
+    }
+
     private async Task AwaitAndDispatchAsync(Task task)
     {
         try

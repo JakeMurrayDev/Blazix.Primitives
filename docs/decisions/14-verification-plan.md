@@ -18,7 +18,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | ADR item | Milestone | How |
 |---|---|---|
 | 01 `WebAssemblyCallQueue` deferral stays inside one browser task | M0 | read `WebAssemblyRenderer` in aspnetcore `release/11.0`; "Verified" note in ADR 01 |
-| 01 Server round-trip cost of the TRN-ANI-09 row | M1 (Collapsible) | measurement under Playwright network throttling; the result is appended to ADR 01 and decides whether the optimistic hide stays; closes before Collapsible is declared done, not before M1's first component (Amendments 2026-10-21) |
+| 01 Server round-trip cost of the TRN-ANI-09 row | M1 (Collapsible) | measurement under Playwright network throttling; the result is appended to ADR 01 and decides whether the optimistic hide stays; closes before Collapsible is declared done, not before M1's first component (Amendments 2026-10-21). 2026-10-21, by `collapsible.spec.ts` "@verifies ADR-01/2 …": measured median 1 / 54 / 156 ms at 0 / 50 / 150 ms added round trip without the hide, 0 ms with it; the optimistic hide stays (chosen by the user the same day). The latency is added by routing the circuit's WebSocket (`routeWebSocket`), because Chromium's network emulation does not delay it |
 | 02 interactive activation replaces the prerendered subtree; roots activate in document order | M0 | permanent L4 test on the prerender fixtures, both modes |
 | 02 the frame re-emitter keeps `@key` and `@ref` for a component root | M0 | permanent L2 tests in the conformance suite |
 | 02 scratch-render cost on a list part | M5 (Menu) | timed measurement; result appended to ADR 02; decides frame caching (ADR 16 B) |

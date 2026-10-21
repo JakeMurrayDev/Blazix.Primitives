@@ -64,13 +64,13 @@ public sealed class TransitionsTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-7", attach.Arguments[0]);
         Assert.Equal(
-            """{"open":true,"mounted":true,"status":"starting","enableIdleState":true,"deferEndingState":true,"keepMounted":true,"hiddenUntilFound":true,"hiddenWhenUnmounted":true,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":true,"unmountRequests":0,"openSelector":"[data-open]","style":"--collapsible-panel-height: auto"}""",
+            """{"open":true,"mounted":true,"status":"starting","enableIdleState":true,"deferEndingState":true,"keepMounted":true,"hiddenUntilFound":true,"hiddenWhenUnmounted":true,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":true,"unmountRequests":0,"externalExit":false,"openSelector":"[data-open]","style":"--collapsible-panel-height: auto"}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<TransitionsTwin>>(attach.Arguments[2]);
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"open":false,"mounted":true,"enableIdleState":true,"deferEndingState":true,"keepMounted":true,"hiddenUntilFound":true,"hiddenWhenUnmounted":true,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":true,"unmountRequests":1,"style":"color: red"}""",
+            """{"open":false,"mounted":true,"enableIdleState":true,"deferEndingState":true,"keepMounted":true,"hiddenUntilFound":true,"hiddenWhenUnmounted":true,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":true,"unmountRequests":1,"externalExit":false,"style":"color: red"}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
@@ -80,7 +80,7 @@ public sealed class TransitionsTwinContractTests
     public void The_status_travels_as_its_literal_and_the_unset_status_is_left_out()
     {
         Assert.Equal(
-            """{"open":false,"mounted":false,"enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0}""",
+            """{"open":false,"mounted":false,"enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0,"externalExit":false}""",
             JsonSerializer.Serialize(new TransitionsOptions(), BlazixJsonContext.Default.TransitionsOptions));
 
         foreach ((TransitionStatus status, string literal) in new[] { (TransitionStatus.Starting, "starting"), (TransitionStatus.Ending, "ending"), (TransitionStatus.Idle, "idle") })

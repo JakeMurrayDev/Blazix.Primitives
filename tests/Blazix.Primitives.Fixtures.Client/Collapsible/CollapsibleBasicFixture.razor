@@ -1,0 +1,104 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-basic` fixture (tests/browser/collapsible.spec.ts): collapsibles without motion. Base UI's
+    CollapsibleRoot.test.tsx "open state" and "keyboard interactions" cases, and CollapsiblePanel.test.tsx "hides the panel
+    after external controlled close when true and no animations are applied".
+*@
+<FixtureContainer Name="collapsible-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="uncontrolled" Case="uncontrolled">
+        <CollapsibleRoot @ref="uncontrolledRoot" OnOpenChange="uncontrolled.OnOpenChange" data-root
+                         ClassValue="@(state => $"status-{Literal(state.TransitionStatus)}")">
+            <CollapsibleTrigger @ref="uncontrolledTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="controlled" Case="controlled">
+        <CollapsibleRoot @ref="controlledRoot" Open="controlled.Open" OnOpenChange="controlled.OnOpenChange">
+            <CollapsibleTrigger @ref="controlledTrigger">trigger</CollapsibleTrigger>
+            <CollapsiblePanel data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+        <button type="button" data-external @onclick="() => controlled.Open = !controlled.Open">toggle</button>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="ignored" Case="ignored">
+        <CollapsibleRoot @ref="ignoredRoot" Open="false" OnOpenChange="ignored.OnOpenChange">
+            <CollapsibleTrigger @ref="ignoredTrigger">trigger</CollapsibleTrigger>
+            <CollapsiblePanel data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="disabled" Case="disabled">
+        <CollapsibleRoot @ref="disabledRoot" Disabled="true" OnOpenChange="disabled.OnOpenChange">
+            <CollapsibleTrigger @ref="disabledTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="non-native" Case="nonNative">
+        <CollapsibleRoot @ref="nonNativeEnabledRoot" OnOpenChange="nonNative.OnOpenChange">
+            <CollapsibleTrigger @ref="nonNativeEnabledTrigger" NativeButton="false" Render="@(builder => { builder.OpenElement(0, "span"); builder.CloseElement(); })">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="non-native-disabled" Case="nonNativeDisabled">
+        <CollapsibleRoot @ref="nonNativeRoot" Disabled="true" OnOpenChange="nonNativeDisabled.OnOpenChange">
+            <CollapsibleTrigger @ref="nonNativeTrigger" NativeButton="false" Render="@(builder => { builder.OpenElement(0, "span"); builder.CloseElement(); })">Trigger</CollapsibleTrigger>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="keep-mounted" Case="keepMounted">
+        <CollapsibleRoot @ref="keepMountedRoot" Open="keepMounted.Open" OnOpenChange="keepMounted.OnOpenChange">
+            <CollapsibleTrigger @ref="keepMountedTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="keepMountedPanel" data-panel KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+        <button type="button" data-external @onclick="() => keepMounted.Open = !keepMounted.Open">toggle externally</button>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase uncontrolled = new();
+    private readonly CollapsibleCase controlled = new();
+    private readonly CollapsibleCase ignored = new() { IgnoreRequests = true };
+    private readonly CollapsibleCase disabled = new();
+    private readonly CollapsibleCase nonNativeDisabled = new();
+    private readonly CollapsibleCase nonNative = new();
+    private readonly CollapsibleCase keepMounted = new();
+    private CollapsibleRoot? uncontrolledRoot;
+    private CollapsibleTrigger? uncontrolledTrigger;
+    private CollapsibleRoot? controlledRoot;
+    private CollapsibleTrigger? controlledTrigger;
+    private CollapsibleRoot? ignoredRoot;
+    private CollapsibleTrigger? ignoredTrigger;
+    private CollapsibleRoot? disabledRoot;
+    private CollapsibleTrigger? disabledTrigger;
+    private CollapsibleRoot? nonNativeEnabledRoot;
+    private CollapsibleTrigger? nonNativeEnabledTrigger;
+    private CollapsibleRoot? nonNativeRoot;
+    private CollapsibleTrigger? nonNativeTrigger;
+    private CollapsibleRoot? keepMountedRoot;
+    private CollapsibleTrigger? keepMountedTrigger;
+    private CollapsiblePanel? keepMountedPanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        uncontrolledRoot, uncontrolledTrigger, controlledRoot, controlledTrigger, ignoredRoot, ignoredTrigger,
+        disabledRoot, disabledTrigger, nonNativeRoot, nonNativeTrigger, keepMountedRoot, keepMountedTrigger, keepMountedPanel,
+        nonNativeEnabledRoot, nonNativeEnabledTrigger,
+    ];
+
+    private static string Literal(TransitionStatus? status) => status switch
+    {
+        TransitionStatus.Starting => "starting",
+        TransitionStatus.Ending => "ending",
+        TransitionStatus.Idle => "idle",
+        _ => "none",
+    };
+}

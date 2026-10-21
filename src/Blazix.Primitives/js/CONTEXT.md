@@ -43,9 +43,15 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
       - the invocation `OnRevealRequest`: when no C# chain ran inside the dispatch; it resolves with whether the part is open after the request.
     - Exit end, in the completion pass: it removes `data-ending-style` and sets `hidden` on an element C# is about to remove or hide, which is the convergent write.
     - `hidden="until-found"` while hidden, the persisted `data-starting-style` while hidden, a `MutationObserver` that turns a boolean `hidden` C# renders into the literal before paint, and no `hidden` while open.
-    - `unmountRequests` lets C# end an exit it learned of elsewhere; a request that arrives after a reopen is dropped.
+    - `unmountRequests` lets C# end an exit it learned of elsewhere; a request that arrives after a reopen is dropped. With `externalExit` no exit watcher is armed, so only such a request ends the exit.
     - The consumer style is applied only when `options.style` is set.
     - A repeated `attach` of the same element returns the live handle (a symbol on the element, not a registry); `dispose` is idempotent.
+- `collapsible.ts` (entry `js/collapsible`, a component module): the Collapsible panel's measurement passes (Base UI's `useCollapsiblePanel`), composed from the `transitions` factories (the machine with its per-pass hook, the watchers, the transition attributes, the hidden controller, the open input, the reveal controller, the frame slots) and `dom`'s `ownerWindow`.
+  - Per element, a session: animation type detection (`getAnimationType`, reported once per change with the mixed flag); the opening pass (measure and hold the size, the alignment reset until the next frame, the forced idle of a `'none'` or reveal open, the `0s` override of a reveal open kept until the next close); the closing passes (the cached size of a keyframe close, the held size, the zero-size and no-motion exits, the exit watcher one frame after `'ending'`); the open side's completion that clears the held size; the one-shot `animation-name: none`; the persisted starting style and `hidden="until-found"`; the convergent `hidden` at exit end.
+  - The element's whole `style` is the module's from `attach`: the consumer's string (`options.style`), then its own declarations (the size variables, the suppression), then the temporary overrides, each restored to what the layers below say.
+  - After a closing measurement it computes the element's style, so the closing transition starts from the held size (the ending flip lands in the next frame's callback, before that frame computes styles).
+  - `update` re-resolves a disconnected element by `panelId`: a new element starts a fresh session from what C# rendered, and while no element exists an update whose status is `'ending'` ends the exit.
+  - Reports: `OnForcedIdleChange`, `OnTransitionComplete` (`open: false`), `OnAnimationTypeChange`, and the reveal (`reveal` decision point, or the `OnRevealRequest` invocation).
 - `initializer.ts` → `wwwroot/Blazix.Primitives.lib.module.js`: imports `platform` and registers custom event types (none yet).
 - `build.mjs`: the esbuild step. One ESM entry per `BlazixJsEntry` item of the csproj into `wwwroot/`, shared code as `js/chunks/*`, `legalComments: 'inline'` so the Floating UI banner survives, sourcemaps and no minification in Debug.
 
@@ -69,6 +75,7 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
     - `beforematch` is the decision point `reveal`, fallback `run`, whose Server revert waits for C#'s answer plus a frame (TRN-ANI-33/34).
     - ADR 01's relaxation table has the three rows added 2026-10-21: the same-commit attributes of an attached element, met on both modes; `Avatar.Image` without `keepMounted`; the reveal.
     - The measurement passes live in a `collapsible` component module (decided by the orchestrator under the placement rule).
+- `collapsible.ts`: collapsible.md §9 (COL-ANI-01..30), COL-DOM-12..18, COL-STA-04/06, COL-EVT-04/05, COL-EDGE-03; ADR 04 §1 (the `collapsible` component module, Amendments 2026-10-21), §2 and Amendments 2026-10-18 (handover at attach); ADR 01 relaxation table (the rows of 2026-10-21 for an attached element, a new element, the reveal; TRN-ANI-03/09/10 with the convergent write).
 - `initializer.ts`, `build.mjs`: ADR 04 §4, ADR 07 (the Floating UI licence banner).
 
 ## Toolchain rules

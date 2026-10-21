@@ -382,6 +382,9 @@ internal static class RenderPipeline
                     merged.Set(slot.Name, state.OuterChain(slot));
                 }
             }
+
+            // ADR 02 Amendments 2026-10-21: the part's last word on its own values (the handed-over style).
+            host.FinishAttributes(merged);
         }
 
         private readonly void EmitDefaultElement()

@@ -36,6 +36,7 @@ export const moduleKinds: Record<string, ModuleKind> = {
   toast: 'component',
   'context-menu': 'component',
   'navigation-menu': 'component',
+  collapsible: 'component',
   // Shared helpers: the twin contract, the event snapshot, the platform flags and the initializer.
   twin: 'shared',
   decide: 'shared',

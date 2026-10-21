@@ -173,3 +173,15 @@ The inverse, `snapshot.ToKeyboardEventArgs()`, is what the `activate` decision p
 - ADR 01 relaxation table, row added 2026-10-21.
 
 **2026-10-21, a twin's host element may be its Root's element (Decision 3; M1 track 7, [issue 64](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/64); chosen by the user the same day).** A part owns its twin; the twin's host element may be its Root's element. `Avatar.Image` in preload mode has no element until its image has loaded, so its own `DomTwin` attaches to the `Avatar.Root` element, found through the Root's context, and runs the detached probe there; in kept-mounted mode it attaches to the `<img>`, and a runtime switch of `KeepMounted` disposes the handle and attaches again. The Root draws a generated id under a substitute (`Render` or `RenderFunction`), as Button does (ADR 02 decision 1), so the twin can find it without an element reference. The rule that one twin is never attached to several parts' elements at once is unchanged: the twin has one live handle.
+
+**2026-10-21, the `collapsible` component module (M1 track 6, issue 63; placed by the orchestrator under the placement rule, issue 62 point 3).** Decision 1's table gains a row:
+
+| Module | Owns | Doc |
+|---|---|---|
+| `collapsible` (component) | the panel's measurement passes interleaved with the transition flips (useCollapsiblePanel: animation type detection, the opening and closing passes with the held and cached size, the alignment reset, the zero-size and no-motion exits, the one-shot suppression of the opening keyframe animation), the until-found write and the `beforematch` reveal of the panel, composed from the `transitions` module's exported factories and `dom`'s reads. `Collapsible.Panel` attaches it; `Accordion.Panel` (M3) attaches the same module | collapsible (COL-ANI-01..30, COL-DOM-12..18) |
+
+The panel's twin is `CollapsibleTwin`; the Collapsible Root and Trigger keep `TransitionsTwin`, with the new `TransitionsOptions.ExternalExit`: their exit ends only when the panel's ends (`UnmountRequests`), as Base UI's root status does (COL-STA-05, COL-DOM-03/06).
+- The module reports the forced idle, the end of the exit, the detected type and the reveal, each once per change.
+- It re-resolves a withheld or replaced element by the panel's id on `update` (COL-ANI-15/18/19).
+- After the closing measurement it computes the element's style, so the closing transition starts from the held pixel size. This matters because the ending flip lands in the next frame's callback, before that frame computes styles.
+- `moduleKinds` has the row, and the module-graph lint holds.

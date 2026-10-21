@@ -19,4 +19,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(TransitionStatusChange))]
 [JsonSerializable(typeof(TransitionCompletion))]
 [JsonSerializable(typeof(RevealRequest))]
+[JsonSerializable(typeof(CollapsibleOptions))]
+[JsonSerializable(typeof(PanelForcedIdleChange))]
+[JsonSerializable(typeof(PanelAnimationTypeChange))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

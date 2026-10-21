@@ -14,6 +14,14 @@
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
+  <!--
+    The library's development warnings are on in both modes, as in a Debug build of an app, so the specs can read them
+    from the captured diagnostics (ADR 06 §2; first needed by the Collapsible warnings, COL-EDGE-02/03).
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
   </ItemGroup>

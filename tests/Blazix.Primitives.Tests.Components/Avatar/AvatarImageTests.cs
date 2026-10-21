@@ -398,7 +398,7 @@ public sealed class AvatarImageTests : IDisposable
         Assert.True(cut.Find("[data-testid=image]").HasAttribute("data-starting-style"));
         JSRuntimeInvocation attach = Assert.Single(interop.TransitionsAttaches);
         Assert.Equal(
-            """{"open":true,"mounted":true,"status":"starting","enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0}""",
+            """{"open":true,"mounted":true,"status":"starting","enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0,"externalExit":false}""",
             attach.Arguments[1]);
         interop.ReportTransition(cut, null, mounted: true);
 

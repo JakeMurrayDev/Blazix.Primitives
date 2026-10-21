@@ -1,0 +1,221 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-hidden-until-found` fixture (tests/browser/collapsible.spec.ts): CollapsiblePanel.test.tsx "prop:
+    hiddenUntilFound" and "interrupted beforematch opens" (COL-API-09, COL-DOM-14/15, COL-EVT-04/05, COL-ANI-03, COL-ANI-22..27,
+    COL-ANI-30). The specs dispatch beforematch themselves, as Base UI's do, and run where `onbeforematch` exists.
+*@
+<FixtureContainer Name="collapsible-hidden-until-found" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes panel-slide-down {
+            from {
+                height: 0;
+            }
+
+            to {
+                height: var(--collapsible-panel-height);
+            }
+        }
+
+        @@keyframes panel-slide-up {
+            from {
+                height: var(--collapsible-panel-height);
+            }
+
+            to {
+                height: 0;
+            }
+        }
+
+        .zero-duration-panel {
+            overflow: hidden;
+            animation-duration: 123ms;
+        }
+
+        .zero-duration-panel[data-open] {
+            animation-name: panel-slide-down;
+        }
+
+        .zero-duration-panel[data-closed] {
+            animation-name: panel-slide-up;
+        }
+
+        .transition-test-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            transition-property: height;
+            transition-duration: 999ms;
+            transition-timing-function: linear;
+        }
+
+        .transition-test-panel[data-starting-style],
+        .transition-test-panel[data-ending-style] {
+            height: 0;
+        }
+
+        .motion-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            transition: height 100ms linear;
+        }
+
+        .motion-panel[data-starting-style],
+        .motion-panel[data-ending-style] {
+            height: 0;
+        }
+
+        .fading-panel {
+            overflow: hidden;
+            height: var(--collapsible-panel-height);
+            opacity: 1;
+            transition: height 1000ms linear, opacity 1000ms linear;
+        }
+
+        .fading-panel[data-starting-style],
+        .fading-panel[data-ending-style] {
+            height: 0;
+            opacity: 0;
+        }
+
+        .keyframe-panel {
+            overflow: hidden;
+        }
+
+        .keyframe-panel[data-open] {
+            animation: panel-slide-down 100ms ease-out;
+        }
+
+        .keyframe-panel[data-closed] {
+            animation: panel-slide-up 100ms ease-in;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="zero-duration" Case="zeroDuration">
+        <CollapsibleRoot @ref="zeroDurationRoot" data-root>
+            <CollapsibleTrigger @ref="zeroDurationTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="zeroDurationPanel" class="zero-duration-panel" data-panel HiddenUntilFound="true" KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="restores-duration" Case="restoresDuration">
+        <CollapsibleRoot @ref="restoresRoot" data-root>
+            <CollapsibleTrigger @ref="restoresTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="restoresPanel" class="transition-test-panel" data-panel HiddenUntilFound="true" KeepMounted="true" style="transition-duration: 123ms">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="later-motion" Case="laterMotion">
+        <button type="button" data-external @onclick="() => motionEnabled = true">enable motion</button>
+        <CollapsibleRoot @ref="laterMotionRoot" data-root>
+            <CollapsibleTrigger @ref="laterMotionTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="laterMotionPanel" class="@(motionEnabled ? "motion-panel" : null)" data-panel HiddenUntilFound="true" KeepMounted="true" style="@(motionEnabled ? "transition-duration: 123ms" : null)">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="no-hidden-transition" Case="noHiddenTransition">
+        <CollapsibleRoot @ref="noHiddenRoot" data-root>
+            <CollapsibleTrigger @ref="noHiddenTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="noHiddenPanel" class="fading-panel" data-panel HiddenUntilFound="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="canceled" Case="canceled">
+        <CollapsibleRoot @ref="canceledRoot" OnOpenChange="canceled.OnOpenChange" data-root>
+            <CollapsibleTrigger @ref="canceledTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="canceledPanel" class="transition-test-panel" data-panel HiddenUntilFound="true" KeepMounted="true" style="transition-duration: 123ms">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="dispatch" Case="dispatch">
+        <CollapsibleRoot @ref="dispatchRoot" data-root>
+            <CollapsibleTrigger @ref="dispatchTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="dispatchPanel" class="transition-test-panel" data-panel HiddenUntilFound="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="never-arrives" Case="neverArrives">
+        <button type="button" data-external @onclick="() => rerenders++">Rerender</button>
+        <CollapsibleRoot @ref="neverArrivesRoot" Open="neverArrives.Open" OnOpenChange="neverArrives.OnOpenChange" data-root data-rerenders="@rerenders">
+            <CollapsibleTrigger @ref="neverArrivesTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="neverArrivesPanel" class="transition-test-panel" data-panel HiddenUntilFound="true" style="transition-duration: 123ms">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="keyframe-never-arrives" Case="keyframeNeverArrives">
+        <CollapsibleRoot @ref="keyframeRoot" Open="keyframeNeverArrives.Open" OnOpenChange="keyframeNeverArrives.OnOpenChange" data-root>
+            <CollapsibleTrigger @ref="keyframeTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="keyframePanel" class="keyframe-panel" data-panel HiddenUntilFound="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="keep-mounted-false" Case="keepMountedFalse">
+        <CollapsibleRoot @ref="keepMountedFalseRoot" data-root>
+            <CollapsiblePanel @ref="keepMountedFalsePanel" data-panel HiddenUntilFound="true" KeepMounted="false">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="until-found" Case="untilFound">
+        <CollapsibleRoot @ref="untilFoundRoot" OnOpenChange="untilFound.OnOpenChange" data-root>
+            <CollapsibleTrigger @ref="untilFoundTrigger" />
+            <CollapsiblePanel @ref="untilFoundPanel" data-panel HiddenUntilFound="true" KeepMounted="true">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase zeroDuration = new();
+    private readonly CollapsibleCase restoresDuration = new();
+    private readonly CollapsibleCase laterMotion = new();
+    private readonly CollapsibleCase noHiddenTransition = new();
+    private readonly CollapsibleCase canceled = new() { CancelReason = EventReason.None };
+    private readonly CollapsibleCase dispatch = new();
+    private readonly CollapsibleCase neverArrives = new() { IgnoreReason = EventReason.None };
+    private readonly CollapsibleCase keyframeNeverArrives = new() { IgnoreReason = EventReason.None };
+    private readonly CollapsibleCase untilFound = new();
+    private readonly CollapsibleCase keepMountedFalse = new();
+    private bool motionEnabled;
+    private int rerenders;
+    private CollapsibleRoot? zeroDurationRoot;
+    private CollapsibleTrigger? zeroDurationTrigger;
+    private CollapsiblePanel? zeroDurationPanel;
+    private CollapsibleRoot? restoresRoot;
+    private CollapsibleTrigger? restoresTrigger;
+    private CollapsiblePanel? restoresPanel;
+    private CollapsibleRoot? laterMotionRoot;
+    private CollapsibleTrigger? laterMotionTrigger;
+    private CollapsiblePanel? laterMotionPanel;
+    private CollapsibleRoot? noHiddenRoot;
+    private CollapsibleTrigger? noHiddenTrigger;
+    private CollapsiblePanel? noHiddenPanel;
+    private CollapsibleRoot? canceledRoot;
+    private CollapsibleTrigger? canceledTrigger;
+    private CollapsiblePanel? canceledPanel;
+    private CollapsibleRoot? dispatchRoot;
+    private CollapsibleTrigger? dispatchTrigger;
+    private CollapsiblePanel? dispatchPanel;
+    private CollapsibleRoot? neverArrivesRoot;
+    private CollapsibleTrigger? neverArrivesTrigger;
+    private CollapsiblePanel? neverArrivesPanel;
+    private CollapsibleRoot? keyframeRoot;
+    private CollapsibleTrigger? keyframeTrigger;
+    private CollapsiblePanel? keyframePanel;
+    private CollapsibleRoot? keepMountedFalseRoot;
+    private CollapsiblePanel? keepMountedFalsePanel;
+    private CollapsibleRoot? untilFoundRoot;
+    private CollapsibleTrigger? untilFoundTrigger;
+    private CollapsiblePanel? untilFoundPanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        zeroDurationRoot, zeroDurationTrigger, zeroDurationPanel, restoresRoot, restoresTrigger, restoresPanel,
+        laterMotionRoot, laterMotionTrigger, laterMotionPanel, noHiddenRoot, noHiddenTrigger, noHiddenPanel,
+        canceledRoot, canceledTrigger, canceledPanel, dispatchRoot, dispatchTrigger, dispatchPanel,
+        neverArrivesRoot, neverArrivesTrigger, neverArrivesPanel, keyframeRoot, keyframeTrigger, keyframePanel,
+        untilFoundRoot, untilFoundTrigger, untilFoundPanel, keepMountedFalseRoot, keepMountedFalsePanel,
+    ];
+}

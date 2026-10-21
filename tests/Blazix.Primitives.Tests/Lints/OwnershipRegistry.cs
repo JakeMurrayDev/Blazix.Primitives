@@ -22,5 +22,16 @@ internal static class OwnershipRegistry
         new("avatar", "Image", "data-starting-style", Writer.Js, "AvatarImageState.TransitionStatus"),
         new("avatar", "Image", "data-ending-style", Writer.Js, "AvatarImageState.TransitionStatus"),
         new("avatar", "Image", "element presence", Writer.CsharpToJs),
+        // Collapsible (M1 track 6): the transitions module on the Root and Trigger, the collapsible module on the Panel.
+        new("collapsible", "Root", "data-starting-style", Writer.Js, "CollapsibleRootState.TransitionStatus"),
+        new("collapsible", "Root", "data-ending-style", Writer.Js, "CollapsibleRootState.TransitionStatus"),
+        new("collapsible", "Trigger", "data-starting-style", Writer.Js, "CollapsibleTriggerState.TransitionStatus"),
+        new("collapsible", "Trigger", "data-ending-style", Writer.Js, "CollapsibleTriggerState.TransitionStatus"),
+        new("collapsible", "Panel", "data-starting-style", Writer.Js, "CollapsiblePanelState.TransitionStatus"),
+        new("collapsible", "Panel", "data-ending-style", Writer.Js, "CollapsiblePanelState.TransitionStatus"),
+        // The `C# (boolean); JS ("until-found")` cell names no attribute in either note, so the lint reads it as JS.
+        new("collapsible", "Panel", "hidden", Writer.Js),
+        new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
+        new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
     ];
 }

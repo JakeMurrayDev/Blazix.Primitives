@@ -1,0 +1,110 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-render-function` fixture (tests/browser/collapsible.spec.ts): panels whose substitute callback
+    withholds the element (COL-ANI-15/18/19). CollapsiblePanel.test.tsx "finishes closing when the render function removes
+    the panel element", "unmounts a panel that mounts after the close has already entered the ending phase", "animates on
+    reopen after an initially open panel is removed by the render function".
+*@
+<FixtureContainer Name="collapsible-render-function" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes removable-panel-open {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .removable-animation-panel[data-open] {
+            animation: removable-panel-open 10s linear;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="removes" Case="removes">
+        <CollapsibleRoot @ref="removesRoot" DefaultOpen="true" OnOpenChange="removes.OnOpenChange" data-root>
+            <CollapsibleTrigger @ref="removesTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel style="transition: height 100ms linear">
+                <RenderFunction Context="props">
+                    @if (props.State.Open)
+                    {
+                        <div @attributes="props.Attributes" data-panel>@props.ChildContent</div>
+                    }
+                </RenderFunction>
+                <ChildContent>This is panel content</ChildContent>
+            </CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="mounts-during-ending" Case="mountsDuringEnding">
+        <div data-rendered-statuses="@string.Join(",", renderedStatuses)">
+            <CollapsibleRoot @ref="mountsRoot" DefaultOpen="true" data-root>
+                <CollapsibleTrigger @ref="mountsTrigger">Trigger</CollapsibleTrigger>
+                <CollapsiblePanel>
+                    <RenderFunction Context="props">
+                        @{ Record(props.State.TransitionStatus); }
+                        @if (props.State.Open || props.State.TransitionStatus == TransitionStatus.Ending)
+                        {
+                            <div @attributes="props.Attributes" data-panel>@props.ChildContent</div>
+                        }
+                    </RenderFunction>
+                    <ChildContent>This is panel content</ChildContent>
+                </CollapsiblePanel>
+            </CollapsibleRoot>
+        </div>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="removable-animation" Case="removableAnimation">
+        <CollapsibleRoot @ref="removableRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="removableTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel class="removable-animation-panel">
+                <RenderFunction Context="props">
+                    @if (props.State.Open)
+                    {
+                        <div @attributes="props.Attributes" data-panel>@props.ChildContent</div>
+                    }
+                </RenderFunction>
+                <ChildContent>This is panel content</ChildContent>
+            </CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase removes = new();
+    private readonly CollapsibleCase mountsDuringEnding = new();
+    private readonly CollapsibleCase removableAnimation = new();
+    private readonly List<string> renderedStatuses = [];
+    private CollapsibleRoot? removesRoot;
+    private CollapsibleTrigger? removesTrigger;
+    private CollapsibleRoot? mountsRoot;
+    private CollapsibleTrigger? mountsTrigger;
+    private CollapsibleRoot? removableRoot;
+    private CollapsibleTrigger? removableTrigger;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [removesRoot, removesTrigger, mountsRoot, mountsTrigger, removableRoot, removableTrigger];
+
+    // The statuses the render function saw, rendered on the next render of the fixture.
+    private void Record(TransitionStatus? status)
+    {
+        string literal = status switch
+        {
+            TransitionStatus.Starting => "starting",
+            TransitionStatus.Ending => "ending",
+            TransitionStatus.Idle => "idle",
+            _ => "none",
+        };
+        if (renderedStatuses.Count == 0 || renderedStatuses[^1] != literal)
+        {
+            renderedStatuses.Add(literal);
+            _ = InvokeAsync(StateHasChanged);
+        }
+    }
+}

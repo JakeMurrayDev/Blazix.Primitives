@@ -1,0 +1,56 @@
+@namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures
+@using Blazix.Primitives
+@inherits CollapsibleFixtureBase
+
+@*
+    The `collapsible-initially-open` fixture (tests/browser/collapsible.spec.ts), prerendered: CollapsiblePanel.test.tsx
+    "server-side rendering" (COL-ANI-14, the handover at attach). The prerendered panel carries animation-name: none and
+    the variables at auto; the interactive render keeps them until the module owns the style.
+*@
+<FixtureContainer Name="collapsible-initially-open" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes panel-slide-down {
+            from {
+                height: 0;
+            }
+
+            to {
+                height: var(--collapsible-panel-height);
+            }
+        }
+
+        .animation-test-panel[data-open] {
+            animation: panel-slide-down 100ms linear;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <CollapsibleCaseFrame Name="class" Case="classCase">
+        <CollapsibleRoot @ref="classRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="classTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="classPanel" class="animation-test-panel" data-panel>This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+
+    <CollapsibleCaseFrame Name="inline" Case="inlineCase">
+        <CollapsibleRoot @ref="inlineRoot" DefaultOpen="true" data-root>
+            <CollapsibleTrigger @ref="inlineTrigger">Trigger</CollapsibleTrigger>
+            <CollapsiblePanel @ref="inlinePanel" data-panel style="animation-duration: 100ms; animation-name: panel-slide-down; animation-timing-function: linear">This is panel content</CollapsiblePanel>
+        </CollapsibleRoot>
+    </CollapsibleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CollapsibleCase classCase = new();
+    private readonly CollapsibleCase inlineCase = new();
+    private CollapsibleRoot? classRoot;
+    private CollapsibleTrigger? classTrigger;
+    private CollapsiblePanel? classPanel;
+    private CollapsibleRoot? inlineRoot;
+    private CollapsibleTrigger? inlineTrigger;
+    private CollapsiblePanel? inlinePanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [classRoot, classTrigger, classPanel, inlineRoot, inlineTrigger, inlinePanel];
+}
