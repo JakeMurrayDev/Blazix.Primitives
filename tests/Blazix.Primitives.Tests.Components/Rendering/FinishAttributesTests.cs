@@ -46,7 +46,22 @@ public sealed class FinishAttributesTests : IDisposable
         Assert.Equal("--x: 1; color: red;", received!["style"]);
     }
 
-    /// <summary>A part that prepends a declaration to the merged style and replaces an empty consumer id.</summary>
+    [Fact]
+    public void What_a_part_changes_there_wins_over_the_consumer_so_review_holds_it_to_its_own_attributes()
+    {
+        // The pipeline cannot tell a part-owned attribute from any other: a part that changed the consumer's `title` here
+        // would win. ADR 02 Amendments 2026-10-21 restrict the hook to part-owned attributes and documented fallbacks,
+        // which src/Blazix.Primitives/Rendering/CONTEXT.md lists as a human check.
+        IRenderedComponent<FinishingPart> cut = context.Render<FinishingPart>(p => p.AddUnmatched("title", "consumer").AddUnmatched("id", "kept"));
+
+        Assert.Equal("part", cut.Find("div").GetAttribute("title"));
+        Assert.Equal("kept", cut.Find("div").GetAttribute("id"));
+    }
+
+    /// <summary>
+    /// A part that prepends a declaration to the merged style and replaces an empty consumer id; it also overrides the
+    /// consumer's <c>title</c>, which a library part must not do, to show that only review prevents it.
+    /// </summary>
     public sealed class FinishingPart : PartBase<EmptyState>
     {
         public List<string?> SeenStyles { get; } = [];
@@ -66,6 +81,11 @@ public sealed class FinishAttributesTests : IDisposable
             if (attributes.TryGetValue("id", out AttributeValue id) && id.TryGetValue(out string idText) && idText.Length == 0)
             {
                 attributes.Set("id", "own");
+            }
+
+            if (attributes.Contains("title"))
+            {
+                attributes.Set("title", "part");
             }
         }
     }
