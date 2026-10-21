@@ -48,7 +48,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/otp-field.md | OTP | approved | 169 reqs | |
 | components/popover.md | POP | approved | 214 reqs |
 | components/preview-card.md | PRV | approved | 158 reqs |
-| components/progress.md | PRG | approved | 55 reqs (opus) | |
+| components/progress.md | PRG | implemented | 55 reqs (opus) | |
 | components/radio.md | RAD | approved | 99 reqs |
 | components/radio-group.md | RDG | approved | 86 reqs |
 | components/scroll-area.md | SCR | approved | 135 reqs | |

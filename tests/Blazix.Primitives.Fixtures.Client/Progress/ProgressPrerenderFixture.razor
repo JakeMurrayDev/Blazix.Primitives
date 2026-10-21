@@ -1,0 +1,15 @@
+@namespace Blazix.Primitives.Fixtures.Client.ProgressFixtures
+@using Blazix.Primitives
+
+@*
+    The `progress-prerender` fixture (tests/browser/progress.spec.ts): a labelled progress bar whose server-rendered markup
+    the spec reads. The label registers while its parameters are set, inside the render that creates it, so the root's
+    aria-labelledby is already in the static response; React's client-only publication would leave it out
+    (docs/components/progress.md §14, PRG-EDGE-06).
+*@
+<FixtureContainer Name="progress-prerender">
+    <ProgressRoot Value="42" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")" data-testid="root">
+        <ProgressLabel id="upload-label">Upload progress</ProgressLabel>
+        <ProgressValue />
+    </ProgressRoot>
+</FixtureContainer>

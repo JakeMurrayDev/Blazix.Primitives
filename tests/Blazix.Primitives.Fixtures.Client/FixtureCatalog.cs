@@ -7,6 +7,7 @@ using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
+using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 
 namespace Blazix.Primitives.Fixtures.Client;
@@ -45,5 +46,7 @@ public static class FixtureCatalog
         ["collapsible-hidden-until-found"] = new(typeof(CollapsibleHiddenUntilFoundFixture)),
         ["meter-basic"] = new(typeof(MeterBasicFixture)),
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
+        ["progress-basic"] = new(typeof(ProgressBasicFixture)),
+        ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
     };
 }
