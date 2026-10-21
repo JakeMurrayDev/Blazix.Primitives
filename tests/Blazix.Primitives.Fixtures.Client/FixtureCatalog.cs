@@ -1,5 +1,6 @@
 using Blazix.Primitives.Fixtures.Client.Allocation;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
+using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
@@ -20,6 +21,11 @@ public static class FixtureCatalog
         ["allocation"] = new(typeof(AllocationFixture)),
         ["keep-alive"] = new(typeof(KeepAliveFixture)),
         ["button-behavior"] = new(typeof(ButtonBehaviorFixture)),
+        ["button-native"] = new(typeof(ButtonNativeFixture)),
+        ["button-focusable"] = new(typeof(ButtonFocusableFixture)),
+        ["button-custom"] = new(typeof(ButtonCustomFixture)),
+        ["button-link"] = new(typeof(ButtonLinkFixture)),
+        ["button-loading"] = new(typeof(ButtonLoadingFixture)),
         ["separator-showcase"] = new(typeof(SeparatorFixture)),
     };
 }

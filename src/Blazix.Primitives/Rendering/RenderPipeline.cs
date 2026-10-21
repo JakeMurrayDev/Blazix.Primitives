@@ -248,7 +248,12 @@ internal static class RenderPipeline
 
                     if (MergeProps.IsHandler(pair.Key, value))
                     {
-                        state.GetOrAddSlot(MergeProps.HandlerName(pair.Key)).Consumer = value;
+                        // ADR 02 Amendments 2026-10-21: the part may leave a consumer handler off the element.
+                        string name = MergeProps.HandlerName(pair.Key);
+                        if (host.ForwardsConsumerHandler(name))
+                        {
+                            state.GetOrAddSlot(name).Consumer = value;
+                        }
                     }
                     else
                     {

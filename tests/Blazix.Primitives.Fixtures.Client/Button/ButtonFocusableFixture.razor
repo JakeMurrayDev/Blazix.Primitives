@@ -1,0 +1,35 @@
+@namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures
+@using Blazix.Primitives
+@inherits ButtonFixtureBase
+
+@*
+    The `button-focusable` fixture (tests/browser/button.spec.ts): a disabled Button with FocusableWhenDisabled, native
+    and as a span, with the consumer's click, mousedown, pointerdown, keydown and mousemove handlers counted.
+*@
+<FixtureContainer Name="button-focusable" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ButtonCaseFrame Name="native" Case="native">
+        <Button @ref="nativeButton" data-button Disabled="true" FocusableWhenDisabled="true"
+                @onclick="native.Click" @onmousedown="native.MouseDown" @onpointerdown="native.PointerDown"
+                @onkeydown="native.KeyDown" @onmousemove="native.MouseMove">Save</Button>
+    </ButtonCaseFrame>
+
+    <ButtonCaseFrame Name="custom" Case="custom">
+        <Button @ref="customButton" Disabled="true" FocusableWhenDisabled="true" NativeButton="false"
+                @onclick="custom.Click" @onmousedown="custom.MouseDown" @onpointerdown="custom.PointerDown" @onkeydown="custom.KeyDown">
+            <Render><span data-button></span></Render>
+            <ChildContent>Save</ChildContent>
+        </Button>
+    </ButtonCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly ButtonCase native = new();
+    private readonly ButtonCase custom = new();
+    private Button? nativeButton;
+    private Button? customButton;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Button?> Buttons => [nativeButton, customButton];
+}

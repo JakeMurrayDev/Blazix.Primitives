@@ -1,0 +1,66 @@
+@namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures
+@using Blazix.Primitives
+@inherits ButtonFixtureBase
+
+@*
+    The `button-custom` fixture (tests/browser/button.spec.ts): a non-native Button rendered as a span through Render.
+    `enabled` counts the substitute's own click, the consumer's and an ancestor's; `disabled` is not focusable;
+    `veto` is a consumer whose C# key handlers call PreventPartHandler() for Enter (keydown) and Space (keyup).
+*@
+<FixtureContainer Name="button-custom" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ButtonCaseFrame Name="enabled" Case="enabled">
+        <div data-ancestor @onclick="enabled.AncestorClick">
+            <Button @ref="enabledButton" NativeButton="false" @onclick="enabled.Click">
+                <Render><span data-button @onclick="enabled.SubstituteClick"></span></Render>
+                <ChildContent>Save</ChildContent>
+            </Button>
+        </div>
+    </ButtonCaseFrame>
+
+    <ButtonCaseFrame Name="disabled" Case="disabled">
+        <Button @ref="disabledButton" Disabled="true" NativeButton="false"
+                @onclick="disabled.Click" @onmousedown="disabled.MouseDown" @onpointerdown="disabled.PointerDown" @onkeydown="disabled.KeyDown">
+            <Render><span data-button></span></Render>
+            <ChildContent>Save</ChildContent>
+        </Button>
+    </ButtonCaseFrame>
+
+    <ButtonCaseFrame Name="veto" Case="veto">
+        <Button @ref="vetoButton" NativeButton="false" @onclick="veto.Click" @onkeydown="VetoKeyDown" @onkeyup="VetoKeyUp">
+            <Render><span data-button></span></Render>
+            <ChildContent>Vetoed</ChildContent>
+        </Button>
+    </ButtonCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly ButtonCase enabled = new();
+    private readonly ButtonCase disabled = new();
+    private readonly ButtonCase veto = new();
+    private Button? enabledButton;
+    private Button? disabledButton;
+    private Button? vetoButton;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Button?> Buttons => [enabledButton, disabledButton, vetoButton];
+
+    private void VetoKeyDown(KeyboardEventArgs e)
+    {
+        veto.KeyDown(e);
+        if (e.Key == "Enter")
+        {
+            e.PreventPartHandler();
+        }
+    }
+
+    private void VetoKeyUp(KeyboardEventArgs e)
+    {
+        veto.KeyUp(e);
+        if (e.Key == " ")
+        {
+            e.PreventPartHandler();
+        }
+    }
+}

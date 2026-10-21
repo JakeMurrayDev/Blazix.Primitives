@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures
+@using Blazix.Primitives
+@inherits ButtonFixtureBase
+
+@*
+    The `button-native` fixture (tests/browser/button.spec.ts): a native Button enabled and disabled, each with the
+    consumer's click, mousedown, pointerdown and keydown handlers counted.
+*@
+<FixtureContainer Name="button-native" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ButtonCaseFrame Name="enabled" Case="enabled">
+        <Button @ref="enabledButton" data-button
+                @onclick="enabled.Click" @onmousedown="enabled.MouseDown" @onpointerdown="enabled.PointerDown" @onkeydown="enabled.KeyDown">Save</Button>
+    </ButtonCaseFrame>
+
+    <ButtonCaseFrame Name="disabled" Case="disabled">
+        <Button @ref="disabledButton" data-button Disabled="true"
+                @onclick="disabled.Click" @onmousedown="disabled.MouseDown" @onpointerdown="disabled.PointerDown" @onkeydown="disabled.KeyDown">Save</Button>
+    </ButtonCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly ButtonCase enabled = new();
+    private readonly ButtonCase disabled = new();
+    private Button? enabledButton;
+    private Button? disabledButton;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Button?> Buttons => [enabledButton, disabledButton];
+}

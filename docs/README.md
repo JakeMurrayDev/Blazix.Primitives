@@ -28,7 +28,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/alert-dialog.md | ADL | approved | 30 reqs + adoption (opus) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
 | components/avatar.md | AVA | approved | 58 reqs (opus) | |
-| components/button.md | BTN | approved | 29 reqs (opus) | |
+| components/button.md | BTN | implemented | 29 reqs (opus) | |
 | components/checkbox.md | CHK | approved | 151 reqs |
 | components/checkbox-group.md | CKG | approved | 83 reqs |
 | components/collapsible.md | COL | approved | pilot; 104 reqs |
