@@ -13,8 +13,10 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class SeparatorAllocationBudgetTests : IDisposable
 {
-    // Provisional until the part exists: replaced by the first measurement in the implementing commit.
-    private const long RenderBudgetBytes = 256;
+    // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 264 bytes, all of it Blazor's own per-render work on this
+    // path (SetParametersAsync, the dispatcher, the diff): a part that supplies no attributes and has an empty state
+    // measures the same 264, so the separator, its state record and the pipeline add nothing in steady state.
+    private const long RenderBudgetBytes = 264;
 
     private readonly BunitContext context = new();
 
