@@ -86,7 +86,7 @@ Normative. Each row is a requirement whose stated timing Server cannot meet with
   | 50 ms | 54 ms | 55 ms | 56 ms |
   | 150 ms | 156 ms | 158 ms | 159 ms |
 
-  The removal lands about one round trip after the exit ends (the completion message to C#, then the batch back), not two as the TRN-ANI-03 row estimates. With the write, the closed panel is hidden in the task the exit ends, and that held in every run (`t0 ≤ t1`). Whether the optimistic hide stays is the user's decision on these numbers, asked in [PR 69](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/69); [issue 2](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/2) closes with that answer.
+  The removal lands about one round trip after the exit ends (the completion message to C#, then the batch back), not two as the TRN-ANI-03 row estimates. With the write, the closed panel is hidden in the task the exit ends, and that held in every run (`t0 ≤ t1`). 2026-10-21: measured median 1 / 54 / 156 ms at 0 / 50 / 150 ms added round trip without the hide, 0 ms with it; the optimistic hide stays (chosen by the user the same day). [issue 2](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/2).
 
 ## Considered options
 

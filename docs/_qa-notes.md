@@ -30,6 +30,10 @@ The decisions the review raised were taken with the user the same day and record
 
 One Opus 5.5 reviewer per document or small group applied the marks of conventions §3.4 (layer tags via `_tools/apply_layers.py`, Writer column, Server-relaxations lists, the three React-statement rules of ADR 06). Lint: 0 untagged `Test:` lines. Docs whose attribute tables live in §3 (menu, navigation-menu, drawer, combobox, collapsible, accordion) got the Writer column there. Gaps the revision surfaced, for the next ADR amendment: ADR 04 §2 ownership rows for Checkbox's hidden-input `indeterminate` (a DOM property C# cannot render, CHK-DOM-13), Drawer SwipeArea `data-swiping` and Viewport `--drawer-keyboard-inset`, NavigationMenu `--positioner-width/height`; ADR 04 §3 decision points for `allowPropagation()` on Combobox chip removal (CMB-KEY-10/PTR-10/EVT-09) and the Escape fallback applied to Combobox's closed-popup clear (CMB-KEY-05); ADR 04 §1 owners for the live-region helpers (UTL-A11Y-01..04) and the focus-default-prevented path (RAD-FOC-05); ADR 01 rows for `onOpenChange` inside the `contextmenu` dispatch (CTX-EVT-02, CTX-PTR-01) and for Slider's focus `relatedTarget` reads (SLD-FOC-04, SLD-FRM-06, JavaScript-only); NumberField's `Intl` `roundingMode`/`roundingIncrement` (NUM-STA-12) versus .NET support. Already recorded the same day: NUM-STA-15 row, the generalized consumer-veto row, and the mirrored-field row extended to JS-measured values C# renders (TST-ANI-03).
 
+## Fidelity corrections found while implementing
+
+- collapsible COL-DOM-05 (2026-10-21, M1 track 6, chosen by the user): the Trigger's `data-disabled` follows the Root's `disabled`, not the Trigger's effective value, because the Trigger renders the Root's state object (`collapsible/trigger/CollapsibleTrigger.tsx:31,49-50`; §3.2). The §3.2 attribute row was corrected with it.
+
 ## Global consistency checks (script)
 
 
