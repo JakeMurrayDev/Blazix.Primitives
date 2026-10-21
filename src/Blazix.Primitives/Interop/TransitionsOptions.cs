@@ -67,7 +67,7 @@ internal sealed record TransitionsOptions : TwinOptions
     public bool ReportOpenComplete { get; init; }
 
     /// <summary>Gets a value indicating whether the module listens for the browser's <c>beforematch</c> event on the element.</summary>
-    /// <value><see langword="true"/> to receive <see cref="TransitionsTwin.RevealRequested"/> and the reveal decision; the default is <see langword="false"/>.</value>
+    /// <value><see langword="true"/> to receive the reveal decision (<see cref="TransitionsTwin.RevealDecider"/>) and the reveal request (<see cref="TransitionsTwin.RevealRequestHandler"/>); the default is <see langword="false"/>.</value>
     public bool RevealOnBeforeMatch { get; init; }
 
     /// <summary>Gets the number of times the part has asked the module to unmount the element.</summary>

@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (transitions row), §2 (mirrored transitionStatus, the convergent hidden), §3 (one message per state
-// change; the reveal decision point, open with the orchestrator: track 5 hand-over note); ADR 01 relaxation table
+// change; the reveal decision point, fallback run, and its Server answer: design point 2, track 5 note); ADR 01 relaxation table
 // (TRN-ANI-03/09/10, RND-STA-01 for mirrored fields, TRN-STA-04/05/07/09 met on both modes). One twin per part.
 /// <summary>
 /// The C# half of the <c>transitions</c> module: the enter and exit transition of one animated part's element. The
@@ -28,13 +28,6 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
     /// </remarks>
     public event Action<bool>? TransitionCompleted;
 
-    /// <summary>Occurs when <c>beforematch</c> revealed the element and no C# handler could decide inside the dispatch.</summary>
-    /// <remarks>
-    /// The argument is the snapshot of the <c>beforematch</c> event. The part requests the open it stands for; the module
-    /// has already shown the element and puts it back under <c>hidden="until-found"</c> if the open does not arrive.
-    /// </remarks>
-    public event Action<EventSnapshot>? RevealRequested;
-
     /// <summary>Gets or sets the C# handler chain of the reveal decision point.</summary>
     /// <value>
     /// A function that receives the <c>beforematch</c> event, requests the open, and returns
@@ -43,6 +36,15 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
     /// inside the dispatch, and must not await.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? RevealDecider { get; set; }
+
+    /// <summary>Gets or sets the C# handler of a reveal that no C# handler could decide inside the dispatch.</summary>
+    /// <value>
+    /// A function that receives the <c>beforematch</c> event, requests the open it stands for, and returns whether the
+    /// part is open once the request has run; <see langword="null"/> answers that it is not. The module has already
+    /// shown the element; when the answer is <see langword="false"/> and no open has arrived, it puts the element back
+    /// under <c>hidden="until-found"</c> on the next frame.
+    /// </value>
+    public Func<EventSnapshot, ValueTask<bool>>? RevealRequestHandler { get; set; }
 
     /// <summary>Receives a change of the element's transition status or mounted flag.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="TransitionStatusChange"/>.</param>
@@ -64,14 +66,15 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
         TransitionCompleted?.Invoke(completion.Open);
     }
 
-    /// <summary>Receives a reveal that no C# handler saw inside the dispatch.</summary>
+    /// <summary>Receives a reveal that no C# handler saw inside the dispatch and answers whether the part is open after it.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="RevealRequest"/>.</param>
+    /// <returns>The answer of <see cref="RevealRequestHandler"/>, or <see langword="false"/> without one.</returns>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnRevealRequest(string payloadJson)
+    public async Task<bool> OnRevealRequest(string payloadJson)
     {
         RevealRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.RevealRequest);
-        RevealRequested?.Invoke(request.Event);
+        return RevealRequestHandler is { } handler && await handler(request.Event).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

@@ -20,7 +20,7 @@ internal sealed record TransitionStatusChange(
 internal sealed record TransitionCompletion(bool Open);
 
 // TRN-ANI-32, TRN-EVT-09 (the reveal requests an open with reason none and the beforematch event)
-/// <summary>The payload of the reveal report: a <c>beforematch</c> that no C# handler could see inside the dispatch.</summary>
+/// <summary>The payload of the reveal request: a <c>beforematch</c> that no C# handler could see inside the dispatch.</summary>
 /// <param name="Event">The snapshot of the <c>beforematch</c> event.</param>
 internal sealed record RevealRequest(EventSnapshot Event);
 

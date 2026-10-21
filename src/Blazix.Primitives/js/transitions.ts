@@ -14,9 +14,10 @@
 // status through `OnStatusChange` (one message per change, never per frame). The machine's input is the `open` value
 // of `update`. A "synchronous commit" of a completion is the callback itself: it writes the DOM and reports, and on
 // WebAssembly the report renders before the callback returns.
-// TRN-STA-03 on an already-attached element (who writes `data-starting-style` in the opening commit on Server) and the
-// Server path of the `reveal` decision point are open with the orchestrator (track 5 hand-over note); this file
-// implements the `update`-driven input and Base UI's reveal timing until they are answered.
+// Two port decisions, proposed by track 5 and put to the user by the orchestrator (track 5 note), each in its own
+// commits so it can be replaced: the open input of an attached element is read from the applied render batch through
+// `openSelector` (TRN-STA-03 on Server; ADR 01 decision 4), and `beforematch` is the decision point `reveal`, fallback
+// `run`, whose Server revert waits for C#'s answer to the request plus a frame (TRN-ANI-33/34).
 import { decide } from './decide';
 import { eventInfo } from './event-info';
 import {
@@ -627,12 +628,23 @@ export function createHiddenController(element: HTMLElement): HiddenController {
 // The `beforematch` reveal (TRN-ALG-07)
 // ---------------------------------------------------------------------------------------------------------------
 
+/** The outcome of a reveal request inside the `beforematch` dispatch. */
+export interface RevealDecision {
+  /** Whether the reveal goes ahead; `false` when a C# handler canceled the request inside the dispatch. */
+  proceed: boolean;
+  /**
+   * When no C# handler could run inside the dispatch (Server), C#'s answer once the request has run: whether the part
+   * is open. The revert check waits for it instead of for a 0 ms task. `null` when the request ran inside the dispatch.
+   */
+  answer: Promise<boolean> | null;
+}
+
 /** What a reveal controller reads from and does to its element. */
 export interface RevealHost {
   /** The latest open input. */
   readonly open: boolean;
-  /** Resolves the `reveal` decision point and reports the request; returns whether the reveal may proceed. */
-  request(event: Event): boolean;
+  /** Resolves the `reveal` decision point and sends the request. */
+  request(event: Event): RevealDecision;
 }
 
 /** The reveal handling of one hidden-until-found element. */
@@ -648,7 +660,8 @@ export interface RevealController {
 /**
  * Listens for `beforematch` on an element and handles the reveal: the open request inside the dispatch, the
  * synchronous removal of `data-starting-style` before the browser measures the match, the one-shot motion skip, and
- * the revert to `hidden="until-found"` after a 0 ms task and a frame when the open does not arrive.
+ * the revert to `hidden="until-found"` when the open does not arrive. The revert is decided after a 0 ms task when the
+ * request ran inside the dispatch, and when C#'s answer arrives otherwise; it is applied on the next frame.
  * @param element The panel element.
  * @param host The open input and the request.
  * @returns The controller.
@@ -656,16 +669,22 @@ export interface RevealController {
 export function createRevealController(element: HTMLElement, host: RevealHost): RevealController {
   let skipNextOpen = false;
   let decisionTimeout: ReturnType<typeof setTimeout> | undefined;
+  // Each reveal supersedes the previous one's pending answer; disposal supersedes them all.
+  let generation = 0;
   const revertFrame = createFrameSlot();
 
-  // Whether the open arrived is decided in a task, so a pending open commit is always observed first; the DOM revert
-  // then runs in a frame so it is atomic with respect to paint.
-  const scheduleRevert = (resetSkip: boolean, restoreStartingStyle: boolean) => {
+  // Whether the open arrived is decided in a task, so a pending open commit is always observed first (or, on Server,
+  // when C# has answered, which is after the request's own render); the DOM revert then runs in a frame so it is
+  // atomic with respect to paint.
+  const scheduleRevert = (resetSkip: boolean, restoreStartingStyle: boolean, answer: Promise<boolean> | null) => {
     clearTimeout(decisionTimeout);
+    decisionTimeout = undefined;
     revertFrame.cancel();
-    decisionTimeout = setTimeout(() => {
-      decisionTimeout = undefined;
-      if (host.open) {
+    generation += 1;
+    const current = generation;
+
+    const decide = (openAfterRequest: boolean) => {
+      if (current !== generation || openAfterRequest || host.open) {
         return;
       }
       revertFrame.request(() => {
@@ -681,6 +700,15 @@ export function createRevealController(element: HTMLElement, host: RevealHost): 
         }
         element.setAttribute('hidden', 'until-found');
       });
+    };
+
+    if (answer !== null) {
+      answer.then(decide, () => decide(false));
+      return;
+    }
+    decisionTimeout = setTimeout(() => {
+      decisionTimeout = undefined;
+      decide(false);
     }, 0);
   };
 
@@ -693,16 +721,17 @@ export function createRevealController(element: HTMLElement, host: RevealHost): 
     skipNextOpen = true;
     element.removeAttribute(STARTING_STYLE);
 
-    if (!host.request(event)) {
+    const { proceed, answer } = host.request(event);
+    if (!proceed) {
       skipNextOpen = skipBefore;
       if (hadStartingStyle && !host.open) {
         element.setAttribute(STARTING_STYLE, '');
       }
-      scheduleRevert(false, false);
+      scheduleRevert(false, false, answer);
       return;
     }
 
-    scheduleRevert(true, hadStartingStyle);
+    scheduleRevert(true, hadStartingStyle, answer);
   };
 
   element.addEventListener('beforematch', onBeforeMatch);
@@ -719,6 +748,7 @@ export function createRevealController(element: HTMLElement, host: RevealHost): 
     dispose() {
       clearTimeout(decisionTimeout);
       decisionTimeout = undefined;
+      generation += 1;
       revertFrame.cancel();
       element.removeEventListener('beforematch', onBeforeMatch);
     },
@@ -932,13 +962,17 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   };
 
-  const request = (event: Event): boolean => {
+  const request = (event: Event): RevealDecision => {
     const verdict = decide(twin, REVEAL_POINT, event, 'run');
-    if (!twin.lastDecisionWasSynchronous) {
-      // No C# chain ran inside the dispatch: the request reaches C# as a report.
-      twin.report('OnRevealRequest', { event: eventInfo(event) });
+    if (twin.lastDecisionWasSynchronous) {
+      return { proceed: verdict === 'run', answer: null };
     }
-    return verdict === 'run';
+    // No C# chain ran inside the dispatch: the request reaches C# as an invocation whose result says whether the part
+    // is open once it ran; a failed invocation (the circuit is gone) counts as not open.
+    const answer = twinReference
+      .invokeMethodAsync<boolean>('OnRevealRequest', JSON.stringify({ event: eventInfo(event) }))
+      .then((open) => open === true);
+    return { proceed: verdict === 'run', answer };
   };
 
   // With a selector the applied DOM is the input: it is never older than an `update`, which may arrive after a newer
