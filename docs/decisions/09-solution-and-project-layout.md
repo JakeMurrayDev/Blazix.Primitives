@@ -5,7 +5,7 @@
 | Status | accepted (2026-10-20) |
 | Project | Blazix.Primitives |
 | Decides | the repository tree; the entry and contract files that make it navigable; the projects (library, source generator, analyzers, one test project per layer, fixture host); where the Node toolchain and the TypeScript sources live; whether a demo application exists |
-| Affects | no requirement IDs; ADR 04 §4 (placement of the JavaScript sources, refined), ADR 06 §1 (the L4 runner, amended the same day), ADR 10 (what is packed) |
+| Affects | no requirement IDs; ADR 04 §4 (placement of the JavaScript sources, refined), ADR 06 §1 (the L4 runner, amended the same day), ADR 10 (what is packed), ADR 11 §1 (the sample application's path in the classifier, Amendments 2026-10-22) |
 
 ## Context
 
@@ -24,7 +24,7 @@ Blazix.Primitives/
   CONTEXT.md                     the glossary (unchanged); AGENTS.md states that the root file is the glossary and that folder-level CONTEXT.md files are contracts
   README.md  LICENSE  THIRD-PARTY-NOTICES.md
   Blazix.Primitives.slnx  Directory.Build.props  Directory.Packages.props  global.json  .editorconfig  .node-version
-  package.json                   one Node toolchain for the repository: typescript, esbuild, vitest, @playwright/test, @floating-ui/dom@1.8.0 (exact)
+  package.json                   one Node toolchain for the repository: typescript, esbuild, vitest, @playwright/test, @floating-ui/dom@1.8.0 (exact), tailwindcss and @tailwindcss/cli (the sample's styles, Amendments 2026-10-22)
   playwright.config.ts           the L4 projects (ADR 06 Amendments 2026-10-20)
   docs/                          the specification, unchanged (ADR 07 decision 5)
   src/
@@ -38,6 +38,9 @@ Blazix.Primitives/
     Blazix.Primitives.Fixtures/           L4 host: a Blazor Web App; the render mode is a route segment resolved to an IComponentRenderMode expression; prerendering off except on the dedicated prerender fixtures; test-only endpoints (readiness, TimeProvider control, captured diagnostics)
     Blazix.Primitives.Fixtures.Client/    the fixture components (WebAssembly-capable), referenced by the host
     browser/                              L4 TypeScript specs under @playwright/test, one file per family (<family>.spec.ts) plus the shared suites
+  samples/                       the sample application for trying each milestone's families by hand (Amendments 2026-10-22); never packed; CONTEXT.md
+    Blazix.Primitives.Demo/              the host: a Blazor Web App; the render mode is a route segment (/server/<family>, /wasm/<family>), prerendering on
+    Blazix.Primitives.Demo.Client/       one demo page per family (WebAssembly-capable), referenced by the host
   spikes/                        verification probes (ADR 14), excluded from the solution, deleted when their item closes
 ```
 
@@ -47,7 +50,7 @@ Blazix.Primitives/
 
 ### 3. Projects
 
-One test project per layer, so that L1's "no Blazor" and L2's bUnit dependency are enforced by project references and CI can run L1–L3 without building the fixture host. The generator and the analyzers are separate projects because they ship to different audiences. There is no demo application before the first release: the fixture host is the browsable showcase, every fixture page doubling as a demo. The solution file is `.slnx`; `Directory.Packages.props` holds central package versions; `Directory.Build.props` turns on nullable, warnings as errors, `IsTrimmable` and `IsAotCompatible` for the library (ADR 16).
+One test project per layer, so that L1's "no Blazor" and L2's bUnit dependency are enforced by project references and CI can run L1–L3 without building the fixture host. The generator and the analyzers are separate projects because they ship to different audiences. The sample application under `samples/` (Amendments 2026-10-22) is where a milestone's families are tried by hand; the fixture host is the L4 host and nothing else. The solution file is `.slnx`; `Directory.Packages.props` holds central package versions; `Directory.Build.props` turns on nullable, warnings as errors, `IsTrimmable` and `IsAotCompatible` for the library (ADR 16).
 
 ### 4. Toolchain placement
 
@@ -68,7 +71,7 @@ One `package.json` at the repository root owns the Node toolchain (one `node_mod
 
 * One test project with traits (faster to create; the layer rule is no longer enforced by references and L1–L3 cannot run without compiling L4).
 * One Roslyn project for generator and analyzers (the convention analyzers would ship to consumers or need per-rule packing tricks).
-* A demo app from day one (a third application to keep green while the API is still moving).
+* A demo app from day one (a third application to keep green while the API is still moving). Rejected 2026-10-20; reversed 2026-10-22 for a sample application that CI builds (Amendments).
 * `package.json` inside the library project (a second `node_modules` for the L3 and L4 tooling).
 
 ## Amendments
@@ -76,3 +79,13 @@ One `package.json` at the repository root owns the Node toolchain (one `node_mod
 **2026-10-20, time control and diagnostics through a page hook (M0 Track 3; chosen by the user the same day).** §1's fixture-host row and the Consequences read: Kestrel consumes `TimeProvider` as a singleton (a scoped registration fails host validation), so the host registers one `HarnessTimeProvider` that routes to the circuit's `FakeTimeProvider` by the renderer's synchronization context; a browser test advances time through `window.blazixFixture.advanceTime`, which invokes a `[JSInvokable]` method on the page's own session, on both render modes, so timers fire on the renderer's dispatcher and control is scoped to the page, which is what parallel Playwright workers against one host process need. Captured diagnostics are read through `/_fixture/diagnostics/{token}` on Server and through the page hook on WebAssembly; `/_fixture/ready` is the readiness URL for `webServer`. The "test-only endpoints for `TimeProvider` control" of §1 and the Consequences are therefore the page hook plus the diagnostics endpoint; ADR 06 §2's clock rule is unchanged.
 
 **2026-10-21, a `Utilities/` folder for cross-family helpers (M1 planning; chosen by the user the same day).** The tree gains `src/Blazix.Primitives/Utilities/` (namespace `Blazix.Primitives.Utilities`), whose contract is `docs/architecture/shared-utilities.md` and which has its own `CONTEXT.md` like the other `src/*` folders: pure helpers that more than one family needs and that are neither pipeline, store, events nor twins, such as `clamp` (UTL-EDGE-14), `valueToPercent` (UTL-DOM-31), the visually hidden styles (UTL-DOM-13/14/15), label id registration, and the number serialization into attributes and inline styles (UTL §4.12.1) unless Track 1 already placed it under `Rendering/`, where it then stays. Types are internal unless a document makes one public. The M1 Meter track creates the folder; Progress and the M2 Field family reuse it. `AGENTS.md`'s code table lists the folder. Family folders still carry no `CONTEXT.md` (§2).
+
+**2026-10-22, a sample application for manual verification per milestone (chosen by the user the same day).** §3's "There is no demo application before the first release: the fixture host is the browsable showcase" is replaced: the repository has a sample application, built in CI and never packed, so that each milestone's families can be tried by hand in a browser, the way a consumer would meet them, before the milestone closes. The tree gains `samples/`:
+
+* `samples/Blazix.Primitives.Demo/` is a Blazor Web App and `samples/Blazix.Primitives.Demo.Client/` its WebAssembly-capable client, both referencing `src/Blazix.Primitives` by project reference and registering the library with `AddBlazixPrimitives()`, as the fixture host and its client do. Both are in `Blazix.Primitives.slnx` under a `samples` folder, with `IsPackable` false.
+* The render mode is a route segment, as in the fixture host: `/server/<family>` and `/wasm/<family>` resolve to `InteractiveServerRenderMode(prerender: true)` and `InteractiveWebAssemblyRenderMode(prerender: true)`. Prerendering is on, unlike the fixtures, because an app a user visits prerenders. The home page lists every family with both links; each demo page shows live which mode it runs in.
+* One page per family, in the order of the milestones: the markup of the Base UI documentation's Tailwind hero demo (`reference/base-ui/docs/src/app/(docs)/react/components/<family>/demos/hero/tailwind/`) translated to the port's parts and parameters, its utility classes carried over unchanged, and a second block of variants to try where the family has any. A milestone is not closed until every family it ships has a page (the human check of `samples/CONTEXT.md`).
+* The styles are Tailwind, not Blazor CSS isolation (the user's choice, the same day, after a first version built on the documentation's CSS-module demos). Isolation does not scope nested rules and stamps its scope attribute only on elements a page's own markup writes, not on the elements the parts render, so the CSS-module demos needed their nesting written out and every selector under `::deep`, and a popup that portals out of the page would have escaped the scope. Tailwind's classes are global, so the markup is the documentation's and a portalled popup is styled like the rest. `tailwindcss` and `@tailwindcss/cli` join the root `package.json` (§4), pinned to 4.3.3, the version the documentation uses; the client project's build runs the CLI on `Styles/tailwind.css` (the documentation's theme and preflight over Tailwind's defaults, scanning `Demos/` only) and writes `wwwroot/tailwind.css`, ignored by git, as the library's esbuild step does for its modules. The Node toolchain is already a build requirement (ADR 04 §4), so the sample adds a pinned package, not a tool.
+* It is not tested and has no tests-first obligation: it holds no behaviour of its own, only the library's parts composed the way a consumer would. C# in it follows ADR 08 §5 naming and needs no XML documentation. Nothing under `src/` references it, and a demo that reveals a library defect keeps showing the defect while the fix is made in the library.
+* CI (ADR 11): `build-and-test` builds the sample host once (`dotnet build samples/Blazix.Primitives.Demo -c Release`) and runs nothing from it; `classify-paths.mjs` lists `samples/` with the paths no browser can observe, so a change confined to it runs `build-and-test` and no L4, and `samples/` beside a family change leaves the scope at that family. The fixture host stays the L4 host; its pages are no longer described as the showcase.
+* The Context section's "third application to keep green while the API is still moving" is answered by that one build: the sample compiles against every change to the library, and a breaking change fails the pull request that makes it.

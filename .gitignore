@@ -17,6 +17,8 @@ node_modules/
 # esbuild output (ADR 04 §4): the library's whole wwwroot and the fixture client's js/ are generated
 src/Blazix.Primitives/wwwroot/
 tests/Blazix.Primitives.Fixtures.Client/wwwroot/js/
+# Tailwind output of the sample application (built by its client project)
+samples/Blazix.Primitives.Demo.Client/wwwroot/tailwind.css
 
 # test output
 test-results/

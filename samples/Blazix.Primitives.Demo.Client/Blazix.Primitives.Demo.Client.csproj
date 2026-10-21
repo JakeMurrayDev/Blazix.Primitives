@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <!-- The demo pages, WebAssembly-capable, referenced by the host. Never packed. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+  </ItemGroup>
+
+  <!-- The library's development warnings are on in a Debug build, as a consumer's app would have them. -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
+  </ItemGroup>
+
+  <!--
+    The pages are styled with Tailwind utility classes, as the Base UI documentation's Tailwind demos are. The Tailwind
+    CLI (the repository's root node_modules, like the library's esbuild step) reads Styles/tailwind.css, scans Demos/
+    for class names and writes wwwroot/tailwind.css, which is build output and ignored by git. The output is registered
+    before the static web assets pipeline enumerates wwwroot, so a clean build serves it; `Exclude` skips it when an
+    earlier build left the file for the evaluation's glob to find.
+  -->
+  <PropertyGroup>
+    <DemoTailwindCli>$(MSBuildProjectDirectory)/../../node_modules/@tailwindcss/cli/dist/index.mjs</DemoTailwindCli>
+    <DemoTailwindMinify Condition="'$(Configuration)' == 'Release'">--minify</DemoTailwindMinify>
+  </PropertyGroup>
+
+  <Target Name="DemoBuildTailwind" BeforeTargets="ResolveProjectStaticWebAssets" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(DemoTailwindCli)')" Text="The Tailwind CLI is missing at '$(DemoTailwindCli)'. Run `npm ci` at the repository root." />
+    <Exec Command="node &quot;$(DemoTailwindCli)&quot; --input Styles/tailwind.css --output wwwroot/tailwind.css $(DemoTailwindMinify)" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <ItemGroup>
+      <Content Include="wwwroot/tailwind.css" Exclude="@(Content)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -1,0 +1,81 @@
+@page "/{Mode}/{Family}"
+@using Microsoft.AspNetCore.Components.Rendering
+
+@*
+    The one route of the demo pages: /{mode}/{family}. The page is static (the navigation); the family's demo is an
+    interactive island whose render mode comes from the segment, prerendered.
+*@
+<PageTitle>@(entry?.Title ?? "Not found") · @ModeName · Blazix.Primitives</PageTitle>
+
+@if (entry is null || renderMode is null)
+{
+    <main class="DemoMain">
+        <h1>Page not found</h1>
+        <p>There is no demo <code>@Family</code> for the mode <code>@Mode</code>. <a href="/">Back to the list.</a></p>
+    </main>
+}
+else
+{
+    <div class="DemoLayout">
+        <nav class="DemoNav" aria-label="Families">
+            <p class="DemoNavMode">
+                Mode:
+                <a href="/server/@Family" aria-current="@(IsServer ? "true" : null)">Server</a>
+                <a href="/wasm/@Family" aria-current="@(IsServer ? null : "true")">WebAssembly</a>
+            </p>
+            <ul>
+                @foreach (DemoEntry candidate in DemoCatalog.Entries)
+                {
+                    <li><a href="/@NormalizedMode/@candidate.Slug" aria-current="@(candidate.Slug == Family ? "page" : null)">@candidate.Title</a></li>
+                }
+            </ul>
+            <p><a href="/">All families</a></p>
+        </nav>
+        <main class="DemoMain" data-demo-page="@Family" data-mode="@NormalizedMode">
+            @RenderDemo
+        </main>
+    </div>
+}
+
+@code {
+    private DemoEntry? entry;
+    private IComponentRenderMode? renderMode;
+
+    [Parameter]
+    public required string Mode { get; set; }
+
+    [Parameter]
+    public required string Family { get; set; }
+
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    private string NormalizedMode => Mode.ToLowerInvariant();
+
+    private bool IsServer => NormalizedMode == "server";
+
+    private string ModeName => IsServer ? "Server" : "WebAssembly";
+
+    protected override void OnParametersSet()
+    {
+        entry = DemoCatalog.Find(Family);
+        renderMode = NormalizedMode switch
+        {
+            "server" => new InteractiveServerRenderMode(prerender: true),
+            "wasm" => new InteractiveWebAssemblyRenderMode(prerender: true),
+            _ => null,
+        };
+
+        if ((entry is null || renderMode is null) && HttpContext is not null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        }
+    }
+
+    private void RenderDemo(RenderTreeBuilder builder)
+    {
+        builder.OpenComponent(0, entry!.Component);
+        builder.AddComponentRenderMode(renderMode!);
+        builder.CloseComponent();
+    }
+}

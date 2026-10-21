@@ -1,0 +1,41 @@
+<DemoFrame Slug="meter" Note="The same meter with its value under your control.">
+    <Hero>
+        <MeterRoot class="@RootClass" Value="24">
+            <MeterLabel class="@LabelClass">Storage Used</MeterLabel>
+            <MeterValue class="@ValueClass" />
+            <MeterTrack class="@TrackClass">
+                <MeterIndicator class="@IndicatorClass" />
+            </MeterTrack>
+        </MeterRoot>
+    </Hero>
+    <Variants>
+        <div class="Controlled">
+            <MeterRoot class="@RootClass" Value="value">
+                <MeterLabel class="@LabelClass">Battery</MeterLabel>
+                <MeterValue class="@ValueClass" />
+                <MeterTrack class="@TrackClass">
+                    <MeterIndicator class="@IndicatorClass" />
+                </MeterTrack>
+            </MeterRoot>
+            <label class="Slider">
+                Value
+                <input type="range" min="0" max="100" value="@value" @oninput="OnInput" />
+            </label>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string RootClass = "grid max-w-full w-60 grid-cols-2 gap-y-2";
+    private const string LabelClass = "text-sm font-normal text-neutral-950 dark:text-white";
+    private const string ValueClass = "text-right text-sm text-neutral-950 dark:text-white";
+    private const string TrackClass = "col-span-2 h-3 overflow-hidden bg-neutral-200 dark:bg-neutral-800";
+    private const string IndicatorClass = "bg-neutral-950 transition-[width] duration-500 dark:bg-white";
+
+    private double value = 60;
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        value = double.Parse(e.Value?.ToString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+    }
+}

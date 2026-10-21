@@ -1,0 +1,25 @@
+@inject NavigationManager Navigation
+
+@*
+    Shows the render mode the address asked for and the one the page runs in right now. During prerendering the renderer is
+    "Static"; once Blazor Server or WebAssembly has taken the page over it names itself.
+*@
+<p class="ModeBadge" data-requested-mode="@Requested" data-renderer="@RendererInfo.Name" data-interactive="@(RendererInfo.IsInteractive ? "true" : "false")">
+    <strong>@Requested</strong>
+    <span class="ModeStatus">
+        @if (RendererInfo.IsInteractive)
+        {
+            <text>interactive (@RendererInfo.Name)</text>
+        }
+        else
+        {
+            <text>prerendered, not interactive yet</text>
+        }
+    </span>
+</p>
+
+@code {
+    private string Requested => Navigation.ToBaseRelativePath(Navigation.Uri).StartsWith("wasm", StringComparison.OrdinalIgnoreCase)
+        ? "WebAssembly"
+        : "Server";
+}

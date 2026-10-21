@@ -1,0 +1,43 @@
+<DemoFrame Slug="avatar" Note="The same avatar with a source you can change. The status is what OnLoadingStatusChange reports.">
+    <Hero>
+        <div class="flex gap-4">
+            <AvatarRoot class="@RootClass">
+                <AvatarImage Src="https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=128&h=128&dpr=2&q=80"
+                             width="48"
+                             height="48"
+                             class="@ImageClass" />
+                <AvatarFallback Delay="600" class="@FallbackClass">LT</AvatarFallback>
+            </AvatarRoot>
+            <AvatarRoot class="@RootClass">LT</AvatarRoot>
+        </div>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <AvatarRoot class="@RootClass">
+                <AvatarImage Src="@src" width="48" height="48" class="@ImageClass" OnLoadingStatusChange="OnStatus" />
+                <AvatarFallback Delay="300" class="@FallbackClass">LT</AvatarFallback>
+            </AvatarRoot>
+            <span class="VariantName">status: <strong data-status>@status</strong></span>
+        </div>
+        <div class="Sources">
+            <button type="button" class="Control" @onclick="@(() => src = LocalSource)">Local image</button>
+            <button type="button" class="Control" @onclick="@(() => src = "/missing-avatar.png")">Missing image</button>
+            <button type="button" class="Control" @onclick="@(() => src = null)">No image</button>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string RootClass = "inline-flex size-8 items-center justify-center overflow-hidden rounded-full bg-neutral-200 align-middle text-sm leading-none font-normal text-neutral-950 select-none dark:bg-neutral-800 dark:text-white";
+    private const string ImageClass = "size-full object-cover";
+    private const string FallbackClass = "flex size-full items-center justify-center text-sm";
+    private const string LocalSource = "/avatar.svg";
+
+    private string? src = LocalSource;
+    private string status = "idle";
+
+    private void OnStatus(ImageLoadingStatus loadingStatus)
+    {
+        status = loadingStatus.ToString().ToLowerInvariant();
+    }
+}

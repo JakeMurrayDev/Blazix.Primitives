@@ -1,6 +1,6 @@
 # tests/Blazix.Primitives.Fixtures
 
-The fixture host: a Blazor Web App that serves every fixture page in both render modes for the L4 browser tests, and doubles as the showcase.
+The fixture host: a Blazor Web App that serves every fixture page in both render modes for the L4 browser tests. The app for trying the port by hand is the sample application under `samples/`.
 
 ## Inputs
 

@@ -1,0 +1,43 @@
+@page "/"
+
+<PageTitle>Blazix.Primitives sample application</PageTitle>
+
+<main class="Home">
+    <h1>Blazix.Primitives sample application</h1>
+    <p>
+        One page per family, each porting the hero demo of the Base UI documentation, for trying the port by hand. Every
+        page exists twice: under <code>/server/&lt;family&gt;</code> it runs on Blazor Server, under
+        <code>/wasm/&lt;family&gt;</code> on Blazor WebAssembly. Both prerender first, as an app a user visits does.
+    </p>
+
+    <table class="FamilyTable">
+        <thead>
+            <tr>
+                <th scope="col">Family</th>
+                <th scope="col">Blazor Server</th>
+                <th scope="col">Blazor WebAssembly</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (DemoEntry entry in DemoCatalog.Entries)
+            {
+                <tr>
+                    <th scope="row">
+                        @entry.Title
+                        <small>@entry.Summary</small>
+                    </th>
+                    <td><a href="/server/@entry.Slug">/server/@entry.Slug</a></td>
+                    <td><a href="/wasm/@entry.Slug">/wasm/@entry.Slug</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h2>Which mode a page runs in</h2>
+    <p>
+        The first segment of the address decides it. The first Server visit opens a circuit; the first WebAssembly visit
+        downloads the runtime, which is slow once and cached after. This page is static. On a demo page the badge under the
+        title shows the mode that was asked for and flips from <em>prerendered</em> to <em>interactive</em> once Blazor has
+        taken the page over, so a page that stays <em>prerendered</em> is a page whose mode did not start.
+    </p>
+</main>

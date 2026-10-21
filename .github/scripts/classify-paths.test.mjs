@@ -159,6 +159,20 @@ describe('no L4', () => {
     expect(result).toMatchObject({ docs: false, code: true, l4: 'none', runL4: false });
   });
 
+  it('a change confined to samples/ runs build-and-test, which builds the sample application, and needs no browser run', () => {
+    const result = run([
+      'samples/Blazix.Primitives.Demo/Program.cs',
+      'samples/Blazix.Primitives.Demo.Client/Demos/MeterDemo.razor.css',
+      'samples/README.md',
+    ]);
+    expect(result).toMatchObject({ docs: false, code: true, l4: 'none', runL4: false });
+  });
+
+  it('samples/ next to a family change leaves the scope at that family', () => {
+    const result = run(['samples/Blazix.Primitives.Demo.Client/Demos/ButtonDemo.razor', 'src/Blazix.Primitives/Button/Button.cs']);
+    expect(result).toMatchObject({ code: true, l4: 'scoped', families: ['button'] });
+  });
+
   it('a Markdown file outside docs/ still counts as code for build-and-test but not for L4', () => {
     expect(run(['README.md'])).toMatchObject({ docs: false, code: true, l4: 'none' });
   });

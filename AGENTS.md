@@ -15,6 +15,7 @@ Blazor port of MUI Base UI v1.9.0, built documentation-first. This file routes; 
 | QA history and open gaps | `docs/_qa-notes.md` |
 | Milestones and what is next | `docs/decisions/12-implementation-order-and-milestones.md` |
 | Verification items and their schedule | `docs/decisions/14-verification-plan.md` (one GitHub issue each, label `verification`) |
+| Try the ported families by hand | `samples/README.md` (`dotnet run --project samples/Blazix.Primitives.Demo`) |
 | Upstream Base UI releases | `docs/upstream/` (triage notes, policy in decision record 15) |
 
 ## Where code goes (from milestone M0, decision record 09)
@@ -27,6 +28,7 @@ Blazor port of MUI Base UI v1.9.0, built documentation-first. This file routes; 
 | `src/Blazix.Primitives/js/` | TypeScript modules (one per decision-record-04 module) with their vitest tests beside them |
 | `src/Blazix.Primitives.Generators/`, `src/Blazix.Primitives.Analyzers/` | shipped generator; internal convention analyzers |
 | `tests/Blazix.Primitives.Tests*`, `tests/Blazix.Primitives.Fixtures*`, `tests/browser/` | L1, L2, generator tests; the fixture host; L4 specs |
+| `samples/Blazix.Primitives.Demo*` | the sample application: one page per ported family, `/server/<family>` and `/wasm/<family>`, for trying a milestone by hand; never packed; contract = `samples/CONTEXT.md`, decision record 09 (amended 2026-10-22) |
 | `.github/` | CI: workflows, composite actions, the scripts they run (with their tests); contract = `.github/CONTEXT.md`, decision record 11 |
 | `spikes/` | throwaway verification probes, excluded from the solution |
 
