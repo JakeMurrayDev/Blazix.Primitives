@@ -44,6 +44,7 @@
     <BlazixJsEntry Include="js/initializer.ts" Out="Blazix.Primitives.lib.module" />
     <BlazixJsEntry Include="js/dom.ts" Out="js/dom" />
     <BlazixJsEntry Include="js/button.ts" Out="js/button" />
+    <BlazixJsEntry Include="js/transitions.ts" Out="js/transitions" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 
