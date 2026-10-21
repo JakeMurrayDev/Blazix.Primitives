@@ -7,7 +7,8 @@
 | Tests | `packages/react/src/meter/**/*.test.tsx` (5 files) |
 | Docs page | `docs/src/app/(docs)/react/components/meter/page.mdx` |
 | Prefix | `MTR` |
-| Status | approved |
+| Status | implemented |
+| Revised | 2026-10-21 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) (label-id publication only), [shared-utilities](../architecture/shared-utilities.md) |
@@ -36,6 +37,7 @@ The order of Label, Track and Value inside Root is free; the docs anatomy places
   Source: `meter/root/MeterRoot.tsx:60-67,80-83`. Test: [L2] `MeterRoot.test.tsx` "sets the correct aria attributes" (`getByRole('meter')`).
 - **MTR-STR-02** — MUST. `Meter.Indicator`, `Meter.Value` and `Meter.Label` MUST be rendered inside the subtree of a `Meter.Root`; rendering any of them elsewhere MUST throw the error in MTR-EDGE-01.
   Source: `meter/root/MeterRootContext.ts:16-25`, `meter/indicator/MeterIndicator.tsx:20`, `meter/value/MeterValue.tsx:20`, `meter/label/MeterLabel.tsx:21`. Test: [L2] `MeterLabel.test.tsx` "throws a descriptive error when rendered outside <Meter.Root>".
+  Port note 2026-10-21 (MTR-EDGE-01): the error is the port's own message, see MTR-EDGE-01.
 - **MTR-STR-03** — MUST. `Meter.Track` MUST NOT depend on an enclosing `Meter.Root`: it reads no shared state and renders without error anywhere.
   Source: `meter/track/MeterTrack.tsx:13-23` (no context read). Test: none.
 - **MTR-STR-04** — MUST. `Meter.Track` is structural only: it MUST render an element carrying only the consumer's attributes (no built-in attributes, styles, handlers or data attributes).
@@ -258,6 +260,7 @@ The Indicator is sized only by `width`; it is not positioned by the component (n
   Source: `meter/root/MeterRoot.tsx:35,54`, `meter/label/MeterLabel.tsx:21-23`. Test: [L2] `MeterRoot.test.tsx` "sets the correct aria attributes"; `MeterLabel.test.tsx` "updates and clears the meter label association".
 - **MTR-ARIA-07** — MUST. When a Label mounts, changes `id`, or unmounts, the root's `aria-labelledby` MUST be updated post-commit, pre-paint (one extra update of the root after the Label's DOM change, before the browser paints). Server: relaxed, see §9.
   Source: `utils/useRegisteredLabelId.ts:12-17`. Test: [L2] `MeterLabel.test.tsx` "updates and clears the meter label association".
+  Port note 2026-10-21 (§14 allowance; ADR 01 relaxation table, "FFI registration" row): the label publishes its id while its parameters are set, which is inside the render batch that creates, re-ids or removes it, and the root renders again in that batch. On Server the root's `aria-labelledby` therefore lands with the label itself, not after paint plus a round trip; WebAssembly is the same. Tested on both render modes at L4 (`meter.spec.ts` "updates and clears the meter label association"). Removal and id changes follow MTR-STA-03.
 
 Meter has no Field integration: it does not read `Field.Label`, `Field.Description` or field validity, and emits no `aria-describedby`/`aria-invalid`.
 
@@ -335,6 +338,7 @@ Meter emits no warnings and no dev-only diagnostics of its own.
 
 - **MTR-EDGE-01** — MUST. Rendering `Meter.Indicator`, `Meter.Value` or `Meter.Label` outside a `Meter.Root` MUST throw an error with the message `Base UI: MeterRootContext is missing. Meter parts must be placed within <Meter.Root>.` (thrown in all builds).
   Source: `meter/root/MeterRootContext.ts:16-25`. Test: [L2] `MeterLabel.test.tsx` "throws a descriptive error when rendered outside <Meter.Root>".
+  Port note 2026-10-21: the message is ``Blazix: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20: it starts `Blazix: ` and quotes code in backticks); the error is an `InvalidOperationException` thrown in every build.
 - **MTR-EDGE-02** — MUST. With `value = NaN`: `aria-valuenow` MUST be `min`, the percentage `0`, the Indicator width `0%`, and the default formatted value the formatted `0` percent (or `min` formatted with `format`).
   Source: `meter/root/MeterRoot.tsx:38-40`. Test: [L2] `MeterRoot.test.tsx` "normalizes aria attributes when value is NaN".
 - **MTR-EDGE-03** — MUST. With `min === max`: when `value === min` the percentage MUST be `0` (the `0/0` NaN case) and `aria-valuenow` MUST be `min`; when `value` differs, the percentage follows MTR-ALG-01 (`±∞` clamped to `100`/`0`) and `aria-valuenow` is `min` (= `max`).
@@ -345,6 +349,7 @@ Meter emits no warnings and no dev-only diagnostics of its own.
   Source: `meter/root/MeterRoot.tsx:38-40`, `packages/utils/src/clamp.ts:6`. Test: none.
 - **MTR-EDGE-06** — MUST. Server-rendered markup MUST NOT contain the root's `aria-labelledby` (the label id is published only after the client mounts, MTR-ARIA-07); every other attribute, including the Label's generated id, MUST match the client's first render.
   Source: `utils/useRegisteredLabelId.ts:12` (post-commit publication), `meter/root/MeterRoot.tsx:35,54`. Test: none.
+  Port note 2026-10-21 (§14 allowance, see MTR-ARIA-07): the label registers during the render that creates it, so the server-rendered markup of a prerendered page already carries the root's `aria-labelledby`, and the Label's id matches the first interactive render. This is the "acceptable improvement" of §14; tested at L4 (`meter.spec.ts` "carries aria-labelledby in the server-rendered markup", both render modes) and at L2 ("renders aria-labelledby in the first markup of the root").
 
 Inherited dev checks (not re-documented): invalid `render` element error and uppercase-named render function warning from RND.
 
@@ -492,3 +497,11 @@ Non-normative.
 8. **Empty-string Label id.** `<Meter.Label id="">` is used verbatim (RND-DOM-28) and published, giving `aria-labelledby=""` on Root (`utils/useRegisteredLabelId.ts:10-13`). Untested.
 9. **Multiple Labels.** Only one id is tracked; with two Labels the most recently registered wins and unmounting the older one does not clear it (FFI-ARIA-08). Multiple labels are not a documented configuration.
 10. **Locale formatting parity.** The formatted value is `Intl.NumberFormat` output from the host's ICU data (`packages/utils/src/formatNumber.ts:13,27`; `meter/root/MeterRoot.tsx:44-46`) and the tests compare against `Intl.NumberFormat` in the same runtime (`meter/root/MeterRoot.test.tsx:43,255,281`). ADR 01 Decision item 2 places render-time work in C#, but no ADR decides whether C# number formatting (which differs from ECMA-402 in percent spacing, currency patterns and rounding options) must match `Intl.NumberFormat` byte for byte, or whether the port may call the browser's `Intl` (impossible synchronously during a Server render). Needs a decision before MTR-I18N-01..03 and MTR-ARIA-04 can be tested. Decided (2026-10-18): .NET globalization; output equivalent, not byte-identical (ADR 01 Decision 2, amended).
+11. **Port notes (2026-10-21, M1 track 2, issue 59).** The Blazor surface of the document's rows, in one place; each bullet cites the decision it follows.
+    - **`format` and `locale` (MTR-API-04, MTR-API-05, MTR-I18N-01..03; ADR 08 Amendments 2026-10-21, ADR 01 decision 2).** `Format : string?` is a .NET numeric format string applied as `double.ToString(format, culture)` to the clamped value; any non-null value counts as "provided", an empty string included (MTR-API-04's "including an empty one"), and formats with the general format. `Culture : CultureInfo?` is passed unchanged, `null` meaning `CultureInfo.CurrentCulture` (read on every change of the inputs, so a changed current culture is picked up). Without `Format`, the percentage divided by 100 is formatted with `"P0"`. The output is equivalent, not byte-identical, to `Intl.NumberFormat`; the accepted divergences are: percent text in `de-DE` is `30 %` with an ASCII space where `Intl` writes U+00A0 (and `fr-FR` U+202F), the currency symbol of `C` follows the culture where `Intl` formats the `currency` code the options name, and the nine rounding modes and the other `Intl` options have no equivalent (NumberField, M6). The samples of MTR-ARIA-04 hold: `33.333` in `en-US` gives `33%`.
+    - **Value template (MTR-API-10, MTR-API-11; ADR 08 Amendments 2026-10-20).** Base UI's `children` function is the template parameter `MeterValue.ValueContent : RenderFragment<MeterValueArguments>?`, used with `Context`; `MeterValueArguments` is `readonly record struct MeterValueArguments(string FormattedValue, double Value)`. A plain `ChildContent` is discarded; with no template the part renders the formatted value.
+    - **Parts and state (MTR-STA-01, MTR-STR-03; ADR 02 Amendments 2026-10-20).** The five parts are `MeterRoot`, `MeterLabel`, `MeterTrack`, `MeterIndicator` and `MeterValue` over `PartBase<EmptyState>`. `MeterTrack` reads no context and renders anywhere (§16 item 3 stays a decision for Progress).
+    - **Label and `Enabled` (MTR-STA-03).** A `MeterLabel` with `Enabled="false"` renders no element and publishes no id; a root whose consumer supplies its own `aria-labelledby` ignores the published id (MTR-ARIA-06).
+    - **Sharing (MTR-STA-02; ADR 16 rule 9).** Root, Indicator and Value read one computation in an internal fixed-cascade context; a change reaches the Indicator and the Value through the context's listeners, never through the cascade.
+    - **Helpers (MTR-ALG-01..03, MTR-DOM-01; UTL-EDGE-14, UTL-DOM-31, UTL-DOM-37, UTL-DOM-13, FFI-ARIA-08).** Percentage, clamp, number serialization, the `visuallyHidden` declarations, the formatting and the label-id slot are in `src/Blazix.Primitives/Utilities/` (folder contract `CONTEXT.md`), reused by Progress; the NVDA span is rendered inline by the root.
+    - **Tests.** MTR-ALG-01 and MTR-ALG-02 are tested at L1 on those helpers, the rest at L2 (bUnit) with the browser clause of MTR-DOM-03 at L4 on both render modes; the steady-state render of the root is an allocation budget (ADR 16 rule 7).

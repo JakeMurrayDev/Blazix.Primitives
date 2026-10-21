@@ -1,0 +1,54 @@
+@namespace Blazix.Primitives.Fixtures.Client.MeterFixtures
+@using Blazix.Primitives
+
+@*
+    The `meter-basic` fixture (tests/browser/meter.spec.ts). Four cases, each a meter a consumer would write:
+    `positioning` (value 33) and `zero` (value 0) are 100 px wide, so the computed pixels of MeterIndicator.test.tsx "sets
+    positioning styles" and "sets zero width when value is 0" can be read; `value` changes the value from a button, as a
+    parent re-render does; `label` publishes, changes and removes a label's id (MeterLabel.test.tsx "updates and clears the
+    meter label association", the MTR-ARIA-07 row, asserted on both render modes).
+*@
+<FixtureContainer Name="meter-basic">
+    <div data-case="positioning">
+        <MeterRoot Value="33" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")" style="width: 100px" data-testid="meter">
+            <MeterTrack>
+                <MeterIndicator data-testid="indicator" />
+            </MeterTrack>
+        </MeterRoot>
+    </div>
+
+    <div data-case="zero">
+        <MeterRoot Value="0" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")" style="width: 100px" data-testid="meter">
+            <MeterTrack>
+                <MeterIndicator data-testid="indicator" />
+            </MeterTrack>
+        </MeterRoot>
+    </div>
+
+    <div data-case="value">
+        <button type="button" data-set-value @onclick="() => value = 77">Set 77</button>
+        <MeterRoot Value="value" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")" data-testid="meter">
+            <MeterValue data-testid="value" />
+            <MeterTrack>
+                <MeterIndicator data-testid="indicator" />
+            </MeterTrack>
+        </MeterRoot>
+    </div>
+
+    <div data-case="label">
+        <button type="button" data-change-id @onclick='() => labelId = "label-b"'>Change id</button>
+        <button type="button" data-remove-label @onclick="() => showLabel = false">Remove label</button>
+        <MeterRoot Value="50" data-testid="meter">
+            @if (showLabel)
+            {
+                <MeterLabel id="@labelId" data-testid="label">Battery level</MeterLabel>
+            }
+        </MeterRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private double value = 50;
+    private string labelId = "label-a";
+    private bool showLabel = true;
+}

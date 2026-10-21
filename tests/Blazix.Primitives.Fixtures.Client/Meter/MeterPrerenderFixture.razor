@@ -1,0 +1,14 @@
+@namespace Blazix.Primitives.Fixtures.Client.MeterFixtures
+@using Blazix.Primitives
+
+@*
+    The `meter-prerender` fixture (tests/browser/meter.spec.ts): a labelled meter whose server-rendered markup the spec reads.
+    The label registers while it initializes, inside the render that creates it, so the root's aria-labelledby is already
+    in the static response; React's client-only publication would leave it out (docs/components/meter.md §14, MTR-EDGE-06).
+*@
+<FixtureContainer Name="meter-prerender">
+    <MeterRoot Value="42" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")" data-testid="meter">
+        <MeterLabel id="battery-label">Battery level</MeterLabel>
+        <MeterValue />
+    </MeterRoot>
+</FixtureContainer>

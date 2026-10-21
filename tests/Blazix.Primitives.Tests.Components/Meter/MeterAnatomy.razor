@@ -1,0 +1,48 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Globalization
+
+@*
+    The anatomy of docs/components/meter.md §2 as the MeterRoot.test.tsx scenarios render it: a root with an optional label,
+    a value and a track holding an indicator. The test sets the root's parameters through this component, so a re-render
+    reaches the parts as it does in an application (the parent passes new values to the root, the children stay).
+*@
+<MeterRoot Value="Value" Min="Min" Max="Max" Format="@Format" Culture="Culture" GetAriaValueText="GetAriaValueText" data-testid="meter">
+    @if (ShowLabel && LabelId is null)
+    {
+        <MeterLabel data-testid="label">Battery level</MeterLabel>
+    }
+    @if (ShowLabel && LabelId is not null)
+    {
+        <MeterLabel id="@LabelId" data-testid="label">Battery level</MeterLabel>
+    }
+    <MeterValue data-testid="value" />
+    <MeterTrack>
+        <MeterIndicator data-testid="indicator" />
+    </MeterTrack>
+</MeterRoot>
+
+@code {
+    [Parameter]
+    public double Value { get; set; }
+
+    [Parameter]
+    public double Min { get; set; }
+
+    [Parameter]
+    public double Max { get; set; } = 100;
+
+    [Parameter]
+    public string? Format { get; set; }
+
+    [Parameter]
+    public CultureInfo? Culture { get; set; }
+
+    [Parameter]
+    public Func<string, double, string>? GetAriaValueText { get; set; }
+
+    [Parameter]
+    public bool ShowLabel { get; set; }
+
+    [Parameter]
+    public string? LabelId { get; set; }
+}

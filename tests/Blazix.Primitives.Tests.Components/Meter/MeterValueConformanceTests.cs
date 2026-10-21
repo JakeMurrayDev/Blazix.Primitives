@@ -1,0 +1,36 @@
+using Blazix.Primitives.Rendering;
+using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Bunit;
+using Microsoft.AspNetCore.Components;
+
+// The namespace is the project's root: a namespace named after the family would hide the parts' types.
+namespace Blazix.Primitives.Tests.Components;
+
+// MeterValue.test.tsx: describeConformance(<Meter.Value />, () => ({ render: inside <Meter.Root value={30}>, refInstanceof: window.HTMLSpanElement })). MTR-DOM-09, MTR-API-08, MTR-API-13.
+// RND-DOM-49 does not apply (no NativeButton).
+/// <summary>The conformance suite on <see cref="MeterValue"/> inside a <see cref="MeterRoot"/>: the shared RND-DOM-36..49 tests with Base UI's titles.</summary>
+public sealed class MeterValueConformanceTests : PartConformanceTests<MeterValue>
+{
+    public MeterValueConformanceTests()
+    {
+        Context.RenderTree.Add<MeterRoot>(p => p.Add(x => x.Value, 30));
+    }
+
+    /// <inheritdoc />
+    protected override ConformanceOptions<MeterValue> Options { get; } = new("span");
+
+    /// <inheritdoc />
+    protected override ElementReference? ElementOf(MeterValue part) => part.Element;
+
+    /// <inheritdoc />
+    protected override void SetRenderFunction(ComponentParameterCollectionBuilder<MeterValue> p, Func<IReadOnlyDictionary<string, object>, RenderFragment> render)
+    {
+        p.Add(x => x.RenderFunction, (RenderFragment<RenderProps<EmptyState>>)(props => render(props.Attributes)));
+    }
+
+    /// <inheritdoc />
+    protected override void SetClassValue(ComponentParameterCollectionBuilder<MeterValue> p, Func<string?> classValue)
+    {
+        p.Add(x => x.ClassValue, (Func<EmptyState, string?>)(_ => classValue()));
+    }
+}

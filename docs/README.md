@@ -42,7 +42,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/input.md | INP | approved | 19 reqs; alias of Field.Control | |
 | components/menu.md | MNU | approved | 308 reqs | |
 | components/menubar.md | MBR | approved | 91 reqs (opus) | builds on menu |
-| components/meter.md | MTR | approved | 52 reqs (opus) | |
+| components/meter.md | MTR | implemented | 52 reqs (opus) | |
 | components/navigation-menu.md | NAV | approved | 208 reqs |
 | components/number-field.md | NUM | approved | 177 reqs | |
 | components/otp-field.md | OTP | approved | 169 reqs | |

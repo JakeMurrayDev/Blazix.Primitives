@@ -7,6 +7,7 @@
 | Tests | `packages/utils/src/*.test.ts(x)`, `packages/utils/src/store/*.test.ts(x)`, `internals/{filter,itemEquality,resolveValueLabel,resolvePopupLabel,RequestQueue,TimeoutManager,useInitialLiveRegionTextMutation,useValueChanged}.test.ts(x)`, `utils/{getCssDimensions,getPseudoElementBounds,scrollEdges}.test.ts`, `direction-provider/DirectionProvider.test.tsx`, `csp-provider/CSPProvider.test.tsx`, `unstable-use-media-query/index.test.tsx` |
 | Prefix | `UTL` |
 | Status | approved |
+| Revised | 2026-10-21 |
 | Used by | Every component document. Specifically: controlled state (§4.1) — ACC, CHK, CKG, COL, CMB, DRW, MNU, NAV, NUM, RDG, SEL, SLD, SWT, TAB, TGL, TGG; store (§4.2) — CMB, AUT, DLG, ADL, DRW, MNU, CTX, MBR, POP, PRV, SEL, TST, TIP, NAV, plus FLT/PSH; scroll lock (§4.8) — DLG, ADL, DRW and every anchored popup through PSH `useAnchoredPopupScrollLock`; number formatting (§4.15) — NUM, SLD, MTR, PRG; locale filter (§4.15, §5) — CMB, AUT, MNU (filter parts); item equality and label resolution (§5) — CMB, AUT, SEL; live-region marker (§4.13) — CMB, AUT; direction (§4.15) — CMB, CMP, FLT, MNU, NAV, OTP, SCR, SEL, SLD, PSH; CSP (§4.12) — SCR, SEL, TRN; platform detection (§4.16) — CMB, DRW, FLT, MNU, NUM, OTP, SCR, SEL, PSH |
 
 ## 1. Purpose
@@ -423,10 +424,13 @@ Base UI writes JavaScript numbers into the DOM without explicit formatting: as a
 
 - **UTL-I18N-05** — MUST. `formatNumber(value, locale?, options?)` returns `''` for `null`/`undefined`, otherwise `new Intl.NumberFormat(locale, options).format(value)`.
   Source: `packages/utils/src/formatNumber.ts:19-28`. Test: [L1] `formatNumber.test.ts` "formats a number", "formats a number with different options", "returns an empty string for null".
+  Port note 2026-10-21 (ADR 01 decision 2 as amended 2026-10-18; ADR 08 Amendments 2026-10-21): the port has no `formatNumber` function and no `Intl.NumberFormat`. The shared helper `Utilities/NumberFormatting.Format(value, format, culture)` is `double.ToString(format, culture ?? CultureInfo.CurrentCulture)` with `format` a .NET numeric format string and `culture` a `CultureInfo`; output is equivalent, not byte-identical, to `Intl.NumberFormat`. The `null` row (`''`) has no counterpart: the callers pass a `double`, and a caller with no value skips formatting.
 - **UTL-I18N-06** — MUST. Formatters are cached for the page lifetime under the key `JSON.stringify({ locale: stringifyLocale(locale), options })`; equal keys return the same formatter instance, different locales (including `Intl.Locale` objects) different instances.
   Source: `packages/utils/src/formatNumber.ts:3-17`. Test: [L1] `formatNumber.test.ts` "caches the formatter based on options", "caches different Intl.Locale objects separately".
+  Port note 2026-10-21 (ADR 01 decision 2 as amended 2026-10-18; ADR 08 Amendments 2026-10-21): not applicable. `double.ToString(format, culture)` builds no formatter object, so there is nothing to cache and no key to compute; equal `(culture, format)` pairs give equal text by construction (L1 `NumberFormattingTests` "gives equal text for equal culture and format pairs").
 - **UTL-I18N-07** — MUST. `stringifyLocale(locale)`: an array is mapped recursively and joined with `,`; `null`/`undefined` → `''`; anything else → `String(locale)` (so an `Intl.Locale` yields its tag).
   Source: `packages/utils/src/stringifyLocale.ts:1-11`. Test: [L1] `stringifyLocale.test.ts` "stringifies Intl locale arguments for cache keys".
+  Port note 2026-10-21 (ADR 01 decision 2 as amended 2026-10-18; ADR 08 Amendments 2026-10-21): not applicable. The port takes a `CultureInfo?` (`null` meaning `CultureInfo.CurrentCulture`), never a locale string or an array of them, so there is no locale to stringify.
 
 #### 4.15.3 Locale filter (`getFilter`)
 
