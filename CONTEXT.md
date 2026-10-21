@@ -130,11 +130,15 @@ _Avoid_: upgrade, sync
 
 **Spike**:
 A throwaway project under `spikes/` that verifies one decision-record item and is deleted when the item closes.
-_Avoid_: prototype, sample
+_Avoid_: prototype
 
 **Fixture host**:
-The Blazor Web App under `tests/` that serves every fixture page in both render modes for the browser tests and doubles as the showcase.
+The Blazor Web App under `tests/` that serves every fixture page in both render modes for the browser tests.
 _Avoid_: demo app, test server
+
+**Sample application**:
+The Blazor Web App under `samples/` with one page per ported family, each in both render modes, for trying a milestone's families by hand; built in CI and never packed. Not a spike: it stays.
+_Avoid_: showcase, demo app, fixture host
 
 **Implemented**:
 The document status set when its component meets the done definition: every §13 row green at its layer, L4 on both render modes.
