@@ -63,40 +63,49 @@ interface MotionRecord {
 }
 
 /**
- * Records, from now on, the panel's `animationstart` and `transitionrun` events and each time it gains
- * `data-ending-style`, each with the panel's state at that moment. A motion that lasts 100 ms can be over before a
- * per-frame poll runs when the page's main thread is busy (the WebAssembly runtime right after a click), and
- * `getAnimations()` no longer lists a finished animation; its start event and the attribute's mutation record are still
- * delivered (ADR 06 §2: wait on markers, never on frame counts).
+ * Records, from now on, the `animationstart` and `transitionrun` events of the case's panel and each time it gains
+ * `data-ending-style`, each with the panel's state at that moment. A motion that lasts 100 ms can be over before any
+ * read the test makes when the runner is slow, and `getAnimations()` no longer lists a finished animation; its start
+ * event and the attribute's mutation record are still delivered (ADR 06 §2: wait on markers, never on samples). The
+ * records live on the case container, so they outlive a panel that its close removes or that a re-attach replaces.
  */
-async function recordMotion(panel: Locator): Promise<void> {
-  await panel.evaluate((node) => {
-    const element = node as HTMLElement;
+async function recordMotion(container: Locator): Promise<void> {
+  await container.evaluate((node) => {
     const records: unknown[] = [];
-    (element as unknown as { motion: unknown[] }).motion = records;
-    const record = (kind: string, name: string) => records.push({
-      kind,
-      name,
-      open: element.hasAttribute('data-open'),
-      closed: element.hasAttribute('data-closed'),
-      height: element.style.getPropertyValue('--collapsible-panel-height'),
-      transitionDuration: element.style.transitionDuration,
-    });
-    element.addEventListener('animationstart', (event) => record('animationstart', (event as AnimationEvent).animationName));
-    element.addEventListener('transitionrun', (event) => record('transitionrun', (event as TransitionEvent).propertyName));
+    (node as unknown as { motion: unknown[] }).motion = records;
+    const record = (kind: string, name: string, target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement) || !target.matches('[data-panel]')) {
+        return;
+      }
+      records.push({
+        kind,
+        name,
+        open: target.hasAttribute('data-open'),
+        closed: target.hasAttribute('data-closed'),
+        height: target.style.getPropertyValue('--collapsible-panel-height'),
+        transitionDuration: target.style.transitionDuration,
+      });
+    };
+    node.addEventListener('animationstart', (event) => record('animationstart', (event as AnimationEvent).animationName, event.target));
+    node.addEventListener('transitionrun', (event) => record('transitionrun', (event as TransitionEvent).propertyName, event.target));
     new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.oldValue === null && element.hasAttribute('data-ending-style')) {
-          record('ending', '');
+        if (mutation.oldValue === null && mutation.target instanceof HTMLElement && mutation.target.hasAttribute('data-ending-style')) {
+          record('ending', '', mutation.target);
         }
       }
-    }).observe(element, { attributes: true, attributeOldValue: true, attributeFilter: ['data-ending-style'] });
+    }).observe(node, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-ending-style'] });
   });
 }
 
 /** The records of {@link recordMotion}. */
-function motion(panel: Locator): Promise<MotionRecord[]> {
-  return panel.evaluate((node) => (node as unknown as { motion: MotionRecord[] }).motion);
+function motion(container: Locator): Promise<MotionRecord[]> {
+  return container.evaluate((node) => (node as unknown as { motion: MotionRecord[] }).motion);
+}
+
+/** Whether a recorded animation named `name` started while the panel was open (`'open'`) or closed (`'closed'`). */
+async function animationStarted(container: Locator, name: string, side: 'open' | 'closed'): Promise<boolean> {
+  return (await motion(container)).some((record) => record.kind === 'animationstart' && record.name === name && record[side]);
 }
 
 /**
@@ -423,15 +432,15 @@ test.describe('<Collapsible.Panel />', () => {
 
     test('restores a measured height before applying closing transition styles', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-css-transition', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'closing');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'closing');
 
       await expect.poll(() => panel.evaluate((node) => node.style.getPropertyValue('--collapsible-panel-height'))).toBe('auto');
-      await recordMotion(panel);
+      await recordMotion(container);
 
       await trigger.click();
 
       // Both hold only mid-transition: the ending style arrives on a panel already holding its measured pixel height.
-      await expect.poll(async () => (await motion(panel)).find((record) => record.kind === 'ending')?.height).toMatch(/px$/);
+      await expect.poll(async () => (await motion(container)).find((record) => record.kind === 'ending')?.height).toMatch(/px$/);
       await expect(panel).toHaveCount(0);
     });
 
@@ -594,62 +603,64 @@ test.describe('<Collapsible.Panel />', () => {
 
     test('still animates on close and reopen after being initially open', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-css-animation', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'close-reopen');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'close-reopen');
 
       expect(await panel.evaluate((node) => node.getAnimations().length)).toBe(0);
-      await recordMotion(panel);
+      await recordMotion(container);
 
       await trigger.click();
       // The animation runs only while the panel is closing: its start is recorded on the closed panel.
-      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-up' && record.closed)).toBe(true);
+      await expect.poll(() => animationStarted(container, 'panel-slide-up', 'closed')).toBe(true);
 
       await expect(panel).toHaveAttribute('hidden');
       await trigger.click();
-      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-down' && record.open)).toBe(true);
+      await expect.poll(() => animationStarted(container, 'panel-slide-down', 'open')).toBe(true);
     });
 
     test('restores measured dimensions before applying a closing keyframe animation', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-css-animation', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'closing-keyframe');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'closing-keyframe');
 
       await expect.poll(() => panel.evaluate((node) => node.style.getPropertyValue('--collapsible-panel-height'))).toBe('auto');
-      await recordMotion(panel);
+      await recordMotion(container);
 
       await trigger.click();
       // All three hold only while the closing animation runs: the closing keyframes start on the closed panel, and the
       // ending style arrives on a panel holding its measured pixel height.
-      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-up' && record.closed)).toBe(true);
-      await expect.poll(async () => (await motion(panel)).find((record) => record.kind === 'ending')?.height).toMatch(/px$/);
+      await expect.poll(() => animationStarted(container, 'panel-slide-up', 'closed')).toBe(true);
+      await expect.poll(async () => (await motion(container)).find((record) => record.kind === 'ending')?.height).toMatch(/px$/);
     });
 
     test('still animates on reopen after being initially open when only open keyframes are defined', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-css-animation', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'only-open-keyframes');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'only-open-keyframes');
 
       expect(await panel.evaluate((node) => node.getAnimations().length)).toBe(0);
 
       await trigger.click();
       await expect(panel).toHaveAttribute('data-closed');
-      await recordMotion(panel);
+      await recordMotion(container);
 
       await trigger.click();
       // The animation runs only while the panel is opening: its start is recorded on the open panel.
-      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-down' && record.open)).toBe(true);
+      await expect.poll(() => animationStarted(container, 'panel-slide-down', 'open')).toBe(true);
     });
 
     test('animates on reopen after an initially open panel is removed by the render function', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-render-function', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'removable-animation');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'removable-animation');
 
       expect(await panel.evaluate((node) => node.getAnimations().length)).toBe(0);
 
       await trigger.click();
       await expect(panel).toHaveCount(0);
 
+      await recordMotion(container);
       await trigger.click();
       await expect(panel).toHaveAttribute('data-open');
       expect(await computed(panel, 'animation-name')).toBe('removable-panel-open');
-      expect(await panel.evaluate((node) => node.getAnimations().length)).toBe(1);
+      // The new element's opening keyframes run (the suppression ended with the close, COL-ANI-15).
+      await expect.poll(() => animationStarted(container, 'removable-panel-open', 'open')).toBe(true);
     });
   });
 
@@ -738,22 +749,31 @@ test.describe('<Collapsible.Panel />', () => {
     ] as const) {
       test(title, async ({ page, mode }) => {
         const fixture = await gotoCollapsible(page, mode, 'collapsible-reattach', { animations: true });
-        const { trigger, panel, external: toggle } = collapsibleCase(fixture, name);
+        const { container, trigger, panel, external: toggle } = collapsibleCase(fixture, name);
 
         if (userOpened) {
+          await recordMotion(container);
           await trigger.click();
           await expect(panel).toHaveAttribute('data-open');
+          // The user's open plays the keyframes once; the panel is settled when its start has been recorded and no
+          // animation runs any more.
+          await expect.poll(() => animationStarted(container, 'panel-slide-down', 'open')).toBe(true);
         }
         await expect.poll(() => runningAnimations(panel)).toBe(0);
         // The module has reported the keyframe type before the panel goes away.
         await settle(fixture);
 
+        // From here no opening keyframe may start: the re-attached panel renders animation-name: none (COL-ANI-20).
+        await recordMotion(container);
         await toggle.click();
         await expect(panel).toHaveCount(0);
         await toggle.click();
         await expect(panel).toHaveAttribute('data-open');
+        await settle(fixture);
+        await panel.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
-        expect(await runningAnimations(panel)).toBe(0);
+        expect(await panel.evaluate((node) => node.style.animationName)).toBe('none');
+        expect((await motion(container)).filter((record) => record.kind === 'animationstart')).toEqual([]);
       });
     }
   });
@@ -796,7 +816,7 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
   test.describe('interrupted beforematch opens', () => {
     test('keeps the temporary zero animation duration until the panel closes', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-hidden-until-found', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'zero-duration');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'zero-duration');
 
       await fireBeforeMatch(panel);
       await expect(panel).toHaveAttribute('data-open');
@@ -804,17 +824,17 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
       await panel.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
       expect(await computed(panel, 'animation-duration')).toBe('0s');
-      await recordMotion(panel);
+      await recordMotion(container);
 
       await trigger.click();
       // The animation runs only while the panel is closing: its start is recorded on the closed panel.
-      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'animationstart' && record.name === 'panel-slide-up' && record.closed)).toBe(true);
+      await expect.poll(() => animationStarted(container, 'panel-slide-up', 'closed')).toBe(true);
       expect(await computed(panel, 'animation-duration')).toBe('0.123s');
     });
 
     test('restores the transition duration before the first close after a beforematch open', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-hidden-until-found', { animations: true });
-      const { trigger, panel } = collapsibleCase(fixture, 'restores-duration');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'restores-duration');
 
       await fireBeforeMatch(panel);
       await expect(panel).toHaveAttribute('data-open');
@@ -822,13 +842,13 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
       await panel.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
       expect(await computed(panel, 'transition-duration')).toBe('0s');
-      await recordMotion(panel);
+      await recordMotion(container);
 
       await trigger.click();
       // All three hold only while the closing transition runs: the ending style arrives with the authored inline
       // duration back, and the closing transition runs.
-      await expect.poll(async () => (await motion(panel)).find((record) => record.kind === 'ending')?.transitionDuration).toBe('123ms');
-      await expect.poll(async () => (await motion(panel)).some((record) => record.kind === 'transitionrun' && record.name === 'height')).toBe(true);
+      await expect.poll(async () => (await motion(container)).find((record) => record.kind === 'ending')?.transitionDuration).toBe('123ms');
+      await expect.poll(async () => (await motion(container)).some((record) => record.kind === 'transitionrun' && record.name === 'height')).toBe(true);
     });
 
     test('does not suppress a later animated open after a no-motion beforematch open', async ({ page, mode }) => {
@@ -939,7 +959,7 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
 
     test('re-collapses a keyframe panel when the open state never arrives', async ({ page, mode }) => {
       const fixture = await gotoCollapsible(page, mode, 'collapsible-hidden-until-found');
-      const { trigger, panel } = collapsibleCase(fixture, 'keyframe-never-arrives');
+      const { container, trigger, panel } = collapsibleCase(fixture, 'keyframe-never-arrives');
 
       // A full open/close cycle reaches the steady state where the closed panel no longer carries data-starting-style
       // (keyframe panels only hold it until the animation type has been detected).
@@ -954,11 +974,13 @@ test.describe('<Collapsible.Panel /> beforematch', () => {
       await expect(panel).toHaveAttribute('hidden', 'until-found');
       await expect(panel).not.toHaveAttribute('data-starting-style');
 
+      await recordMotion(container);
       await trigger.click();
 
       await expect(panel).toHaveAttribute('data-open');
       expect(await computed(panel, 'animation-duration')).toBe('0.1s');
-      await expect.poll(() => panel.evaluate((node) => node.getAnimations().length)).toBeGreaterThan(0);
+      // The opening keyframes ran: their start is recorded on the open panel (a 100 ms animation can be over before a read).
+      await expect.poll(() => animationStarted(container, 'panel-slide-down', 'open')).toBe(true);
     });
 
     test('uses `hidden="until-found" to hide panel when true', async ({ page, mode }) => {
