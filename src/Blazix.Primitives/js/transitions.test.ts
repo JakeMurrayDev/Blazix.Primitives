@@ -107,6 +107,7 @@ const defaults: TransitionsOptions = {
   reportOpenComplete: false,
   revealOnBeforeMatch: false,
   unmountRequests: 0,
+  externalExit: false,
   openSelector: null,
 };
 
@@ -832,6 +833,31 @@ describe('attach', () => {
 
     expect(fake.reports).toHaveLength(reports);
     expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+  });
+
+  it('an external exit waits for an unmount request instead of the element\'s own animations', async () => {
+    // The Collapsible Root and Trigger: their 'ending' lasts until the panel's exit ends (COL-STA-05, COL-DOM-03/06).
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const fake = createFakeTwin();
+    const element = createElement(() => []);
+    const options = { enableIdleState: true, deferEndingState: true, keepMounted: true, externalExit: true };
+    const handle = attachTo(element, fake, { ...options, open: true, mounted: true, status: 'idle' });
+
+    update(handle, { ...options, open: false });
+    runFrame();
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+
+    update(handle, { ...options, open: false, unmountRequests: 1 });
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+    expect(fake.reported('OnStatusChange')).toEqual([
+      { status: 'ending', mounted: true },
+      { status: null, mounted: false },
+    ]);
   });
 
   it('applies the consumer style only when the part hands it over', () => {
