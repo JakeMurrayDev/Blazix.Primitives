@@ -318,16 +318,7 @@ public sealed class Button : PartBase<ButtonState>
             return DecisionPolicy.Run;
         }
 
-        KeyboardEventArgs args = new()
-        {
-            Type = snapshot.Type,
-            Key = snapshot.Key ?? "",
-            Code = snapshot.Code ?? "",
-            AltKey = snapshot.AltKey,
-            CtrlKey = snapshot.CtrlKey,
-            MetaKey = snapshot.MetaKey,
-            ShiftKey = snapshot.ShiftKey,
-        };
+        KeyboardEventArgs args = snapshot.ToKeyboardEventArgs();
         DecidedKey decided = DecidedKey.From(args);
         if (keyUp)
         {
