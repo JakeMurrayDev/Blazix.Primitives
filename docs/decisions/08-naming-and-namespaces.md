@@ -94,3 +94,9 @@ Members of every class follow the eleven-group order of the old port: constants,
 - The file is `src/Blazix.Primitives/Interop/TransitionStatus.cs`, beside its first consumer `TransitionsTwin`. The namespace is the shared one, as for the types under `Events/`.
 - The literals `starting`, `ending` and `idle` cross the twin boundary through a converter on the interop records. The enum itself carries no serialization attribute.
 - Collapsible and Avatar are its first parts.
+
+**2026-10-21, the enum `ImageLoadingStatus` (M1 track 7, [issue 64](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/64)).**
+- §3's Enums row gains `public enum ImageLoadingStatus { Idle, Loading, Loaded, Error }` in `Blazix.Primitives`: the PascalCase of Base UI's `ImageLoadingStatus` literals (avatar §3.4), with no sentinel member; `Idle` is one of the four literals, not a "not supplied" value.
+- The file is `src/Blazix.Primitives/Avatar/ImageLoadingStatus.cs`, beside its first and only consumer, the Avatar family (`AvatarRootState`, `AvatarImageState`, `AvatarFallbackState`, `AvatarImage.OnLoadingStatusChange`). It keeps Base UI's unprefixed name because Base UI exports it under that name (`avatar/index.ts`).
+- The status is never projected to a data attribute (AVA-DOM-05): each Avatar part maps the field to nothing.
+- The `dom` module still reports the literals `loading`, `loaded` and `error`; `AvatarImage` maps them to the enum, and `DomTwin.ImageStatusChanged` keeps its `string` payload.
