@@ -1,37 +1,37 @@
-<div class="DemoScope">
-    <DemoFrame Slug="button" Note="The variants of the Button part: a click counter, disabled, disabled but focusable, a loading state that disables the button after a click, and a non-native button rendered as a span.">
-        <Hero>
-            <Button class="Button">Submit</Button>
-        </Hero>
-        <Variants>
-            <div class="Variant">
-                <Button class="Button" @onclick="() => clicks++">Clicked @clicks @(clicks == 1 ? "time" : "times")</Button>
-                <span class="VariantName">enabled</span>
-            </div>
-            <div class="Variant">
-                <Button class="Button" Disabled="true">Disabled</Button>
-                <span class="VariantName">Disabled</span>
-            </div>
-            <div class="Variant">
-                <Button class="Button" Disabled="true" FocusableWhenDisabled="true">Focusable</Button>
-                <span class="VariantName">Disabled + FocusableWhenDisabled</span>
-            </div>
-            <div class="Variant">
-                <Button class="Button" Disabled="@loading" FocusableWhenDisabled="true" @onclick="Save">@(loading ? "Saving…" : "Save")</Button>
-                <span class="VariantName">loading (disabled for two seconds after a click)</span>
-            </div>
-            <div class="Variant">
-                <Button class="Button" NativeButton="false" @onclick="() => spanClicks++">
-                    <Render><span></span></Render>
-                    <ChildContent>Span clicked @spanClicks</ChildContent>
-                </Button>
-                <span class="VariantName">NativeButton="false" (a span with role="button")</span>
-            </div>
-        </Variants>
-    </DemoFrame>
-</div>
+<DemoFrame Slug="button" Note="The variants of the Button part: a click counter, disabled, disabled but focusable, a loading state that disables the button after a click, and a non-native button rendered as a span.">
+    <Hero>
+        <Button class="@ButtonClass">Submit</Button>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <Button class="@ButtonClass" @onclick="() => clicks++">Clicked @clicks @(clicks == 1 ? "time" : "times")</Button>
+            <span class="VariantName">enabled</span>
+        </div>
+        <div class="Variant">
+            <Button class="@ButtonClass" Disabled="true">Disabled</Button>
+            <span class="VariantName">Disabled</span>
+        </div>
+        <div class="Variant">
+            <Button class="@ButtonClass" Disabled="true" FocusableWhenDisabled="true">Focusable</Button>
+            <span class="VariantName">Disabled + FocusableWhenDisabled</span>
+        </div>
+        <div class="Variant">
+            <Button class="@ButtonClass" Disabled="@loading" FocusableWhenDisabled="true" @onclick="Save">@(loading ? "Saving…" : "Save")</Button>
+            <span class="VariantName">loading (disabled for two seconds after a click)</span>
+        </div>
+        <div class="Variant">
+            <Button class="@ButtonClass" NativeButton="false" @onclick="() => spanClicks++">
+                <Render><span></span></Render>
+                <ChildContent>Span clicked @spanClicks</ChildContent>
+            </Button>
+            <span class="VariantName">NativeButton="false" (a span with role="button")</span>
+        </div>
+    </Variants>
+</DemoFrame>
 
 @code {
+    private const string ButtonClass = "flex h-8 items-center justify-center gap-2 rounded-none border border-neutral-950 bg-white px-3 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 select-none hover:not-data-disabled:bg-neutral-100 active:not-data-disabled:bg-neutral-200 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:not-data-disabled:bg-neutral-800 dark:active:not-data-disabled:bg-neutral-700 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400";
+
     private int clicks;
     private int spanClicks;
     private bool loading;

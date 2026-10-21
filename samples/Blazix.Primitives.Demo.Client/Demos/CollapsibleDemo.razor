@@ -1,44 +1,48 @@
-<div class="DemoScope">
-    <DemoFrame Slug="collapsible" Note="The same collapsible controlled from outside: the toggle below and the trigger both change Open.">
-        <Hero>
-            <CollapsibleRoot class="Collapsible">
-                <CollapsibleTrigger class="Trigger">
+<DemoFrame Slug="collapsible" Note="The same collapsible controlled from outside: the toggle below and the trigger both change Open.">
+    <Hero>
+        <CollapsibleRoot class="@RootClass">
+            <CollapsibleTrigger class="@TriggerClass">
+                Recovery keys
+                <CaretRightIcon class="@IconClass" />
+            </CollapsibleTrigger>
+            <CollapsiblePanel class="@PanelClass">
+                <div class="@ContentClass">
+                    <div>alien-bean-pasta</div>
+                    <div>wild-irish-burrito</div>
+                    <div>horse-battery-staple</div>
+                </div>
+            </CollapsiblePanel>
+        </CollapsibleRoot>
+    </Hero>
+    <Variants>
+        <div class="Controlled">
+            <CollapsibleRoot class="@RootClass" @bind-Open="open">
+                <CollapsibleTrigger class="@TriggerClass">
                     Recovery keys
-                    <CaretRightIcon class="Icon" />
+                    <CaretRightIcon class="@IconClass" />
                 </CollapsibleTrigger>
-                <CollapsiblePanel class="Panel">
-                    <div class="Content">
+                <CollapsiblePanel class="@PanelClass">
+                    <div class="@ContentClass">
                         <div>alien-bean-pasta</div>
                         <div>wild-irish-burrito</div>
                         <div>horse-battery-staple</div>
                     </div>
                 </CollapsiblePanel>
             </CollapsibleRoot>
-        </Hero>
-        <Variants>
-            <div class="Controlled">
-                <CollapsibleRoot class="Collapsible" @bind-Open="open">
-                    <CollapsibleTrigger class="Trigger">
-                        Recovery keys
-                        <CaretRightIcon class="Icon" />
-                    </CollapsibleTrigger>
-                    <CollapsiblePanel class="Panel">
-                        <div class="Content">
-                            <div>alien-bean-pasta</div>
-                            <div>wild-irish-burrito</div>
-                            <div>horse-battery-staple</div>
-                        </div>
-                    </CollapsiblePanel>
-                </CollapsibleRoot>
-                <div class="Variant">
-                    <button type="button" class="Control" @onclick="() => open = !open">Toggle from outside</button>
-                    <span class="VariantName">open: <strong data-open-state>@(open ? "true" : "false")</strong></span>
-                </div>
+            <div class="Variant">
+                <button type="button" class="Control" @onclick="() => open = !open">Toggle from outside</button>
+                <span class="VariantName">open: <strong data-open-state>@(open ? "true" : "false")</strong></span>
             </div>
-        </Variants>
-    </DemoFrame>
-</div>
+        </div>
+    </Variants>
+</DemoFrame>
 
 @code {
+    private const string RootClass = "flex min-h-36 w-48 flex-col justify-center text-neutral-950 dark:text-white";
+    private const string TriggerClass = "group flex h-8 items-center justify-between gap-2 rounded-none border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 pl-3 pr-2 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 dark:text-white select-none hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:bg-neutral-200 dark:active:not-data-disabled:bg-neutral-700 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400";
+    private const string IconClass = "transition-transform duration-100 ease-[ease-out] group-data-panel-open:rotate-90";
+    private const string PanelClass = "flex h-[var(--collapsible-panel-height)] flex-col justify-end overflow-hidden text-sm transition-[height] duration-150 ease-[ease-out] [&[hidden]:not([hidden='until-found'])]:hidden data-ending-style:h-0 data-starting-style:h-0";
+    private const string ContentClass = "flex flex-col gap-2 px-3.5 py-2";
+
     private bool open;
 }

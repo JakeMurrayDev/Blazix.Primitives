@@ -1,26 +1,30 @@
 @implements IDisposable
 
-<div class="DemoScope">
-    <DemoFrame Slug="progress" Note="The same progress bar with its value under your control: restart the simulation or make it indeterminate.">
-        <Hero>
-            <ProgressRoot class="Progress" Value="value">
-                <ProgressLabel class="Label">Export data</ProgressLabel>
-                <ProgressValue class="Value" />
-                <ProgressTrack class="Track">
-                    <ProgressIndicator class="Indicator" />
-                </ProgressTrack>
-            </ProgressRoot>
-        </Hero>
-        <Variants>
-            <div class="Controls">
-                <button type="button" class="Control" @onclick="Restart">Restart</button>
-                <button type="button" class="Control" @onclick="MakeIndeterminate">Indeterminate</button>
-            </div>
-        </Variants>
-    </DemoFrame>
-</div>
+<DemoFrame Slug="progress" Note="The same progress bar with its value under your control: restart the simulation or make it indeterminate.">
+    <Hero>
+        <ProgressRoot class="@RootClass" Value="value">
+            <ProgressLabel class="@LabelClass">Export data</ProgressLabel>
+            <ProgressValue class="@ValueClass" />
+            <ProgressTrack class="@TrackClass">
+                <ProgressIndicator class="@IndicatorClass" />
+            </ProgressTrack>
+        </ProgressRoot>
+    </Hero>
+    <Variants>
+        <div class="Controls">
+            <button type="button" class="Control" @onclick="Restart">Restart</button>
+            <button type="button" class="Control" @onclick="MakeIndeterminate">Indeterminate</button>
+        </div>
+    </Variants>
+</DemoFrame>
 
 @code {
+    private const string RootClass = "grid max-w-full w-60 grid-cols-2 gap-y-2";
+    private const string LabelClass = "text-sm font-normal text-neutral-950 dark:text-white";
+    private const string ValueClass = "text-right text-sm text-neutral-950 dark:text-white";
+    private const string TrackClass = "col-span-2 h-1 overflow-hidden bg-neutral-200 dark:bg-neutral-800";
+    private const string IndicatorClass = "bg-neutral-950 transition-[width] duration-500 dark:bg-white";
+
     private readonly Random random = new();
     private Timer? timer;
     private double? value = 20;

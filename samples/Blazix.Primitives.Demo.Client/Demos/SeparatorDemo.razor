@@ -1,26 +1,28 @@
-<div class="DemoScope">
-    <DemoFrame Slug="separator" Note="The same separator, horizontal, between the blocks of a stack. Orientation is the only parameter.">
-        <Hero>
-            <div class="Container">
-                <a href="#" class="Link">Home</a>
-                <a href="#" class="Link">Pricing</a>
-                <a href="#" class="Link">Blog</a>
-                <a href="#" class="Link">Support</a>
+<DemoFrame Slug="separator" Note="The same separator, horizontal, between the blocks of a stack. Orientation is the only parameter.">
+    <Hero>
+        <div class="flex gap-4 text-nowrap">
+            <a href="#" class="@LinkClass">Home</a>
+            <a href="#" class="@LinkClass">Pricing</a>
+            <a href="#" class="@LinkClass">Blog</a>
+            <a href="#" class="@LinkClass">Support</a>
 
-                <Separator Orientation="Orientation.Vertical" class="Separator" />
+            <Separator Orientation="Orientation.Vertical" class="w-px bg-neutral-300 dark:bg-neutral-700" />
 
-                <a href="#" class="Link">Log in</a>
-                <a href="#" class="Link">Sign up</a>
-            </div>
-        </Hero>
-        <Variants>
-            <div class="Stack">
-                <p class="Paragraph">Account</p>
-                <Separator class="HorizontalSeparator" />
-                <p class="Paragraph">Billing</p>
-                <Separator class="HorizontalSeparator" />
-                <p class="Paragraph">Notifications</p>
-            </div>
-        </Variants>
-    </DemoFrame>
-</div>
+            <a href="#" class="@LinkClass">Log in</a>
+            <a href="#" class="@LinkClass">Sign up</a>
+        </div>
+    </Hero>
+    <Variants>
+        <div class="flex w-48 flex-col gap-2 text-sm text-neutral-950 dark:text-white">
+            <p>Account</p>
+            <Separator class="h-px bg-neutral-300 dark:bg-neutral-700" />
+            <p>Billing</p>
+            <Separator class="h-px bg-neutral-300 dark:bg-neutral-700" />
+            <p>Notifications</p>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LinkClass = "text-sm text-neutral-950 decoration-neutral-300 decoration-1 underline-offset-2 hover:underline focus-visible:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:text-white dark:decoration-neutral-700";
+}

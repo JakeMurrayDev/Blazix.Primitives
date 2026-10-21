@@ -3,11 +3,14 @@
  *
  * 1. The Base UI documentation's theme tokens (docs/src/css/index.css of the pinned v1.9.0 checkout, "Docs-only theme
  *    tokens"), the ones the page chrome and the demo box use, light mode with the dark overrides. The documentation's
- *    demos reference none of them (their CSS modules carry literal oklch() values, so each demo's stylesheet is ported as
- *    it is); the chrome around them is what these tokens style.
+ *    demos reference none of them (they use Tailwind's neutral palette, set up in tailwind.css); the chrome around them is
+ *    what these tokens style.
  * 2. The chrome: header, navigation, the demo box (the documentation's DemoRoot/DemoPlayground), and the few classes the
- *    "Try it" blocks share.
+ *    "Try it" blocks share. It sits in the `components` layer, below Tailwind's utilities (tailwind.css, built from
+ *    Blazix.Primitives.Demo.Client/Styles/tailwind.css), so a chrome rule never overrides a demo's utility class.
  */
+
+@layer theme, base, components, utilities;
 
 /* ═══ Theme tokens ═══ */
 
@@ -105,323 +108,325 @@
     }
 }
 
-/* ═══ Page ═══ */
+@layer components {
+    /* ═══ Page ═══ */
 
-html {
-    color-scheme: light dark;
-    word-break: break-word;
-}
+    html {
+        color-scheme: light dark;
+        word-break: break-word;
+    }
 
-body {
-    margin: 0;
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans);
-    font-size: var(--font-size-16);
-    line-height: 1.5;
-    font-synthesis: none;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    /* Stable scrollbar */
-    overflow-y: scroll;
-}
+    body {
+        margin: 0;
+        background-color: var(--color-background);
+        color: var(--color-foreground);
+        font-family: var(--font-sans);
+        font-size: var(--font-size-16);
+        line-height: 1.5;
+        font-synthesis: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Stable scrollbar */
+        overflow-y: scroll;
+    }
 
-::selection {
-    background-color: var(--color-selection);
-}
+    ::selection {
+        background-color: var(--color-selection);
+    }
 
-h1:focus {
-    outline: none;
-}
+    h1:focus {
+        outline: none;
+    }
 
-h1,
-h2 {
-    margin: 0;
-    line-height: 1.2;
-}
+    h1,
+    h2 {
+        margin: 0;
+        line-height: 1.2;
+    }
 
-h1 {
-    font-size: var(--font-size-34);
-    font-weight: var(--font-weight-700);
-}
+    h1 {
+        font-size: var(--font-size-34);
+        font-weight: var(--font-weight-700);
+    }
 
-h2 {
-    font-size: var(--font-size-18);
-    font-weight: var(--font-weight-700);
-}
+    h2 {
+        font-size: var(--font-size-18);
+        font-weight: var(--font-weight-700);
+    }
 
-a {
-    color: var(--indigo-t1);
-}
+    a {
+        color: var(--indigo-t1);
+    }
 
-code {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-}
+    code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+    }
 
-/* ═══ Header, navigation ═══ */
+    /* ═══ Header, navigation ═══ */
 
-.SiteHeader {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-8) var(--space-16);
-    padding: var(--space-16) var(--space-24);
-    border-bottom: 1px solid var(--color-border);
-    background-color: var(--color-content);
-}
+    .SiteHeader {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--space-8) var(--space-16);
+        padding: var(--space-16) var(--space-24);
+        border-bottom: 1px solid var(--color-border);
+        background-color: var(--color-content);
+    }
 
-.SiteBrand {
-    color: var(--color-foreground);
-    font-weight: var(--font-weight-700);
-    text-decoration: none;
-}
+    .SiteBrand {
+        color: var(--color-foreground);
+        font-weight: var(--font-weight-700);
+        text-decoration: none;
+    }
 
-.SiteTagline {
-    color: var(--gray-t1);
-    font-size: var(--font-size-14);
-}
+    .SiteTagline {
+        color: var(--gray-t1);
+        font-size: var(--font-size-14);
+    }
 
-.Home,
-.DemoMain {
-    box-sizing: border-box;
-    max-width: 56rem;
-    padding: var(--space-32) var(--space-24) var(--space-48);
-}
+    .Home,
+    .DemoMain {
+        box-sizing: border-box;
+        max-width: 56rem;
+        padding: var(--space-32) var(--space-24) var(--space-48);
+    }
 
-.Home {
-    margin: 0 auto;
-}
+    .Home {
+        margin: 0 auto;
+    }
 
-.Home > p,
-.DemoHeader > p {
-    margin: var(--space-12) 0 0;
-}
+    .Home > p,
+    .DemoHeader > p {
+        margin: var(--space-12) 0 0;
+    }
 
-.Home h2 {
-    margin-top: var(--space-32);
-}
+    .Home h2 {
+        margin-top: var(--space-32);
+    }
 
-.FamilyTable {
-    width: 100%;
-    margin-top: var(--space-24);
-    border-collapse: collapse;
-    font-size: var(--font-size-15);
-}
+    .FamilyTable {
+        width: 100%;
+        margin-top: var(--space-24);
+        border-collapse: collapse;
+        font-size: var(--font-size-15);
+    }
 
-.FamilyTable th,
-.FamilyTable td {
-    padding: var(--space-12) var(--space-12) var(--space-12) 0;
-    border-bottom: 1px solid var(--color-border);
-    text-align: left;
-    vertical-align: top;
-}
+    .FamilyTable th,
+    .FamilyTable td {
+        padding: var(--space-12) var(--space-12) var(--space-12) 0;
+        border-bottom: 1px solid var(--color-border);
+        text-align: left;
+        vertical-align: top;
+    }
 
-.FamilyTable thead th {
-    color: var(--gray-t1);
-    font-size: var(--font-size-13);
-    font-weight: var(--font-weight-400);
-}
+    .FamilyTable thead th {
+        color: var(--gray-t1);
+        font-size: var(--font-size-13);
+        font-weight: var(--font-weight-400);
+    }
 
-.FamilyTable tbody th {
-    font-weight: var(--font-weight-700);
-}
+    .FamilyTable tbody th {
+        font-weight: var(--font-weight-700);
+    }
 
-.FamilyTable small {
-    display: block;
-    color: var(--gray-t1);
-    font-size: var(--font-size-13);
-    font-weight: var(--font-weight-400);
-}
+    .FamilyTable small {
+        display: block;
+        color: var(--gray-t1);
+        font-size: var(--font-size-13);
+        font-weight: var(--font-weight-400);
+    }
 
-.DemoLayout {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-}
+    .DemoLayout {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
 
-.DemoNav {
-    box-sizing: border-box;
-    flex: 0 0 13rem;
-    padding: var(--space-32) var(--space-24);
-    font-size: var(--font-size-15);
-}
+    .DemoNav {
+        box-sizing: border-box;
+        flex: 0 0 13rem;
+        padding: var(--space-32) var(--space-24);
+        font-size: var(--font-size-15);
+    }
 
-.DemoNav ul {
-    margin: var(--space-16) 0;
-    padding: 0;
-    list-style: none;
-}
+    .DemoNav ul {
+        margin: var(--space-16) 0;
+        padding: 0;
+        list-style: none;
+    }
 
-.DemoNav li a {
-    display: block;
-    padding: var(--space-4) 0;
-    color: var(--gray-t1);
-    text-decoration: none;
-}
+    .DemoNav li a {
+        display: block;
+        padding: var(--space-4) 0;
+        color: var(--gray-t1);
+        text-decoration: none;
+    }
 
-.DemoNav a[aria-current] {
-    color: var(--color-foreground);
-    font-weight: var(--font-weight-700);
-}
+    .DemoNav a[aria-current] {
+        color: var(--color-foreground);
+        font-weight: var(--font-weight-700);
+    }
 
-.DemoNavMode {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    color: var(--gray-t1);
-    font-size: var(--font-size-13);
-}
+    .DemoNavMode {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        color: var(--gray-t1);
+        font-size: var(--font-size-13);
+    }
 
-.DemoNavMode a {
-    color: var(--gray-t1);
-    font-size: var(--font-size-15);
-    text-decoration: none;
-}
+    .DemoNavMode a {
+        color: var(--gray-t1);
+        font-size: var(--font-size-15);
+        text-decoration: none;
+    }
 
-.DemoMain {
-    flex: 1 1 28rem;
-    min-width: 0;
-}
+    .DemoMain {
+        flex: 1 1 28rem;
+        min-width: 0;
+    }
 
-.DemoSection {
-    margin-top: var(--space-32);
-}
+    .DemoSection {
+        margin-top: var(--space-32);
+    }
 
-.DemoSection h2 {
-    margin-bottom: var(--space-12);
-}
+    .DemoSection h2 {
+        margin-bottom: var(--space-12);
+    }
 
-.DemoNote {
-    margin: 0 0 var(--space-12);
-    color: var(--gray-t1);
-    font-size: var(--font-size-14);
-}
+    .DemoNote {
+        margin: 0 0 var(--space-12);
+        color: var(--gray-t1);
+        font-size: var(--font-size-14);
+    }
 
-.ModeBadge {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-8);
-    margin: var(--space-16) 0 0;
-    padding: var(--space-4) var(--space-12);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background-color: var(--color-content);
-    font-size: var(--font-size-13);
-}
+    .ModeBadge {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--space-8);
+        margin: var(--space-16) 0 0;
+        padding: var(--space-4) var(--space-12);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-pill);
+        background-color: var(--color-content);
+        font-size: var(--font-size-13);
+    }
 
-.ModeBadge[data-interactive='true'] .ModeStatus {
-    color: var(--green-t1);
-}
+    .ModeBadge[data-interactive='true'] .ModeStatus {
+        color: var(--green-t1);
+    }
 
-.ModeStatus {
-    color: var(--gray-t1);
-}
+    .ModeStatus {
+        color: var(--gray-t1);
+    }
 
-/* ═══ The demo box (the documentation's DemoRoot, DemoPlayground, DemoPlaygroundInner) ═══ */
+    /* ═══ The demo box (the documentation's DemoRoot, DemoPlayground, DemoPlaygroundInner) ═══ */
 
-.DemoRoot {
-    --demo-radius: var(--radius-12);
-    margin-bottom: var(--space-24);
-    border: 1px solid var(--color-border);
-    border-radius: var(--demo-radius);
-}
+    .DemoRoot {
+        --demo-radius: var(--radius-12);
+        margin-bottom: var(--space-24);
+        border: 1px solid var(--color-border);
+        border-radius: var(--demo-radius);
+    }
 
-.DemoPlayground {
-    position: relative;
-    border-radius: calc(var(--demo-radius) - 1px);
-    background-color: var(--color-content);
-    overflow: auto hidden;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-}
+    .DemoPlayground {
+        position: relative;
+        border-radius: calc(var(--demo-radius) - 1px);
+        background-color: var(--color-content);
+        overflow: auto hidden;
+        overscroll-behavior-x: contain;
+        scrollbar-width: thin;
+    }
 
-.DemoPlaygroundInner {
-    box-sizing: content-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 8rem;
-    /* Make sure contents aren't squashed smaller than their natural width */
-    min-width: fit-content;
-    margin: 0;
-    padding: 2rem 1.5rem;
-}
+    .DemoPlaygroundInner {
+        box-sizing: content-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 8rem;
+        /* Make sure contents aren't squashed smaller than their natural width */
+        min-width: fit-content;
+        margin: 0;
+        padding: 2rem 1.5rem;
+    }
 
-/* ═══ The "Try it" blocks ═══ */
+    /* ═══ The "Try it" blocks ═══ */
 
-.DemoVariants {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-16);
-    font-size: var(--font-size-14);
-}
+    .DemoVariants {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-16);
+        font-size: var(--font-size-14);
+    }
 
-.Variant {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-12);
-}
+    .Variant {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-12);
+    }
 
-.VariantName {
-    color: var(--gray-t1);
-    font-size: var(--font-size-13);
-}
+    .VariantName {
+        color: var(--gray-t1);
+        font-size: var(--font-size-13);
+    }
 
-.Controlled,
-.Controls,
-.Sources {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-16);
-}
+    .Controlled,
+    .Controls,
+    .Sources {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: var(--space-16);
+    }
 
-.Controlled {
-    flex-direction: column;
-}
+    .Controlled {
+        flex-direction: column;
+    }
 
-.Slider {
-    display: flex;
-    align-items: center;
-    gap: var(--space-8);
-    font-size: var(--font-size-13);
-}
+    .Slider {
+        display: flex;
+        align-items: center;
+        gap: var(--space-8);
+        font-size: var(--font-size-13);
+    }
 
-.Control {
-    box-sizing: border-box;
-    height: 2rem;
-    padding: 0 0.75rem;
-    border: 1px solid var(--gray-p1);
-    border-radius: var(--radius-4);
-    background-color: var(--color-content);
-    color: var(--color-foreground);
-    font: inherit;
-    font-size: var(--font-size-13);
-    cursor: pointer;
-}
+    .Control {
+        box-sizing: border-box;
+        height: 2rem;
+        padding: 0 0.75rem;
+        border: 1px solid var(--gray-p1);
+        border-radius: var(--radius-4);
+        background-color: var(--color-content);
+        color: var(--color-foreground);
+        font: inherit;
+        font-size: var(--font-size-13);
+        cursor: pointer;
+    }
 
-.Control:hover {
-    background-color: var(--gray-c1);
-}
+    .Control:hover {
+        background-color: var(--gray-c1);
+    }
 
-.Control:focus-visible {
-    outline: 2px solid var(--gray-t2);
-    outline-offset: 2px;
-}
+    .Control:focus-visible {
+        outline: 2px solid var(--gray-t2);
+        outline-offset: 2px;
+    }
 
-/* ═══ Blazor ═══ */
+    /* ═══ Blazor ═══ */
 
-.valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
-}
+    .valid.modified:not([type=checkbox]) {
+        outline: 1px solid #26b050;
+    }
 
-.invalid {
-    outline: 1px solid #e50000;
-}
+    .invalid {
+        outline: 1px solid #e50000;
+    }
 
-.validation-message {
-    color: #e50000;
+    .validation-message {
+        color: #e50000;
+    }
 }
