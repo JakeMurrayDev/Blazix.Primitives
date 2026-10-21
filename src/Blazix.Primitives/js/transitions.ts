@@ -348,6 +348,29 @@ export interface TransitionMachine extends TransitionState {
 }
 
 /**
+ * The evaluation step of the machine: what the commit that applies an input renders. C# runs the same step for the
+ * render that first shows an element; one case table tests both (`test-support/transition-evaluation.cases.json`).
+ * @param state The state after the input changed.
+ * @param deferEndingState Whether `'ending'` waits for the next frame.
+ * @returns The mounted flag and the status of the same commit.
+ */
+export function evaluateTransition(state: TransitionState, deferEndingState: boolean): { mounted: boolean; status: TransitionStatus } {
+  let { mounted, status } = state;
+  if (state.open && !mounted) {
+    // The same commit that first renders the part as open.
+    mounted = true;
+    status = 'starting';
+  }
+  if (!state.open && mounted && status !== 'ending' && !deferEndingState) {
+    status = 'ending';
+  }
+  if (!state.open && !mounted && status === 'ending') {
+    status = undefined;
+  }
+  return { mounted, status };
+}
+
+/**
  * Creates the transition status machine of an element (Base UI's `useTransitionStatus`). Each input change is one
  * commit: the evaluation step runs, `onCommit` sees the new state (the DOM write), then the frame steps are armed.
  * @param initial The state the element was rendered with.
@@ -375,17 +398,7 @@ export function createTransitionMachine(
   let disposed = false;
 
   const evaluate = () => {
-    if (open && !mounted) {
-      // The same commit that first renders the part as open.
-      mounted = true;
-      status = 'starting';
-    }
-    if (!open && mounted && status !== 'ending' && !options.deferEndingState) {
-      status = 'ending';
-    }
-    if (!open && !mounted && status === 'ending') {
-      status = undefined;
-    }
+    ({ mounted, status } = evaluateTransition({ open, mounted, status }, options.deferEndingState));
   };
 
   const setStatus = (next: TransitionStatus) => {
@@ -713,6 +726,26 @@ export function createRevealController(element: HTMLElement, host: RevealHost): 
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// The open input read from the applied render batch
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Reads a part's open input from the attributes C# renders on its element: the element is open while it matches the
+ * selector. The observer's callback runs in the microtask after a render batch is applied, before paint, so the
+ * transition attributes of an already-attached element land with the batch that opened or closed it on both render
+ * modes (on Server the `update` that carries the same value arrives a round trip later).
+ * @param element The element.
+ * @param selector The selector C#'s attributes satisfy while open, such as `[data-open]`.
+ * @param onChange Called with the open value whenever an attribute of the element changed.
+ * @returns The function that stops observing.
+ */
+export function observeOpenInput(element: HTMLElement, selector: string, onChange: (open: boolean) => void): () => void {
+  const observer = new MutationObserver(() => onChange(element.matches(selector)));
+  observer.observe(element, { attributes: true });
+  return () => observer.disconnect();
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // The twin-facing entry
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -742,6 +775,11 @@ export interface TransitionsOptions extends TwinOptions {
   revealOnBeforeMatch: boolean;
   /** How many times C# has asked the module to unmount the element; each increase while closed unmounts it. */
   unmountRequests: number;
+  /**
+   * The selector the element matches while C# renders it open. When set, it is the open input, read from the DOM
+   * after every render batch, and `open` is not read after `attach`.
+   */
+  openSelector?: string | null;
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
@@ -903,6 +941,34 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     return verdict === 'run';
   };
 
+  // With a selector the applied DOM is the input: it is never older than an `update`, which may arrive after a newer
+  // batch on Server.
+  const openInput = () => (options.openSelector ? element.matches(options.openSelector) : options.open);
+
+  const applyOpen = () => {
+    machine.setOpen(openInput());
+    writeHidden(machine);
+  };
+
+  let stopObserving: (() => void) | null = null;
+  let observedSelector: string | null = null;
+  const applyOpenSelector = () => {
+    const selector = options.openSelector ?? null;
+    if (selector === observedSelector) {
+      return;
+    }
+    stopObserving?.();
+    stopObserving = null;
+    observedSelector = selector;
+    if (selector !== null) {
+      stopObserving = observeOpenInput(element, selector, () => {
+        if (!disposed) {
+          applyOpen();
+        }
+      });
+    }
+  };
+
   const applyStyle = () => {
     if (options.style != null) {
       applyConsumerStyle(element, options);
@@ -933,6 +999,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   applyReveal();
   ready = true;
   pass(machine);
+  applyOpenSelector();
+  applyOpen();
 
   const handle: TwinHandle = {
     update(nextOptionsJson: string) {
@@ -942,15 +1010,15 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       options = parseOptions<TransitionsOptions>(nextOptionsJson);
       applyStyle();
       applyReveal();
+      applyOpenSelector();
       if (options.unmountRequests > unmountRequests) {
         unmountRequests = options.unmountRequests;
         // A request that arrives after a reopen is dropped.
-        if (!options.open) {
+        if (!openInput()) {
           machine.setMounted(false);
         }
       }
-      machine.setOpen(options.open);
-      writeHidden(machine);
+      applyOpen();
     },
     dispose() {
       if (disposed) {
@@ -966,6 +1034,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       openWatcher.cancel();
       reveal?.dispose();
       reveal = null;
+      stopObserving?.();
+      stopObserving = null;
       hiddenController.dispose();
     },
   };

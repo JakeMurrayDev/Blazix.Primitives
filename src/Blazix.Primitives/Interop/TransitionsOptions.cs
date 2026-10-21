@@ -6,6 +6,8 @@ namespace Blazix.Primitives.Interop;
 // and Amendments 2026-10-18 (handover at attach); TRN-ALG-01, TRN §6.1 (machine options per consumer), TRN-API-01..03,
 // TRN-DOM-06..09, TRN-ALG-04 (completion watchers), TRN-ALG-07 (reveal). AnimateInitialOpen has no field: C# renders
 // the initial status (TRN-STA-02/12/13) and sends it as Status, so the module starts from what was rendered.
+// OpenSelector: design point 1, option B (track 5 note), the open input read from the applied batch (ADR 01 decision 4,
+// "post-commit, pre-paint, DOM-only work").
 /// <summary>
 /// The options of the <c>transitions</c> module, sent on <c>attach</c> and on every <c>update</c>. From
 /// <c>attach</c> on, the module writes the element's <c>data-starting-style</c> and <c>data-ending-style</c> and
@@ -74,4 +76,12 @@ internal sealed record TransitionsOptions : TwinOptions
     /// increase while the part is open is dropped. The default is 0.
     /// </value>
     public int UnmountRequests { get; init; }
+
+    /// <summary>Gets the CSS selector that the element matches while the part renders it open.</summary>
+    /// <value>
+    /// A selector over attributes the part renders, such as <c>[data-open]</c>. When set, the module reads the open
+    /// state from the element after every render, before paint, and no longer reads <see cref="Open"/> after
+    /// <c>attach</c>; <see langword="null"/>, the default, takes the open state from <see cref="Open"/>.
+    /// </value>
+    public string? OpenSelector { get; init; }
 }
