@@ -27,7 +27,7 @@ Nothing named Blazix exists on NuGet. .NET 11 is at RC2 (SDK `11.0.100-rc.2`, 20
 
 ## Verification items
 
-* MinVer resolves the version correctly through a `global.json` that rolls forward from RC2 to GA; confirm on the first tagged build (M1).
+* MinVer resolves the version correctly through a `global.json` that rolls forward from RC2 to GA; confirm on the first tagged build (M1). **Verified 2026-10-21 on the first tagged build:** with `global.json` pinning SDK 11.0.100-rc.2.26504.105 (`rollForward` as pinned) and the tags `v0.1.0-preview.1` (941c517) and `v0.2.0-preview.1` (7a687fa) pushed, the manual pack job `skip-js-build.yml` on `main` at 7a687fa (run 39635416192) produced `Blazix.Primitives.0.2.0-preview.1.nupkg`: MinVer read the tag at height 0 and the `v` prefix as configured. The roll-forward to GA is re-checked at the first GA build. [Issue 20](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/20) closed.
 * nuget.org accepts a `net11.0` package built with the RC2 SDK (go-live) at the time of the first publish; re-check at GA.
 
 ## Considered options
