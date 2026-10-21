@@ -172,6 +172,8 @@ The inverse, `snapshot.ToKeyboardEventArgs()`, is what the `activate` decision p
 - On Server, `run` is returned without a call. The request is then an invocation of the twin's `OnRevealRequest`, whose `Task<bool>` result says whether the part is open once the request ran. A `false` answer, with no open arrived, reverts the panel to `hidden="until-found"` on the next frame. The answer is asynchronous, so ADR 01 decision 1 holds: no synchronous invoke moves state.
 - ADR 01 relaxation table, row added 2026-10-21.
 
+**2026-10-21, a twin's host element may be its Root's element (Decision 3; M1 track 7, [issue 64](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/64); chosen by the user the same day).** A part owns its twin; the twin's host element may be its Root's element. `Avatar.Image` in preload mode has no element until its image has loaded, so its own `DomTwin` attaches to the `Avatar.Root` element, found through the Root's context, and runs the detached probe there; in kept-mounted mode it attaches to the `<img>`, and a runtime switch of `KeepMounted` disposes the handle and attaches again. The Root draws a generated id under a substitute (`Render` or `RenderFunction`), as Button does (ADR 02 decision 1), so the twin can find it without an element reference. The rule that one twin is never attached to several parts' elements at once is unchanged: the twin has one live handle.
+
 **2026-10-21, the `collapsible` component module (M1 track 6, issue 63; placed by the orchestrator under the placement rule, issue 62 point 3).** Decision 1's table gains a row:
 
 | Module | Owns | Doc |

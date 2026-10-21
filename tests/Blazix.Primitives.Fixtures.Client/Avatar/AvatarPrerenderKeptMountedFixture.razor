@@ -1,0 +1,30 @@
+@namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures
+@using Blazix.Primitives
+
+@*
+    The `avatar-prerender-kept-mounted` fixture (prerendered; tests/browser/avatar.spec.ts, AVA-EDGE-03, AVA-ANI-04): a
+    kept-mounted image of the page's image and a fallback. The server HTML has the image with its source and
+    `aria-hidden="true"`, and the fallback; an image the browser loaded before the page became interactive is shown at
+    once, without `data-starting-style`, and the fallback is removed. With `?animations=1` a `data-starting-style` would
+    fade it in.
+*@
+<FixtureContainer Name="avatar-prerender-kept-mounted" data-statuses="@string.Join(',', statuses)">
+    <style>
+        .animation-test-image {
+            transition: opacity 50ms;
+        }
+
+        .animation-test-image[data-starting-style] {
+            opacity: 0;
+        }
+    </style>
+    <AvatarRoot data-testid="root">
+        <AvatarImage class="animation-test-image" data-testid="image" alt="Jane Doe" KeepMounted="true" Src="/avatar.png"
+                     OnLoadingStatusChange="@(status => statuses.Add(LoadingStatusLiteral.Of(status)))" />
+        <AvatarFallback data-testid="fallback">JD</AvatarFallback>
+    </AvatarRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> statuses = [];
+}

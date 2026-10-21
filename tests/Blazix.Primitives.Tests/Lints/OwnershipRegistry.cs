@@ -16,6 +16,12 @@ internal static class OwnershipRegistry
     /// <value>The registry; entries for a family without a folder under <c>src/Blazix.Primitives/</c> are ignored.</value>
     public static IReadOnlyList<RegistryEntry> Declared { get; } =
     [
+        // avatar.md §5.2 (ADR 04 §2 and Amendments 2026-10-18): the transitions module writes the Image's transition
+        // attributes, mirrored in AvatarImageState.TransitionStatus; the element's presence is rendered by C# and hidden
+        // by the dom module at load (the convergent write).
+        new("avatar", "Image", "data-starting-style", Writer.Js, "AvatarImageState.TransitionStatus"),
+        new("avatar", "Image", "data-ending-style", Writer.Js, "AvatarImageState.TransitionStatus"),
+        new("avatar", "Image", "element presence", Writer.CsharpToJs),
         // Collapsible (M1 track 6): the transitions module on the Root and Trigger, the collapsible module on the Panel.
         new("collapsible", "Root", "data-starting-style", Writer.Js, "CollapsibleRootState.TransitionStatus"),
         new("collapsible", "Root", "data-ending-style", Writer.Js, "CollapsibleRootState.TransitionStatus"),

@@ -94,3 +94,15 @@ Members of every class follow the eleven-group order of the old port: constants,
 - The file is `src/Blazix.Primitives/Interop/TransitionStatus.cs`, beside its first consumer `TransitionsTwin`. The namespace is the shared one, as for the types under `Events/`.
 - The literals `starting`, `ending` and `idle` cross the twin boundary through a converter on the interop records. The enum itself carries no serialization attribute.
 - Collapsible and Avatar are its first parts.
+
+**2026-10-21, the enum `ImageLoadingStatus` (M1 track 7, [issue 64](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/64)).**
+- §3's Enums row gains `public enum ImageLoadingStatus { Idle, Loading, Loaded, Error }` in `Blazix.Primitives`: the PascalCase of Base UI's `ImageLoadingStatus` literals (avatar §3.4), with no sentinel member; `Idle` is one of the four literals, not a "not supplied" value.
+- The file is `src/Blazix.Primitives/Avatar/ImageLoadingStatus.cs`, beside its first and only consumer, the Avatar family (`AvatarRootState`, `AvatarImageState`, `AvatarFallbackState`, `AvatarImage.OnLoadingStatusChange`). It keeps Base UI's unprefixed name because Base UI exports it under that name (`avatar/index.ts`).
+- The status is never projected to a data attribute (AVA-DOM-05): each Avatar part maps the field to nothing.
+- The `dom` module still reports the literals `loading`, `loaded` and `error`; `AvatarImage` maps them to the enum, and `DomTwin.ImageStatusChanged` keeps its `string` payload.
+
+**2026-10-21, durations are `Duration?` (M1 track 7, [issue 64](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/64)).** Durations are `Duration?` (`int` milliseconds or `TimeSpan`), the convention for later millisecond parameters; chosen by the user 2026-10-21 after the Avatar probe (Razor binds both forms including the literal path, BLZX2005/2006 clean, 0 bytes).
+- §3's parameter row gains durations: a Base UI prop that is a number of milliseconds becomes a parameter of type `Duration?`. `Duration` is `public readonly struct Duration : IUnion` in `Blazix.Primitives`, a hand-written `[Union]` (ADR 05 §4, `AttributeValue` its model) of `int` milliseconds and `TimeSpan`.
+- Its members: the constructors `Duration(int)` and `Duration(TimeSpan)` with implicit conversions from both, `HasValue`, `TryGetValue(out int)`, `TryGetValue(out TimeSpan)`, `Value` (for `IUnion`; it boxes, so the library does not read it) and an internal `ToMilliseconds()`. `null`, and the default instance, mean 0.
+- Razor binds `Delay="300"` to the `int` case and `Delay="@TimeSpan.FromMilliseconds(300)"` to the `TimeSpan` case (probed on SDK 11.0.100-rc.2.26504.105; L2 `DurationBindingTests`); building and reading a `Duration` allocates nothing (L1 `DurationTests`).
+- The file is `src/Blazix.Primitives/Avatar/Duration.cs`, beside its first consumer, `AvatarFallback.Delay`. It is the convention for every later millisecond parameter (Tooltip and Toast delays, M4 and M6), which reuse the type.

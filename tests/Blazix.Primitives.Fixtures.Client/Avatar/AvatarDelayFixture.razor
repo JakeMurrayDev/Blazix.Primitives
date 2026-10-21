@@ -1,0 +1,12 @@
+@namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures
+@using Blazix.Primitives
+
+@*
+    The `avatar-delay` fixture (tests/browser/avatar.spec.ts): a root with no image and a fallback that waits 300 ms,
+    measured by the C# TimeProvider the spec advances with `advanceTime`.
+*@
+<FixtureContainer Name="avatar-delay">
+    <AvatarRoot data-testid="root">
+        <AvatarFallback data-testid="fallback" Delay="300">JD</AvatarFallback>
+    </AvatarRoot>
+</FixtureContainer>

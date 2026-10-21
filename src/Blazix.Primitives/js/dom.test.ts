@@ -1008,6 +1008,100 @@ describe('AvatarImage', () => {
       expect(fallback.hidden).toBe(true);
     });
 
+    /** An `<img>` whose `complete` and `naturalWidth` the test sets, as a browser reports them for its current source. */
+    function renderedImage(complete: boolean, naturalWidth: number) {
+      const image = document.body.appendChild(document.createElement('img'));
+      const state = { complete, naturalWidth };
+      Object.defineProperty(image, 'complete', { configurable: true, get: () => state.complete });
+      Object.defineProperty(image, 'naturalWidth', { configurable: true, get: () => state.naturalWidth });
+      return { image, state };
+    }
+
+    function fallbacks(...ids: string[]) {
+      return ids.map((id) => {
+        const fallback = document.body.appendChild(document.createElement('span'));
+        fallback.id = id;
+        return fallback;
+      });
+    }
+
+    // AVA-STA-10, AVA-EDGE-02: every fallback of the root is hidden in the synchronous pass of a cached probe.
+    it('does not flash fallback for a cached image during SSR hydration', () => {
+      mockImageLoading({ completeOnSet: true });
+      const [initials, icon] = fallbacks('base-ui-1', 'base-ui-2');
+      const fake = createFakeTwin();
+
+      handles.push(
+        attach(
+          document.body.appendChild(document.createElement('span')),
+          JSON.stringify({ image: { src: 'cached.png', keepMounted: false, hideWhenLoaded: 'base-ui-1 base-ui-2' } } satisfies DomOptions),
+          fake.twin,
+        ),
+      );
+
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toEqual([{ status: 'loaded' }]);
+      expect(initials!.hidden).toBe(true);
+      expect(icon!.hidden).toBe(true);
+    });
+
+    // AVA-ALG-02, AVA-EDGE-03: the first derivation over server HTML finds the image complete and hides the fallbacks.
+    it('renders the image in the server HTML and resolves cached images on hydration', () => {
+      const { image } = renderedImage(true, 40);
+      image.setAttribute('src', 'cached.png');
+      image.setAttribute('aria-hidden', 'true');
+      const [initials, icon] = fallbacks('base-ui-1', 'base-ui-2');
+      const fake = createFakeTwin();
+
+      handles.push(attach(image, JSON.stringify({ image: { src: 'cached.png', keepMounted: true, hideWhenLoaded: 'base-ui-1 base-ui-2' } } satisfies DomOptions), fake.twin));
+
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toEqual([{ status: 'loaded' }]);
+      expect(initials!.hidden).toBe(true);
+      expect(icon!.hidden).toBe(true);
+    });
+
+    // AVA-ALG-02, AVA-STA-12, AVA-EVT-02: a render that changes the element's source (a `src` parameter, or a
+    // substitute's own `src`) re-derives the status in the batch that applies it, before `update` arrives. The `error`
+    // that follows is the element's event, which the part handles in C#.
+    it('resets the status when the source changes to an unloaded one', async () => {
+      const { image, state } = renderedImage(true, 40);
+      image.setAttribute('src', 'cached.png');
+      const fake = createFakeTwin();
+      handles.push(attach(image, JSON.stringify({ image: { src: 'cached.png', keepMounted: true } } satisfies DomOptions), fake.twin));
+
+      state.complete = false;
+      state.naturalWidth = 0;
+      image.setAttribute('src', '/missing-avatar.png');
+      await Promise.resolve();
+
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toEqual([{ status: 'loaded' }, { status: 'loading' }]);
+    });
+
+    // AVA-STA-12, AVA-STA-14: the element's load and error events set the status in C#, which the module does not see,
+    // so a source change reports what it derives even when that equals the module's last report.
+    it('reports the derived status after every source change of a kept-mounted image', async () => {
+      const { image, state } = renderedImage(false, 0);
+      image.setAttribute('src', 'a.png');
+      const fake = createFakeTwin();
+      handles.push(attach(image, JSON.stringify({ image: { src: 'a.png', keepMounted: true } } satisfies DomOptions), fake.twin));
+
+      // `a.png` loads (reported by the element's event in C#), then the source changes to an image still loading.
+      state.complete = true;
+      state.naturalWidth = 40;
+      state.complete = false;
+      image.setAttribute('src', 'b.png');
+      await Promise.resolve();
+      image.setAttribute('srcset', 'b.png 1x');
+      await Promise.resolve();
+
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toEqual([{ status: 'loading' }, { status: 'loading' }, { status: 'loading' }]);
+
+      // A disposed handle no longer observes the element.
+      handles.pop()!.dispose();
+      image.setAttribute('src', 'c.png');
+      await Promise.resolve();
+      expect(fake.reported<ImageStatus>('OnImageStatus')).toHaveLength(3);
+    });
+
     it('stops listening to the probe on dispose', () => {
       const imageMock = mockImageLoading();
       const fake = createFakeTwin();

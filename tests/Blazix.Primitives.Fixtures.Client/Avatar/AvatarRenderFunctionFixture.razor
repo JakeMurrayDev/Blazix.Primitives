@@ -1,0 +1,25 @@
+@namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures
+@using Blazix.Primitives
+
+@*
+    The `avatar-render-function` fixture (tests/browser/avatar.spec.ts): a kept-mounted image rendered through a
+    substitute callback, which leaves the part no element (ADR 02's relaxation of RND-DOM-20..24), so only the element's
+    own load and error events report (AVA-STA-13). The button restyles the substitute, which re-renders it.
+*@
+<FixtureContainer Name="avatar-render-function" data-statuses="@string.Join(',', statuses)">
+    <button type="button" data-restyle @onclick='() => className = "updated"'>Restyle</button>
+    <AvatarRoot data-testid="root">
+        <AvatarImage KeepMounted="true" Src="/avatar.png?render-function"
+                     OnLoadingStatusChange="@(status => statuses.Add(LoadingStatusLiteral.Of(status)))">
+            <RenderFunction Context="props">
+                <img alt="" data-testid="image" class="@className" @attributes="props.Attributes" />
+            </RenderFunction>
+        </AvatarImage>
+        <AvatarFallback data-testid="fallback">JD</AvatarFallback>
+    </AvatarRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> statuses = [];
+    private string className = "initial";
+}

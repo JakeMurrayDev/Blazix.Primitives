@@ -1,0 +1,87 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The consumer the Avatar tests render: one root with an optional image and fallback, every parameter settable so a
+    test re-renders it as Base UI's tests `rerender` theirs. The image's statuses are recorded in `Statuses`.
+*@
+<AvatarRoot data-testid="root" ClassValue="@RootClassValue">
+    @if (ShowImage)
+    {
+        <AvatarImage data-testid="image"
+                     Src="@Src"
+                     SrcSet="@SrcSet"
+                     Sizes="@Sizes"
+                     CrossOrigin="@CrossOrigin"
+                     ReferrerPolicy="@ReferrerPolicy"
+                     KeepMounted="@KeepMounted"
+                     OnLoadingStatusChange="@(status => Statuses.Add(status))"
+                     Render="@ImageRender"
+                     RenderFunction="@ImageRenderFunction"
+                     ClassValue="@ImageClassValue"
+                     @attributes="@ImageAttributes" />
+    }
+    @if (ShowSecondImage)
+    {
+        <AvatarImage data-testid="second-image" Src="second.png" />
+    }
+    @if (ShowFallback)
+    {
+        <AvatarFallback data-testid="fallback" Delay="@(DelaySpan is { } span ? new Duration(span) : new Duration(Delay))" @attributes="@FallbackAttributes">JD</AvatarFallback>
+    }
+</AvatarRoot>
+
+@code {
+    /// <summary>The statuses the image reported through <c>OnLoadingStatusChange</c>, in order.</summary>
+    public List<ImageLoadingStatus> Statuses { get; } = [];
+
+    [Parameter]
+    public bool ShowImage { get; set; } = true;
+
+    [Parameter]
+    public bool ShowSecondImage { get; set; }
+
+    [Parameter]
+    public bool ShowFallback { get; set; } = true;
+
+    [Parameter]
+    public string? Src { get; set; }
+
+    [Parameter]
+    public string? SrcSet { get; set; }
+
+    [Parameter]
+    public string? Sizes { get; set; }
+
+    [Parameter]
+    public string? CrossOrigin { get; set; }
+
+    [Parameter]
+    public string? ReferrerPolicy { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public int Delay { get; set; }
+
+    /// <summary>A delay given as a time span, which replaces <see cref="Delay"/> when set.</summary>
+    [Parameter]
+    public TimeSpan? DelaySpan { get; set; }
+
+    [Parameter]
+    public RenderFragment? ImageRender { get; set; }
+
+    [Parameter]
+    public RenderFragment<RenderProps<AvatarImageState>>? ImageRenderFunction { get; set; }
+
+    [Parameter]
+    public Func<AvatarImageState, string?>? ImageClassValue { get; set; }
+
+    [Parameter]
+    public Func<AvatarRootState, string?>? RootClassValue { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? ImageAttributes { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? FallbackAttributes { get; set; }
+}

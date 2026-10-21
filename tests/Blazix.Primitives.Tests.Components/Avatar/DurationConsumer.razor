@@ -1,0 +1,21 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The forms a consumer writes for a `Duration?` parameter, compiled by the Razor SDK: a millisecond literal, a
+    `TimeSpan` expression, zero, a negative literal, fields of either case, `null`, and the parameter omitted.
+*@
+<AvatarRoot>
+    <AvatarFallback data-form="int literal" Delay="300" />
+    <AvatarFallback data-form="TimeSpan expression" Delay="@TimeSpan.FromMilliseconds(300)" />
+    <AvatarFallback data-form="zero" Delay="0" />
+    <AvatarFallback data-form="negative" Delay="-1" />
+    <AvatarFallback data-form="int field" Delay="@milliseconds" />
+    <AvatarFallback data-form="TimeSpan field" Delay="@span" />
+    <AvatarFallback data-form="null" Delay="@nothing" />
+    <AvatarFallback data-form="omitted" />
+</AvatarRoot>
+
+@code {
+    private readonly int milliseconds = 300;
+    private readonly TimeSpan span = TimeSpan.FromSeconds(1);
+    private readonly Duration? nothing = null;
+}

@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures
+@using Blazix.Primitives
+
+@*
+    The `avatar-prerender-preload` fixture (prerendered; tests/browser/avatar.spec.ts, AVA-EDGE-02): a preload image of
+    the page's image and a fallback. The server HTML has the fallback and no image; once interactive, a cached image
+    replaces the fallback without a painted frame that shows both, and the fallback never comes back.
+*@
+<FixtureContainer Name="avatar-prerender-preload" data-statuses="@string.Join(',', statuses)">
+    <AvatarRoot data-testid="root">
+        <AvatarImage data-testid="image" alt="Jane Doe" Src="/avatar.png"
+                     OnLoadingStatusChange="@(status => statuses.Add(LoadingStatusLiteral.Of(status)))" />
+        <AvatarFallback data-testid="fallback">JD</AvatarFallback>
+    </AvatarRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> statuses = [];
+}

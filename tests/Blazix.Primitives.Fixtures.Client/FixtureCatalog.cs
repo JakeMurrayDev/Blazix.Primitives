@@ -1,4 +1,5 @@
 using Blazix.Primitives.Fixtures.Client.Allocation;
+using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
@@ -28,6 +29,12 @@ public static class FixtureCatalog
         ["button-link"] = new(typeof(ButtonLinkFixture)),
         ["button-loading"] = new(typeof(ButtonLoadingFixture)),
         ["separator-showcase"] = new(typeof(SeparatorFixture)),
+        ["avatar-preload"] = new(typeof(AvatarPreloadFixture)),
+        ["avatar-kept-mounted"] = new(typeof(AvatarKeptMountedFixture)),
+        ["avatar-delay"] = new(typeof(AvatarDelayFixture)),
+        ["avatar-render-function"] = new(typeof(AvatarRenderFunctionFixture)),
+        ["avatar-prerender-preload"] = new(typeof(AvatarPrerenderPreloadFixture), Prerender: true),
+        ["avatar-prerender-kept-mounted"] = new(typeof(AvatarPrerenderKeptMountedFixture), Prerender: true),
         ["collapsible-basic"] = new(typeof(CollapsibleBasicFixture)),
         ["collapsible-css-transition"] = new(typeof(CollapsibleCssTransitionFixture)),
         ["collapsible-css-animation"] = new(typeof(CollapsibleCssAnimationFixture)),
