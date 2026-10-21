@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (transitions row), §2 (mirrored transitionStatus, the convergent hidden), §3 (one message per state
-// change; the reveal decision point, fallback run, and its Server answer: design point 2, track 5 note); ADR 01 relaxation table
+// change; the reveal decision point, fallback run, and its Server answer: Amendments 2026-10-21); ADR 01 relaxation table
 // (TRN-ANI-03/09/10, RND-STA-01 for mirrored fields, TRN-STA-04/05/07/09 met on both modes). One twin per part.
 /// <summary>
 /// The C# half of the <c>transitions</c> module: the enter and exit transition of one animated part's element. The

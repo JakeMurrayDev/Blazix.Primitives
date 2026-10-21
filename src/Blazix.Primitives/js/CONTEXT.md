@@ -64,10 +64,10 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
     - TRN-ANI-03/09/10 relaxed, with the removal landing about two round trips after the exit on Server and the convergent `hidden` set at exit end meanwhile;
     - RND-STA-01 for the mirrored `transitionStatus`.
   - ADR 06 §1 (the synchronous path at L3) and §2 (the `BASE_UI_ANIMATIONS_DISABLED` switch).
-  - Port decisions of 2026-10-21 (track 5 design points), each in its own commits so it can be replaced:
-    - The open input of an attached element is read from the applied batch through `openSelector` (TRN-STA-03..10 on Server; ADR 01 decision 4's "post-commit, pre-paint, DOM-only work" row). The evaluation step exists in both languages, pinned by the shared case table.
+  - Port decisions of 2026-10-21, chosen by the user (ADR 01 and ADR 04 Amendments 2026-10-21):
+    - The open input of an attached element is read from the applied batch through `openSelector` (TRN-STA-03..10 on Server; ADR 01 decision 4's "post-commit, pre-paint, DOM-only work" row). The evaluation step exists in both languages, pinned by the shared case table (ADR 01 decision 2 note).
     - `beforematch` is the decision point `reveal`, fallback `run`, whose Server revert waits for C#'s answer plus a frame (TRN-ANI-33/34).
-    - Both were proposed to the user by the orchestrator; the ADR 01 and ADR 04 notes follow the user's answer.
+    - ADR 01's relaxation table has the three rows added 2026-10-21: the same-commit attributes of an attached element, met on both modes; `Avatar.Image` without `keepMounted`; the reveal.
     - The measurement passes live in a `collapsible` component module (decided by the orchestrator under the placement rule).
 - `initializer.ts`, `build.mjs`: ADR 04 §4, ADR 07 (the Floating UI licence banner).
 

@@ -6,7 +6,7 @@ namespace Blazix.Primitives.Interop;
 // and Amendments 2026-10-18 (handover at attach); TRN-ALG-01, TRN §6.1 (machine options per consumer), TRN-API-01..03,
 // TRN-DOM-06..09, TRN-ALG-04 (completion watchers), TRN-ALG-07 (reveal). AnimateInitialOpen has no field: C# renders
 // the initial status (TRN-STA-02/12/13) and sends it as Status, so the module starts from what was rendered.
-// OpenSelector: design point 1, option B (track 5 note), the open input read from the applied batch (ADR 01 decision 4,
+// OpenSelector: ADR 04 Amendments 2026-10-21, the open input read from the applied batch (ADR 01 decision 4,
 // "post-commit, pre-paint, DOM-only work").
 /// <summary>
 /// The options of the <c>transitions</c> module, sent on <c>attach</c> and on every <c>update</c>. From

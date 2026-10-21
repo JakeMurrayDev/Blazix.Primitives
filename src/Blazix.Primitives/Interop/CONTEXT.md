@@ -43,8 +43,8 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
 - `TwinOptions`: ADR 04 §3 and Amendments 2026-10-18 (handover at attach).
 - `DecisionPolicy`: ADR 04 §3 and ADR 01's relaxation table (the fallback per decision point).
 - `TransitionsTwin`, `TransitionsOptions`, the transitions payloads, `TransitionStatus`, `TransitionStatusRules`:
-  - ADR 04 §1 (transitions row), §2 (mirrored `transitionStatus`; the convergent `hidden`), §3 (decision point `reveal`, fallback `run`, and its Server answer: track 5 design point 2, put to the user) and Amendments 2026-10-18 (handover at attach);
-  - `OpenSelector` and `TransitionStatusRules`: track 5 design point 1, option B (put to the user); ADR 01 decision 2 (the evaluation step in both languages, one case table) and decision 4 ("post-commit, pre-paint, DOM-only work");
+  - ADR 04 §1 (transitions row), §2 (mirrored `transitionStatus`; the convergent `hidden`), §3 (decision point `reveal`, fallback `run`, and its Server answer: Amendments 2026-10-21) and Amendments 2026-10-18 (handover at attach);
+  - `OpenSelector` and `TransitionStatusRules`: ADR 04 Amendments 2026-10-21 (the open input of an attached part) and ADR 01 Amendments 2026-10-21 (decision 2 note: the evaluation step in both languages, one case table; the rows added that day) and decision 4 ("post-commit, pre-paint, DOM-only work");
   - ADR 08 §3 (Enums row; Amendments 2026-10-21);
   - TRN-API-07, TRN-STA-01, TRN-ANI-03, TRN-ALG-04/05/07, TRN-EVT-09, COL-EDGE-09;
   - ADR 01 relaxation table: TRN-ANI-03/09/10, RND-STA-01 for mirrored fields, TRN-STA-04/05/07/09 met on both modes.

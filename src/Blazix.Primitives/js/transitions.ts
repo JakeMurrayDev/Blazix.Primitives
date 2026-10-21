@@ -14,10 +14,10 @@
 // status through `OnStatusChange` (one message per change, never per frame). The machine's input is the `open` value
 // of `update`. A "synchronous commit" of a completion is the callback itself: it writes the DOM and reports, and on
 // WebAssembly the report renders before the callback returns.
-// Two port decisions, proposed by track 5 and put to the user by the orchestrator (track 5 note), each in its own
-// commits so it can be replaced: the open input of an attached element is read from the applied render batch through
-// `openSelector` (TRN-STA-03 on Server; ADR 01 decision 4), and `beforematch` is the decision point `reveal`, fallback
-// `run`, whose Server revert waits for C#'s answer to the request plus a frame (TRN-ANI-33/34).
+// Two port decisions (ADR 01 and ADR 04 Amendments 2026-10-21): the open input of an attached element is read from the
+// applied render batch through `openSelector` (TRN-STA-03 on Server; ADR 01 decision 4; the evaluation step in both
+// languages, ADR 01 decision 2 note), and `beforematch` is the decision point `reveal`, fallback `run`, whose Server
+// revert waits for C#'s answer to the request plus a frame (TRN-ANI-33/34; ADR 01 relaxation table).
 import { decide } from './decide';
 import { eventInfo } from './event-info';
 import {

@@ -1,7 +1,7 @@
 namespace Blazix.Primitives.Interop;
 
 // TRN-ALG-01 (the evaluation step and init), TRN-STA-02/03/06/08/12/13. The same step runs in the transitions module
-// for an element that is already attached (design point 1, option B, track 5 note); one case table tests both:
+// for an element that is already attached (ADR 01 Amendments 2026-10-21, decision 2 note); one case table tests both:
 // src/Blazix.Primitives/js/test-support/transition-evaluation.cases.json, read at L1 and L3.
 /// <summary>
 /// The rules of the transition status machine that a part applies in C#: the initial values of a part's first render
