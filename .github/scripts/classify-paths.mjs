@@ -15,7 +15,7 @@
 //   a push to main, or the label full-l4            -> full
 //   any shared path (the list below, or unknown)    -> full, so a new folder is never silently skipped
 //   only family paths and harness specs             -> scoped to those specs
-//   only docs, Markdown, and the L1/L2/generator tests -> none (nothing a browser can observe)
+//   only docs, Markdown, the L1/L2/generator tests and samples/ -> none (nothing a browser can observe)
 import { appendFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
@@ -23,11 +23,14 @@ import { pathToFileURL } from 'node:url';
 
 const libraryRoot = 'src/Blazix.Primitives/';
 const browserRoot = 'tests/browser/';
-// Test projects that Playwright never builds or runs against: a change confined to them cannot change a browser result.
+// Paths that Playwright never builds or runs against: a change confined to them cannot change a browser result. The three
+// test projects have tests of their own; samples/ is the sample application (ADR 09, Amendments 2026-10-22), which
+// build-and-test builds and no spec visits.
 const inertPrefixes = [
   'tests/Blazix.Primitives.Tests/',
   'tests/Blazix.Primitives.Tests.Components/',
   'tests/Blazix.Primitives.Tests.Generators/',
+  'samples/',
 ];
 
 /** @param {string} stem a document stem such as `alert-dialog` @returns {string} the family folder, `AlertDialog` (ADR 08) */
