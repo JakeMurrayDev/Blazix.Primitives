@@ -1,0 +1,115 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-basic` fixture (tests/browser/field.spec.ts): fields a consumer would write, one case each. `description`
+    (FieldDescription.test.tsx "should set aria-describedby on the control automatically", FLD-ARIA-04); `item` (a label and
+    a control in a disabled item); `default-value` (FieldRoot.test.tsx "should not reset to defaultValue ...", FFI-EDGE-07);
+    `enter` (FieldControl.test.tsx "validates when Enter is pressed outside a form", the validator's calls as
+    data-validations); `focus` (FieldControl.test.tsx's Controls helper: a label, a control that can be disabled or
+    removed, a button outside); `remount` (FieldRoot.test.tsx "keeps the original baseline when a controlled control
+    remounts"); `ignored` (a controlled control whose consumer keeps its value, FLD-API-15); `default-change` (a default
+    value that changes after the user typed, FFI-EDGE-06).
+*@
+<FixtureContainer Name="field-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="description">
+        <FieldRoot>
+            <FieldControl @ref="descriptionControl" data-testid="control" />
+            <FieldDescription data-testid="description">Message</FieldDescription>
+        </FieldRoot>
+    </div>
+
+    <div data-case="item">
+        <FieldRoot data-testid="root">
+            <FieldItem Disabled="true" data-testid="item">
+                <FieldLabel @ref="itemLabel" data-testid="label">Label</FieldLabel>
+                <FieldControl @ref="itemControl" data-testid="control" />
+            </FieldItem>
+        </FieldRoot>
+    </div>
+
+    <div data-case="default-value">
+        <FieldRoot>
+            <FieldControl @ref="defaultValueControl" DefaultValue="foo" data-testid="input" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="enter" data-validations="@enterValidations">
+        <FieldRoot Validate="CountEnterValidation">
+            <FieldControl @ref="enterControl" DefaultValue="a" data-testid="control" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="focus">
+        <FieldRoot data-testid="root">
+            <FieldLabel @ref="focusLabel" data-testid="label">Label</FieldLabel>
+            @if (firstMounted)
+            {
+                <FieldControl @ref="focusControl" Disabled="firstDisabled" data-testid="first" />
+            }
+        </FieldRoot>
+        <button type="button" data-testid="outside">Outside</button>
+        <button type="button" data-toggle-disabled @onclick="() => firstDisabled = !firstDisabled">Toggle disabled</button>
+        <button type="button" data-toggle-mounted @onclick="() => firstMounted = !firstMounted">Toggle mounted</button>
+    </div>
+
+    <div data-case="remount">
+        <FieldRoot data-testid="root">
+            @if (remountMounted)
+            {
+                <FieldControl @ref="remountControl" data-testid="control" Value="@remountValue" ValueChanged="value => remountValue = value" />
+            }
+        </FieldRoot>
+        <button type="button" data-toggle @onclick="() => remountMounted = !remountMounted">toggle</button>
+    </div>
+
+    <div data-case="ignored" data-changes="@ignoredChanges">
+        <FieldRoot data-testid="root">
+            <FieldControl @ref="ignoredControl" data-testid="control" Value="kept" ValueChanged="_ => ignoredChanges++" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="default-change">
+        <FieldRoot>
+            <FieldControl @ref="defaultChangeControl" DefaultValue="@changingDefault" data-testid="control" />
+        </FieldRoot>
+        <button type="button" data-change-default @onclick='() => changingDefault = "second"'>Change default</button>
+    </div>
+</FixtureContainer>
+
+@code {
+    private FieldControl? descriptionControl;
+    private FieldLabel? itemLabel;
+    private FieldControl? itemControl;
+    private FieldControl? defaultValueControl;
+    private FieldControl? enterControl;
+    private FieldLabel? focusLabel;
+    private FieldControl? focusControl;
+    private FieldControl? remountControl;
+    private FieldControl? ignoredControl;
+    private FieldControl? defaultChangeControl;
+    private int enterValidations;
+    private bool firstDisabled;
+    private bool firstMounted = true;
+    private bool remountMounted = true;
+    private string? remountValue = "a";
+    private int ignoredChanges;
+    private string changingDefault = "first";
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        descriptionControl, itemLabel, itemControl, defaultValueControl, enterControl, focusLabel, focusControl,
+        remountControl, ignoredControl, defaultChangeControl,
+    ];
+
+    private ValueTask<FieldValidationResult?> CountEnterValidation(FieldValidationArguments arguments)
+    {
+        enterValidations++;
+        StateHasChanged();
+        return default;
+    }
+}
