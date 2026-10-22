@@ -738,6 +738,24 @@ public sealed class CheckboxRootTests : IDisposable
         Assert.Equal(cut.Instance.Element, Assert.Single(test.ButtonModule.Invocations["attach"]).Arguments[0]);
     }
 
+    [Fact(DisplayName = "port: the root's form handle submits the owning form on Enter, except while disabled (pending the user)")]
+    [Trait("Requirement", "CHK-KEY-04")]
+    [Trait("Requirement", "CHK-KEY-06")]
+    public void Port_the_roots_form_handle_submits_the_owning_form_on_Enter()
+    {
+        // Design point C2 of M2 track 5: the form module owns the Enter path (ADR 04 §1's form row); outside a field the
+        // root's handle reports nothing.
+        IRenderedComponent<CheckboxRoot> cut = Context.Render<CheckboxRoot>();
+        Blazix.Primitives.Interop.FormControlOptions root = Assert.Single(test.FormOptions);
+        Assert.True(root.EnterSubmit);
+        Assert.False(root.ReportEvents);
+        Assert.False(root.Disabled);
+        Assert.Equal(cut.Instance.Element, test.FormModule.Invocations["attach"][0].Arguments[0]);
+
+        cut.Render(p => p.Add(x => x.Disabled, true));
+        Assert.True(test.FormOptions[^1].Disabled);
+    }
+
     [Fact(DisplayName = "should call onClick when clicked")]
     [Trait("Requirement", "CHK-PTR-09")]
     [Trait("Requirement", "CHK-API-17")]
