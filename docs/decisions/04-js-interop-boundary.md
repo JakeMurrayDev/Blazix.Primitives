@@ -211,3 +211,32 @@ The `Writer` cells of SWT-DOM-08 (and of CHK, RAD and RDG in their pull requests
 - **Consumer handlers on the events the module owns (the decline-and-run settled by the orchestrator 2026-10-22 under ADR 02 Amendments 2026-10-21; the decision point `label`, fallback `run`, chosen by the user 2026-10-22).** `Field.Control` and `Input` decline the consumer's `oninput`, `onchange`, `onblur` and `onkeydown` (`ForwardsConsumerHandler`) and run them from the module's report, before their own logic, with arguments built from the report. `PreventPartHandler()` therefore vetoes the part's reaction on both modes with no decision point. The module reports every keydown only while the consumer has an `onkeydown`. `Field.Label`'s pointer handling acts inside the dispatch through the decision point `label`, fallback `run` (the `ButtonBehavior` pattern): a consumer's C# veto is met on WebAssembly and is the existing "C#-origin consumer vetoes" row on Server.
 - **Autofocus at attach (settled by the orchestrator 2026-10-22, ADR 02 verification item 1 and ADR 15).** Blazor replaces a prerendered element when the page becomes interactive, which loses the focus the browser's `autofocus` gave it. A probe on both modes found the prerendered input disconnected and `<body>` focused. The module therefore focuses a control rendered with `AutoFocus` once, at attach, unless another element has focus, then reports the active element as before (FLD-FOC-04, INP-API-07). This is React's own `autoFocus` on mount, and it never takes focus the user gave elsewhere.
 - **One twin (settled by the orchestrator 2026-10-22, the `DomOptions.Image` precedent).** `FormTwin` has one `FormOptions` with a nullable record per attaching role: `Control` and `Label` here, `Submit` with track 2. A control's sibling hidden input (tracks 4, 5, 7) attaches by id.
+
+**2026-10-22, the composite row of the ownership list and the composite decision points (M2 track 3, [issue 79](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/79); the row and the two decision-point names chosen by the user the same day; the handled-key question answered with option (i), chosen by the user 2026-10-23).**
+
+*Ownership list (Decision 2): the composite row the amendment above announced, in full, in the table form of 2026-10-20 with the "initial value rendered by C#" column of 2026-10-18.*
+
+| Part(s) | JS-owned | Initial value rendered by C# | Note |
+|---|---|---|---|
+| every composite item (`Radio.Root` in a group in M2; the items of ToggleGroup, Toolbar, Tabs, Menubar and NavigationMenu later) | `tabindex` | `"-1"` on every render (CMP-STA-15), so Blazor never writes it again | written by `composite` from `attach`, in the same task as the highlight change: `"0"` on the highlighted item, `"-1"` elsewhere (CMP-DOM-01, CMP-FOC-02); an item whose registration carries a consumer `tabindex` is not written (RAD-DOM-16) |
+
+- C# registers each item by the id its part renders, with the consumer's `tabindex`, in `CompositeOptions.Items`; the module resolves the ids from the root's document or shadow root on `attach` and on every `update`.
+- The ownership registry gains `radio` / `Root` / `tabindex` as `C# → JS`, inert until the Radio family exists; RAD §5.1's `Writer` cell changes with track 8.
+
+*Decision points (Decision 3), added. Both fall back to **run**; the names were chosen by the user 2026-10-22:*
+- `navigate`: the consumer's `onKeyDown` veto against composite key handling (EVD-EVT-26, CMP-EVT-12, RDG-API-12). The module asks it only where it is about to act, when the candidate index differs from the highlighted one and is in bounds, before it prevents, stops, highlights or focuses.
+  - The C# chain is the part's own `NavigationDecider`, then the root consumer's `onkeydown`, which the root part declines (ADR 02 Amendments 2026-10-21) and otherwise runs from its own handler.
+  - The one-shot marker that keeps Blazor's later dispatch from running the handler twice is left only when Blazor will dispatch the key: after a veto, or with `stopEventPropagation` off.
+- `select`: the focus-driven selection of 2026-10-20 (RAD-FOC-05). The module asks it only where it is about to click the focused item's input. The snapshot's `Target.Id` names the item, so a part can run that item's consumer handler.
+- `CompositeTwin.NavigatePoint` and `SelectPoint` hold the names; `NavigationDecider` and `SelectionDecider` are the twin's chains.
+
+*A key the module handles never reaches Blazor's dispatcher (option (i) chosen by the user 2026-10-23).* Blazor dispatches C# handlers from its document-level listener, after the module's listener on the root element (Amendments 2026-10-18, item 3).
+- With `stopEventPropagation` (CMP-KEY-15, `true` for a root part, RadioGroup's value), a key the module handles is stopped at the root.
+- So no C# `onkeydown` on the root, on an item or on an ancestor runs for that key: on Server not at all, and on WebAssembly only the root's, inside `navigate`.
+- Base UI runs the consumer's handlers of the item and the root before the root's handling, and stops only the ancestors'.
+- The probe ran on the `composite-list` fixture, both modes, before (i) was built. Its titles now assert (i): `tests/browser/composite.spec.ts` "with stopEventPropagation a handled key runs the item's and the root's C# onkeydown and no ancestor's; an unhandled key runs all three".
+- The options went to the user: (i) an opt-in handled-key report with the item's handler routed through the root; (ii) a relaxation row; (iii) a deferred stop. The user chose (i), the recommendation, on 2026-10-23. The module still stops the key at the root, as CMP-KEY-10 states.
+  - The root and the items decline the consumer's `onkeydown` and run it themselves.
+  - `navigate` runs the focused item's handler, then the root's, on one shared event, so a `PreventPartHandler()` in either stops the key: Base UI's flag lives on the shared synthetic event (`merge-props/mergeProps.ts:210-231`).
+  - On Server, `CompositeOptions.ReportHandledKeys`, sent only while the root or an item has such a handler, makes the module report a key it handled and stopped without running the C# chain (`CompositeTwin.KeyHandled`). The two handlers then run a round trip late and cannot veto. ADR 01's row "… EVD-EVT-26 against composite/button key handling …" says so for Server (ADR 01 Amendments 2026-10-23).
+  - An ancestor's handler never sees the key, as in Base UI.
