@@ -59,6 +59,17 @@ public sealed class FormTwinWiringTests : IDisposable
         Assert.Null(control.DefaultValue);
     }
 
+    [Fact(DisplayName = "attaches an autofocus control with the autofocus flag")]
+    [Trait("Verifies", "ADR06-3")]
+    [Trait("Requirement", "FLD-FOC-04")]
+    [Trait("Requirement", "INP-API-07")]
+    public void Attaches_an_autofocus_control_with_the_autofocus_flag()
+    {
+        Context.Render<FieldRoot>(p => p.AddChildContent<FieldControl>(c => c.Add(x => x.AutoFocus, true)));
+
+        Assert.True(FieldTestContext.Parse(Assert.Single(host.AttachOptions())).Control!.AutoFocus);
+    }
+
     [Fact(DisplayName = "attaches one form twin to a label with the label options")]
     [Trait("Verifies", "ADR06-3")]
     [Trait("Requirement", "FLD-API-11")]

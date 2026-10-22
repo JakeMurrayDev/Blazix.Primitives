@@ -373,6 +373,35 @@ describe('control', () => {
     expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'focus' })]);
   });
 
+  // Blazor replaces a prerendered element when the page becomes interactive, so the browser's autofocus is lost; the
+  // module focuses an autofocus control at attach unless something else already has focus (React's own autoFocus).
+  it('focuses an autofocus control at attach when nothing has focus', () => {
+    const element = input();
+    const { fake } = attachControl(element, { autoFocus: true });
+
+    expect(document.activeElement).toBe(element);
+    expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'focus' })]);
+  });
+
+  it('does not take focus from another element for an autofocus control', () => {
+    document.body.innerHTML = '<button id="other">Other</button><input id="control" />';
+    const other = document.querySelector<HTMLButtonElement>('#other')!;
+    other.focus();
+    const { fake } = attachControl(document.querySelector<HTMLInputElement>('#control')!, { autoFocus: true });
+
+    expect(document.activeElement).toBe(other);
+    expect(fake.reported('OnControlReport')).toHaveLength(0);
+  });
+
+  it('does not focus a disabled autofocus control, nor on a later update', () => {
+    const element = input('<input id="control" disabled />');
+    const { handle } = attachControl(element, { autoFocus: true, disabled: true });
+    element.disabled = false;
+    handle.update(controlJson({ autoFocus: true, disabled: false }));
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('hands focus to the focus target', () => {
     document.body.innerHTML = '<input id="control" /><button id="visible"></button>';
     const element = document.querySelector<HTMLInputElement>('#control')!;
