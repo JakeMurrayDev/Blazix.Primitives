@@ -1,4 +1,5 @@
 using Blazix.Primitives.Interop;
+using Blazix.Primitives.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -203,7 +204,20 @@ public sealed class FieldErrorTests : IDisposable
             .AddChildContent<FieldError>(e => e.AddUnmatched("id", string.Empty).AddChildContent("Message")));
 
         Assert.Equal("external-description", cut.Find("input").GetAttribute("aria-describedby"));
+    }
+
+    // FLD-EDGE-03: a rendered error renders the empty id verbatim and still publishes nothing.
+    [Fact(DisplayName = "renders an empty id verbatim without publishing it")]
+    [Trait("Requirement", "FLD-API-31")]
+    [Trait("Requirement", "FLD-EDGE-03")]
+    public void Renders_an_empty_id_verbatim_without_publishing_it()
+    {
+        IRenderedComponent<FieldRoot> cut = Context.Render<FieldRoot>(p => p
+            .AddChildContent<FieldControl>(c => c.AddUnmatched("aria-describedby", "external-description"))
+            .AddChildContent<FieldError>(e => e.Add(x => x.Match, true).AddUnmatched("id", string.Empty).AddChildContent("Message")));
+
         Assert.Equal(string.Empty, cut.Find("div > div").GetAttribute("id"));
+        Assert.Equal("external-description", cut.Find("input").GetAttribute("aria-describedby"));
     }
 
     [Fact(DisplayName = "ignores empty Form error arrays")]
@@ -285,7 +299,7 @@ public sealed class FieldErrorTests : IDisposable
     [Trait("Requirement", "FLD-EDGE-04")]
     public void Ignores_the_disabled_state_of_an_enclosing_Field_Item()
     {
-        IRenderedComponent<FieldErrorScenarios> cut = Render(Scenario.Item);
+        IRenderedComponent<FieldErrorScenarios> cut = Render(Scenario.Item, p => p.Add(x => x.Errors, new FormErrors { ["username"] = "Username is reserved" }));
 
         AngleSharp.Dom.IElement error = cut.Find("[data-testid=error]");
         Assert.False(error.HasAttribute("data-disabled"));
@@ -438,12 +452,11 @@ public sealed class FieldErrorTests : IDisposable
             builder.CloseElement();
         };
         IRenderedComponent<FieldRoot> cut = Context.Render<FieldRoot>(p => p
-            .Add(x => x.Invalid, true)
             .AddChildContent<FieldControl>()
-            .AddChildContent<FieldError>(e => e.Add(x => x.RenderFunction, callback).AddChildContent("Message")));
+            .AddChildContent<FieldError>(e => e.Add(x => x.Match, true).Add(x => x.RenderFunction, callback).AddChildContent("Message")));
         Assert.Single(cut.FindAll("div > div"));
 
-        cut.Render(p => p.Add(x => x.Invalid, false));
+        cut.FindComponent<FieldError>().Render(p => p.Add(x => x.Match, false));
 
         Assert.Empty(cut.FindAll("div > div"));
         Assert.Empty(host.TransitionsAttachOptions());

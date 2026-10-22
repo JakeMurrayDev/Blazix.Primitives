@@ -96,12 +96,14 @@
         </FieldRoot>
         break;
     case ErrorScenario.Item:
-        <FieldRoot Invalid="true">
-            <FieldItem Disabled="true">
-                <FieldControl data-testid="control" />
-                <FieldError data-testid="error" />
-            </FieldItem>
-        </FieldRoot>
+        <Form Errors="Errors">
+            <FieldRoot Name="username">
+                <FieldItem Disabled="true">
+                    <FieldControl data-testid="control" />
+                    <FieldError data-testid="error" />
+                </FieldItem>
+            </FieldRoot>
+        </Form>
         break;
     case ErrorScenario.EditContext:
         <CascadingValue Value="EditContext">

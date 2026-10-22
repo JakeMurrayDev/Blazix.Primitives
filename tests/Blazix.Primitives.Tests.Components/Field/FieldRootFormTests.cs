@@ -296,14 +296,13 @@ public sealed class FieldRootFormTests : IDisposable
     [Fact(DisplayName = "validates the field when the `validate` method is called")]
     [Trait("Requirement", "FLD-API-08")]
     [Trait("Requirement", "FFI-API-06")]
-    public void Validates_the_field_when_the_validate_method_is_called()
+    public async Task Validates_the_field_when_the_validate_method_is_called()
     {
         IRenderedComponent<FieldFormScenarios> cut = Render(Scenario.Actions, p => p.Add(x => x.RootName, "username").Add(x => x.DefaultValue, string.Empty).Add(x => x.Required, true));
         host.Module.Control.Native = Native.ValueMissing;
         Assert.Empty(cut.FindAll("[data-testid=error]"));
 
-        cut.Find("[data-testid=validate]").Click();
-        host.Module.Settle(cut);
+        await Validate(cut);
 
         Assert.Single(cut.FindAll("[data-testid=error]"));
     }
@@ -313,13 +312,13 @@ public sealed class FieldRootFormTests : IDisposable
     [Trait("Requirement", "FLD-FRM-12")]
     [Trait("Requirement", "FFI-ALG-12")]
     [Trait("Requirement", "FFI-FRM-21")]
-    public void Validates_a_logical_field_without_a_mounted_control()
+    public async Task Validates_a_logical_field_without_a_mounted_control()
     {
         IRenderedComponent<FieldFormScenarios> cut = Render(Scenario.Actions, p => p
             .Add(x => x.ControlMounted, false)
             .Add(x => x.Validate, _ => new ValueTask<FieldValidationResult?>("Logical field error")));
 
-        cut.Find("[data-testid=validate]").Click();
+        await Validate(cut);
 
         Assert.Equal("Logical field error", cut.Find("[data-testid=error]").TextContent);
     }
@@ -328,7 +327,7 @@ public sealed class FieldRootFormTests : IDisposable
     [Trait("Requirement", "FLD-API-08")]
     [Trait("Requirement", "FLD-EVT-08")]
     [Trait("Requirement", "FFI-FRM-21")]
-    public void Validates_the_current_control_value_when_the_validate_method_is_called()
+    public async Task Validates_the_current_control_value_when_the_validate_method_is_called()
     {
         List<object?> validated = [];
         IRenderedComponent<FieldFormScenarios> cut = Render(Scenario.Actions, p => p.Add(x => x.Validate, arguments =>
@@ -338,8 +337,7 @@ public sealed class FieldRootFormTests : IDisposable
         }));
 
         host.Module.Control.Input(cut, "valid");
-        cut.Find("[data-testid=validate]").Click();
-        host.Module.Settle(cut);
+        await Validate(cut);
 
         Assert.Equal("valid", validated[^1]);
         Assert.Empty(cut.FindAll("[data-testid=error]"));
@@ -355,6 +353,15 @@ public sealed class FieldRootFormTests : IDisposable
         IRenderedComponent<FieldFormScenarios> cut = Render(Scenario.MountValidation, p => p.Add(x => x.Validate, _ => new ValueTask<FieldValidationResult?>("Mount-time error")));
 
         cut.WaitForAssertion(() => Assert.Equal("Mount-time error", cut.Find("[data-testid=error]").TextContent));
+    }
+
+    // Base UI's button calls actionsRef.validate(); the port's FieldRoot.ValidateAsync first asks the control for a fresh
+    // report, which the stand-in module answers.
+    private async Task Validate(IRenderedComponent<FieldFormScenarios> cut)
+    {
+        Task validation = cut.InvokeAsync(cut.Instance.Root.ValidateAsync);
+        host.Module.Settle(cut);
+        await validation;
     }
 
     private static void AssertParts(IRenderedComponent<FieldFormScenarios> cut, string attribute, bool present)

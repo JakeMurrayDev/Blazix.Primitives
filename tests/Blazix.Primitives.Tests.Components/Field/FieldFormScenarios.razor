@@ -188,6 +188,9 @@
 
     public int ValueChanges { get; private set; }
 
+    /// <summary>The field root of the Actions scenario, Base UI's actionsRef.</summary>
+    public FieldRoot Root => root!;
+
     public string? Value => value;
 
     protected override void OnParametersSet()

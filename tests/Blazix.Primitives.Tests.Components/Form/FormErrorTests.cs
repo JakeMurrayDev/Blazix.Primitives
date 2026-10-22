@@ -192,7 +192,8 @@ public sealed class FormErrorTests : IDisposable
     {
         IRenderedComponent<FormErrorScenarios> cut = Render(Scenario.TwoFields);
 
-        Assert.Equal("submit", host.Module.FormElement.SubmitAll(cut).Verdict);
+        // OnFormSubmit handles the submission: the browser never submits.
+        Assert.Equal("handled", host.Module.FormElement.SubmitAll(cut).Verdict);
         cut.Instance.ApplyPendingErrors();
 
         FormSubmitOptions focus = host.Module.FormElement.SubmitUpdates()[^1];
