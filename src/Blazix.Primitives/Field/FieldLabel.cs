@@ -47,7 +47,7 @@ public static class FieldLabelDataAttributes
 // Base UI's Field.Label (field/label/FieldLabel.tsx, internals/labelable-provider/useLabel.ts); the contract is
 // docs/components/field.md. FLD-API-12, FFI-ARIA-08: the id (the consumer's or a generated one) is published to the scope
 // while its parameters are set, in the render batch that creates the label (ADR 01 Amendments 2026-10-22); each label
-// publishes its own id and the last publication wins (FLD §16 Q2, pending the user). FLD-API-11, FLD-DOM-06/07: a native
+// publishes its own id and the last publication wins (FLD §16 Q2, settled by the orchestrator 2026-10-22). FLD-API-11, FLD-DOM-06/07: a native
 // label renders `for` from the scope's control id (none for a `null` claim); a non-native one renders none. The pointer
 // handling (the double-click guard; for a non-native label the pointerdown prevention and the click-to-focus with
 // focusVisible; nested interactive targets ignored, FFI-PTR-01..04) is the form module's, inside the dispatch. The

@@ -17,7 +17,7 @@ namespace Blazix.Primitives;
 //   the enabled state; value String(value) when controlled, the element's live value as the form value.
 // - Value ownership (ADR 05 Amendments 2026-10-18 item 1: the mode is fixed at the first parameter set): C# renders the
 //   value until the form module attaches; from then on the module owns the element's value and default value (the value
-//   design point, pending the user), so a controlled edit the consumer does not apply is reverted (FLD-API-15) and a
+//   design point, chosen by the user 2026-10-22), so a controlled edit the consumer does not apply is reverted (FLD-API-15) and a
 //   changed default keeps the user's edit (FFI-EDGE-06/07).
 // - The module owns the input, change, blur and keydown listeners and reports value and validity in one message per event
 //   (ADR 04 Amendments 2026-10-18; M2 plan, settled); the consumer's oninput, onblur and onkeydown run from the report,
@@ -26,7 +26,7 @@ namespace Blazix.Primitives;
 // - FLD-EVT-01..07: onValueChange first; uncontrolled: dirty and filled, then (not canceled, not prevented) clearErrors and
 //   change; an uncontrolled native edit commits despite Cancel() (ADR 05 Amendments 2026-10-18 item 2); controlled: the
 //   reactions follow String(value) after the render (FLD-EVT-06).
-// - FFI-ALG-13 focus ownership; FFI-ALG-16 Enter (the 0 ms task is the module's, pending the user); FLD-FRM-17/FFI-FRM-32 the
+// - FFI-ALG-13 focus ownership; FFI-ALG-16 Enter (the 0 ms task is the module's, settled by the orchestrator 2026-10-22); FLD-FRM-17/FFI-FRM-32 the
 //   blur re-commit after the render (ADR 01 decision 3 amendment).
 // - ADR 05 Amendments 2026-10-22: EditContext participation.
 /// <summary>The behavior of a field control: what <see cref="FieldControl"/> and <see cref="Input"/> share.</summary>
@@ -308,7 +308,7 @@ internal sealed class FieldControlBehavior : IDisposable
     /// <param name="e">The focus event.</param>
     public void HandleFocus(FocusEventArgs e) => fieldScope?.SetFocused(this, true, EffectiveDisabled);
 
-    // DP6 (pending the user): a commit no event started reads the control's state from a fresh report.
+    // DP6 (settled by the orchestrator 2026-10-22): a commit no event started reads the control's state from a fresh report.
     private Task RefreshAsync()
     {
         if (handle is null)

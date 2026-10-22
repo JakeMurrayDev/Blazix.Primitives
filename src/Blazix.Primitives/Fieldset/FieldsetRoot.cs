@@ -14,7 +14,7 @@ public sealed partial record FieldsetRootState(bool Disabled);
 // Base UI's Fieldset.Root (fieldset/root/FieldsetRoot.tsx); the contract is docs/components/fieldset.md.
 // FST-API-01/03, FST-DOM-01..04: the effective disabled state is the native `disabled` attribute, and the legend's id is
 // `aria-labelledby`, which a consumer value replaces (the pipeline merges the consumer last). FST-STR-01, FST-DOM-09: the
-// fieldset scope is cascaded around the element itself (the M2 contexts design point, pending the user), so a substituted
+// fieldset scope is cascaded around the element itself (the M2 contexts design point, settled by the orchestrator 2026-10-22), so a substituted
 // root component receives `disabled` as a parameter and sees the scope (a RadioGroup reads the legend id, FST-FRM-03).
 /// <summary>
 /// Represents a group of related form controls under one caption: Base UI's <c>Fieldset.Root</c>, rendered as a

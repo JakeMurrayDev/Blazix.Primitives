@@ -58,7 +58,7 @@ internal sealed record FormControlOptions
     /// <value><see langword="true"/>, the default; <see langword="false"/> for a validation input whose control reports elsewhere.</value>
     public bool ReportEvents { get; init; } = true;
 
-    // FLD-FOC-04, INP-API-07 (DP10, pending the user): Blazor replaces a prerendered element when the page becomes
+    // FLD-FOC-04, INP-API-07 (DP10, settled by the orchestrator 2026-10-22, ADR 02 verification item 1 and ADR 15): Blazor replaces a prerendered element when the page becomes
     // interactive, which loses the focus the browser's autofocus gave it.
     /// <summary>Gets a value indicating whether the module focuses the element when it attaches.</summary>
     /// <value><see langword="true"/> for an autofocus control; the module focuses it only when nothing else has focus.</value>

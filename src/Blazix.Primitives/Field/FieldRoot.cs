@@ -49,7 +49,7 @@ public static class FieldRootDataAttributes
 
 // Base UI's Field.Root (field/root/FieldRoot.tsx); the contracts are docs/components/field.md and
 // docs/architecture/field-and-form-infrastructure.md. FLD-STR-01, FFI-STR-01/03: it owns the field scope and the root
-// labelable scope, cascaded fixed around its element (ADR 16 rule 9; the contexts design point, pending the user).
+// labelable scope, cascaded fixed around its element (ADR 16 rule 9; the contexts design point, settled by the orchestrator 2026-10-22).
 // FLD-API-01/02: Name and Disabled never reach the element. FLD-API-07: Dirty and Touched are bool? (null: the field owns
 // the flag). FLD-API-06: ValidationDebounceTime is Duration? (ADR 08 Amendments 2026-10-21). FLD-API-08: Base UI's
 // actionsRef is ValidateAsync(), reached by @ref (ADR 08 Amendments 2026-10-22).
