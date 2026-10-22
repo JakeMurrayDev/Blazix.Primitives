@@ -82,12 +82,15 @@ internal sealed record FormControlReport
     /// <summary>Gets what happened.</summary>
     /// <value>
     /// <c>input</c> (the value changed), <c>blur</c>, <c>keydown</c>, <c>enter</c> (the deferred Enter commit),
-    /// <c>sync</c> (the answer to a refresh) or <c>focus</c> (the element was already focused when attached or enabled).
+    /// <c>sync</c> (the answer to a refresh), <c>focus</c> (the element was already focused when attached or enabled) or
+    /// <c>label</c> (the native label the module looks for changed).
     /// </value>
     public string Type { get; init; } = string.Empty;
 
-    /// <summary>Gets the element's value.</summary>
-    /// <value>The live value, or <see langword="null"/> for an element without one.</value>
+    // A `label` report carries the label's id here, so the payload stays one record (ADR 16 rule 7: a field more would
+    // cost every report of every control).
+    /// <summary>Gets the element's value, or the id of the native label a <c>label</c> report found.</summary>
+    /// <value>The live value, or <see langword="null"/> for an element without one; for a <c>label</c> report, the label's id, or <see langword="null"/> when there is none.</value>
     public string? Value { get; init; }
 
     /// <summary>Gets the element's native validity.</summary>

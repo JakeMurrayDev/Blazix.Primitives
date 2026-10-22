@@ -19,7 +19,9 @@ namespace Blazix.Primitives;
 //   hidden input's native state has been read again (the refresh: a toggle changes valueMissing).
 // - The module's handles (ADR 04 §1, the `form` row): the root reports its blur and whether it already has focus when it
 //   attaches or becomes enabled (CHK-FRM-14, CHK-FOC-04/05; FFI-STA-09); the hidden input is the validation input,
-//   reporting only on a refresh and handing focus to the root (CHK-FRM-19, CHK-FOC-03; FFI-FOC-05).
+//   reporting only on a refresh and handing focus to the root (CHK-FRM-19, CHK-FOC-03; FFI-FOC-05). While nothing else
+//   names the control, the module also looks for the input's native label and reports its id (CHK-ARIA-07/08; design
+//   point C4, pending the user).
 // - ADR 05 Amendments 2026-10-22: EditContext participation through the checked expression.
 /// <summary>The field behavior of a control backed by a hidden checkbox input.</summary>
 internal sealed class CheckableFieldBehavior : IDisposable
@@ -27,6 +29,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private const string BlurReport = "blur";
     private const string FocusReport = "focus";
     private const string SyncReport = "sync";
+    private const string LabelReport = "label";
 
     // A bool boxes into the registration and the validation arguments (FieldControlRegistration.Value and
     // FieldValidationArguments.Value are `object?`, ADR 05's note of 2026-10-22); one instance per value, boxed once, keeps
@@ -64,6 +67,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private FormOptions? sentRootOptions;
     private FormOptions? sentInputOptions;
     private string? focusTarget;
+    private string? fallbackLabelId;
     private int revision;
     private int refreshRevision;
     private TaskCompletionSource? refreshSource;
@@ -94,6 +98,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
 
     private string? OwnName => parameters.Name ?? participation.FieldName;
 
+    private bool LabelFallbackActive => parameters.LabelFallback && LabelId is null;
+
     private string? IdParameter => parameters.AdditionalAttributes is not null
         && parameters.AdditionalAttributes.TryGetValue("id", out object? value)
         && value is string { Length: > 0 } text ? text : null;
@@ -119,6 +125,12 @@ internal sealed class CheckableFieldBehavior : IDisposable
     /// <value>The label's id, or <see langword="null"/> outside a field or without a mounted label.</value>
     public string? LabelId => scope?.Label.Id;
 
+    // CHK-ARIA-06 step 4, CHK-ARIA-07/09: the fallback is in play only while nothing earlier in the precedence names the
+    // control and the control is not a native button.
+    /// <summary>Gets the id of the native label the form module found for the hidden input.</summary>
+    /// <value>The label's id while the fallback is in play and a label was found; otherwise, <see langword="null"/>.</value>
+    public string? FallbackLabelId => LabelFallbackActive ? fallbackLabelId : null;
+
     // CHK-ARIA-11, CHK-DOM-18.
     /// <summary>Gets a value indicating whether the control renders <c>aria-invalid</c>.</summary>
     /// <value><see langword="true"/> while the field is invalid and neither it nor the control is disabled.</value>
@@ -134,8 +146,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
     public bool InField => fieldScope is not null;
 
     /// <summary>Gets a task that completes when the form module is attached to the root and the hidden input.</summary>
-    /// <value>The attach task, for the fixtures; complete at once outside a field without the Enter path.</value>
-    public Task TwinAttached => fieldScope is null && !parameters.EnterSubmit ? Task.CompletedTask : attachedSource.Task;
+    /// <value>The attach task, for the fixtures.</value>
+    public Task TwinAttached => attachedSource.Task;
 
     /// <inheritdoc />
     public void Dispose()
@@ -226,26 +238,22 @@ internal sealed class CheckableFieldBehavior : IDisposable
         if (fieldScope is null)
         {
             ObserveValue();
-            if (parameters.EnterSubmit)
+        }
+        else
+        {
+            if (parameters.OwnsValue)
             {
-                await AttachOrUpdateAsync(root, rootId, null).ConfigureAwait(true);
+                fieldScope.Validation.InputRef = validationInput;
+                validationInput.ControlId = rootId;
             }
 
-            return;
-        }
-
-        if (parameters.OwnsValue)
-        {
-            fieldScope.Validation.InputRef = validationInput;
-            validationInput.ControlId = rootId;
-        }
-
-        using (fieldScope.Batch())
-        {
-            ClaimControlId();
-            Register(rootId, registrationId);
-            SyncDisabled();
-            ObserveValue();
+            using (fieldScope.Batch())
+            {
+                ClaimControlId();
+                Register(rootId, registrationId);
+                SyncDisabled();
+                ObserveValue();
+            }
         }
 
         await AttachOrUpdateAsync(root, rootId, input).ConfigureAwait(true);
@@ -425,7 +433,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
             || sentRoot.EnterSubmit != parameters.EnterSubmit
             || sentRoot.ReportEvents != InField
             || !string.Equals(sentRoot.FormId, form.ElementId, StringComparison.Ordinal);
-        if (rootHandle is null)
+        if (!parameters.EnterSubmit && !InField)
+        {
+            // No root handle: nothing to report and no Enter path.
+        }
+        else if (rootHandle is null)
         {
             FormOptions rootOptions = RootOptions();
             sentRootOptions = rootOptions;
@@ -453,25 +465,23 @@ internal sealed class CheckableFieldBehavior : IDisposable
             await rootHandle.UpdateAsync(rootOptions).ConfigureAwait(true);
         }
 
-        if (input is not { } inputElement || fieldScope is null)
+        // The hidden input is always attached: it hands focus to the root (CHK-FOC-03), and inside a field it is the
+        // validation input; it looks for its native label while the fallback is in play (CHK-ARIA-07).
+        if (input is not { } inputElement)
         {
-            if (rootHandle is not null)
-            {
-                attachedSource.TrySetResult();
-            }
-
             return;
         }
 
-        FormOptions inputOptions = InputOptions();
         if (inputHandle is null)
         {
+            FormOptions inputOptions = InputOptions();
             sentInputOptions = inputOptions;
             inputHandle = await twin.AttachAsync(inputElement, inputOptions).ConfigureAwait(true);
             attachedSource.TrySetResult();
         }
-        else if (inputOptions != sentInputOptions)
+        else if (InputOptionsChanged())
         {
+            FormOptions inputOptions = InputOptions();
             sentInputOptions = inputOptions;
             await inputHandle.UpdateAsync(inputOptions).ConfigureAwait(true);
         }
@@ -503,12 +513,12 @@ internal sealed class CheckableFieldBehavior : IDisposable
             return;
         }
 
-        FormOptions options = InputOptions();
-        if (options == sentInputOptions)
+        if (!InputOptionsChanged())
         {
             return;
         }
 
+        FormOptions options = InputOptions();
         sentInputOptions = options;
         Observe(inputHandle.UpdateAsync(options).AsTask());
     }
@@ -529,12 +539,45 @@ internal sealed class CheckableFieldBehavior : IDisposable
             Disabled = EffectiveDisabled,
             ReportEvents = false,
             FocusTarget = focusTarget,
+            LabelFallback = LabelFallbackActive,
         },
     };
 
+    // Compared before constructing, so an unchanged render allocates no options record.
+    private bool InputOptionsChanged()
+    {
+        if (sentInputOptions?.Control is not { } sent)
+        {
+            return true;
+        }
+
+        return sent.Revision != revision
+            || sent.Disabled != EffectiveDisabled
+            || !string.Equals(sent.CustomValidity, validationInput.OwnMessage, StringComparison.Ordinal)
+            || !string.Equals(sent.FormId, form.ElementId, StringComparison.Ordinal)
+            || !string.Equals(sent.FocusTarget, focusTarget, StringComparison.Ordinal)
+            || sent.LabelFallback != LabelFallbackActive;
+    }
+
     private async Task HandleReportAsync(FormControlReport report)
     {
-        if (disposed || fieldScope is null)
+        if (disposed)
+        {
+            return;
+        }
+
+        if (string.Equals(report.Type, LabelReport, StringComparison.Ordinal))
+        {
+            if (!string.Equals(report.Value, fallbackLabelId, StringComparison.Ordinal))
+            {
+                fallbackLabelId = report.Value;
+                stateHasChanged();
+            }
+
+            return;
+        }
+
+        if (fieldScope is null)
         {
             return;
         }
@@ -649,6 +692,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
 /// <param name="OwnsValue">Whether the control is its field's control: it registers, and writes filled and dirty.</param>
 /// <param name="ClaimsControlId">Whether the control claims its labelable scope's control id.</param>
 /// <param name="EnterSubmit">Whether Enter on the root submits the form the hidden input belongs to.</param>
+/// <param name="LabelFallback">Whether the hidden input's native label may name the control: it is not a native button and the consumer names it no other way.</param>
 /// <param name="CheckedExpression">The expression of the bound value.</param>
 /// <param name="EditContext">The cascaded edit context.</param>
 /// <param name="AdditionalAttributes">The unmatched attributes.</param>
@@ -661,6 +705,7 @@ internal readonly record struct CheckableFieldParameters(
     bool OwnsValue,
     bool ClaimsControlId,
     bool EnterSubmit,
+    bool LabelFallback,
     Expression<Func<bool>>? CheckedExpression,
     EditContext? EditContext,
     IReadOnlyDictionary<string, object>? AdditionalAttributes,

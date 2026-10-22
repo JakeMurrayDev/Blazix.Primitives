@@ -80,6 +80,17 @@ internal sealed record FormControlOptions
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool EnterSubmit { get; init; }
+
+    // CHK-ARIA-07/08, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (pending the user).
+    /// <summary>Gets a value indicating whether the module looks for the element's native label.</summary>
+    /// <value>
+    /// <see langword="true"/> while the part's accessible name comes from the input's native label: the module looks for
+    /// the label on <c>attach</c>, on every <c>update</c> and after every change of the document's labels and ids, gives an
+    /// id-less one the id <c>&lt;element id&gt;-label</c> and reports the label's id when it changed. The default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LabelFallback { get; init; }
 }
 
 /// <summary>The options of an attached field label.</summary>

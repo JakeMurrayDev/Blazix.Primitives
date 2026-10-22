@@ -170,6 +170,9 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         && label is string text
         && !string.IsNullOrWhiteSpace(text);
 
+    // CHK-ARIA-06 step 1: the consumer's aria-labelledby wins at the merge.
+    private bool ConsumerLabelsBox => AdditionalAttributes is not null && AdditionalAttributes.ContainsKey("aria-labelledby");
+
     [CascadingParameter]
     private FieldRootContext? FieldContext { get; set; }
 
@@ -352,7 +355,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     protected override void OnParametersSet()
     {
         fieldBehavior!.SetParameters(
-            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, EnterSubmit: true, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
+            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, EnterSubmit: true, LabelFallback: !NativeButton && !ConsumerNamesBox && !ConsumerLabelsBox, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
             FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;
@@ -431,12 +434,13 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         {
             fieldBehavior.Rendered();
             attributes.Set("onfocus", onFocus);
+        }
 
-            // CHK-ARIA-06: the consumer's aria-labelledby replaces this at the merge.
-            if (!ConsumerNamesBox && fieldBehavior.LabelId is { } labelId)
-            {
-                attributes.Set("aria-labelledby", labelId);
-            }
+        // CHK-ARIA-06: the consumer's aria-labelledby replaces this at the merge; a non-blank aria-label leaves it out;
+        // then the label of the box's labelable scope, then the input's native label (CHK-ARIA-07, the form module).
+        if (!ConsumerNamesBox && (fieldBehavior.LabelId ?? fieldBehavior.FallbackLabelId) is { } labelId)
+        {
+            attributes.Set("aria-labelledby", labelId);
         }
     }
 

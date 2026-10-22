@@ -23,6 +23,7 @@ export interface FormControlOptions {
   focusTarget?: string | null;
   autoFocus?: boolean;
   enterSubmit?: boolean;
+  labelFallback?: boolean;
 }
 
 /** The options of an attached field label; mirrors `FormLabelOptions` in C#. */
@@ -60,7 +61,7 @@ export interface NativeValidity {
 
 /** One report of a control; mirrors `FormControlReport` in C#. */
 export interface FormControlReport {
-  type: 'input' | 'blur' | 'keydown' | 'enter' | 'sync' | 'focus';
+  type: 'input' | 'blur' | 'keydown' | 'enter' | 'sync' | 'focus' | 'label';
   value: string | null;
   validity: NativeValidity | null;
   event: EventInfo | null;
@@ -363,6 +364,37 @@ function createEnterSubmission(element: HTMLElement, isEnabled: () => boolean): 
   return () => element.removeEventListener('keydown', onKeyDown, { capture: true });
 }
 
+// CHK-ARIA-08, CHK-EDGE-13 (design point C4 of M2 track 5, pending the user): Base UI looks for the label after every
+// commit of the box; a Blazor component whose parameters did not change does not render again when a label elsewhere
+// mounts, so the module watches the document instead. One observer per document serves every input that looks for its
+// label; its callbacks run once per mutation batch, after the renderer's or a script's change of a label or an id.
+const labelWatchers = new WeakMap<Document, { observer: MutationObserver; callbacks: Set<() => void> }>();
+
+function watchLabels(element: Element, callback: () => void): () => void {
+  const doc = ownerDocument(element);
+  let watcher = labelWatchers.get(doc);
+  if (!watcher) {
+    const callbacks = new Set<() => void>();
+    const observer = new (ownerWindow(element).MutationObserver)(() => {
+      for (const run of [...callbacks]) {
+        run();
+      }
+    });
+    observer.observe(doc, { childList: true, subtree: true, attributes: true, attributeFilter: ['id', 'for'] });
+    watcher = { observer, callbacks };
+    labelWatchers.set(doc, watcher);
+  }
+  const current = watcher;
+  current.callbacks.add(callback);
+  return () => {
+    current.callbacks.delete(callback);
+    if (current.callbacks.size === 0) {
+      current.observer.disconnect();
+      labelWatchers.delete(doc);
+    }
+  };
+}
+
 function focusWithVisible(element: HTMLElement): void {
   // focusVisible: Chrome 144+, Safari and Firefox.
   element.focus({ focusVisible: true } as FocusOptions);
@@ -501,6 +533,27 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     }
   }
 
+  // CHK-ARIA-07/08 (design point C4 of M2 track 5, pending the user): while the part asks for it, the native label of a
+  // form-participation input is discovered on attach, after every update and after every change of the document's labels
+  // and ids, and reported when it changed.
+  let discoveredLabel: string | null | undefined;
+  let stopWatchingLabels: (() => void) | null = null;
+  function discover(): void {
+    if (!options.labelFallback) {
+      discoveredLabel = undefined;
+      stopWatchingLabels?.();
+      stopWatchingLabels = null;
+      return;
+    }
+    stopWatchingLabels ??= watchLabels(element, discover);
+    const labelId = discoverLabel(element as HTMLInputElement, element.id ? `${element.id}-label` : null);
+    if (labelId !== discoveredLabel) {
+      discoveredLabel = labelId;
+      // The label's id travels as the report's value (one payload shape for every report).
+      report('label', undefined, { value: labelId });
+    }
+  }
+
   const reports = options.reportEvents !== false;
   // The handover at attach hands over the element's state: a live value that differs from the one C# rendered is the
   // user's edit, made before the module listened, so it is kept and reported rather than overwritten (settled by the
@@ -534,6 +587,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
   if (reports && !options.disabled) {
     reportFocusIfActive();
   }
+  discover();
 
   return {
     update(optionsJson: string) {
@@ -546,6 +600,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       if (reports && previous.disabled && !options.disabled) {
         reportFocusIfActive();
       }
+      discover();
     },
     dispose() {
       clearTimeout(enterTimer);
@@ -555,6 +610,8 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       element.removeEventListener('keydown', onKeyDown);
       element.removeEventListener('focus', onFocus);
       removeEnterSubmission();
+      stopWatchingLabels?.();
+      stopWatchingLabels = null;
     },
   };
 }
