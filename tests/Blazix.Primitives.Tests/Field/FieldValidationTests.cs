@@ -434,6 +434,33 @@ public sealed class FieldValidationTests
         Assert.NotEqual("old error", harness.Field.ValidityData.Error);
     }
 
+    // FieldControl.test.tsx's title at L1 (FFI-FRM-12): the blur commits the blurred value, the control's re-commit after the
+    // render (FLD-FRM-17) commits the normalised one, and the blurred value's late result is stale.
+    [Fact(DisplayName = "keeps the final async validation when a controlled value is normalized on blur")]
+    [Trait("Requirement", "FFI-FRM-12")]
+    public void Keeps_the_final_async_validation_when_a_controlled_value_is_normalized_on_blur()
+    {
+        Dictionary<string, TaskCompletionSource<FieldValidationResult?>> resolvers = [];
+        FieldHarness harness = new(ValidationMode.OnBlur, args =>
+        {
+            TaskCompletionSource<FieldValidationResult?> next = new();
+            resolvers[(string)args.Value!] = next;
+            return new ValueTask<FieldValidationResult?>(next.Task);
+        });
+        harness.Mount();
+
+        harness.Change("foo ");
+        harness.Blur();
+        harness.Field.Observe(harness.Field.Validation.CommitAsync("foo"));
+        Assert.Equal(["foo ", "foo"], resolvers.Keys);
+
+        resolvers["foo"].SetResult("Invalid email");
+        Assert.Equal("Invalid email", harness.Field.ValidityData.Error);
+
+        resolvers["foo "].SetResult("Stale error");
+        Assert.Equal("Invalid email", harness.Field.ValidityData.Error);
+    }
+
     [Fact(DisplayName = "ignores async validation results superseded during debounce")]
     [Trait("Requirement", "FFI-FRM-12")]
     [Trait("Requirement", "FLD-FRM-04")]

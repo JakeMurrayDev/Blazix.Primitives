@@ -1,0 +1,17 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    FieldRoot.react17.test.tsx "allows mount-time imperative validation before the fallback id is assigned": the consumer
+    validates the field from its own first after-render, before any control has registered.
+*@
+<FieldRoot @ref="root" Validate="Validate">
+    <FieldError data-testid="error" />
+</FieldRoot>
+
+@code {
+    private FieldRoot? root;
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+
+    protected override Task OnAfterRenderAsync(bool firstRender) => firstRender ? root!.ValidateAsync() : Task.CompletedTask;
+}

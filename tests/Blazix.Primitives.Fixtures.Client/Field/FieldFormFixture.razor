@@ -1,0 +1,234 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-form` fixture (tests/browser/field.spec.ts): FieldRoot.test.tsx's and FieldControl.test.tsx's [L4] titles
+    that render Form, Field.Error or Field.Validity (PR 1c). Validator calls and submitted values are rendered as data
+    attributes (`name=value` pairs joined by `&`, calls joined by `|`).
+    - `suppressed`: "does not publish errors while `valueMissing` is suppressed" (the Field.Validity argument).
+    - `style-hooks`: "should apply [data-field] style hooks to field components".
+    - `unmounted`, `control-name`: the values a validator and OnFormSubmit receive.
+    - `normalized`, `normalized-async`, `reset-initial`: a controlled control whose consumer blur handler rewrites the value
+      (FLD-FRM-17); `normalized-async`'s buttons resolve the validator's pending results.
+    - `enter-submits`, `enter-no-submit`, `enter-disabled-submit`, `enter-latest`: Enter in a control of a Form (FLD-KEY-01).
+*@
+<FixtureContainer Name="field-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="suppressed" data-valid="@Flag(suppressed?.Validity.Valid)" data-errors="@string.Join('|', suppressed?.Errors ?? [])" data-error="@(suppressed?.Error)">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur">
+            <FieldControl @ref="suppressedControl" data-testid="control" required />
+            <FieldValidity Context="validity">@RecordSuppressed(validity)</FieldValidity>
+        </FieldRoot>
+    </div>
+
+    <div data-case="style-hooks">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur">
+            <FieldLabel @ref="styleLabel" data-testid="label">Label</FieldLabel>
+            <FieldDescription data-testid="description">Description</FieldDescription>
+            <FieldError data-testid="error" />
+            <FieldControl @ref="styleControl" data-testid="control" required />
+        </FieldRoot>
+    </div>
+
+    <div data-case="unmounted" data-calls="@string.Join('|', unmountedCalls)" data-submits="@unmountedSubmits">
+        <Form @ref="unmountedForm" OnSubmit="args => { unmountedSubmits++; args.PreventNativeSubmit(); }">
+            <input type="checkbox" checked="@unmountedChecked" @onchange="() => unmountedChecked = !unmountedChecked" />
+            @if (unmountedChecked)
+            {
+                <FieldRoot Name="input1">
+                    <FieldControl @ref="unmountedFirst" DefaultValue="one" />
+                </FieldRoot>
+            }
+            <FieldRoot Name="input2" Validate="RecordUnmounted">
+                <FieldControl @ref="unmountedSecond" DefaultValue="two" />
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    </div>
+
+    <div data-case="control-name" data-calls="@string.Join('|', controlNameCalls)" data-values="@controlNameValues">
+        <Form @ref="controlNameForm" OnFormSubmit="args => controlNameValues = Join(args.Values)">
+            <FieldRoot>
+                <FieldControl @ref="controlNameFirst" Name="email" DefaultValue="one@example.com" />
+            </FieldRoot>
+            <FieldRoot Name="confirmEmail" Validate="RecordControlName">
+                <FieldControl @ref="controlNameSecond" DefaultValue="one@example.com" />
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    </div>
+
+    <div data-case="normalized" data-calls="@string.Join('|', normalizedCalls)">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="ValidateEmail">
+            <FieldControl @ref="normalizedControl" data-testid="control" @bind-Value="normalized" @onblur="() => normalized = normalized?.Trim()" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="normalized-async" data-calls="@string.Join('|', asyncCalls)">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="ValidateLater">
+            <FieldControl @ref="asyncControl" data-testid="control" @bind-Value="normalizedAsync" @onblur="() => normalizedAsync = normalizedAsync?.Trim()" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        <button type="button" data-resolve-final @onclick='() => Resolve("foo", "Invalid email")'>resolve final</button>
+        <button type="button" data-resolve-stale @onclick='() => Resolve("foo ", "Stale error")'>resolve stale</button>
+    </div>
+
+    <div data-case="reset-initial">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur">
+            <FieldControl @ref="resetControl" data-testid="control" required @bind-Value="reset" @onblur="() => reset = string.Empty" />
+            <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">Required</FieldError>
+        </FieldRoot>
+    </div>
+
+    <div data-case="enter-submits" data-calls="@enterSubmitsCalls" data-submits="@enterSubmitsSubmits">
+        <Form @ref="enterSubmitsForm" OnSubmit="args => { enterSubmitsSubmits++; args.PreventNativeSubmit(); }">
+            <FieldRoot Validate="_ => { enterSubmitsCalls++; return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null); }">
+                <FieldControl @ref="enterSubmitsControl" data-testid="control" DefaultValue="a" />
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    </div>
+
+    <div data-case="enter-no-submit" data-calls="@enterNoSubmitCalls" data-submits="@enterNoSubmitSubmits">
+        <Form @ref="enterNoSubmitForm" OnSubmit="() => enterNoSubmitSubmits++">
+            <FieldRoot Validate="_ => { enterNoSubmitCalls++; return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null); }">
+                <FieldControl @ref="enterNoSubmitControl" data-testid="control" DefaultValue="a" />
+            </FieldRoot>
+            <input />
+        </Form>
+    </div>
+
+    <div data-case="enter-disabled-submit" data-calls="@enterDisabledCalls" data-submits="@enterDisabledSubmits">
+        <Form @ref="enterDisabledForm" OnSubmit="() => enterDisabledSubmits++">
+            <FieldRoot Validate="_ => { enterDisabledCalls++; return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null); }">
+                <FieldControl @ref="enterDisabledControl" data-testid="control" DefaultValue="a" />
+            </FieldRoot>
+            <button type="submit" disabled>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="enter-latest" data-count="@enterLatestCalls.Count" data-last="@(enterLatestCalls.Count > 0 ? enterLatestCalls[^1] : "none")">
+        <Form @ref="enterLatestForm" @onkeydown="() => enterLatest = string.Empty">
+            <FieldRoot Validate="RecordEnterLatest">
+                <FieldControl @ref="enterLatestControl" data-testid="control" @bind-Value="enterLatest" />
+            </FieldRoot>
+            <input />
+        </Form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> unmountedCalls = [];
+    private readonly List<string> controlNameCalls = [];
+    private readonly List<string> normalizedCalls = [];
+    private readonly List<string> asyncCalls = [];
+    private readonly List<string> enterLatestCalls = [];
+    private readonly List<(string Value, TaskCompletionSource<FieldValidationResult?> Result)> pending = [];
+    private FieldControl? suppressedControl;
+    private FieldLabel? styleLabel;
+    private FieldControl? styleControl;
+    private Form? unmountedForm;
+    private FieldControl? unmountedFirst;
+    private FieldControl? unmountedSecond;
+    private Form? controlNameForm;
+    private FieldControl? controlNameFirst;
+    private FieldControl? controlNameSecond;
+    private FieldControl? normalizedControl;
+    private FieldControl? asyncControl;
+    private FieldControl? resetControl;
+    private Form? enterSubmitsForm;
+    private FieldControl? enterSubmitsControl;
+    private Form? enterNoSubmitForm;
+    private FieldControl? enterNoSubmitControl;
+    private Form? enterDisabledForm;
+    private FieldControl? enterDisabledControl;
+    private Form? enterLatestForm;
+    private FieldControl? enterLatestControl;
+    private FieldValidityState? suppressed;
+    private bool unmountedChecked = true;
+    private int unmountedSubmits;
+    private string controlNameValues = string.Empty;
+    private string? normalized = string.Empty;
+    private string? normalizedAsync = string.Empty;
+    private string? reset = string.Empty;
+    private int enterSubmitsCalls;
+    private int enterSubmitsSubmits;
+    private int enterNoSubmitCalls;
+    private int enterNoSubmitSubmits;
+    private int enterDisabledCalls;
+    private int enterDisabledSubmits;
+    private string? enterLatest = "a";
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        suppressedControl, styleLabel, styleControl, unmountedForm, unmountedFirst, unmountedSecond, controlNameForm, controlNameFirst,
+        controlNameSecond, normalizedControl, asyncControl, resetControl, enterSubmitsForm, enterSubmitsControl, enterNoSubmitForm,
+        enterNoSubmitControl, enterDisabledForm, enterDisabledControl, enterLatestForm, enterLatestControl,
+    ];
+
+    private static string Flag(bool? value) => value switch
+    {
+        true => "true",
+        false => "false",
+        null => "null",
+    };
+
+    private static string Join(FormValues values) => string.Join('&', values.Select(pair => $"{pair.Key}={pair.Value}"));
+
+    private RenderFragment RecordSuppressed(FieldValidityState state)
+    {
+        if (!ReferenceEquals(state, suppressed))
+        {
+            suppressed = state;
+            _ = InvokeAsync(StateHasChanged);
+        }
+
+        return static _ => { };
+    }
+
+    private ValueTask<FieldValidationResult?> RecordUnmounted(FieldValidationArguments arguments)
+    {
+        unmountedCalls.Add(Join(arguments.Values));
+        return new((FieldValidationResult?)null);
+    }
+
+    private ValueTask<FieldValidationResult?> RecordControlName(FieldValidationArguments arguments)
+    {
+        controlNameCalls.Add(Join(arguments.Values));
+        return new((FieldValidationResult?)null);
+    }
+
+    private ValueTask<FieldValidationResult?> ValidateEmail(FieldValidationArguments arguments)
+    {
+        string value = arguments.Value as string ?? string.Empty;
+        normalizedCalls.Add(value);
+        return new(value.Contains('@', StringComparison.Ordinal) ? null : "Invalid email");
+    }
+
+    private ValueTask<FieldValidationResult?> ValidateLater(FieldValidationArguments arguments)
+    {
+        string value = arguments.Value as string ?? string.Empty;
+        asyncCalls.Add(value);
+        TaskCompletionSource<FieldValidationResult?> result = new();
+        pending.Add((value, result));
+        return new(result.Task);
+    }
+
+    private void Resolve(string value, string error)
+    {
+        foreach ((string Value, TaskCompletionSource<FieldValidationResult?> Result) entry in pending.Where(entry => entry.Value == value).ToList())
+        {
+            entry.Result.TrySetResult(error);
+        }
+    }
+
+    private ValueTask<FieldValidationResult?> RecordEnterLatest(FieldValidationArguments arguments)
+    {
+        enterLatestCalls.Add(arguments.Value as string ?? string.Empty);
+        return new((FieldValidationResult?)null);
+    }
+}

@@ -1,0 +1,239 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of FieldRoot.test.tsx's and FieldControl.test.tsx's titles that render Form, Field.Error or
+    Field.Validity (PR 1c), each rendering the control type the test runs (FieldControl or Input, INP-STR-04). State a Base
+    UI test keeps with useState is a parameter or a field here; a test changes it through cut.Render or the buttons.
+*@
+@switch (Scenario)
+{
+    case FormScenario.DisabledWithFormError:
+        <Form Errors="Errors">
+            <FieldRoot Name="name" Disabled="true">
+                @Control(new() { ["data-testid"] = "control" })
+            </FieldRoot>
+        </Form>
+        break;
+    case FormScenario.SubmitValidation:
+        <Form OnSubmit="Submitted" OnFormSubmit="FormSubmitted" Errors="Errors">
+            <FieldRoot Name="@RootName" Validate="Validate" ValidationMode="ValidationMode">
+                @Control(new() { ["data-testid"] = "control", ["Name"] = ControlName, ["DefaultValue"] = DefaultValue })
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case FormScenario.Unmounted:
+        <Form OnSubmit="Submitted">
+            @if (Checked)
+            {
+                <FieldRoot Name="input1">
+                    @Control(new() { ["DefaultValue"] = "one" })
+                </FieldRoot>
+            }
+            <FieldRoot Name="input2" Validate="Validate">
+                @Control(new() { ["DefaultValue"] = "two" })
+            </FieldRoot>
+        </Form>
+        break;
+    case FormScenario.ControlName:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot>
+                @Control(new() { ["Name"] = "email", ["DefaultValue"] = "one@example.com" })
+            </FieldRoot>
+            <FieldRoot Name="confirmEmail" Validate="Validate">
+                @Control(new() { ["DefaultValue"] = "one@example.com" })
+            </FieldRoot>
+        </Form>
+        break;
+    case FormScenario.Parts:
+        <FieldRoot data-testid="root" ValidationMode="ValidationMode" Dirty="Dirty" Touched="Touched" Validate="Validate">
+            <FieldLabel data-testid="label">Label</FieldLabel>
+            <FieldDescription data-testid="description">Description</FieldDescription>
+            <FieldError data-testid="error" />
+            @Control(new() { ["data-testid"] = "control", ["required"] = Required })
+            <FieldValidity Context="validity">@Record(validity)</FieldValidity>
+        </FieldRoot>
+        break;
+    case FormScenario.Actions:
+        <FieldRoot @ref="root" Name="@RootName" Validate="Validate">
+            @if (ControlMounted)
+            {
+                @Control(new() { ["DefaultValue"] = DefaultValue, ["required"] = Required })
+            }
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        <button type="button" data-testid="validate" @onclick="() => root!.ValidateAsync()">validate</button>
+        break;
+    case FormScenario.MountValidation:
+        <MountValidationProbe Validate="Validate" />
+        break;
+    case FormScenario.PreventedChange:
+        <Form Errors="Errors">
+            <FieldRoot Name="message" ValidationMode="ValidationMode" Validate="Validate">
+                @Control(new() { ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, _ => ValueChanges++) })
+                <FieldError />
+            </FieldRoot>
+        </Form>
+        break;
+    case FormScenario.Normalized:
+        <FieldRoot ValidationMode="ValidationMode" Validate="Validate">
+            @Control(new()
+            {
+                ["Value"] = value,
+                ["ValueChanged"] = EventCallback.Factory.Create<string?>(this, next => value = next),
+                ["onblur"] = EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.FocusEventArgs>(this, () => value = NormalizeOnBlur(value)),
+                ["required"] = Required,
+            })
+            <FieldError Match="Match" ChildContent="ErrorContent" />
+        </FieldRoot>
+        break;
+    case FormScenario.EnterInForm:
+        <Form OnSubmit="Submitted" onkeydown="@(EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.KeyboardEventArgs>(this, ClearOnFormKeyDown))">
+            <FieldRoot Validate="Validate">
+                @if (ClearOnKeyDown)
+                {
+                    @Control(new()
+                    {
+                        ["Value"] = value,
+                        ["ValueChanged"] = EventCallback.Factory.Create<string?>(this, next => value = next),
+                    })
+                }
+                else
+                {
+                    @Control(new() { ["DefaultValue"] = "a" })
+                }
+            </FieldRoot>
+            <input />
+        </Form>
+        break;
+}
+
+@code {
+    private FieldRoot? root;
+    private string? value;
+    private bool initialized;
+
+    public enum FormScenario
+    {
+        DisabledWithFormError,
+        SubmitValidation,
+        Unmounted,
+        ControlName,
+        Parts,
+        Actions,
+        MountValidation,
+        PreventedChange,
+        Normalized,
+        EnterInForm,
+    }
+
+    [Parameter]
+    public FormScenario Scenario { get; set; }
+
+    [Parameter]
+    public Type ControlType { get; set; } = typeof(FieldControl);
+
+    [Parameter]
+    public FormErrors? Errors { get; set; }
+
+    [Parameter]
+    public string? RootName { get; set; }
+
+    [Parameter]
+    public string? ControlName { get; set; }
+
+    [Parameter]
+    public string? DefaultValue { get; set; }
+
+    [Parameter]
+    public string? InitialValue { get; set; }
+
+    [Parameter]
+    public bool Checked { get; set; } = true;
+
+    [Parameter]
+    public bool Required { get; set; }
+
+    [Parameter]
+    public bool ControlMounted { get; set; } = true;
+
+    [Parameter]
+    public bool ClearOnKeyDown { get; set; }
+
+    [Parameter]
+    public bool? Dirty { get; set; }
+
+    [Parameter]
+    public bool? Touched { get; set; }
+
+    [Parameter]
+    public MatchValue? Match { get; set; }
+
+    [Parameter]
+    public RenderFragment? ErrorContent { get; set; }
+
+    [Parameter]
+    public Func<string?, string?> NormalizeOnBlur { get; set; } = static current => current?.Trim();
+
+    [Parameter]
+    public ValidationMode? ValidationMode { get; set; }
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+
+    public List<FormSubmitEventArgs> FormSubmits { get; } = [];
+
+    public List<FieldValidityState> ValidityCalls { get; } = [];
+
+    public int ValueChanges { get; private set; }
+
+    public string? Value => value;
+
+    protected override void OnParametersSet()
+    {
+        if (!initialized)
+        {
+            initialized = true;
+            value = InitialValue;
+        }
+    }
+
+    private void Submitted(FormSubmitEventArgs args) => Submits.Add(args);
+
+    // FieldControl.test.tsx "validates the latest value when Enter does not submit the form": the form's keydown clears
+    // the controlled value before the control's deferred Enter commit.
+    private void ClearOnFormKeyDown()
+    {
+        if (ClearOnKeyDown)
+        {
+            value = string.Empty;
+        }
+    }
+
+    private void FormSubmitted(FormSubmitEventArgs args) => FormSubmits.Add(args);
+
+    private RenderFragment Record(FieldValidityState state)
+    {
+        ValidityCalls.Add(state);
+        return static _ => { };
+    }
+
+    private RenderFragment Control(Dictionary<string, object?> parameters) => builder =>
+    {
+        builder.OpenComponent(0, ControlType);
+        int sequence = 1;
+        foreach (KeyValuePair<string, object?> parameter in parameters)
+        {
+            // A false `required` is not rendered, as in markup.
+            if (parameter.Key == "required" && parameter.Value is false)
+            {
+                continue;
+            }
+
+            builder.AddComponentParameter(sequence++, parameter.Key, parameter.Value);
+        }
+
+        builder.CloseComponent();
+    };
+}

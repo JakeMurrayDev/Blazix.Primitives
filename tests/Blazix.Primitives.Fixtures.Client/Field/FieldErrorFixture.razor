@@ -1,0 +1,81 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-error` fixture (tests/browser/field.spec.ts): Field.Error's message, its description id and its transition.
+    `enter` and `exit` (FieldError.test.tsx's animation titles; open with `?animations=1`): a required control and an
+    error whose `Match` the buttons switch, with a 1 ms transition from [data-starting-style] and a 1 ms exit animation on
+    [data-ending-style]; the page is attached once the exit case's error has its transitions module. `default`
+    (FieldError.test.tsx "should show error messages by default"): a required control in a Form. `describedby`: an invalid field with an error
+    that always renders.
+*@
+<FixtureContainer Name="field-error" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        .animation-test-error {
+            transition: opacity 1ms;
+        }
+
+        .animation-test-error[data-starting-style] {
+            opacity: 0;
+        }
+
+        @@keyframes test-anim {
+            to {
+                opacity: 0;
+            }
+        }
+
+        .animation-test-exit[data-ending-style] {
+            animation: test-anim 1ms;
+        }
+    </style>
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="enter">
+        <button type="button" data-show @onclick="() => showEnter = true">Show</button>
+        <FieldRoot>
+            <FieldControl @ref="enterControl" required />
+            <FieldError class="animation-test-error" data-testid="error" Match="showEnter">Message</FieldError>
+        </FieldRoot>
+    </div>
+
+    <div data-case="exit">
+        <button type="button" data-hide @onclick="() => showExit = false">Hide</button>
+        <FieldRoot>
+            <FieldControl @ref="exitControl" required />
+            <FieldError @ref="exitError" class="animation-test-exit" data-testid="error" Match="showExit">Message</FieldError>
+        </FieldRoot>
+    </div>
+
+    <div data-case="default">
+        <Form @ref="defaultForm">
+            <FieldRoot>
+                <FieldControl @ref="defaultControl" data-testid="control" required />
+                <FieldError data-testid="error">Message</FieldError>
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    </div>
+
+    <div data-case="describedby">
+        <FieldRoot Invalid="true">
+            <FieldControl @ref="describedControl" data-testid="control" />
+            <FieldError Match="true" data-testid="error">Message</FieldError>
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private FieldControl? enterControl;
+    private FieldControl? exitControl;
+    private FieldError? exitError;
+    private Form? defaultForm;
+    private FieldControl? defaultControl;
+    private FieldControl? describedControl;
+    private bool showEnter;
+    private bool showExit = true;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [enterControl, exitControl, exitError, defaultForm, defaultControl, describedControl];
+}

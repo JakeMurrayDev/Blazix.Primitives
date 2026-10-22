@@ -1,0 +1,199 @@
+@namespace Blazix.Primitives.Tests.Components
+@using Microsoft.AspNetCore.Components.Forms
+@*
+    Test consumers of FieldError.test.tsx and FieldValidity.test.tsx, and of the port's titles for Field.Error's
+    transition and message. A Base UI test's useState is a parameter; a test changes it through cut.Render.
+*@
+@switch (Scenario)
+{
+    case ErrorScenario.Default:
+        <Form>
+            <FieldRoot>
+                <FieldControl required />
+                <FieldError data-testid="error">Message</FieldError>
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.ValueMissing:
+        <Form>
+            <FieldRoot>
+                <FieldControl required minlength="2" />
+                <FieldError Match="ValidityFlag.ValueMissing">Message</FieldError>
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.CustomError:
+        <Form>
+            <FieldRoot Validate="Validate">
+                <FieldControl />
+                <FieldError Match="ValidityFlag.CustomError">Message</FieldError>
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.DefaultSlot:
+        <Form Errors="Errors">
+            <FieldRoot Name="username">
+                <FieldControl DefaultValue="admin" required minlength="8" pattern="[a-z]+" />
+                <FieldError Match="ValidityFlag.ValueMissing">Username is required.</FieldError>
+                <FieldError Match="ValidityFlag.TooShort">Username must be at least 8 characters.</FieldError>
+                <FieldError Match="ValidityFlag.PatternMismatch">Username can only include lowercase letters.</FieldError>
+                @if (Match is { } match)
+                {
+                    <FieldError data-testid="default-error" Match="match" />
+                }
+                else
+                {
+                    <FieldError data-testid="default-error" />
+                }
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.NameFallback:
+        <Form Errors="Errors">
+            <FieldRoot Name="@RootName">
+                <FieldControl Name="email" />
+                <FieldError data-testid="default-error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.FormErrors:
+        <Form Errors="Errors">
+            <FieldRoot Name="@RootName">
+                <FieldControl DefaultValue="admin" />
+                <FieldError data-testid="default-error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.ClientErrors:
+        <Form>
+            <FieldRoot Validate="Validate">
+                <FieldControl />
+                <FieldError data-testid="default-error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.DefaultSlotClient:
+        <Form>
+            <FieldRoot>
+                <FieldControl required />
+                <FieldError data-testid="default-error" Match="false" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.SpecificWithFormErrors:
+        <Form Errors="Errors">
+            <FieldRoot Name="username" Validate="Validate">
+                <FieldControl />
+                <FieldError data-testid="custom-error" Match="ValidityFlag.CustomError" />
+                <FieldError data-testid="default-error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.Toggled:
+        <FieldRoot Disabled="Disabled" Invalid="Invalid" Validate="Validate" ValidationMode="ValidationMode">
+            <FieldControl data-testid="control" />
+            <FieldError data-testid="error" Match="Match" ClassValue="ClassOf" ChildContent="ChildContent" />
+        </FieldRoot>
+        break;
+    case ErrorScenario.Item:
+        <FieldRoot Invalid="true">
+            <FieldItem Disabled="true">
+                <FieldControl data-testid="control" />
+                <FieldError data-testid="error" />
+            </FieldItem>
+        </FieldRoot>
+        break;
+    case ErrorScenario.EditContext:
+        <CascadingValue Value="EditContext">
+            <FieldRoot>
+                <FieldControl @bind-Value="Model.Email" />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </CascadingValue>
+        break;
+    case ErrorScenario.Validity:
+        <Form>
+            <FieldRoot ValidationMode="ValidationMode" Validate="Validate" Invalid="Invalid">
+                <FieldControl required />
+                <FieldError Match="ValidityFlag.ValueMissing">Required</FieldError>
+                <FieldValidity Context="validity">@Record(validity)</FieldValidity>
+            </FieldRoot>
+        </Form>
+        break;
+}
+
+@code {
+    public enum ErrorScenario
+    {
+        Default,
+        ValueMissing,
+        CustomError,
+        DefaultSlot,
+        NameFallback,
+        FormErrors,
+        ClientErrors,
+        DefaultSlotClient,
+        SpecificWithFormErrors,
+        Toggled,
+        Item,
+        EditContext,
+        Validity,
+    }
+
+    [Parameter]
+    public ErrorScenario Scenario { get; set; }
+
+    [Parameter]
+    public FormErrors? Errors { get; set; }
+
+    [Parameter]
+    public MatchValue? Match { get; set; }
+
+    [Parameter]
+    public string? RootName { get; set; } = "username";
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool Invalid { get; set; }
+
+    [Parameter]
+    public ValidationMode? ValidationMode { get; set; }
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public EditContext? EditContext { get; set; }
+
+    [Parameter]
+    public Account Model { get; set; } = new();
+
+    /// <summary>Every argument the validity render function received, in order.</summary>
+    public List<FieldValidityState> ValidityCalls { get; } = [];
+
+    /// <summary>Every state the error's class function received, in order.</summary>
+    public List<FieldErrorState> ErrorStates { get; } = [];
+
+    private string? ClassOf(FieldErrorState state)
+    {
+        ErrorStates.Add(state);
+        return state.TransitionStatus is { } status ? "error-" + status.ToString().ToLowerInvariant() : "error";
+    }
+
+    private RenderFragment Record(FieldValidityState state)
+    {
+        ValidityCalls.Add(state);
+        return builder => builder.AddContent(0, state.Error);
+    }
+
+    /// <summary>The model of the EditContext scenario.</summary>
+    public sealed class Account
+    {
+        public string? Email { get; set; }
+    }
+}

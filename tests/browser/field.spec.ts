@@ -1,14 +1,23 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, fixtureUrl, Fixture, type Page, type RenderMode } from './helpers';
 
-// The [L4] rows of docs/architecture/field-and-form-infrastructure.md (FFI) and docs/components/field.md (FLD) whose
-// titles render only Field parts (PR 1a, the landing rule of issue 77); the titles that render Form, Field.Error or
-// Field.Validity land in PR 1c. Titles are Base UI's (FieldRoot.test.tsx, FieldControl.test.tsx, FieldLabel.test.tsx,
-// FieldDescription.test.tsx, useLabel.test.tsx) except the port's own, which name their row. Every test runs on both
-// render modes; the label, description and legend rows are met on both (ADR 01 Amendments 2026-10-22). Readiness markers
-// and the sync barrier, no sleeps.
+// The [L4] rows of docs/architecture/field-and-form-infrastructure.md (FFI) and docs/components/field.md (FLD): the titles
+// that render only Field parts (PR 1a, the landing rule of issue 77) and those that render Form, Field.Error or
+// Field.Validity (PR 1c). Titles are Base UI's (FieldRoot.test.tsx, FieldControl.test.tsx, FieldLabel.test.tsx,
+// FieldDescription.test.tsx, FieldError.test.tsx, useLabel.test.tsx) except the port's own, which name their row. Every
+// test runs on both render modes; the label, description, legend and error-id rows are met on both (ADR 01 Amendments
+// 2026-10-22). Readiness markers and the sync barrier, no sleeps; a transient attribute is asserted from the mutation
+// records the page keeps (the transitions hand-over of M1).
 
-type FixtureName = 'field-basic' | 'field-validation' | 'field-label-non-native' | 'field-autofocus' | 'field-edit-form';
+type FixtureName =
+  | 'field-basic'
+  | 'field-validation'
+  | 'field-label-non-native'
+  | 'field-autofocus'
+  | 'field-edit-form'
+  | 'field-error'
+  | 'field-custom-validity'
+  | 'field-form';
 
 /** Opens a Field fixture and waits until every control and label has the form module attached. */
 async function gotoField(page: Page, mode: RenderMode, name: FixtureName, query = ''): Promise<Locator> {
@@ -29,6 +38,82 @@ async function settle(fixture: Locator): Promise<void> {
   const before = Number(await fixture.getAttribute('data-sync'));
   await fixture.locator('[data-sync-button]').evaluate((element) => (element as HTMLElement).click());
   await expect(fixture).toHaveAttribute('data-sync', String(before + 1));
+}
+
+/** Sets a custom validity message on a control from outside the field, as Base UI's tests call setCustomValidity(). */
+async function setCustomValidity(control: Locator, message: string): Promise<void> {
+  await control.evaluate((input, text) => (input as HTMLInputElement).setCustomValidity(text), message);
+}
+
+/** The control's validationMessage. */
+function validationMessage(control: Locator): Promise<string> {
+  return control.evaluate((input) => (input as HTMLInputElement).validationMessage);
+}
+
+/** Changes a control's value as a script does: the value, then an input event (a read-only control takes no typing). */
+async function changeValue(control: Locator, value: string): Promise<void> {
+  await control.evaluate((input, text) => {
+    (input as HTMLInputElement).value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+}
+
+interface ErrorSnapshot {
+  scope: string;
+  present: boolean;
+  hidden: boolean;
+  starting: boolean;
+  ending: boolean;
+}
+
+declare global {
+  interface Window {
+    errorRecords: ErrorSnapshot[];
+    errorTransitionEnds: string[];
+  }
+}
+
+// Installed before the page's scripts: a snapshot of each case's error after every mutation that changes it, and the
+// transitionend events of the errors, by case.
+function installErrorRecorder(): void {
+  window.errorRecords = [];
+  window.errorTransitionEnds = [];
+  const last = new Map<string, string>();
+  const take = () => {
+    document.querySelectorAll('[data-case]').forEach((scope) => {
+      const error = scope.querySelector('[data-testid=error]');
+      const snapshot: ErrorSnapshot = {
+        scope: scope.getAttribute('data-case') ?? '',
+        present: error !== null,
+        hidden: error?.hasAttribute('hidden') ?? false,
+        starting: error?.hasAttribute('data-starting-style') ?? false,
+        ending: error?.hasAttribute('data-ending-style') ?? false,
+      };
+      const key = JSON.stringify(snapshot);
+      if (last.get(snapshot.scope) !== key) {
+        last.set(snapshot.scope, key);
+        window.errorRecords.push(snapshot);
+      }
+    });
+  };
+  new MutationObserver(take).observe(document, { subtree: true, childList: true, attributes: true });
+  document.addEventListener(
+    'transitionend',
+    (event) => {
+      const target = event.target as Element;
+      if (target.matches?.('[data-testid=error]')) {
+        window.errorTransitionEnds.push(target.closest('[data-case]')?.getAttribute('data-case') ?? '');
+      }
+    },
+    true,
+  );
+}
+
+/** The recorded snapshots of one case's error, from the first that matches `from` on. */
+async function errorRecords(page: Page, scope: string, from: (snapshot: ErrorSnapshot) => boolean): Promise<ErrorSnapshot[]> {
+  const records = (await page.evaluate(() => window.errorRecords)).filter((snapshot) => snapshot.scope === scope);
+  const index = records.findIndex(from);
+  return index < 0 ? [] : records.slice(index);
 }
 
 test.describe('Field', () => {
@@ -175,6 +260,149 @@ test.describe('Field', () => {
 
       expect(await control.evaluate((input) => (input as HTMLInputElement).validity.customError)).toBe(false);
       await expect.poll(() => control.evaluate((input) => (input as HTMLInputElement).validationMessage)).toBe('');
+    });
+
+    // FFI-FRM-09 (PR 1c): a message the field did not set is the field's error, and it survives the field's own passes.
+    test('keeps a message set outside the field when submitting', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="submitting"]');
+      const control = scope.locator('[data-testid="control"]');
+      await setCustomValidity(control, 'external error');
+
+      await scope.getByRole('button', { name: 'submit' }).click();
+
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('external error');
+      await settle(fixture);
+      await expect(scope).toHaveAttribute('data-form-submits', '0');
+      expect(await validationMessage(control)).toBe('external error');
+    });
+
+    test('keeps a message set outside the field when validating on change', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="on-change"]');
+      const control = scope.locator('[data-testid="control"]');
+      await setCustomValidity(control, 'external error');
+
+      await control.fill('abc');
+
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('external error');
+      await expect(control).toHaveAttribute('data-invalid', '');
+      expect(await validationMessage(control)).toBe('external error');
+    });
+
+    test('keeps a message set outside the field when revalidating on change', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="revalidating"]');
+      const control = scope.locator('[data-testid="control"]');
+      await control.focus();
+      await control.fill('a');
+      await control.fill('');
+      await control.blur();
+      await expect(control).toHaveAttribute('data-invalid', '');
+
+      await setCustomValidity(control, 'external error');
+      await control.fill('abc');
+
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('external error');
+      await expect(control).toHaveAttribute('data-invalid', '');
+      expect(await validationMessage(control)).toBe('external error');
+    });
+
+    test('keeps other native errors deferred while a message set outside the field survives', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="deferred"]');
+      const control = scope.locator('[data-testid="control"]');
+      await control.focus();
+      await control.fill('a');
+      await control.fill('');
+      await control.blur();
+      await expect(control).toHaveAttribute('data-invalid', '');
+
+      await setCustomValidity(control, 'external error');
+      await control.fill('abc');
+
+      await expect(scope).toHaveAttribute('data-errors', 'external error');
+      await expect(scope).toHaveAttribute('data-custom-error', 'true');
+      await expect(scope).toHaveAttribute('data-type-mismatch', 'false');
+      await expect(scope).toHaveAttribute('data-valid', 'false');
+      await expect(scope.locator('[data-testid="type-mismatch"]')).toHaveCount(0);
+    });
+
+    // FFI-FRM-10: the module writes the field's own message, with the line break normalized by the browser.
+    test('clears the message it set itself', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="clears-own"]');
+      const control = scope.locator('[data-testid="control"]');
+
+      await control.fill('bad');
+      await expect.poll(() => validationMessage(control)).toBe('custom error\nmore');
+
+      await control.fill('good');
+      await expect.poll(() => validationMessage(control)).toBe('');
+      await expect(scope.locator('[data-testid="error"]')).toHaveCount(0);
+    });
+
+    test('restores a message its own one displaced', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="restores"]');
+      const control = scope.locator('[data-testid="control"]');
+      await setCustomValidity(control, 'external error');
+
+      await control.fill('bad');
+      await expect.poll(() => validationMessage(control)).toBe('custom error');
+
+      await control.fill('good');
+      await expect.poll(() => validationMessage(control)).toBe('external error');
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('external error');
+    });
+
+    test('does not restore a message that was withdrawn while its own one was installed', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="withdrawn"]');
+      const control = scope.locator('[data-testid="control"]');
+      await setCustomValidity(control, 'external error');
+
+      await control.fill('bad');
+      await expect.poll(() => validationMessage(control)).toBe('custom error');
+      await setCustomValidity(control, '');
+
+      await control.fill('good');
+      await expect.poll(() => validationMessage(control)).toBe('');
+      await expect(scope.locator('[data-testid="error"]')).toHaveCount(0);
+    });
+
+    // FFI-FRM-08: a read-only control is barred from constraint validation (willValidate is false).
+    test('ignores a message set outside the field on a control barred from validation', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="barred"]');
+      const control = scope.locator('[data-testid="control"]');
+      expect(await control.evaluate((input) => (input as HTMLInputElement).willValidate)).toBe(false);
+      await setCustomValidity(control, 'external error');
+
+      await changeValue(control, 'abc');
+      await settle(fixture);
+
+      await expect(control).not.toHaveAttribute('data-invalid');
+      await expect(scope.locator('[data-testid="error"]')).toHaveCount(0);
+
+      await scope.getByRole('button', { name: 'submit' }).click();
+      await expect(scope).toHaveAttribute('data-form-submits', '1');
+    });
+
+    test('does not write its own message to a barred control', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-custom-validity');
+      const scope = fixture.locator('[data-case="barred-own"]');
+      const control = scope.locator('[data-testid="control"]');
+      await setCustomValidity(control, 'external error');
+
+      await changeValue(control, 'abc');
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('custom error');
+
+      await scope.locator('[data-make-editable]').click();
+      await expect(control).not.toHaveAttribute('readonly');
+      await settle(fixture);
+
+      expect(await validationMessage(control)).toBe('external error');
     });
   });
 
@@ -388,6 +616,241 @@ test.describe('Field', () => {
       await control.press('Enter');
 
       await expect(scope).toHaveAttribute('data-validations', '1');
+    });
+  });
+
+  test.describe('Field.Error', () => {
+    // FLD-API-31, FLD-ARIA-05 (met on both modes: the id is published in the render that mounts the error).
+    test('should set aria-describedby on the control automatically', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-error');
+      const scope = fixture.locator('[data-case="describedby"]');
+      const errorId = await scope.locator('[data-testid="error"]').getAttribute('id');
+
+      expect(errorId).toBeTruthy();
+      await expect(scope.locator('[data-testid="control"]')).toHaveAttribute('aria-describedby', errorId!);
+    });
+
+    // FFI-FRM-06: the browser's own valueMissing, deferred until the submission.
+    test('should show error messages by default', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-error');
+      const scope = fixture.locator('[data-case="default"]');
+      const control = scope.locator('[data-testid="control"]');
+      const error = scope.locator('[data-testid="error"]');
+      await expect(error).toHaveCount(0);
+
+      await control.focus();
+      await control.fill('a');
+      await control.fill('');
+      await control.blur();
+      await settle(fixture);
+      await expect(error).toHaveCount(0);
+
+      await scope.getByRole('button', { name: 'submit' }).click();
+      await expect(error).toHaveText('Message');
+    });
+
+    // FLD-ANI-02, FLD-DOM-18: C# creates the element with data-starting-style; the module removes it on the next frame,
+    // so the transition from the starting style runs.
+    test('triggers enter animation via data-starting-style when mounting', async ({ page, mode }) => {
+      await page.addInitScript(installErrorRecorder);
+      const fixture = await gotoField(page, mode, 'field-error', '?animations=1');
+      const scope = fixture.locator('[data-case="enter"]');
+      const error = scope.locator('[data-testid="error"]');
+      await expect(error).toHaveCount(0);
+
+      await scope.locator('[data-show]').click();
+
+      await expect.poll(() => page.evaluate(() => window.errorTransitionEnds.filter((name) => name === 'enter').length)).toBeGreaterThan(0);
+      await expect(error).toBeVisible();
+      await expect(error).not.toHaveAttribute('data-starting-style');
+      expect((await errorRecords(page, 'enter', (snapshot) => snapshot.present))[0]?.starting).toBe(true);
+    });
+
+    // FLD-STA-06, FLD-DOM-14, FLD-DOM-18, FLD-ANI-03: data-ending-style while the exit runs, then the element is removed.
+    test('applies data-ending-style before unmount', async ({ page, mode }) => {
+      await page.addInitScript(installErrorRecorder);
+      const fixture = await gotoField(page, mode, 'field-error', '?animations=1');
+      const scope = fixture.locator('[data-case="exit"]');
+      const error = scope.locator('[data-testid="error"]');
+      await expect(error).toBeVisible();
+
+      await scope.locator('[data-hide]').click();
+
+      await expect(error).toHaveCount(0);
+      const exit = await errorRecords(page, 'exit', (snapshot) => snapshot.ending);
+      expect(exit.length).toBeGreaterThan(0);
+      expect(exit[0]!.present).toBe(true);
+      if (mode === 'server') {
+        // ADR 01's TRN-ANI-03 row (FLD-ANI-03's Server relaxation): the module hides the error at exit end; the removal
+        // follows the completion message.
+        expect(exit.some((snapshot) => snapshot.hidden)).toBe(true);
+      }
+    });
+  });
+
+  test.describe('in a Form or with Field.Validity', () => {
+    // FFI-FRM-06: the browser reports valueMissing at the blur; an untouched value is not an error yet.
+    test('does not publish errors while `valueMissing` is suppressed', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="suppressed"]');
+      const control = scope.locator('[data-testid="control"]');
+
+      await control.focus();
+      await control.blur();
+      await settle(fixture);
+
+      await expect(scope).toHaveAttribute('data-valid', 'true');
+      await expect(scope).toHaveAttribute('data-errors', '');
+      await expect(scope).toHaveAttribute('data-error', '');
+    });
+
+    // FLD-EDGE-12: a value written by a script and then blurred is validated from the element.
+    test('should apply [data-field] style hooks to field components', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="style-hooks"]');
+      const control = scope.locator('[data-testid="control"]');
+      const parts = ['control', 'label', 'description'].map((part) => scope.locator(`[data-testid="${part}"]`));
+      for (const part of parts) {
+        await expect(part).not.toHaveAttribute('data-valid');
+      }
+      await expect(scope.locator('[data-testid="error"]')).toHaveCount(0);
+
+      await control.focus();
+      await control.fill('a');
+      await control.fill('');
+      await control.blur();
+
+      for (const part of [...parts, scope.locator('[data-testid="error"]')]) {
+        await expect(part).toHaveAttribute('data-invalid', '');
+      }
+
+      await control.evaluate((input) => {
+        (input as HTMLInputElement).value = 'value';
+        (input as HTMLInputElement).focus();
+        (input as HTMLInputElement).blur();
+      });
+
+      for (const part of parts) {
+        await expect(part).toHaveAttribute('data-valid', '');
+      }
+      await expect(scope.locator('[data-testid="error"]')).toHaveCount(0);
+    });
+
+    // FLD-FRM-01: the values a validator receives come from the registered fields of the moment.
+    test('unmounted fields are excluded from the validate fn', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="unmounted"]');
+
+      await scope.getByRole('button', { name: 'submit' }).click();
+      await expect(scope).toHaveAttribute('data-calls', 'input1=one&input2=two');
+
+      await scope.getByRole('checkbox').click();
+      await scope.getByRole('button', { name: 'submit' }).click();
+
+      await expect(scope).toHaveAttribute('data-calls', 'input1=one&input2=two|input2=two');
+      await expect(scope).toHaveAttribute('data-submits', '2');
+    });
+
+    test('uses the Field.Control name for form submission and form validation values', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="control-name"]');
+
+      await scope.getByRole('button', { name: 'submit' }).click();
+
+      await expect(scope).toHaveAttribute('data-values', 'email=one@example.com&confirmEmail=one@example.com');
+      await expect(scope).toHaveAttribute('data-calls', /(^|\|)email=one@example\.com&confirmEmail=one@example\.com$/);
+    });
+  });
+
+  test.describe('Field.Control in a Form', () => {
+    // FLD-FRM-17, FFI-FRM-32 (Server: the re-commit runs after the render, a round trip later; ADR 01's FLD-FRM-17 row).
+    test('validates the final controlled value when it is normalized on blur', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="normalized"]');
+      const control = scope.locator('[data-testid="control"]');
+
+      await control.fill('foo ');
+      await control.blur();
+
+      await expect(scope).toHaveAttribute('data-calls', /\|foo$/);
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('Invalid email');
+    });
+
+    test('keeps the final async validation when a controlled value is normalized on blur', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="normalized-async"]');
+      const control = scope.locator('[data-testid="control"]');
+
+      await control.fill('foo ');
+      await control.blur();
+      await expect(scope).toHaveAttribute('data-calls', 'foo |foo');
+
+      await scope.locator('[data-resolve-final]').click();
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('Invalid email');
+
+      await scope.locator('[data-resolve-stale]').click();
+      await settle(fixture);
+      await expect(scope.locator('[data-testid="error"]')).toHaveText('Invalid email');
+    });
+
+    test('does not validate when a controlled value is reset to the initial value on blur', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="reset-initial"]');
+      const control = scope.locator('[data-testid="control"]');
+
+      await control.fill('foo');
+      await control.blur();
+      await expect(control).toHaveValue('');
+      await settle(fixture);
+
+      await expect(scope.locator('[data-testid="error"]')).toHaveCount(0);
+    });
+
+    // FLD-KEY-01, FFI-KEY-01, FRM-DOM-03, FRM-KEY-01: the browser's implicit submission validates once.
+    test('validates once when Enter implicitly submits a form', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="enter-submits"]');
+
+      await scope.locator('[data-testid="control"]').press('Enter');
+
+      await expect(scope).toHaveAttribute('data-submits', '1');
+      await settle(fixture);
+      await expect(scope).toHaveAttribute('data-calls', '1');
+    });
+
+    test('validates when Enter does not implicitly submit the form', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="enter-no-submit"]');
+
+      await scope.locator('[data-testid="control"]').press('Enter');
+
+      await expect(scope).toHaveAttribute('data-calls', '1');
+      await settle(fixture);
+      await expect(scope).toHaveAttribute('data-submits', '0');
+    });
+
+    test('validates when a disabled submit button blocks implicit submission', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="enter-disabled-submit"]');
+
+      await scope.locator('[data-testid="control"]').press('Enter');
+
+      await expect(scope).toHaveAttribute('data-calls', '1');
+      await settle(fixture);
+      await expect(scope).toHaveAttribute('data-submits', '0');
+    });
+
+    // FLD-KEY-04: the deferred commit reads the value the form's own keydown handler set.
+    test('validates the latest value when Enter does not submit the form', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-form');
+      const scope = fixture.locator('[data-case="enter-latest"]');
+      const control = scope.locator('[data-testid="control"]');
+
+      await control.focus();
+      await control.press('Enter');
+
+      await expect(scope).toHaveAttribute('data-count', '1');
+      await expect(scope).toHaveAttribute('data-last', '');
     });
   });
 

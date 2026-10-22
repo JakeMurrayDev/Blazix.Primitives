@@ -4,8 +4,9 @@ namespace Blazix.Primitives.Fixtures.Client.FieldFixtures;
 
 /// <summary>
 /// The base of the Field, Fieldset, Input and Form fixtures (tests/browser/field.spec.ts, fieldset.spec.ts, input.spec.ts, form.spec.ts):
-/// renders <c>data-attached</c> once every listed form, control and label has the form module attached (the specs wait for it
-/// before they type or click) and counts the sync button the specs click as a barrier.
+/// renders <c>data-attached</c> once every listed form, control and label has the form module attached and every listed
+/// field error has the transitions module attached (the specs wait for it before they type or click), and counts the sync
+/// button the specs click as a barrier.
 /// </summary>
 public abstract class FieldFixtureBase : ComponentBase
 {
@@ -30,6 +31,7 @@ public abstract class FieldFixtureBase : ComponentBase
             Input input => input.TwinAttached,
             FieldLabel label => label.TwinAttached,
             Form form => form.TwinAttached,
+            FieldError error => error.TwinAttached,
             _ => Task.CompletedTask,
         }));
         Attached = true;

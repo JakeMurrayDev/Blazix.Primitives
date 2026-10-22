@@ -1,0 +1,124 @@
+@namespace Blazix.Primitives.Fixtures.Client.FormFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `form-errors` fixture (tests/browser/form.spec.ts): Form.test.tsx's [L4] titles that render Field.Error (PR 1c).
+    - `required`: "does not submit if there are errors" (a button with no type submits).
+    - `async-replaced`: OnFormSubmit sets new errors after a yield, as Base UI's resolved promise does.
+    - `app`: the suite's App, whose OnSubmit sets an error for each empty field from the submitted values (Base UI reads them
+      from FormData; the spec reads the native form data in its own submit listener, FRM-FRM-08).
+    - `first-change`: OnSubmit sets a server error for `abcde`; the validator's calls are counted.
+    Every OnSubmit calls PreventNativeSubmit(), as Base UI's handlers call preventDefault().
+*@
+<FixtureContainer Name="form-errors" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="required" data-submits="@requiredSubmits">
+        <Form @ref="requiredForm" OnSubmit="args => { requiredSubmits++; args.PreventNativeSubmit(); }" data-testid="form">
+            <FieldRoot>
+                <FieldControl @ref="requiredControl" required />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <button>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="async-replaced">
+        <Form @ref="asyncForm" Errors="asyncErrors" OnFormSubmit="SetErrorsLater" data-testid="form">
+            <FieldRoot Name="first">
+                <FieldControl @ref="asyncFirst" data-testid="first" />
+                <FieldError data-testid="first-error" />
+            </FieldRoot>
+            <FieldRoot Name="second">
+                <FieldControl @ref="asyncSecond" data-testid="second" />
+                <FieldError data-testid="second-error" />
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="app">
+        <Form @ref="appForm" Errors="appErrors" OnSubmit="SetEmptyErrors" data-testid="form">
+            <FieldRoot Name="name">
+                <FieldControl @ref="appName" data-testid="name" />
+                <FieldError data-testid="name-error" />
+            </FieldRoot>
+            <FieldRoot Name="age">
+                <FieldControl @ref="appAge" data-testid="age" />
+                <FieldError data-testid="age-error" />
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="first-change" data-calls="@firstChangeCalls">
+        <Form @ref="firstChangeForm" Errors="firstChangeErrors" OnSubmit="SetServerError" data-testid="form">
+            <FieldRoot Name="name" Validate="ValidateAbcd">
+                <FieldControl @ref="firstChangeControl" data-testid="name" />
+                <FieldError data-testid="name-error" />
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private Form? requiredForm;
+    private FieldControl? requiredControl;
+    private Form? asyncForm;
+    private FieldControl? asyncFirst;
+    private FieldControl? asyncSecond;
+    private Form? appForm;
+    private FieldControl? appName;
+    private FieldControl? appAge;
+    private Form? firstChangeForm;
+    private FieldControl? firstChangeControl;
+    private FormErrors? asyncErrors;
+    private FormErrors appErrors = new();
+    private FormErrors firstChangeErrors = new();
+    private int requiredSubmits;
+    private int firstChangeCalls;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+        [requiredForm, requiredControl, asyncForm, asyncFirst, asyncSecond, appForm, appName, appAge, firstChangeForm, firstChangeControl];
+
+    private async Task SetErrorsLater()
+    {
+        await Task.Yield();
+        asyncErrors = new FormErrors { ["first"] = "First error", ["second"] = "Second error" };
+    }
+
+    private void SetEmptyErrors(FormSubmitEventArgs args)
+    {
+        args.PreventNativeSubmit();
+        FormErrors next = new();
+        if (args.Values.TryGetValue("name", out object? name) && name as string == string.Empty)
+        {
+            next["name"] = "Name is required";
+        }
+
+        if (args.Values.TryGetValue("age", out object? age) && age as string == string.Empty)
+        {
+            next["age"] = "Age is required";
+        }
+
+        appErrors = next;
+    }
+
+    private void SetServerError(FormSubmitEventArgs args)
+    {
+        args.PreventNativeSubmit();
+        firstChangeErrors = args.Values.TryGetValue("name", out object? name) && name as string == "abcde"
+            ? new FormErrors { ["name"] = "submit error" }
+            : new FormErrors();
+    }
+
+    private ValueTask<FieldValidationResult?> ValidateAbcd(FieldValidationArguments arguments)
+    {
+        firstChangeCalls++;
+        return new(arguments.Value as string == "abcd" ? "field error" : null);
+    }
+}

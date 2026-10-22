@@ -1,0 +1,149 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of Form.test.tsx's titles that render Field.Error (PR 1c), over FieldControl. Each Base UI test's
+    useState is a parameter or a field here; a submission is the stand-in module's report.
+*@
+@switch (Scenario)
+{
+    case ErrorScenario.Required:
+        <Form OnSubmit="Submitted" OnFormSubmit="FormSubmitted">
+            <FieldRoot Name="@Name">
+                <FieldControl DefaultValue="" required data-testid="control" />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.CrossField:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot Name="password" ValidationMode="ValidationMode.OnBlur">
+                <FieldControl data-testid="password" />
+            </FieldRoot>
+            <FieldRoot Name="confirmPassword" ValidationMode="ValidationMode.OnBlur" Validate="Validate">
+                <FieldControl data-testid="confirm" />
+                <FieldError data-testid="confirm-error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.Single:
+        <Form OnSubmit="Submitted" OnFormSubmit="FormSubmitted" Errors="errors">
+            <FieldRoot Name="@Name" ValidationMode="Mode" Validate="Validate" Invalid="Invalid">
+                <FieldControl DefaultValue="@DefaultValue" data-testid="control" />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.Fieldset:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldsetRoot Disabled="Disabled">
+                <FieldRoot Name="disabled">
+                    <FieldControl required data-testid="control" />
+                    <FieldError data-testid="error" />
+                </FieldRoot>
+            </FieldsetRoot>
+        </Form>
+        break;
+    case ErrorScenario.TwoFields:
+        <Form Errors="errors" OnFormSubmit="SetErrorsLater">
+            <FieldRoot Name="first">
+                <FieldControl data-testid="first" />
+                <FieldError data-testid="first-error" />
+            </FieldRoot>
+            <FieldRoot Name="second">
+                <FieldControl data-testid="second" />
+                <FieldError data-testid="second-error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case ErrorScenario.ServerErrors:
+        <Form Errors="errors" OnSubmit="SetErrorsFromValues">
+            <FieldRoot Name="name" Validate="Validate">
+                <FieldControl data-testid="name" />
+                <FieldError data-testid="name-error" />
+            </FieldRoot>
+        </Form>
+        break;
+}
+
+@code {
+    private FormErrors? errors;
+    private FormErrors? errorsParameter;
+    private bool initialized;
+
+    public enum ErrorScenario
+    {
+        Required,
+        CrossField,
+        Single,
+        Fieldset,
+        TwoFields,
+        ServerErrors,
+    }
+
+    [Parameter]
+    public ErrorScenario Scenario { get; set; }
+
+    [Parameter]
+    public string? Name { get; set; }
+
+    [Parameter]
+    public string? DefaultValue { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool Invalid { get; set; }
+
+    [Parameter]
+    public ValidationMode? Mode { get; set; }
+
+    [Parameter]
+    public FormErrors? Errors { get; set; }
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+
+    public List<FormSubmitEventArgs> FormSubmits { get; } = [];
+
+    /// <summary>The errors the TwoFields scenario sets after its submission, applied by <see cref="ApplyPendingErrors"/>.</summary>
+    public FormErrors? PendingErrors { get; private set; }
+
+    /// <summary>Applies the errors the TwoFields scenario's submission set aside, as Base UI's resolved promise does.</summary>
+    public Task ApplyPendingErrors() => InvokeAsync(() =>
+    {
+        errors = PendingErrors;
+        PendingErrors = null;
+        StateHasChanged();
+    });
+
+    protected override void OnParametersSet()
+    {
+        // The Errors parameter seeds the state; a handler's own errors stay until the parameter changes.
+        if (!initialized || !ReferenceEquals(Errors, errorsParameter))
+        {
+            initialized = true;
+            errorsParameter = Errors;
+            errors = Errors;
+        }
+    }
+
+    private void Submitted(FormSubmitEventArgs args) => Submits.Add(args);
+
+    private void FormSubmitted(FormSubmitEventArgs args) => FormSubmits.Add(args);
+
+    // Base UI: onFormSubmit builds { first, second } and sets it in a resolved promise.
+    private void SetErrorsLater(FormSubmitEventArgs args)
+    {
+        FormSubmits.Add(args);
+        PendingErrors = new FormErrors { ["first"] = "First error", ["second"] = "Second error" };
+    }
+
+    // Base UI's onSubmit reads `name` from the FormData; the port's handler reads the submitted values.
+    private void SetErrorsFromValues(FormSubmitEventArgs args)
+    {
+        Submits.Add(args);
+        errors = args.Values.TryGetValue("name", out object? name) && name as string == "abcde" ? new FormErrors { ["name"] = "submit error" } : new FormErrors();
+    }
+}

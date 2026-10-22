@@ -1,0 +1,130 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-custom-validity` fixture (tests/browser/field.spec.ts): FieldRoot.test.tsx's "custom validity ownership"
+    titles that render Field.Error or Form (FFI-FRM-08..10). The spec sets a message from outside the field with the
+    element's own setCustomValidity(). Each case is one Base UI test: `submitting`, `on-change`, `revalidating`, `deferred`
+    (its Field.Validity argument is rendered as data attributes), `clears-own`, `restores`, `withdrawn`, `barred` (a
+    read-only control in a Form) and `barred-own` (a read-only control the button makes editable).
+*@
+<FixtureContainer Name="field-custom-validity" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="submitting" data-form-submits="@submittingSubmits">
+        <Form @ref="submittingForm" OnFormSubmit="() => submittingSubmits++">
+            <FieldRoot Name="external">
+                <FieldControl @ref="submittingControl" data-testid="control" />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    </div>
+
+    <div data-case="on-change">
+        <FieldRoot ValidationMode="ValidationMode.OnChange">
+            <FieldControl @ref="onChangeControl" data-testid="control" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="revalidating">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur">
+            <FieldControl @ref="revalidatingControl" data-testid="control" required />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="deferred" data-type-mismatch="@Flag(deferred?.Validity.TypeMismatch)" data-custom-error="@Flag(deferred?.Validity.CustomError)"
+         data-valid="@Flag(deferred?.Validity.Valid)" data-errors="@string.Join('|', deferred?.Errors ?? [])">
+        <FieldRoot Name="field" ValidationMode="ValidationMode.OnBlur">
+            <FieldControl @ref="deferredControl" data-testid="control" type="email" required />
+            <FieldError Match="ValidityFlag.TypeMismatch" data-testid="type-mismatch">invalid email</FieldError>
+            <FieldValidity Context="validity">@Record(validity)</FieldValidity>
+        </FieldRoot>
+    </div>
+
+    <div data-case="clears-own">
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate='arguments => new ValueTask<FieldValidationResult?>(arguments.Value as string == "bad" ? "custom error\r\nmore" : null)'>
+            <FieldControl @ref="clearsOwnControl" data-testid="control" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="restores">
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate="ValidateBad">
+            <FieldControl @ref="restoresControl" data-testid="control" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="withdrawn">
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate="ValidateBad">
+            <FieldControl @ref="withdrawnControl" data-testid="control" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="barred" data-form-submits="@barredSubmits">
+        <Form @ref="barredForm" OnFormSubmit="() => barredSubmits++">
+            <FieldRoot Name="field" ValidationMode="ValidationMode.OnChange">
+                <FieldControl @ref="barredControl" data-testid="control" readonly />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    </div>
+
+    <div data-case="barred-own">
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate='_ => new ValueTask<FieldValidationResult?>("custom error")'>
+            <FieldControl @ref="barredOwnControl" data-testid="control" readonly="@readOnly" />
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        <button type="button" data-make-editable @onclick="() => readOnly = false">make editable</button>
+    </div>
+</FixtureContainer>
+
+@code {
+    private Form? submittingForm;
+    private FieldControl? submittingControl;
+    private FieldControl? onChangeControl;
+    private FieldControl? revalidatingControl;
+    private FieldControl? deferredControl;
+    private FieldControl? clearsOwnControl;
+    private FieldControl? restoresControl;
+    private FieldControl? withdrawnControl;
+    private Form? barredForm;
+    private FieldControl? barredControl;
+    private FieldControl? barredOwnControl;
+    private FieldValidityState? deferred;
+    private int submittingSubmits;
+    private int barredSubmits;
+    private bool readOnly = true;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+        [submittingForm, submittingControl, onChangeControl, revalidatingControl, deferredControl, clearsOwnControl, restoresControl, withdrawnControl, barredForm, barredControl, barredOwnControl];
+
+    private static string Flag(bool? value) => value switch
+    {
+        true => "true",
+        false => "false",
+        null => "null",
+    };
+
+    private static ValueTask<FieldValidationResult?> ValidateBad(FieldValidationArguments arguments) =>
+        new(arguments.Value as string == "bad" ? "custom error" : null);
+
+    // The argument is rendered by the container's attributes on the next render of the page.
+    private RenderFragment Record(FieldValidityState state)
+    {
+        if (!ReferenceEquals(state, deferred))
+        {
+            deferred = state;
+            _ = InvokeAsync(StateHasChanged);
+        }
+
+        return static _ => { };
+    }
+}
