@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
-// ADR 04 §1 (dom row) and Amendments 2026-10-18 (Avatar convergent write) and 2026-10-20 (owners); CHK-DOM-13,
+// ADR 04 §1 (dom row) and Amendments 2026-10-18 (Avatar convergent write), 2026-10-20 (owners) and 2026-10-22 (the hidden
+// input's checked; SWT-DOM-08, SWT-EVT-04, SWT-STA-03 and the CHK, RAD rows of the same shape); CHK-DOM-13,
 // UTL-A11Y-01..04, AVA-ALG-01/02, AVA-STA-09/12
 /// <summary>
 /// The options of the <c>dom</c> module, sent on <c>attach</c> and on every <c>update</c>. Each property turns one
@@ -15,6 +18,22 @@ internal sealed record DomOptions : TwinOptions
     /// clears it; <see langword="null"/>, the default, leaves the property alone.
     /// </value>
     public bool? Indeterminate { get; init; }
+
+    /// <summary>Gets the value of the <c>checked</c> property of the attached checkbox or radio input.</summary>
+    /// <value>
+    /// The value the module sets on <c>attach</c> and on every <c>update</c>; <see langword="null"/>, the default, leaves the
+    /// property alone. A native click is not undone: the browser's new value stays until the next <c>update</c>.
+    /// </value>
+    public bool? Checked { get; init; }
+
+    /// <summary>Gets the number of times the part asked the module to restore <see cref="Checked"/>.</summary>
+    /// <value>
+    /// A count the part raises after a request that left its value different from the one a native click set, such as a
+    /// canceled change, so that an <c>update</c> is sent although <see cref="Checked"/> is unchanged. The default is 0,
+    /// which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int CheckedRestores { get; init; }
 
     /// <summary>Gets a value indicating whether the attached element is a live region whose initial text must be announced.</summary>
     /// <value>
