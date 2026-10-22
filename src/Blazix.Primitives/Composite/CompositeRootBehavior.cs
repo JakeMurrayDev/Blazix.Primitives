@@ -24,8 +24,11 @@ namespace Blazix.Primitives;
 // runs it from its own handler; on WebAssembly the decision point `navigate` runs it inside the dispatch, and Blazor's
 // later dispatch of that key skips it (the one-shot marker, ButtonBehavior's model). A key the module handles with
 // stopEventPropagation never reaches Blazor's document-level dispatcher, so the marker is left only when Blazor will
-// dispatch the key (a veto, or no stopping). On Server the decision falls back to `run` (ADR 01 relaxation table); that a
-// handled key then never reaches C# is the question of ADR 04's note of 2026-10-22, pending the user.
+// dispatch the key (a veto, or no stopping). On Server the decision falls back to `run` (ADR 01 relaxation table).
+// Option (i) of ADR 04's note of 2026-10-22, pending the user: a handled key that the module stops never reaches Blazor's
+// dispatcher, so the root runs the focused item's consumer onkeydown and then its own consumer's, on one shared event as
+// Base UI's bubbling does: inside `navigate` on WebAssembly, where a PreventPartHandler() in either stops the key, and from
+// the module's handled-key report on Server, a round trip late. The report is asked for only while a handler exists.
 /// <summary>
 /// The composite root mechanism of one part: its <see cref="CompositeTwin"/>, the registry its items join through
 /// <see cref="Context"/>, the reading direction, the consumer's <c>onkeydown</c> gate and the mirrors of the module's
@@ -173,6 +176,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         {
             twin.HighlightChanged -= OnHighlightChange;
             twin.FocusLeft -= OnFocusLeave;
+            twin.KeyHandled -= OnKeyHandled;
             twin.NavigationDecider = null;
             twin.SelectionDecider = null;
             _ = twin.DisposeAsync().AsTask();
@@ -417,6 +421,44 @@ internal sealed class CompositeRootBehavior : IDisposable
         return true;
     }
 
+    // Option (i), pending the user: the report costs a Server message per handled key, so it is asked for only while the
+    // root or an item has a consumer key handler.
+    private bool ReportHandledKeys()
+    {
+        if (consumerKeyDown.IsHandler)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i].HasKeyHandler)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private CompositeItemBehavior? FindItem(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (string.Equals(items[i].Registration.Id, id, StringComparison.Ordinal))
+            {
+                return items[i];
+            }
+        }
+
+        return null;
+    }
+
     private CompositeTwin CreateTwin()
     {
         CompositeTwin created = new(jsRuntime)
@@ -426,6 +468,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         };
         created.HighlightChanged += OnHighlightChange;
         created.FocusLeft += OnFocusLeave;
+        created.KeyHandled += OnKeyHandled;
         return created;
     }
 
@@ -452,6 +495,7 @@ internal sealed class CompositeRootBehavior : IDisposable
             SelectOnNavigation = SelectOnNavigation,
             ReportFocusLeave = ReportFocusLeave,
             ReportHighlight = ReportHighlight,
+            ReportHandledKeys = ReportHandledKeys(),
         };
         sentOptions = options;
         sentItemsVersion = itemsVersion;
@@ -475,7 +519,8 @@ internal sealed class CompositeRootBehavior : IDisposable
             && string.Equals(sent.Direction, CompositeLiterals.ToLiteral(Direction), StringComparison.Ordinal)
             && sent.SelectOnNavigation == SelectOnNavigation
             && sent.ReportFocusLeave == ReportFocusLeave
-            && sent.ReportHighlight == ReportHighlight)
+            && sent.ReportHighlight == ReportHighlight
+            && sent.ReportHandledKeys == ReportHandledKeys())
         {
             return null;
         }
@@ -497,8 +542,9 @@ internal sealed class CompositeRootBehavior : IDisposable
 
     private void OnFocusLeave(EventSnapshot snapshot) => FocusLeft?.Invoke(snapshot);
 
-    // The decision point `navigate`, on WebAssembly only: the part's chain, then the consumer's key handler, run inside the
-    // dispatch, so a PreventPartHandler() there stops the key handling (EVD-EVT-26, CMP-EVT-12).
+    // The decision point `navigate`, on WebAssembly only: the part's chain, then the focused item's and the root's consumer
+    // key handlers on one event, run inside the dispatch, so a PreventPartHandler() in either stops the key handling
+    // (EVD-EVT-26, CMP-EVT-12; the item's under option (i), pending the user).
     private DecisionPolicy DecideNavigation(EventSnapshot snapshot)
     {
         if (NavigationDecider is { } chain && chain(snapshot) == DecisionPolicy.Stop)
@@ -506,16 +552,73 @@ internal sealed class CompositeRootBehavior : IDisposable
             return DecisionPolicy.Stop;
         }
 
-        if (!consumerKeyDown.IsHandler)
+        CompositeItemBehavior? item = FindItem(snapshot.Target?.Id);
+        bool itemHandles = item is not null && item.HasKeyHandler;
+        if (!itemHandles && !consumerKeyDown.IsHandler)
         {
             return DecisionPolicy.Run;
         }
 
         KeyboardEventArgs args = snapshot.ToKeyboardEventArgs();
+        if (itemHandles)
+        {
+            RunConsumerHandler(item!.InvokeKeyHandler, args);
+        }
+
+        if (consumerKeyDown.IsHandler)
+        {
+            RunConsumerHandler(e => consumerKeyDown.InvokeAsync(e), args);
+        }
+
+        bool vetoed = args.PartHandlerPrevented();
+        // Blazor dispatches the key after the module only when the module does not stop its propagation.
+        if (vetoed || !(sentOptions?.StopEventPropagation ?? StopEventPropagation))
+        {
+            if (itemHandles)
+            {
+                item!.MarkDecided(args);
+            }
+
+            if (consumerKeyDown.IsHandler)
+            {
+                decidedKeyDown = DecidedKey.From(args);
+            }
+        }
+
+        return vetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    // Option (i), pending the user: the module handled and stopped a key without running the chain inside the dispatch
+    // (Server). The focused item's and the root's consumer key handlers run now, in Base UI's order, and cannot veto.
+    private void OnKeyHandled(EventSnapshot snapshot) => _ = RunHandledKeyAsync(snapshot);
+
+    private async Task RunHandledKeyAsync(EventSnapshot snapshot)
+    {
+        KeyboardEventArgs args = snapshot.ToKeyboardEventArgs();
         try
         {
-            // Only the synchronous part of the handler can veto; an asynchronous rest runs on (ADR 04 §3).
-            Task task = consumerKeyDown.InvokeAsync(args);
+            if (FindItem(snapshot.Target?.Id) is { HasKeyHandler: true } item)
+            {
+                await item.InvokeKeyHandler(args);
+            }
+
+            if (consumerKeyDown.IsHandler)
+            {
+                await consumerKeyDown.InvokeAsync(args);
+            }
+        }
+        catch (Exception exception)
+        {
+            await dispatchException(exception);
+        }
+    }
+
+    // Only the synchronous part of a handler can veto; an asynchronous rest runs on (ADR 04 §3).
+    private void RunConsumerHandler(Func<KeyboardEventArgs, Task> handler, KeyboardEventArgs args)
+    {
+        try
+        {
+            Task task = handler(args);
             if (!task.IsCompleted)
             {
                 _ = ObserveAsync(task);
@@ -529,15 +632,6 @@ internal sealed class CompositeRootBehavior : IDisposable
         {
             _ = dispatchException(exception);
         }
-
-        bool vetoed = args.PartHandlerPrevented();
-        // Blazor dispatches the key after the module only when the module does not stop its propagation.
-        if (vetoed || !(sentOptions?.StopEventPropagation ?? StopEventPropagation))
-        {
-            decidedKeyDown = DecidedKey.From(args);
-        }
-
-        return vetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
     }
 
     // The decision point `select`, on WebAssembly only: the part's chain (an item's consumer focus handler).
