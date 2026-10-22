@@ -33,5 +33,11 @@ internal static class OwnershipRegistry
         new("collapsible", "Panel", "hidden", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
+        // ADR 04 Amendments 2026-10-22 (chosen by the user): the composite module writes every item's roving tabindex from
+        // attach; C# renders "-1" (CMP-STA-15) and a consumer tabindex wins (RAD-DOM-16). Inert until track 8 creates
+        // Radio/; from then on radio.md §5.1 must read C# → JS for a radio in a group (for example
+        // `C# (standalone); C# → JS (in a group, from attach)`). There is no composite entry: the lint reads only
+        // docs/components/*.md.
+        new("radio", "Root", "tabindex", Writer.CsharpToJs),
     ];
 }
