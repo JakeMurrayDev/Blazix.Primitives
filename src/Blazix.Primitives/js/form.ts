@@ -130,8 +130,9 @@ export function getDefaultFormSubmitter(form: HTMLFormElement | null): HTMLButto
   return null;
 }
 
+// FFI-ALG-04.
 /**
- * Whether an input takes part in the enclosing form's validation (FFI-ALG-04): not `:disabled`, and owned by that form or
+ * Whether an input takes part in the enclosing form's validation: not `:disabled`, and owned by that form or
  * by no form without a `form` attribute.
  * @param input The input.
  * @param formElement The enclosing form's element, or `null` outside a form.
@@ -150,8 +151,9 @@ export function isEligibleInput(input: Element, formElement: HTMLFormElement | n
   return owner === null && !input.hasAttribute('form');
 }
 
+// FFI-ALG-02, FFI-FRM-09.
 /**
- * Reads an input's native validity (FFI-ALG-02) with the field's own custom message read out (FFI-FRM-09): while the
+ * Reads an input's native validity with the field's own custom message read out: while the
  * message is still installed, the read sees the message it displaced, and the element is left as it was.
  * @param element The input.
  * @param formElement The enclosing form's element, or `null`.
@@ -190,10 +192,11 @@ export function readNativeValidity(element: Element, formElement: HTMLFormElemen
   return result;
 }
 
+// FFI-FRM-08..10.
 /**
- * Installs or withdraws the field's own custom message (FFI-FRM-09/10): the previous own message is withdrawn only while
+ * Installs or withdraws the field's own custom message: the previous own message is withdrawn only while
  * it is still installed, restoring what it displaced; a new message records the custom message it displaces (never a
- * native one) and is not written to a barred input (FFI-FRM-08). `\r\n` and `\r` become `\n`.
+ * native one) and is not written to a barred input. `\r\n` and `\r` become `\n`.
  * @param element The input.
  * @param message The message, or `null` to withdraw the field's own message.
  */
@@ -221,8 +224,9 @@ export function applyOwnCustomValidity(element: Element, message: string | null 
   }
 }
 
+// FFI-ALG-08 (control lookup), FFI-PTR-04.
 /**
- * Finds the control a label points at (FFI-ALG-08, FFI-PTR-04): from the label's root node outward through every
+ * Finds the control a label points at: from the label's root node outward through every
  * enclosing shadow root's host, then the document.
  * @param label The label element.
  * @param id The control id.
@@ -240,8 +244,9 @@ export function getControlById(label: Element, id: string): Element | null {
   return ownerDocument(label).getElementById(id);
 }
 
+// FFI-ALG-08 `discover`, FFI-ARIA-06.
 /**
- * Discovers the native label of a form-participation input (FFI-ALG-08 `discover`, FFI-ARIA-06): its parent label, a next
+ * Discovers the native label of a form-participation input: its parent label, a next
  * sibling label whose `for` is the input's id, or its first associated label; an id-less label gets `generatedLabelId`.
  * @param input The input.
  * @param generatedLabelId The id to give an id-less label (`${controlId}-label`), or `null`.
