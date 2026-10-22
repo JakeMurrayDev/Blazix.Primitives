@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 using Scenario = Blazix.Primitives.Tests.Components.FieldScenarios.FieldScenario;
 
 namespace Blazix.Primitives.Tests.Components;
@@ -128,6 +129,30 @@ public sealed class FieldPartsTests : IDisposable
         Context.Render<FieldRoot>(p => p.AddChildContent<FieldLabel>(l => l.Add(x => x.RenderFunction, (RenderFragment<RenderProps<FieldLabelState>>)(_ => _ => { })).AddChildContent("Label")));
 
         Assert.Empty(logger.Entries);
+    }
+
+    // In a browser the module finds no element by the label's id and throws; the label then attaches nothing and checks
+    // nothing, and neither its render nor the field fails.
+    [Fact(DisplayName = "attaches nothing when the render function returns no element")]
+    [Trait("Requirement", "FFI-EDGE-02")]
+    [Trait("Requirement", "FLD-EDGE-02")]
+    public void Attaches_nothing_when_the_render_function_returns_no_element()
+    {
+        CapturingLogger<FieldLabel> logger = new();
+        Context.Services.AddSingleton<ILogger<FieldLabel>>(logger);
+        NoElementRuntime runtime = new();
+        Context.Services.AddSingleton<IJSRuntime>(runtime);
+
+        IRenderedComponent<FieldRoot> cut = Context.Render<FieldRoot>(p => p
+            .AddUnmatched("data-testid", "root")
+            .AddChildContent<FieldLabel>(l => l.Add(x => x.RenderFunction, (RenderFragment<RenderProps<FieldLabelState>>)(_ => _ => { })).AddChildContent("Label"))
+            .AddChildContent<FieldControl>(c => c.Add(x => x.RenderFunction, (RenderFragment<RenderProps<FieldControlState>>)(_ => _ => { }))));
+        cut.Render();
+
+        Assert.NotNull(cut.Find("[data-testid=root]"));
+        Assert.Empty(logger.Entries);
+        Assert.False(cut.FindComponent<FieldLabel>().Instance.TwinAttached.IsCompleted);
+        Assert.True(runtime.Attempts >= 2);
     }
 
     [Fact(DisplayName = "errors if nativeLabel=true but ref is not a label")]
@@ -375,4 +400,30 @@ public sealed class FieldPartsTests : IDisposable
         Assert.Equal(["typed"], changes);
         Assert.False(cut.Find("input").HasAttribute("data-dirty"));
     }
+
+    /// <summary>A runtime whose form module, like the browser's, finds no element for an id that nothing rendered.</summary>
+    /// <remarks>BL0016 asks callers of JS interop to guard the call; this is the runtime itself, which only answers.</remarks>
+#pragma warning disable BL0016
+    private sealed class NoElementRuntime : IJSRuntime, IJSObjectReference
+    {
+        public int Attempts { get; private set; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier, args);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private ValueTask<TValue> Answer<TValue>(string identifier, object?[]? args)
+        {
+            if (identifier == "import")
+            {
+                return ValueTask.FromResult((TValue)(object)this);
+            }
+
+            Attempts++;
+            return ValueTask.FromException<TValue>(new JSException($"Blazix: no element for id '{args?[0]}'"));
+        }
+    }
+#pragma warning restore BL0016
 }
