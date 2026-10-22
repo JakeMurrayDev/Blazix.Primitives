@@ -34,10 +34,11 @@ public sealed record FieldValidityState(
 // the field publishes validity, when its external invalid state changes or when the transition status changes, and kept
 // otherwise (FLD-STA-08, FFI-EDGE-12).
 //
-// The transition (FLD-ANI-06; FLD §16 item 1 followed, and design point E2 of PR 1c, pending the orchestrator): Base UI's
-// machine over "the combined validity is invalid", whose mounted flag nothing clears, so 'ending' lasts until the field is
-// invalid again. With no element and no frames in C#, the next-frame clear of 'starting' (and of a stale 'ending') runs
-// one frame's time later on the field's TimeProvider (ADR 01 decision 4: timers on TimeProvider).
+// The transition (FLD-ANI-06; FLD §16 item 1 followed; design point E2 of PR 1c, settled by the orchestrator 2026-10-23
+// under ADR 01 decision 4 and its Amendments 2026-10-23): Base UI's machine over "the combined validity is invalid",
+// whose mounted flag nothing clears, so 'ending' lasts until the field is invalid again. With no element there is no frame
+// to read, so the next-frame clear of 'starting' (and of a stale 'ending') runs after one 16 ms tick of the field's
+// TimeProvider. This is confined to this part and is not a frame emulation for DOM work.
 /// <summary>
 /// Represents a part that renders content from a field's validity: Base UI's <c>Field.Validity</c>. It renders no element
 /// of its own and belongs inside a <see cref="FieldRoot"/>.

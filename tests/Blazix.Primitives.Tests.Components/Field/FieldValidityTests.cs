@@ -229,7 +229,7 @@ public sealed class FieldValidityTests : IDisposable
         Assert.Equal(first.Validity, cut.Instance.ValidityCalls[^1].Validity);
     }
 
-    // FLD-ANI-06, FLD §16 item 1 (followed, design point E2 of PR 1c): no element and no frame in C#, so the next frame is
+    // FLD-ANI-06, FLD §16 item 1 (followed, design point E2 of PR 1c, settled by the orchestrator 2026-10-23): no element and no frame in C#, so the next frame is
     // one frame's time on the TimeProvider; the 'ending' status is latched until the field is invalid again.
     [Fact(DisplayName = "follows the invalid state through starting, unset and a latched ending")]
     [Trait("Requirement", "FLD-ANI-06")]

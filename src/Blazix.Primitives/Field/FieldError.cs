@@ -81,10 +81,11 @@ public static class FieldErrorDataAttributes
 // The transition (FLD §9, TRN §6.1: no idle state, no deferred ending, no initial animation): one TransitionsTwin on the
 // element while it is mounted. The element C# creates carries data-starting-style (the handover, ADR 04 Amendments
 // 2026-10-18; the value stays frozen in the render output after attach, as Avatar.Image's). No attribute C# renders carries
-// the rendered state, so the close reaches the module through `update` (design point E1 of PR 1c, pending the
-// orchestrator: the Avatar.Image row of ADR 01). The module's completion message unmounts the part; a completion that
-// crossed a reopen (Server) is ignored, and the module's later report settles the status. Without an element to watch (a
-// substitute callback) the exit ends at once.
+// the rendered state, so the close reaches the module through `update` after the render that stops rendering the message,
+// which stays mounted showing its last message (design point E1 of PR 1c, settled by the orchestrator 2026-10-23 under
+// ADR 01 Amendments 2026-10-21, the Avatar.Image row; ADR 01's Field.Error row). The module's completion message unmounts
+// the part; a completion that crossed a reopen (Server) is ignored, and the module's later report settles the status.
+// Without an element to watch (a substitute callback) the exit ends at once.
 /// <summary>
 /// Represents the message shown when a field fails validation: Base UI's <c>Field.Error</c>, rendered as a <c>div</c> only
 /// while the message is shown or plays its exit transition. It belongs inside a <see cref="FieldRoot"/>; the control

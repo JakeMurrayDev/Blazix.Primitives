@@ -354,7 +354,7 @@ public sealed class FieldErrorTests : IDisposable
         Assert.Equal("error", cut.Find("[data-testid=error]").GetAttribute("class"));
     }
 
-    // FLD-ANI-03 (design point E1 of PR 1c): no attribute C# renders carries the error's rendered state, so the close
+    // FLD-ANI-03 (design point E1 of PR 1c, settled by the orchestrator 2026-10-23): no attribute C# renders carries the error's rendered state, so the close
     // reaches the module through update; the element stays until the module reports the exit complete.
     [Fact(DisplayName = "sends the close through update and keeps the element until the module completes the exit")]
     [Trait("Requirement", "FLD-ANI-03")]
