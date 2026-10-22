@@ -211,4 +211,9 @@ The panel's twin is `CollapsibleTwin`; the Collapsible Root and Trigger keep `Tr
 - So no C# `onkeydown` on the root, on an item or on an ancestor runs for that key: on Server not at all, and on WebAssembly only the root's, inside `navigate`.
 - Base UI runs the consumer's handlers of the item and the root before the root's handling, and stops only the ancestors'.
 - The probe is `tests/browser/composite.spec.ts` "with stopEventPropagation a handled key reaches no C# onkeydown on an item or an ancestor, an unhandled key reaches every one", on the `composite-list` fixture, both modes.
-- The options and the recommendation are with the user through the orchestrator. Until the answer, the module stops the key at the root as CMP-KEY-10 states.
+- The options went to the user through the orchestrator: (i) an opt-in handled-key report with the item's handler routed through the root; (ii) a relaxation row; (iii) a deferred stop.
+- Built on the recommendation, (i), in commits marked "pending the user"; the module still stops the key at the root as CMP-KEY-10 states.
+  - The root and the items decline the consumer's `onkeydown` and run it themselves.
+  - `navigate` runs the focused item's handler, then the root's, on one shared event, so a `PreventPartHandler()` in either stops the key: Base UI's flag lives on the shared synthetic event (`merge-props/mergeProps.ts:210-231`).
+  - On Server, `CompositeOptions.ReportHandledKeys`, sent only while the root or an item has such a handler, makes the module report a key it handled and stopped without running the C# chain (`CompositeTwin.KeyHandled`). The two handlers then run a round trip late and cannot veto, as the ADR 01 row already says for Server.
+  - An ancestor's handler never sees the key, as in Base UI.
