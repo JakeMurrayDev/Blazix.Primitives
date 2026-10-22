@@ -1,0 +1,45 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+@using Blazix.Primitives
+@inherits SwitchFixtureBase
+
+@*
+    The `switch-labels` fixture (tests/browser/switch.spec.ts): a switch inside a wrapping native label, a switch named by
+    a label's `for` through its id (which goes to the hidden input), and a native-button switch named the same way (the id
+    goes to the button).
+*@
+<FixtureContainer Name="switch-labels" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled switch has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-switch] { display: inline-block; width: 2rem; height: 1rem; border: 1px solid; }</style>
+
+    <SwitchCaseFrame Name="wrapping" Case="wrapping">
+        <label data-label>
+            <SwitchRoot @ref="wrappingRoot" data-switch OnCheckedChange="wrapping.Change" />
+            Toggle
+        </label>
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="explicit" Case="@explicitCase">
+        <label data-label for="mySwitch">Toggle</label>
+        <SwitchRoot @ref="explicitRoot" data-switch id="mySwitch" OnCheckedChange="explicitCase.Change" />
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="native" Case="native">
+        <label data-label for="myNativeSwitch">Toggle</label>
+        <SwitchRoot @ref="nativeRoot" data-switch id="myNativeSwitch" NativeButton="true" OnCheckedChange="native.Change">
+            <Render><button></button></Render>
+        </SwitchRoot>
+    </SwitchCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly SwitchCase wrapping = new();
+    private readonly SwitchCase explicitCase = new();
+    private readonly SwitchCase native = new();
+    private SwitchRoot? wrappingRoot;
+    private SwitchRoot? explicitRoot;
+    private SwitchRoot? nativeRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<SwitchRoot?> Switches => [wrappingRoot, explicitRoot, nativeRoot];
+}

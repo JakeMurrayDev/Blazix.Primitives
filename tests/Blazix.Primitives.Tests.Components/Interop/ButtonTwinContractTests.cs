@@ -181,6 +181,72 @@ public sealed class ButtonTwinContractTests
         Assert.Equal(new[] { true, false }, reported);
     }
 
+    private const string InputClickJson = """
+        {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":true,
+         "metaKey":false,"shiftKey":false,"pointerType":"","detail":0,"buttons":0,
+         "target":{"id":"base-ui-2","tagName":"INPUT"},"defaultPrevented":false,"timeStamp":7}
+        """;
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-09")]
+    [Trait("Requirement", "SWT-PTR-07")]
+    [Trait("Requirement", "CHK-KEY-03")]
+    public void The_hidden_input_bridge_options_are_sent_only_when_turned_on()
+    {
+        // ADR 12 Amendments 2026-10-22 item 4: the bridge and the Enter suppression are options of the button module.
+        Assert.Equal(
+            """{"disabled":false,"native":false,"composite":false,"hiddenInput":true,"readOnly":true,"suppressEnter":true,"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(
+                new ButtonOptions { Native = false, HiddenInput = true, ReadOnly = true, SuppressEnter = true, DevelopmentChecks = false },
+                BlazixJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("hiddenInput", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-09")]
+    [Trait("Requirement", "SWT-EVT-03")]
+    public void OnToggle_raises_Toggled_with_the_new_checked_value_and_the_input_click()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<ButtonToggle> reported = [];
+        twin.Toggled += reported.Add;
+
+        twin.OnToggle($$"""{"checked":true,"event":{{InputClickJson}}}""");
+
+        ButtonToggle toggle = Assert.Single(reported);
+        Assert.True(toggle.Checked);
+        Assert.Equal("click", toggle.Event.Type);
+        Assert.Equal(0, toggle.Event.Detail);
+        Assert.True(toggle.Event.CtrlKey);
+        Assert.Equal("INPUT", toggle.Event.Target?.TagName);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-09")]
+    [Trait("Requirement", "SWT-EVT-04")]
+    public void Decide_on_the_toggle_point_runs_the_toggle_decider_and_without_one_runs()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        ButtonTwin decided = new(context.JSInterop.JSRuntime)
+        {
+            ToggleDecider = snapshot =>
+            {
+                seen.Add(snapshot);
+                return DecisionPolicy.Stop;
+            },
+            ActivationDecider = _ => DecisionPolicy.Run,
+        };
+        ButtonTwin undecided = new(context.JSInterop.JSRuntime);
+
+        Assert.Equal("toggle", ButtonTwin.TogglePoint);
+        Assert.Equal("stop", decided.Decide(ButtonTwin.TogglePoint, InputClickJson));
+        Assert.Equal("run", decided.Decide(ButtonTwin.ActivatePoint, InputClickJson));
+        Assert.Equal("run", undecided.Decide(ButtonTwin.TogglePoint, InputClickJson));
+        Assert.Equal("click", Assert.Single(seen).Type);
+    }
+
     [Fact]
     public void A_callback_without_a_subscriber_is_a_no_op()
     {

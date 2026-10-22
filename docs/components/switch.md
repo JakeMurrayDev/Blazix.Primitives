@@ -8,6 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/switch/page.mdx` |
 | Prefix | `SWT` |
 | Status | approved |
+| Revised | 2026-10-22 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -29,7 +30,8 @@ No component in the library builds on Switch, and Switch builds on no other comp
 ```
 
 - **SWT-STR-01** — MUST. `Switch.Root` MUST render, in document order: the root element (default `<span>`), then, only when the switch is unchecked and both an effective `name` and `uncheckedValue` are set, an `<input type="hidden">`, then always an `<input type="checkbox">`. All three are siblings; the inputs are never descendants of the root element.
-  Source: `switch/root/SwitchRoot.tsx:230-238`. Test: [L2] `SwitchRoot.test.tsx` "should update its state if the underlying input is toggled" (hidden checkbox exists), "submits uncheckedValue to an external form when off".
+  Source: `switch/root/SwitchRoot.tsx:230-238`. Test: [L2] `SwitchRoot.test.tsx` "should update its state if the underlying input is toggled" (hidden checkbox exists), "submits uncheckedValue to an external form when off" (L4 for the `FormData` citation).
+  Port note 2026-10-22 (ADR 02 Amendments 2026-10-22): the two inputs are rendered after the root element by `PartBase.BuildAfterElement`, so they are its siblings on every render path; the `FormData` citation runs in a browser (ADR 06 §1, ADR 13 §3).
 - **SWT-STR-02** — MUST. `Switch.Thumb` MUST be rendered somewhere inside the subtree of a `Switch.Root`; rendering it elsewhere MUST throw the error in SWT-EDGE-01. Nothing limits the number of Thumbs; each one mirrors the root's state.
   Source: `switch/root/SwitchRootContext.ts:9-17`, `switch/thumb/SwitchThumb.tsx:21`. Test: [L2] `SwitchThumb.test.tsx` "throws a descriptive error when rendered outside <Switch.Root>".
 - **SWT-STR-03** — MUST. `Switch.Thumb` is structural only: it MUST render an element carrying the root's state attributes and any forwarded attributes, and MUST NOT attach handlers, ARIA attributes or an `id` of its own.
@@ -81,12 +83,13 @@ If Thumb is omitted the root still functions fully; Thumb exists only as a styli
 - **SWT-API-08** — MUST. The `value` prop MUST be placed on the hidden checkbox input only; when the prop is `undefined`, the input MUST have no `value` attribute at all (so the browser submits its default `"on"`).
   Source: `switch/root/SwitchRoot.tsx:202-204`. Test: [L2] `SwitchRoot.test.tsx` "should not set the value attribute by default", "should set the value attribute only on the input".
 - **SWT-API-09** — MUST. `uncheckedValue` MUST be submitted (via the hidden `<input type="hidden">`) only while the switch is unchecked and an effective name exists; when `undefined`, an unchecked switch MUST submit nothing.
-  Source: `switch/root/SwitchRoot.tsx:233-235,319-323`. Test: [L2] `SwitchRoot.test.tsx` "should submit uncheckedValue when switch is off and uncheckedValue is specified". Docs: CHANGELOG v1.0.0-rc.0 "Match native off state in form submission".
+  Source: `switch/root/SwitchRoot.tsx:233-235,319-323`. Test: [L2] `SwitchRoot.test.tsx` "should submit uncheckedValue when switch is off and uncheckedValue is specified" (L4 for the `FormData` citation). Docs: CHANGELOG v1.0.0-rc.0 "Match native off state in form submission".
 - **SWT-API-10** — MUST. `form` MUST be forwarded as the `form` attribute of both hidden inputs and MUST NOT appear on the root element.
-  Source: `switch/root/SwitchRoot.tsx:163,234`. Test: [L2] `SwitchRoot.test.tsx` "submits to an external form when `form` is provided".
+  Source: `switch/root/SwitchRoot.tsx:163,234`. Test: [L2] `SwitchRoot.test.tsx` "submits to an external form when `form` is provided" (L4 for the `FormData` citation).
+  Port note 2026-10-22: the parameter is `Form : string?` (ADR 08 Amendments 2026-10-22); at L2 the port asserts the attribute on both inputs and not on the root.
 - **SWT-API-11** — MUST. When `nativeButton` is `false`, the `id` prop MUST be applied to the hidden checkbox input and the root element MUST receive an auto-generated id. When `nativeButton` is `true`, the `id` prop MUST be applied to the root element and the hidden input MUST have no `id`.
   Source: `switch/root/SwitchRoot.tsx:82-85,121,164`. Test: [L2] `SwitchRoot.test.tsx` "should toggle the switch when a explicitly linked <label> is clicked", "should associate `id` with the native button when `nativeButton=true`" (L4 for the label-click citations).
-- **SWT-API-12** — MUST. `inputRef` MUST be attached to the hidden `<input type="checkbox">` element.
+- **SWT-API-12** — MUST. `inputRef` MUST be attached to the hidden `<input type="checkbox">` element. Port: withdrawn (ADR 02 Amendments 2026-10-22 item 1, 2026-10-22): the hidden input stays internal and no public handle to it exists.
   Source: `switch/root/SwitchRoot.tsx:77,171`. Test: [L2] `SwitchRoot.test.tsx` "should be able to access the native input".
 - **SWT-API-13** — MUST. `nativeButton` defaults to `false`. It selects native-button vs. non-native-button behavior from [UBT](../architecture/button-behavior.md) (keyboard activation, `tabindex`, disabled attribute vs `aria-disabled`, `type="button"`) and the `id`/label wiring in SWT-API-11 and §5.
   Source: `switch/root/SwitchRoot.tsx:47,107-110`. Test: [L2] `SwitchRoot.test.tsx` "can render a native button" (L4 for the keyboard-activation clause).
@@ -188,7 +191,7 @@ No value normalization applies (the value is a boolean). There is no mount/unmou
   Source: `packages/utils/src/useControlled.ts:41,46`. Test: none.
 - **SWT-STA-02** — MUST. In component-owned mode, a non-canceled user toggle MUST set `checked` to the hidden input's post-click `checked` property (that is, the inverse of the previous state).
   Source: `switch/root/SwitchRoot.tsx:183,192`. Test: [L2] `SwitchRoot.test.tsx` "should change its state when clicked".
-- **SWT-STA-03** — MUST. In consumer-owned mode, a user toggle MUST NOT change the rendered state unless the consumer updates `checked`; when the consumer updates `checked` (from any cause, including code unrelated to user interaction) the root's `aria-checked`, data attributes, Thumb attributes and hidden input `checked` property MUST follow.
+- **SWT-STA-03** — MUST. In consumer-owned mode, a user toggle MUST NOT change the rendered state unless the consumer updates `checked`; when the consumer updates `checked` (from any cause, including code unrelated to user interaction) the root's `aria-checked`, data attributes, Thumb attributes and hidden input `checked` property MUST follow. Server: relaxed, see §9.
   Source: `switch/root/SwitchRoot.tsx:87-92,123,161`, `packages/utils/src/useControlled.ts:83-90`. Test: [L2] `SwitchRoot.test.tsx` "should update its state when changed from outside", "does not change state when canceled via a root click" (`input.checked` restored) (L4 for the `input.checked` restore clause).
 - **SWT-STA-05** — MUST. When `checked` was consumer-owned at first render and later becomes `undefined`, the rendered state MUST fall back to the initial default (`Boolean(defaultChecked)` as of the first render).
   Source: `packages/utils/src/useControlled.ts:43-46`. Test: none.
@@ -268,7 +271,7 @@ Rendered always, as the root's next sibling (after the optional `<input type="hi
 | `type` | `"checkbox"` | SWT-DOM-07 | C# |
 | `aria-hidden` | `"true"` | SWT-DOM-07 | C# |
 | `tabindex` | `-1` | SWT-DOM-07 | C# |
-| `checked` (property) | `checked` state | SWT-DOM-08 | C# |
+| `checked` (property) | `checked` state | SWT-DOM-08 | C# → JS |
 | `disabled` | effective disabled | SWT-DOM-08 | C# |
 | `required` | `required` | SWT-DOM-08 | C# |
 | `name` | effective name (absent when none) | SWT-DOM-08 | C# |
@@ -282,7 +285,8 @@ Rendered always, as the root's next sibling (after the optional `<input type="hi
 - **SWT-DOM-07** — MUST. The hidden input MUST be `<input type="checkbox">` with `aria-hidden="true"` and `tabindex="-1"`.
   Source: `switch/root/SwitchRoot.tsx:168-170`. Test: [L2] `SwitchRoot.test.tsx` `getByRole('checkbox', { hidden: true })` queries.
 - **SWT-DOM-08** — MUST. The hidden input's `checked` property MUST always equal the switch's `checked` state; its `disabled`, `required`, `name` and `form` attributes MUST mirror the effective disabled, `required`, effective name and `form` values.
-  Source: `switch/root/SwitchRoot.tsx:161-166`. Test: [L2] `SwitchRoot.test.tsx` "should receive name prop from Field.Root", "does not submit uncheckedValue when disabled", "does not change state when canceled via a hidden input click" (`input.checked`) (L4 for the `checked`-property restore citation).
+  Source: `switch/root/SwitchRoot.tsx:161-166`. Test: [L2] `SwitchRoot.test.tsx` "should receive name prop from Field.Root", "does not submit uncheckedValue when disabled", "does not change state when canceled via a hidden input click" (`input.checked`) (L4 for the `checked`-property restore and `FormData` citations).
+  Port note 2026-10-22 (ADR 04 Amendments 2026-10-22, the ownership row of the hidden input's `checked`): the `Writer` cell is `C# → JS`. C# renders the initial `checked` once, in prerender and the first interactive render; from attach the `dom` primitive owns the property, sets it on every `update` and is asked to restore it (`DomOptions.CheckedRestores`) when a request leaves the switch's value different from the box. It is not re-asserted inside a native click, which would undo an accepted toggle on Server before C# commits it (ADR 04 Amendments 2026-10-22 item 2 as refined by M2 track 4); it is re-asserted after the owning form's `reset` (§16 Q1).
 - **SWT-DOM-09** — MUST. The hidden input MUST be visually hidden by inline style. With no effective name the declarations are: `clip-path: inset(50%); overflow: hidden; white-space: nowrap; border: 0; padding: 0; width: 1px; height: 1px; margin: 0; position: fixed; top: 0; left: 0`. With an effective name they are: `clip-path: inset(50%); overflow: hidden; white-space: nowrap; border: 0; padding: 0; width: 1px; height: 1px; margin: -1px; position: absolute` (kept in flow near the root so native validation UI appears beside the switch).
   Source: `switch/root/SwitchRoot.tsx:167`, `packages/utils/src/visuallyHidden.ts:3-25`. Test: none.
 - **SWT-DOM-10** — MUST. When `nativeButton` is `false`, the hidden input MUST carry the labelable control id (the `id` prop; else the enclosing `Field.Root`'s control id; else a generated id) — it is never absent. When `nativeButton` is `true`, the hidden input MUST have no `id`.
@@ -297,7 +301,7 @@ Rendered always, as the root's next sibling (after the optional `<input type="hi
 ### Hidden `type="hidden"` input (unchecked value)
 
 - **SWT-DOM-13** — MUST. An `<input type="hidden">` with `name` = effective name, `value` = `uncheckedValue`, `form` = `form` prop and `disabled` = effective disabled MUST be rendered between the root and the checkbox input exactly while `checked` is `false` AND an effective name is non-empty AND `uncheckedValue !== undefined`; otherwise it MUST NOT exist.
-  Source: `switch/root/SwitchRoot.tsx:233-235`. Test: [L2] `SwitchRoot.test.tsx` "submits uncheckedValue to an external form when off", "submits custom value and uncheckedValue across an off/on/off cycle", "does not submit uncheckedValue when disabled".
+  Source: `switch/root/SwitchRoot.tsx:233-235`. Test: [L2] `SwitchRoot.test.tsx` "submits uncheckedValue to an external form when off", "submits custom value and uncheckedValue across an off/on/off cycle", "does not submit uncheckedValue when disabled" (L4 for the `FormData` citations).
 
 ## 6. Interactions
 
@@ -404,7 +408,7 @@ Not applicable — Switch has no popup or dismissable surface.
   Source: `switch/root/SwitchRoot.tsx:184,326`. Test: none.
 - **SWT-EVT-03** — MUST. `details.event` MUST be the native `click` event received by the hidden input (the component-dispatched click for root/keyboard activation; the browser's own click for label or direct-input activation), so that it carries the originating modifier-key state. `details.trigger` is `undefined`.
   Source: `switch/root/SwitchRoot.tsx:184`, `internals/createBaseUIEventDetails.ts:138-155`. Test: [L4] `SwitchRoot.test.tsx` "should report keyboard modifier event properties when calling onCheckedChange".
-- **SWT-EVT-04** — MUST. If the callback calls `details.cancel()`, the state MUST NOT change (in either ownership mode), the hidden input's `checked` property MUST be restored to the current state, and no field side effects (dirty, filled, validation, error clearing) MUST occur.
+- **SWT-EVT-04** — MUST. If the callback calls `details.cancel()`, the state MUST NOT change (in either ownership mode), the hidden input's `checked` property MUST be restored to the current state, and no field side effects (dirty, filled, validation, error clearing) MUST occur. Server: relaxed, see §9.
   Source: `switch/root/SwitchRoot.tsx:188-192`. Test: [L2] `SwitchRoot.test.tsx` "does not change state when canceled via a root click", "does not change state when canceled via a hidden input click", "preserves Field validation props through canceled changes, submit, and reset" (L4 for the `checked`-property restore clause).
 - **SWT-EVT-05** — MUST. `onCheckedChange` MUST NOT be called when `checked` changes because the consumer changed the prop, nor on mount.
   Source: `switch/root/SwitchRoot.tsx:172-193` (only path to the callback is the input change). Test: [L2] `SwitchRoot.test.tsx` "revalidates when a controlled value changes externally" (validation runs; callback not asserted — implied by `onCheckedChange={setChecked}` not looping).
@@ -428,15 +432,20 @@ Mechanism: [FFI](../architecture/field-and-form-infrastructure.md). This section
 3. On blur (only if the hidden input exists and the switch is not disabled): `touched ← true`; `focused ← false`; if the field's validation mode is `onBlur`, commit a full validation of the hidden input's current `checked`.
 
 - **SWT-FRM-01** — MUST. When checked and an effective name exists, form submission MUST include one entry `name = value` where `value` is the `value` prop or `"on"` when undefined.
-  Source: `switch/root/SwitchRoot.tsx:161,165,204`. Test: [L2] `SwitchRoot.test.tsx` "should include the switch value in form submission, matching native checkbox behavior", "matches native checkbox form submission behavior", "submits custom value and uncheckedValue across an off/on/off cycle".
+  Source: `switch/root/SwitchRoot.tsx:161,165,204`. Test: [L4] `SwitchRoot.test.tsx` "should include the switch value in form submission, matching native checkbox behavior", "matches native checkbox form submission behavior", "submits custom value and uncheckedValue across an off/on/off cycle".
+  Port note 2026-10-22: re-tagged from L2, because every cited title builds `FormData` in a browser (`it.skipIf(isJSDOM)`; ADR 06 §1, ADR 13 §3).
 - **SWT-FRM-02** — MUST. When unchecked and `uncheckedValue` is undefined, form submission MUST include no entry for the name.
-  Source: `switch/root/SwitchRoot.tsx:233`. Test: [L2] `SwitchRoot.test.tsx` "should include the switch value in form submission, matching native checkbox behavior" (`null`), "matches native checkbox form submission behavior" (`getAll` → `[]`).
+  Source: `switch/root/SwitchRoot.tsx:233`. Test: [L4] `SwitchRoot.test.tsx` "should include the switch value in form submission, matching native checkbox behavior" (`null`), "matches native checkbox form submission behavior" (`getAll` → `[]`).
+  Port note 2026-10-22: re-tagged from L2, because every cited title builds `FormData` in a browser (`it.skipIf(isJSDOM)`; ADR 06 §1, ADR 13 §3).
 - **SWT-FRM-03** — MUST. When unchecked and `uncheckedValue` is defined, form submission MUST include exactly one entry `name = uncheckedValue`.
-  Source: `switch/root/SwitchRoot.tsx:233-235`. Test: [L2] `SwitchRoot.test.tsx` "should submit uncheckedValue when switch is off and uncheckedValue is specified", "should submit custom uncheckedValue when switch is off", "submits uncheckedValue to an external form when off".
+  Source: `switch/root/SwitchRoot.tsx:233-235`. Test: [L4] `SwitchRoot.test.tsx` "should submit uncheckedValue when switch is off and uncheckedValue is specified", "should submit custom uncheckedValue when switch is off", "submits uncheckedValue to an external form when off".
+  Port note 2026-10-22: re-tagged from L2, because every cited title builds `FormData` in a browser (`it.skipIf(isJSDOM)`; ADR 06 §1, ADR 13 §3).
 - **SWT-FRM-04** — MUST. When disabled, form submission MUST include no entry for the name in either state.
-  Source: `switch/root/SwitchRoot.tsx:162,234`. Test: [L2] `SwitchRoot.test.tsx` "does not submit uncheckedValue when disabled".
+  Source: `switch/root/SwitchRoot.tsx:162,234`. Test: [L4] `SwitchRoot.test.tsx` "does not submit uncheckedValue when disabled".
+  Port note 2026-10-22: re-tagged from L2, because every cited title builds `FormData` in a browser (`it.skipIf(isJSDOM)`; ADR 06 §1, ADR 13 §3).
 - **SWT-FRM-05** — MUST. With `form="<id>"`, both hidden inputs MUST be submitted with the `<form>` of that id even when rendered outside it.
-  Source: `switch/root/SwitchRoot.tsx:163,234`. Test: [L2] `SwitchRoot.test.tsx` "submits to an external form when `form` is provided", "submits uncheckedValue to an external form when off".
+  Source: `switch/root/SwitchRoot.tsx:163,234`. Test: [L4] `SwitchRoot.test.tsx` "submits to an external form when `form` is provided", "submits uncheckedValue to an external form when off".
+  Port note 2026-10-22: re-tagged from L2, because every cited title builds `FormData` in a browser (`it.skipIf(isJSDOM)`; ADR 06 §1, ADR 13 §3).
 - **SWT-FRM-06** — MUST. Within a `Field.Root`, the switch MUST register as the field's control with value = `checked`, control element = root, and name = `name` prop; it MUST unregister while disabled and on unmount. Server: relaxed, see §9.
   Source: `switch/root/SwitchRoot.tsx:94`, `internals/field-register-control/useRegisterFieldControl.ts:21-45`. Test: [L2] `SwitchRoot.test.tsx` "prop: validationMode=onSubmit" (field validated on submit), "validates once when changed by the user" (`validate` receives `true`).
 - **SWT-FRM-07** — MUST. The field's dirty baseline (`initialValue`) MUST be the `checked` value at the switch's first registration within that field and MUST NOT be re-captured on later changes.
@@ -470,7 +479,8 @@ Not applicable — all parts are always mounted; there is no transition status, 
 
 **Server relaxations** (decisions/01-hosting-model-and-timing.md, relaxation table):
 
-- SWT-PTR-09 — row "EVD-EVT-26 against composite/button key handling": a C# consumer's `PreventBaseUIHandler()` on the root click is synchronous on WebAssembly through `decide()`; on Server the press is handled regardless (fallback "run"); a consumer JavaScript listener's `preventDefault()` is honoured on both modes.
+- SWT-PTR-09 — row "EVD-EVT-26 against composite/button key handling": a C# consumer's `PreventBaseUIHandler()` on the root click is synchronous on WebAssembly through `decide()`; on Server the press is handled regardless (fallback "run"); a consumer JavaScript listener's `preventDefault()` is honoured on both modes. Order (2026-10-22, M2 track 4): on WebAssembly the consumer's C# `onClick` runs inside the `activate` decision, before the toggle; on Server the `button` module's toggle report reaches C# before Blazor dispatches the same click (ADR-04/1), so the consumer's C# `onClick` runs after the toggle request.
+- SWT-EVT-04, SWT-STA-03 (the restore of the hidden input's `checked`) — row "C#-origin consumer vetoes of a toggle on a hidden input" (added 2026-10-22): met on WebAssembly, where the `toggle` decision reverts the box inside the click; on Server the visually hidden input stays as the click left it for about two round trips, measured 2026-10-22 (about 615 ms with 150 ms added each way, five clicks, `page.routeWebSocket`): the toggle report goes up, the render batch comes down, the batch's acknowledgement goes up (on Server `OnAfterRender` runs only after it, ADR 01 Context), and the `dom` primitive's `update` comes down, until the `dom` primitive restores it, while the root's `aria-checked` and data attributes never change.
 - SWT-KEY-08 — rows "EVD-EVT-26 against composite/button key handling" and "UBT-KEY-03/04": met on both modes when the veto is a consumer JavaScript listener's `preventDefault()` (the `button` module checks `defaultPrevented`); a C# consumer's `PreventBaseUIHandler()` is synchronous on WebAssembly through `decide()` and a round trip late on Server, where the key is handled (fallback "run"); Blazor event directives are rejected on parts.
 - SWT-STA-06 — row "FFI registration" (post-commit, pre-paint C# state work): the field's `filled` write lands after paint plus a round trip; observable only as latency of `data-filled`.
 - SWT-ARIA-08 — row "FFI registration": the native-label fallback re-evaluation runs after the render (`OnAfterRender`), on Server after paint plus a round trip; observable only as latency of `aria-labelledby`.
@@ -505,6 +515,7 @@ All messages below are emitted only in non-production builds, through `console.e
 
 - **SWT-EDGE-01** — MUST. Rendering `Switch.Thumb` outside a `Switch.Root` MUST throw an error with the message `Base UI: SwitchRootContext is missing. Switch parts must be placed within <Switch.Root>.`
   Source: `switch/root/SwitchRootContext.ts:11-15`. Test: [L2] `SwitchThumb.test.tsx` "throws a descriptive error when rendered outside <Switch.Root>".
+  Port note 2026-10-22: the message is ``Blazix: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20; the PRG-EDGE-01 precedent); the error is an `InvalidOperationException` thrown in every build.
 - **SWT-EDGE-02** — SHOULD. If `checked` switches between `undefined` and a boolean after the first render, a dev error SHOULD be logged: `A component is changing the uncontrolled checked state of Switch to be controlled.` (or `…the controlled checked state of Switch to be uncontrolled.`) followed by `Elements should not switch from uncontrolled to controlled (or vice versa).`, `Decide between using a controlled or uncontrolled Switch element for the lifetime of the component.`, `The nature of the state is determined during the first render. It's considered controlled if the value is not `undefined`.`, `More info: https://fb.me/react-controlled-components` (newline-separated).
   Source: `packages/utils/src/useControlled.ts:48-64`. Test: none.
 - **SWT-EDGE-03** — SHOULD. If `defaultChecked` changes after the first render of a component-owned switch, a dev error SHOULD be logged: `A component is changing the default checked state of an uncontrolled Switch after being initialized. To suppress this warning opt to use a controlled Switch.` The rendered state is unaffected.
@@ -638,7 +649,7 @@ Non-normative.
 | SWT-API-09 | MUST | `uncheckedValue` submitted only when off and named | 3.1 |
 | SWT-API-10 | MUST | `form` on both inputs, not root | 3.1 |
 | SWT-API-11 | MUST | `id` → hidden input (non-native) or root (native) | 3.1 |
-| SWT-API-12 | MUST | `inputRef` → hidden checkbox | 3.1 |
+| SWT-API-12 | MUST | `inputRef` → hidden checkbox. Port: withdrawn (ADR 02 Amendments 2026-10-22) | 3.1 |
 | SWT-API-13 | MUST | `nativeButton` default false; selects UBT mode | 3.1 |
 | SWT-API-14 | MUST | `className`/`style`/`render` per RND with state object | 3.1 |
 | SWT-API-15 | MUST | other props forwarded to root; consumed list; `onChange` excluded | 3.1 |
@@ -745,9 +756,11 @@ Non-normative.
 ## 16. Open questions
 
 1. **Form reset vs. hidden input.** `SwitchRoot.test.tsx:584-591` asserts only that the root's `aria-checked` survives a native reset. Whether the hidden input's `checked` property is re-synchronized after the browser resets it depends on React's controlled-input handling (React 19 keeps `defaultChecked` in sync with `checked`; React 18 does not), i.e. `switch/root/SwitchRoot.tsx:236` relies on framework behavior. SWT-FRM-15 requires only the state to be stable; a port should additionally re-sync the hidden input after `reset` so a subsequent submit matches the state. Confirm desired behavior.
+   Resolved 2026-10-22 (M2 track 4, option (b), chosen by the user 2026-10-22): the `dom` primitive re-asserts the hidden input's `checked` one task after the owning form's `reset` (FFI-FRM-30's dated note), so a submit after a reset matches the state; the alternative (a), mirroring Base UI, would have sent the `checked` attribute rendered at first. Tested by `js/dom.test.ts` ("SwitchRoot hidden input checked after a form reset") and `switch.spec.ts` ("port: a native form reset keeps the state and re-syncs the hidden input, so the next submit matches it").
 2. **`data-filled` wording.** `switch/root/SwitchRootDataAttributes.ts:37-40` documents `data-filled` as "Present when the switch is active"; the implementation (`SwitchRoot.tsx:96-98`) makes it exactly `checked`. Documented here as "equals `checked`".
 3. **`aria-describedby`/`aria-invalid` on an `aria-hidden` input.** `SwitchRoot.tsx:160` spreads the field validation props onto the hidden input (asserted by "Field.Description", line 1301). Harmless but redundant for assistive technology; kept as SWT-DOM-15 because a test asserts it.
 4. **Prevented Space keydown.** `internals/use-button/useButton.ts:204-206` documents that a prevented *keydown* cannot cancel non-native Space activation (keyup fires the click). This diverges from native `<button>` semantics; SWT-KEY-08 states the actual behavior. Decide whether the port should mirror the limitation or fix it.
+   Resolved 2026-10-22 (M2 track 4, settled by the orchestrator 2026-10-22 under UBT-KEY-05 and the `button` module's existing behavior): the port mirrors the limitation, as the `button` module already does (no state is kept from the keydown); SWT-KEY-08 stands as written.
 5. **Field registration name.** `SwitchRoot.tsx:94` passes `nameProp` (not the effective name) to field registration while `clearErrors` (`:101`) uses the effective name. Both resolve identically because `Field.Root` prefers its own `name`; noted in case the FFI document chooses a single term.
 6. **Fallback label id format.** The assigned id `"<hidden input id>-label"` (`useAriaLabelledBy.ts:16`) is only tested for non-emptiness (`SwitchRoot.test.tsx:137,162`). SWT-ARIA-07 states the exact format as implemented; a port may treat the format as SHOULD if the FFI document relaxes it. Resolved: FFI-ARIA-06 (`docs/architecture/field-and-form-infrastructure.md`) states the `${controlId}-label` format as MUST, so SWT-ARIA-07 stays MUST.
 7. **Docs vs. source on root element.** `components/switch/page.mdx` §Rendering as a native button says a native `<button>` is preferred for sibling labels; the source does not warn when a sibling `<label htmlFor>` targets a non-native switch (it works via the hidden input's id, tested at line 491). No discrepancy in behavior; the guidance is advisory.

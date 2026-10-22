@@ -1145,3 +1145,243 @@ describe('button module: twin handle', () => {
     expect(element.style.cssText).toBe('margin: 1px;');
   });
 });
+
+// The hidden-input bridge (UBT-EVT-09; ADR 12 Amendments 2026-10-22 item 4; switch.md SWT-PTR-01/02/03/07/11): Switch,
+// Checkbox and Radio render a visually hidden input as the root's next sibling, and every toggle is a click on it. Port
+// titles: Base UI tests these through the components (SwitchRoot.test.tsx, L4 in the port).
+interface Bridged {
+  root: HTMLElement;
+  input: HTMLInputElement;
+  handle: TwinHandle;
+  fake: FakeTwin;
+  inputClicks: MouseEvent[];
+}
+
+function mountBridge(
+  options: Partial<ButtonOptions> = {},
+  { twin = {}, parent = document.body, tag = 'span', withHidden = false, before }: {
+    twin?: FakeTwinOptions;
+    parent?: HTMLElement;
+    tag?: 'span' | 'button';
+    withHidden?: boolean;
+    before?: (root: HTMLElement, input: HTMLInputElement) => void;
+  } = {},
+): Bridged {
+  const root = document.createElement(tag);
+  parent.appendChild(root);
+  if (withHidden) {
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    parent.appendChild(hidden);
+  }
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  parent.appendChild(input);
+  before?.(root, input);
+  const fake = createFakeTwin(twin);
+  const handle = attach(root, optionsJson({ native: tag === 'button', hiddenInput: true, ...options }), fake.twin);
+  handles.push(handle);
+  const inputClicks: MouseEvent[] = [];
+  input.addEventListener('click', (event) => inputClicks.push(event));
+  return { root, input, handle, fake, inputClicks };
+}
+
+interface Toggle {
+  checked: boolean;
+  event: EventInfo;
+}
+
+describe.each([
+  ['Server', false],
+  ['WebAssembly', true],
+])('button module: hidden-input bridge (%s)', (mode, synchronous) => {
+  it('forwards a root click to the hidden input as a click carrying its modifiers, with detail 0 and no pointer type', () => {
+    const { root, input, inputClicks } = mountBridge({}, { twin: { synchronous } });
+
+    const rootClick = click(root, { shiftKey: true, metaKey: true });
+
+    expect(rootClick.defaultPrevented).toBe(true);
+    expect(inputClicks).toHaveLength(1);
+    const forwarded = inputClicks[0] as PointerEvent;
+    expect(forwarded).toBeInstanceOf(PointerEvent);
+    expect(forwarded.detail).toBe(0);
+    expect(forwarded.pointerType).toBe('');
+    expect(forwarded.shiftKey).toBe(true);
+    expect(forwarded.metaKey).toBe(true);
+    expect(forwarded.ctrlKey).toBe(false);
+    expect(forwarded.bubbles && forwarded.cancelable && forwarded.composed).toBe(true);
+    expect(input.checked).toBe(true);
+  });
+
+  it('finds the hidden input after the unchecked-value input', () => {
+    const { root, input } = mountBridge({}, { twin: { synchronous }, withHidden: true });
+
+    click(root);
+
+    expect(input.checked).toBe(true);
+  });
+
+  it('forwards a keyboard activation with the key event modifiers', () => {
+    const { root, inputClicks } = mountBridge({}, { twin: { synchronous } });
+
+    keyDown(root, 'Enter', { altKey: true });
+
+    expect(inputClicks).toHaveLength(1);
+    expect(inputClicks[0]!.altKey).toBe(true);
+    expect(inputClicks[0]!.detail).toBe(0);
+  });
+
+  it('prevents a root click and tolerates it while no hidden input is connected', () => {
+    const { root, input, fake } = mountBridge({}, { twin: { synchronous } });
+    input.remove();
+
+    let rootClick: MouseEvent | undefined;
+    expect(() => (rootClick = click(root))).not.toThrow();
+    expect(rootClick!.defaultPrevented).toBe(true);
+    expect(fake.reports).toEqual([]);
+  });
+
+  it('propagates a single click event to ancestors per user click', () => {
+    const ancestor = document.createElement('div');
+    document.body.appendChild(ancestor);
+    const seen: EventTarget[] = [];
+    ancestor.addEventListener('click', (event) => seen.push(event.target!));
+    const { root, input } = mountBridge({}, { twin: { synchronous }, parent: ancestor });
+
+    click(root);
+    input.click();
+
+    expect(seen).toEqual([root]);
+  });
+
+  it('toggles once when a wrapping native label is clicked through the root', () => {
+    const label = document.createElement('label');
+    document.body.appendChild(label);
+    const { root, input, inputClicks } = mountBridge({}, { twin: { synchronous }, parent: label });
+
+    const rootClick = click(root);
+
+    expect(rootClick.defaultPrevented).toBe(true);
+    expect(inputClicks).toHaveLength(1);
+    expect(inputClicks[0]!.detail).toBe(0);
+    expect(input.checked).toBe(true);
+  });
+
+  it('ignores a hidden input click canceled before the module handles it', () => {
+    let cancel = true;
+    const { input, fake } = mountBridge(
+      {},
+      { twin: { synchronous }, before: (_root, hidden) => hidden.addEventListener('click', (event) => cancel && event.preventDefault()) },
+    );
+
+    input.click();
+    expect(input.checked).toBe(false);
+    cancel = false;
+    input.click();
+
+    const asked = synchronous ? fake.decisions.filter((d) => d.point === 'toggle').length : fake.reported('OnToggle').length;
+    expect(asked).toBe(1);
+  });
+
+  it('ignores a root click while read-only and reverts a click that reaches the input', () => {
+    const { root, input, inputClicks, fake } = mountBridge({ readOnly: true }, { twin: { synchronous } });
+
+    const rootClick = click(root);
+    expect(rootClick.defaultPrevented).toBe(false);
+    expect(inputClicks).toHaveLength(0);
+
+    input.click();
+    expect(input.checked).toBe(false);
+    expect(fake.reports).toEqual([]);
+    expect(fake.decisions).toEqual([]);
+  });
+
+  it('starts listening to the hidden input when an update turns the bridge on, and stops on dispose', () => {
+    const { input, handle, fake } = mountBridge({ hiddenInput: false }, { twin: { synchronous } });
+
+    input.click();
+    expect(fake.reports.concat()).toEqual([]);
+    handle.update(optionsJson({ native: false, hiddenInput: true }));
+    input.click();
+    handle.dispose();
+    input.click();
+
+    const asked = synchronous ? fake.decisions.filter((d) => d.point === 'toggle').length : fake.reported('OnToggle').length;
+    expect(asked).toBe(1);
+  });
+
+  if (mode === 'Server') {
+    it('reports the toggle once with the input click and the new checked value', () => {
+      const { root, fake } = mountBridge({}, { twin: { synchronous } });
+
+      click(root, { shiftKey: true });
+
+      expect(fake.reported<Toggle>('OnToggle')).toEqual([
+        expect.objectContaining({
+          checked: true,
+          event: expect.objectContaining({ kind: 'PointerEvent', type: 'click', detail: 0, pointerType: '', shiftKey: true }),
+        }),
+      ]);
+      expect(fake.decisions).toEqual([]);
+    });
+  } else {
+    it('asks the toggle decision inside the input click and sends no report', () => {
+      const { root, fake } = mountBridge({}, { twin: { synchronous, verdict: 'run' } });
+
+      click(root, { ctrlKey: true });
+
+      const toggles = fake.decisions.filter((d) => d.point === 'toggle');
+      expect(toggles).toHaveLength(1);
+      expect(toggles[0]!.event).toMatchObject({ type: 'click', detail: 0, ctrlKey: true });
+      expect(fake.reports).toEqual([]);
+    });
+
+    it('reverts the box natively when the toggle decision answers stop, also for a click that reaches the input directly', () => {
+      const { input } = mountBridge({}, { twin: { synchronous, verdict: 'stop' } });
+      const changes = vi.fn();
+      input.addEventListener('change', changes);
+
+      input.click();
+
+      expect(input.checked).toBe(false);
+      expect(changes).not.toHaveBeenCalled();
+    });
+
+    it('asks the activation decision with the root click and forwards nothing when it answers stop', () => {
+      const { root, inputClicks, fake } = mountBridge({}, { twin: { synchronous, verdict: 'stop' } });
+
+      const rootClick = click(root);
+
+      expect(fake.decisions.map((d) => [d.point, d.event.type])).toEqual([['activate', 'click']]);
+      expect(rootClick.defaultPrevented).toBe(false);
+      expect(inputClicks).toHaveLength(0);
+    });
+  }
+});
+
+describe('button module: Enter suppression', () => {
+  it.each([
+    ['non-native', 'span', false],
+    ['native', 'button', true],
+  ] as const)('prevents Enter and never activates (%s)', (_name, tag, native) => {
+    const { element, onClick, fake } = mount(tag, { native, suppressEnter: true }, { twin: { synchronous: true } });
+
+    const enter = keyDown(element, 'Enter');
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onClick).not.toHaveBeenCalled();
+    expect(fake.decisions).toEqual([]);
+  });
+
+  it('prevents Enter from a descendant and while disabled, and leaves Space activation alone', () => {
+    const { element, onClick } = mount('span', { native: false, suppressEnter: true });
+    const child = element.appendChild(document.createElement('i'));
+
+    expect(keyDown(child, 'Enter').defaultPrevented).toBe(true);
+    press(element, SPACE);
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    const disabled = mount('span', { native: false, disabled: true, suppressEnter: true });
+    expect(keyDown(disabled.element, 'Enter').defaultPrevented).toBe(true);
+  });
+});

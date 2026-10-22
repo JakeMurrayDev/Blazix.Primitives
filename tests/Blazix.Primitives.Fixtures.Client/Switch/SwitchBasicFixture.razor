@@ -1,0 +1,97 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+@using Blazix.Primitives
+@inherits SwitchFixtureBase
+
+@*
+    The `switch-basic` fixture (tests/browser/switch.spec.ts): an uncontrolled switch, a native-button switch, a controlled
+    switch with an external toggle, a controlled switch whose consumer ignores the request, a canceling switch, read-only
+    and disabled switches, and a switch whose consumer vetoes from C# (onclick and Enter keydown). Every case is inside an
+    ancestor the specs count clicks on.
+*@
+<FixtureContainer Name="switch-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled switch has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-switch] { display: inline-block; width: 2rem; height: 1rem; border: 1px solid; }</style>
+
+    <SwitchCaseFrame Name="uncontrolled" Case="uncontrolled">
+        <div data-ancestor>
+            <SwitchRoot @ref="uncontrolledRoot" data-switch OnCheckedChange="uncontrolled.Change" @onclick="uncontrolled.Click">
+                <SwitchThumb data-thumb />
+            </SwitchRoot>
+        </div>
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="native" Case="native">
+        <div data-ancestor>
+            <SwitchRoot @ref="nativeRoot" data-switch NativeButton="true" OnCheckedChange="native.Change" @onclick="native.Click">
+                <Render><button></button></Render>
+            </SwitchRoot>
+        </div>
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="controlled" Case="controlled">
+        <button type="button" data-toggle @onclick="() => controlledValue = !controlledValue">Toggle</button>
+        <SwitchRoot @ref="controlledRoot" data-switch Checked="controlledValue" CheckedChanged="value => controlledValue = value" OnCheckedChange="controlled.Change" />
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="ignored" Case="ignored">
+        <SwitchRoot @ref="ignoredRoot" data-switch Checked="false" OnCheckedChange="ignored.Change" />
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="cancel" Case="cancel">
+        <SwitchRoot @ref="cancelRoot" data-switch OnCheckedChange="cancel.Change" />
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="readonly" Case="readOnly">
+        <label data-label>
+            <SwitchRoot @ref="readOnlyRoot" data-switch ReadOnly="true" OnCheckedChange="readOnly.Change" />
+            Read-only
+        </label>
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="disabled" Case="disabled">
+        <SwitchRoot @ref="disabledRoot" data-switch Disabled="true" OnCheckedChange="disabled.Change" @onclick="disabled.Click" />
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="vetoed" Case="vetoed">
+        <SwitchRoot @ref="vetoedRoot" data-switch OnCheckedChange="vetoed.Change" @onclick="VetoClick" @onkeydown="VetoEnter" />
+    </SwitchCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly SwitchCase uncontrolled = new();
+    private readonly SwitchCase native = new();
+    private readonly SwitchCase controlled = new();
+    private readonly SwitchCase ignored = new();
+    private readonly SwitchCase cancel = new() { Cancel = true };
+    private readonly SwitchCase readOnly = new();
+    private readonly SwitchCase disabled = new();
+    private readonly SwitchCase vetoed = new();
+    private bool controlledValue;
+    private SwitchRoot? uncontrolledRoot;
+    private SwitchRoot? nativeRoot;
+    private SwitchRoot? controlledRoot;
+    private SwitchRoot? ignoredRoot;
+    private SwitchRoot? cancelRoot;
+    private SwitchRoot? readOnlyRoot;
+    private SwitchRoot? disabledRoot;
+    private SwitchRoot? vetoedRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<SwitchRoot?> Switches =>
+        [uncontrolledRoot, nativeRoot, controlledRoot, ignoredRoot, cancelRoot, readOnlyRoot, disabledRoot, vetoedRoot];
+
+    private void VetoClick(MouseEventArgs e)
+    {
+        vetoed.Click(e);
+        e.PreventPartHandler();
+    }
+
+    private void VetoEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            e.PreventPartHandler();
+        }
+    }
+}

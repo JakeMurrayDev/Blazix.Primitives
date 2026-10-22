@@ -19,6 +19,7 @@ public static class DemoCatalog
         new("input", "Input", "A native input element that works with a field.", typeof(InputDemo)),
         new("field", "Field", "A form control with a label, a description and its validity.", typeof(FieldDemo)),
         new("fieldset", "Fieldset", "Related fields grouped under a legend.", typeof(FieldsetDemo)),
+        new("switch", "Switch", "A control that turns a setting on or off.", typeof(SwitchDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
