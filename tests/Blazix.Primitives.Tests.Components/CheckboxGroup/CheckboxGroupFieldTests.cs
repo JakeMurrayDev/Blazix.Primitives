@@ -1,4 +1,5 @@
 using Blazix.Primitives.Interop;
+using Blazix.Primitives.Rendering;
 using System.Linq.Expressions;
 using AngleSharp.Dom;
 using Bunit;
@@ -472,6 +473,40 @@ public sealed class CheckboxGroupFieldTests : IDisposable
 
         Assert.Equal(0, changes);
         Assert.Equal("true", cut.Find("[data-testid=x]").GetAttribute("aria-checked"));
+    }
+
+    [Fact(DisplayName = "port: a fieldset rendered as the group labels it by its legend and disables its boxes")]
+    [Trait("Requirement", "CKG-STR-04")]
+    [Trait("Requirement", "CKG-DOM-05")]
+    [Trait("Requirement", "CKG-ARIA-02")]
+    public void Port_a_fieldset_rendered_as_the_group_labels_it_by_its_legend()
+    {
+        // checkbox-group §16 Q9: <Fieldset.Root render={<CheckboxGroup />}>, which Base UI documents and does not test.
+        RenderFragment<RenderProps<FieldsetRootState>> group = props => builder =>
+        {
+            builder.OpenComponent<CheckboxGroup>(0);
+            builder.AddMultipleAttributes(1, props.Attributes);
+            builder.AddComponentParameter(2, nameof(CheckboxGroup.ChildContent), props.ChildContent);
+            builder.CloseComponent();
+        };
+        IRenderedComponent<FieldsetRoot> cut = Context.Render<FieldsetRoot>(p => p
+            .Add(x => x.Disabled, true)
+            .Add(x => x.RenderFunction, group)
+            .AddChildContent((RenderFragment)(b =>
+            {
+                b.OpenComponent<FieldsetLegend>(0);
+                b.AddAttribute(1, "data-testid", "legend");
+                b.CloseComponent();
+                b.OpenComponent<CheckboxRoot>(2);
+                b.AddAttribute(3, "data-testid", "fuji");
+                b.AddComponentParameter(4, nameof(CheckboxRoot.Value), "fuji");
+                b.CloseComponent();
+            })));
+
+        IElement element = cut.Find("[role=group]");
+        Assert.Equal(cut.Find("[data-testid=legend]").GetAttribute("id"), element.GetAttribute("aria-labelledby"));
+        Assert.True(element.HasAttribute("data-disabled"));
+        Assert.True(cut.Find("[data-testid=fuji]").HasAttribute("data-disabled"));
     }
 
     private static string? Invalid(IRenderedComponent<CheckboxGroupFieldHost> cut, string testId) =>
