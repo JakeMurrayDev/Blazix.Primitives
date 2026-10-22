@@ -1,7 +1,9 @@
+using System.Linq.Expressions;
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
@@ -82,8 +84,11 @@ public static class CheckboxRootDataAttributes
 //   a report on Server. The input's `checked` and `indeterminate` properties are the `dom` primitive's after attach (ADR 04
 //   Amendments 2026-10-20 and 2026-10-22): C# renders the initial `checked` once and then sends both in DomOptions,
 //   raising CheckedRestores when a request leaves the value different from the box the browser toggled.
-// - id: in non-native mode the root keeps its generated id and the consumer's non-empty `id` goes to the input; in native
-//   mode the root takes the consumer's id, else the control id, and the input has none (CHK-API-14, CHK-DOM-01/15).
+// - id: in non-native mode the root keeps its generated id and the labelable control id goes to the input; in native mode
+//   the root takes the labelable control id and the input has none (CHK-API-14, CHK-DOM-01/15). The labelable control id
+//   is the field's control id, else the consumer's non-empty `id`, else the part's own (CheckableFieldBehavior).
+// - Inside a field the box is the field's control (checkbox §8): CheckableFieldBehavior registers it, writes the field's
+//   flags, validates through the hidden input and composes the label and description ids.
 /// <summary>
 /// Represents a control that the user ticks or clears, and that can be shown as mixed: Base UI's <c>Checkbox.Root</c>,
 /// rendered as a <c>span</c> with <c>role="checkbox"</c> followed by the hidden inputs that take part in forms, native
@@ -101,10 +106,13 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
     private readonly EventCallback onClick;
+    private readonly EventCallback onFocus;
+    private readonly Action fieldStateChanged;
     private readonly Action<ElementReference> captureInput;
     private readonly TaskCompletionSource inputAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Controlled<bool>? checkedState;
     private ButtonBehavior? behavior;
+    private CheckableFieldBehavior? fieldBehavior;
     private DomTwin? domTwin;
     private TwinHandle<DomOptions>? domHandle;
     private DomOptions? sentDomOptions;
@@ -122,6 +130,8 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => behavior!.HandleKeyUpAsync(e));
         onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
+        onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => fieldBehavior!.HandleFocus());
+        fieldStateChanged = OnFieldStateChanged;
         captureInput = element => input = element;
     }
 
@@ -143,17 +153,33 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     // CHK-STA-09: the indeterminate rendering never changes the underlying value.
     private bool EffectiveIndeterminate => Indeterminate;
 
-    private bool EffectiveDisabled => Disabled;
+    // CHK-API-11
+    private bool EffectiveDisabled => fieldBehavior!.EffectiveDisabled;
 
     // CHK-API-08, CHK-DOM-12: a parent box has no name, so it never submits.
-    private string? EffectiveName => Parent ? null : Name;
+    private string? EffectiveName => Parent ? null : fieldBehavior!.Name;
 
-    // CHK-API-14: an empty id counts as absent.
-    private string? ConsumerId => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) && supplied is string { Length: > 0 } id ? id : null;
+    private string RootId => NativeButton ? fieldBehavior!.ControlId : GeneratedId!;
 
-    private string RootId => NativeButton ? ConsumerId ?? controlId! : GeneratedId!;
+    private string? InputId => NativeButton ? null : fieldBehavior!.ControlId;
 
-    private string? InputId => NativeButton ? null : ConsumerId ?? controlId;
+    // CHK-ARIA-06 step 2, CHK-EDGE-07: a non-blank consumer aria-label names the box, even with a label in its scope.
+    private bool ConsumerNamesBox => AdditionalAttributes is not null
+        && AdditionalAttributes.TryGetValue("aria-label", out object? label)
+        && label is string text
+        && !string.IsNullOrWhiteSpace(text);
+
+    [CascadingParameter]
+    private FieldRootContext? FieldContext { get; set; }
+
+    [CascadingParameter]
+    private FieldItemContext? ItemContext { get; set; }
+
+    [CascadingParameter]
+    private IFormScope? FormScope { get; set; }
+
+    [CascadingParameter]
+    private EditContext? CascadedEditContext { get; set; }
 
     // CHK-API-01, CHK-STA-03/05; ADR 05 §2
     /// <summary>Gets or sets a value indicating whether the box is ticked, when the consumer owns the value.</summary>
@@ -264,6 +290,17 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     [Parameter]
     public bool NativeButton { get; set; }
 
+    // ADR 05 Amendments 2026-10-22: EditContext participation (issue 76).
+    /// <summary>Gets or sets the expression that identifies the bound value in a cascaded <see cref="EditContext"/>.</summary>
+    /// <value>
+    /// The expression <c>@bind-Checked</c> supplies, or <see langword="null"/>. Inside an <see cref="EditContext"/> the box
+    /// then notifies the context of every change, takes the identifier's field name when it has no
+    /// <see cref="Name"/>, and is invalid while the context holds messages for it. Without an <see cref="EditContext"/>
+    /// it does nothing.
+    /// </value>
+    [Parameter]
+    public Expression<Func<bool>>? CheckedExpression { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => DefaultTag;
 
@@ -281,7 +318,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     // can wait for the modules' listeners before it clicks.
     /// <summary>Gets a task that completes when the box's behaviors are attached to its element and its hidden input.</summary>
     /// <value>A task that completes after the first interactive render has attached both.</value>
-    internal Task TwinAttached => Task.WhenAll(behavior!.TwinAttached, inputAttached.Task);
+    internal Task TwinAttached => Task.WhenAll(behavior!.TwinAttached, inputAttached.Task, fieldBehavior!.TwinAttached);
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
@@ -306,11 +343,16 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
 
         // CHK-DOM-15: the labelable control id, drawn after the root's own, in render order (ADR 02 decision 5).
         controlId = IdGenerator.Next();
+        fieldBehavior = new CheckableFieldBehavior(controlId, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
+        fieldBehavior.Initialize(FieldContext, ItemContext);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        fieldBehavior!.SetParameters(
+            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
+            FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;
         behavior.ReadOnly = ReadOnly;
@@ -333,6 +375,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     {
         await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: false);
         await AttachInputAsync();
+        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
     }
 
     /// <inheritdoc />
@@ -341,6 +384,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         if (disposing)
         {
             behavior?.Dispose();
+            fieldBehavior?.Dispose();
             if (domTwin is not null)
             {
                 _ = domTwin.DisposeAsync().AsTask();
@@ -378,18 +422,49 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
 
         if (NativeButton)
         {
-            // CHK-DOM-01: the labelable control id; the consumer's id replaces it at the merge.
-            attributes.Set("id", controlId!);
+            // CHK-DOM-01: the labelable control id.
+            attributes.Set("id", RootId);
+        }
+
+        if (fieldBehavior!.InField)
+        {
+            fieldBehavior.Rendered();
+            attributes.Set("onfocus", onFocus);
+
+            // CHK-ARIA-06: the consumer's aria-labelledby replaces this at the merge.
+            if (!ConsumerNamesBox && fieldBehavior.LabelId is { } labelId)
+            {
+                attributes.Set("aria-labelledby", labelId);
+            }
         }
     }
 
-    // ADR 02 Amendments 2026-10-21 (FinishAttributes); CHK-DOM-01 names the root's id as part-owned: in non-native mode the
-    // consumer's `id` is the hidden input's (CHK-API-14), so the root keeps its generated id. In native mode an empty
-    // consumer id counts as absent.
+    // ADR 02 Amendments 2026-10-21 (FinishAttributes); part-owned by the document: the root's id (CHK-DOM-01: in non-native
+    // mode the consumer's `id` is the hidden input's, CHK-API-14; in native mode an empty one counts as absent), the
+    // composed aria-describedby (CHK-ARIA-10) and aria-invalid while the field is invalid (CHK-ARIA-11).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes)
     {
         attributes.Set("id", RootId);
+        if (!fieldBehavior!.InField)
+        {
+            return;
+        }
+
+        string? consumer = attributes.TryGetValue("aria-describedby", out AttributeValue current) && current.TryGetValue(out string text) ? text : null;
+        if (fieldBehavior.DescribedBy(consumer) is { } describedBy)
+        {
+            attributes.Set("aria-describedby", describedBy);
+        }
+        else
+        {
+            attributes.Remove("aria-describedby");
+        }
+
+        if (fieldBehavior.AriaInvalid)
+        {
+            attributes.Set("aria-invalid", "true");
+        }
     }
 
     /// <inheritdoc />
@@ -430,7 +505,11 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         builder.AddAttribute(19, "id", InputId);
         builder.AddAttribute(20, "value", Value);
         builder.AddAttribute(21, "style", string.IsNullOrEmpty(name) ? VisuallyHidden.Style : VisuallyHidden.InputStyle);
-        builder.AddElementReferenceCapture(22, captureInput);
+
+        // CHK-DOM-18: the field's description ids without the consumer's, and its invalid state.
+        builder.AddAttribute(22, "aria-describedby", fieldBehavior!.InField ? fieldBehavior.DescribedBy(null) : null);
+        builder.AddAttribute(23, "aria-invalid", fieldBehavior.AriaInvalid ? "true" : null);
+        builder.AddElementReferenceCapture(24, captureInput);
         builder.CloseElement();
     }
 
@@ -454,6 +533,14 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         }
 
         return IsChecked == next;
+    }
+
+    // A change of the field's state that the box shows (its flags, label, descriptions, validity or disabled state).
+    private void OnFieldStateChanged()
+    {
+        behavior!.Disabled = EffectiveDisabled;
+        UpdateState();
+        StateHasChanged();
     }
 
     // CHK-EVT-04, CHK-STA-05 (restore clause): the ADR 01 row of 2026-10-22.
@@ -504,19 +591,25 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     private bool UpdateState()
     {
         bool isChecked = IsChecked;
-        bool disabled = EffectiveDisabled;
         bool indeterminate = EffectiveIndeterminate;
+        fieldBehavior!.SetValue(isChecked, isChecked);
+        FieldStateSnapshot snapshot = fieldBehavior.Snapshot;
         if (state is { } current
             && current.Checked == isChecked
-            && current.Disabled == disabled
+            && current.Disabled == snapshot.Disabled
             && current.ReadOnly == ReadOnly
             && current.Required == Required
-            && current.Indeterminate == indeterminate)
+            && current.Indeterminate == indeterminate
+            && current.Touched == snapshot.Touched
+            && current.Dirty == snapshot.Dirty
+            && current.Valid == snapshot.Valid
+            && current.Filled == snapshot.Filled
+            && current.Focused == snapshot.Focused)
         {
             return false;
         }
 
-        state = new CheckboxRootState(isChecked, disabled, ReadOnly, Required, indeterminate, Touched: false, Dirty: false, Valid: null, Filled: false, Focused: false);
+        state = new CheckboxRootState(isChecked, snapshot.Disabled, ReadOnly, Required, indeterminate, snapshot.Touched, snapshot.Dirty, snapshot.Valid, snapshot.Filled, snapshot.Focused);
         context.SetState(state);
         return true;
     }
