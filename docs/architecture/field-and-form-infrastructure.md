@@ -7,7 +7,7 @@
 | Tests | `field/root/FieldRoot.test.tsx`, `field/root/FieldRoot.react17.test.tsx`, `field/control/FieldControl.test.tsx`, `field/label/FieldLabel.test.tsx`, `field/description/FieldDescription.test.tsx`, `field/error/FieldError.test.tsx`, `field/validity/FieldValidity.test.tsx`, `field/item/FieldItem.test.tsx`, `form/Form.test.tsx`, `fieldset/root/FieldsetRoot.test.tsx`, `fieldset/legend/FieldsetLegend.test.tsx`, `internals/labelable-provider/useLabel.test.tsx`, `utils/useRegisteredLabelId.test.tsx`, `packages/utils/src/getDefaultFormSubmitter.test.ts`, `test/formData.ts` (helper), plus the `Form` / `Field` describe blocks inside every control's test file (cited inline in §6); the fieldset-only titles "sets the native disabled attribute" and "throws a descriptive error when rendered outside <Fieldset.Root>" are mapped in `components/fieldset.md` §13 |
 | Prefix | `FFI` |
 | Status | approved |
-| Revised | 2026-10-22 |
+| Revised | 2026-10-23 |
 | Used by | `components/field.md`, `components/fieldset.md`, `components/form.md`, `components/input.md`, `components/checkbox.md`, `components/checkbox-group.md`, `components/switch.md`, `components/radio.md`, `components/radio-group.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/slider.md`, `components/number-field.md`, `components/otp-field.md` |
 
 ## 1. Purpose
@@ -707,6 +707,7 @@ combined(data, invalid): { ...data, state: { ...data.state, valid: not invalid a
 
 - **FFI-ALG-15** — MUST. The implementation reproduces the following procedure exactly (**Error-slot resolution (`Field.Error`)**). Rendering details (list markup, transitions) are in `components/field.md`.
   Source: `field/error/FieldError.tsx:42-101`. Test: [L2] `FieldError.test.tsx` "should only render when `match` matches constraint validation", "uses an omitted `match` as the default slot for Form errors", "uses the client validation path for specific matches when Form errors are present", "always renders the error message when `match` is true".
+  Port note 2026-10-23 (PR 1c): `FieldError` resolves the slot as above, with `match` a `MatchValue?` (FLD-API-30 port note). The port's outside errors are the form's errors for the field and, when there are none, the messages of the field's external-error slot (a cascaded `EditContext`'s, ADR 05 Amendments 2026-10-22); they take `hasFormError`'s place in `rendered` and `formError`'s in `message`.
 
 ```
 formError = fieldName and hasOwn(errors, fieldName) ? errors[fieldName] : null
@@ -724,6 +725,7 @@ message  = (match not string and hasFormError) ? formError
 - **FFI-ALG-16** — MUST. The implementation reproduces the following procedure exactly (**`Field.Control` Enter commit**).
   Source: `field/control/FieldControl.tsx:172-191`. Test: [L2] `FieldControl.test.tsx` "validates once when Enter implicitly submits a form", "validates the latest value when Enter does not submit the form", "validates when Enter is pressed outside a form" (L4 for the implicit-submission step).
   Port note 2026-10-22: see FFI-KEY-01. The timer step runs in the `form` module (settled by the orchestrator 2026-10-22), the counter comparison in C#.
+  Port note 2026-10-23 (PR 1c): when the module's deferred report arrives, a consumer-owned control commits its own value instead of the reported `input.value`. Base UI reads the element after React applied the consumer's handlers; on Server the report can leave before the render that writes their change (FLD-KEY-01 port note). An uncontrolled control commits the reported value.
 
 ```
 onKeyDown(Enter) on an INPUT element:
