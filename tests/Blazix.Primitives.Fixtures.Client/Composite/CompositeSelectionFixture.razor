@@ -1,0 +1,55 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-selection` fixture (tests/browser/composite.spec.ts): RadioGroup's options on the test-only root, with a
+    hand-written `<input type="radio">` after each item as Radio renders its hidden input (RAD-STR-01): the pending-navigation
+    flag and the focus-driven selection (RDG-STA-06, RDG-KEY-03, RAD-FOC-05), modifierKeys Shift (RDG-KEY-02), and both
+    reports, the highlighted index and the leaving blur (RDG-FOC-04/05), rendered as data attributes. Item `b`'s input can
+    be disabled by a switch, as a disabled radio's is.
+*@
+<FixtureContainer Name="composite-selection" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-selected="@selected" data-changes="@changes" data-highlight="@highlight" data-focus-leaves="@focusLeaves"
+                  data-last-leave="@lastLeave">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-disable-b @onclick="() => disabledB = !disabledB">Disable b</button>
+
+    <button type="button" data-before>Before</button>
+    <FixtureCompositeRoot @ref="root" SelectOnNavigation="true" ModifierKeys="s_shift" ReportHighlight="true" ReportFocusLeave="true"
+                          OnHighlightChange="index => highlight = index" OnFocusLeave="OnFocusLeave" role="radiogroup" data-root>
+        @foreach (string value in s_values)
+        {
+            <FixtureCompositeItem Tag="span" role="radio" aria-checked="@(selected == value ? "true" : "false")" data-item="@value">@value</FixtureCompositeItem>
+            <input type="radio" name="composite-selection" value="@value" tabindex="-1" aria-hidden="true" data-input="@value"
+                   checked="@(selected == value)" disabled="@(value == "b" && disabledB)" @onchange="() => Select(value)" />
+        }
+    </FixtureCompositeRoot>
+    <button type="button" data-after>After</button>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_values = ["a", "b", "c"];
+    private static readonly IReadOnlyList<string> s_shift = ["Shift"];
+    private FixtureCompositeRoot? root;
+    private string selected = "";
+    private int changes;
+    private int highlight;
+    private int focusLeaves;
+    private string lastLeave = "";
+    private bool disabledB;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [root];
+
+    private void Select(string value)
+    {
+        selected = value;
+        changes++;
+    }
+
+    private void OnFocusLeave(EventSnapshot snapshot)
+    {
+        focusLeaves++;
+        lastLeave = $"{snapshot.Type}:{snapshot.Target?.Id}";
+    }
+}

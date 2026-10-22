@@ -1,0 +1,39 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-rtl` fixture (tests/browser/composite.spec.ts): CompositeRoot.test.tsx's rtl "horizontal orientation" and
+    "both horizontal and vertical orientation", browser-only in Base UI, as written: inside `<div dir="rtl">` and a
+    DirectionProvider with Direction Rtl (CMP-KEY-03, CMP-KEY-07, CMP-I18N-01, CMP-I18N-02).
+*@
+<FixtureContainer Name="composite-rtl" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div dir="rtl">
+        <DirectionProvider Direction="TextDirection.Rtl">
+            <div data-case="horizontal">
+                <FixtureCompositeRoot @ref="horizontal" Orientation="Orientation.Horizontal" data-root>
+                    <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+                    <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+                    <FixtureCompositeItem data-item="3">3</FixtureCompositeItem>
+                </FixtureCompositeRoot>
+            </div>
+
+            <div data-case="both">
+                <FixtureCompositeRoot @ref="both" data-root>
+                    <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+                    <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+                    <FixtureCompositeItem data-item="3">3</FixtureCompositeItem>
+                </FixtureCompositeRoot>
+            </div>
+        </DirectionProvider>
+    </div>
+</FixtureContainer>
+
+@code {
+    private FixtureCompositeRoot? horizontal;
+    private FixtureCompositeRoot? both;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [horizontal, both];
+}
