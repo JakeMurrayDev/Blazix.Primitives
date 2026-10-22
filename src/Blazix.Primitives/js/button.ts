@@ -1,7 +1,9 @@
 // The `button` mechanism module (ADR 04 §1): keyboard activation through a synthetic click that keeps the key's
 // modifiers (UBT-ALG-01/02/05), pointer-type classification (UBT-ALG-06), disabled press suppression (UBT-PTR-01..03),
 // the focusable-when-disabled key suppression (UBT-KEY-20/21), the composite `disabled` property correction
-// (UBT-ALG-04), the native-mode development check (UBT-EDGE-01..03) and the press-and-hold repeater (UBT-ALG-07).
+// (UBT-ALG-04), the native-mode development check (UBT-EDGE-01..03), the press-and-hold repeater (UBT-ALG-07), the
+// hidden-input bridge of Switch, Checkbox and Radio (UBT-EVT-09; ADR 12 Amendments 2026-10-22 item 4) and their Enter
+// suppression (UBT-KEY-06; ADR 04 Amendments 2026-10-18 item 4).
 // Transcribed from Base UI v1.9.0: internals/use-button/useButton.ts, utils/useFocusableWhenDisabled.ts,
 // utils/dispatchClickWithModifiers.ts, internals/usePressAndHold.ts, packages/utils/src/useEnhancedClickHandler.ts,
 // packages/utils/src/isElementDisabled.ts. Requirements: docs/architecture/button-behavior.md (UBT).
@@ -54,10 +56,19 @@ export interface ButtonOptions extends TwinOptions {
   reportInteractionType?: boolean | null;
   /** Turns the native-mode development check on. */
   developmentChecks?: boolean | null;
+  /** Turns the hidden-input bridge on: root clicks are forwarded to the input rendered after the element. */
+  hiddenInput?: boolean | null;
+  /** Whether the bridged input refuses user toggles: root clicks are ignored and input clicks reverted. */
+  readOnly?: boolean | null;
+  /** Whether an Enter keydown is prevented and never activates the element (Checkbox, Radio). */
+  suppressEnter?: boolean | null;
 }
 
 /** The name of the decision point a keyboard activation asks C# about. */
 export const ACTIVATE_POINT = 'activate';
+
+/** The name of the decision point a click on the bridged hidden input asks C# about. */
+export const TOGGLE_POINT = 'toggle';
 
 const DEFAULT_TICK_DELAY = 60;
 const DEFAULT_START_DELAY = 400;
@@ -145,6 +156,27 @@ export function dispatchClickWithModifiers(
       metaKey: source.metaKey,
     }),
   );
+}
+
+// The bridge finds the input by position (design point D1, pending the user): the part renders it as the element's next
+// sibling, after the optional `<input type="hidden">` of the unchecked value (SWT-STR-01, CHK-STR-01, RAD-STR-01). It has
+// no `id` under `nativeButton`, so neither an id nor an element reference names it.
+/**
+ * Finds the hidden checkbox or radio input a bridged part renders after its element.
+ * @param element The part's element.
+ * @returns The first `checkbox` or `radio` input among the following siblings, past `hidden` inputs; otherwise `null`.
+ */
+export function findHiddenInput(element: Element): HTMLInputElement | null {
+  const InputElement = ownerWindow(element).HTMLInputElement;
+  for (let sibling = element.nextElementSibling; sibling instanceof InputElement; sibling = sibling.nextElementSibling) {
+    if (sibling.type === 'checkbox' || sibling.type === 'radio') {
+      return sibling;
+    }
+    if (sibling.type !== 'hidden') {
+      return null;
+    }
+  }
+  return null;
 }
 
 interface PressAndHold {
@@ -343,6 +375,56 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   // A C# consumer's veto. Asked only where the module is about to act, so other keys cost no synchronous call.
   const vetoed = (event: Event) => decide(twin, ACTIVATE_POINT, event, 'run') !== 'run';
 
+  // The hidden-input bridge (UBT-EVT-09; SWT-PTR-03/04/07/11, SWT-EVT-01/03/04). Every toggle is a click on the input:
+  // its propagation is stopped, a click prevented before this listener is ignored (the browser reverts it), a read-only
+  // click is reverted, and otherwise the toggle goes to C#. On WebAssembly the `toggle` decision runs the request inside
+  // the dispatch and a refusal reverts the box natively; on Server the decision falls back to `run` and the toggle is
+  // reported with the new `checked` (one message per toggle; C# restores the box through the `dom` primitive).
+  let boundInput: HTMLInputElement | null = null;
+
+  const onInputClick = (event: MouseEvent) => {
+    event.stopPropagation();
+    if (event.defaultPrevented) {
+      return;
+    }
+    if (options.readOnly) {
+      event.preventDefault();
+      return;
+    }
+    const checked = (event.currentTarget as HTMLInputElement).checked;
+    if (decide(twin, TOGGLE_POINT, event, 'run') !== 'run') {
+      event.preventDefault();
+      return;
+    }
+    if (!twin.lastDecisionWasSynchronous) {
+      twin.report('OnToggle', { checked, event: eventInfo(event) });
+    }
+  };
+
+  const bindInput = () => {
+    const input = options.hiddenInput && !disposed ? findHiddenInput(element) : null;
+    if (input === boundInput) {
+      return;
+    }
+    boundInput?.removeEventListener('click', onInputClick as EventListener);
+    boundInput = input;
+    boundInput?.addEventListener('click', onInputClick as EventListener);
+  };
+
+  // SWT-PTR-01/02, SWT-EDGE-05: the root click's default is prevented, so an enclosing label does not click the input a
+  // second time, and a click carrying its modifiers is dispatched on the input only while it is connected. A read-only
+  // root click is ignored entirely; a consumer veto (`activate`) leaves it alone.
+  const forwardToInput = (event: MouseEvent) => {
+    if (options.readOnly || vetoed(event)) {
+      return;
+    }
+    event.preventDefault();
+    bindInput();
+    if (boundInput?.isConnected) {
+      dispatchClickWithModifiers(boundInput, event);
+    }
+  };
+
   const reportInteraction = (interactionType: InteractionType, event: Event) =>
     twin.report('OnInteraction', { interactionType, event: eventInfo(event) });
 
@@ -370,7 +452,15 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const onKeyDown = (event: KeyboardEvent) => {
     // The options of this dispatch: a synchronous decision may deliver an update before the handler returns.
-    const { disabled, native, composite, focusableWhenDisabled } = options;
+    const { disabled, native, composite, focusableWhenDisabled, suppressEnter } = options;
+
+    // Checkbox and Radio never activate on Enter, whatever the target and the mode (CHK-KEY-03, RAD-KEY-02).
+    if (suppressEnter && event.key === 'Enter') {
+      if (!event.defaultPrevented) {
+        event.preventDefault();
+      }
+      return;
+    }
 
     // Keep a disabled, focusable element from acting on keys, but let Tab leave it and let the key propagate.
     if (disabled && focusableWhenDisabled === true && event.key !== 'Tab') {
@@ -468,6 +558,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     if (current.pressAndHold && !hold.shouldSkipClick(event)) {
       twin.report('OnHoldClick', { event: eventInfo(event) });
     }
+    if (current.hiddenInput) {
+      forwardToInput(event);
+    }
   };
 
   const onPointerDown = (event: PointerEvent) => {
@@ -512,6 +605,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   }
   correctDisabled();
   checkNative();
+  bindInput();
 
   return {
     update(nextOptionsJson: string) {
@@ -525,6 +619,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       }
       correctDisabled();
       checkNative();
+      bindInput();
     },
     dispose() {
       if (disposed) {
@@ -535,6 +630,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
         element.removeEventListener(type, listener);
       }
       hold.dispose();
+      bindInput();
     },
   };
 }

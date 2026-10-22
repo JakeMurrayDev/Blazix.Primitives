@@ -1,6 +1,10 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
-// ADR 04 §1 and §3; UBT-API-01, UBT-ALG-01..07, UBT-EDGE-01..03 (button-behavior.md §6.1 and §6.3)
+// ADR 04 §1 and §3; UBT-API-01, UBT-ALG-01..07, UBT-EDGE-01..03 (button-behavior.md §6.1 and §6.3); the hidden-input
+// bridge and the Enter suppression, UBT-EVT-09 and UBT-KEY-06 (ADR 12 Amendments 2026-10-22 item 4; ADR 04 Amendments
+// 2026-10-18 item 4)
 /// <summary>
 /// The options of the <c>button</c> module: the mechanism's configuration, sent on <c>attach</c> and on every
 /// <c>update</c>. The part renders the button attributes itself; the module owns keyboard activation, press
@@ -30,6 +34,32 @@ internal sealed record ButtonOptions : TwinOptions
     /// whether it renders inside a composite root. The default is <see langword="false"/>.
     /// </value>
     public bool Composite { get; init; }
+
+    /// <summary>Gets a value indicating whether the element's clicks are forwarded to the hidden input rendered after it.</summary>
+    /// <value>
+    /// <see langword="true"/> for a part that renders a visually hidden checkbox or radio input as its next sibling: a root
+    /// click is default-prevented and dispatched on the input with its modifiers, the input's clicks do not propagate, and
+    /// each toggle reaches <see cref="ButtonTwin.Toggled"/> or <see cref="ButtonTwin.ToggleDecider"/>. The default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HiddenInput { get; init; }
+
+    /// <summary>Gets a value indicating whether the bridged input refuses user toggles.</summary>
+    /// <value>
+    /// <see langword="true"/> to ignore root clicks and revert clicks that reach the input; the default is
+    /// <see langword="false"/>, which is not sent. It has no effect unless <see cref="HiddenInput"/> is set.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReadOnly { get; init; }
+
+    /// <summary>Gets a value indicating whether an <c>Enter</c> keydown is prevented and never activates the element.</summary>
+    /// <value>
+    /// <see langword="true"/> for a checkbox or a radio, in either mode and whatever the key's target; the default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SuppressEnter { get; init; }
 
     /// <summary>Gets the press-and-hold repeater's timing, which turns the repeater on.</summary>
     /// <value>The timing, or <see langword="null"/>, the default, for no repeater.</value>

@@ -13,6 +13,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(ButtonInteraction))]
 [JsonSerializable(typeof(ButtonHoldEvent))]
 [JsonSerializable(typeof(NativeButtonMismatch))]
+[JsonSerializable(typeof(ButtonToggle))]
 [JsonSerializable(typeof(DomOptions))]
 [JsonSerializable(typeof(ImageStatusChange))]
 [JsonSerializable(typeof(TransitionsOptions))]
