@@ -10,7 +10,8 @@
     data-validations); `focus` (FieldControl.test.tsx's Controls helper: a label, a control that can be disabled or
     removed, a button outside); `remount` (FieldRoot.test.tsx "keeps the original baseline when a controlled control
     remounts"; data-attaches counts the attaches of the control, so the spec types only into an attached one); `ignored` (a controlled control whose consumer keeps its value, FLD-API-15); `default-change` (a default
-    value that changes after the user typed, FFI-EDGE-06); `plain` (a plain input whose `value` C# renders, the two
+    value that changes after the user typed, FFI-EDGE-06); `early` (a controlled control mounted by a button, which the
+    spec edits the moment it appears, before the form module attaches; data-attaches counts its attaches); `plain` (a plain input whose `value` C# renders, the two
     platform facts behind FLD-DOM-11's `C# → JS` writer: the sync button re-renders it unchanged, the set button changes it).
 *@
 <FixtureContainer Name="field-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
@@ -80,6 +81,16 @@
         <button type="button" data-change-default @onclick='() => changingDefault = "second"'>Change default</button>
     </div>
 
+    <div data-case="early" data-value="@earlyValue" data-attaches="@earlyAttaches">
+        <FieldRoot data-testid="root">
+            @if (earlyMounted)
+            {
+                <FieldControl @ref="earlyControl" data-testid="control" Value="@earlyValue" ValueChanged="value => earlyValue = value" />
+            }
+        </FieldRoot>
+        <button type="button" data-mount @onclick="() => earlyMounted = true">Mount</button>
+    </div>
+
     <div data-case="plain">
         <input data-testid="plain" value="@plainValue" />
         <button type="button" data-set-plain @onclick='() => plainValue = "second"'>Set</button>
@@ -105,6 +116,11 @@
     private int ignoredChanges;
     private string changingDefault = "first";
     private string plainValue = "first";
+    private FieldControl? earlyControl;
+    private FieldControl? observedEarlyControl;
+    private bool earlyMounted;
+    private string? earlyValue = string.Empty;
+    private int earlyAttaches;
     private FieldControl? observedRemountControl;
     private int remountAttaches;
 
@@ -119,7 +135,21 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
-        if (!RendererInfo.IsInteractive || remountControl is null || ReferenceEquals(remountControl, observedRemountControl))
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        if (earlyControl is not null && !ReferenceEquals(earlyControl, observedEarlyControl))
+        {
+            FieldControl early = earlyControl;
+            observedEarlyControl = early;
+            await early.TwinAttached;
+            earlyAttaches++;
+            StateHasChanged();
+        }
+
+        if (remountControl is null || ReferenceEquals(remountControl, observedRemountControl))
         {
             return;
         }

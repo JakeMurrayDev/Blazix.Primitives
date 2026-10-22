@@ -272,6 +272,31 @@ test.describe('Field', () => {
       await expect(control).toHaveValue('kept');
     });
 
+    // The handover at attach (ADR 04 Amendments 2026-10-22, settled by the orchestrator): an edit made before the form
+    // module attached is the user's, so the module reports it instead of showing the stale value C# rendered.
+    test('keeps and reports an edit made before the control attached', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-basic');
+      const scope = fixture.locator('[data-case="early"]');
+      await scope.evaluate((container) => {
+        const observer = new MutationObserver(() => {
+          const control = container.querySelector<HTMLInputElement>('[data-testid="control"]');
+          if (control) {
+            observer.disconnect();
+            control.value = 'early';
+            control.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        });
+        observer.observe(container, { childList: true, subtree: true });
+      });
+
+      await scope.locator('[data-mount]').click();
+
+      await expect(scope).toHaveAttribute('data-attaches', '1');
+      await expect(scope).toHaveAttribute('data-value', 'early');
+      await expect(scope.locator('[data-testid="control"]')).toHaveValue('early');
+      await expect(scope.locator('[data-testid="root"]')).toHaveAttribute('data-dirty', '');
+    });
+
     // FLD-FRM-01 (registration latency on Server): the remounted control registers after its render, and the field keeps
     // the baseline it took at the first registration.
     test('keeps the original baseline when a controlled control remounts', async ({ page, mode }) => {

@@ -306,7 +306,7 @@ describe('control', () => {
   });
 
   it('shows the consumer value and reverts an edit the consumer did not apply', () => {
-    const element = input();
+    const element = input('<input id="control" value="kept" />');
     const { handle, fake } = attachControl(element, { controlled: true, value: 'kept' });
     expect(element.value).toBe('kept');
 
@@ -317,8 +317,35 @@ describe('control', () => {
     expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'input', value: 'typed' })]);
   });
 
+  // The handover hands over the element's state: a value that differs at attach from the one C# rendered is the user's
+  // edit, made before the module listened, and is reported rather than overwritten.
+  it('reports an edit made before attach instead of overwriting it', () => {
+    const controlled = input('<input id="control" value="kept" />');
+    controlled.value = 'early';
+    const first = attachControl(controlled, { controlled: true, value: 'kept' });
+
+    expect(controlled.value).toBe('early');
+    expect(first.fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'input', value: 'early', event: null })]);
+    first.handle.dispose();
+
+    const uncontrolled = input('<input id="control" value="start" />');
+    uncontrolled.value = 'edited';
+    const second = attachControl(uncontrolled, { defaultValue: 'start' });
+
+    expect(uncontrolled.value).toBe('edited');
+    expect(uncontrolled.defaultValue).toBe('start');
+    expect(second.fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'input', value: 'edited' })]);
+  });
+
+  it('reports nothing at attach when the element shows the value C# rendered', () => {
+    const element = input('<input id="control" value="kept" />');
+    const { fake } = attachControl(element, { controlled: true, value: 'kept' });
+
+    expect(fake.reported('OnControlReport')).toHaveLength(0);
+  });
+
   it('sets the default value and follows a changed one only while the value is unedited', () => {
-    const element = input();
+    const element = input('<input id="control" value="first" />');
     const { handle } = attachControl(element, { defaultValue: 'first' });
     expect(element.defaultValue).toBe('first');
     expect(element.value).toBe('first');
@@ -333,7 +360,7 @@ describe('control', () => {
   });
 
   it('keeps a value a script wrote when the default value changes', () => {
-    const element = input();
+    const element = input('<input id="control" value="foo" />');
     const { handle } = attachControl(element, { defaultValue: 'foo' });
 
     element.value = 'scripted';
