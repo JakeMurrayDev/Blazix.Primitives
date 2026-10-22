@@ -9,7 +9,7 @@ import { test, expect, fixtureUrl, gotoFixture, type Page, type RenderMode } fro
 // transition status). The fixtures record OnCheckedChange and the consumer's clicks as data attributes. Animated cases
 // open with `?animations=1` (ADR 06 §2) and witness transient attributes by recorded markers, never by frame polls.
 
-type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field' | 'checkbox-enter';
+type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field' | 'checkbox-enter' | 'checkbox-names';
 
 /** Opens a Checkbox fixture and waits until every box and listed indicator has its behaviors attached. */
 async function gotoCheckboxes(page: Page, mode: RenderMode, name: FixtureName, options: { animations?: boolean } = {}): Promise<Locator> {
@@ -864,6 +864,108 @@ test.describe('<Checkbox.Root />', () => {
       await expect.poll(async () => (await submitRecord(container)).submits).toBe(1);
       expect((await submitRecord(container)).submitter).toBe('Submit');
     });
+  });
+
+  test.describe('accessible name', () => {
+    // CHK-ARIA-06..08, CHK-DOM-22, CHK-EDGE-07/13: the form module's native-label fallback (design point C4 of M2 track 5,
+    // pending the user) after the consumer's aria-labelledby, a non-blank aria-label and the Field.Label.
+    test('sets `aria-labelledby` from a sibling label associated with the hidden input', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
+      const container = fixture.locator('[data-case="sibling"]');
+      const label = container.getByText('Label');
+
+      await expect(label).toHaveAttribute('id', /.+/);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-labelledby', (await label.getAttribute('id'))!);
+      await expect(container.getByRole('checkbox')).toHaveAccessibleName('Label');
+    });
+
+    test('updates fallback `aria-labelledby` when the hidden input id changes', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
+      const container = fixture.locator('[data-case="id-change"]');
+      const box = container.locator('[data-checkbox]');
+      const labelA = container.getByText('Label A');
+      await expect(labelA).toHaveAttribute('id', /.+/);
+      const labelAId = (await labelA.getAttribute('id'))!;
+      await expect(box).toHaveAttribute('aria-labelledby', labelAId);
+
+      await container.locator('[data-toggle]').click();
+
+      const labelB = container.getByText('Label B');
+      await expect(labelB).toHaveAttribute('id', /.+/);
+      const labelBId = (await labelB.getAttribute('id'))!;
+      await expect(box).toHaveAttribute('aria-labelledby', labelBId);
+      expect(labelBId).not.toBe(labelAId);
+      // CHK-DOM-22: the label id assigned before stays in place.
+      await expect(labelA).toHaveAttribute('id', labelAId);
+    });
+
+    test('prefers `aria-label` over an associated label', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
+      const container = fixture.locator('[data-case="preferred"]');
+      const nativeLabelled = container.locator('[data-checkbox="native"]');
+      const fieldLabelled = container.locator('[data-checkbox="field"]');
+
+      await expect(nativeLabelled).not.toHaveAttribute('aria-labelledby');
+      await expect(nativeLabelled).toHaveAccessibleName('lease.pdf');
+      await expect(fieldLabelled).not.toHaveAttribute('aria-labelledby');
+      await expect(fieldLabelled).toHaveAccessibleName('notes.txt');
+    });
+
+    for (const [index, ariaLabel] of ['', ' ', '\n\t '].entries()) {
+      test(`ignores a blank \`aria-label\` (${JSON.stringify(ariaLabel)})`, async ({ page, mode }) => {
+        const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
+        const container = fixture.locator(`[data-case="blank-${index}"]`);
+
+        await expect(container.locator('[data-checkbox="native"]')).toHaveAccessibleName('Native label');
+        await expect(container.locator('[data-checkbox="field"]')).toHaveAccessibleName('Field label');
+        await expect(container.locator('[data-checkbox="sibling"]')).toHaveAccessibleName('Sibling label');
+      });
+    }
+
+    for (const labelType of ['native', 'Field.Label']) {
+      const name = labelType === 'native' ? 'dynamic-native' : 'dynamic-field';
+
+      test.describe(`dynamic ${labelType} label`, () => {
+        test('updates the accessible name when `aria-label` is added, cleared, or removed', async ({ page, mode }) => {
+          const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
+          const container = fixture.locator(`[data-case="${name}"]`);
+          const box = container.locator('[data-checkbox]');
+          await expect(box).toHaveAccessibleName('Associated label');
+
+          await container.locator('[data-name]').click();
+          await expect(box).toHaveAccessibleName('Custom name');
+          await container.locator('[data-blank]').click();
+          await expect(box).toHaveAccessibleName('Associated label');
+          await container.locator('[data-name]').click();
+          await expect(box).toHaveAccessibleName('Custom name');
+          await container.locator('[data-unname]').click();
+          await expect(box).toHaveAccessibleName('Associated label');
+        });
+
+        test('updates the accessible name when the associated label mounts and unmounts', async ({ page, mode }) => {
+          const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
+          const container = fixture.locator(`[data-case="${name}"]`);
+          const box = container.locator('[data-checkbox]');
+          await container.locator('[data-hide]').click();
+          await expect(box).toHaveAccessibleName('');
+
+          await container.locator('[data-show]').click();
+          await expect(box).toHaveAccessibleName('Associated label');
+          await container.locator('[data-hide]').click();
+          await expect(box).toHaveAccessibleName('');
+          await expect(box).not.toHaveAttribute('aria-labelledby');
+          await container.locator('[data-name]').click();
+          await expect(box).toHaveAccessibleName('Custom name');
+          await container.locator('[data-show]').click();
+          await expect(box).toHaveAccessibleName('Custom name');
+          await container.locator('[data-hide]').click();
+          await expect(box).toHaveAccessibleName('Custom name');
+          await container.locator('[data-show]').click();
+          await container.locator('[data-unname]').click();
+          await expect(box).toHaveAccessibleName('Associated label');
+        });
+      });
+    }
   });
 
   test('can render a native button', async ({ page, mode }) => {
