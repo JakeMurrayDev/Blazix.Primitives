@@ -527,7 +527,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     // substitute element's own id wins, RND-DOM-32), the parent's group-derived aria-controls (CHK-ARIA-12, CHK-DOM-09),
     // the composed aria-describedby (CHK-ARIA-10) and aria-invalid while the field is invalid (CHK-ARIA-11). The pipeline
     // calls this after a substitute element's attributes merged, so the id kept here is the one on the element: a member
-    // registers it for the parent's aria-controls (design point G3, settled by the orchestrator 2026-10-23).
+    // registers it for the parent's aria-controls (design point G3: the orchestrator's settlement, a PartBase RenderedId, is asked back on the pull request).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes)
     {
