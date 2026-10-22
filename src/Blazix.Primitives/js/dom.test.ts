@@ -1236,3 +1236,46 @@ describe.each([
     expect(input.checked).toBe(true);
   });
 });
+
+// switch.md §16 Q1 (b), chosen by the user 2026-10-22; FFI-FRM-30's dated note: a form reset puts the input back to its
+// `checked` attribute (the value C# rendered at first), so the primitive re-asserts the property once the reset has run.
+describe('SwitchRoot hidden input checked after a form reset', () => {
+  function inputInForm() {
+    const form = document.createElement('form');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    form.appendChild(input);
+    document.body.appendChild(form);
+    return { form, input };
+  }
+
+  it('re-asserts the checked property after the owning form resets', async () => {
+    const { form, input } = inputInForm();
+    handles.push(attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin().twin));
+
+    form.reset();
+    expect(input.checked).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(input.checked).toBe(true);
+  });
+
+  it('follows an external form named by the form attribute and stops on dispose', async () => {
+    const { form } = inputInForm();
+    form.id = 'external';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('form', 'external');
+    document.body.appendChild(input);
+    const handle = attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin().twin);
+
+    form.reset();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(input.checked).toBe(true);
+
+    handle.dispose();
+    form.reset();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(input.checked).toBe(false);
+  });
+});

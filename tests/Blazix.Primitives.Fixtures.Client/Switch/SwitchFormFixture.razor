@@ -5,7 +5,7 @@
 @*
     The `switch-form` fixture (tests/browser/switch.spec.ts): a native <form> with named switches (a value and an
     unchecked value; a disabled one with an unchecked value; a disabled one that is on), and switches outside it that
-    belong to it through `form`. The specs capture the FormData of a submit in the page and prevent the navigation.
+    belong to it through `form`, and a reset button. The specs capture the FormData of a submit in the page and prevent the navigation.
 *@
 <FixtureContainer Name="switch-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
@@ -17,6 +17,7 @@
         <SwitchRoot @ref="disabledOffRoot" data-switch="disabled-off" Name="disabled-off" UncheckedValue="off" Disabled="true" />
         <SwitchRoot @ref="disabledOnRoot" data-switch="disabled-on" Name="disabled-on" DefaultChecked="true" Disabled="true" />
         <button type="submit" data-submit>Submit</button>
+        <button type="reset" data-reset>Reset</button>
     </form>
 
     <SwitchRoot @ref="externalRoot" data-switch="external" Name="external" Form="switch-form" />

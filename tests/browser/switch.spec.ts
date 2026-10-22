@@ -448,6 +448,31 @@ test.describe('<Switch.Root />', () => {
     });
   });
 
+  test.describe('form reset', () => {
+    test('port: a native form reset keeps the state and re-syncs the hidden input, so the next submit matches it', async ({ page, mode }) => {
+      // switch.md §16 Q1 (b), chosen by the user 2026-10-22; SWT-FRM-15's state clause and FFI-FRM-30's dated note.
+      const fixture = await gotoSwitches(page, mode, 'switch-form');
+      const cycle = fixture.locator('[data-switch="cycle"]');
+      const input = cycle.locator('xpath=following-sibling::input[@type="checkbox"][1]');
+      await cycle.click();
+      await expect(cycle).toHaveAttribute('aria-checked', 'true');
+
+      await fixture.locator('[data-reset]').click();
+
+      await expect(input).toHaveJSProperty('checked', true);
+      await expect(cycle).toHaveAttribute('aria-checked', 'true');
+      await fixture.locator('[data-form]').evaluate((form) => {
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          (form as HTMLElement).dataset.entries = JSON.stringify([...new FormData(form as HTMLFormElement).entries()]);
+        }, { once: true });
+      });
+      await fixture.locator('[data-submit]').click();
+      const entries = JSON.parse((await fixture.locator('[data-form]').getAttribute('data-entries'))!) as [string, string][];
+      expect(entries.filter(([name]) => name === 'cycle')).toEqual([['cycle', 'yes']]);
+    });
+  });
+
   test('can render a native button', async ({ page, mode }) => {
     const fixture = await gotoSwitches(page, mode, 'switch-basic');
     const { container, root, before } = switchCase(fixture, 'native');
