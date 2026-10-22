@@ -12,9 +12,10 @@ namespace Blazix.Primitives;
 // orchestrator 2026-10-22), so portaled fields and a substituted root see it. FRM-STA-01: the state is empty.
 // FRM-API-05: Base UI's actionsRef is ValidateAsync and ClearErrors, reached by @ref (ADR 08 Amendments 2026-10-22).
 // FRM-EVT-01, FFI-ALG-05: the form module prevents every native submit and reports it with the state of every enrolled
-// control; HandleSubmitAsync runs the six steps and answers (design points F1, F2 of M2 track 2). FRM-DOM-02, FRM-DOM-03:
-// the form's handle is its element reference's id, found by Blazor's capture-id attribute, so the form renders no id; a
-// substituted form without an element reference renders a generated one (design point F6, pending the orchestrator).
+// control; HandleSubmitAsync runs the six steps and answers (design points F1, F2 of M2 track 2, settled by the
+// orchestrator 2026-10-23). FRM-DOM-02, FRM-DOM-03 (design point F6, settled by the orchestrator 2026-10-23; ADR 04 §3's
+// one-way contract): the form draws a token it never renders, which its attach registers the element under and its
+// controls carry; a substituted form without an element reference attaches by a generated id it renders (ADR 02 decision 1).
 /// <summary>
 /// Represents a form that validates its fields and collects their values: Base UI's <c>Form</c>, rendered as a
 /// <c>form</c>. Every <see cref="FieldRoot"/> inside it, including one rendered elsewhere in the page through a portal,
@@ -126,6 +127,7 @@ public sealed class Form : PartBase<EmptyState>
     /// <inheritdoc />
     protected override void OnInitialized()
     {
+        scope.FormToken = IdGenerator.Next();
         scope.AddListener(scopeChanged);
         base.OnInitialized();
     }
@@ -140,8 +142,8 @@ public sealed class Form : PartBase<EmptyState>
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        string? elementId = Element?.Id ?? ConsumerId ?? substituteId ?? lateId;
-        if (elementId is null)
+        string? elementId = Element is null ? ConsumerId ?? substituteId ?? lateId : null;
+        if (Element is null && elementId is null)
         {
             // A substitute whose root is a component leaves no element reference: render an id, attach next time.
             lateId = IdGenerator.Next();
@@ -149,7 +151,6 @@ public sealed class Form : PartBase<EmptyState>
             return;
         }
 
-        scope.ElementId = elementId;
         if (focusPending)
         {
             // FRM-FOC-02, FFI-FOC-03, FFI-FRM-27: the registry already holds the fields' verdicts on the new errors.
@@ -158,7 +159,7 @@ public sealed class Form : PartBase<EmptyState>
             focusIds = InvalidControlIds(out _);
         }
 
-        FormOptions options = new() { Submit = new FormSubmitOptions { FocusRevision = focusRevision, Focus = focusIds } };
+        FormOptions options = new() { Submit = new FormSubmitOptions { Token = scope.FormToken, FocusRevision = focusRevision, Focus = focusIds } };
         if (handle is not null)
         {
             if (options != sentOptions)
@@ -172,7 +173,7 @@ public sealed class Form : PartBase<EmptyState>
 
         twin ??= new FormTwin(JSRuntime) { SubmitHandler = submitHandler };
         sentOptions = options;
-        handle = Element is { } element ? await twin.AttachAsync(element, options).ConfigureAwait(true) : await twin.AttachAsync(elementId, options).ConfigureAwait(true);
+        handle = Element is { } element ? await twin.AttachAsync(element, options).ConfigureAwait(true) : await twin.AttachAsync(elementId!, options).ConfigureAwait(true);
         attachedSource.TrySetResult();
     }
 

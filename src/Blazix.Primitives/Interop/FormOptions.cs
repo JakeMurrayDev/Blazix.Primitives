@@ -27,6 +27,10 @@ internal sealed record FormOptions : TwinOptions
 /// <summary>The options of an attached form element: the focus request after a passed submission.</summary>
 internal sealed record FormSubmitOptions
 {
+    /// <summary>Gets the token the module registers the form element under.</summary>
+    /// <value>The token the form's controls carry as <see cref="FormControlOptions.FormId"/>; it is never rendered.</value>
+    public string? Token { get; init; }
+
     /// <summary>Gets the focus request counter.</summary>
     /// <value>An increase asks the module to focus the first control of <see cref="Focus"/> by document order.</value>
     public int FocusRevision { get; init; }
@@ -37,7 +41,7 @@ internal sealed record FormSubmitOptions
 
     /// <inheritdoc />
     public bool Equals(FormSubmitOptions? other) =>
-        other is not null && FocusRevision == other.FocusRevision && (ReferenceEquals(Focus, other.Focus) || (Focus is not null && other.Focus is not null && Focus.SequenceEqual(other.Focus)));
+        other is not null && string.Equals(Token, other.Token, StringComparison.Ordinal) && FocusRevision == other.FocusRevision && (ReferenceEquals(Focus, other.Focus) || (Focus is not null && other.Focus is not null && Focus.SequenceEqual(other.Focus)));
 
     /// <inheritdoc />
     public override int GetHashCode() => FocusRevision;
@@ -46,8 +50,11 @@ internal sealed record FormSubmitOptions
 /// <summary>The options of an attached control: its value, its validity and the reports it sends.</summary>
 internal sealed record FormControlOptions
 {
-    /// <summary>Gets the id of the enclosing form's element.</summary>
-    /// <value>The id the module compares the input's form owner with, or <see langword="null"/> outside a form.</value>
+    /// <summary>Gets the token of the enclosing form.</summary>
+    /// <value>
+    /// The token the form's own attach registered its element under, which the module compares the input's form owner
+    /// with and enrols the control on; or <see langword="null"/> outside a form.
+    /// </value>
     public string? FormId { get; init; }
 
     /// <summary>Gets the custom message the field installs on the element.</summary>

@@ -25,7 +25,7 @@ internal sealed class FormScope : IFormScope
     public int SubmitCount { get; private set; }
 
     /// <inheritdoc />
-    public string? ElementId { get; set; }
+    public string? FormToken { get; set; }
 
     // FFI-FOC-03: Form compares it to learn that the map changed through a field's clearErrors.
     /// <summary>Gets a number that changes whenever the current error map changes.</summary>
