@@ -20,7 +20,7 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
     // then discards without a render.
     private const long RerenderBudgetBytes = 704;
 
-    // Design point C4 of M2 track 5 (pending the user): while the native-label fallback is in play (no aria-label, no
+    // Design point C4 of M2 track 5 (settled by the orchestrator 2026-10-23): while the native-label fallback is in play (no aria-label, no
     // aria-labelledby, no Field.Label) the form module watches the document's labels itself (CHK-ARIA-08), so a re-render
     // sends nothing more. First measurement 2026-10-23: 704 bytes, the same as a box named by aria-label.
     private const long FallbackRerenderBudgetBytes = 704;

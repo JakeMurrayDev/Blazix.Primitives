@@ -719,7 +719,7 @@ test.describe('<Checkbox.Root />', () => {
   });
 
   test.describe('Enter', () => {
-    // CHK-KEY-03..07 on native forms (design point C2 of M2 track 5, pending the user): the form module owns the path.
+    // CHK-KEY-03..07 on native forms (design point C2 of M2 track 5, settled by the orchestrator 2026-10-23): the form module owns the path.
     interface SubmitRecord {
       submits: number;
       submitter: string | null;
@@ -868,7 +868,7 @@ test.describe('<Checkbox.Root />', () => {
 
   test.describe('accessible name', () => {
     // CHK-ARIA-06..08, CHK-DOM-22, CHK-EDGE-07/13: the form module's native-label fallback (design point C4 of M2 track 5,
-    // pending the user) after the consumer's aria-labelledby, a non-blank aria-label and the Field.Label.
+    // settled by the orchestrator 2026-10-23) after the consumer's aria-labelledby, a non-blank aria-label and the Field.Label.
     test('sets `aria-labelledby` from a sibling label associated with the hidden input', async ({ page, mode }) => {
       const fixture = await gotoCheckboxes(page, mode, 'checkbox-names');
       const container = fixture.locator('[data-case="sibling"]');

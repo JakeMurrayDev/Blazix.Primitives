@@ -70,7 +70,7 @@ internal sealed record FormControlOptions
     /// <value>The visible control of a form-participation input, or <see langword="null"/>.</value>
     public string? FocusTarget { get; init; }
 
-    // CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (pending the user): ADR 04 §1's form row owns
+    // CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (settled by the orchestrator 2026-10-23): ADR 04 §1's form row owns
     // the Enter-to-submit path.
     /// <summary>Gets a value indicating whether Enter on the element submits the form its hidden input belongs to.</summary>
     /// <value>
@@ -81,7 +81,7 @@ internal sealed record FormControlOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool EnterSubmit { get; init; }
 
-    // CHK-ARIA-07/08, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (pending the user).
+    // CHK-ARIA-07/08, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (settled by the orchestrator 2026-10-23).
     /// <summary>Gets a value indicating whether the module looks for the element's native label.</summary>
     /// <value>
     /// <see langword="true"/> while the part's accessible name comes from the input's native label: the module looks for

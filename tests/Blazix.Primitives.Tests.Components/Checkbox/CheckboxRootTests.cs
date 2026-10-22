@@ -738,7 +738,7 @@ public sealed class CheckboxRootTests : IDisposable
         Assert.Equal(cut.Instance.Element, Assert.Single(test.ButtonModule.Invocations["attach"]).Arguments[0]);
     }
 
-    [Fact(DisplayName = "port: the root's form handle submits the owning form on Enter, except while disabled (pending the user)")]
+    [Fact(DisplayName = "port: the root's form handle submits the owning form on Enter, except while disabled")]
     [Trait("Requirement", "CHK-KEY-04")]
     [Trait("Requirement", "CHK-KEY-06")]
     public void Port_the_roots_form_handle_submits_the_owning_form_on_Enter()
@@ -756,7 +756,7 @@ public sealed class CheckboxRootTests : IDisposable
         Assert.True(test.FormOptions.Last(o => o.EnterSubmit).Disabled);
     }
 
-    [Fact(DisplayName = "port: the hidden input looks for a native label while nothing else names the box, and hands focus to the root (pending the user)")]
+    [Fact(DisplayName = "port: the hidden input looks for a native label while nothing else names the box, and hands focus to the root")]
     [Trait("Requirement", "CHK-ARIA-07")]
     [Trait("Requirement", "CHK-ARIA-08")]
     [Trait("Requirement", "CHK-ARIA-09")]
