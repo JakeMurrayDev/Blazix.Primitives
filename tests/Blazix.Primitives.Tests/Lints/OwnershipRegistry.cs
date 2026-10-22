@@ -37,5 +37,9 @@ internal static class OwnershipRegistry
         // and its state record arrive in PR 1c, which adds the StateField (FieldErrorState.TransitionStatus).
         new("field", "Error", "data-starting-style", Writer.Js),
         new("field", "Error", "data-ending-style", Writer.Js),
+        // field.md §5.3 FLD-DOM-11 (ADR 04 Amendments 2026-10-22, pending the user): C# renders the value once; the form
+        // module owns the element's value and defaultValue from attach. Input adopts the row (INP-STR-04).
+        new("field", "Control", "value", Writer.CsharpToJs),
+        new("field", "Control", "defaultValue", Writer.CsharpToJs),
     ];
 }
