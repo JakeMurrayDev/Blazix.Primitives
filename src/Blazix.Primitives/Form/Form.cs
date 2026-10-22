@@ -1,6 +1,8 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -9,6 +11,10 @@ namespace Blazix.Primitives;
 // IFormScope around the part's whole output (ADR 16 rule 9, BLZX2001; the M2 contexts design point, settled by the
 // orchestrator 2026-10-22), so portaled fields and a substituted root see it. FRM-STA-01: the state is empty.
 // FRM-API-05: Base UI's actionsRef is ValidateAsync and ClearErrors, reached by @ref (ADR 08 Amendments 2026-10-22).
+// FRM-EVT-01, FFI-ALG-05: the form module prevents every native submit and reports it with the state of every enrolled
+// control; HandleSubmitAsync runs the six steps and answers (design points F1, F2 of M2 track 2). FRM-DOM-02, FRM-DOM-03:
+// the form's handle is its element reference's id, found by Blazor's capture-id attribute, so the form renders no id; a
+// substituted form without an element reference renders a generated one (design point F6, pending the orchestrator).
 /// <summary>
 /// Represents a form that validates its fields and collects their values: Base UI's <c>Form</c>, rendered as a
 /// <c>form</c>. Every <see cref="FieldRoot"/> inside it, including one rendered elsewhere in the page through a portal,
@@ -30,12 +36,33 @@ public sealed class Form : PartBase<EmptyState>
 
     private readonly RenderFragment renderPart;
     private readonly FormScope scope = new();
+    private readonly Action scopeChanged;
+    private readonly Func<FormSubmitRequest, Task<FormSubmitAnswer>> submitHandler;
+    private FormTwin? twin;
+    private TwinHandle<FormOptions>? handle;
+    private FormOptions? sentOptions;
+    private string? substituteId;
+    private string? lateId;
+    private int seenErrorsVersion;
+    private bool focusPending;
+    private int focusRevision;
+    private IReadOnlyList<string>? focusIds;
 
     /// <summary>Initializes a new instance of the <see cref="Form"/> class.</summary>
     public Form()
     {
         renderPart = RenderPart;
+        scopeChanged = OnScopeChanged;
+        submitHandler = HandleSubmitAsync;
     }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
+
+    private string? ConsumerId => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? value) && value is string text ? text : null;
 
     // FRM-API-01, FFI-API-02.
     /// <summary>Gets or sets when the form's fields validate.</summary>
@@ -85,11 +112,61 @@ public sealed class Form : PartBase<EmptyState>
     /// <inheritdoc />
     protected override EmptyState State => EmptyState.Instance;
 
+    // FRM-STA-03, for the tests: the number of submissions started.
+    /// <summary>Gets the number of submissions the form has started.</summary>
+    /// <value>The submission counter.</value>
+    internal int SubmitCount => scope.SubmitCount;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        scope.AddListener(scopeChanged);
+        base.OnInitialized();
+    }
+
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
         scope.SetValidationMode(ValidationMode);
         scope.SetErrors(Errors);
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        string? elementId = Element?.Id ?? ConsumerId ?? substituteId ?? lateId;
+        if (elementId is null)
+        {
+            // A substitute whose root is a component leaves no element reference: render an id, attach next time.
+            lateId = IdGenerator.Next();
+            StateHasChanged();
+            return;
+        }
+
+        scope.ElementId = elementId;
+        if (focusPending)
+        {
+            // FRM-FOC-02, FFI-FOC-03, FFI-FRM-27: the registry already holds the fields' verdicts on the new errors.
+            focusPending = false;
+            focusRevision++;
+            focusIds = InvalidControlIds(out _);
+        }
+
+        FormOptions options = new() { Submit = new FormSubmitOptions { FocusRevision = focusRevision, Focus = focusIds } };
+        if (handle is not null)
+        {
+            if (options != sentOptions)
+            {
+                sentOptions = options;
+                await handle.UpdateAsync(options).ConfigureAwait(true);
+            }
+
+            return;
+        }
+
+        twin ??= new FormTwin(JSRuntime) { SubmitHandler = submitHandler };
+        sentOptions = options;
+        handle = Element is { } element ? await twin.AttachAsync(element, options).ConfigureAwait(true) : await twin.AttachAsync(elementId, options).ConfigureAwait(true);
     }
 
     /// <inheritdoc />
@@ -100,6 +177,24 @@ public sealed class Form : PartBase<EmptyState>
         builder.AddComponentParameter(2, nameof(CascadingValue<IFormScope>.IsFixed), true);
         builder.AddComponentParameter(3, nameof(CascadingValue<IFormScope>.ChildContent), renderPart);
         builder.CloseComponent();
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            scope.RemoveListener(scopeChanged);
+            if (twin is not null)
+            {
+                twin.SubmitHandler = null;
+                _ = twin.DisposeAsync().AsTask();
+                twin = null;
+                handle = null;
+            }
+        }
+
+        base.Dispose(disposing);
     }
 
     // FRM-API-05, FRM-FRM-11/12, FRM-EDGE-01/02, FFI-API-06, FFI-FRM-20.
@@ -153,6 +248,18 @@ public sealed class Form : PartBase<EmptyState>
         {
             attributes.Set("novalidate", true);
         }
+
+        // A substitute callback leaves no element reference: the form's handle is an id it renders, drawn in the first
+        // render (the consumer's id wins), as a part's substitute does under ADR 02 decision 1.
+        if (RenderFunction is not null)
+        {
+            substituteId ??= IdGenerator.Next();
+            attributes.Set("id", substituteId);
+        }
+        else if (lateId is not null)
+        {
+            attributes.Set("id", lateId);
+        }
     }
 
     // ADR 04 Amendments 2026-10-18 item 1: the form module owns the submit event, so no second Blazor handler runs for it.
@@ -160,4 +267,110 @@ public sealed class Form : PartBase<EmptyState>
     protected override bool ForwardsConsumerHandler(string eventName) => !string.Equals(eventName, "onsubmit", StringComparison.Ordinal);
 
     private void RenderPart(RenderTreeBuilder builder) => base.BuildRenderTree(builder);
+
+    // FRM-EVT-01, FFI-ALG-05: (1) count; (2) validate every entry in registration order, from the state the module read in
+    // the submit task (FFI-FRM-04), each commit's synchronous part updating its entry, a pending validator never awaited
+    // (FFI-FRM-14); (3) blocked: the invalid entries' controls for the module to focus (FRM-FOC-01), no callback; else (4)
+    // the latch, (5) OnSubmit, (6) OnFormSubmit with the values; the native submission is re-issued only when neither
+    // OnFormSubmit nor the consumer's veto prevents it (FRM-EVT-02/03).
+    private async Task<FormSubmitAnswer> HandleSubmitAsync(FormSubmitRequest request)
+    {
+        scope.BeginSubmit();
+        FieldRegistry registry = scope.Registry;
+        foreach (FormControlState state in request.Controls)
+        {
+            if (registry.TryGet(state.Id, out FieldRegistryEntry entry) && entry.ApplyState is { } apply)
+            {
+                apply(state.Value, state.Validity);
+            }
+        }
+
+        string[] ids = [.. registry.Ids];
+        foreach (string id in ids)
+        {
+            if (registry.TryGet(id, out FieldRegistryEntry entry))
+            {
+                Observe(entry.Validate());
+            }
+        }
+
+        IReadOnlyList<string> focus = InvalidControlIds(out bool blocked);
+        if (blocked)
+        {
+            return new FormSubmitAnswer { Verdict = FormSubmitAnswer.BlockedVerdict, Focus = focus };
+        }
+
+        scope.SetSubmitted();
+        GenericEventDetails details = new(EventReason.None, request.Event);
+        FormSubmitEventArgs submitArgs = new(registry.BuildValues(), details);
+        await OnSubmit.InvokeAsync(submitArgs).ConfigureAwait(true);
+        if (OnFormSubmit.HasDelegate)
+        {
+            await OnFormSubmit.InvokeAsync(new FormSubmitEventArgs(registry.BuildValues(), details)).ConfigureAwait(true);
+            return new FormSubmitAnswer { Verdict = FormSubmitAnswer.HandledVerdict };
+        }
+
+        return new FormSubmitAnswer { Verdict = submitArgs.NativeSubmitPrevented ? FormSubmitAnswer.HandledVerdict : FormSubmitAnswer.SubmitVerdict };
+    }
+
+    // FFI-FOC-01/02: every invalid entry blocks; those with a control are listed, in registration order.
+    private List<string> InvalidControlIds(out bool anyInvalid)
+    {
+        anyInvalid = false;
+        List<string> ids = [];
+        FieldRegistry registry = scope.Registry;
+        foreach (string id in registry.Ids)
+        {
+            if (!registry.TryGet(id, out FieldRegistryEntry entry) || entry.ValidityData.State.Valid != false)
+            {
+                continue;
+            }
+
+            anyInvalid = true;
+            if (entry.ControlId is { } controlId)
+            {
+                ids.Add(controlId);
+            }
+        }
+
+        return ids;
+    }
+
+    // ADR 16 rule 8: a validator's exception reaches the form's error boundary.
+    private void Observe(Task task)
+    {
+        if (!task.IsCompletedSuccessfully)
+        {
+            _ = ObserveAsync(task);
+        }
+    }
+
+    private async Task ObserveAsync(Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            await DispatchExceptionAsync(exception).ConfigureAwait(true);
+        }
+    }
+
+    // FRM-FOC-02, FFI-FOC-03: any change of the error map consumes the submitted latch, whether a new Errors instance or a
+    // field's clearErrors; the focus request goes to the module after the render.
+    private void OnScopeChanged()
+    {
+        if (scope.ErrorsVersion == seenErrorsVersion)
+        {
+            return;
+        }
+
+        seenErrorsVersion = scope.ErrorsVersion;
+        if (scope.ConsumeSubmitted())
+        {
+            focusPending = true;
+            StateHasChanged();
+        }
+    }
 }

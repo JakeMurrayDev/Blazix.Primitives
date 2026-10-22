@@ -25,4 +25,16 @@ public sealed class FormSubmitEventArgs : EventArgs
     /// <summary>Gets the details of the submission.</summary>
     /// <value>The reason, <see cref="EventReason.None"/>, and the native <c>submit</c> event, whose default is prevented.</value>
     public GenericEventDetails Details { get; }
+
+    // FRM-EVT-02 (design point F4 of M2 track 2, pending the orchestrator): Base UI's preventDefault() in onSubmit.
+    /// <summary>Gets a value indicating whether <see cref="PreventNativeSubmit"/> was called.</summary>
+    /// <value><see langword="true"/> when the browser will not submit the form; otherwise, <see langword="false"/>.</value>
+    public bool NativeSubmitPrevented { get; private set; }
+
+    /// <summary>Prevents the browser from submitting the form after <see cref="Form.OnSubmit"/> returns.</summary>
+    /// <remarks>
+    /// Call it from <see cref="Form.OnSubmit"/> to handle the submission yourself, for example to send the values with
+    /// <see cref="System.Net.Http.HttpClient"/>. Giving <see cref="Form.OnFormSubmit"/> has the same effect.
+    /// </remarks>
+    public void PreventNativeSubmit() => NativeSubmitPrevented = true;
 }
