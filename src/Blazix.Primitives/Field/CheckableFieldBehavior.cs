@@ -219,6 +219,19 @@ internal sealed class CheckableFieldBehavior : IDisposable
     {
         parameters = next;
         form = fieldScope?.Form ?? formScope ?? DefaultFormScope.Instance;
+
+        // FFI-FRM-24: a group's validation inputs are in document order, as Base UI's ref callbacks add them, so the
+        // representative is the first eligible member; registering after the render's interop would order them by the
+        // round trips' completion on Server.
+        if (fieldScope is not null && next.RegistersInput && next.Enabled)
+        {
+            RegisterInput();
+        }
+        else if (fieldScope is not null)
+        {
+            UnregisterInput();
+        }
+
         participation.Update(next.EditContext, next.CheckedExpression);
         if (!initialized)
         {
@@ -276,13 +289,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
         else
         {
+            validationInput.ControlId = rootId;
             if (parameters.OwnsValue)
             {
                 fieldScope.Validation.InputRef = validationInput;
-                validationInput.ControlId = rootId;
             }
-
-            RegisterInput(rootId);
 
             using (fieldScope.Batch())
             {
@@ -382,15 +393,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
     }
 
     // FFI-FRM-24, CHK-FRM-19: a member's hidden input is one of the field's validation inputs; a parent's is not.
-    private void RegisterInput(string rootId)
+    private void RegisterInput()
     {
-        if (!parameters.RegistersInput)
-        {
-            UnregisterInput();
-            return;
-        }
-
-        validationInput.ControlId = rootId;
         if (!inputRegistered)
         {
             inputRegistered = true;
