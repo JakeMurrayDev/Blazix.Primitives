@@ -5,7 +5,8 @@ import { test, expect, fixtureUrl, gotoFixture, type Page, type RenderMode } fro
 // CheckboxGroup and its member and parent boxes. Titles are Base UI's (checkbox-group/CheckboxGroup.test.tsx); "port:"
 // titles assert the per-mode rows of checkbox-group §9 (CKG-STA-11, CKG-ARIA-03, CKG-ARIA-06). Field.Error is not on
 // main yet (PR 1c): the two "keeps the error" titles read the field's valueMissing verdict from the members'
-// aria-invalid, which with no validator is that verdict. Rows that need Form stay open (CKG-FOC-02, CKG-FRM-03/06/17).
+// aria-invalid, which with no validator is that verdict. The FormData titles run on native forms (the Form Base UI renders
+// around them takes no part in what they assert). Rows that need Form stay open (CKG-FOC-02, CKG-FRM-03/06/17).
 
 /** Opens the field fixture and waits until every listed box has its behaviors attached. */
 async function gotoGroups(page: Page, mode: RenderMode): Promise<Locator> {
@@ -42,7 +43,41 @@ function staticIds(markup: string): string[] {
   return Array.from(markup.matchAll(/ id="([^"]+)"/g), (match) => match[1]!);
 }
 
+/** Submits the case's form (prevented) and returns the values FormData lists under `name`. */
+async function submittedValues(container: Locator, name: string): Promise<string[]> {
+  return container.evaluate(async (node, field) => {
+    const form = node.querySelector('form')!;
+    const submitted = new Promise<string[]>((resolve) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        resolve(new FormData(form).getAll(field).map(String));
+      }, { once: true });
+    });
+    node.querySelector<HTMLElement>('[data-submit]')!.click();
+    return submitted;
+  }, name);
+}
+
 test.describe('<CheckboxGroup />', () => {
+  test.describe('Form', () => {
+    test('includes the checkbox group value in form submission', async ({ page, mode }) => {
+      const fixture = await gotoGroups(page, mode);
+      const container = fixture.locator('[data-case="submit"]');
+      expect(await submittedValues(container, 'apple')).toEqual(['fuji-apple', 'gala-apple']);
+    });
+
+    test('excludes parent checkboxes from form submission', async ({ page, mode }) => {
+      const fixture = await gotoGroups(page, mode);
+      const container = fixture.locator('[data-case="submit-parent"]');
+      await expect(box(container, 'parent')).toHaveAttribute('aria-checked', 'mixed');
+
+      await box(container, 'button-3').click();
+      await expect(box(container, 'parent')).toHaveAttribute('aria-checked', 'true');
+
+      expect(await submittedValues(container, 'apple')).toEqual(['fuji-apple', 'gala-apple', 'granny-smith-apple']);
+    });
+  });
+
   test.describe('Field', () => {
     test('validationMode=onChange keeps the error until every required checkbox is ticked', async ({ page, mode }) => {
       const fixture = await gotoGroups(page, mode);

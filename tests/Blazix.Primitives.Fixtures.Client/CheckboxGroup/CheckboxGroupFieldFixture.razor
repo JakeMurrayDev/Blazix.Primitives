@@ -7,7 +7,8 @@
     The `checkbox-group-field` fixture (tests/browser/checkbox-group.spec.ts): CheckboxGroup.test.tsx's Field titles that
     need a browser and render no Form. Required members validated on change and on blur (the native valueMissing of the
     representative input), the custom message on a member's input, members named by their native labels, and the
-    per-mode rows of checkbox-group §9 (CKG-STA-11, CKG-ARIA-06).
+    per-mode rows of checkbox-group §9 (CKG-STA-11, CKG-ARIA-06). The FormData titles run on native forms: the Form that
+    Base UI renders around them takes no part in what they assert.
 *@
 <FixtureContainer Name="checkbox-group-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
@@ -85,12 +86,40 @@
         </FieldRoot>
         <button type="button" data-unmount @onclick="() => galaMounted = false">Unmount</button>
     </div>
+    <div data-case="submit">
+        <form>
+            <FieldRoot Name="apple">
+                <CheckboxGroup DefaultValue="s_fujiGala">
+                    <FieldItem><CheckboxRoot @ref="submitFuji" data-checkbox data-testid="button-1" Value="fuji-apple" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="submitGala" data-checkbox data-testid="button-2" Value="gala-apple" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="submitGranny" data-checkbox data-testid="button-3" Value="granny-smith-apple" /></FieldItem>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+
+    <div data-case="submit-parent">
+        <form>
+            <FieldRoot Name="apple">
+                <CheckboxGroup @bind-Value="parentValue" AllValues="s_allApples">
+                    <FieldItem><CheckboxRoot @ref="parentParent" data-checkbox data-testid="parent" Parent="true" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="parentFuji" data-checkbox data-testid="button-1" Value="fuji-apple" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="parentGala" data-checkbox data-testid="button-2" Value="gala-apple" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="parentGranny" data-checkbox data-testid="button-3" Value="granny-smith-apple" /></FieldItem>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
 </FixtureContainer>
 
 @code {
     private static readonly IReadOnlyList<string> s_empty = [];
     private static readonly IReadOnlyList<string> s_apples = ["fuji", "gala"];
     private static readonly IReadOnlyList<string> s_cherry = ["cherry"];
+    private static readonly IReadOnlyList<string> s_fujiGala = ["fuji-apple", "gala-apple"];
+    private static readonly IReadOnlyList<string> s_allApples = ["fuji-apple", "gala-apple", "granny-smith-apple"];
     private CheckboxRoot? changeHttp;
     private CheckboxRoot? changeHttps;
     private CheckboxRoot? blurHttp;
@@ -103,13 +132,22 @@
     private CheckboxRoot? filledApple;
     private CheckboxRoot? controlsParent;
     private CheckboxRoot? controlsFuji;
+    private CheckboxRoot? submitFuji;
+    private CheckboxRoot? submitGala;
+    private CheckboxRoot? submitGranny;
+    private CheckboxRoot? parentParent;
+    private CheckboxRoot? parentFuji;
+    private CheckboxRoot? parentGala;
+    private CheckboxRoot? parentGranny;
+    private IReadOnlyList<string> parentValue = ["fuji-apple", "gala-apple"];
     private IReadOnlyList<string> customValue = [];
     private bool customDisabled;
     private bool galaMounted = true;
 
     /// <inheritdoc />
     protected override IEnumerable<CheckboxRoot?> Boxes =>
-        [changeHttp, changeHttps, blurHttp, blurHttps, customHttp, customHttps, namesParent, namesFuji, namesGala, filledApple, controlsParent, controlsFuji];
+        [changeHttp, changeHttps, blurHttp, blurHttps, customHttp, customHttps, namesParent, namesFuji, namesGala, filledApple, controlsParent, controlsFuji,
+         submitFuji, submitGala, submitGranny, parentParent, parentFuji, parentGala, parentGranny];
 
     private static ValueTask<FieldValidationResult?> PickTwo(FieldValidationArguments arguments) =>
         ValueTask.FromResult<FieldValidationResult?>(((IReadOnlyList<string>)arguments.Value!).Count < 2 ? "pick two" : null);
