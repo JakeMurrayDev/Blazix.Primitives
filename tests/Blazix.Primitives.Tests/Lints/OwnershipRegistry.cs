@@ -50,5 +50,12 @@ internal static class OwnershipRegistry
         // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
         // property from attach; C# renders the initial value once (the handover).
         new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
+        // Checkbox (M2 track 5; ADR 04 Amendments 2026-10-20 and 2026-10-22): the dom primitive owns the hidden checkbox
+        // input's indeterminate property (JS) and its checked property from attach (C# renders the initial value once);
+        // the transitions module writes the Indicator's transition attributes, mirrored in its state's TransitionStatus.
+        new("checkbox", "Hidden checkbox input", "checked", Writer.CsharpToJs),
+        new("checkbox", "Hidden checkbox input", "indeterminate", Writer.Js),
+        new("checkbox", "Indicator", "data-starting-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
+        new("checkbox", "Indicator", "data-ending-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
     ];
 }

@@ -179,10 +179,12 @@ The root's state object (same ten fields, same values at the same time) plus:
 
 The root's mapping (`data-checked`, `data-unchecked`, `data-indeterminate`, `data-disabled`, `data-readonly`, `data-required`, `data-touched`, `data-dirty`, `data-filled`, `data-focused`, `data-valid`, `data-invalid` — Req CHK-DOM-08; never `data-parent`) plus:
 
-| Attribute | Present when / value | Req |
-|---|---|---|
-| `data-starting-style` | `""` while `transitionStatus === 'starting'` | CHK-ANI-03 |
-| `data-ending-style` | `""` while `transitionStatus === 'ending'` | CHK-ANI-04 |
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` | `""` while `transitionStatus === 'starting'` | CHK-ANI-03 | JS |
+| `data-ending-style` | `""` while `transitionStatus === 'ending'` | CHK-ANI-04 | JS |
+
+Port note 2026-10-23 (docs/conventions.md §3.4, ADR 04 §2): this table gains the `Writer` column §5 does not give the Indicator. The `transitions` module writes both attributes from attach; C# renders `data-starting-style` only on an element it creates open, as the handover value of that element (ADR 04 Amendments 2026-10-18), and mirrors the status in the state's `TransitionStatus` (§9, CHK-STA-02).
 
 #### CSS variables
 
@@ -317,8 +319,8 @@ Rendered always, as the root's next sibling (after the optional `<input type="hi
 | `type` | `"checkbox"` | CHK-DOM-11 | C# |
 | `aria-hidden` | `"true"` | CHK-DOM-11 | C# |
 | `tabindex` | `-1` | CHK-DOM-11 | C# |
-| `checked` (property) | underlying `checked` state | CHK-DOM-12 | C# |
-| `indeterminate` (property) | effective indeterminate | CHK-DOM-13 | C# |
+| `checked` (property) | underlying `checked` state | CHK-DOM-12 | C# → JS |
+| `indeterminate` (property) | effective indeterminate | CHK-DOM-13 | JS |
 | `disabled` | effective disabled | CHK-DOM-12 | C# |
 | `required` | `required` | CHK-DOM-12 | C# |
 | `name` | effective name; absent for a parent box or when no name | CHK-DOM-12 | C# |
@@ -333,8 +335,10 @@ Rendered always, as the root's next sibling (after the optional `<input type="hi
   Source: `checkbox/root/CheckboxRoot.tsx:208-210`. Test: [L2] `CheckboxRoot.test.tsx` `getAllByRole('checkbox', { hidden: true })` queries (second element).
 - **CHK-DOM-12** — MUST. The hidden input's `checked` property MUST always equal the underlying `checked` state (not the "mixed" rendering); its `disabled`, `required` and `form` attributes MUST mirror the effective disabled, `required` and `form` values; its `name` MUST be the effective name except for a parent box, which MUST have no `name`.
   Source: `checkbox/root/CheckboxRoot.tsx:197-205`. Test: [L2] `CheckboxRoot.test.tsx` "should change its state when clicked" (`input.checked`), "should receive name prop from Field.Root", "keeps the native input state when checked changes while indeterminate remains"; `CheckboxGroup.test.tsx` "excludes parent checkboxes from form submission".
+  Port note 2026-10-23 (ADR 04 Amendments 2026-10-22, the ownership row of the hidden input's `checked`, as SWT-DOM-08's note of 2026-10-22): the `checked` property's `Writer` cell is `C# → JS`. C# renders the initial `checked` once; from attach the `dom` primitive owns the property, sets it on every `update` and is asked to restore it (`DomOptions.CheckedRestores`) when a request leaves the box's value different from the input; it is re-asserted after the owning form's `reset` (§16 Q7).
 - **CHK-DOM-13** — MUST. The hidden input's `indeterminate` property MUST be set to the effective indeterminate value post-commit, pre-paint after mount and after every change of `checked` or of effective indeterminate (a native click clears the property, so it is re-asserted after each toggle).
   Source: `checkbox/root/CheckboxRoot.tsx:173-177`. Test: [L4] `CheckboxRoot.test.tsx` "sets the native input state when indeterminate", "keeps the native input state when checked changes while indeterminate remains", "sets grouped parent native input state when manually indeterminate".
+  Port note 2026-10-23 (ADR 04 Amendments 2026-10-20, `indeterminate` is the `dom` primitive's; ADR 01 relaxation table, the row "JS-owned values that originate in C# state"): the `Writer` cell is `JS`. C# sends the effective value in `DomOptions.Indeterminate`; the primitive sets it on attach and on every `update`, and again inside every native click, which clears it, so no listener after the click sees it cleared. Met on both modes: the value C# sends lags a C# change by the update's round trip on Server, while the re-assertion inside the click is immediate.
 - **CHK-DOM-14** — MUST. The hidden input MUST be visually hidden by inline style. With no effective name the declarations are: `clip-path: inset(50%); overflow: hidden; white-space: nowrap; border: 0; padding: 0; width: 1px; height: 1px; margin: 0; position: fixed; top: 0; left: 0`. With an effective name they are: `clip-path: inset(50%); overflow: hidden; white-space: nowrap; border: 0; padding: 0; width: 1px; height: 1px; margin: -1px; position: absolute` (kept in flow near the root so native validation UI appears beside the box).
   Source: `checkbox/root/CheckboxRoot.tsx:207`, `packages/utils/src/visuallyHidden.ts:3-25`; see [FFI-DOM-02](../architecture/field-and-form-infrastructure.md), [UTL-DOM-13](../architecture/shared-utilities.md), [UTL-DOM-14](../architecture/shared-utilities.md). Test: none.
 - **CHK-DOM-15** — MUST. When `nativeButton` is `false`, the hidden input MUST carry the labelable control id — the `id` prop when non-empty; else, when the box owns its labelable scope's control id (standalone, or inside a `Field.Item`), the scope's resolved control id; else a generated id — and it MUST never be absent. When `nativeButton` is `true`, the hidden input MUST have no `id`. A box that shares its labelable scope with an enclosing `CheckboxGroup` MUST NOT claim that scope's control id (so several members never render the same id).
