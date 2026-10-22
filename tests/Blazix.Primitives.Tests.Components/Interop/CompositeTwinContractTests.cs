@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 public sealed class CompositeTwinContractTests
 {
     private const string DefaultsJson =
-        """{"orientation":"both","loopFocus":true,"enableHomeAndEndKeys":false,"stopEventPropagation":true,"highlightItemOnHover":false,"modifierKeys":[],"direction":"ltr","items":[],"selectOnNavigation":false,"reportFocusLeave":false,"reportHighlight":false}""";
+        """{"orientation":"both","loopFocus":true,"enableHomeAndEndKeys":false,"stopEventPropagation":true,"highlightItemOnHover":false,"modifierKeys":[],"direction":"ltr","items":[],"selectOnNavigation":false,"reportFocusLeave":false,"reportHighlight":false,"reportHandledKeys":false}""";
 
     private const string KeydownJson = """
         {"kind":"KeyboardEvent","type":"keydown","key":"ArrowDown","code":"ArrowDown","altKey":false,"ctrlKey":false,
@@ -55,6 +55,7 @@ public sealed class CompositeTwinContractTests
             SelectOnNavigation = true,
             ReportFocusLeave = true,
             ReportHighlight = true,
+            ReportHandledKeys = true,
         });
         await attached.DisposeAsync();
         await attached.DisposeAsync();
@@ -66,7 +67,7 @@ public sealed class CompositeTwinContractTests
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"orientation":"vertical","loopFocus":false,"enableHomeAndEndKeys":true,"stopEventPropagation":false,"highlightItemOnHover":true,"modifierKeys":["Shift","Alt"],"disabledIndices":[1,3],"direction":"rtl","items":[{"id":"base-ui-2"},{"id":"base-ui-3","tabIndex":"5"}],"selectOnNavigation":true,"reportFocusLeave":true,"reportHighlight":true}""",
+            """{"orientation":"vertical","loopFocus":false,"enableHomeAndEndKeys":true,"stopEventPropagation":false,"highlightItemOnHover":true,"modifierKeys":["Shift","Alt"],"disabledIndices":[1,3],"direction":"rtl","items":[{"id":"base-ui-2"},{"id":"base-ui-3","tabIndex":"5"}],"selectOnNavigation":true,"reportFocusLeave":true,"reportHighlight":true,"reportHandledKeys":true}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
@@ -115,6 +116,24 @@ public sealed class CompositeTwinContractTests
         Assert.Equal(EventKind.FocusEvent, snapshot.Kind);
         Assert.Equal("focusout", snapshot.Type);
         Assert.Equal("base-ui-4", snapshot.Target?.Id);
+    }
+
+    // Option (i) of ADR 04's note of 2026-10-22, pending the user.
+    [Fact]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void OnKeyHandled_raises_KeyHandled_with_the_key_event()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        List<EventSnapshot> handled = [];
+        twin.KeyHandled += handled.Add;
+
+        twin.OnKeyHandled($$"""{"event":{{KeydownJson}}}""");
+
+        EventSnapshot snapshot = Assert.Single(handled);
+        Assert.Equal("keydown", snapshot.Type);
+        Assert.Equal("ArrowDown", snapshot.Key);
+        Assert.Equal("base-ui-3", snapshot.Target?.Id);
     }
 
     [Fact]

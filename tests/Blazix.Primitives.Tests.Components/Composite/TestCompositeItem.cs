@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -9,7 +10,13 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class TestCompositeItem : PartBase<EmptyState>
 {
+    private readonly EventCallback onKeyDown;
     private CompositeItemBehavior? behavior;
+
+    public TestCompositeItem()
+    {
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
+    }
 
     [CascadingParameter]
     private CompositeRootContext? RootContext { get; set; }
@@ -38,13 +45,14 @@ internal sealed class TestCompositeItem : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        behavior = new CompositeItemBehavior(RootContext, nameof(TestCompositeItem));
+        behavior = new CompositeItemBehavior(RootContext, nameof(TestCompositeItem), onKeyDown);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.SetRegistration(Id, AdditionalAttributes);
+        behavior!.SetConsumerAttributes(AdditionalAttributes);
+        behavior.SetRegistration(Id, AdditionalAttributes);
     }
 
     /// <inheritdoc />
@@ -69,5 +77,11 @@ internal sealed class TestCompositeItem : PartBase<EmptyState>
     {
         Renders++;
         behavior!.AddAttributes(attributes);
+    }
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName)
+    {
+        return behavior!.ForwardsConsumerHandler(eventName);
     }
 }

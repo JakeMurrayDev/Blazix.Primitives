@@ -330,10 +330,11 @@ test.describe('Composite', () => {
 
 test.describe('composite consumer key handlers (port)', () => {
   // EVD-EVT-26 against composite key handling (CMP-EVT-12; ADR 01 relaxation table, ADR 04 §3 decision point `navigate`,
-  // fallback run). WebAssembly runs the root's C# onkeydown inside the dispatch, where PreventPartHandler() stops the key.
-  // On Server the key is handled; with stopEventPropagation the key never reaches Blazor's dispatcher, so the root's handler
-  // does not run at all (the question of ADR 04's note of 2026-10-22, pending the user).
-  test('a PreventPartHandler() in the root onkeydown vetoes the key on WebAssembly; Server handles it (fallback run)', async ({ page, mode }) => {
+  // fallback run) with option (i) of ADR 04's note of 2026-10-22, pending the user. WebAssembly runs the focused item's and
+  // the root's C# onkeydown inside the dispatch, where PreventPartHandler() stops the key. On Server the key is handled and
+  // the module's handled-key report runs the same handlers a round trip later. An ancestor's handler never sees the key,
+  // as in Base UI, where the root stops its propagation.
+  test('a PreventPartHandler() in the root onkeydown vetoes the key on WebAssembly; Server handles it and runs the handler after (fallback run)', async ({ page, mode }) => {
     const fixture = await gotoComposite(page, mode, 'composite-list');
     const { container, item } = group(fixture, 'probe-stop');
     await container.locator('[data-veto-switch]').click();
@@ -343,18 +344,17 @@ test.describe('composite consumer key handlers (port)', () => {
     await page.keyboard.press('ArrowDown');
     await settle(fixture);
 
+    await expect(container).toHaveAttribute('data-root-keys', '1');
     if (mode === 'wasm') {
       await expect(item('1')).toBeFocused();
       await expect(item('1')).toHaveAttribute('tabindex', '0');
-      await expect(container).toHaveAttribute('data-root-keys', '1');
     } else {
       await expect(item('2')).toBeFocused();
-      await expect(container).toHaveAttribute('data-root-keys', '0');
     }
   });
 
-  // The probe of deliverable 2 (issue 79): which C# onkeydown handlers run for a key the module handles.
-  test('with stopEventPropagation a handled key reaches no C# onkeydown on an item or an ancestor, an unhandled key reaches every one', async ({ page, mode }) => {
+  // The probe of deliverable 2 (issue 79), as option (i) answers it.
+  test("with stopEventPropagation a handled key runs the item's and the root's C# onkeydown and no ancestor's; an unhandled key runs all three", async ({ page, mode }) => {
     const fixture = await gotoComposite(page, mode, 'composite-list');
     const { container, item } = group(fixture, 'probe-stop');
 
@@ -363,16 +363,15 @@ test.describe('composite consumer key handlers (port)', () => {
     await expect(item('2')).toBeFocused();
     await settle(fixture);
 
-    // The root's handler runs inside the navigate decision on WebAssembly and nowhere on Server.
-    await expect(container).toHaveAttribute('data-root-keys', mode === 'wasm' ? '1' : '0');
-    await expect(container).toHaveAttribute('data-item-keys', '0');
+    await expect(container).toHaveAttribute('data-root-keys', '1');
+    await expect(container).toHaveAttribute('data-item-keys', '1');
     await expect(container).toHaveAttribute('data-outer-keys', '0');
 
     // ArrowRight is outside the vertical orientation: the module leaves it, and Blazor dispatches it.
     await page.keyboard.press('ArrowRight');
     await settle(fixture);
-    await expect(container).toHaveAttribute('data-root-keys', mode === 'wasm' ? '2' : '1');
-    await expect(container).toHaveAttribute('data-item-keys', '1');
+    await expect(container).toHaveAttribute('data-root-keys', '2');
+    await expect(container).toHaveAttribute('data-item-keys', '2');
     await expect(container).toHaveAttribute('data-outer-keys', '1');
   });
 

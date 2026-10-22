@@ -1890,3 +1890,50 @@ describe('composite decision points (port)', () => {
     });
   });
 });
+
+// --- port titles: the handled-key report (option (i) of ADR 04's note of 2026-10-22, pending the user) ----------------
+
+describe('composite handled-key report (port, pending the user)', () => {
+  it('reports a key it handles and stops, on Server, only when reportHandledKeys is set', async () => {
+    const quiet = mountItems(['a', 'b']);
+    byTestId('a').focus();
+    keyDown(byTestId('a'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(quiet.fake.reported('OnKeyHandled')).toEqual([]);
+    document.body.replaceChildren();
+
+    const group = mountItems(['1', '2'], { reportHandledKeys: true, loopFocus: false });
+    byTestId('1').focus();
+    keyDown(byTestId('1'), 'ArrowDown');
+    await flushMicrotasks();
+    // Not handled: past the end without looping, and a key outside the composite's.
+    keyDown(byTestId('2'), 'ArrowDown');
+    keyDown(byTestId('2'), 'Enter');
+
+    const reports = group.fake.reported<{ event: { type: string; key: string; target: { id: string } } }>('OnKeyHandled');
+    expect(reports).toHaveLength(1);
+    expect(reports[0]!.event).toMatchObject({ type: 'keydown', key: 'ArrowDown', target: { id: byTestId('1').id } });
+  });
+
+  it('does not report a key that C# decided inside the dispatch (WebAssembly)', async () => {
+    const group = mountItems(['1', '2'], { reportHandledKeys: true }, { synchronous: true, verdicts: { [NAVIGATE_POINT]: 'run' } });
+    byTestId('1').focus();
+
+    keyDown(byTestId('1'), 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(byTestId('2'));
+    expect(group.fake.reported('OnKeyHandled')).toEqual([]);
+  });
+
+  it('does not report a key whose propagation it leaves alone', async () => {
+    const group = mountItems(['1', '2'], { reportHandledKeys: true, stopEventPropagation: false });
+    byTestId('1').focus();
+
+    keyDown(byTestId('1'), 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(byTestId('2'));
+    expect(group.fake.reported('OnKeyHandled')).toEqual([]);
+  });
+});

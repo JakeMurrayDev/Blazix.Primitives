@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 
@@ -9,7 +10,13 @@ namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 /// </summary>
 public sealed class FixtureCompositeItem : PartBase<EmptyState>
 {
+    private readonly EventCallback onKeyDown;
     private CompositeItemBehavior? behavior;
+
+    public FixtureCompositeItem()
+    {
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
+    }
 
     [CascadingParameter]
     private CompositeRootContext? RootContext { get; set; }
@@ -30,13 +37,14 @@ public sealed class FixtureCompositeItem : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        behavior = new CompositeItemBehavior(RootContext, nameof(FixtureCompositeItem));
+        behavior = new CompositeItemBehavior(RootContext, nameof(FixtureCompositeItem), onKeyDown);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.SetRegistration(Id, AdditionalAttributes);
+        behavior!.SetConsumerAttributes(AdditionalAttributes);
+        behavior.SetRegistration(Id, AdditionalAttributes);
     }
 
     /// <inheritdoc />
@@ -60,5 +68,11 @@ public sealed class FixtureCompositeItem : PartBase<EmptyState>
     protected override void AddPartAttributes(AttributeList attributes)
     {
         behavior!.AddAttributes(attributes);
+    }
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName)
+    {
+        return behavior!.ForwardsConsumerHandler(eventName);
     }
 }
