@@ -187,3 +187,28 @@ The panel's twin is `CollapsibleTwin`; the Collapsible Root and Trigger keep `Tr
 - `moduleKinds` has the row, and the module-graph lint holds.
 
 **2026-10-22, JavaScript owns the roving `tabindex` and the hidden input's `checked` after attach (M2 planning; chosen by the user the same day).** Decision 2's ownership list gains two rows, written in full by the implementing pull requests. (1) `tabindex` on a composite item (CMP-DOM-01; RAD-FOC-01 and the M3 composite families) is written by the `composite` module from `attach`, in the same task as the focus move, so CMP-FOC-02's "focus and tab stop stay together" is met on both modes; C# renders the initial value under the handover rule, and a consumer `tabindex` carried in `update` wins (RAD-DOM-16). (2) The `checked` property of the hidden `<input type="checkbox">` or `<input type="radio">` of Switch, Checkbox and Radio is re-asserted by the `dom` primitive that owns `indeterminate` (Amendments 2026-10-20) on `attach`, on `update` and after a native click; a cancelled toggle is decided before the synthetic click on WebAssembly through the `activate` decision point and re-asserted one round trip later on Server, a new ADR 01 row of the "C#-origin consumer vetoes" class that the Switch track writes. The `Writer` cells of SWT, CHK, RAD and RDG change to JS for these attributes in the implementing pull requests (ADR 13 §3), and the ownership registry gains the rows. The alternative, C# rendering both with two relaxation rows, left the tab stop a round trip behind the focused item on Server and a cancelled box flipped for a round trip.
+
+**2026-10-22, the composite row of the ownership list and the composite decision points (M2 track 3, [issue 79](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/79); the row as the user chose it the same day, the two decision-point names pending the user).**
+
+*Ownership list (Decision 2): the composite row the amendment above announced, in full, in the table form of 2026-10-20 with the "initial value rendered by C#" column of 2026-10-18.*
+
+| Part(s) | JS-owned | Initial value rendered by C# | Note |
+|---|---|---|---|
+| every composite item (`Radio.Root` in a group in M2; the items of ToggleGroup, Toolbar, Tabs, Menubar and NavigationMenu later) | `tabindex` | `"-1"` on every render (CMP-STA-15), so Blazor never writes it again | written by `composite` from `attach`, in the same task as the highlight change: `"0"` on the highlighted item, `"-1"` elsewhere (CMP-DOM-01, CMP-FOC-02); an item whose registration carries a consumer `tabindex` is not written (RAD-DOM-16) |
+
+- C# registers each item by the id its part renders, with the consumer's `tabindex`, in `CompositeOptions.Items`; the module resolves the ids from the root's document or shadow root on `attach` and on every `update`.
+- The ownership registry gains `radio` / `Root` / `tabindex` as `C# → JS`, inert until the Radio family exists; RAD §5.1's `Writer` cell changes with track 8.
+
+*Decision points (Decision 3), added. Both fall back to **run**; the names are pending the user:*
+- `navigate`: the consumer's `onKeyDown` veto against composite key handling (EVD-EVT-26, CMP-EVT-12, RDG-API-12). The module asks it only where it is about to act, when the candidate index differs from the highlighted one and is in bounds, before it prevents, stops, highlights or focuses.
+  - The C# chain is the part's own `NavigationDecider`, then the root consumer's `onkeydown`, which the root part declines (ADR 02 Amendments 2026-10-21) and otherwise runs from its own handler.
+  - The one-shot marker that keeps Blazor's later dispatch from running the handler twice is left only when Blazor will dispatch the key: after a veto, or with `stopEventPropagation` off.
+- `select`: the focus-driven selection of 2026-10-20 (RAD-FOC-05). The module asks it only where it is about to click the focused item's input. The snapshot's `Target.Id` names the item, so a part can run that item's consumer handler.
+- `CompositeTwin.NavigatePoint` and `SelectPoint` hold the names; `NavigationDecider` and `SelectionDecider` are the twin's chains.
+
+*Pending the user: a key the module handles never reaches Blazor's dispatcher.* Blazor dispatches C# handlers from its document-level listener, after the module's listener on the root element (Amendments 2026-10-18, item 3).
+- With `stopEventPropagation` (CMP-KEY-15, `true` for a root part, RadioGroup's value), a key the module handles is stopped at the root.
+- So no C# `onkeydown` on the root, on an item or on an ancestor runs for that key: on Server not at all, and on WebAssembly only the root's, inside `navigate`.
+- Base UI runs the consumer's handlers of the item and the root before the root's handling, and stops only the ancestors'.
+- The probe is `tests/browser/composite.spec.ts` "with stopEventPropagation a handled key reaches no C# onkeydown on an item or an ancestor, an unhandled key reaches every one", on the `composite-list` fixture, both modes.
+- The options and the recommendation are with the user through the orchestrator. Until the answer, the module stops the key at the root as CMP-KEY-10 states.
