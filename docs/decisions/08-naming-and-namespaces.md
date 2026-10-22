@@ -128,3 +128,11 @@ Members of every class follow the eleven-group order of the old port: constants,
 - `FieldValidationResult` has the proposed shape: `public sealed class` with implicit conversions from `string?` (`null` gives `null`, `""` gives no errors) and `string[]?`, `IReadOnlyList<string> Errors` with empty strings dropped (FFI-API-01), `bool IsValid`, and a constructor from `IEnumerable<string?>`.
 - `FieldControl.OnValueChange` and `Input.OnValueChange` are `EventCallback<ValueChangeEventArgs<string>>` with the shared `ChangeEventDetails` (`EventReason.None`, the event snapshot). ADR 05 §3 adds no subclass, so the two parts' "details names" (INP §3.2) are one type. Each part keeps its own state record and `DataAttributes` class.
 - `FieldRoot.ValidateAsync()` returns `Task` and completes after the field's control has reported its current value and validity (FLD-API-08). It faults with the validator's exception, and the field then keeps its previous verdict.
+
+**2026-10-23, members the Form track refines (M2 track 2, [issue 78](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/78); refinements under the 2026-10-22 amendment, the veto member pending the orchestrator).**
+- `public sealed class FormErrors : IReadOnlyDictionary<string, IReadOnlyList<string>>`:
+  - an insertion-ordered map with `public FormErrorMessages this[string key] { get; set; }`, `Keys`, `Values`, `Count`, `ContainsKey`, `TryGetValue(string, out FormErrorMessages)`, `Remove(string)` and `HasError(string)`;
+  - `new FormErrors { ["url"] = "…", ["tags"] = new[] { "…", "…" } }` compiles.
+- `public sealed class FormErrorMessages : IReadOnlyList<string>` (a companion type), with implicit conversions from `string?` and `string[]?` and `static FormErrorMessages None`. An empty or `null` string converts to no messages, and an array is kept as it is. It is a class, so reading it as an interface never boxes (BLZX2005).
+- `FormSubmitEventArgs` gains `public void PreventNativeSubmit()` and `public bool NativeSubmitPrevented { get; }`, Base UI's `preventDefault()` in `onSubmit`, in `Form/` with no change to `Events/` (design point F4, pending the orchestrator).
+- `Form.ValidateAsync(string? fieldName = null)` returns `Task`, and `Form.ClearErrors(string? name)` returns `void`, as the 2026-10-22 amendment states.
