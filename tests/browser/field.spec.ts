@@ -229,6 +229,34 @@ test.describe('Field', () => {
     });
   });
 
+  // The two platform facts behind FLD-DOM-11's `C# → JS` writer (ADR 04 Amendments 2026-10-22, chosen by the user):
+  // Blazor's renderer writes `value` only as a property and only when the rendered frame changed. A change here fails
+  // these titles before it reaches the form module's value ownership.
+  test.describe('platform: the value Blazor renders', () => {
+    test('is not re-applied over the user\'s text when the frame is unchanged', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-basic');
+      const plain = fixture.locator('[data-case="plain"] [data-testid="plain"]');
+      await expect(plain).toHaveValue('first');
+
+      await plain.fill('typed');
+      await settle(fixture);
+
+      await expect(plain).toHaveValue('typed');
+    });
+
+    test('overwrites the user\'s text when it changes, and never sets defaultValue', async ({ page, mode }) => {
+      const fixture = await gotoField(page, mode, 'field-basic');
+      const plain = fixture.locator('[data-case="plain"] [data-testid="plain"]');
+      expect(await plain.evaluate((input) => (input as HTMLInputElement).defaultValue)).toBe('');
+
+      await plain.fill('edited');
+      await fixture.locator('[data-case="plain"] [data-set-plain]').click();
+
+      await expect(plain).toHaveValue('second');
+      expect(await plain.evaluate((input) => (input as HTMLInputElement).defaultValue)).toBe('');
+    });
+  });
+
   test.describe('controlled value', () => {
     // FLD-API-15 (the port's title): the module re-applies the consumer's value after an edit it did not take, on Server
     // one round trip later (ADR 01 relaxation row added 2026-10-22).
