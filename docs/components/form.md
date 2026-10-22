@@ -33,7 +33,7 @@ Form has a single part. Fields are discovered by *registration* through the form
 - **FRM-STR-02** — MUST. A `Form` MAY contain any number of fields, including zero; with no registered field a submission passes validation immediately (FRM-EVT-01 step 3 finds nothing).
   Source: `form/Form.tsx:113-120`. Test: [L2] `Form.test.tsx` "should disable native validation if set to true (default)" (empty form renders).
 
-Outside a `Form`, fields see the *default form scope* (empty registry, `errors = {}`, no-op `clearErrors`, `validationMode = 'onSubmit'`, counter `0`, no element; FFI-STR-05). Nested `<Form>` elements are not supported by HTML and are not handled specially (§16).
+Outside a `Form`, fields see the *default form scope* (one registry shared by the fields outside a `Form`, `errors = {}`, no-op `clearErrors`, `validationMode = 'onSubmit'`, counter `0`, no element; FFI-STR-05). Nested `<Form>` elements are not supported by HTML and are not handled specially (§16).
 
 ## 3. Public API
 
