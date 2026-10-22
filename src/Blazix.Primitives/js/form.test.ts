@@ -667,7 +667,7 @@ describe('form submission', () => {
   });
 
   it('reads every control enrolled on the form into the report', async () => {
-    document.body.innerHTML = '<form id="form" _bl_form-capture><input id="email" required /><button id="send" type="submit">Send</button></form><input id="portaled" />';
+    document.body.innerHTML = '<form id="form" _bl_form-capture novalidate><input id="email" required /><button id="send" type="submit">Send</button></form><input id="portaled" />';
     const form = document.querySelector<HTMLFormElement>('#form')!;
     const email = document.querySelector<HTMLInputElement>('#email')!;
     const portaled = document.querySelector<HTMLInputElement>('#portaled')!;
