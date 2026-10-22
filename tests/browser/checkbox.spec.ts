@@ -9,7 +9,7 @@ import { test, expect, fixtureUrl, gotoFixture, type Page, type RenderMode } fro
 // transition status). The fixtures record OnCheckedChange and the consumer's clicks as data attributes. Animated cases
 // open with `?animations=1` (ADR 06 §2) and witness transient attributes by recorded markers, never by frame polls.
 
-type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator';
+type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field';
 
 /** Opens a Checkbox fixture and waits until every box and listed indicator has its behaviors attached. */
 async function gotoCheckboxes(page: Page, mode: RenderMode, name: FixtureName, options: { animations?: boolean } = {}): Promise<Locator> {
@@ -612,6 +612,110 @@ test.describe('<Checkbox.Root />', () => {
       await expect(cycle).toHaveAttribute('aria-checked', 'true');
       expect(named(await submitEntries(fixture), 'cycle')).toEqual([['cycle', 'yes']]);
     });
+  });
+
+  test.describe('Field', () => {
+    test.describe('[data-focused] without a blur event', () => {
+      test('is removed when the focused checkbox becomes disabled', async ({ page, mode }) => {
+        const fixture = await gotoCheckboxes(page, mode, 'checkbox-field');
+        const { container, root } = checkboxCase(fixture, 'focus');
+        const field = container.locator('[data-root]');
+
+        await root.focus();
+        await expect(field).toHaveAttribute('data-focused', '');
+
+        await container.locator('[data-disable]').click();
+
+        await expect(root).toHaveAttribute('aria-disabled', 'true');
+        await expect(field).not.toHaveAttribute('data-focused');
+        await expect(root).not.toHaveAttribute('data-focused');
+      });
+
+      test('is removed when the focused checkbox unmounts', async ({ page, mode }) => {
+        const fixture = await gotoCheckboxes(page, mode, 'checkbox-field');
+        const { container, root } = checkboxCase(fixture, 'focus');
+        const field = container.locator('[data-root]');
+
+        await root.focus();
+        await expect(field).toHaveAttribute('data-focused', '');
+
+        await container.locator('[data-unmount]').evaluate((element) => (element as HTMLElement).click());
+
+        await expect(root).toHaveCount(0);
+        await expect(field).not.toHaveAttribute('data-focused');
+      });
+
+      test('port: a root that is already focused when its tracking starts acquires the focused state', async ({ page, mode }) => {
+        // "is kept when the checkbox is focused during mount in StrictMode" as its port property (ADR 06 Amendments
+        // 2026-10-18): the root is focused the moment it is inserted, before the form module attaches to it.
+        await page.addInitScript(() => {
+          new MutationObserver((_records, observer) => {
+            const root = document.querySelector<HTMLElement>('[data-case="focus"] [data-checkbox]');
+            if (root) {
+              observer.disconnect();
+              root.focus();
+            }
+          }).observe(document, { childList: true, subtree: true });
+        });
+
+        const fixture = await gotoCheckboxes(page, mode, 'checkbox-field');
+        const { container, root } = checkboxCase(fixture, 'focus');
+
+        await expect(root).toBeFocused();
+        await expect(container.locator('[data-root]')).toHaveAttribute('data-focused', '');
+      });
+    });
+
+    test.describe('Field.Label', () => {
+      test('when label and checkbox are siblings', async ({ page, mode }) => {
+        const fixture = await gotoCheckboxes(page, mode, 'checkbox-field');
+        const { root, input, label } = checkboxCase(fixture, 'sibling');
+        await expect(label).toHaveAttribute('for', (await input.getAttribute('id'))!);
+        await expect(root).toHaveAttribute('aria-labelledby', (await label.getAttribute('id'))!);
+        await expect(root).toHaveAttribute('aria-checked', 'false');
+
+        await label.click();
+
+        await expect(root).toHaveAttribute('aria-checked', 'true');
+      });
+
+      test('sets `for` on the label', async ({ page, mode }) => {
+        const fixture = await gotoCheckboxes(page, mode, 'checkbox-field');
+        const { root, input, label } = checkboxCase(fixture, 'wrapping');
+        await expect(label).toHaveAttribute('for', (await input.getAttribute('id'))!);
+        await expect(root).toHaveAttribute('aria-labelledby', (await label.getAttribute('id'))!);
+        await expect(root).toHaveAttribute('aria-checked', 'false');
+
+        await label.getByText('OK').click();
+
+        await expect(root).toHaveAttribute('aria-checked', 'true');
+      });
+    });
+
+    for (const nativeButton of [false, true]) {
+      test(`defers an explicit id until hydration but keeps Field.Label associated during SSR (nativeButton=${nativeButton})`, async ({ page, mode }) => {
+        // CHK-EDGE-10, CHK-FRM-16: the explicit id is a claim registered after the render (FFI registration row), so the
+        // static response associates the label and the control through the field's generated id.
+        const name = nativeButton ? 'native' : 'input';
+        const explicit = nativeButton ? 'explicit-native' : 'explicit-input';
+        const html = await (await page.request.get(fixtureUrl(mode, 'checkbox-prerender'))).text();
+        const section = html.slice(html.indexOf(`data-case="${name}"`));
+        const control = nativeButton
+          ? section.match(/<button[^>]*data-checkbox[^>]*>/)?.[0]
+          : section.match(/<input[^>]*type="checkbox"[^>]*>/)?.[0];
+        const controlId = control?.match(/ id="([^"]+)"/)?.[1];
+        const labelFor = section.match(/<label[^>]*data-label[^>]*>/)?.[0].match(/ for="([^"]+)"/)?.[1];
+        expect(controlId).toBeTruthy();
+        expect(controlId).not.toBe(explicit);
+        expect(labelFor).toBe(controlId);
+
+        const fixture = await gotoFixture(page, mode, 'checkbox-prerender');
+        const container = fixture.locator(`[data-case="${name}"]`);
+        const labelled = nativeButton ? container.locator('[data-checkbox]') : container.locator('input[type="checkbox"]');
+        await expect(labelled).toHaveAttribute('id', explicit);
+        await expect(container.locator('[data-label]')).toHaveAttribute('for', explicit);
+      });
+    }
   });
 
   test('can render a native button', async ({ page, mode }) => {

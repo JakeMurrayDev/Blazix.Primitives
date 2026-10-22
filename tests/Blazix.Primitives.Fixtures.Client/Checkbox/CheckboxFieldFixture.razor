@@ -1,0 +1,52 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-field` fixture (tests/browser/checkbox.spec.ts): CheckboxRoot.test.tsx's Field titles that need a
+    browser. A box in a field that the page can disable or unmount (the focused state without a blur event), a box named
+    by a sibling Field.Label, and a box inside its Field.Label.
+*@
+<FixtureContainer Name="checkbox-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled box has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="focus">
+        <button type="button" data-disable @onclick="() => focusDisabled = true">Disable</button>
+        <button type="button" data-unmount @onclick="() => focusMounted = false">Unmount</button>
+        <FieldRoot data-root>
+            @if (focusMounted)
+            {
+                <CheckboxRoot @ref="focusRoot" data-checkbox Disabled="focusDisabled" />
+            }
+        </FieldRoot>
+    </div>
+
+    <div data-case="sibling">
+        <FieldRoot data-root>
+            <FieldLabel data-label>Label</FieldLabel>
+            <CheckboxRoot @ref="siblingRoot" data-checkbox />
+        </FieldRoot>
+    </div>
+
+    <div data-case="wrapping">
+        <FieldRoot data-root>
+            <FieldLabel data-label>
+                <CheckboxRoot @ref="wrappingRoot" data-checkbox />
+                OK
+            </FieldLabel>
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private bool focusDisabled;
+    private bool focusMounted = true;
+    private CheckboxRoot? focusRoot;
+    private CheckboxRoot? siblingRoot;
+    private CheckboxRoot? wrappingRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes => [focusRoot, siblingRoot, wrappingRoot];
+}
