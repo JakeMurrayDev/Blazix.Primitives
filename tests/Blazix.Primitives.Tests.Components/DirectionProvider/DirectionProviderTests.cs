@@ -5,7 +5,7 @@ namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
 /// <see cref="DirectionProvider"/> at L2 (shared-utilities.md §4.15.1): Base UI's DirectionProvider.test.tsx titles through
-/// an internal probe, because Base UI's public <c>useDirection</c> has no reader in the port (pending the user, UTL
+/// an internal probe, because Base UI's public <c>useDirection</c> has no reader in the port (chosen by the user 2026-10-22, UTL
 /// §4.15.1 port note), and the absent element (UTL-DOM-36).
 /// </summary>
 public sealed class DirectionProviderTests : IDisposable

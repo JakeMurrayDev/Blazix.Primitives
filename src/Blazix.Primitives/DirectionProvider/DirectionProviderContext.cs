@@ -5,7 +5,7 @@ namespace Blazix.Primitives;
 // UTL-I18N-01..04 (shared-utilities.md §4.15.1), internals/direction-context/DirectionContext.tsx. Cascaded fixed by
 // DirectionProvider (ADR 16 rule 9): a change of direction reaches the readers through the listeners below, never through
 // the cascade. Readers: the composite root (CompositeRootBehavior) in M2; positioning, Slider and ScrollArea later. No
-// public reader in M2 (Base UI's useDirection; pending the user, UTL §4.15.1 port note). Nothing reads `dir` or a computed
+// public reader in M2 (Base UI's useDirection; chosen by the user 2026-10-22, UTL §4.15.1 port note). Nothing reads `dir` or a computed
 // style (UTL-I18N-03); the logical tree carries the value into portaled subtrees (UTL-I18N-04, ADR 04 §5).
 /// <summary>The reading direction a <see cref="DirectionProvider"/> gives its descendants.</summary>
 internal sealed class DirectionProviderContext

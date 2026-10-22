@@ -12,7 +12,7 @@
 // From `attach` the module is the only writer of every item's `tabindex` (ADR 04 Amendments 2026-10-22): C# renders
 // "-1" (CMP-STA-15, the handover at attach) and the module writes "0" or "-1" in the task that moves the highlight
 // (CMP-DOM-01), except on an item whose registration carries the consumer's `tabindex` (RAD-DOM-16).
-// Decision points (ADR 04 §3, fallback run for both; names pending the user, ADR 04 Amendments 2026-10-22):
+// Decision points (ADR 04 §3, fallback run for both; names chosen by the user 2026-10-22, ADR 04 Amendments 2026-10-22):
 // `navigate`, the consumer's onKeyDown veto against key handling (EVD-EVT-26, CMP-EVT-12, RDG-API-12), and `select`,
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
 import { dispatchClickWithModifiers, isElementDisabled } from './button';

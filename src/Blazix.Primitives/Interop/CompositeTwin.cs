@@ -3,8 +3,8 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (composite row), §3 (decision points: the consumer's onKeyDown veto against composite key handling, EVD-EVT-26,
-// and the focus-driven selection, ADR 04 Amendments 2026-10-20, both with fallback run; their names navigate and select are
-// pending the user, ADR 04 Amendments 2026-10-22) and Amendments 2026-10-22 (the module owns the items' tabindex); ADR 01
+// and the focus-driven selection, ADR 04 Amendments 2026-10-20, both with fallback run; their names navigate and select were
+// chosen by the user 2026-10-22, ADR 04 Amendments 2026-10-22) and Amendments 2026-10-22 (the module owns the items' tabindex); ADR 01
 // relaxation table (EVD-EVT-26 against composite key handling, CMP-STA-10); composite-and-list-navigation.md (CMP). One twin
 // per part: the callbacks carry no element key.
 /// <summary>

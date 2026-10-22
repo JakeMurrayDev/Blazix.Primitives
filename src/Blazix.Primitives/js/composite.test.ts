@@ -1792,7 +1792,7 @@ describe('composite selection on navigation (port)', () => {
   });
 });
 
-// --- port titles: the two decision points per render mode (ADR 04 §3; names pending the user) ------------------------
+// --- port titles: the two decision points per render mode (ADR 04 §3; names chosen by the user 2026-10-22) ------------------------
 
 describe('composite decision points (port)', () => {
   it('runs the key handling without asking C# on Server (fallback run)', async () => {

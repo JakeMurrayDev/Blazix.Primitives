@@ -6,7 +6,7 @@ The C# half of the composite mechanism: the root and item behaviours a roving gr
 
 - `docs/architecture/composite-and-list-navigation.md` (CMP): §4.2.1 and §4.2.3 (registry and highlight), §4.3 (`tabindex`, the active marker, no attribute on the root), §4.5 (keys), §4.12 (CMP-EVT-01, CMP-EVT-12), §6.1–§6.6 (the options), §6.11 (constants), §7 (CMP-STR-02/CMP-EDGE-01), §8.
 - `docs/architecture/shared-utilities.md` §4.15.1 (the direction it reads from `../DirectionProvider/`).
-- Decision records: 01 decision 2 (the registry is JavaScript's) and the relaxation rows "EVD-STA-07, CMP-STA-10, FFI registration" and "… EVD-EVT-26 against composite/button key handling"; 02 Amendments 2026-10-21 (`ForwardsConsumerHandler`, the decline-and-run gate); 04 §1, §3 and Amendments 2026-10-18 (handover at attach; dispatch-time work is JavaScript's), 2026-10-20 (the RadioGroup options are this module's), 2026-10-22 (the module owns the items' `tabindex` from attach; the two decision points, names pending the user); 08 §3 and the `Orientation` note; 09 Amendments 2026-10-22; 16 rules 2, 6, 7, 9, 10.
+- Decision records: 01 decision 2 (the registry is JavaScript's) and the relaxation rows "EVD-STA-07, CMP-STA-10, FFI registration" and "… EVD-EVT-26 against composite/button key handling"; 02 Amendments 2026-10-21 (`ForwardsConsumerHandler`, the decline-and-run gate); 04 §1, §3 and Amendments 2026-10-18 (handover at attach; dispatch-time work is JavaScript's), 2026-10-20 (the RadioGroup options are this module's), 2026-10-22 (the module owns the items' `tabindex` from attach; the two decision points, names chosen by the user the same day); 08 §3 and the `Orientation` note; 09 Amendments 2026-10-22; 16 rules 2, 6, 7, 9, 10.
 
 ## Job
 
