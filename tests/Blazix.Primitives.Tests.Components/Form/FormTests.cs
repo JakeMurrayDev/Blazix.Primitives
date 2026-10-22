@@ -89,6 +89,18 @@ public sealed class FormTests : IDisposable
         Assert.Empty(calls);
     }
 
+    // Issue 78's binding check: Blazor binds component parameters case-insensitively, so Razor's `@onsubmit` directive on
+    // Form sets the OnSubmit parameter itself, with an EventCallback<EventArgs> it cannot take. Nothing named onsubmit can
+    // reach Form's forwarded attributes, so no second Blazor handler runs for the submit event the form module owns.
+    [Fact(DisplayName = "a Razor @onsubmit on Form binds to OnSubmit and fails, so OnSubmit is the only submit handler")]
+    [Trait("Requirement", "FRM-API-04")]
+    public void A_Razor_onsubmit_directive_binds_to_OnSubmit_and_fails()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<FormOnSubmitBinding>());
+
+        Assert.Contains("Unable to set property 'onsubmit' on object of type 'Blazix.Primitives.Form'", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "marks the field named in Errors invalid, and a new instance replaces the errors")]
     [Trait("Requirement", "FRM-API-02")]
     [Trait("Requirement", "FRM-FRM-05")]
