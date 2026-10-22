@@ -13,13 +13,18 @@ namespace Blazix.Primitives.Tests.Components;
 /// in for the <c>button</c> module on the root, the <c>dom</c> module on the hidden input and the <c>transitions</c> module
 /// on each indicator. A test drives the twins as the modules would (ADR 06 §1): <see cref="ToggleAsync"/> is the Server
 /// report of a click on the input, <see cref="DecideToggleAsync"/> the WebAssembly decision inside it, and
-/// <see cref="ReportTransitionAsync"/> and <see cref="CompleteExitAsync"/> the indicator's machine.
+/// <see cref="ReportTransitionAsync"/> and <see cref="CompleteExitAsync"/> the indicator's machine. Inside a field the
+/// <c>form</c> module stands for the root's handle (its blur and focus reports, <see cref="BlurAsync"/>) and the hidden
+/// input's validation handle, whose refreshes <see cref="SettleFormAsync"/> answers with <see cref="InputValidity"/>.
 /// </summary>
 public sealed class CheckboxTestContext : IDisposable
 {
     public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
     public const string DomModulePath = "./_content/Blazix.Primitives/js/dom.js";
     public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
+
+    private int answeredRevision;
 
     public CheckboxTestContext()
     {
@@ -31,6 +36,8 @@ public sealed class CheckboxTestContext : IDisposable
         DomHandle = SetupHandle(DomModule);
         TransitionsModule = Context.JSInterop.SetupModule(TransitionsModulePath);
         TransitionsHandle = SetupHandle(TransitionsModule);
+        FormModule = Context.JSInterop.SetupModule(FormModulePath);
+        FormHandle = SetupHandle(FormModule);
     }
 
     public BunitContext Context { get; } = new();
@@ -48,6 +55,20 @@ public sealed class CheckboxTestContext : IDisposable
     public BunitJSModuleInterop TransitionsModule { get; }
 
     public BunitJSModuleInterop TransitionsHandle { get; }
+
+    public BunitJSModuleInterop FormModule { get; }
+
+    public BunitJSModuleInterop FormHandle { get; }
+
+    /// <summary>Gets or sets the native validity the hidden input reports on a refresh.</summary>
+    internal NativeValidity InputValidity { get; set; } = NativeValidity.Default;
+
+    /// <summary>The control options of every <c>form</c> attach and update, in order.</summary>
+    internal IReadOnlyList<FormControlOptions> FormOptions =>
+        [
+            .. FormModule.Invocations["attach"].Select(i => Parse((string)i.Arguments[1]!)),
+            .. FormHandle.Invocations["update"].Select(i => Parse((string)i.Arguments[0]!)),
+        ];
 
     /// <summary>The options JSON of every <c>dom</c> attach and update, in order.</summary>
     public IReadOnlyList<string> DomOptions =>
@@ -137,6 +158,63 @@ public sealed class CheckboxTestContext : IDisposable
     {
         TransitionsTwin twin = TransitionsTwin();
         return cut.InvokeAsync(() => twin.OnTransitionComplete("""{"open":false}"""));
+    }
+
+    /// <summary>The <see cref="FormTwin"/> of the box attached last (a field label's twin is skipped).</summary>
+    internal FormTwin FormTwin() =>
+        ((DotNetObjectReference<FormTwin>)FormModule.Invocations["attach"]
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control is not null)
+            .Arguments[2]!).Value;
+
+    /// <summary>
+    /// Answers the hidden input's latest refresh, as the module does: a <c>sync</c> report with its validity; then lets the
+    /// work that waited for it run on the renderer's dispatcher.
+    /// </summary>
+    internal async Task SettleFormAsync<TComponent>(IRenderedComponent<TComponent> cut)
+        where TComponent : IComponent
+    {
+        FormControlOptions? input = FormOptions.LastOrDefault(o => !o.ReportEvents);
+        if (input is null || input.Revision <= answeredRevision)
+        {
+            return;
+        }
+
+        answeredRevision = input.Revision;
+        await ReportFormAsync(cut, "sync", null, input.Revision, input.CustomValidity is not null);
+        await cut.InvokeAsync(static () => { });
+    }
+
+    /// <summary>Reports the root's blur as the module does, then answers the refresh it starts.</summary>
+    internal async Task BlurAsync<TComponent>(IRenderedComponent<TComponent> cut)
+        where TComponent : IComponent
+    {
+        await ReportFormAsync(cut, "blur", new EventSnapshot { Kind = EventKind.FocusEvent, Type = "blur", Target = new EventTargetInfo { TagName = "SPAN" } }, 0, false);
+        await SettleFormAsync(cut);
+    }
+
+    /// <summary>Reports that the root already had focus when the module attached to it or it became enabled.</summary>
+    internal Task FocusedAtAttachAsync<TComponent>(IRenderedComponent<TComponent> cut)
+        where TComponent : IComponent
+    {
+        return ReportFormAsync(cut, "focus", null, 0, false);
+    }
+
+    private static FormControlOptions Parse(string json) =>
+        JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
+
+    private Task ReportFormAsync<TComponent>(IRenderedComponent<TComponent> cut, string type, EventSnapshot? snapshot, int revision, bool ownMessage)
+        where TComponent : IComponent
+    {
+        FormTwin twin = FormTwin();
+        FormControlReport report = new()
+        {
+            Type = type,
+            Validity = InputValidity with { OwnMessageInstalled = ownMessage },
+            Event = snapshot,
+            Revision = revision,
+        };
+        string json = JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+        return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 
     private static string Bool(bool value) => value ? "true" : "false";

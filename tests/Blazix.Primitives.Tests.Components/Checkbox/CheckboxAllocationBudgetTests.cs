@@ -14,10 +14,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class CheckboxAllocationBudgetTests : IDisposable
 {
-    // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 672 bytes for the re-render, the same as Switch's (the
-    // indeterminate state adds a field, not an allocation); 328 bytes for the status report, the source-generated parse of
-    // its JSON, which the comparison with the mirrored status then discards without a render.
-    private const long RerenderBudgetBytes = 672;
+    // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 704 bytes for the re-render, Switch's 672 plus 32 for the
+    // four cascading parameters of the field integration (the indeterminate state adds a field, not an allocation); 328
+    // bytes for the status report, the source-generated parse of its JSON, which the comparison with the mirrored status
+    // then discards without a render.
+    private const long RerenderBudgetBytes = 704;
     private const long UnchangedStatusBudgetBytes = 328;
 
     private readonly CheckboxTestContext test = new();

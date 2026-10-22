@@ -1,0 +1,144 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Linq.Expressions
+@using Microsoft.AspNetCore.Components.Forms
+@*
+    The test consumer of CheckboxRoot.test.tsx's Field rows: one Field.Root around one box, with the label, description
+    and item the test asks for. State a Base UI test keeps with useState is a parameter here; a test changes it through
+    cut.Render, or through the host's own `Value` for a controlled box (the external toggle).
+*@
+<FieldRoot data-testid="root"
+           Name="@FieldName"
+           Disabled="FieldDisabled"
+           Invalid="FieldInvalid"
+           ValidationMode="ValidationMode"
+           Validate="Validate">
+    @if (ShowLabel && !LabelWraps)
+    {
+        <FieldLabel data-testid="label">Label</FieldLabel>
+    }
+    @if (InItem)
+    {
+        <FieldItem Disabled="ItemDisabled">
+            <FieldLabel data-testid="item-label">Item label</FieldLabel>
+            @Box
+            <FieldDescription data-testid="item-description" />
+        </FieldItem>
+    }
+    else if (ShowLabel && LabelWraps)
+    {
+        <FieldLabel data-testid="label">
+            @Box
+            OK
+        </FieldLabel>
+    }
+    else
+    {
+        @Box
+    }
+    @if (ShowDescription)
+    {
+        <FieldDescription data-testid="description" />
+    }
+</FieldRoot>
+
+@code {
+    [Parameter] public string? FieldName { get; set; }
+    [Parameter] public bool FieldDisabled { get; set; }
+    [Parameter] public bool FieldInvalid { get; set; }
+    [Parameter] public ValidationMode? ValidationMode { get; set; }
+    [Parameter] public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+    [Parameter] public bool ShowLabel { get; set; }
+    [Parameter] public bool LabelWraps { get; set; }
+    [Parameter] public bool ShowDescription { get; set; }
+    [Parameter] public bool InItem { get; set; }
+    [Parameter] public bool ItemDisabled { get; set; }
+    [Parameter] public bool BoxMounted { get; set; } = true;
+    [Parameter] public string? BoxKey { get; set; }
+    [Parameter] public string? BoxId { get; set; }
+    [Parameter] public string? BoxName { get; set; }
+    [Parameter] public bool BoxDisabled { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public bool NativeButton { get; set; }
+    [Parameter] public bool DefaultChecked { get; set; }
+    [Parameter] public bool Controlled { get; set; }
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? AriaDescribedBy { get; set; }
+    [Parameter] public EventCallback<ValueChangeEventArgs<bool>> OnCheckedChange { get; set; }
+    [Parameter] public EditContext? EditContext { get; set; }
+    [Parameter] public Expression<Func<bool>>? CheckedExpression { get; set; }
+
+    private RenderFragment Box => builder =>
+    {
+        if (!BoxMounted)
+        {
+            return;
+        }
+
+        Dictionary<string, object> attributes = new() { ["data-testid"] = "box" };
+        if (BoxId is not null)
+        {
+            attributes["id"] = BoxId;
+        }
+
+        if (AriaLabel is not null)
+        {
+            attributes["aria-label"] = AriaLabel;
+        }
+
+        if (AriaDescribedBy is not null)
+        {
+            attributes["aria-describedby"] = AriaDescribedBy;
+        }
+
+        if (EditContext is not null)
+        {
+            builder.OpenComponent<CascadingValue<EditContext>>(0);
+            builder.AddComponentParameter(1, "Value", EditContext);
+            builder.AddComponentParameter(2, "IsFixed", true);
+            builder.AddComponentParameter(3, "ChildContent", (RenderFragment)(inner => RenderBox(inner, attributes)));
+            builder.CloseComponent();
+            return;
+        }
+
+        RenderBox(builder, attributes);
+    };
+
+    private void RenderBox(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, Dictionary<string, object> attributes)
+    {
+        builder.OpenComponent<CheckboxRoot>(10);
+        if (BoxKey is not null)
+        {
+            builder.SetKey(BoxKey);
+        }
+
+        builder.AddMultipleAttributes(11, attributes);
+        builder.AddComponentParameter(12, nameof(CheckboxRoot.Name), BoxName);
+        builder.AddComponentParameter(13, nameof(CheckboxRoot.Disabled), BoxDisabled);
+        builder.AddComponentParameter(14, nameof(CheckboxRoot.Required), Required);
+        builder.AddComponentParameter(15, nameof(CheckboxRoot.NativeButton), NativeButton);
+        builder.AddComponentParameter(16, nameof(CheckboxRoot.DefaultChecked), DefaultChecked);
+        if (Controlled)
+        {
+            builder.AddComponentParameter(17, nameof(CheckboxRoot.Checked), Value);
+            builder.AddComponentParameter(18, nameof(CheckboxRoot.CheckedChanged), EventCallback.Factory.Create<bool>(this, next => Value = next));
+        }
+
+        builder.AddComponentParameter(19, nameof(CheckboxRoot.OnCheckedChange), OnCheckedChange);
+        if (CheckedExpression is not null)
+        {
+            builder.AddComponentParameter(20, nameof(CheckboxRoot.CheckedExpression), CheckedExpression);
+        }
+
+        if (NativeButton)
+        {
+            builder.AddComponentParameter(21, nameof(CheckboxRoot.Render), (RenderFragment)(b =>
+            {
+                b.OpenElement(0, "button");
+                b.CloseElement();
+            }));
+        }
+
+        builder.CloseComponent();
+    }
+}
