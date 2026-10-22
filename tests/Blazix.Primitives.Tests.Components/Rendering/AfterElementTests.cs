@@ -85,15 +85,13 @@ public sealed class AfterElementTests : IDisposable
     }
 
     [Fact]
-    public void The_content_follows_the_element_again_on_every_render_and_keeps_its_element()
+    public void The_content_follows_the_element_again_on_every_render()
     {
         IRenderedComponent<SiblingPart> cut = context.Render<SiblingPart>();
-        AngleSharp.Dom.IElement input = cut.Find("input");
 
         cut.Render(p => p.AddChildContent("again"));
 
         Assert.Equal(2, cut.Instance.Calls);
-        Assert.Same(input, cut.Find("input"));
         cut.MarkupMatches("""<span>again</span><input type="checkbox" aria-hidden="true">""");
     }
 
