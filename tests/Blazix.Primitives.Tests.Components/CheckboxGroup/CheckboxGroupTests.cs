@@ -29,6 +29,58 @@ public sealed class CheckboxGroupTests : IDisposable
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
 
+    [Fact(DisplayName = "port: a member toggle renders the boxes whose state changed, once each, and not the group")]
+    [Trait("Requirement", "CKG-PTR-01")]
+    public async Task Port_a_member_toggle_renders_only_the_boxes_whose_state_changed()
+    {
+        // Design point G1 (settled by the orchestrator 2026-10-23): the listener-list context, each box comparing what it
+        // renders (ADR 16 rule 9). A part calls its class function once per render of its element.
+        Dictionary<string, int> renders = new() { ["group"] = 0, ["parent"] = 0, ["a"] = 0, ["b"] = 0, ["c"] = 0 };
+        RenderFragment Box(string id, bool parent) => b =>
+        {
+            b.OpenComponent<CheckboxRoot>(0);
+            b.AddAttribute(1, "data-testid", id);
+            b.AddComponentParameter(2, nameof(CheckboxRoot.Parent), parent);
+            b.AddComponentParameter(3, nameof(CheckboxRoot.Value), parent ? null : id);
+            b.AddComponentParameter(4, nameof(CheckboxRoot.ClassValue), (Func<CheckboxRootState, string?>)(_ =>
+            {
+                renders[id]++;
+                return null;
+            }));
+            b.CloseComponent();
+        };
+        IRenderedComponent<CheckboxGroup> cut = Context.Render<CheckboxGroup>(p => p
+            .Add(x => x.AllValues, s_all)
+            .Add(x => x.DefaultValue, ["a"])
+            .Add(x => x.ClassValue, _ =>
+            {
+                renders["group"]++;
+                return null;
+            })
+            .AddChildContent(b =>
+            {
+                b.AddContent(0, Box("parent", parent: true));
+                b.AddContent(1, Box("a", parent: false));
+                b.AddContent(2, Box("b", parent: false));
+                b.AddContent(3, Box("c", parent: false));
+            }));
+        await cut.InvokeAsync(static () => { });
+        Dictionary<string, int> before = new(renders);
+
+        await test.ToggleAsync(cut, "b");
+        await cut.InvokeAsync(static () => { });
+
+        // The parent stays mixed.
+        Assert.Equal(["group=0", "parent=0", "a=0", "b=1", "c=0"], renders.Select(entry => $"{entry.Key}={entry.Value - before[entry.Key]}"));
+        before = new(renders);
+
+        await test.ToggleAsync(cut, "c");
+        await cut.InvokeAsync(static () => { });
+
+        // The parent becomes checked.
+        Assert.Equal(["group=0", "parent=1", "a=0", "b=0", "c=1"], renders.Select(entry => $"{entry.Key}={entry.Value - before[entry.Key]}"));
+    }
+
     [Fact(DisplayName = "is forwarded to the root element")]
     [Trait("Requirement", "CKG-API-06")]
     [Trait("Requirement", "CKG-DOM-01")]
@@ -684,7 +736,7 @@ public sealed class CheckboxGroupTests : IDisposable
     [Trait("Requirement", "CKG-STA-09")]
     public async Task Port_a_members_disabled_state_reaches_the_parent_at_once()
     {
-        // checkbox-group §16 Q8 and checkbox §16 Q9 (design point G4, pending the user): the entry is updated with the state.
+        // checkbox-group §16 Q8 and checkbox §16 Q9 (design point G4, settled by the orchestrator 2026-10-23): the entry is updated with the state.
         GroupBox a = new("a") { Value = "a" };
         IRenderedComponent<CheckboxGroupHost> cut = Context.Render<CheckboxGroupHost>(p => p
             .Add(x => x.AllValues, s_all)
@@ -795,7 +847,7 @@ public sealed class CheckboxGroupTests : IDisposable
     [Trait("Requirement", "CHK-DOM-09")]
     public void Port_the_parents_group_derived_aria_controls_replaces_the_consumers()
     {
-        // checkbox §16 Q2's defined case (design point G3, pending the user): mirrored.
+        // checkbox §16 Q2's defined case (design point G3, settled by the orchestrator 2026-10-23): mirrored.
         IRenderedComponent<CheckboxGroup> cut = Context.Render<CheckboxGroup>(p => p
             .Add(x => x.AllValues, ["a"])
             .AddChildContent(builder =>
