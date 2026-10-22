@@ -408,7 +408,7 @@ internal sealed class FieldControlBehavior : IDisposable
         fieldScope.RegisterControl(this, next);
     }
 
-    // FFI-FRM-04, FFI-EDGE-07 (design point F2 of M2 track 2, pending the orchestrator): the state the module read in the
+    // FFI-FRM-04, FFI-EDGE-07 (design point F2 of M2 track 2, settled by the orchestrator 2026-10-23): the state the module read in the
     // form's submit task, applied before the form validates.
     private void ApplyState(string? value, NativeValidity validity)
     {
