@@ -33,5 +33,9 @@ internal static class OwnershipRegistry
         new("collapsible", "Panel", "hidden", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
+        // field.md §5 FLD-DOM-18 (M2 track 1): the transitions module writes the Error's enter and exit attributes. The part
+        // and its state record arrive in PR 1c, which adds the StateField (FieldErrorState.TransitionStatus).
+        new("field", "Error", "data-starting-style", Writer.Js),
+        new("field", "Error", "data-ending-style", Writer.Js),
     ];
 }
