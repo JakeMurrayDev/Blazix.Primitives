@@ -49,6 +49,13 @@ function attachLabel(element: HTMLElement, label: FormLabelOptions = {}, twin: F
   return { handle, fake };
 }
 
+/** Attaches the form module to a form element under a token, as Form does; controls name the token as their formId. */
+function registerForm(form: HTMLFormElement, token: string, twin: DotNetTwin = createFakeTwin().twin): TwinHandle {
+  const handle = attach(form, JSON.stringify({ submit: { token } }), twin);
+  handles.push(handle);
+  return handle;
+}
+
 function input(html = '<input id="control" />'): HTMLInputElement {
   document.body.innerHTML = html;
   return document.querySelector<HTMLInputElement>('#control')!;
@@ -266,8 +273,9 @@ describe('control', () => {
   it('reports the value Enter commits after the implicit submission, in the enclosing form only', () => {
     vi.useFakeTimers();
     document.body.innerHTML = '<form id="form"><input id="control" /></form>';
+    registerForm(document.querySelector<HTMLFormElement>('#form')!, 'form-token');
     const element = document.querySelector<HTMLInputElement>('#control')!;
-    const { fake } = attachControl(element, { formId: 'form' });
+    const { fake } = attachControl(element, { formId: 'form-token' });
 
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     element.value = 'rewritten';
@@ -293,9 +301,10 @@ describe('control', () => {
   it('does not defer a commit for a prevented Enter, and dispose drops a pending one', () => {
     vi.useFakeTimers();
     document.body.innerHTML = '<form id="form"><input id="control" /></form>';
+    registerForm(document.querySelector<HTMLFormElement>('#form')!, 'form-token');
     const element = document.querySelector<HTMLInputElement>('#control')!;
     element.addEventListener('keydown', (event) => event.preventDefault(), { once: true });
-    const { fake, handle } = attachControl(element, { formId: 'form' });
+    const { fake, handle } = attachControl(element, { formId: 'form-token' });
 
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
@@ -607,10 +616,8 @@ describe('form submission', () => {
     return seen;
   }
 
-  function attachForm(form: HTMLFormElement, twin: DotNetTwin): TwinHandle {
-    const handle = attach(form, JSON.stringify({ submit: {} }), twin);
-    handles.push(handle);
-    return handle;
+  function attachForm(form: HTMLFormElement, twin: DotNetTwin, token = 'form-token'): TwinHandle {
+    return registerForm(form, token, twin);
   }
 
   it('always prevents the native submit and reports it', async () => {
@@ -667,12 +674,12 @@ describe('form submission', () => {
   });
 
   it('reads every control enrolled on the form into the report', async () => {
-    document.body.innerHTML = '<form id="form" _bl_form-capture novalidate><input id="email" required /><button id="send" type="submit">Send</button></form><input id="portaled" />';
+    document.body.innerHTML = '<form id="form" novalidate><input id="email" required /><button id="send" type="submit">Send</button></form><input id="portaled" />';
     const form = document.querySelector<HTMLFormElement>('#form')!;
     const email = document.querySelector<HTMLInputElement>('#email')!;
     const portaled = document.querySelector<HTMLInputElement>('#portaled')!;
-    attachControl(email, { formId: 'form-capture' });
-    attachControl(portaled, { formId: 'form-capture' });
+    attachControl(email, { formId: 'form-token' });
+    attachControl(portaled, { formId: 'form-token' });
     portaled.value = 'written by a script';
     const { twin, requests, settled } = createSubmitTwin([{ verdict: 'handled' }]);
     attachForm(form, twin);
@@ -687,15 +694,46 @@ describe('form submission', () => {
     ]);
   });
 
-  it('compares the form owner with the form found by its capture id', () => {
+  // Design point F6 (settled by the orchestrator 2026-10-23): the form is found through the token C# draws and never
+  // renders, registered by the form's own attach; whichever of the form and the control attaches first.
+  it('compares the form owner with the form registered under the token, whichever attaches first', () => {
     vi.useFakeTimers();
-    document.body.innerHTML = '<form _bl_capture-id><input id="control" /></form>';
+    document.body.innerHTML = '<form id="form"><input id="control" /></form>';
     const element = document.querySelector<HTMLInputElement>('#control')!;
-    const { fake } = attachControl(element, { formId: 'capture-id' });
+    const { fake } = attachControl(element, { formId: 'late-token' });
+    registerForm(document.querySelector<HTMLFormElement>('#form')!, 'late-token');
 
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 
     expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'keydown', sameForm: true })]);
+    expect(document.querySelector('#form')!.attributes).toHaveLength(1);
+  });
+
+  it('forgets the form when its handle is disposed', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<form id="form"><input id="control" /></form>';
+    const form = registerForm(document.querySelector<HTMLFormElement>('#form')!, 'gone-token');
+    const element = document.querySelector<HTMLInputElement>('#control')!;
+    const { fake } = attachControl(element, { formId: 'gone-token' });
+
+    form.dispose();
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'keydown', sameForm: false })]);
+  });
+
+  it('reads a control enrolled before its form attached', async () => {
+    document.body.innerHTML = '<form id="form" novalidate><input id="early" /><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    attachControl(document.querySelector<HTMLInputElement>('#early')!, { formId: 'early-token' });
+    const { twin, requests, settled } = createSubmitTwin([{ verdict: 'handled' }]);
+    attachForm(form, twin, 'early-token');
+    recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(requests[0]!.controls.map((control) => control.id)).toEqual(['early']);
   });
 
   it('focuses the first invalid control by document order and selects an input\'s text', async () => {
@@ -719,8 +757,8 @@ describe('form submission', () => {
     const form = document.querySelector<HTMLFormElement>('#form')!;
     const shadow = document.querySelector('#host')!.attachShadow({ mode: 'open' });
     shadow.innerHTML = '<input id="shadowed" />';
-    attachControl(shadow.querySelector<HTMLInputElement>('#shadowed')!, { formId: 'form' });
-    attachControl(document.querySelector<HTMLInputElement>('#light')!, { formId: 'form' });
+    attachControl(shadow.querySelector<HTMLInputElement>('#shadowed')!, { formId: 'form-token' });
+    attachControl(document.querySelector<HTMLInputElement>('#light')!, { formId: 'form-token' });
     const { twin, settled } = createSubmitTwin([{ verdict: 'blocked', focus: ['shadowed', 'light'] }]);
     attachForm(form, twin);
     recordSubmits(form);
