@@ -1,0 +1,69 @@
+<DemoFrame Slug="checkbox" Note="The box shown as mixed, read-only, disabled, and rendered as a native button.">
+    <Hero>
+        <label class="@LabelClass">
+            <CheckboxRoot DefaultChecked="true" class="@RootClass">
+                <CheckboxIndicator class="flex data-unchecked:hidden">
+                    @CheckIcon
+                </CheckboxIndicator>
+            </CheckboxRoot>
+            Enable notifications
+        </label>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <label class="@LabelClass">
+                <CheckboxRoot class="@MixedRootClass" Indeterminate="indeterminate" @bind-Checked="mixedChecked">
+                    <CheckboxIndicator class="flex data-unchecked:hidden">
+                        @(indeterminate ? MinusIcon : CheckIcon)
+                    </CheckboxIndicator>
+                </CheckboxRoot>
+                Indeterminate
+            </label>
+            <button type="button" class="Control" @onclick="() => indeterminate = !indeterminate">Toggle indeterminate</button>
+            <span class="VariantName">checked: <strong>@(mixedChecked ? "true" : "false")</strong>, indeterminate: <strong>@(indeterminate ? "true" : "false")</strong></span>
+        </div>
+        <div class="Variant">
+            <label class="@LabelClass">
+                <CheckboxRoot DefaultChecked="true" ReadOnly="true" class="@RootClass">
+                    <CheckboxIndicator class="flex data-unchecked:hidden">@CheckIcon</CheckboxIndicator>
+                </CheckboxRoot>
+                Read-only
+            </label>
+            <span class="VariantName">ReadOnly (focusable, not togglable)</span>
+        </div>
+        <div class="Variant">
+            <label class="@LabelClass">
+                <CheckboxRoot Disabled="true" class="@RootClass">
+                    <CheckboxIndicator class="flex data-unchecked:hidden">@CheckIcon</CheckboxIndicator>
+                </CheckboxRoot>
+                Disabled
+            </label>
+            <span class="VariantName">Disabled</span>
+        </div>
+        <div class="Variant">
+            <label class="@LabelClass" for="native-checkbox">Native button</label>
+            <CheckboxRoot id="native-checkbox" NativeButton="true" class="@RootClass">
+                <Render><button></button></Render>
+                <ChildContent>
+                    <CheckboxIndicator class="flex data-unchecked:hidden">@CheckIcon</CheckboxIndicator>
+                </ChildContent>
+            </CheckboxRoot>
+            <span class="VariantName">NativeButton="true" (a button named by the label's for)</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LabelClass = "flex items-center gap-2 text-sm font-normal text-neutral-950 dark:text-white";
+    private const string RootClass = "flex size-4 shrink-0 items-center justify-center border rounded-none p-0 border-neutral-950 bg-white text-white dark:border-white dark:bg-neutral-950 dark:text-neutral-950 data-checked:bg-neutral-950 data-checked:text-white dark:data-checked:bg-white dark:data-checked:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+
+    // The hero's classes, plus the mixed state's (the variant's own; the hero is Base UI's demo unchanged).
+    private const string MixedRootClass = RootClass + " data-indeterminate:bg-neutral-950 data-indeterminate:text-white dark:data-indeterminate:bg-white dark:data-indeterminate:text-neutral-950";
+
+    private static readonly RenderFragment CheckIcon = @<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" style="display: block"><path d="m2.5 8.5 4 4 7-9" /></svg>;
+
+    private static readonly RenderFragment MinusIcon = @<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" style="display: block"><path d="M3 8h10" /></svg>;
+
+    private bool indeterminate = true;
+    private bool mixedChecked;
+}

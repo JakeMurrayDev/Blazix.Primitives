@@ -20,6 +20,7 @@ public static class DemoCatalog
         new("field", "Field", "A form control with a label, a description and its validity.", typeof(FieldDemo)),
         new("fieldset", "Fieldset", "Related fields grouped under a legend.", typeof(FieldsetDemo)),
         new("switch", "Switch", "A control that turns a setting on or off.", typeof(SwitchDemo)),
+        new("checkbox", "Checkbox", "A box that the user ticks or clears, and that can be shown as mixed.", typeof(CheckboxDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
