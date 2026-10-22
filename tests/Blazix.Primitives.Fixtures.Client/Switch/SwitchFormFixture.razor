@@ -1,0 +1,36 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+@using Blazix.Primitives
+@inherits SwitchFixtureBase
+
+@*
+    The `switch-form` fixture (tests/browser/switch.spec.ts): a native <form> with named switches (a value and an
+    unchecked value; a disabled one with an unchecked value; a disabled one that is on), and switches outside it that
+    belong to it through `form`, and a reset button. The specs capture the FormData of a submit in the page and prevent the navigation.
+*@
+<FixtureContainer Name="switch-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled switch has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-switch] { display: inline-block; width: 2rem; height: 1rem; border: 1px solid; }</style>
+
+    <form id="switch-form" data-form>
+        <SwitchRoot @ref="cycleRoot" data-switch="cycle" Name="cycle" Value="yes" UncheckedValue="no" />
+        <SwitchRoot @ref="disabledOffRoot" data-switch="disabled-off" Name="disabled-off" UncheckedValue="off" Disabled="true" />
+        <SwitchRoot @ref="disabledOnRoot" data-switch="disabled-on" Name="disabled-on" DefaultChecked="true" Disabled="true" />
+        <button type="submit" data-submit>Submit</button>
+        <button type="reset" data-reset>Reset</button>
+    </form>
+
+    <SwitchRoot @ref="externalRoot" data-switch="external" Name="external" Form="switch-form" />
+    <SwitchRoot @ref="externalOffRoot" data-switch="external-off" Name="external-off" UncheckedValue="off" Form="switch-form" />
+</FixtureContainer>
+
+@code {
+    private SwitchRoot? cycleRoot;
+    private SwitchRoot? disabledOffRoot;
+    private SwitchRoot? disabledOnRoot;
+    private SwitchRoot? externalRoot;
+    private SwitchRoot? externalOffRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<SwitchRoot?> Switches => [cycleRoot, disabledOffRoot, disabledOnRoot, externalRoot, externalOffRoot];
+}

@@ -1176,3 +1176,106 @@ describe('dom module: twin handle', () => {
     expect(element.textContent).toBe('Status');
   });
 });
+
+// The `checked` property of a hidden checkbox or radio input is the `dom` primitive's after attach (ADR 04 Amendments
+// 2026-10-22 item 2; SWT-DOM-08, SWT-EVT-04, SWT-STA-03). It is set on attach and on every update and is never re-asserted
+// inside a native click, which would undo an accepted toggle before C# commits it; a request that leaves the value
+// unchanged raises `checkedRestores`, so the update still arrives. Port titles: Base UI relies on React's controlled input.
+describe.each([
+  ['Server', false],
+  ['WebAssembly', true],
+])('SwitchRoot hidden input checked (%s)', (_mode, synchronous) => {
+  function hiddenInput(checked = false) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    document.body.appendChild(input);
+    return input;
+  }
+
+  it('sets the checked property of the hidden input on attach', () => {
+    const input = hiddenInput(false);
+
+    handles.push(attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin({ synchronous }).twin));
+
+    expect(input.checked).toBe(true);
+  });
+
+  it('follows the value of every update', () => {
+    const input = hiddenInput(false);
+    const handle = attach(input, JSON.stringify({ checked: false } satisfies DomOptions), createFakeTwin({ synchronous }).twin);
+    handles.push(handle);
+
+    handle.update(JSON.stringify({ checked: true } satisfies DomOptions));
+    expect(input.checked).toBe(true);
+
+    handle.update(JSON.stringify({ checked: false } satisfies DomOptions));
+    expect(input.checked).toBe(false);
+  });
+
+  it('keeps a native click until C# answers, then restores the unchanged value when the restore count rises', () => {
+    const input = hiddenInput(false);
+    const handle = attach(input, JSON.stringify({ checked: false, checkedRestores: 0 } satisfies DomOptions), createFakeTwin({ synchronous }).twin);
+    handles.push(handle);
+
+    input.click();
+    expect(input.checked).toBe(true);
+
+    handle.update(JSON.stringify({ checked: false, checkedRestores: 1 } satisfies DomOptions));
+    expect(input.checked).toBe(false);
+  });
+
+  it('restores the property a native click changed on any later update', () => {
+    const input = hiddenInput(true);
+    const handle = attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin({ synchronous }).twin);
+    handles.push(handle);
+
+    input.checked = false;
+    handle.update(JSON.stringify({ checked: true, liveRegion: false } satisfies DomOptions));
+
+    expect(input.checked).toBe(true);
+  });
+});
+
+// switch.md §16 Q1 (b), chosen by the user 2026-10-22; FFI-FRM-30's dated note: a form reset puts the input back to its
+// `checked` attribute (the value C# rendered at first), so the primitive re-asserts the property once the reset has run.
+describe('SwitchRoot hidden input checked after a form reset', () => {
+  function inputInForm() {
+    const form = document.createElement('form');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    form.appendChild(input);
+    document.body.appendChild(form);
+    return { form, input };
+  }
+
+  it('re-asserts the checked property after the owning form resets', async () => {
+    const { form, input } = inputInForm();
+    handles.push(attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin().twin));
+
+    form.reset();
+    expect(input.checked).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(input.checked).toBe(true);
+  });
+
+  it('follows an external form named by the form attribute and stops on dispose', async () => {
+    const { form } = inputInForm();
+    form.id = 'external';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('form', 'external');
+    document.body.appendChild(input);
+    const handle = attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin().twin);
+
+    form.reset();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(input.checked).toBe(true);
+
+    handle.dispose();
+    form.reset();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(input.checked).toBe(false);
+  });
+});

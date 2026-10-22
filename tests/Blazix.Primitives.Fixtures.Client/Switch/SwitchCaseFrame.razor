@@ -1,0 +1,25 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+
+@*
+    One case of a Switch fixture (tests/browser/switch.spec.ts): the record of SwitchCase as data attributes, around the
+    case's content, with a native button before it so a spec can focus it and press Tab.
+*@
+<div data-case="@Name"
+     data-changes="@Case.Changes"
+     data-clicks="@Case.Clicks"
+     data-last-change="@Case.LastChange"
+     data-log="@Case.Log">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required SwitchCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

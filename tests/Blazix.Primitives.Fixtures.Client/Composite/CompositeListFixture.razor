@@ -1,0 +1,109 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-list` fixture (tests/browser/composite.spec.ts): roving groups on the test-only root and items, since
+    Base UI's CompositeRoot is internal and RadioGroup (track 8) is the first public root.
+    - `horizontal`, `vertical`, `both`: two items each, for "sets default prevention to $prevented for $key with
+      $orientation orientation" (CMP-KEY-10, CMP-KEY-11, CMP-EDGE-18).
+    - `uncontrolled`: three items between two native buttons, for "uncontrolled mode" (CMP-KEY-16, CMP-FOC-02) and the
+      tab-order port title (CMP-FOC-01).
+    - `modifiers`: modifierKeys Alt and Meta.
+    - `late`: a root with no item and a button that adds one after attach (CMP-STA-10's per-mode clause).
+    - `probe-stop` and `probe-propagate`: the consumer's C# onkeydown on the root, on each item and on an ancestor, counted
+      per case, with a switch that makes the root's handler call PreventPartHandler() (the `navigate` decision point);
+      stopEventPropagation true (the default) and false.
+*@
+<FixtureContainer Name="composite-list" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="horizontal">
+        <FixtureCompositeRoot @ref="horizontal" Orientation="Orientation.Horizontal" data-root>
+            <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+    </div>
+
+    <div data-case="vertical">
+        <FixtureCompositeRoot @ref="vertical" Orientation="Orientation.Vertical" data-root>
+            <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+    </div>
+
+    <div data-case="both">
+        <FixtureCompositeRoot @ref="both" data-root>
+            <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+    </div>
+
+    <div data-case="uncontrolled">
+        <button type="button" data-before>Before</button>
+        <FixtureCompositeRoot @ref="uncontrolled" data-root>
+            <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="3">3</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+        <button type="button" data-after>After</button>
+    </div>
+
+    <div data-case="modifiers">
+        <FixtureCompositeRoot @ref="modifiers" ModifierKeys="s_modifierKeys" data-root>
+            <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="3">3</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+    </div>
+
+    <div data-case="late">
+        <button type="button" data-add @onclick="() => lateItems++">Add item</button>
+        <FixtureCompositeRoot @ref="late" data-root>
+            @for (int i = 0; i < lateItems; i++)
+            {
+                int number = i + 1;
+                <FixtureCompositeItem @key="number" data-item="@number">@number</FixtureCompositeItem>
+            }
+        </FixtureCompositeRoot>
+    </div>
+
+    <div data-case="probe-stop" data-root-keys="@probeStop.RootKeys" data-item-keys="@probeStop.ItemKeys"
+         data-outer-keys="@probeStop.OuterKeys" data-veto="@(probeStop.Veto ? "true" : "false")" @onkeydown="probeStop.OnOuterKey">
+        <button type="button" data-veto-switch @onclick="() => probeStop.Veto = !probeStop.Veto">Veto</button>
+        <FixtureCompositeRoot @ref="probeStopRoot" Orientation="Orientation.Vertical" @onkeydown="probeStop.OnRootKey" data-root>
+            <FixtureCompositeItem data-item="1" @onkeydown="probeStop.OnItemKey">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2" @onkeydown="probeStop.OnItemKey">2</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="3" @onkeydown="probeStop.OnItemKey">3</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+    </div>
+
+    <div data-case="probe-propagate" data-root-keys="@probePropagate.RootKeys" data-item-keys="@probePropagate.ItemKeys"
+         data-outer-keys="@probePropagate.OuterKeys" data-veto="@(probePropagate.Veto ? "true" : "false")" @onkeydown="probePropagate.OnOuterKey">
+        <button type="button" data-veto-switch @onclick="() => probePropagate.Veto = !probePropagate.Veto">Veto</button>
+        <FixtureCompositeRoot @ref="probePropagateRoot" Orientation="Orientation.Vertical" StopEventPropagation="false"
+                              @onkeydown="probePropagate.OnRootKey" data-root>
+            <FixtureCompositeItem data-item="1" @onkeydown="probePropagate.OnItemKey">1</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="2" @onkeydown="probePropagate.OnItemKey">2</FixtureCompositeItem>
+            <FixtureCompositeItem data-item="3" @onkeydown="probePropagate.OnItemKey">3</FixtureCompositeItem>
+        </FixtureCompositeRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> s_modifierKeys = ["Alt", "Meta"];
+    private readonly CompositeKeyProbe probeStop = new();
+    private readonly CompositeKeyProbe probePropagate = new();
+    private FixtureCompositeRoot? horizontal;
+    private FixtureCompositeRoot? vertical;
+    private FixtureCompositeRoot? both;
+    private FixtureCompositeRoot? uncontrolled;
+    private FixtureCompositeRoot? modifiers;
+    private FixtureCompositeRoot? late;
+    private FixtureCompositeRoot? probeStopRoot;
+    private FixtureCompositeRoot? probePropagateRoot;
+    private int lateItems;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots =>
+        [horizontal, vertical, both, uncontrolled, modifiers, late, probeStopRoot, probePropagateRoot];
+}

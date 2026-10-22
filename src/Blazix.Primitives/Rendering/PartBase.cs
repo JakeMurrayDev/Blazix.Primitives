@@ -236,6 +236,9 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <inheritdoc />
     void IPartHost.FinishAttributes(AttributeList attributes) => FinishAttributes(attributes);
 
+    /// <inheritdoc />
+    void IPartHost.BuildAfterElement(RenderTreeBuilder builder) => BuildAfterElement(builder);
+
     // ADR 02 Amendments 2026-10-21; UBT-EVT-01/03: a button-like part gates the consumer's handlers while disabled.
     /// <summary>Determines whether the consumer's handler for an event is rendered on the host element this render.</summary>
     /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>, whatever casing the consumer used.</param>
@@ -267,6 +270,20 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// keeps the consumer's value.
     /// </remarks>
     protected virtual void FinishAttributes(AttributeList attributes)
+    {
+    }
+
+    // ADR 02 Amendments 2026-10-22 item 2 (M2 track 4): the hidden inputs Switch, Checkbox and Radio render as the root's
+    // next siblings (SWT-STR-01, CHK-STR-01, RAD-STR-01), which label activation needs outside the root.
+    /// <summary>Renders the content that follows the host element, as its siblings.</summary>
+    /// <param name="builder">The render tree builder of the part.</param>
+    /// <remarks>
+    /// The pipeline calls this method once per render, after the default element, the substitute element, the substitute
+    /// component or the substitute callback, and not at all while <see cref="Enabled"/> is <see langword="false"/>. It
+    /// opens a region of its own around the call, so the sequence numbers a part uses here start at 0 and never meet the
+    /// pipeline's. The base implementation renders nothing.
+    /// </remarks>
+    protected virtual void BuildAfterElement(RenderTreeBuilder builder)
     {
     }
 

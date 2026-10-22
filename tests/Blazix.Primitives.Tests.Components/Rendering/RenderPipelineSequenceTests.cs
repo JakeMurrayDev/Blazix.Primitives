@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Tests.Components.Rendering;
 /// <summary>
 /// ADR 16 rule 3 at L2: the sequence numbers of the frames the pipeline emits. A frame the pipeline itself adds carries one
 /// of its documented literals (host 0, attributes 1, the part's own capture 2, the consumer's capture 3, the children
-/// region 100, a capture after the children 101), and every frame inside the children region carries the number the
+/// region 100, a capture after the children 101, the region after the host element 102), and every frame inside the children region carries the number the
 /// consumer's own fragment gave it. The frames are read from a <see cref="Renderer"/> of the test's own because bUnit
 /// reaches them only through a protected member.
 /// </summary>
@@ -23,6 +23,7 @@ public sealed class RenderPipelineSequenceTests : IDisposable
     private const int ConsumerCaptureSequence = 3;
     private const int ChildrenSequence = 100;
     private const int TrailingCaptureSequence = 101;
+    private const int AfterElementSequence = 102;
 
     private readonly ServiceProvider services = new ServiceCollection().AddBlazixPrimitives().BuildServiceProvider();
     private readonly FrameRenderer renderer;
@@ -171,6 +172,39 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             Children(frames, 0));
     }
 
+    [Fact(DisplayName = "the content after the host element sits in a region at its literal and keeps the part's own numbers")]
+    [Trait("Requirement", "ADR16-3")]
+    public void The_content_after_the_host_element_sits_in_a_region_at_its_literal_and_keeps_the_parts_own_numbers()
+    {
+        ArrayRange<RenderTreeFrame> frames = renderer.Render(typeof(AfterElementTests.SiblingPart), new Dictionary<string, object?>
+        {
+            ["data-testid"] = "root",
+        });
+
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[0]));
+        int after = SubtreeLength(in frames.Array[0]);
+        Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
+        Assert.Equal(after + SubtreeLength(in frames.Array[after]), frames.Count);
+        Assert.Equal(
+            ["Element:0", "Attribute:1", "Attribute:2"],
+            Flatten(frames, after + 1, after + SubtreeLength(in frames.Array[after])));
+    }
+
+    [Fact(DisplayName = "a part with nothing after its element still emits the empty region at its literal")]
+    [Trait("Requirement", "ADR16-3")]
+    public void A_part_with_nothing_after_its_element_still_emits_the_empty_region_at_its_literal()
+    {
+        ArrayRange<RenderTreeFrame> frames = renderer.RenderSampleRoot(new Dictionary<string, object?>
+        {
+            ["data-testid"] = "root",
+        });
+
+        int after = SubtreeLength(in frames.Array[0]);
+        Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
+        Assert.Equal(1, SubtreeLength(in frames.Array[after]));
+        Assert.Equal(after + 1, frames.Count);
+    }
+
     private static string Shape(in RenderTreeFrame frame) => $"{frame.FrameType}:{frame.Sequence}";
 
     private static int SubtreeLength(in RenderTreeFrame frame)
@@ -274,9 +308,11 @@ public sealed class RenderPipelineSequenceTests : IDisposable
         /// <inheritdoc />
         public override Dispatcher Dispatcher { get; } = Dispatcher.CreateDefault();
 
-        public ArrayRange<RenderTreeFrame> RenderSampleRoot(Dictionary<string, object?> parameters)
+        public ArrayRange<RenderTreeFrame> RenderSampleRoot(Dictionary<string, object?> parameters) => Render(typeof(SampleRoot), parameters);
+
+        public ArrayRange<RenderTreeFrame> Render(Type componentType, Dictionary<string, object?> parameters)
         {
-            int componentId = AssignRootComponentId(InstantiateComponent(typeof(SampleRoot)));
+            int componentId = AssignRootComponentId(InstantiateComponent(componentType));
             Dispatcher.InvokeAsync(() => RenderRootComponentAsync(componentId, ParameterView.FromDictionary(parameters))).GetAwaiter().GetResult();
             return GetCurrentRenderTreeFrames(componentId);
         }

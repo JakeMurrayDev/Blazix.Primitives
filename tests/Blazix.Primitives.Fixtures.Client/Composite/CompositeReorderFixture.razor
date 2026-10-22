@@ -1,0 +1,32 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-reorder` fixture (tests/browser/composite.spec.ts): CompositeRoot.test.tsx "updates the order of items
+    when their containers are reordered" (CMP-STR-01, browser-only in Base UI). Keyed groups, each holding one item, that a
+    button reorders from a, b, c to b, a, c: Blazor moves the keyed elements, the C# registrations do not change, and the
+    module's move detection re-sorts the items (CMP-STA-11).
+*@
+<FixtureContainer Name="composite-reorder" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-reorder @onclick="() => groups = s_reordered">Reorder</button>
+
+    <FixtureCompositeRoot @ref="root" data-root>
+        @foreach (string group in groups)
+        {
+            <div @key="group" role="group">
+                <FixtureCompositeItem data-item="@group">@group</FixtureCompositeItem>
+            </div>
+        }
+    </FixtureCompositeRoot>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_initial = ["a", "b", "c"];
+    private static readonly string[] s_reordered = ["b", "a", "c"];
+    private string[] groups = s_initial;
+    private FixtureCompositeRoot? root;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [root];
+}

@@ -67,6 +67,20 @@ public sealed class DomTwinContractTests
     }
 
     [Fact]
+    [Trait("Requirement", "SWT-DOM-08")]
+    [Trait("Requirement", "SWT-EVT-04")]
+    public void The_checked_options_carry_the_value_and_the_restore_count_only_once_raised()
+    {
+        // ADR 04 Amendments 2026-10-22 item 2: `checked` is the `dom` primitive's; a count C# raises makes an update that
+        // leaves the value unchanged still reach the module (the UnmountRequests precedent).
+        Assert.Equal("""{"checked":false,"liveRegion":false}""", JsonSerializer.Serialize(new DomOptions { Checked = false }, BlazixJsonContext.Default.DomOptions));
+        Assert.Equal(
+            """{"checked":true,"checkedRestores":2,"liveRegion":false}""",
+            JsonSerializer.Serialize(new DomOptions { Checked = true, CheckedRestores = 2 }, BlazixJsonContext.Default.DomOptions));
+        Assert.NotEqual(new DomOptions { Checked = true, CheckedRestores = 1 }, new DomOptions { Checked = true, CheckedRestores = 2 });
+    }
+
+    [Fact]
     [Trait("Requirement", "AVA-EVT-02")]
     public void OnImageStatus_raises_ImageStatusChanged_with_the_status_literal()
     {

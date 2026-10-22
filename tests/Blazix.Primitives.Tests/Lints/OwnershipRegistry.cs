@@ -33,6 +33,12 @@ internal static class OwnershipRegistry
         new("collapsible", "Panel", "hidden", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
+        // ADR 04 Amendments 2026-10-22 (chosen by the user): the composite module writes every item's roving tabindex from
+        // attach; C# renders "-1" (CMP-STA-15) and a consumer tabindex wins (RAD-DOM-16). Inert until track 8 creates
+        // Radio/; from then on radio.md §5.1 must read C# → JS for a radio in a group (for example
+        // `C# (standalone); C# → JS (in a group, from attach)`). There is no composite entry: the lint reads only
+        // docs/components/*.md.
+        new("radio", "Root", "tabindex", Writer.CsharpToJs),
         // field.md §5 FLD-DOM-18 (M2 track 1): the transitions module writes the Error's enter and exit attributes. The part
         // and its state record arrive in PR 1c, which adds the StateField (FieldErrorState.TransitionStatus).
         new("field", "Error", "data-starting-style", Writer.Js),
@@ -41,5 +47,8 @@ internal static class OwnershipRegistry
         // module owns the element's value and defaultValue from attach. Input adopts the row (INP-STR-04).
         new("field", "Control", "value", Writer.CsharpToJs),
         new("field", "Control", "defaultValue", Writer.CsharpToJs),
+        // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
+        // property from attach; C# renders the initial value once (the handover).
+        new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
     ];
 }

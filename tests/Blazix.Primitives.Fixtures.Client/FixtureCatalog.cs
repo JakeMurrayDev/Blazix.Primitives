@@ -3,6 +3,7 @@ using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
 using Blazix.Primitives.Fixtures.Client.FormFixtures;
@@ -13,6 +14,7 @@ using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
+using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -52,6 +54,10 @@ public static class FixtureCatalog
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
+        ["composite-list"] = new(typeof(CompositeListFixture)),
+        ["composite-rtl"] = new(typeof(CompositeRtlFixture)),
+        ["composite-reorder"] = new(typeof(CompositeReorderFixture)),
+        ["composite-selection"] = new(typeof(CompositeSelectionFixture)),
         ["field-basic"] = new(typeof(FieldBasicFixture)),
         ["field-validation"] = new(typeof(FieldValidationFixture)),
         ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),
@@ -64,5 +70,8 @@ public static class FixtureCatalog
         ["form-blocked"] = new(typeof(FormBlockedFixture)),
         ["form-native-validation"] = new(typeof(FormNativeValidationFixture)),
         ["form-external-errors"] = new(typeof(FormExternalErrorsFixture)),
+        ["switch-basic"] = new(typeof(SwitchBasicFixture)),
+        ["switch-labels"] = new(typeof(SwitchLabelsFixture)),
+        ["switch-form"] = new(typeof(SwitchFormFixture)),
     };
 }

@@ -1,8 +1,8 @@
-// The `dom` mechanism module (ADR 04 §1 as amended 2026-10-18 and 2026-10-20): the platform flags, owner and
-// shadow-DOM helpers, rect and computed-style reads, ResizeObserver and IntersectionObserver subscriptions, and the
-// three primitives a part drives through `DomTwin`: the `indeterminate` property of a checkbox input (CHK-DOM-13),
-// the live-region marker (UTL-A11Y-01..04) and the image-load probe with its convergent write (AVA-ALG-01/02,
-// ADR 04 Amendments 2026-10-18).
+// The `dom` mechanism module (ADR 04 §1 as amended 2026-10-18, 2026-10-20 and 2026-10-22): the platform flags, owner
+// and shadow-DOM helpers, rect and computed-style reads, ResizeObserver and IntersectionObserver subscriptions, and the
+// primitives a part drives through `DomTwin`: the `checked` and `indeterminate` properties of a hidden input
+// (SWT-DOM-08, CHK-DOM-13), the live-region marker (UTL-A11Y-01..04) and the image-load probe with its convergent write
+// (AVA-ALG-01/02, ADR 04 Amendments 2026-10-18).
 // Transcribed from Base UI v1.9.0: packages/utils/src/{owner,shadowDom}.ts; packages/react/src/utils/{getCssDimensions,
 // getElementTransform,getPseudoElementBounds,getElementAtPoint,scrollable,scrollEdges,valueToPercent}.ts;
 // internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and AvatarImage.tsx.
@@ -683,6 +683,10 @@ export interface ImageLoadOptions extends ImageSource {
 export interface DomOptions extends TwinOptions {
   /** The `indeterminate` property of the attached checkbox input; absent leaves the property alone. */
   indeterminate?: boolean | null;
+  /** The `checked` property of the attached checkbox or radio input; absent leaves the property alone. */
+  checked?: boolean | null;
+  /** Raised by C# after a request that left `checked` different from a native click's value, so the update arrives. */
+  checkedRestores?: number | null;
   /** Whether the attached element is a live region whose text must be announced when it appears. */
   liveRegion?: boolean | null;
   /** The image whose loading status the handle reports. */
@@ -720,6 +724,32 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     if (options.indeterminate != null && element instanceof ownerWindow(element).HTMLInputElement) {
       element.indeterminate = options.indeterminate;
     }
+  };
+
+  // ADR 04 Amendments 2026-10-22: `checked` is set on attach and on every update, never inside a native click. A click C#
+  // accepts must stay until its commit arrives; a refused one is reverted natively (the `button` module's `toggle`
+  // decision on WebAssembly, its read-only `preventDefault()`) or restored by the update that raises `checkedRestores`.
+  const assertChecked = () => {
+    if (!disposed && options.checked != null && element instanceof ownerWindow(element).HTMLInputElement) {
+      element.checked = options.checked;
+    }
+  };
+
+  // switch.md §16 Q1 (b), chosen by the user 2026-10-22 (FFI-FRM-30's dated note): a form reset puts the input back to the
+  // `checked` attribute C# rendered first. The reset algorithm runs after the `reset` event's listeners, so the property is
+  // re-asserted one task later. The owning form is the input's `form`, which follows its `form` attribute.
+  let resetForm: HTMLFormElement | null = null;
+  const onReset = () => {
+    ownerWindow(element).setTimeout(assertChecked, 0);
+  };
+  const bindReset = () => {
+    const form = !disposed && options.checked != null && element instanceof ownerWindow(element).HTMLInputElement ? element.form : null;
+    if (form === resetForm) {
+      return;
+    }
+    resetForm?.removeEventListener('reset', onReset);
+    resetForm = form;
+    resetForm?.addEventListener('reset', onReset);
   };
 
   // A native click on a checkbox clears `indeterminate` before the click is dispatched; this listener restores it
@@ -815,6 +845,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   const apply = () => {
+    assertChecked();
+    bindReset();
     assertIndeterminate();
     applyLiveRegion();
     applyImage();
@@ -837,6 +869,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       }
       disposed = true;
       element.removeEventListener('click', onClick);
+      bindReset();
       unmarkLiveRegion?.();
       unmarkLiveRegion = null;
       supersedeProbe();

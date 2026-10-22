@@ -21,6 +21,10 @@ internal interface IPartHost : IHandleEvent
     /// <summary>Adjusts the merged attributes of this render before the element is emitted.</summary>
     /// <param name="attributes">The merged attributes, with <c>class</c>, <c>style</c> and the handlers already in place.</param>
     void FinishAttributes(AttributeList attributes);
+
+    /// <summary>Renders the content that follows the host element, inside the pipeline's region.</summary>
+    /// <param name="builder">The render tree builder of the owning component.</param>
+    void BuildAfterElement(RenderTreeBuilder builder);
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3

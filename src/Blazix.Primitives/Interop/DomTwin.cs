@@ -6,8 +6,8 @@ namespace Blazix.Primitives.Interop;
 // The module's helpers (owner and shadow DOM, measurement, observers, platform flags) are imported by other modules;
 // only the primitives a part drives are reached through this twin. One twin per part.
 /// <summary>
-/// The C# half of the <c>dom</c> module: the primitives a part drives on its element, which are the
-/// <c>indeterminate</c> property of a checkbox input, the live-region announcement marker and the image-load probe.
+/// The C# half of the <c>dom</c> module: the primitives a part drives on its element, which are the <c>checked</c> and
+/// <c>indeterminate</c> properties of a hidden input, the live-region announcement marker and the image-load probe.
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class DomTwin(IJSRuntime jsRuntime)
