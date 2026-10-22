@@ -107,7 +107,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
     // CHK-API-11: the field's, the item's and the part's own disabled state, OR'd.
     /// <summary>Gets a value indicating whether the control is disabled, its field's and item's state included.</summary>
     /// <value><see langword="true"/> when any of them is disabled.</value>
-    public bool EffectiveDisabled => (fieldScope is not null && FieldItemContext.DisabledOf(fieldScope, item)) || parameters.Disabled;
+    public bool EffectiveDisabled => (fieldScope is not null && FieldItemContext.DisabledOf(fieldScope, item)) || parameters.Disabled || GroupDisabled;
+
+    /// <summary>Gets or sets a value indicating whether the control's group disables it.</summary>
+    /// <value><see langword="true"/> while an enclosing group is disabled.</value>
+    public bool GroupDisabled { get; set; }
 
     // CHK-API-08, FLD-API-18, ADR 05 Amendments 2026-10-22: the field's name, else the control's own, else the EditContext
     // identifier's field name.
@@ -171,6 +175,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
+    /// <summary>Gets the boxed form of a value, one instance per value.</summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The shared boxed value.</returns>
+    public static object Box(bool value) => value ? s_true : s_false;
+
     /// <summary>Takes the cascaded scopes; called once, when the part initializes.</summary>
     /// <param name="fieldContext">The nearest field, or <see langword="null"/>.</param>
     /// <param name="itemContext">The nearest item, or <see langword="null"/>.</param>
@@ -199,8 +208,13 @@ internal sealed class CheckableFieldBehavior : IDisposable
 
     /// <summary>Takes the value the control shows after a request or a parameter set.</summary>
     /// <param name="isChecked">The value.</param>
-    /// <param name="blurValue">The value an onBlur commit validates.</param>
-    public void SetValue(bool isChecked, bool blurValue) => parameters = parameters with { Checked = isChecked, BlurValue = blurValue };
+    /// <param name="blurValue">The value an onBlur commit validates: the control's own, boxed, or its group's.</param>
+    public void SetValue(bool isChecked, object? blurValue) => parameters = parameters with { Checked = isChecked, BlurValue = blurValue };
+
+    /// <summary>Determines whether the control's labelable scope is the given one.</summary>
+    /// <param name="other">A scope, such as the one a group renders in, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when <paramref name="other"/> is the control's scope.</returns>
+    public bool SharesScope(LabelableScope? other) => other is not null && ReferenceEquals(scope, other);
 
     /// <summary>Records what a render of the part shows, so a change of the field renders it again only when needed.</summary>
     public void Rendered()
@@ -274,8 +288,6 @@ internal sealed class CheckableFieldBehavior : IDisposable
         SendInputOptions();
         return refreshSource.Task;
     }
-
-    private static object Box(bool value) => value ? s_true : s_false;
 
     private RenderKey CurrentKey() => fieldScope is null
         ? new RenderKey(Snapshot, ControlId, Name, EffectiveDisabled, null, null, false)
@@ -410,12 +422,12 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
-    private async Task CommitAfterRefreshAsync(bool value)
+    private async Task CommitAfterRefreshAsync(object? value)
     {
         await RefreshAsync().ConfigureAwait(true);
         if (fieldScope is not null && !disposed)
         {
-            await fieldScope.Validation.CommitAsync(Box(value)).ConfigureAwait(true);
+            await fieldScope.Validation.CommitAsync(value).ConfigureAwait(true);
         }
     }
 
@@ -688,7 +700,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
 /// <param name="Name">The control's name parameter.</param>
 /// <param name="Disabled">The control's own disabled state, a group's included.</param>
 /// <param name="Checked">The value the control shows.</param>
-/// <param name="BlurValue">The value an onBlur commit validates: the control's own, or its group's.</param>
+/// <param name="BlurValue">The value an onBlur commit validates: the control's own, boxed, or its group's.</param>
 /// <param name="OwnsValue">Whether the control is its field's control: it registers, and writes filled and dirty.</param>
 /// <param name="ClaimsControlId">Whether the control claims its labelable scope's control id.</param>
 /// <param name="EnterSubmit">Whether Enter on the root submits the form the hidden input belongs to.</param>
@@ -701,7 +713,7 @@ internal readonly record struct CheckableFieldParameters(
     string? Name,
     bool Disabled,
     bool Checked,
-    bool BlurValue,
+    object? BlurValue,
     bool OwnsValue,
     bool ClaimsControlId,
     bool EnterSubmit,
