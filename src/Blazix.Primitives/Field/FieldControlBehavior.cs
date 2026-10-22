@@ -308,7 +308,7 @@ internal sealed class FieldControlBehavior : IDisposable
     /// <param name="e">The focus event.</param>
     public void HandleFocus(FocusEventArgs e) => fieldScope?.SetFocused(this, true, EffectiveDisabled);
 
-    // DP6 (settled by the orchestrator 2026-10-22): a commit no event started reads the control's state from a fresh report.
+    // DP6 (settled by the orchestrator 2026-10-22 under ADR 04 §3's one-way contract): a commit no event started reads the control's state from a fresh report.
     private Task RefreshAsync()
     {
         if (handle is null)
