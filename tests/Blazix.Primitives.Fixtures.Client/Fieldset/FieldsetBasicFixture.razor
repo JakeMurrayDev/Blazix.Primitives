@@ -1,0 +1,61 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldsetFixtures
+@using Blazix.Primitives
+
+@*
+    The `fieldset-basic` fixture (tests/browser/fieldset.spec.ts). `native` (FieldsetRoot.test.tsx "sets the native disabled
+    attribute": the browser disables the plain input inside, FST-FRM-02); `auto` and `custom` (FieldsetLegend.test.tsx
+    "should set aria-labelledby on the fieldset automatically" / "with custom id"); `association` ("updates and clears the
+    legend association"); `two-legends` (useRegisteredLabelId.test.tsx "does not let an older label cleanup clear a newer
+    label", over legends). FFI-ARIA-08 on both render modes.
+*@
+<FixtureContainer Name="fieldset-basic">
+    <div data-case="native">
+        <FieldsetRoot Disabled="true" data-testid="fieldset">
+            <input data-testid="input" />
+        </FieldsetRoot>
+    </div>
+
+    <div data-case="auto">
+        <FieldsetRoot data-testid="fieldset">
+            <FieldsetLegend data-testid="legend">Legend</FieldsetLegend>
+        </FieldsetRoot>
+    </div>
+
+    <div data-case="custom">
+        <FieldsetRoot data-testid="fieldset">
+            <FieldsetLegend id="legend-id" />
+        </FieldsetRoot>
+    </div>
+
+    <div data-case="association">
+        <FieldsetRoot data-testid="fieldset">
+            @if (showLegend)
+            {
+                <FieldsetLegend id="@legendId">Legend</FieldsetLegend>
+            }
+        </FieldsetRoot>
+        <button type="button" data-change-id @onclick='() => legendId = "legend-b"'>Change id</button>
+        <button type="button" data-remove-legend @onclick="() => showLegend = false">Remove legend</button>
+    </div>
+
+    <div data-case="two-legends">
+        <FieldsetRoot data-testid="fieldset">
+            @if (labels != "new")
+            {
+                <FieldsetLegend @key="@("old")" id="old-label">Old</FieldsetLegend>
+            }
+            @if (labels != "old")
+            {
+                <FieldsetLegend @key="@("new")" id="new-label">New</FieldsetLegend>
+            }
+        </FieldsetRoot>
+        <button type="button" data-both @onclick='() => labels = "both"'>Both</button>
+        <button type="button" data-new @onclick='() => labels = "new"'>New</button>
+    </div>
+</FixtureContainer>
+
+@code {
+    private string legendId = "legend-a";
+    private bool showLegend = true;
+    private string labels = "old";
+}

@@ -16,6 +16,9 @@ public static class DemoCatalog
         new("button", "Button", "A button that works as a native button or as another element.", typeof(ButtonDemo)),
         new("avatar", "Avatar", "A user's image with a fallback of their initials.", typeof(AvatarDemo)),
         new("collapsible", "Collapsible", "A panel that a trigger shows and hides.", typeof(CollapsibleDemo)),
+        new("input", "Input", "A native input element that works with a field.", typeof(InputDemo)),
+        new("field", "Field", "A form control with a label, a description and its validity.", typeof(FieldDemo)),
+        new("fieldset", "Fieldset", "Related fields grouped under a legend.", typeof(FieldsetDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

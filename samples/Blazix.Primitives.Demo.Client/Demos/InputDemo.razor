@@ -1,0 +1,21 @@
+<DemoFrame Slug="input" Note="An input whose value changes are shown below it.">
+    <Hero>
+        <label class="flex flex-col items-start gap-1 text-sm font-bold text-neutral-950 dark:text-white">
+            Name
+            <Input placeholder="e.g. Colm Tuite" class="@InputClass" />
+        </label>
+    </Hero>
+    <Variants>
+        <label class="flex flex-col items-start gap-1 text-sm font-bold text-neutral-950 dark:text-white">
+            Search
+            <Input placeholder="Type to search" class="@InputClass" OnValueChange="args => value = args.Value" />
+        </label>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">Value: @value</p>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string InputClass = "h-8 w-40 border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 px-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white";
+
+    private string value = string.Empty;
+}

@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+@inject NavigationManager Navigation
+
+@*
+    The `field-autofocus` fixture (tests/browser/field.spec.ts, input.spec.ts), prerendered: FieldControl.test.tsx "should
+    sync focused state when autoFocus is used with SSR" (FLD-FOC-04, INP-API-07). The browser focuses the autofocus
+    control while it parses the static response, before the runtime starts; the control then acquires the field's focused
+    state when the form module attaches. `?control=input` renders an Input instead of a FieldControl.
+*@
+<FixtureContainer Name="field-autofocus" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <FieldRoot data-testid="root">
+        <FieldLabel @ref="label" data-testid="label">Name</FieldLabel>
+        @if (UsesInput)
+        {
+            <Input @ref="input" AutoFocus="true" data-testid="control" />
+        }
+        else
+        {
+            <FieldControl @ref="control" AutoFocus="true" data-testid="control" />
+        }
+    </FieldRoot>
+</FixtureContainer>
+
+@code {
+    private FieldLabel? label;
+    private FieldControl? control;
+    private Input? input;
+
+    private bool UsesInput => Navigation.Uri.Contains("control=input", StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [label, control, input];
+}

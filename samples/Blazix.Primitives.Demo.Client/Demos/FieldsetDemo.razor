@@ -1,0 +1,44 @@
+<DemoFrame Slug="fieldset" Note="The same fieldset, disabled as a whole.">
+    <Hero>
+        <FieldsetRoot class="flex w-full max-w-64 flex-col gap-4">
+            <FieldsetLegend class="@LegendClass">
+                Billing details
+            </FieldsetLegend>
+
+            <FieldRoot class="flex flex-col items-start gap-1">
+                <FieldLabel class="@LabelClass">
+                    Company
+                </FieldLabel>
+                <FieldControl placeholder="Enter company name" class="@ControlClass" />
+            </FieldRoot>
+
+            <FieldRoot class="flex flex-col items-start gap-1">
+                <FieldLabel class="@LabelClass">
+                    Tax ID
+                </FieldLabel>
+                <FieldControl placeholder="Enter fiscal number" class="@ControlClass" />
+            </FieldRoot>
+        </FieldsetRoot>
+    </Hero>
+    <Variants>
+        <label class="Slider">
+            <input type="checkbox" checked="@disabled" @onchange="e => disabled = e.Value is true" />
+            Disable the fieldset
+        </label>
+        <FieldsetRoot class="flex w-full max-w-64 flex-col gap-4" Disabled="disabled">
+            <FieldsetLegend class="@($"{LegendClass} data-[disabled]:text-neutral-500")">Shipping details</FieldsetLegend>
+            <FieldRoot class="flex flex-col items-start gap-1">
+                <FieldLabel class="@($"{LabelClass} data-[disabled]:text-neutral-500")">Street</FieldLabel>
+                <FieldControl placeholder="Enter street" class="@($"{ControlClass} data-[disabled]:opacity-50")" />
+            </FieldRoot>
+        </FieldsetRoot>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LegendClass = "border-b border-neutral-950 text-base font-bold text-neutral-950 dark:border-white dark:text-white";
+    private const string LabelClass = "text-sm font-bold text-neutral-950 dark:text-white";
+    private const string ControlClass = "h-8 w-full border border-neutral-950 bg-white dark:bg-neutral-950 px-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 placeholder:text-neutral-500 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white dark:border-white dark:text-white dark:placeholder:text-neutral-400";
+
+    private bool disabled = true;
+}

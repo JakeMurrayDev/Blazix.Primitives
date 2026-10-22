@@ -21,7 +21,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5 | |
 | architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3 | |
 | architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1 | |
-| architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6 | |
+| architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-22 (M2 track 1, PR 1a) | |
 | architecture/button-behavior.md | UBT | approved | 100 reqs |
 | architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store |
 | components/accordion.md | ACC | approved | 101 reqs (opus) | builds on collapsible |
@@ -36,10 +36,10 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
 | components/dialog.md | DLG | approved | 191 reqs |
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
-| components/field.md | FLD | approved | 143 reqs; owns normative Field.Control text |
-| components/fieldset.md | FST | approved | 32 reqs | |
+| components/field.md | FLD | approved | 143 reqs; owns normative Field.Control text; revised 2026-10-22, PR 1a; `implemented` proposed with PR 1c |
+| components/fieldset.md | FST | approved | 32 reqs; revised 2026-10-22, PR 1a; `implemented` proposed with PR 1c | |
 | components/form.md | FRM | approved | 48 reqs | |
-| components/input.md | INP | approved | 19 reqs; alias of Field.Control | |
+| components/input.md | INP | approved | 19 reqs; alias of Field.Control; revised 2026-10-22, PR 1a; `implemented` proposed with PR 1c | |
 | components/menu.md | MNU | approved | 308 reqs | |
 | components/menubar.md | MBR | approved | 91 reqs (opus) | builds on menu |
 | components/meter.md | MTR | implemented | 52 reqs (opus) | |

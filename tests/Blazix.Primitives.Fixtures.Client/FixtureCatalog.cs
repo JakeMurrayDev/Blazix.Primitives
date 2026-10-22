@@ -3,6 +3,9 @@ using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+using Blazix.Primitives.Fixtures.Client.FieldFixtures;
+using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
+using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
@@ -48,5 +51,13 @@ public static class FixtureCatalog
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
+        ["field-basic"] = new(typeof(FieldBasicFixture)),
+        ["field-validation"] = new(typeof(FieldValidationFixture)),
+        ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),
+        ["field-autofocus"] = new(typeof(FieldAutofocusFixture), Prerender: true),
+        ["field-edit-form"] = new(typeof(FieldEditFormFixture)),
+        ["fieldset-basic"] = new(typeof(FieldsetBasicFixture)),
+        ["fieldset-prerender"] = new(typeof(FieldsetPrerenderFixture), Prerender: true),
+        ["input-showcase"] = new(typeof(InputShowcaseFixture)),
     };
 }

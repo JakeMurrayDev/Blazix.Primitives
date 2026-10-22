@@ -1,0 +1,33 @@
+@namespace Blazix.Primitives.Fixtures.Client.InputFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `input-showcase` fixture (tests/browser/input.spec.ts). `standalone`: an Input outside a field, its OnValueChange
+    values as data-values (INP-STR-03, INP-FRM-07); `field`: an Input inside an onBlur field whose default value fails the
+    browser's own email constraint (INP-API-08, the native-constraint clause; FieldRoot.test.tsx "should mark field as
+    invalid for other errors (e.g., typeMismatch) even if not dirty" over Input, INP-STR-04).
+*@
+<FixtureContainer Name="input-showcase" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="standalone" data-values="@string.Join(",", values)">
+        <Input @ref="standalone" data-testid="input" OnValueChange="args => values.Add(args.Value)" />
+    </div>
+
+    <div data-case="field">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur" data-testid="root">
+            <Input @ref="fieldInput" data-testid="control" type="email" DefaultValue="not_an_email@@" />
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> values = [];
+    private Input? standalone;
+    private Input? fieldInput;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [standalone, fieldInput];
+}

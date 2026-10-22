@@ -1,0 +1,60 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-validation` fixture (tests/browser/field.spec.ts): the browser's own constraint validation under the three
+    modes and the field's own custom validity message. `required` and `type-mismatch` (FieldRoot.test.tsx "prop:
+    validationMode > onBlur", FFI-ALG-02, FFI-FRM-06); `disabled-message` (FieldRoot.test.tsx "clears its own message on an
+    input that became disabled", FFI-FRM-09; the validate button calls FieldRoot.ValidateAsync); `native-message`
+    (FieldRoot.test.tsx "does not adopt a native message as the message it displaced").
+*@
+<FixtureContainer Name="field-validation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="required">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur">
+            <FieldControl @ref="requiredControl" data-testid="control" required />
+        </FieldRoot>
+    </div>
+
+    <div data-case="type-mismatch">
+        <FieldRoot ValidationMode="ValidationMode.OnBlur">
+            <FieldControl @ref="typeMismatchControl" data-testid="control" type="email" DefaultValue="not_an_email@@" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="disabled-message">
+        <FieldRoot @ref="disabledMessageRoot" Validate="ValidateFailing">
+            <FieldControl @ref="disabledMessageControl" data-testid="control" Disabled="disabled" />
+        </FieldRoot>
+        <button type="button" data-validate @onclick="() => disabledMessageRoot!.ValidateAsync()">validate</button>
+        <button type="button" data-toggle-disabled @onclick="() => disabled = !disabled">toggle disabled</button>
+        <button type="button" data-pass @onclick="() => failing = false">pass</button>
+    </div>
+
+    <div data-case="native-message">
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate="ValidateBad">
+            <FieldControl @ref="nativeMessageControl" data-testid="control" type="email" />
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private FieldControl? requiredControl;
+    private FieldControl? typeMismatchControl;
+    private FieldRoot? disabledMessageRoot;
+    private FieldControl? disabledMessageControl;
+    private FieldControl? nativeMessageControl;
+    private bool disabled;
+    private bool failing = true;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [requiredControl, typeMismatchControl, disabledMessageControl, nativeMessageControl];
+
+    private ValueTask<FieldValidationResult?> ValidateFailing(FieldValidationArguments arguments) =>
+        new(failing ? "custom error" : null);
+
+    private static ValueTask<FieldValidationResult?> ValidateBad(FieldValidationArguments arguments) =>
+        new(arguments.Value as string == "bad" ? "custom error" : null);
+}

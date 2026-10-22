@@ -8,6 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/fieldset/page.mdx` |
 | Prefix | `FST` |
 | Status | approved |
+| Revised | 2026-10-22 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) |
@@ -30,6 +31,7 @@ No component in the library builds on Fieldset, and Fieldset builds on no other 
 
 - **FST-STR-01** — MUST. `Fieldset.Root` MUST render a single element (default `<fieldset>`) and MUST make a *fieldset scope* — the pair (current legend id, effective disabled) — available to every descendant, including descendants of an element substituted through `render` (§3.1) and descendants rendered through a portal.
   Source: `fieldset/root/FieldsetRoot.tsx:34-57`, `fieldset/root/FieldsetRootContext.ts:4-10`. Test: [L2] `FieldsetRoot.test.tsx` "passes disabled to rendered Base UI roots"; `RadioGroup.test.tsx` "labels the radio group from the fieldset legend".
+  Port note 2026-10-22 (ADR 13 Amendments 2026-10-22, re-cited): the `FieldsetRoot.test.tsx` title substitutes RadioGroup, CheckboxGroup and Slider, which arrive later. Its port title "passes disabled to a rendered Button root, and the scope reaches the fields inside it" [L2] substitutes `Button`, and a `FieldRoot` inside the substituted root reads the scope. The scope is a fixed cascade around the root's element, so it reaches a substituted component and its descendants (design point DP1 of M2 track 1, settled by the orchestrator 2026-10-22 under ADR 05 §1 and ADR 16 rule 9). The `RadioGroup.test.tsx` clause is open to track 8.
 - **FST-STR-02** — MUST. `Fieldset.Legend` MUST be rendered inside the subtree of a `Fieldset.Root` (at any depth); rendering it outside one MUST throw the error in FST-EDGE-01.
   Source: `fieldset/legend/FieldsetLegend.tsx:20`, `fieldset/root/FieldsetRootContext.ts:12-21`. Test: [L2] `FieldsetLegend.test.tsx` "throws a descriptive error when rendered outside <Fieldset.Root>".
 - **FST-STR-03** — MUST. `Fieldset.Root` may be nested inside another `Fieldset.Root`; the inner root's effective disabled state MUST be the logical OR of the nearest enclosing root's effective disabled state and its own `disabled` prop (FST-API-01), so a disabled ancestor disables every nested fieldset regardless of their own props.
@@ -161,10 +163,11 @@ There is no controlled/uncontrolled pair, no value normalization and no mount/un
   Source: `fieldset/root/FieldsetRoot.tsx:40`. Test: [L2] `FieldsetRoot.test.tsx` "sets the native disabled attribute".
 - **FST-DOM-02** — MUST. The root element MUST carry `data-disabled=""` exactly while the effective disabled state is `true` (default state projection, RND-DOM-01/02).
   Source: `fieldset/root/FieldsetRoot.tsx:30-32,36`, `internals/getStateAttributesProps.ts:24-26`. Test: none (the attribute is only asserted on `Field.Root` and controls in the suite).
+  Port note 2026-10-22: the port's L2 translation of "sets the native disabled attribute" also asserts `data-disabled`.
 - **FST-DOM-03** — MUST. While a `Fieldset.Legend` is mounted inside the root, the root element MUST carry `aria-labelledby` equal to that legend's id (FST-API-04); while none is mounted the attribute MUST be absent.
   Source: `fieldset/root/FieldsetRoot.tsx:25,39`. Test: [L2] `FieldsetLegend.test.tsx` "should set aria-labelledby on the fieldset automatically", "should set aria-labelledby on the fieldset with custom id", "updates and clears the legend association".
 - **FST-DOM-04** — MUST. A consumer-supplied `aria-labelledby` on `Fieldset.Root` MUST replace the legend-derived value (it is a later source, RND-DOM-19); the legend still registers its id and still names a substituted `RadioGroup` through the scope (FST-FRM-03).
-  Source: `fieldset/root/FieldsetRoot.tsx:37-43`. Test: none.
+  Source: `fieldset/root/FieldsetRoot.tsx:37-43`. Test: [L2] port title "a consumer aria-labelledby replaces the legend's id" (added 2026-10-22).
 
 ### 5.2 `Fieldset.Legend` element
 
@@ -180,10 +183,13 @@ There is no controlled/uncontrolled pair, no value normalization and no mount/un
   Source: `fieldset/legend/FieldsetLegend.tsx:24-26,29`, `fieldset/legend/FieldsetLegendDataAttributes.ts:4`. Test: [L2] `FieldsetLegend.test.tsx` "reflects the disabled state".
 - **FST-DOM-07** — MUST. The legend MUST publish its id to the root post-commit, pre-paint when it mounts and whenever its id changes, and MUST withdraw it when it unmounts; withdrawal only clears the root's value if that value is still the withdrawing legend's id (FFI-ARIA-08). Consequently a change of the `id` prop updates the root's `aria-labelledby` within the same update, and removing the legend removes the attribute. Server: relaxed, see §9.
   Source: `utils/useRegisteredLabelId.ts:12-17`, `fieldset/root/FieldsetRoot.tsx:25,49`; see [FFI-ARIA-08](../architecture/field-and-form-infrastructure.md). Test: [L2] `FieldsetLegend.test.tsx` "updates and clears the legend association".
+  Port note 2026-10-22 (ADR 01 Amendments 2026-10-22, "label and legend ids publish in the creating batch"): the legend publishes its id in `OnParametersSet` and withdraws it when disposed, inside the render batch that creates, re-ids or removes it, and the root renders again in that batch. The row is therefore met on both modes, not relaxed; tested at L4 on both (`fieldset.spec.ts` "updates and clears the legend association").
 - **FST-DOM-08** — MUST. Server-rendered markup MUST NOT contain `aria-labelledby` on the root (the legend has not registered yet), even when a legend is present; after hydration the association MUST appear (post-commit, pre-paint of the hydrating update) pointing at the legend's id, which is unchanged by hydration. Server: relaxed, see §9.
   Source: see [FFI-FRM-34](../architecture/field-and-form-infrastructure.md); `utils/useRegisteredLabelId.ts:12-13`. Test: [L2] `FieldsetLegend.test.tsx` "does not set `aria-labelledby` during SSR when legend is absent", "sets `aria-labelledby` after hydration without a custom legend id". (L4 for the after-hydration clause)
+  Port note 2026-10-22 (ADR 01 Amendments 2026-10-22): the legend publishes while it initializes, so the server-rendered markup of a prerendered page already carries the root's `aria-labelledby`, pointing at the same generated id the interactive render keeps. This is the improvement the amendment chose. The clause "MUST NOT contain `aria-labelledby` ... even when a legend is present" does not hold for the port, and Base UI's tests assert absence only where no legend is rendered. Tested at L4 on both modes (`fieldset.spec.ts`, the two SSR titles over the prerendered `fieldset-prerender` page) and at L2.
 - **FST-DOM-09** — MUST. When `Fieldset.Root` is substituted (`render`) with a component, that component MUST receive the computed `disabled` (boolean), the current `aria-labelledby`, the state data attribute and the forwarded attributes as its parameters, and it is rendered inside the fieldset scope (FST-STR-01). A Base UI group root used this way therefore reflects the fieldset's disabled state through its own mechanism (`RadioGroup` → `aria-disabled="true"`; `CheckboxGroup` → member checkboxes `data-disabled`; `Slider.Root` → `data-disabled` on its parts). A substituted plain element that is not a `<fieldset>` receives a `disabled` attribute with no native effect; nested `Field.Root`s are still disabled through the scope (FST-FRM-01).
   Source: `fieldset/root/FieldsetRoot.tsx:34-44,55-57`; see [RND-DOM-38](../architecture/rendering-and-composition.md), [RND-DOM-43](../architecture/rendering-and-composition.md). Test: [L2] `FieldsetRoot.test.tsx` "passes disabled to rendered Base UI roots".
+  Port note 2026-10-22 (ADR 13 Amendments 2026-10-22, re-cited): "passes disabled to rendered Base UI roots" renders RadioGroup, CheckboxGroup and Slider. The port title "passes disabled to a rendered Button root, and the scope reaches the fields inside it" [L2] substitutes `Button`: the spread `disabled` binds to `Button.Disabled`, since Blazor matches component parameters by name case-insensitively. The RadioGroup and CheckboxGroup clauses are open to tracks 8 and 6, the Slider clause to M5.
 
 ### 5.3 ARIA
 
@@ -235,6 +241,7 @@ Not applicable — both parts are always mounted while rendered; no transition s
 
 - FST-DOM-07 — FFI registration row (post-commit, pre-paint C# state work): the legend's id publication and withdrawal run in `OnAfterRender`; on Server the root's `aria-labelledby` update lands after paint plus a round trip, observable only as latency of that attribute.
 - FST-DOM-08 — FFI registration row: after hydration (the first interactive render) the association appears after paint plus a round trip on Server.
+- 2026-10-22 (ADR 01 Amendments 2026-10-22): both rows are met on both modes in the port. The legend publishes in `OnParametersSet`, inside the creating batch, and the association is already in prerendered markup; see the port notes on FST-DOM-07 and FST-DOM-08.
 
 ## 10. Positioning
 
@@ -253,12 +260,13 @@ Not applicable — no floating parts.
 
 - **FST-EDGE-01** — MUST. Rendering `Fieldset.Legend` outside a `Fieldset.Root` MUST throw an `Error` whose message is exactly `Base UI: FieldsetRootContext is missing. Fieldset parts must be placed within <Fieldset.Root>.` This is thrown in every build (it is not a dev-only diagnostic) and is the only diagnostic Fieldset emits.
   Source: `fieldset/root/FieldsetRootContext.ts:14-20`, `fieldset/legend/FieldsetLegend.tsx:20`. Test: [L2] `FieldsetLegend.test.tsx` "throws a descriptive error when rendered outside <Fieldset.Root>".
+  Port note 2026-10-22 (PRG-EDGE-01 precedent, ADR 08 Amendments 2026-10-20): the message is ``Blazix: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.``, an `InvalidOperationException` thrown in every build.
 - **FST-EDGE-02** — MUST. `Fieldset.Root` itself MUST NOT throw when it has no enclosing `Fieldset.Root` (it performs the optional lookup); its effective disabled state is then simply its own `disabled` prop.
   Source: `fieldset/root/FieldsetRoot.tsx:27`, `fieldset/root/FieldsetRootContext.ts:12,16`. Test: [L2] `FieldsetRoot.test.tsx` (every test renders a top-level root).
 - **FST-EDGE-03** — MUST. If several `Fieldset.Legend`s are mounted under one root, the root's `aria-labelledby` MUST be the id of the legend whose publication ran last (for legends mounted in the same update: the last in document order), and unmounting a legend whose id is not the current one MUST NOT clear the attribute (FFI-ARIA-08).
-  Source: `utils/useRegisteredLabelId.ts:12-17`. Test: none.
+  Source: `utils/useRegisteredLabelId.ts:12-17`. Test: [L2] `useRegisteredLabelId.test.tsx` "does not let an older label cleanup clear a newer label", translated over two legends (added 2026-10-22); [L4] the same title in `fieldset.spec.ts`.
 - **FST-EDGE-04** — MUST. A legend `id` of the empty string is used verbatim (RND-DOM-28): the legend renders `id=""` and the root renders `aria-labelledby=""`. No normalization is applied.
-  Source: `utils/useRegisteredLabelId.ts:10`, `packages/utils/src/useId.ts:46`. Test: none.
+  Source: `utils/useRegisteredLabelId.ts:10`, `packages/utils/src/useId.ts:46`. Test: [L2] port title "an empty legend id is used verbatim" (added 2026-10-22).
 
 **Behavior under disabled.** Nothing in Fieldset reacts to interaction, so `disabled` has no interaction-related effect of its own beyond FST-DOM-01/02 and the propagation in §8. There is no `readOnly`.
 
@@ -354,8 +362,14 @@ Non-normative.
 ## 16. Open questions
 
 1. **`disabled` and `data-disabled` missing from the API outline.** `docs/src/app/(docs)/react/components/page.mdx:864-865` lists only `className, render, style` for `Fieldset.Root` and no data attributes, and `fieldset/types.md:14-18` likewise; yet `disabled` is a documented-by-JSDoc state field (`FieldsetRoot.tsx:60-65`) consumed as a prop (`:21`), and `data-disabled` is emitted by the default projection (`:30-36`). There is also no `FieldsetRootDataAttributes.ts` to mirror `FieldsetLegendDataAttributes.ts`. Documented as FST-API-01 / FST-DOM-02 (Test: none for the attribute); the outline omission looks like a generator limitation (native attributes are not listed), not a behavioral difference.
+   Resolved 2026-10-22 (M2 track 1): the port exposes `FieldsetRoot.Disabled` and renders `data-disabled`, and the L2 translation of "sets the native disabled attribute" asserts both; no `FieldsetRootDataAttributes` class, as Base UI exports none (ADR 08).
 2. **Legend `id` prop not in the outline** for the same reason (`FieldsetLegend.tsx:18` intercepts it). Documented as FST-API-04.
+   Resolved 2026-10-22: `FieldsetLegend` takes `id` from the forwarded attributes verbatim (FST-API-04), as every part takes `id`.
 3. **Multiple legends** (FST-EDGE-03) and **empty-string id** (FST-EDGE-04) follow from `utils/useRegisteredLabelId.ts:10-17` but are untested; a port may reasonably treat both as unsupported configurations.
+   Resolved 2026-10-22: the port follows the source for both. The last publication names the root, and an older legend's withdrawal leaves a newer id in place (`LabelIdSlot`); an empty id is used verbatim. Both are now tested by L2 titles (FST-EDGE-03, FST-EDGE-04).
 4. **Consumer `aria-labelledby` override** (FST-DOM-04) follows from the prop order at `FieldsetRoot.tsx:37-43` and RND-DOM-19 but is untested; note that per RND-DOM-19 an explicit `aria-labelledby={undefined}` would also suppress the legend association. Resolved (explicit-`undefined` clause only): not expressible in the port, see decisions/02-render-pipeline-and-attribute-merging.md §Requirements relaxed or withdrawn for the port (RND-DOM-19); the untested override itself stays open.
+   Resolved 2026-10-22: the consumer's `aria-labelledby` replaces the legend's id (the pipeline merges the consumer last); tested by an L2 port title (FST-DOM-04). The root then skips re-rendering for legend id changes nothing would show.
 5. **Non-`<fieldset>` substitution.** With `render={<div />}` the root renders `<div disabled="">` — an attribute with no native meaning — and no `group` role (`FieldsetRoot.tsx:34-44`); nested `Field.Root`s are still disabled through the scope. Whether a port should add `role="group"` in that case is a product decision; Base UI does not.
+   Resolved 2026-10-22: the port follows Base UI and adds no role to a non-`<fieldset>` substitute.
 6. **Changelog intent.** `CHANGELOG.md` v1.0.0-beta.3 "Fix disabled fieldset form bugs (#4890)" introduced the registration drop and validity neutralization tested by `Form.test.tsx` "excludes disabled fieldset fields…" / "clears invalid UI when a fieldset field becomes disabled"; the behavior itself lives in `Field.Root` (FFI-STR-06), so it is cited rather than restated here.
+   Resolved 2026-10-22: informational; the behaviour is `Field.Root`'s (FFI-STR-06), and its `Form.test.tsx` titles land with track 2 and PR 1c.
