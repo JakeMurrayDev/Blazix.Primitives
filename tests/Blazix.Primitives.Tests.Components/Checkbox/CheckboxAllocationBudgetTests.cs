@@ -19,6 +19,11 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
     // bytes for the status report, the source-generated parse of its JSON, which the comparison with the mirrored status
     // then discards without a render.
     private const long RerenderBudgetBytes = 704;
+
+    // Design point C4 of M2 track 5 (pending the user): while the native-label fallback is in play (no aria-label, no
+    // aria-labelledby, no Field.Label) the form module watches the document's labels itself (CHK-ARIA-08), so a re-render
+    // sends nothing more. First measurement 2026-10-23: 704 bytes, the same as a box named by aria-label.
+    private const long FallbackRerenderBudgetBytes = 704;
     private const long UnchangedStatusBudgetBytes = 328;
 
     private readonly CheckboxTestContext test = new();
@@ -26,9 +31,27 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
 
-    [Fact(DisplayName = "a re-render of a checkbox with unchanged parameters stays within its budget")]
+    [Fact(DisplayName = "a re-render of a checkbox named by aria-label with unchanged parameters stays within its budget")]
     [Trait("Requirement", "ADR16-7")]
     public void A_rerender_of_a_checkbox_with_unchanged_parameters_stays_within_its_budget()
+    {
+        EventCallback<MouseEventArgs> onClick = EventCallback.Factory.Create<MouseEventArgs>(this, () => { });
+        RenderFragment content = builder => builder.AddContent(0, "x");
+        IRenderedComponent<CheckboxRoot> cut = test.Context.Render<CheckboxRoot>(p => p
+            .Add(x => x.Name, "n")
+            .AddUnmatched("class", "consumer")
+            .AddUnmatched("aria-label", "Name")
+            .AddUnmatched("onclick", onClick)
+            .AddChildContent(content));
+
+        long allocated = Measure(cut);
+
+        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+    }
+
+    [Fact(DisplayName = "a re-render of a checkbox named by its native label stays within its budget")]
+    [Trait("Requirement", "ADR16-7")]
+    public void A_rerender_of_a_checkbox_named_by_its_native_label_stays_within_its_budget()
     {
         EventCallback<MouseEventArgs> onClick = EventCallback.Factory.Create<MouseEventArgs>(this, () => { });
         RenderFragment content = builder => builder.AddContent(0, "x");
@@ -38,6 +61,13 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
             .AddUnmatched("onclick", onClick)
             .AddChildContent(content));
 
+        long allocated = Measure(cut);
+
+        Assert.True(allocated <= FallbackRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {FallbackRerenderBudgetBytes}");
+    }
+
+    private static long Measure(IRenderedComponent<CheckboxRoot> cut)
+    {
         for (int i = 0; i < 20; i++)
         {
             cut.Render();
@@ -45,9 +75,7 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
 
         long before = GC.GetAllocatedBytesForCurrentThread();
         cut.Render();
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
     [Fact(DisplayName = "an indicator status report that changes nothing stays within its budget")]

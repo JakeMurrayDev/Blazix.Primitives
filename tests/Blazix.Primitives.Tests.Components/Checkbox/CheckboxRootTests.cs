@@ -746,14 +746,44 @@ public sealed class CheckboxRootTests : IDisposable
         // Design point C2 of M2 track 5: the form module owns the Enter path (ADR 04 §1's form row); outside a field the
         // root's handle reports nothing.
         IRenderedComponent<CheckboxRoot> cut = Context.Render<CheckboxRoot>();
-        Blazix.Primitives.Interop.FormControlOptions root = Assert.Single(test.FormOptions);
+        Blazix.Primitives.Interop.FormControlOptions root = test.FormOptions.First(o => o.EnterSubmit);
         Assert.True(root.EnterSubmit);
         Assert.False(root.ReportEvents);
         Assert.False(root.Disabled);
         Assert.Equal(cut.Instance.Element, test.FormModule.Invocations["attach"][0].Arguments[0]);
 
         cut.Render(p => p.Add(x => x.Disabled, true));
-        Assert.True(test.FormOptions[^1].Disabled);
+        Assert.True(test.FormOptions.Last(o => o.EnterSubmit).Disabled);
+    }
+
+    [Fact(DisplayName = "port: the hidden input looks for a native label while nothing else names the box, and hands focus to the root (pending the user)")]
+    [Trait("Requirement", "CHK-ARIA-07")]
+    [Trait("Requirement", "CHK-ARIA-08")]
+    [Trait("Requirement", "CHK-ARIA-09")]
+    [Trait("Requirement", "CHK-FOC-03")]
+    public async Task Port_the_hidden_input_looks_for_a_native_label_while_nothing_else_names_the_box()
+    {
+        // Design point C4 of M2 track 5: the form module discovers the label (ADR 04 §1's form row); C# renders the id.
+        IRenderedComponent<CheckboxRoot> cut = Context.Render<CheckboxRoot>(p => p.AddUnmatched("id", "box"));
+        string rootId = cut.Find(CheckboxSelector).GetAttribute("id")!;
+        Blazix.Primitives.Interop.FormControlOptions input = test.FormOptions.Last(o => !o.ReportEvents && !o.EnterSubmit);
+        Assert.Equal((true, rootId), (input.LabelFallback, input.FocusTarget));
+
+        await test.ReportLabelAsync(cut, "found");
+        Assert.Equal("found", cut.Find(CheckboxSelector).GetAttribute("aria-labelledby"));
+
+        // CHK-ARIA-08: the module watches the document's labels and ids itself, so an unchanged render sends nothing.
+        int updates = test.FormHandle.Invocations["update"].Count;
+        cut.Render();
+        Assert.Equal(updates, test.FormHandle.Invocations["update"].Count);
+
+        // A non-blank aria-label names the box instead (CHK-ARIA-06 step 2); a native button has no fallback (CHK-ARIA-09).
+        cut.Render(p => p.AddUnmatched("id", "box").AddUnmatched("aria-label", "Name"));
+        Assert.False(test.FormOptions.Last(o => !o.ReportEvents && !o.EnterSubmit).LabelFallback);
+        Assert.False(cut.Find(CheckboxSelector).HasAttribute("aria-labelledby"));
+
+        Context.Render<CheckboxRoot>(p => p.Add(x => x.NativeButton, true));
+        Assert.False(test.FormOptions.Last(o => !o.ReportEvents && !o.EnterSubmit).LabelFallback);
     }
 
     [Fact(DisplayName = "should call onClick when clicked")]

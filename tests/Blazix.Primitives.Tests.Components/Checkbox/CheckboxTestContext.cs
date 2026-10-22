@@ -192,6 +192,15 @@ public sealed class CheckboxTestContext : IDisposable
         await SettleFormAsync(cut);
     }
 
+    /// <summary>Reports the native label the hidden input's handle discovered, as the module does.</summary>
+    internal Task ReportLabelAsync<TComponent>(IRenderedComponent<TComponent> cut, string? labelId)
+        where TComponent : IComponent
+    {
+        FormTwin twin = FormTwin();
+        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, BlazixJsonContext.Default.FormControlReport);
+        return cut.InvokeAsync(() => twin.OnControlReport(json));
+    }
+
     /// <summary>Reports that the root already had focus when the module attached to it or it became enabled.</summary>
     internal Task FocusedAtAttachAsync<TComponent>(IRenderedComponent<TComponent> cut)
         where TComponent : IComponent
