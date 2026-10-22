@@ -162,7 +162,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
 
     // CHK-STR-04: a member reads and writes the group's value; a parent derives from it when the group lists all values;
     // a detached box and a parent without that list keep their own state (CHK-STA-12, CHK-EDGE-11). Design point C3/G5
-    // (pending the user): the group's path runs beside Controlled<bool>, which keeps the box's own pair.
+    // (settled by the orchestrator 2026-10-23): the group's path runs beside Controlled<bool>, which keeps the box's own pair.
     private bool IsMember => group is not null && !Parent && Identity is not null;
 
     private bool IsDerivedParent => group is not null && Parent && group.AllValues is not null;
@@ -438,6 +438,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
         RegisterChildId();
         RegisterMember();
+        group?.BoxRendered();
     }
 
     /// <inheritdoc />
@@ -526,7 +527,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     // substitute element's own id wins, RND-DOM-32), the parent's group-derived aria-controls (CHK-ARIA-12, CHK-DOM-09),
     // the composed aria-describedby (CHK-ARIA-10) and aria-invalid while the field is invalid (CHK-ARIA-11). The pipeline
     // calls this after a substitute element's attributes merged, so the id kept here is the one on the element: a member
-    // registers it for the parent's aria-controls (design point G3, pending the user).
+    // registers it for the parent's aria-controls (design point G3, settled by the orchestrator 2026-10-23).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes)
     {
@@ -825,7 +826,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         return true;
     }
 
-    // CKG-STA-09 (design point G4, pending the user): a member's disabled state is the parent's to read at once, so the
+    // CKG-STA-09 (design point G4, settled by the orchestrator 2026-10-23): a member's disabled state is the parent's to read at once, so the
     // entry is updated with the box's state rather than after paint.
     private void SyncDisabledEntry()
     {

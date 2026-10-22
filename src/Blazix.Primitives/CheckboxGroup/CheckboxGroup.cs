@@ -36,7 +36,7 @@ public static class CheckboxGroupDataAttributes
 // - The boxes in the subtree read the group through CheckboxGroupContext and run their requests through it: the box's own
 //   callback, then the group's with the same details, then the commits (CHK-EVT-09, CKG-EVT-01..05).
 // - The registration id is the consumer's id, else one drawn from the generator and never rendered (CKG-API-06; design
-//   point G2, pending the user).
+//   point G2, settled by the orchestrator 2026-10-23).
 // - Inside a field the group is the field's control (checkbox-group §8): it claims its scope's control id as null, so the
 //   label names the group (CKG-ARIA-02/03); it registers its value while the field has a name and it is enabled
 //   (CKG-FRM-01/02), with the members' checked, eligible inputs as the form projection (CKG-FRM-03); and after the render
@@ -183,7 +183,7 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
 
         // Design point G2: the registration id without a consumer id, drawn in render order and never rendered (CKG-API-06).
         registrationId = IdGenerator.Next();
-        context = new CheckboxGroupContext(CurrentValue, RequestAsync);
+        context = new CheckboxGroupContext(CurrentValue, RequestAsync, OnBoxRendered);
         participation = new EditContextParticipation(OnEditContextMessages);
         fieldScope = FieldContext;
         if (fieldScope is not null)
@@ -217,26 +217,7 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        if (fieldScope is null)
-        {
-            ObserveValue();
-            return Task.CompletedTask;
-        }
-
-        using (fieldScope.Batch())
-        {
-            if (Enabled)
-            {
-                ClaimControlId();
-                Register();
-                ObserveValue();
-            }
-            else
-            {
-                Unmount();
-            }
-        }
-
+        ReactToValue();
         return Task.CompletedTask;
     }
 
@@ -301,17 +282,50 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
             return false;
         }
 
-        IReadOnlyList<string> previous = CurrentValue;
         await valueState.CommitAsync(next, ValueChanged);
-        context!.SetState(CurrentValue, AllValues, EffectiveDisabled);
 
-        // A new value renders the group, whose render is followed by the value reaction (ObserveValue).
-        if (UpdateState() || !ReferenceEquals(previous, CurrentValue))
+        // The boxes whose state changed render as they are notified, and the first to finish its render runs the value
+        // reaction (BoxRendered); rendering the group instead would render every box again (design point G1).
+        context!.SetState(CurrentValue, AllValues, EffectiveDisabled);
+        if (UpdateState())
         {
             StateHasChanged();
         }
 
         return true;
+    }
+
+    // A box's render after a commit: the value reaction, once per new value.
+    private void OnBoxRendered()
+    {
+        if (!ReferenceEquals(observedValue, CurrentValue))
+        {
+            ReactToValue();
+        }
+    }
+
+    // After a render, and after a commit the boxes have rendered: the claim, the registration and the value reaction.
+    private void ReactToValue()
+    {
+        if (fieldScope is null)
+        {
+            ObserveValue();
+            return;
+        }
+
+        using (fieldScope.Batch())
+        {
+            if (Enabled)
+            {
+                ClaimControlId();
+                Register();
+                ObserveValue();
+            }
+            else
+            {
+                Unmount();
+            }
+        }
     }
 
     // CKG-ARIA-03, FFI-ALG-07: post-render, so prerendered markup keeps the label's `for` until the claim.

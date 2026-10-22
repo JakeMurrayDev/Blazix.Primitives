@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 namespace Blazix.Primitives;
 
 // checkbox-group §11 (the CheckboxGroupContext a Checkbox.Root reads); checkbox-group/CheckboxGroupContext.ts. Design point
-// G1 of M2 track 6 (pending the user): a plain listener list cascaded fixed (ADR 16 rule 9), the Switch and Checkbox
+// G1 of M2 track 6 (settled by the orchestrator 2026-10-23): a plain listener list cascaded fixed (ADR 16 rule 9), the Switch and Checkbox
 // pattern. A change of the value, AllValues, the disabled state or the parent's member ids notifies every box, which
 // compares what it renders and renders only when that changed.
 /// <summary>The state a checkbox group shares with the boxes in its subtree.</summary>
@@ -15,10 +15,12 @@ internal sealed class CheckboxGroupContext
     /// <summary>Initializes a new instance of the <see cref="CheckboxGroupContext"/> class.</summary>
     /// <param name="initialValue">The group's value at its first render.</param>
     /// <param name="request">Runs the group's half of a box's request: its change callback, then its commit.</param>
-    public CheckboxGroupContext(IReadOnlyList<string> initialValue, Func<IReadOnlyList<string>, ChangeEventDetails, Task<bool>> request)
+    /// <param name="boxRendered">Runs the group's work that follows a box's render.</param>
+    public CheckboxGroupContext(IReadOnlyList<string> initialValue, Func<IReadOnlyList<string>, ChangeEventDetails, Task<bool>> request, Action boxRendered)
     {
         Value = initialValue;
         Request = request;
+        BoxRendered = boxRendered;
         Parent = new CheckboxGroupParent(initialValue);
         Parent.ChildIdsChanged += Notify;
     }
@@ -42,6 +44,12 @@ internal sealed class CheckboxGroupContext
     /// <summary>Gets the group's half of a box's request.</summary>
     /// <value>A function that receives the proposed value and the box's details and returns whether the value was committed.</value>
     public Func<IReadOnlyList<string>, ChangeEventDetails, Task<bool>> Request { get; }
+
+    // A commit renders the boxes whose state changed, not the group (design point G1), so the group's value reaction runs
+    // after the first of those renders, where the group's own render would have run it.
+    /// <summary>Gets the group's work that follows a box's render, which a box runs after each of its renders.</summary>
+    /// <value>An action that runs the value reaction when the value changed since it last ran.</value>
+    public Action BoxRendered { get; }
 
     /// <summary>Gets or sets the labelable scope the group renders in.</summary>
     /// <value>The scope, or <see langword="null"/> outside a field; a box that shares it claims no control id.</value>
