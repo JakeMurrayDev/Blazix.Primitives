@@ -51,6 +51,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | 16 `ChangeDetection`'s known-immutable set covers enums and nullable enums | M0 | read `ChangeDetection.cs` in aspnetcore `release/11.0`; note in ADR 16 |
 | 16 generator-emitted `SetParametersAsync` and per-item unmatched-bag cost | M5 | part of the M5 list-part measurement |
 | 16 Combobox `virtualized` (CMB-API-22) with Blazor `Virtualize` | M5 | permanent L4 test |
+| 05 the form controls participate in a cascaded `EditContext` (Amendments 2026-10-22) | M2 | permanent L2 tests per control and one L4 title per render mode on a fixture with `DataAnnotationsValidator`; the trim and AOT probe by the Field track |
 
 ### 3. Tracking, linking, SDK
 
@@ -75,3 +76,5 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 ## Amendments
 
 **2026-10-21 (M1 planning; chosen by the user the same day).** §2: the ADR 07 banner item moves from "first pack" to M4, the first pack that contains the `positioning` chunk, because no module imported `@floating-ui/dom` before the `positioning` module (M0 Track 3 phase B re-implemented Floating UI's DOM predicates in `dom.ts`, so the M0 and M1 packs carry no Floating UI chunk to inspect); [issue 16](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/16) is re-assigned to milestone M4. §1: the ADR 01 round-trip item ([issue 2](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/2)) closes before Collapsible is declared done, per ADR 12 Amendments 2026-10-21, so the pipeline-only M1 families are not held by it.
+
+**2026-10-22 (M2 planning; chosen by the user the same day).** §2 gains the ADR 05 row for the form controls inside a cascaded `EditContext` (ADR 05 Amendments 2026-10-22), assigned to M2 as [issue 76](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/76), label `verification`; it is an item of the milestone as a whole and closes before the M2 tag (ADR 12 Amendments 2026-10-21). M2 has no other verification item.
