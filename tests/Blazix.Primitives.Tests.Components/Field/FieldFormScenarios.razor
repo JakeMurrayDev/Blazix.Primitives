@@ -86,6 +86,17 @@
             <FieldError Match="Match" ChildContent="ErrorContent" />
         </FieldRoot>
         break;
+    case FormScenario.Formless:
+        <FieldRoot Name="first" ValidationMode="ValidationMode" Validate="Validate">
+            @Control(new() { ["DefaultValue"] = "one" })
+        </FieldRoot>
+        <FieldRoot Name="second">
+            @Control(new() { ["DefaultValue"] = "two" })
+        </FieldRoot>
+        <FieldRoot>
+            @Control(new() { ["DefaultValue"] = "unnamed" })
+        </FieldRoot>
+        break;
     case FormScenario.EnterInForm:
         <Form OnSubmit="Submitted" onkeydown="@(EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.KeyboardEventArgs>(this, ClearOnFormKeyDown))">
             <FieldRoot Validate="Validate">
@@ -123,6 +134,7 @@
         MountValidation,
         PreventedChange,
         Normalized,
+        Formless,
         EnterInForm,
     }
 

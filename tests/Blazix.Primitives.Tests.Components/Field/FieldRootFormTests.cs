@@ -343,6 +343,30 @@ public sealed class FieldRootFormTests : IDisposable
         Assert.Empty(cut.FindAll("[data-testid=error]"));
     }
 
+    // FFI-STR-05 (fidelity correction 2026-10-23, settled by the orchestrator 2026-10-23: ADR 15; COL-DOM-05 precedent): Base
+    // UI's default form context holds one fields map that every field outside a Form registers in; the port's is one per
+    // runtime (a scoped service), so a formless validator sees every named formless field of the circuit or application.
+    [Fact(DisplayName = "a formless field's validator sees every named field outside a form in the runtime")]
+    [Trait("Requirement", "FFI-STR-05")]
+    [Trait("Requirement", "FFI-API-07")]
+    public void A_formless_fields_validator_sees_every_named_field_outside_a_form()
+    {
+        List<FormValues> calls = [];
+        IRenderedComponent<FieldFormScenarios> cut = Render(Scenario.Formless, p => p
+            .Add(x => x.ValidationMode, ValidationMode.OnChange)
+            .Add(x => x.Validate, arguments =>
+            {
+                calls.Add(arguments.Values);
+                return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null);
+            }));
+
+        host.Module.Controls[0].Input(cut, "changed");
+
+        FormValues values = Assert.Single(calls);
+        Assert.Equal(["first", "second"], values.Keys);
+        Assert.Equal(["changed", "two"], values.Values);
+    }
+
     [Fact(DisplayName = "allows mount-time imperative validation before the fallback id is assigned")]
     [Trait("Requirement", "FLD-API-08")]
     [Trait("Requirement", "FLD-FRM-12")]

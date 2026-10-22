@@ -434,6 +434,29 @@ public sealed class FieldValidationTests
         Assert.NotEqual("old error", harness.Field.ValidityData.Error);
     }
 
+    // FFI-STR-05 (fidelity correction 2026-10-23, settled by the orchestrator 2026-10-23: ADR 15; COL-DOM-05 precedent):
+    // outside a Form the field registers in the runtime's formless registry, so its validator sees its own named value, as
+    // CheckboxGroup.test.tsx's formless titles expect ({ group: [...] }).
+    [Fact(DisplayName = "a formless field's validator receives its own named value")]
+    [Trait("Requirement", "FFI-STR-05")]
+    [Trait("Requirement", "FFI-API-07")]
+    public void A_formless_fields_validator_receives_its_own_named_value()
+    {
+        FormValues? received = null;
+        FieldHarness harness = new(ValidationMode.OnChange, args =>
+        {
+            received = args.Values;
+            return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null);
+        }, name: "group");
+        harness.Mount();
+
+        harness.Change("one");
+
+        Assert.NotNull(received);
+        Assert.Equal(["group"], received!.Keys);
+        Assert.Equal("one", received["group"]);
+    }
+
     // FieldControl.test.tsx's title at L1 (FFI-FRM-12): the blur commits the blurred value, the control's re-commit after the
     // render (FLD-FRM-17) commits the normalised one, and the blurred value's late result is stale.
     [Fact(DisplayName = "keeps the final async validation when a controlled value is normalized on blur")]
