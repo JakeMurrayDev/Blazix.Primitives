@@ -25,4 +25,5 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(CompositeOptions))]
 [JsonSerializable(typeof(CompositeHighlightChange))]
 [JsonSerializable(typeof(CompositeFocusLeave))]
+[JsonSerializable(typeof(CompositeKeyHandled))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

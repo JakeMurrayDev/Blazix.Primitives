@@ -66,6 +66,14 @@ internal sealed record CompositeOptions : TwinOptions
     /// <summary>Gets a value indicating whether the module reports each change of the highlighted index.</summary>
     /// <value><see langword="true"/> to receive <see cref="CompositeTwin.HighlightChanged"/>; the default is <see langword="false"/>.</value>
     public bool ReportHighlight { get; init; }
+
+    // Option (i) of ADR 04's note of 2026-10-22, pending the user.
+    /// <summary>Gets a value indicating whether the module reports a key it handled and stopped without running the C# chain inside the dispatch.</summary>
+    /// <value>
+    /// <see langword="true"/> to receive <see cref="CompositeTwin.KeyHandled"/>, so the consumer's key handlers run for a key
+    /// that never reaches Blazor's dispatcher; the default is <see langword="false"/>.
+    /// </value>
+    public bool ReportHandledKeys { get; init; }
 }
 
 // ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16).

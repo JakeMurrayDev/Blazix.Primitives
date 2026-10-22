@@ -28,6 +28,12 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when focus left the root, if the options ask for it, with the <c>focusout</c> event.</summary>
     public event Action<EventSnapshot>? FocusLeft;
 
+    /// <summary>
+    /// Occurs when the module handled a key and stopped its propagation without running the navigation chain inside the
+    /// dispatch, if the options ask for it, with the <c>keydown</c> event.
+    /// </summary>
+    public event Action<EventSnapshot>? KeyHandled;
+
     /// <summary>Gets or sets the C# handler chain of the navigation decision point.</summary>
     /// <value>
     /// A function that receives the <c>keydown</c> the module is about to handle and returns
@@ -64,6 +70,16 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     {
         CompositeFocusLeave leave = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeFocusLeave);
         FocusLeft?.Invoke(leave.Event);
+    }
+
+    /// <summary>Receives a key the module handled and stopped without running the navigation chain inside the dispatch.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="CompositeKeyHandled"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnKeyHandled(string payloadJson)
+    {
+        CompositeKeyHandled handled = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeKeyHandled);
+        KeyHandled?.Invoke(handled.Event);
     }
 
     /// <inheritdoc />
