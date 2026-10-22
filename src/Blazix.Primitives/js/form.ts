@@ -369,10 +369,10 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     tracked = value;
   }
 
-  function apply(next: FormControlOptions, previous: FormControlOptions | null): void {
+  function apply(next: FormControlOptions, previous: FormControlOptions | null, keepLiveValue = false): void {
     if (next.controlled) {
       // FLD-API-15: the element shows the consumer's value; an edit it did not apply is reverted.
-      if (next.value != null && valueOf(element) !== next.value) {
+      if (!keepLiveValue && next.value != null && valueOf(element) !== next.value) {
         setValue(next.value);
       }
     } else if ('defaultValue' in element && (previous === null || previous.defaultValue !== next.defaultValue)) {
@@ -443,8 +443,16 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     }
   }
 
-  apply(options, null);
   const reports = options.reportEvents !== false;
+  // The handover at attach hands over the element's state: a live value that differs from the one C# rendered is the
+  // user's edit, made before the module listened, so it is kept and reported rather than overwritten (settled by the
+  // orchestrator 2026-10-22).
+  const rendered = (options.controlled ? options.value : options.defaultValue) ?? '';
+  const editedBeforeAttach = reports && tracked !== null && tracked !== rendered;
+  if (editedBeforeAttach) {
+    expected = rendered;
+  }
+  apply(options, null, editedBeforeAttach);
   if (reports) {
     element.addEventListener('input', onValue);
     element.addEventListener('change', onValue);
@@ -460,6 +468,9 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     if (active === null || active === doc.body) {
       element.focus();
     }
+  }
+  if (editedBeforeAttach) {
+    report('input', undefined);
   }
   if (reports && !options.disabled) {
     reportFocusIfActive();
