@@ -10,6 +10,7 @@ namespace Blazix.Primitives;
 internal sealed class CheckboxGroupContext
 {
     private readonly List<Action> listeners = [];
+    private readonly List<Member> members = [];
 
     /// <summary>Initializes a new instance of the <see cref="CheckboxGroupContext"/> class.</summary>
     /// <param name="initialValue">The group's value at its first render.</param>
@@ -45,6 +46,85 @@ internal sealed class CheckboxGroupContext
     /// <summary>Gets or sets the labelable scope the group renders in.</summary>
     /// <value>The scope, or <see langword="null"/> outside a field; a box that shares it claims no control id.</value>
     public LabelableScope? Scope { get; set; }
+
+    // CKG §8 (the validation registry keyed by identity): the members whose hidden inputs are the field's validation inputs,
+    // in registration order, with the identity each registered for the form projection (CKG-FRM-03).
+    /// <summary>Adds or updates a member whose hidden input is one of its field's validation inputs.</summary>
+    /// <param name="behavior">The member's field behavior.</param>
+    /// <param name="identity">The member's identity, or <see langword="null"/> when it has none, which the projection never lists.</param>
+    public void RegisterMember(CheckableFieldBehavior behavior, string? identity)
+    {
+        for (int i = 0; i < members.Count; i++)
+        {
+            if (ReferenceEquals(members[i].Behavior, behavior))
+            {
+                members[i] = new Member(behavior, identity);
+                return;
+            }
+        }
+
+        members.Add(new Member(behavior, identity));
+    }
+
+    /// <summary>Removes a member added with <see cref="RegisterMember"/>.</summary>
+    /// <param name="behavior">The member's field behavior.</param>
+    public void UnregisterMember(CheckableFieldBehavior behavior)
+    {
+        for (int i = 0; i < members.Count; i++)
+        {
+            if (ReferenceEquals(members[i].Behavior, behavior))
+            {
+                members.RemoveAt(i);
+                return;
+            }
+        }
+    }
+
+    // DP6 for a group: a commit reads every member input's native state from a fresh report.
+    /// <summary>Brings the native state of every member's hidden input up to date.</summary>
+    /// <returns>A task that completes when every member's input has reported.</returns>
+    public Task RefreshMembersAsync()
+    {
+        if (members.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (members.Count == 1)
+        {
+            return members[0].Behavior.RefreshInputAsync();
+        }
+
+        Task[] refreshes = new Task[members.Count];
+        for (int i = 0; i < members.Count; i++)
+        {
+            refreshes[i] = members[i].Behavior.RefreshInputAsync();
+        }
+
+        return AwaitInTurnAsync(refreshes);
+    }
+
+    // CKG-FRM-03; checkbox-group/CheckboxGroup.tsx:100-118 (getFormValue).
+    /// <summary>Projects the value onto the members whose hidden inputs are checked and eligible, in value order.</summary>
+    /// <param name="value">The group's value.</param>
+    /// <returns>The projection.</returns>
+    public IReadOnlyList<string> Project(IReadOnlyList<string> value)
+    {
+        List<string> projected = [];
+        foreach (string entry in value)
+        {
+            foreach (Member member in members)
+            {
+                if (string.Equals(member.Identity, entry, StringComparison.Ordinal) && member.Behavior.Checked && member.Behavior.ValidationInput.State.Eligible)
+                {
+                    projected.Add(entry);
+                    break;
+                }
+            }
+        }
+
+        return projected;
+    }
 
     /// <summary>Takes the group's state and notifies the boxes when it changed.</summary>
     /// <param name="value">The value.</param>
@@ -83,6 +163,16 @@ internal sealed class CheckboxGroupContext
         builder.CloseComponent();
     };
 
+    // Every refresh is requested before the first await; awaiting them in turn, rather than with Task.WhenAll, resumes on
+    // the renderer's dispatcher after each report instead of on the thread pool.
+    private static async Task AwaitInTurnAsync(Task[] refreshes)
+    {
+        foreach (Task refresh in refreshes)
+        {
+            await refresh.ConfigureAwait(true);
+        }
+    }
+
     private void Notify()
     {
         // A listener may remove itself or another (a box disposed by the render it triggers): iterating backwards with a
@@ -95,4 +185,6 @@ internal sealed class CheckboxGroupContext
             }
         }
     }
+
+    private readonly record struct Member(CheckableFieldBehavior Behavior, string? Identity);
 }

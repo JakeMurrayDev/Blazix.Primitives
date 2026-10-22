@@ -121,6 +121,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     private string? registeredChildIdentity;
     private string? registeredChildId;
     private string? registeredDisabledIdentity;
+    private bool memberRegistered;
     private DomTwin? domTwin;
     private TwinHandle<DomOptions>? domHandle;
     private DomOptions? sentDomOptions;
@@ -381,14 +382,20 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         fieldBehavior = new CheckableFieldBehavior(controlId, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
         fieldBehavior.Initialize(FieldContext, ItemContext);
         group = GroupContext;
-        group?.AddListener(groupChanged);
+        if (group is not null)
+        {
+            group.AddListener(groupChanged);
+            fieldBehavior.GroupRefresh = group.RefreshMembersAsync;
+        }
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        // CHK-FRM-20: inside a group the group is the field's control; CHK-DOM-15: a box that shares its labelable scope
-        // with the group claims no control id; CHK-API-11: the group's disabled state is OR'd in.
+        // CHK-FRM-20: inside a group the group is the field's control, a member's hidden input is one of the field's
+        // validation inputs, and the group's ValueExpression is the EditContext's (ADR05-5); CHK-DOM-15, CKG-ARIA-07: a box
+        // that shares its labelable scope with the group claims no control id and takes no label from it; CHK-API-11: the
+        // group's disabled state is OR'd in.
         fieldBehavior!.GroupDisabled = group?.Disabled ?? false;
         fieldBehavior.SetParameters(
             new CheckableFieldParameters(
@@ -398,9 +405,10 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
                 BlurValue(),
                 OwnsValue: group is null,
                 ClaimsControlId: !fieldBehavior.SharesScope(group?.Scope),
+                RegistersInput: group is not null && !Parent,
                 EnterSubmit: true,
                 LabelFallback: !NativeButton && !ConsumerNamesBox && !ConsumerLabelsBox,
-                CheckedExpression,
+                group is null ? CheckedExpression : null,
                 CascadedEditContext,
                 AdditionalAttributes,
                 Enabled),
@@ -429,6 +437,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         await AttachInputAsync();
         await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
         RegisterChildId();
+        RegisterMember();
     }
 
     /// <inheritdoc />
@@ -450,7 +459,13 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
                 {
                     group.Parent.RemoveDisabled(registeredDisabledIdentity);
                 }
+
+                if (memberRegistered)
+                {
+                    group.UnregisterMember(fieldBehavior!);
+                }
             }
+
             if (domTwin is not null)
             {
                 _ = domTwin.DisposeAsync().AsTask();
@@ -681,6 +696,26 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         if (registeredChildIdentity is not null)
         {
             group!.Parent.RegisterChild(registeredChildIdentity, id!);
+        }
+    }
+
+    // CKG-FRM-03, FFI-FRM-24: inside a field a member's input joins the group's refresh and its projection, by identity.
+    private void RegisterMember()
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        if (!Parent && Enabled && fieldBehavior!.InField)
+        {
+            memberRegistered = true;
+            group.RegisterMember(fieldBehavior, Identity);
+        }
+        else if (memberRegistered)
+        {
+            memberRegistered = false;
+            group.UnregisterMember(fieldBehavior!);
         }
     }
 

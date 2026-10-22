@@ -523,7 +523,7 @@ public sealed class CheckboxGroupFieldTests : IDisposable
     private async Task ValidateAsync(IRenderedComponent<CheckboxGroupFieldHost> cut)
     {
         Task pending = Task.CompletedTask;
-        await cut.InvokeAsync(() => pending = cut.Instance.Field!.ValidateAsync());
+        await cut.InvokeAsync(() => { pending = cut.Instance.Field!.ValidateAsync(); });
         await test.SettleAllFormsAsync(cut);
         await pending;
     }
