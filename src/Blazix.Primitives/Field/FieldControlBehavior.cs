@@ -585,6 +585,7 @@ internal sealed class FieldControlBehavior : IDisposable
             Revision = revision,
             ReportKeys = consumerHandlers.Has(KeyDownEvent),
             Disabled = EffectiveDisabled,
+            AutoFocus = parameters.AutoFocus,
         },
     };
 

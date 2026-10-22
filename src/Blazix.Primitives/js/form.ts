@@ -20,6 +20,7 @@ export interface FormControlOptions {
   disabled?: boolean;
   reportEvents?: boolean;
   focusTarget?: string | null;
+  autoFocus?: boolean;
 }
 
 /** The options of an attached field label; mirrors `FormLabelOptions` in C#. */
@@ -446,6 +447,15 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     element.addEventListener('keydown', onKeyDown);
   }
   element.addEventListener('focus', onFocus);
+  if (options.autoFocus && !options.disabled) {
+    // FLD-FOC-04: the renderer replaces a prerendered element when the page becomes interactive, which loses the focus
+    // the browser's autofocus gave it; the module focuses the control once, at attach, unless something else has focus.
+    const doc = ownerDocument(element);
+    const active = activeElement(doc);
+    if (active === null || active === doc.body) {
+      element.focus();
+    }
+  }
   if (reports && !options.disabled) {
     reportFocusIfActive();
   }
