@@ -31,10 +31,37 @@ export interface FormLabelOptions {
   developmentChecks?: boolean;
 }
 
+/** The options of an attached form element; mirrors `FormSubmitOptions` in C#. */
+export interface FormSubmitOptions {
+  focusRevision?: number;
+  focus?: string[] | null;
+}
+
 /** The options of the module; mirrors `FormOptions` in C#. Exactly one role is set per attached element. */
 export interface FormOptions extends TwinOptions {
   control?: FormControlOptions | null;
   label?: FormLabelOptions | null;
+  submit?: FormSubmitOptions | null;
+}
+
+/** The state of one control enrolled on a form, read when the form submits; mirrors `FormControlState` in C#. */
+export interface FormControlState {
+  id: string;
+  value: string | null;
+  validity: NativeValidity;
+}
+
+/** One submission of a form; mirrors `FormSubmitRequest` in C#. */
+export interface FormSubmitRequest {
+  event: EventInfo;
+  submitterId: string | null;
+  controls: FormControlState[];
+}
+
+/** C#'s answer to a submission; mirrors `FormSubmitAnswer` in C#. */
+export interface FormSubmitAnswer {
+  verdict: 'submit' | 'blocked' | 'handled';
+  focus?: string[] | null;
 }
 
 /** The native validity of an input with the field's own custom message read out; mirrors `NativeValidity` in C#. */
@@ -93,6 +120,8 @@ const VALIDITY_KEYS = [
 // reads the same base state as the control's handle.
 const ownership = Symbol('blazix.form.ownership');
 const liveHandle = Symbol('blazix.form.handle');
+// The controls whose form is this element, kept on the form element: no module-level registry (js/CONTEXT.md).
+const enrolled = Symbol('blazix.form.enrolled');
 
 interface OwnershipRecord {
   owned: string | null;
@@ -101,6 +130,13 @@ interface OwnershipRecord {
 
 type OwnedElement = ValidatableElement & { [ownership]?: OwnershipRecord };
 type HandleHost = HTMLElement & { [liveHandle]?: TwinHandle };
+
+interface EnrolledControl {
+  element: HTMLElement;
+  read(): FormControlState;
+}
+
+type FormHost = Element & { [enrolled]?: Set<EnrolledControl> };
 
 // ---------------------------------------------------------------------------------------------------------------
 // Pure helpers (exported for the form half and for the tests)
@@ -297,11 +333,23 @@ function valueOf(element: Element): string | null {
   return 'value' in element && typeof (element as HTMLInputElement).value === 'string' ? (element as HTMLInputElement).value : null;
 }
 
-function formById(element: Element, formId: string | null | undefined): HTMLFormElement | null {
+// FRM-DOM-03 (design point F6 of M2 track 2): the form's handle is the id of its element reference, which Blazor's renderer
+// puts on the element as the attribute `_bl_<id>` (the lookup of its own getElementByCaptureId); a substituted form
+// renders a generated id instead.
+function formElementById(element: Element, formId: string | null | undefined): Element | null {
   if (!formId) {
     return null;
   }
-  const form = ownerDocument(element).getElementById(formId);
+  const doc = ownerDocument(element);
+  const byId = doc.getElementById(formId);
+  if (byId) {
+    return byId;
+  }
+  return /^[A-Za-z0-9_-]+$/.test(formId) ? doc.querySelector(`[_bl_${formId}]`) : null;
+}
+
+function formById(element: Element, formId: string | null | undefined): HTMLFormElement | null {
+  const form = formElementById(element, formId);
   return form instanceof HTMLFormElement ? form : null;
 }
 
@@ -330,7 +378,11 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const channel = createTwinChannel(twinReference);
   const options = parseOptions<FormOptions>(optionsJson);
-  const handle = options.label ? attachLabel(element, options.label, channel) : attachControl(element, options.control ?? {}, channel);
+  const handle = options.submit
+    ? attachForm(element, options.submit, twinReference)
+    : options.label
+      ? attachLabel(element, options.label, channel)
+      : attachControl(element, options.control ?? {}, channel);
   element[liveHandle] = handle;
   return {
     update: handle.update,
@@ -453,6 +505,25 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     expected = rendered;
   }
   apply(options, null, editedBeforeAttach);
+
+  // FFI-FRM-04, FFI-EDGE-07: the control's state is read when its form submits, in the submit task.
+  const enrollment: EnrolledControl = {
+    element,
+    read: () => ({ id: element.id, value: valueOf(element), validity: readNativeValidity(element, formById(element, options.formId)) }),
+  };
+  let enrolledOn: FormHost | null = null;
+  function enroll(): void {
+    const form = formElementById(element, options.formId) as FormHost | null;
+    if (form === enrolledOn) {
+      return;
+    }
+    enrolledOn?.[enrolled]?.delete(enrollment);
+    enrolledOn = form;
+    if (form) {
+      (form[enrolled] ??= new Set()).add(enrollment);
+    }
+  }
+  enroll();
   if (reports) {
     element.addEventListener('input', onValue);
     element.addEventListener('change', onValue);
@@ -480,6 +551,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     update(optionsJson: string) {
       const previous = options;
       options = parseOptions<FormOptions>(optionsJson).control ?? {};
+      enroll();
       apply(options, previous);
       if ((options.revision ?? 0) > (previous.revision ?? 0)) {
         report('sync', undefined);
@@ -489,6 +561,8 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       }
     },
     dispose() {
+      enrolledOn?.[enrolled]?.delete(enrollment);
+      enrolledOn = null;
       clearTimeout(enterTimer);
       element.removeEventListener('input', onValue);
       element.removeEventListener('change', onValue);
@@ -576,4 +650,101 @@ function attachLabel(element: HTMLElement, initial: FormLabelOptions, channel: T
       element.removeEventListener('pointerdown', onPointerDown);
     },
   };
+}
+
+// FRM-EVT-01, FFI-ALG-05, FFI-FOC-01/02, FRM-FOC-01/02 (ADR 04 Amendments 2026-10-18, the form row; the submit half of
+// M2 track 2). The native submit is always prevented and reported with the state of every enrolled control; C#'s answer
+// re-issues it with requestSubmit(submitter) behind a one-shot pass flag, focuses the first invalid control, or does
+// nothing (design point F1: the answer is the result of the OnSubmitRequest invocation).
+function attachForm(element: HTMLElement, initial: FormSubmitOptions, twinReference: DotNetTwin): TwinHandle {
+  let options = initial;
+  let pass = false;
+
+  function onSubmit(event: Event): void {
+    if (pass) {
+      // The re-issued submission: the browser submits it. The flag serves this one event.
+      pass = false;
+      return;
+    }
+    event.preventDefault();
+    const submitter = (event as SubmitEvent).submitter ?? null;
+    const request: FormSubmitRequest = {
+      event: eventInfo(event),
+      submitterId: submitter?.id || null,
+      controls: Array.from((element as FormHost)[enrolled] ?? [], (control) => control.read()),
+    };
+    twinReference.invokeMethodAsync<string>('OnSubmitRequest', JSON.stringify(request)).then(
+      (answerJson) => act(JSON.parse(answerJson) as FormSubmitAnswer, submitter),
+      () => {
+        // The circuit is gone: nothing to submit.
+      },
+    );
+  }
+
+  function act(answer: FormSubmitAnswer, submitter: HTMLElement | null): void {
+    if (answer.verdict === 'blocked') {
+      focusFirstInvalid(element, answer.focus ?? []);
+      return;
+    }
+    if (answer.verdict !== 'submit' || !(element instanceof HTMLFormElement) || !element.isConnected) {
+      return;
+    }
+    const button = submitter && submitter.isConnected && (submitter as HTMLButtonElement).form === element ? (submitter as HTMLButtonElement) : undefined;
+    pass = true;
+    try {
+      element.requestSubmit(button);
+    } finally {
+      pass = false;
+    }
+  }
+
+  element.addEventListener('submit', onSubmit);
+
+  return {
+    update(optionsJson: string) {
+      const previous = options;
+      options = parseOptions<FormOptions>(optionsJson).submit ?? {};
+      // FRM-FOC-02: after a passed submission, the next change of the error map focuses the first invalid control once.
+      if ((options.focusRevision ?? 0) > (previous.focusRevision ?? 0)) {
+        focusFirstInvalid(element, options.focus ?? []);
+      }
+    },
+    dispose() {
+      element.removeEventListener('submit', onSubmit);
+    },
+  };
+}
+
+// FFI-FOC-01/02, FFI-ALG-05: the first control by document order; registration order where the trees are disconnected
+// (separate shadow roots). An id without a usable control is skipped. An enrolled control is found inside a shadow root.
+function focusFirstInvalid(form: HTMLElement, ids: readonly string[]): void {
+  const controls = (form as FormHost)[enrolled];
+  let first: HTMLElement | null = null;
+  for (const id of ids) {
+    let control: Element | null = null;
+    if (controls) {
+      for (const candidate of controls) {
+        if (candidate.element.id === id && candidate.element.isConnected) {
+          control = candidate.element;
+          break;
+        }
+      }
+    }
+    control ??= getControlById(form, id);
+    if (control instanceof HTMLElement && (!first || comesBeforeInSameTree(control, first))) {
+      first = control;
+    }
+  }
+  if (!first) {
+    return;
+  }
+  first.focus();
+  if (first.tagName === 'INPUT') {
+    (first as HTMLInputElement).select();
+  }
+}
+
+function comesBeforeInSameTree(element: Node, reference: Node): boolean {
+  const position = element.compareDocumentPosition(reference);
+  return (position & Node.DOCUMENT_POSITION_DISCONNECTED) === 0 && (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }
