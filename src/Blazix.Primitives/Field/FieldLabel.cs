@@ -88,6 +88,7 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
     private readonly EventCallback onClick;
     private readonly EventCallback onPointerDown;
     private readonly Action fieldChanged;
+    private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private FieldRootContext? field;
     private FieldItemContext? item;
     private LabelableScope? scope;
@@ -157,6 +158,11 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    // For the fixtures: completes once the form module is attached, so a browser test can wait for its listeners.
+    /// <summary>Gets a task that completes when the label's browser-side behavior is attached to its element.</summary>
+    /// <value>A task that completes after the first interactive render attached the behavior.</value>
+    internal Task TwinAttached => attachedSource.Task;
+
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">The label is not inside a <see cref="FieldRoot"/>.</exception>
     protected override void OnInitialized()
@@ -222,7 +228,25 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
 
         twin ??= CreateTwin();
         sentOptions = options;
-        handle = Element is { } element ? await twin.AttachAsync(element, options).ConfigureAwait(true) : await twin.AttachAsync(Id!, options).ConfigureAwait(true);
+        if (Element is { } element)
+        {
+            handle = await twin.AttachAsync(element, options).ConfigureAwait(true);
+        }
+        else
+        {
+            try
+            {
+                handle = await twin.AttachAsync(Id!, options).ConfigureAwait(true);
+            }
+            catch (JSException)
+            {
+                // FFI-EDGE-02: a substitute that renders no element leaves nothing to attach to and nothing to check.
+                sentOptions = null;
+                return;
+            }
+        }
+
+        attachedSource.TrySetResult();
     }
 
     /// <inheritdoc />

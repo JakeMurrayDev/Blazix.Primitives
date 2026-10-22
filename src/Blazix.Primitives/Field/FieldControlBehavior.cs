@@ -534,8 +534,24 @@ internal sealed class FieldControlBehavior : IDisposable
         }
 
         sentOptions = options;
-        string id = renderedKey.Id;
-        handle = element is { } reference ? await twin.AttachAsync(reference, options).ConfigureAwait(true) : await twin.AttachAsync(id, options).ConfigureAwait(true);
+        if (element is { } reference)
+        {
+            handle = await twin.AttachAsync(reference, options).ConfigureAwait(true);
+        }
+        else
+        {
+            try
+            {
+                handle = await twin.AttachAsync(renderedKey.Id, options).ConfigureAwait(true);
+            }
+            catch (JSException)
+            {
+                // A substitute that renders no element leaves nothing to attach to; the next render tries again.
+                sentOptions = null;
+                return;
+            }
+        }
+
         valueFrozen = true;
         attachedSource.TrySetResult();
     }
