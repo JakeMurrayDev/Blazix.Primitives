@@ -89,6 +89,31 @@ public sealed class FieldPartsTests : IDisposable
         Assert.Equal("b", cut.Find("[data-testid=label]").GetAttribute("for"));
     }
 
+    // FLD-DOM-05 and FLD-ARIA-06 re-cited (ADR 13 Amendments 2026-10-22): Base UI's titles toggle Checkbox.Root and
+    // Select.Root; the port's title follows the label id on the field's control while the label mounts, changes id and
+    // unmounts, and the swapped control references it at once.
+    [Fact(DisplayName = "references the mounted label from the control, and removes the reference when the label is removed")]
+    [Trait("Requirement", "FLD-DOM-05")]
+    [Trait("Requirement", "FLD-ARIA-06")]
+    [Trait("Requirement", "FLD-EDGE-05")]
+    [Trait("Requirement", "FFI-ARIA-08")]
+    public void References_the_mounted_label_from_the_control()
+    {
+        IRenderedComponent<LabelToggle> cut = Context.Render<LabelToggle>();
+        string? labelId = cut.Find("label").GetAttribute("id");
+        Assert.False(string.IsNullOrEmpty(labelId));
+        Assert.Equal(labelId, cut.Find("input").GetAttribute("aria-labelledby"));
+
+        cut.Render(p => p.Add(x => x.LabelId, "custom-label"));
+        Assert.Equal("custom-label", cut.Find("input").GetAttribute("aria-labelledby"));
+
+        cut.Render(p => p.Add(x => x.ControlKey, "b"));
+        Assert.Equal("custom-label", cut.Find("input").GetAttribute("aria-labelledby"));
+
+        cut.Render(p => p.Add(x => x.ShowLabel, false));
+        Assert.False(cut.Find("input").HasAttribute("aria-labelledby"));
+    }
+
     [Fact(DisplayName = "reflects the disabled state from Field.Item")]
     [Trait("Requirement", "FLD-STA-02")]
     [Trait("Requirement", "FLD-STA-04")]
@@ -426,4 +451,41 @@ public sealed class FieldPartsTests : IDisposable
         }
     }
 #pragma warning restore BL0016
+
+    /// <summary>A field whose label can be removed or re-identified and whose control can be swapped.</summary>
+    public sealed class LabelToggle : ComponentBase
+    {
+        [Parameter]
+        public bool ShowLabel { get; set; } = true;
+
+        [Parameter]
+        public string? LabelId { get; set; }
+
+        [Parameter]
+        public string ControlKey { get; set; } = "a";
+
+        /// <inheritdoc />
+        protected override void BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<FieldRoot>(0);
+            builder.AddComponentParameter(1, nameof(FieldRoot.ChildContent), (RenderFragment)(content =>
+            {
+                if (ShowLabel)
+                {
+                    content.OpenComponent<FieldLabel>(0);
+                    if (LabelId is not null)
+                    {
+                        content.AddAttribute(1, "id", LabelId);
+                    }
+
+                    content.CloseComponent();
+                }
+
+                content.OpenComponent<FieldControl>(2);
+                content.SetKey(ControlKey);
+                content.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
+    }
 }
