@@ -1,0 +1,43 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using System.ComponentModel.DataAnnotations
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-edit-form` fixture (tests/browser/field.spec.ts, `@verifies ADR-05/5`): Blazor's EditForm with
+    DataAnnotationsValidator and ValidationMessage over a FieldRoot and a FieldControl bound with @bind-Value. The control
+    notifies the EditContext of each change, takes the property's name, and the field shows the validator's messages as
+    its invalid state (ADR 05 Amendments 2026-10-22). Submissions are counted as data-valid-submits and data-invalid-submits.
+*@
+<FixtureContainer Name="field-edit-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-valid-submits="@validSubmits" data-invalid-submits="@invalidSubmits">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <EditForm Model="model" OnValidSubmit="() => validSubmits++" OnInvalidSubmit="() => invalidSubmits++">
+        <DataAnnotationsValidator />
+        <FieldRoot data-testid="root">
+            <FieldLabel @ref="label">Email</FieldLabel>
+            <FieldControl @ref="control" data-testid="control" @bind-Value="model.Email" />
+        </FieldRoot>
+        <ValidationMessage For="() => model.Email" data-testid="message" />
+        <button type="submit">Submit</button>
+    </EditForm>
+</FixtureContainer>
+
+@code {
+    private readonly Contact model = new();
+    private FieldLabel? label;
+    private FieldControl? control;
+    private int validSubmits;
+    private int invalidSubmits;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [label, control];
+
+    private sealed class Contact
+    {
+        [Required(ErrorMessage = "The email is required.")]
+        [EmailAddress(ErrorMessage = "The email is not valid.")]
+        public string? Email { get; set; }
+    }
+}

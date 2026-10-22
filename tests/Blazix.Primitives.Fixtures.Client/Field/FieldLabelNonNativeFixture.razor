@@ -1,0 +1,59 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+@inherits FieldFixtureBase
+
+@*
+    The `field-label-non-native` fixture (tests/browser/field.spec.ts): the label's pointer handling in the form module.
+    `non-native` (FieldLabel.test.tsx "when nativeLabel={false}, clicking focuses the associated control", FFI-PTR-01);
+    `shadow` (useLabel.test.tsx "preserves native label activation inside a shadow root", FFI-PTR-02: Blazor cannot render
+    into a shadow root, so the spec moves this case's subtree into one before clicking); `nested` (useLabel.test.tsx "does
+    not focus the control when a composed click originates inside a nested button", FFI-PTR-03: the spec attaches the
+    shadow root to the span).
+*@
+<FixtureContainer Name="field-label-non-native" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="non-native">
+        <FieldRoot>
+            <FieldLabel @ref="nonNativeLabel" NativeLabel="false" Render="@Div" data-testid="label">Label</FieldLabel>
+            <FieldControl @ref="nonNativeControl" data-testid="control" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="shadow">
+        <div data-shadow-source>
+            <FieldRoot>
+                <FieldLabel @ref="shadowLabel">Name</FieldLabel>
+                <FieldControl @ref="shadowControl" data-testid="control" />
+            </FieldRoot>
+        </div>
+    </div>
+
+    <div data-case="nested">
+        <FieldRoot>
+            <FieldLabel @ref="nestedLabel" NativeLabel="false" Render="@Div" data-testid="label">
+                Label
+                <button type="button">Action<span data-shadow-host></span></button>
+            </FieldLabel>
+            <FieldControl @ref="nestedControl" data-testid="control" />
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment Div = builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.CloseElement();
+    };
+
+    private FieldLabel? nonNativeLabel;
+    private FieldControl? nonNativeControl;
+    private FieldLabel? shadowLabel;
+    private FieldControl? shadowControl;
+    private FieldLabel? nestedLabel;
+    private FieldControl? nestedControl;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [nonNativeLabel, nonNativeControl, shadowLabel, shadowControl, nestedLabel, nestedControl];
+}
