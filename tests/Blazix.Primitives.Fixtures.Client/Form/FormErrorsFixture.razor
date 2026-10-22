@@ -116,9 +116,11 @@
             : new FormErrors();
     }
 
+    // A validator runs inside the field's own work, which renders the field's parts but not this page.
     private ValueTask<FieldValidationResult?> ValidateAbcd(FieldValidationArguments arguments)
     {
         firstChangeCalls++;
+        StateHasChanged();
         return new(arguments.Value as string == "abcd" ? "field error" : null);
     }
 }

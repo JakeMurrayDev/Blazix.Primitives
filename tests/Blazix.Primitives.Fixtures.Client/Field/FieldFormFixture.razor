@@ -5,7 +5,7 @@
 @*
     The `field-form` fixture (tests/browser/field.spec.ts): FieldRoot.test.tsx's and FieldControl.test.tsx's [L4] titles
     that render Form, Field.Error or Field.Validity (PR 1c). Validator calls and submitted values are rendered as data
-    attributes (`name=value` pairs joined by `&`, calls joined by `|`).
+    attributes (`name=value` pairs joined by `&`, calls joined by `|`); a validator renders the page after it records a call.
     - `suppressed`: "does not publish errors while `valueMissing` is suppressed" (the Field.Validity argument).
     - `style-hooks`: "should apply [data-field] style hooks to field components".
     - `unmounted`, `control-name`: the values a validator and OnFormSubmit receive.
@@ -85,7 +85,7 @@
 
     <div data-case="enter-submits" data-calls="@enterSubmitsCalls" data-submits="@enterSubmitsSubmits">
         <Form @ref="enterSubmitsForm" OnSubmit="args => { enterSubmitsSubmits++; args.PreventNativeSubmit(); }">
-            <FieldRoot Validate="_ => { enterSubmitsCalls++; return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null); }">
+            <FieldRoot Validate="_ => Count(ref enterSubmitsCalls)">
                 <FieldControl @ref="enterSubmitsControl" data-testid="control" DefaultValue="a" />
             </FieldRoot>
             <button type="submit">submit</button>
@@ -94,7 +94,7 @@
 
     <div data-case="enter-no-submit" data-calls="@enterNoSubmitCalls" data-submits="@enterNoSubmitSubmits">
         <Form @ref="enterNoSubmitForm" OnSubmit="() => enterNoSubmitSubmits++">
-            <FieldRoot Validate="_ => { enterNoSubmitCalls++; return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null); }">
+            <FieldRoot Validate="_ => Count(ref enterNoSubmitCalls)">
                 <FieldControl @ref="enterNoSubmitControl" data-testid="control" DefaultValue="a" />
             </FieldRoot>
             <input />
@@ -103,7 +103,7 @@
 
     <div data-case="enter-disabled-submit" data-calls="@enterDisabledCalls" data-submits="@enterDisabledSubmits">
         <Form @ref="enterDisabledForm" OnSubmit="() => enterDisabledSubmits++">
-            <FieldRoot Validate="_ => { enterDisabledCalls++; return new ValueTask<FieldValidationResult?>((FieldValidationResult?)null); }">
+            <FieldRoot Validate="_ => Count(ref enterDisabledCalls)">
                 <FieldControl @ref="enterDisabledControl" data-testid="control" DefaultValue="a" />
             </FieldRoot>
             <button type="submit" disabled>submit</button>
@@ -192,30 +192,44 @@
 
     private ValueTask<FieldValidationResult?> RecordUnmounted(FieldValidationArguments arguments)
     {
-        unmountedCalls.Add(Join(arguments.Values));
+        Record(unmountedCalls, Join(arguments.Values));
         return new((FieldValidationResult?)null);
     }
 
     private ValueTask<FieldValidationResult?> RecordControlName(FieldValidationArguments arguments)
     {
-        controlNameCalls.Add(Join(arguments.Values));
+        Record(controlNameCalls, Join(arguments.Values));
         return new((FieldValidationResult?)null);
     }
 
     private ValueTask<FieldValidationResult?> ValidateEmail(FieldValidationArguments arguments)
     {
         string value = arguments.Value as string ?? string.Empty;
-        normalizedCalls.Add(value);
+        Record(normalizedCalls, value);
         return new(value.Contains('@', StringComparison.Ordinal) ? null : "Invalid email");
     }
 
     private ValueTask<FieldValidationResult?> ValidateLater(FieldValidationArguments arguments)
     {
         string value = arguments.Value as string ?? string.Empty;
-        asyncCalls.Add(value);
+        Record(asyncCalls, value);
         TaskCompletionSource<FieldValidationResult?> result = new();
         pending.Add((value, result));
         return new(result.Task);
+    }
+
+    // A validator runs inside the field's own work, which renders the field's parts but not this page.
+    private void Record(List<string> calls, string call)
+    {
+        calls.Add(call);
+        StateHasChanged();
+    }
+
+    private ValueTask<FieldValidationResult?> Count(ref int calls)
+    {
+        calls++;
+        StateHasChanged();
+        return new((FieldValidationResult?)null);
     }
 
     private void Resolve(string value, string error)
@@ -228,7 +242,7 @@
 
     private ValueTask<FieldValidationResult?> RecordEnterLatest(FieldValidationArguments arguments)
     {
-        enterLatestCalls.Add(arguments.Value as string ?? string.Empty);
+        Record(enterLatestCalls, arguments.Value as string ?? string.Empty);
         return new((FieldValidationResult?)null);
     }
 }

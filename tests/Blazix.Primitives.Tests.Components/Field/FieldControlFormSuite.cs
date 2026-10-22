@@ -115,7 +115,8 @@ public abstract class FieldControlFormSuite<TControl> : IDisposable
         control.Focused(cut);
         control.KeyDown(cut, "Enter", sameForm: true);
         cut.Find("form").KeyDown(key: "Enter");
-        control.Settle(cut);
+        // On Server the module's 0 ms task reads the element before the render with the form's change arrives: the report
+        // still carries "a", and the commit takes the controlled value C# already holds.
         control.Enter(cut);
 
         Assert.Equal([string.Empty], validated);
