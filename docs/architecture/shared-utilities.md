@@ -7,7 +7,7 @@
 | Tests | `packages/utils/src/*.test.ts(x)`, `packages/utils/src/store/*.test.ts(x)`, `internals/{filter,itemEquality,resolveValueLabel,resolvePopupLabel,RequestQueue,TimeoutManager,useInitialLiveRegionTextMutation,useValueChanged}.test.ts(x)`, `utils/{getCssDimensions,getPseudoElementBounds,scrollEdges}.test.ts`, `direction-provider/DirectionProvider.test.tsx`, `csp-provider/CSPProvider.test.tsx`, `unstable-use-media-query/index.test.tsx` |
 | Prefix | `UTL` |
 | Status | approved |
-| Revised | 2026-10-21 |
+| Revised | 2026-10-22 |
 | Used by | Every component document. Specifically: controlled state (§4.1) — ACC, CHK, CKG, COL, CMB, DRW, MNU, NAV, NUM, RDG, SEL, SLD, SWT, TAB, TGL, TGG; store (§4.2) — CMB, AUT, DLG, ADL, DRW, MNU, CTX, MBR, POP, PRV, SEL, TST, TIP, NAV, plus FLT/PSH; scroll lock (§4.8) — DLG, ADL, DRW and every anchored popup through PSH `useAnchoredPopupScrollLock`; number formatting (§4.15) — NUM, SLD, MTR, PRG; locale filter (§4.15, §5) — CMB, AUT, MNU (filter parts); item equality and label resolution (§5) — CMB, AUT, SEL; live-region marker (§4.13) — CMB, AUT; direction (§4.15) — CMB, CMP, FLT, MNU, NAV, OTP, SCR, SEL, SLD, PSH; CSP (§4.12) — SCR, SEL, TRN; platform detection (§4.16) — CMB, DRW, FLT, MNU, NUM, OTP, SCR, SEL, PSH |
 
 ## 1. Purpose
@@ -358,6 +358,7 @@ Exactly three places in the library emit inline elements, and `CSPProvider` gove
   Source: `internals/csp-context/CSPContext.tsx:11-17`; `csp-provider/CSPProvider.tsx:12-24`. Test: [L2] `CSPProvider.test.tsx` "renders inline style tags by default". Docs: CHANGELOG.md v1.1.0 "Add `CSPProvider` (#3553)".
 - **UTL-DOM-36** — MUST. `CSPProvider` and `DirectionProvider` render no DOM element of their own; their children are rendered in place.
   Source: `csp-provider/CSPProvider.tsx:23`; `direction-provider/DirectionProvider.tsx:16-18`. Test: none.
+  Port note (2026-10-22, M2 track 3, issue 79; M2 track 3): `DirectionProvider` renders no element, only the fixed cascade of its context around its child content (L2 port title "renders no element of its own and cascades a fixed context").
 
 ### 4.12.1 DOM — Number serialization in attributes and inline styles
 
@@ -413,12 +414,16 @@ Base UI writes JavaScript numbers into the DOM without explicit formatting: as a
 
 - **UTL-I18N-01** — MUST. `useDirection()` returns the `direction` of the nearest enclosing `DirectionProvider`, and `'ltr'` when there is none; changing the provider's `direction` updates every descendant reader.
   Source: `internals/direction-context/DirectionContext.tsx:10-16`; `direction-provider/DirectionProvider.tsx:14-18`. Test: [L2] `DirectionProvider.test.tsx` "defaults useDirection to ltr outside a provider", "provides the configured direction to descendants".
+  Port note (2026-10-22, M2 track 3, issue 79; ADR 16 rule 9; ADR 09 Amendments 2026-10-22): `DirectionProvider` cascades an internal `DirectionProviderContext` with `IsFixed`; a reader subscribes to it and renders again when the direction changes, and a reader without a provider reads `TextDirection.Ltr` (`DirectionProviderContext.Read`). The port has no public reader in M2: Base UI's public `useDirection` has no counterpart (pending the user, M2 track 3; the alternative is a public context type with a subscription). The two titles run at L2 (`tests/Blazix.Primitives.Tests.Components/DirectionProvider/DirectionProviderTests.cs`) through an internal probe that subscribes as a library part does; the composite root is the first reader (CMP-I18N-01).
 - **UTL-I18N-02** — MUST. `DirectionProvider`'s `direction` defaults to `'ltr'` and accepts only `'ltr'` or `'rtl'`.
   Source: `direction-provider/DirectionProvider.tsx:14,23-30`; `internals/direction-context/DirectionContext.tsx:4`. Test: [L1] `DirectionProvider.spec.tsx` (type-level).
+  Port note (2026-10-22, M2 track 3, issue 79; ADR 08 §3 note of 2026-10-22): `public enum TextDirection { Ltr, Rtl }` and `DirectionProvider.Direction : TextDirection`, default `Ltr`. The type-level checks of `DirectionProvider.spec.tsx` run at L1 (`tests/Blazix.Primitives.Tests/DirectionProvider/TextDirectionTests.cs`); a value outside the enum does not compile, as `direction="vertical"` does not type-check in Base UI.
 - **UTL-I18N-03** — MUST. Direction is resolved **only** from the provider: the library does not read the `dir` attribute, `document.dir`, or computed `direction` of any element. Consumers must set `dir="rtl"`/CSS themselves; the provider affects only component behavior (keyboard mapping, positioning logic), not HTML/CSS layout.
   Source: `internals/direction-context/DirectionContext.tsx:12-16`; docs `utils/direction-provider/page.mdx` §"Anatomy". Test: none.
+  Port note (2026-10-22, M2 track 3, issue 79; M2 track 3): nothing in the library reads `dir`, `document.dir` or a computed `direction`; the `composite` module receives the direction in its options, and its L3 port title for CMP-I18N-03 runs with no `dir` in the document.
 - **UTL-I18N-04** — MUST. The direction reaches portaled subtrees (popups rendered outside the app root) because it is passed through component state, not through DOM ancestry; the docs recommend wrapping such subtrees in their own provider when the app root's `dir` would not apply.
   Source: docs `utils/direction-provider/page.mdx` §"useDirection"; consumers listed in §6. Test: none.
+  Port note (2026-10-22, M2 track 3, issue 79; ADR 04 §5): the direction travels in Blazor's logical tree, as a cascading value, so content the `portal` module moves to another container still reads its provider; a subtree outside the provider's logical tree needs its own provider, as the docs recommend.
 
 #### 4.15.2 Number formatting
 
@@ -1191,3 +1196,4 @@ The Base UI suite relies on the following helpers from `packages/react/test/` an
 8. **`RequestQueue` resolved fetches stay pending** until `setRequestSettled` (UTL-EVT-12). With no in-tree consumer at 1.9.0 the intended caller protocol cannot be confirmed; the tests ("processes next queued item on setRequestSettled") support this reading.
 9. **`platform.engine.webkit` in test DOMs.** `CSS.supports` is absent in jsdom, so `webkit` is `false` there and every webkit-gated branch is exercised only in browser runs. The port's test translation should run those branches in a WebKit-like configuration or mark them browser-only.
 10. **StoreInspector.** Treated as non-normative (UTL-STA-28). Confirm it is out of scope for the port.
+11. **`DirectionProvider` in the port (2026-10-22, M2 track 3, issue 79; ADR 12 Amendments 2026-10-22 item 2; ADR 09 Amendments 2026-10-22).** Dated 2026-10-22. `src/Blazix.Primitives/DirectionProvider/` holds `DirectionProvider`, `TextDirection` (ADR 08 §3 note of 2026-10-22) and the internal `DirectionProviderContext`; the family folder has no `CONTEXT.md` and this section is its contract. Port notes on UTL-I18N-01..04 and UTL-DOM-36: the fixed cascade with subscribed readers, the enum, no element, and the reach into portaled content through Blazor's logical tree (ADR 04 §5). No public reader of the direction exists in M2 (Base UI's `useDirection`), pending the user's answer through the M2 orchestrator; the alternative is a public context type with a subscription.
