@@ -1098,7 +1098,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       registry.elements[nextIndex]?.focus();
     });
 
-    // Option (i) of ADR 04's note of 2026-10-22, pending the user: a key stopped here never reaches Blazor's dispatcher,
+    // Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23: a key stopped here never reaches Blazor's dispatcher,
     // so where no C# chain ran inside the dispatch (Server), C# runs the consumer's handlers from this report.
     if (current.stopEventPropagation && current.reportHandledKeys && !twin.lastDecisionWasSynchronous) {
       twin.report('OnKeyHandled', { event: eventInfo(event) });

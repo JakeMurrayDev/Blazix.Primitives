@@ -330,7 +330,7 @@ test.describe('Composite', () => {
 
 test.describe('composite consumer key handlers (port)', () => {
   // EVD-EVT-26 against composite key handling (CMP-EVT-12; ADR 01 relaxation table, ADR 04 §3 decision point `navigate`,
-  // fallback run) with option (i) of ADR 04's note of 2026-10-22, pending the user. WebAssembly runs the focused item's and
+  // fallback run) with option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23. WebAssembly runs the focused item's and
   // the root's C# onkeydown inside the dispatch, where PreventPartHandler() stops the key. On Server the key is handled and
   // the module's handled-key report runs the same handlers a round trip later. An ancestor's handler never sees the key,
   // as in Base UI, where the root stops its propagation.

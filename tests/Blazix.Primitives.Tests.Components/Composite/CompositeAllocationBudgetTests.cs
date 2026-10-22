@@ -16,7 +16,7 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
     // to a root with three items. The root, the fixed cascade and the three items all render: an item's child content is a
     // new fragment on every render of the content, as a consumer's markup is. The behaviours' own share is the boxed
     // enumerator of the root's pass over the unmatched bag (as Button's); the comparison of the options allocates nothing.
-    // 4032 the same day with option (i) of ADR 04's note of 2026-10-22 (pending the user): each item creates its own
+    // 4032 the same day with option (i) of ADR 04's note of 2026-10-22 (chosen by the user 2026-10-23): each item creates its own
     // onkeydown handler, and the pipeline renders a part's created handler on every render, 32 bytes per item.
     private const long RerenderBudgetBytes = 4032;
 

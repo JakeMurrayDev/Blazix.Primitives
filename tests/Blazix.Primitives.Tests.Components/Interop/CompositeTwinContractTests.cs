@@ -118,7 +118,7 @@ public sealed class CompositeTwinContractTests
         Assert.Equal("base-ui-4", snapshot.Target?.Id);
     }
 
-    // Option (i) of ADR 04's note of 2026-10-22, pending the user.
+    // Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23.
     [Fact]
     [Trait("Requirement", "CMP-EVT-12")]
     public void OnKeyHandled_raises_KeyHandled_with_the_key_event()

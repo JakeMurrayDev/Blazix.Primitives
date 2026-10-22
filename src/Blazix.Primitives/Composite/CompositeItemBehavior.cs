@@ -17,7 +17,7 @@ namespace Blazix.Primitives;
 // - After every render it asks the root to send what changed; a new element under the same id (a substitute that changed
 //   its root) is reported, so the module resolves the id again. Under a substitute callback the part has no element
 //   reference and a replaced element is found again only on the root's next update.
-// - Option (i) of ADR 04's note of 2026-10-22, pending the user: the consumer's onkeydown on the item. Base UI runs it
+// - Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23: the consumer's onkeydown on the item. Base UI runs it
 //   before the root's key handling, on the same synthetic event, so its preventBaseUIHandler() also stops the root's
 //   handling (merge-props/mergeProps.ts:210-231). A key the root handles is stopped at the root and never reaches Blazor's
 //   dispatcher, so a part that passes its own key handler declines the consumer's (ADR 02 Amendments 2026-10-21) and the

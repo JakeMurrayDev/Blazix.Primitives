@@ -25,7 +25,7 @@ namespace Blazix.Primitives;
 // later dispatch of that key skips it (the one-shot marker, ButtonBehavior's model). A key the module handles with
 // stopEventPropagation never reaches Blazor's document-level dispatcher, so the marker is left only when Blazor will
 // dispatch the key (a veto, or no stopping). On Server the decision falls back to `run` (ADR 01 relaxation table).
-// Option (i) of ADR 04's note of 2026-10-22, pending the user: a handled key that the module stops never reaches Blazor's
+// Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23: a handled key that the module stops never reaches Blazor's
 // dispatcher, so the root runs the focused item's consumer onkeydown and then its own consumer's, on one shared event as
 // Base UI's bubbling does: inside `navigate` on WebAssembly, where a PreventPartHandler() in either stops the key, and from
 // the module's handled-key report on Server, a round trip late. The report is asked for only while a handler exists.
@@ -421,7 +421,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         return true;
     }
 
-    // Option (i), pending the user: the report costs a Server message per handled key, so it is asked for only while the
+    // Option (i), chosen by the user 2026-10-23: the report costs a Server message per handled key, so it is asked for only while the
     // root or an item has a consumer key handler.
     private bool ReportHandledKeys()
     {
@@ -544,7 +544,7 @@ internal sealed class CompositeRootBehavior : IDisposable
 
     // The decision point `navigate`, on WebAssembly only: the part's chain, then the focused item's and the root's consumer
     // key handlers on one event, run inside the dispatch, so a PreventPartHandler() in either stops the key handling
-    // (EVD-EVT-26, CMP-EVT-12; the item's under option (i), pending the user).
+    // (EVD-EVT-26, CMP-EVT-12; the item's under option (i), chosen by the user 2026-10-23).
     private DecisionPolicy DecideNavigation(EventSnapshot snapshot)
     {
         if (NavigationDecider is { } chain && chain(snapshot) == DecisionPolicy.Stop)
@@ -588,7 +588,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         return vetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
     }
 
-    // Option (i), pending the user: the module handled and stopped a key without running the chain inside the dispatch
+    // Option (i), chosen by the user 2026-10-23: the module handled and stopped a key without running the chain inside the dispatch
     // (Server). The focused item's and the root's consumer key handlers run now, in Base UI's order, and cannot veto.
     private void OnKeyHandled(EventSnapshot snapshot) => _ = RunHandledKeyAsync(snapshot);
 

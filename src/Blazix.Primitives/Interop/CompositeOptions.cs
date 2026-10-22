@@ -67,7 +67,7 @@ internal sealed record CompositeOptions : TwinOptions
     /// <value><see langword="true"/> to receive <see cref="CompositeTwin.HighlightChanged"/>; the default is <see langword="false"/>.</value>
     public bool ReportHighlight { get; init; }
 
-    // Option (i) of ADR 04's note of 2026-10-22, pending the user.
+    // Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23.
     /// <summary>Gets a value indicating whether the module reports a key it handled and stopped without running the C# chain inside the dispatch.</summary>
     /// <value>
     /// <see langword="true"/> to receive <see cref="CompositeTwin.KeyHandled"/>, so the consumer's key handlers run for a key

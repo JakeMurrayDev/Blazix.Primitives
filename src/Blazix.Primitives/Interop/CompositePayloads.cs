@@ -10,7 +10,7 @@ internal sealed record CompositeHighlightChange(int Index);
 /// <param name="Event">The snapshot of the <c>focusout</c> whose related target is outside the root, or absent.</param>
 internal sealed record CompositeFocusLeave(EventSnapshot Event);
 
-// Option (i) of ADR 04's note of 2026-10-22, pending the user.
+// Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23.
 /// <summary>The payload of the <c>composite</c> module's report of a key it handled and stopped without asking C# first.</summary>
 /// <param name="Event">The snapshot of the <c>keydown</c>.</param>
 internal sealed record CompositeKeyHandled(EventSnapshot Event);

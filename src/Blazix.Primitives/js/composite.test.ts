@@ -1891,9 +1891,9 @@ describe('composite decision points (port)', () => {
   });
 });
 
-// --- port titles: the handled-key report (option (i) of ADR 04's note of 2026-10-22, pending the user) ----------------
+// --- port titles: the handled-key report (option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23) ----------------
 
-describe('composite handled-key report (port, pending the user)', () => {
+describe('composite handled-key report (port)', () => {
   it('reports a key it handles and stops, on Server, only when reportHandledKeys is set', async () => {
     const quiet = mountItems(['a', 'b']);
     byTestId('a').focus();

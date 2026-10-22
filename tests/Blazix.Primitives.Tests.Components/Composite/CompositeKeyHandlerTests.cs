@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components.Web;
 namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
-/// Option (i) of ADR 04's note of 2026-10-22, pending the user: the consumer's C# <c>onkeydown</c> on the focused item and
+/// Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23: the consumer's C# <c>onkeydown</c> on the focused item and
 /// on the root run for a key the composite handles. On WebAssembly they run inside the <c>navigate</c> decision, item
 /// first, on one shared event, so a <c>PreventPartHandler()</c> in either stops the key (Base UI's flag lives on the shared
 /// synthetic event, <c>merge-props/mergeProps.ts:210-231</c>); on Server the module's handled-key report runs them a round
