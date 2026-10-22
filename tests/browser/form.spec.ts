@@ -330,6 +330,8 @@ test.describe('Form', () => {
     await scope.getByRole('button', { name: 'Enable' }).click();
     await submit.click();
     await expect(control).toHaveAttribute('aria-invalid', 'true');
+    // FRM-FOC-01 (§9): the blocked submission focuses and selects the control when C# answers; typing waits for it.
+    await expect(control).toBeFocused();
     await settle(fixture);
     await expect(scope).toHaveAttribute('data-submits', '1');
 
