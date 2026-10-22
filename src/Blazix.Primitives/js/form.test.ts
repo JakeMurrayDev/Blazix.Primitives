@@ -14,7 +14,7 @@ import {
   type FormControlReport,
   type FormLabelOptions,
 } from './form';
-import type { TwinHandle } from './twin';
+import type { DotNetTwin, TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin, type FakeTwinOptions } from './test-support/fake-twin';
 
 const handles: TwinHandle[] = [];
@@ -552,5 +552,237 @@ describe('label', () => {
 
     expect(discoverLabel(document.querySelector<HTMLInputElement>('#control')!, 'control-label')).toBe('control-label');
     expect(document.querySelector('label')!.id).toBe('control-label');
+  });
+});
+
+// The submit half: the module prevents every native submit, reports it with the state of every control enrolled on the
+// form, and acts on C#'s answer (re-issue through the pass flag, focus the first invalid control, or nothing).
+describe('form submission', () => {
+  interface SubmitRequest {
+    event: { type: string; defaultPrevented: boolean };
+    submitterId: string | null;
+    controls: { id: string; value: string | null; validity: { valueMissing: boolean; valid: boolean } }[];
+  }
+
+  interface SubmitAnswer {
+    verdict: 'submit' | 'blocked' | 'handled';
+    focus?: string[];
+  }
+
+  /** A twin whose OnSubmitRequest records the request and answers with the next queued answer. */
+  function createSubmitTwin(answers: SubmitAnswer[]): { twin: DotNetTwin; requests: SubmitRequest[]; settled: () => Promise<void> } {
+    const requests: SubmitRequest[] = [];
+    const pending: Promise<unknown>[] = [];
+    const twin: DotNetTwin = {
+      invokeMethod<T>(): T {
+        throw new Error('The current dispatcher does not support synchronous calls from JS to .NET.');
+      },
+      invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T> {
+        if (methodName !== 'OnSubmitRequest') {
+          return Promise.resolve(undefined as T);
+        }
+        requests.push(JSON.parse(args[0] as string) as SubmitRequest);
+        const answer = Promise.resolve(JSON.stringify(answers.shift() ?? { verdict: 'handled' }) as T);
+        pending.push(answer);
+        return answer;
+      },
+    };
+    return {
+      twin,
+      requests,
+      async settled() {
+        await Promise.all(pending);
+        await Promise.resolve();
+      },
+    };
+  }
+
+  /** Records every submit event that reaches the end of the form's listeners, then stops the navigation jsdom lacks. */
+  function recordSubmits(form: HTMLFormElement): { defaultPrevented: boolean; submitter: string | null }[] {
+    const seen: { defaultPrevented: boolean; submitter: string | null }[] = [];
+    form.addEventListener('submit', (event) => {
+      seen.push({ defaultPrevented: event.defaultPrevented, submitter: (event as SubmitEvent).submitter?.id ?? null });
+      event.preventDefault();
+    });
+    return seen;
+  }
+
+  function attachForm(form: HTMLFormElement, twin: DotNetTwin): TwinHandle {
+    const handle = attach(form, JSON.stringify({ submit: {} }), twin);
+    handles.push(handle);
+    return handle;
+  }
+
+  it('always prevents the native submit and reports it', async () => {
+    document.body.innerHTML = '<form id="form"><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const { twin, requests, settled } = createSubmitTwin([{ verdict: 'handled' }]);
+    attachForm(form, twin);
+    const seen = recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(seen).toEqual([{ defaultPrevented: true, submitter: 'send' }]);
+    expect(requests).toEqual([expect.objectContaining({ event: expect.objectContaining({ type: 'submit', defaultPrevented: true }), submitterId: 'send' })]);
+  });
+
+  it('re-issues the submission once with the same submitter through the pass flag', async () => {
+    document.body.innerHTML = '<form id="form"><button id="first" type="submit">First</button><button id="second" type="submit">Second</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const { twin, requests, settled } = createSubmitTwin([{ verdict: 'submit' }]);
+    attachForm(form, twin);
+    const seen = recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#second')!.click();
+    await settled();
+
+    expect(requests).toHaveLength(1);
+    expect(seen).toEqual([
+      { defaultPrevented: true, submitter: 'second' },
+      { defaultPrevented: false, submitter: 'second' },
+    ]);
+  });
+
+  it('intercepts a second submit started during the pass', async () => {
+    document.body.innerHTML = '<form id="form"><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const { twin, requests, settled } = createSubmitTwin([{ verdict: 'submit' }, { verdict: 'handled' }]);
+    attachForm(form, twin);
+    let nested = false;
+    form.addEventListener('submit', () => {
+      if (!nested && requests.length === 1) {
+        nested = true;
+        form.requestSubmit();
+      }
+    });
+    const seen = recordSubmits(form);
+
+    form.requestSubmit();
+    await settled();
+    await settled();
+
+    expect(requests).toHaveLength(2);
+    expect(seen.filter((s) => !s.defaultPrevented)).toHaveLength(1);
+  });
+
+  it('reads every control enrolled on the form into the report', async () => {
+    document.body.innerHTML = '<form id="form" _bl_form-capture><input id="email" required /><button id="send" type="submit">Send</button></form><input id="portaled" />';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const email = document.querySelector<HTMLInputElement>('#email')!;
+    const portaled = document.querySelector<HTMLInputElement>('#portaled')!;
+    attachControl(email, { formId: 'form-capture' });
+    attachControl(portaled, { formId: 'form-capture' });
+    portaled.value = 'written by a script';
+    const { twin, requests, settled } = createSubmitTwin([{ verdict: 'handled' }]);
+    attachForm(form, twin);
+    recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(requests[0]!.controls).toEqual([
+      expect.objectContaining({ id: 'email', value: '', validity: expect.objectContaining({ valueMissing: true, valid: false }) }),
+      expect.objectContaining({ id: 'portaled', value: 'written by a script' }),
+    ]);
+  });
+
+  it('compares the form owner with the form found by its capture id', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<form _bl_capture-id><input id="control" /></form>';
+    const element = document.querySelector<HTMLInputElement>('#control')!;
+    const { fake } = attachControl(element, { formId: 'capture-id' });
+
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'keydown', sameForm: true })]);
+  });
+
+  it('focuses the first invalid control by document order and selects an input\'s text', async () => {
+    document.body.innerHTML = '<form id="form"><input id="first" value="one" /><input id="second" value="two" /><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const select = vi.spyOn(HTMLInputElement.prototype, 'select');
+    const { twin, settled } = createSubmitTwin([{ verdict: 'blocked', focus: ['second', 'first'] }]);
+    attachForm(form, twin);
+    recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(document.activeElement).toBe(document.querySelector('#first'));
+    expect(select).toHaveBeenCalledTimes(1);
+    select.mockRestore();
+  });
+
+  it('keeps registration order for controls in disconnected trees', async () => {
+    document.body.innerHTML = '<form id="form"><div id="host"></div><input id="light" /><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const shadow = document.querySelector('#host')!.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<input id="shadowed" />';
+    const { twin, settled } = createSubmitTwin([{ verdict: 'blocked', focus: ['light', 'shadowed'] }]);
+    attachForm(form, twin);
+    recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(document.activeElement).toBe(document.querySelector('#light'));
+  });
+
+  it('calls select() only on an input', async () => {
+    document.body.innerHTML = '<form id="form"><textarea id="notes">text</textarea><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const select = vi.spyOn(HTMLTextAreaElement.prototype, 'select');
+    const { twin, settled } = createSubmitTwin([{ verdict: 'blocked', focus: ['notes'] }]);
+    attachForm(form, twin);
+    recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(document.activeElement).toBe(document.querySelector('#notes'));
+    expect(select).not.toHaveBeenCalled();
+    select.mockRestore();
+  });
+
+  it('does nothing more when C# answers that it handled the submission', async () => {
+    document.body.innerHTML = '<form id="form"><input id="field" /><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const { twin, settled } = createSubmitTwin([{ verdict: 'handled' }]);
+    attachForm(form, twin);
+    const seen = recordSubmits(form);
+
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+    await settled();
+
+    expect(seen).toEqual([{ defaultPrevented: true, submitter: 'send' }]);
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('focuses the first invalid control when an update asks for it after a passed submission', () => {
+    document.body.innerHTML = '<form id="form"><input id="first" /><input id="second" /></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const { twin } = createSubmitTwin([]);
+    const handle = attachForm(form, twin);
+
+    handle.update(JSON.stringify({ submit: { focusRevision: 0, focus: ['second'] } }));
+    expect(document.activeElement).toBe(document.body);
+
+    handle.update(JSON.stringify({ submit: { focusRevision: 1, focus: ['second'] } }));
+    expect(document.activeElement).toBe(document.querySelector('#second'));
+  });
+
+  it('stops intercepting after dispose', async () => {
+    document.body.innerHTML = '<form id="form"><button id="send" type="submit">Send</button></form>';
+    const form = document.querySelector<HTMLFormElement>('#form')!;
+    const { twin, requests } = createSubmitTwin([]);
+    const handle = attachForm(form, twin);
+    const seen = recordSubmits(form);
+
+    handle.dispose();
+    document.querySelector<HTMLButtonElement>('#send')!.click();
+
+    expect(requests).toHaveLength(0);
+    expect(seen).toEqual([{ defaultPrevented: false, submitter: 'send' }]);
   });
 });
