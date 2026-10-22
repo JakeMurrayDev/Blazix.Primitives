@@ -9,7 +9,7 @@
     `enter` (FieldControl.test.tsx "validates when Enter is pressed outside a form", the validator's calls as
     data-validations); `focus` (FieldControl.test.tsx's Controls helper: a label, a control that can be disabled or
     removed, a button outside); `remount` (FieldRoot.test.tsx "keeps the original baseline when a controlled control
-    remounts"); `ignored` (a controlled control whose consumer keeps its value, FLD-API-15); `default-change` (a default
+    remounts"; data-attaches counts the attaches of the control, so the spec types only into an attached one); `ignored` (a controlled control whose consumer keeps its value, FLD-API-15); `default-change` (a default
     value that changes after the user typed, FFI-EDGE-06).
 *@
 <FixtureContainer Name="field-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
@@ -56,7 +56,7 @@
         <button type="button" data-toggle-mounted @onclick="() => firstMounted = !firstMounted">Toggle mounted</button>
     </div>
 
-    <div data-case="remount">
+    <div data-case="remount" data-attaches="@remountAttaches">
         <FieldRoot data-testid="root">
             @if (remountMounted)
             {
@@ -98,6 +98,8 @@
     private string? remountValue = "a";
     private int ignoredChanges;
     private string changingDefault = "first";
+    private FieldControl? observedRemountControl;
+    private int remountAttaches;
 
     /// <inheritdoc />
     protected override IEnumerable<object?> Parts =>
@@ -105,6 +107,22 @@
         descriptionControl, itemLabel, itemControl, defaultValueControl, enterControl, focusLabel, focusControl,
         remountControl, ignoredControl, defaultChangeControl,
     ];
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!RendererInfo.IsInteractive || remountControl is null || ReferenceEquals(remountControl, observedRemountControl))
+        {
+            return;
+        }
+
+        FieldControl control = remountControl;
+        observedRemountControl = control;
+        await control.TwinAttached;
+        remountAttaches++;
+        StateHasChanged();
+    }
 
     private ValueTask<FieldValidationResult?> CountEnterValidation(FieldValidationArguments arguments)
     {

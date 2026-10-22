@@ -251,12 +251,14 @@ test.describe('Field', () => {
       const scope = fixture.locator('[data-case="remount"]');
       const root = scope.locator('[data-testid="root"]');
 
+      await expect(scope).toHaveAttribute('data-attaches', '1');
       await scope.locator('[data-testid="control"]').fill('b');
       await expect(root).toHaveAttribute('data-dirty', '');
 
       await scope.locator('[data-toggle]').click();
       await scope.locator('[data-toggle]').click();
       await expect(scope.locator('[data-testid="control"]')).toHaveValue('b');
+      await expect(scope).toHaveAttribute('data-attaches', '2');
 
       await expect(root).toHaveAttribute('data-dirty', '');
 
