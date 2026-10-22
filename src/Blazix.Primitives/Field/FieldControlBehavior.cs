@@ -757,6 +757,9 @@ internal sealed class FieldControlBehavior : IDisposable
         fieldScope.Observe(fieldScope.Validation.CommitAsync(report.Value ?? lastValue ?? string.Empty));
     }
 
+    // FLD-KEY-04: Base UI commits the element's value after the 0 ms task, which for a consumer-owned control is the value
+    // the consumer's handlers set meanwhile. C# holds that value before the element does on Server, where the module's
+    // report can leave before the render that writes it, so a consumer-owned control commits its own value.
     private void HandleEnter(FormControlReport report)
     {
         if (!enterPending || fieldScope is null)
@@ -767,7 +770,7 @@ internal sealed class FieldControlBehavior : IDisposable
         enterPending = false;
         if (form.SubmitCount == enterSubmitCount)
         {
-            fieldScope.Observe(fieldScope.Validation.CommitAsync(report.Value ?? lastValue ?? string.Empty));
+            fieldScope.Observe(fieldScope.Validation.CommitAsync(Serialized ?? report.Value ?? lastValue ?? string.Empty));
         }
     }
 
