@@ -225,10 +225,11 @@ public sealed class FormSubmitTests : IDisposable
         IRenderedComponent<FormSubmitScenarios> cut = Render(Scenario.Callbacks);
         Attachment form = new(host);
 
-        cut.Render(p => p.Add(x => x.Errors, new FormErrors { ["name"] = "Name is taken" }));
+        // A change of the errors before any passed submission focuses nothing.
+        cut.Render(p => p.Add(x => x.Errors, new FormErrors()));
         Assert.Equal(0, form.FocusRevision);
 
-        Submit(cut, Read(cut, "email", "a"), Read(cut, "name", "b"));
+        Assert.Equal("submit", Submit(cut, Read(cut, "email", "a"), Read(cut, "name", "b")).Verdict);
         cut.Render(p => p.Add(x => x.Errors, new FormErrors { ["email"] = "Email is taken" }));
         Assert.Equal(1, form.FocusRevision);
         Assert.Equal([IdOf(cut, "email")], form.Focus);
