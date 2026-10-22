@@ -16,6 +16,7 @@ public static class DemoCatalog
         new("button", "Button", "A button that works as a native button or as another element.", typeof(ButtonDemo)),
         new("avatar", "Avatar", "A user's image with a fallback of their initials.", typeof(AvatarDemo)),
         new("collapsible", "Collapsible", "A panel that a trigger shows and hides.", typeof(CollapsibleDemo)),
+        new("switch", "Switch", "A control that turns a setting on or off.", typeof(SwitchDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
