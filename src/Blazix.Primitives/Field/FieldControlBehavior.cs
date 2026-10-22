@@ -61,7 +61,8 @@ internal sealed class FieldControlBehavior : IDisposable
     private FieldRootContext? fieldScope;
     private FieldItemContext? item;
     private LabelableScope? scope;
-    private IFormScope form = DefaultFormScope.Instance;
+    private readonly IFormScope formless;
+    private IFormScope form;
     private FieldControlParameters parameters;
     private string? lastValue;
     private string? renderedValue;
@@ -93,14 +94,17 @@ internal sealed class FieldControlBehavior : IDisposable
     /// <summary>Initializes a new instance of the <see cref="FieldControlBehavior"/> class.</summary>
     /// <param name="componentName">The part's name, used in development warnings.</param>
     /// <param name="ownId">The id the control renders when neither its field nor the consumer gives one.</param>
+    /// <param name="formless">The form scope of the runtime's fields outside a form.</param>
     /// <param name="jsRuntime">The runtime the twin imports the form module through.</param>
     /// <param name="logger">The part's logger, which receives development warnings.</param>
     /// <param name="stateHasChanged">Renders the part again.</param>
     /// <param name="invoke">Runs an action on the renderer's dispatcher.</param>
     /// <param name="dispatchException">Routes an exception to the part's error boundary.</param>
-    public FieldControlBehavior(string componentName, string ownId, IJSRuntime jsRuntime, ILogger logger, Action stateHasChanged, Func<Action, Task> invoke, Func<Exception, Task> dispatchException)
+    public FieldControlBehavior(string componentName, string ownId, IFormScope formless, IJSRuntime jsRuntime, ILogger logger, Action stateHasChanged, Func<Action, Task> invoke, Func<Exception, Task> dispatchException)
     {
         this.ownId = ownId;
+        this.formless = formless;
+        form = formless;
         this.jsRuntime = jsRuntime;
         this.stateHasChanged = stateHasChanged;
         this.invoke = invoke;
@@ -186,7 +190,7 @@ internal sealed class FieldControlBehavior : IDisposable
         bool first = !initialized;
         initialized = true;
         parameters = next;
-        form = fieldScope?.Form ?? formScope ?? DefaultFormScope.Instance;
+        form = fieldScope?.Form ?? formScope ?? formless;
         consumerHandlers.Set(next.AdditionalAttributes);
         participation.Update(next.EditContext, next.ValueExpression);
         if (first)

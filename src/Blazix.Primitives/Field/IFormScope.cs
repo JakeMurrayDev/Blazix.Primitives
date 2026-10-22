@@ -7,7 +7,7 @@ namespace Blazix.Primitives;
 internal interface IFormScope
 {
     /// <summary>Gets the registry of the form's fields, keyed by control id.</summary>
-    /// <value>The registry; outside a form it accepts no entry.</value>
+    /// <value>The registry; outside a form, the registry of every field of the runtime that is outside a form.</value>
     FieldRegistry Registry { get; }
 
     /// <summary>Gets the form's validation mode, which a field without its own mode uses.</summary>
@@ -43,23 +43,21 @@ internal interface IFormScope
     void RemoveListener(Action listener);
 }
 
-// FFI-STR-05; internals/form-context/FormContext.ts:33-46. Stateless, so one instance serves every field outside a form: its
-// registry accepts nothing (Base UI's default map is shared by every formless field; FFI-STR-05 states it empty).
-/// <summary>The form scope outside a form: no registry entry, no error, <see cref="ValidationMode.OnSubmit"/>, no submission.</summary>
+// FFI-STR-05 (fidelity correction 2026-10-23, settled by the orchestrator 2026-10-23: ADR 15; COL-DOM-05 precedent);
+// internals/form-context/FormContext.ts:33-46, internals/field-register-control/useFieldControlRegistration.ts:71,113. Base
+// UI's default form context holds one `fields` map that every field outside a Form registers in, so a validator's form
+// values name every such field. The port keeps one per runtime: a scoped service (per circuit on Server, per application
+// on WebAssembly), never static, which would share values across users. Registered by AddBlazixPrimitives.
+/// <summary>
+/// The form scope outside a form: the registry of the runtime's fields outside a form, no error,
+/// <see cref="ValidationMode.OnSubmit"/>, no submission.
+/// </summary>
 internal sealed class DefaultFormScope : IFormScope
 {
     private static readonly string[] s_none = [];
 
-    private DefaultFormScope()
-    {
-    }
-
-    /// <summary>Gets the one instance.</summary>
-    /// <value>The default scope.</value>
-    public static DefaultFormScope Instance { get; } = new();
-
     /// <inheritdoc />
-    public FieldRegistry Registry => FieldRegistry.None;
+    public FieldRegistry Registry { get; } = new();
 
     /// <inheritdoc />
     public ValidationMode ValidationMode => ValidationMode.OnSubmit;

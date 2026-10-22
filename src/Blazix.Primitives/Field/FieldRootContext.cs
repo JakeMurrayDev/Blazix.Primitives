@@ -17,7 +17,8 @@ internal sealed class FieldRootContext : IDisposable
     private readonly Func<Exception, Task> dispatchException;
     private readonly Func<Task> validate;
     private readonly Action formChanged;
-    private IFormScope form = DefaultFormScope.Instance;
+    private readonly IFormScope formless;
+    private IFormScope form;
     private string? name;
     private bool disabledParameter;
     private bool fieldsetDisabled;
@@ -44,11 +45,14 @@ internal sealed class FieldRootContext : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="FieldRootContext"/> class.</summary>
     /// <param name="defaultControlId">The generated control id the field's labelable scope starts with.</param>
+    /// <param name="formless">The form scope of the runtime's fields outside a form.</param>
     /// <param name="timeProvider">The clock of the debounce.</param>
     /// <param name="invoke">Runs an action on the renderer's dispatcher; a timer callback goes through it.</param>
     /// <param name="dispatchException">Routes an exception of a validation nobody awaits to the field's error boundary.</param>
-    public FieldRootContext(string defaultControlId, TimeProvider timeProvider, Func<Action, Task> invoke, Func<Exception, Task> dispatchException)
+    public FieldRootContext(string defaultControlId, IFormScope formless, TimeProvider timeProvider, Func<Action, Task> invoke, Func<Exception, Task> dispatchException)
     {
+        this.formless = formless;
+        form = formless;
         TimeProvider = timeProvider;
         this.invoke = invoke;
         this.dispatchException = dispatchException;
@@ -238,7 +242,7 @@ internal sealed class FieldRootContext : IDisposable
     /// <param name="scope">The form scope, or <see langword="null"/> outside a form.</param>
     public void SetForm(IFormScope? scope)
     {
-        IFormScope next = scope ?? DefaultFormScope.Instance;
+        IFormScope next = scope ?? formless;
         if (ReferenceEquals(next, form))
         {
             return;

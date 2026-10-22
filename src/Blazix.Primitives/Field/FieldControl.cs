@@ -94,6 +94,9 @@ public sealed class FieldControl : PartBase<FieldControlState>
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
+    [Inject]
+    private DefaultFormScope Formless { get; set; } = null!;
+
     [CascadingParameter]
     private FieldRootContext? FieldContext { get; set; }
 
@@ -204,7 +207,7 @@ public sealed class FieldControl : PartBase<FieldControlState>
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
-        behavior ??= new FieldControlBehavior(nameof(FieldControl), IdGenerator.Next(), JSRuntime, Logger, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
+        behavior ??= new FieldControlBehavior(nameof(FieldControl), IdGenerator.Next(), Formless, JSRuntime, Logger, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
         behavior.SetParameters(parameters);
         return base.SetParametersAsync(parameters);
     }
