@@ -554,3 +554,142 @@ describe('label', () => {
     expect(document.querySelector('label')!.id).toBe('control-label');
   });
 });
+
+// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (pending the user): the Enter path of a box's root.
+describe('Enter submission', () => {
+  function box(html = '<form id="f"><span id="root" tabindex="0"></span><input type="checkbox" /><button type="submit">Submit</button></form>') {
+    document.body.innerHTML = html;
+    const root = document.querySelector<HTMLElement>('#root')!;
+    const submitter = document.querySelector<HTMLButtonElement>('button[type="submit"]');
+    let clicks = 0;
+    submitter?.addEventListener('click', (event) => {
+      clicks += 1;
+      event.preventDefault();
+    });
+    return { root, submitter, clicks: () => clicks };
+  }
+
+  function enter(target: HTMLElement): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  async function microtasks(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  it('cancels the native default at once and clicks the default submitter of the hidden input\'s form after the dispatch', async () => {
+    const { root, clicks } = box();
+    attachControl(root, { enterSubmit: true, reportEvents: false });
+
+    const event = enter(root);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(clicks()).toBe(0);
+    await microtasks();
+    expect(clicks()).toBe(1);
+  });
+
+  it('does not submit when a listener after it prevents the keydown, as an ancestor does', async () => {
+    const { root, clicks } = box();
+    attachControl(root, { enterSubmit: true, reportEvents: false });
+    const prevent = (event: Event) => event.preventDefault();
+    document.body.addEventListener('keydown', prevent);
+
+    enter(root);
+    await microtasks();
+    expect(clicks()).toBe(0);
+
+    document.body.removeEventListener('keydown', prevent);
+    enter(root);
+    await microtasks();
+    expect(clicks()).toBe(1);
+  });
+
+  it('does not submit when the keydown was prevented before it ran', async () => {
+    const { root, clicks } = box();
+    attachControl(root, { enterSubmit: true, reportEvents: false });
+    document.addEventListener('keydown', (event) => event.preventDefault(), { capture: true, once: true });
+
+    enter(root);
+    await microtasks();
+    expect(clicks()).toBe(0);
+
+    enter(root);
+    await microtasks();
+    expect(clicks()).toBe(1);
+  });
+
+  it('decides after a 0 ms task when an ancestor stops the propagation', async () => {
+    vi.useFakeTimers();
+    const { root, clicks } = box();
+    attachControl(root, { enterSubmit: true, reportEvents: false });
+    root.parentElement!.addEventListener('keydown', (event) => event.stopPropagation());
+
+    enter(root);
+    await vi.runAllTimersAsync();
+
+    expect(clicks()).toBe(1);
+  });
+
+  it('does nothing while disabled: no preventDefault and no submission', async () => {
+    const { root, clicks } = box();
+    const { handle } = attachControl(root, { enterSubmit: true, reportEvents: false, disabled: true });
+
+    const event = enter(root);
+    await microtasks();
+    expect(event.defaultPrevented).toBe(false);
+    expect(clicks()).toBe(0);
+
+    handle.update(controlJson({ enterSubmit: true, reportEvents: false, disabled: false }));
+    expect(enter(root).defaultPrevented).toBe(true);
+  });
+
+  it('does not submit without a submit button, or when the default submitter is disabled', async () => {
+    const none = box('<form><span id="root" tabindex="0"></span><input type="checkbox" /></form>');
+    attachControl(none.root, { enterSubmit: true, reportEvents: false });
+    enter(none.root);
+    await microtasks();
+    expect(none.submitter).toBe(null);
+
+    const disabled = box('<form><span id="root" tabindex="0"></span><input type="checkbox" /><button type="submit" disabled>Disabled</button><button type="submit" id="enabled">Enabled</button></form>');
+    let enabledClicks = 0;
+    document.querySelector('#enabled')!.addEventListener('click', (event) => {
+      enabledClicks += 1;
+      event.preventDefault();
+    });
+    attachControl(disabled.root, { enterSubmit: true, reportEvents: false });
+    const event = enter(disabled.root);
+    await microtasks();
+    expect(enabledClicks).toBe(0);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('submits the form the hidden input belongs to through its form attribute, and a keydown from a descendant too', async () => {
+    const { root, clicks } = box('<span id="root" tabindex="0"><a id="inner" href="#">x</a></span><input type="checkbox" form="external" /><form id="external"><button type="submit">Submit</button></form>');
+    attachControl(root, { enterSubmit: true, reportEvents: false });
+
+    enter(document.querySelector<HTMLElement>('#inner')!);
+    await microtasks();
+
+    expect(clicks()).toBe(1);
+  });
+
+  it('ignores other keys, and Enter when the option is off', async () => {
+    const { root, clicks } = box();
+    const { handle } = attachControl(root, { enterSubmit: false, reportEvents: false });
+
+    expect(enter(root).defaultPrevented).toBe(false);
+    root.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+    handle.update(controlJson({ enterSubmit: true, reportEvents: false }));
+    root.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true }));
+    await microtasks();
+    expect(clicks()).toBe(0);
+
+    enter(root);
+    await microtasks();
+    expect(clicks()).toBe(1);
+  });
+});
