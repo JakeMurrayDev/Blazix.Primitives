@@ -381,6 +381,35 @@ public sealed class CheckboxGroupFieldTests : IDisposable
         Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<string>>(call.Value));
     }
 
+    [Fact(DisplayName = "validates an inputless controlled group on change with validationMode=onChange")]
+    [Trait("Requirement", "CKG-FRM-08")]
+    [Trait("Requirement", "CKG-FRM-11")]
+    public async Task Validates_an_inputless_controlled_group_on_change_with_validationMode_onChange()
+    {
+        List<FieldValidationArguments> calls = [];
+        IRenderedComponent<CheckboxGroupFieldHost> cut = Context.Render<CheckboxGroupFieldHost>(p => p
+            .Add(x => x.FieldName, "group")
+            .Add(x => x.ValidationMode, ValidationMode.OnChange)
+            .Add(x => x.Validate, args =>
+            {
+                calls.Add(args);
+                return ValueTask.FromResult<FieldValidationResult?>(null);
+            })
+            .Add(x => x.Controlled, true)
+            .Add(x => x.Value, []));
+        calls.Clear();
+
+        cut.Render(p => p.Add(x => x.Value, ["one"]));
+        await test.SettleAllFormsAsync(cut);
+
+        FieldValidationArguments call = Assert.Single(calls);
+        Assert.Equal(["one"], Assert.IsAssignableFrom<IReadOnlyList<string>>(call.Value));
+
+        // Base UI's second argument is `{ group: ['one'] }`; outside a Form the port's form values are empty (track 1's
+        // FieldRegistry.None), so that half is Field's and stays open with the Form rows.
+        Assert.Empty(call.Values);
+    }
+
     [Fact(DisplayName = "port: the group registers only while its field has a name and it is enabled")]
     [Trait("Requirement", "CKG-FRM-01")]
     [Trait("Requirement", "CHK-FRM-06")]
