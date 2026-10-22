@@ -1,3 +1,5 @@
+using Blazix.Primitives.Interop;
+
 namespace Blazix.Primitives;
 
 // FFI §2 (field registry), FFI-FRM-17..21, FFI-API-07; internals/form-context/FormContext.ts:13-28 (`formRef.current.fields`,
@@ -115,4 +117,5 @@ internal sealed class FieldRegistry
 /// <param name="ValidityData">The field's validity with the external invalid state folded in.</param>
 /// <param name="Validate">Runs the field's imperative validation; its synchronous part has updated this entry when it returns.</param>
 /// <param name="ControlId">The id of the element focused when the form blocks a submission, or <see langword="null"/>.</param>
-internal sealed record FieldRegistryEntry(string? Name, Func<object?> GetValue, FieldValidityData ValidityData, Func<Task> Validate, string? ControlId);
+/// <param name="ApplyState">Takes the control's value and native validity read when the form submitted, or <see langword="null"/>.</param>
+internal sealed record FieldRegistryEntry(string? Name, Func<object?> GetValue, FieldValidityData ValidityData, Func<Task> Validate, string? ControlId, Action<string?, NativeValidity>? ApplyState = null);

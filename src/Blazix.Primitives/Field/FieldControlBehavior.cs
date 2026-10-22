@@ -52,6 +52,7 @@ internal sealed class FieldControlBehavior : IDisposable
     private readonly EditContextParticipation participation;
     private readonly Func<object?> getValue;
     private readonly Func<Task> refresh;
+    private readonly Action<string?, NativeValidity> applyState;
     private readonly Action fieldChanged;
     private readonly Action<FormControlReport> reported;
     private readonly IJSRuntime jsRuntime;
@@ -109,6 +110,7 @@ internal sealed class FieldControlBehavior : IDisposable
         participation = new EditContextParticipation(OnEditContextMessages);
         getValue = () => lastValue;
         refresh = RefreshAsync;
+        applyState = ApplyState;
         fieldChanged = OnFieldChanged;
         reported = report => _ = invoke(() => Observe(HandleReportAsync(report)));
     }
@@ -395,7 +397,7 @@ internal sealed class FieldControlBehavior : IDisposable
             return;
         }
 
-        FieldControlRegistration next = new(RenderedId(), OwnName, Serialized, getValue, RenderedId(), refresh);
+        FieldControlRegistration next = new(RenderedId(), OwnName, Serialized, getValue, RenderedId(), refresh, applyState);
         if (registered && next == sentRegistration)
         {
             return;
@@ -404,6 +406,18 @@ internal sealed class FieldControlBehavior : IDisposable
         registered = true;
         sentRegistration = next;
         fieldScope.RegisterControl(this, next);
+    }
+
+    // FFI-FRM-04, FFI-EDGE-07 (design point F2 of M2 track 2, pending the orchestrator): the state the module read in the
+    // form's submit task, applied before the form validates.
+    private void ApplyState(string? value, NativeValidity validity)
+    {
+        if (value is not null)
+        {
+            lastValue = value;
+        }
+
+        validationInput.Report(validity);
     }
 
     // FFI-ALG-13 `useSetFieldFocused` effect on `disabled`: release, then ask the module whether the element has focus.
