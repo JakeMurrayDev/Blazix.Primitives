@@ -3,6 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -42,12 +43,13 @@ public sealed class CompositeRootTests : IDisposable
     public void Does_not_add_aria_orientation_when_orientation_is_set()
     {
         IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
-            .Add(x => x.Orientation, Orientation.Horizontal)
+            .Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal)
             .AddChildContent(CompositeItems.Of("1", "2")));
 
         AngleSharp.Dom.IElement root = cut.Find("div");
         Assert.False(root.HasAttribute("aria-orientation"));
-        Assert.Empty(root.Attributes);
+        // bUnit shows the element reference capture as a `blazor:` attribute; the part renders none of its own.
+        Assert.DoesNotContain(root.Attributes, attribute => !attribute.Name.StartsWith("blazor:", StringComparison.Ordinal));
     }
 
     // Port, 2026-10-22: Base UI's hydration under Strict Mode becomes the handover (ADR 06 Amendments 2026-10-18 rule 2,
@@ -62,8 +64,9 @@ public sealed class CompositeRootTests : IDisposable
 
         Assert.All(cut.FindAll("[data-item]"), item => Assert.Equal("-1", item.GetAttribute("tabindex")));
 
-        cut.Instance.Refresh();
-        cut.FindComponents<TestCompositeItem>()[0].Render();
+        cut.InvokeAsync(cut.Instance.Refresh);
+        IRenderedComponent<TestCompositeItem> item = cut.FindComponents<TestCompositeItem>()[0];
+        item.InvokeAsync(item.Instance.Refresh);
 
         Assert.Equal(first, cut.Markup);
         Assert.All(cut.FindAll("[data-item]"), item => Assert.Equal("-1", item.GetAttribute("tabindex")));
@@ -96,8 +99,8 @@ public sealed class CompositeRootTests : IDisposable
     public void Attaches_the_module_once_with_the_items_and_disposes_the_handle_once()
     {
         IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p.AddChildContent(CompositeItems.Of("a", "b", "c")));
-        cut.Instance.Refresh();
-        cut.Instance.Refresh();
+        cut.InvokeAsync(cut.Instance.Refresh);
+        cut.InvokeAsync(cut.Instance.Refresh);
 
         JSRuntimeInvocation attach = Assert.Single(host.Attaches);
         Assert.Equal(cut.Instance.Element, Assert.IsType<ElementReference>(attach.Arguments[0]));
@@ -124,7 +127,7 @@ public sealed class CompositeRootTests : IDisposable
         Assert.Equal(2, host.UpdateOptions.Count);
         Assert.Equal(CompositeTestContext.RenderedItemIds(cut), CompositeTestContext.ItemIds(host.UpdateOptions[1]));
 
-        cut.Instance.Refresh();
+        cut.InvokeAsync(cut.Instance.Refresh);
         cut.Render(p => p.AddChildContent(CompositeItems.Of("a", "b", "d")));
         Assert.Equal(2, host.UpdateOptions.Count);
     }
@@ -208,7 +211,7 @@ public sealed class CompositeRootTests : IDisposable
         Context.Render<DirectionProvider>(p => p
             .Add(x => x.Direction, TextDirection.Rtl)
             .AddChildContent<TestCompositeRoot>(root => root
-                .Add(x => x.Orientation, Orientation.Horizontal)
+                .Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal)
                 .AddChildContent(CompositeItems.Of("1", "2", "3"))));
 
         JsonAssert(Assert.Single(host.Attaches), "direction", "rtl");

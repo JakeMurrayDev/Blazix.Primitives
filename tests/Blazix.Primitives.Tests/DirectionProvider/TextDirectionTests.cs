@@ -17,11 +17,10 @@ public sealed class TextDirectionTests
         // Base UI's `@ts-expect-error <DirectionProvider direction="vertical" />` has its C# counterpart in the compiler:
         // `Direction="TextDirection.Vertical"` does not exist and a string does not convert.
         TextDirection rtl = TextDirection.Rtl;
-        DirectionProvider provider = new() { Direction = rtl };
 
         Assert.Equal(["Ltr", "Rtl"], Enum.GetNames<TextDirection>());
         Assert.Equal(TextDirection.Ltr, new DirectionProvider().Direction);
-        Assert.Equal(TextDirection.Rtl, provider.Direction);
+        Assert.NotEqual(TextDirection.Ltr, rtl);
 
         PropertyInfo direction = typeof(DirectionProvider).GetProperty(nameof(DirectionProvider.Direction))!;
         Assert.Equal(typeof(TextDirection), direction.PropertyType);

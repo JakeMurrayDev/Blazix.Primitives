@@ -35,7 +35,7 @@ internal sealed class TestCompositeRoot : PartBase<EmptyState>
 
     /// <summary>The arrow keys that move the highlight; <see langword="null"/> is both axes.</summary>
     [Parameter]
-    public Orientation? Orientation { get; set; }
+    public Blazix.Primitives.Orientation? Orientation { get; set; }
 
     [Parameter]
     public bool LoopFocus { get; set; } = true;

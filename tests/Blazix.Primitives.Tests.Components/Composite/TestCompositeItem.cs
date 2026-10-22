@@ -22,6 +22,9 @@ internal sealed class TestCompositeItem : PartBase<EmptyState>
 
     public int Renders { get; private set; }
 
+    /// <summary>Requests a render with the current parameters.</summary>
+    public void Refresh() => StateHasChanged();
+
     /// <inheritdoc />
     protected override string DefaultTagName => Tag;
 

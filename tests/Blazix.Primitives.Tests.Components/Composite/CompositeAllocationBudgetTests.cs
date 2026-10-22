@@ -12,8 +12,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class CompositeAllocationBudgetTests : IDisposable
 {
-    // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): recorded in the PR; the budget is that figure.
-    private const long RerenderBudgetBytes = 0;
+    // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): 3936 bytes for the parent passing the same values again
+    // to a root with three items. The root, the fixed cascade and the three items all render: an item's child content is a
+    // new fragment on every render of the content, as a consumer's markup is. The behaviours' own share is the boxed
+    // enumerator of the root's pass over the unmatched bag (as Button's); the comparison of the options allocates nothing.
+    private const long RerenderBudgetBytes = 3936;
 
     private readonly CompositeTestContext host = new();
 
@@ -27,19 +30,21 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
     {
         EventCallback<KeyboardEventArgs> onKeyDown = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => { });
         IReadOnlyList<string> modifierKeys = ["Shift"];
-        IRenderedComponent<TestCompositeRoot> cut = host.Context.Render<TestCompositeRoot>(p => p
+        RenderFragment content = CompositeItems.Of("a", "b", "c");
+        Action<ComponentParameterCollectionBuilder<TestCompositeRoot>> parameters = p => p
             .Add(x => x.ModifierKeys, modifierKeys)
             .AddUnmatched("class", "group")
             .AddUnmatched("onkeydown", onKeyDown)
-            .AddChildContent(CompositeItems.Of("a", "b", "c")));
+            .AddChildContent(content);
+        IRenderedComponent<TestCompositeRoot> cut = host.Context.Render(parameters);
 
         for (int i = 0; i < 20; i++)
         {
-            cut.Instance.Refresh();
+            cut.Render(parameters);
         }
 
         long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Instance.Refresh();
+        cut.Render(parameters);
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Empty(host.UpdateOptions);
