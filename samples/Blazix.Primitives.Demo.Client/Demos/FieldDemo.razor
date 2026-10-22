@@ -1,0 +1,32 @@
+<DemoFrame Slug="field" Note="A field that validates as you type, and the same field disabled.">
+    <Hero>
+        <FieldRoot class="flex w-full max-w-64 flex-col items-start gap-1">
+            <FieldLabel class="@LabelClass">Name</FieldLabel>
+            <FieldControl required placeholder="Required" class="@ControlClass" />
+
+            <FieldDescription class="@DescriptionClass">
+                Visible on your profile
+            </FieldDescription>
+        </FieldRoot>
+    </Hero>
+    <Variants>
+        <FieldRoot class="flex w-full max-w-64 flex-col items-start gap-1" ValidationMode="ValidationMode.OnChange" Validate="ValidateUsername">
+            <FieldLabel class="@LabelClass">Username</FieldLabel>
+            <FieldControl placeholder="At least 3 characters" class="@($"{ControlClass} data-[invalid]:border-red-700 dark:data-[invalid]:border-red-400")" />
+            <FieldDescription class="@DescriptionClass">Validated on every change</FieldDescription>
+        </FieldRoot>
+        <FieldRoot class="flex w-full max-w-64 flex-col items-start gap-1" Disabled="true">
+            <FieldLabel class="@($"{LabelClass} data-[disabled]:text-neutral-500")">Email</FieldLabel>
+            <FieldControl placeholder="Disabled" class="@($"{ControlClass} data-[disabled]:opacity-50")" />
+        </FieldRoot>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LabelClass = "text-sm font-bold text-neutral-950 dark:text-white";
+    private const string ControlClass = "h-8 self-stretch border border-neutral-950 bg-white dark:bg-neutral-950 px-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 placeholder:text-neutral-500 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white dark:border-white dark:text-white dark:placeholder:text-neutral-400";
+    private const string DescriptionClass = "text-sm text-neutral-600 dark:text-neutral-400";
+
+    private static ValueTask<FieldValidationResult?> ValidateUsername(FieldValidationArguments arguments) =>
+        new(arguments.Value is string { Length: < 3 } ? "Use at least 3 characters." : null);
+}
