@@ -158,9 +158,10 @@ export function dispatchClickWithModifiers(
   );
 }
 
-// The bridge finds the input by position (design point D1, pending the user): the part renders it as the element's next
-// sibling, after the optional `<input type="hidden">` of the unchecked value (SWT-STR-01, CHK-STR-01, RAD-STR-01). It has
-// no `id` under `nativeButton`, so neither an id nor an element reference names it.
+// The bridge finds the input by position, at click time (ADR 04 Amendments 2026-10-22): the part renders it as the
+// element's next sibling, after the optional `<input type="hidden">` of the unchecked value (SWT-STR-01, CHK-STR-01,
+// RAD-STR-01). It has no `id` under `nativeButton`, so neither an id nor an element reference names it. Under a
+// `RenderFunction` callback this assumes the callback renders one top-level element.
 /**
  * Finds the hidden checkbox or radio input a bridged part renders after its element.
  * @param element The part's element.

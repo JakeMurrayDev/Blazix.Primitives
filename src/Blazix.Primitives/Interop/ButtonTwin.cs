@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (button row), §3 (decision points: button activation, fallback "run"; the hidden-input toggle, fallback
-// "run", ADR 04 Amendments 2026-10-22, pending the user); ADR 01 relaxation table (UBT-KEY-03/04/06; the hidden input's
+// "run", ADR 04 Amendments 2026-10-22, chosen by the user 2026-10-22); ADR 01 relaxation table (UBT-KEY-03/04/06; the hidden input's
 // checked after a cancelled toggle); button-behavior.md (UBT). One twin per part: the callbacks carry no element key.
 /// <summary>
 /// The C# half of the <c>button</c> module: keyboard activation, press suppression, pointer-type classification, the
