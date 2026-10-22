@@ -3,6 +3,7 @@ using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
@@ -48,5 +49,9 @@ public static class FixtureCatalog
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
+        ["composite-list"] = new(typeof(CompositeListFixture)),
+        ["composite-rtl"] = new(typeof(CompositeRtlFixture)),
+        ["composite-reorder"] = new(typeof(CompositeReorderFixture)),
+        ["composite-selection"] = new(typeof(CompositeSelectionFixture)),
     };
 }
