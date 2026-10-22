@@ -763,6 +763,8 @@ export interface CompositeOptions extends TwinOptions {
   reportFocusLeave: boolean;
   /** Whether the module reports each change of the highlighted index. */
   reportHighlight: boolean;
+  /** Whether the module reports a key it handled and stopped without asking C# inside the dispatch. */
+  reportHandledKeys?: boolean | undefined;
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
@@ -1095,6 +1097,12 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     queueMicrotask(() => {
       registry.elements[nextIndex]?.focus();
     });
+
+    // Option (i) of ADR 04's note of 2026-10-22, pending the user: a key stopped here never reaches Blazor's dispatcher,
+    // so where no C# chain ran inside the dispatch (Server), C# runs the consumer's handlers from this report.
+    if (current.stopEventPropagation && current.reportHandledKeys && !twin.lastDecisionWasSynchronous) {
+      twin.report('OnKeyHandled', { event: eventInfo(event) });
+    }
   };
 
   const onFocusIn = (event: FocusEvent): void => {
