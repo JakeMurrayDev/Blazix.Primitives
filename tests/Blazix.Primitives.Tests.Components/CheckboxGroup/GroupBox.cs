@@ -19,6 +19,10 @@ public sealed class GroupBox(string testId)
 
     public bool NativeButton { get; init; }
 
+    public bool Required { get; init; }
+
+    public string? DescribedBy { get; init; }
+
     public string? Id { get; init; }
 
     public RenderFragment? Render { get; init; }
