@@ -7,8 +7,8 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives;
 
 // The field half of a control whose value is a hidden checkbox input's `checked` (Checkbox now; Switch's follow-up and
-// Radio may reuse it, design point C5 of M2 track 5, settled by the orchestrator 2026-10-23): FFI §8 as checkbox §8 states it for a standalone
-// box, the FieldControlBehavior pattern (Field/) with a boolean value and two form-module handles on one twin.
+// Radio reuse it; design point C5 of M2 track 5, settled by the orchestrator 2026-10-23): FFI §8 as checkbox §8 states it
+// for a standalone box, the FieldControlBehavior pattern with a boolean value and two form-module handles on one twin.
 // - The control-id claim (FFI-ALG-07, CHK-DOM-15/21, CHK-FRM-16): the labelable control id is the scope's control id, else
 //   the consumer's non-empty id, else the part's own; registered after the render; a box that shares its scope with a
 //   group claims nothing.
