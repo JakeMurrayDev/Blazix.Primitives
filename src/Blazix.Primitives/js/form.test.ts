@@ -693,3 +693,59 @@ describe('Enter submission', () => {
     expect(clicks()).toBe(1);
   });
 });
+
+// CHK-ARIA-07/08, CHK-DOM-22, CHK-EDGE-13, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (pending the user): the
+// native-label fallback of a box's hidden input, discovered on attach, on every update and after every change of the
+// document's labels or ids, reported when it changes.
+describe('label fallback', () => {
+  function hidden(html: string): HTMLInputElement {
+    document.body.innerHTML = html;
+    return document.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  }
+
+  function labels(fake: FakeTwin): (string | null)[] {
+    return fake.reported<FormControlReport>('OnControlReport').filter((report) => report.type === 'label').map((report) => report.value);
+  }
+
+  it('reports the sibling label of the input, giving an id-less label the fallback id', () => {
+    const element = hidden('<label for="box">Label</label><span></span><input type="checkbox" id="box" />');
+    const { fake } = attachControl(element, { reportEvents: false, labelFallback: true });
+
+    expect(document.querySelector('label')!.id).toBe('box-label');
+    expect(labels(fake)).toEqual(['box-label']);
+  });
+
+  it('discovers again when the input\'s id changes or a label mounts or unmounts, and reports only a change', async () => {
+    const element = hidden('<label for="a">A</label><label for="b" id="label-b">B</label><input type="checkbox" id="a" /><div id="spot"></div>');
+    const { fake, handle } = attachControl(element, { reportEvents: false, labelFallback: true });
+
+    handle.update(controlJson({ reportEvents: false, labelFallback: true }));
+    element.id = 'b';
+    await Promise.resolve();
+    document.querySelector('label[for="b"]')!.remove();
+    await Promise.resolve();
+    document.querySelector('#spot')!.innerHTML = '<label for="b" id="label-b2">B again</label>';
+    await Promise.resolve();
+    document.querySelector('#spot')!.append(document.createElement('span'));
+    await Promise.resolve();
+
+    expect(labels(fake)).toEqual(['a-label', 'label-b', null, 'label-b2']);
+  });
+
+  it('reports nothing while the fallback is off, discovers afresh when it is on again, and stops watching on dispose', async () => {
+    const element = hidden('<label>Wrapping <input type="checkbox" id="box" /></label><div id="spot"></div>');
+    const { fake, handle } = attachControl(element, { reportEvents: false, labelFallback: false });
+    document.querySelector('#spot')!.innerHTML = '<label for="box" id="other">Other</label>';
+    await Promise.resolve();
+    expect(labels(fake)).toEqual([]);
+
+    handle.update(controlJson({ reportEvents: false, labelFallback: true }));
+    handle.update(controlJson({ reportEvents: false, labelFallback: false }));
+    handle.update(controlJson({ reportEvents: false, labelFallback: true }));
+    handle.dispose();
+    element.parentElement!.replaceWith(element);
+    await Promise.resolve();
+
+    expect(labels(fake)).toEqual(['box-label', 'box-label']);
+  });
+});
