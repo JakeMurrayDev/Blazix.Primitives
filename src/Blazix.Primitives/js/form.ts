@@ -3,7 +3,8 @@
 // messages, disabled and form-owner eligibility, native label lookup, the default submitter, focus redirect; the module
 // owns a control's native input, change, blur and keydown listeners and reports value and validity in one message per
 // event (M2 plan, settled; ADR 16 rule 6). The scopes, the registry and the validation pipeline are C#.
-import { activeElement, closest, getTarget, ownerDocument } from './dom';
+import { findHiddenInput } from './button';
+import { activeElement, closest, getTarget, ownerDocument, ownerWindow } from './dom';
 import { decide } from './decide';
 import { eventInfo, type EventInfo } from './event-info';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
@@ -21,6 +22,7 @@ export interface FormControlOptions {
   reportEvents?: boolean;
   focusTarget?: string | null;
   autoFocus?: boolean;
+  enterSubmit?: boolean;
 }
 
 /** The options of an attached field label; mirrors `FormLabelOptions` in C#. */
@@ -305,6 +307,62 @@ function formById(element: Element, formId: string | null | undefined): HTMLForm
   return form instanceof HTMLFormElement ? form : null;
 }
 
+// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10 (design point C2 of M2 track 5, pending the user). The Enter path of a
+// checkbox's root. Base UI cancels the native default on the native event only, so that React ancestors still see
+// `defaultPrevented === false`, and decides in a microtask after React's dispatch; the port has one event, and a
+// microtask queued by a listener runs before the next listener of a user event. So the listener runs in the capture
+// phase at the root (before the `button` module's Enter suppression and any bubbling listener), cancels the default at
+// once, records a later `preventDefault()` by shadowing it on the event, and decides in a window listener added during
+// the dispatch, which runs after every ancestor (a 0 ms task when an ancestor stopped the propagation). A JavaScript
+// ancestor therefore sees `defaultPrevented === true`, a dated note on CHK-KEY-03.
+function createEnterSubmission(element: HTMLElement, isEnabled: () => boolean): () => void {
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Enter' || !isEnabled()) {
+      return;
+    }
+
+    const preventedBefore = event.defaultPrevented;
+    Event.prototype.preventDefault.call(event);
+    let preventedLater = false;
+    Object.defineProperty(event, 'preventDefault', {
+      configurable: true,
+      value: () => {
+        preventedLater = true;
+      },
+    });
+
+    const win = ownerWindow(element);
+    let decided = false;
+    const decide = (): void => {
+      if (decided) {
+        return;
+      }
+      decided = true;
+      win.removeEventListener('keydown', onTail);
+      win.clearTimeout(fallback);
+      if (preventedBefore || preventedLater) {
+        return;
+      }
+      win.queueMicrotask(() => {
+        const submitter = getDefaultFormSubmitter(findHiddenInput(element)?.form ?? null);
+        if (submitter && !submitter.disabled) {
+          submitter.click();
+        }
+      });
+    };
+    const onTail = (tail: Event): void => {
+      if (tail === event) {
+        decide();
+      }
+    };
+    win.addEventListener('keydown', onTail);
+    const fallback = win.setTimeout(decide, 0);
+  };
+
+  element.addEventListener('keydown', onKeyDown, { capture: true });
+  return () => element.removeEventListener('keydown', onKeyDown, { capture: true });
+}
+
 function focusWithVisible(element: HTMLElement): void {
   // focusVisible: Chrome 144+, Safari and Firefox.
   element.focus({ focusVisible: true } as FocusOptions);
@@ -460,6 +518,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     element.addEventListener('keydown', onKeyDown);
   }
   element.addEventListener('focus', onFocus);
+  const removeEnterSubmission = createEnterSubmission(element, () => options.enterSubmit === true && !options.disabled);
   if (options.autoFocus && !options.disabled) {
     // FLD-FOC-04: the renderer replaces a prerendered element when the page becomes interactive, which loses the focus
     // the browser's autofocus gave it; the module focuses the control once, at attach, unless something else has focus.
@@ -495,6 +554,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       element.removeEventListener('blur', onBlur);
       element.removeEventListener('keydown', onKeyDown);
       element.removeEventListener('focus', onFocus);
+      removeEnterSubmission();
     },
   };
 }

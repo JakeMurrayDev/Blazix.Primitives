@@ -76,7 +76,8 @@ public static class CheckboxRootDataAttributes
 
 // Base UI's Checkbox.Root (checkbox/root/CheckboxRoot.tsx); the contract is docs/components/checkbox.md.
 // - The element is a button-like span (ButtonBehavior, UBT; non-native by default, UBT-API-03) whose role the part replaces
-//   with `checkbox` (the consumer's role still wins, CHK-DOM-09). Enter never activates it (SuppressEnter, CHK-KEY-03).
+//   with `checkbox` (the consumer's role still wins, CHK-DOM-09). Enter never activates it (SuppressEnter, CHK-KEY-03);
+//   the `form` module submits the owning form instead (EnterSubmit, CHK-KEY-04..07; design point C2, pending the user).
 // - After it the part renders its form-participation inputs (BuildAfterElement, ADR 02 Amendments 2026-10-22): the
 //   unchecked-value `<input type="hidden">` and the visually hidden `<input type="checkbox">` (CHK-STR-01, CHK-DOM-11..19).
 // - Every toggle is a click on that input: the `button` module forwards the root's click to it (the hidden-input bridge,
@@ -351,7 +352,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     protected override void OnParametersSet()
     {
         fieldBehavior!.SetParameters(
-            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
+            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, EnterSubmit: true, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
             FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;

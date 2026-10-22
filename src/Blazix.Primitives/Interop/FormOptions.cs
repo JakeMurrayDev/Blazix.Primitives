@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (form row, Amendments 2026-10-18) and §3; FFI-ALG-02/04/08/10/16, FFI-FRM-09/10, FFI-PTR-01..04,
@@ -67,6 +69,17 @@ internal sealed record FormControlOptions
     /// <summary>Gets the id of the element focus moves to when the attached element receives focus.</summary>
     /// <value>The visible control of a form-participation input, or <see langword="null"/>.</value>
     public string? FocusTarget { get; init; }
+
+    // CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (pending the user): ADR 04 §1's form row owns
+    // the Enter-to-submit path.
+    /// <summary>Gets a value indicating whether Enter on the element submits the form its hidden input belongs to.</summary>
+    /// <value>
+    /// <see langword="true"/> for a checkbox root: Enter cancels its native default and, unless a listener prevents it,
+    /// clicks the form's default submit button after the dispatch; nothing while <see cref="Disabled"/>. The default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool EnterSubmit { get; init; }
 }
 
 /// <summary>The options of an attached field label.</summary>

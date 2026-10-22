@@ -134,8 +134,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
     public bool InField => fieldScope is not null;
 
     /// <summary>Gets a task that completes when the form module is attached to the root and the hidden input.</summary>
-    /// <value>The attach task, for the fixtures; complete at once outside a field.</value>
-    public Task TwinAttached => fieldScope is null ? Task.CompletedTask : attachedSource.Task;
+    /// <value>The attach task, for the fixtures; complete at once outside a field without the Enter path.</value>
+    public Task TwinAttached => fieldScope is null && !parameters.EnterSubmit ? Task.CompletedTask : attachedSource.Task;
 
     /// <inheritdoc />
     public void Dispose()
@@ -226,6 +226,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
         if (fieldScope is null)
         {
             ObserveValue();
+            if (parameters.EnterSubmit)
+            {
+                await AttachOrUpdateAsync(root, rootId, null).ConfigureAwait(true);
+            }
+
             return;
         }
 
@@ -408,16 +413,21 @@ internal sealed class CheckableFieldBehavior : IDisposable
 
     private async Task AttachOrUpdateAsync(ElementReference? root, string rootId, ElementReference? input)
     {
-        FormOptions rootOptions = RootOptions();
-        FormOptions inputOptions = InputOptions();
         if (twin is null)
         {
             twin = new FormTwin(jsRuntime);
             twin.ControlReported += reported;
         }
 
+        // Compared before constructing, so an unchanged render allocates no options record.
+        bool rootChanged = sentRootOptions?.Control is not { } sentRoot
+            || sentRoot.Disabled != EffectiveDisabled
+            || sentRoot.EnterSubmit != parameters.EnterSubmit
+            || sentRoot.ReportEvents != InField
+            || !string.Equals(sentRoot.FormId, form.ElementId, StringComparison.Ordinal);
         if (rootHandle is null)
         {
+            FormOptions rootOptions = RootOptions();
             sentRootOptions = rootOptions;
             if (root is { } rootElement)
             {
@@ -436,17 +446,24 @@ internal sealed class CheckableFieldBehavior : IDisposable
                 }
             }
         }
-        else if (rootOptions != sentRootOptions)
+        else if (rootChanged)
         {
+            FormOptions rootOptions = RootOptions();
             sentRootOptions = rootOptions;
             await rootHandle.UpdateAsync(rootOptions).ConfigureAwait(true);
         }
 
-        if (input is not { } inputElement)
+        if (input is not { } inputElement || fieldScope is null)
         {
+            if (rootHandle is not null)
+            {
+                attachedSource.TrySetResult();
+            }
+
             return;
         }
 
+        FormOptions inputOptions = InputOptions();
         if (inputHandle is null)
         {
             sentInputOptions = inputOptions;
@@ -496,9 +513,10 @@ internal sealed class CheckableFieldBehavior : IDisposable
         Observe(inputHandle.UpdateAsync(options).AsTask());
     }
 
+    // Inside a field the root reports its blur and its focus at attach; with EnterSubmit, Enter submits the owning form.
     private FormOptions RootOptions() => new()
     {
-        Control = new FormControlOptions { FormId = form.ElementId, Disabled = EffectiveDisabled },
+        Control = new FormControlOptions { FormId = form.ElementId, Disabled = EffectiveDisabled, ReportEvents = InField, EnterSubmit = parameters.EnterSubmit },
     };
 
     private FormOptions InputOptions() => new()
@@ -630,6 +648,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
 /// <param name="BlurValue">The value an onBlur commit validates: the control's own, or its group's.</param>
 /// <param name="OwnsValue">Whether the control is its field's control: it registers, and writes filled and dirty.</param>
 /// <param name="ClaimsControlId">Whether the control claims its labelable scope's control id.</param>
+/// <param name="EnterSubmit">Whether Enter on the root submits the form the hidden input belongs to.</param>
 /// <param name="CheckedExpression">The expression of the bound value.</param>
 /// <param name="EditContext">The cascaded edit context.</param>
 /// <param name="AdditionalAttributes">The unmatched attributes.</param>
@@ -641,6 +660,7 @@ internal readonly record struct CheckableFieldParameters(
     bool BlurValue,
     bool OwnsValue,
     bool ClaimsControlId,
+    bool EnterSubmit,
     Expression<Func<bool>>? CheckedExpression,
     EditContext? EditContext,
     IReadOnlyDictionary<string, object>? AdditionalAttributes,
