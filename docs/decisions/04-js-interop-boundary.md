@@ -240,3 +240,21 @@ The `Writer` cells of SWT-DOM-08 (and of CHK, RAD and RDG in their pull requests
   - `navigate` runs the focused item's handler, then the root's, on one shared event, so a `PreventPartHandler()` in either stops the key: Base UI's flag lives on the shared synthetic event (`merge-props/mergeProps.ts:210-231`).
   - On Server, `CompositeOptions.ReportHandledKeys`, sent only while the root or an item has such a handler, makes the module report a key it handled and stopped without running the C# chain (`CompositeTwin.KeyHandled`). The two handlers then run a round trip late and cannot veto. ADR 01's row "… EVD-EVT-26 against composite/button key handling …" says so for Server (ADR 01 Amendments 2026-10-23).
   - An ancestor's handler never sees the key, as in Base UI.
+
+**2026-10-23, the `form` module's Enter path and native-label fallback for a box, and the starting-style read of the `transitions` module (M2 track 5, [issue 81](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/81); design points C2, C4 and C6, pending the user).**
+- **Enter submission on a box's root (C2; CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10).** Decision 1's `form` row names the Enter-to-submit path. `FormControlOptions.EnterSubmit` turns it on for the handle a box attaches to its root.
+  - The module listens in the capture phase at the root, so it runs before the `button` module's Enter suppression (Amendments 2026-10-22) and before any bubbling listener. A disabled root does nothing.
+  - It cancels the native default at once, so a native-button root never clicks itself.
+  - It records a later `preventDefault()` by shadowing the method on that event.
+  - It decides in a window listener added during the dispatch, which runs after every ancestor. A 0 ms task decides instead when an ancestor stopped the propagation.
+  - Unless the keydown was prevented before or after it, a microtask clicks the default submitter of the form the hidden input belongs to, when that submitter is not disabled.
+  - A JavaScript ancestor therefore observes `defaultPrevented === true` (dated note on CHK-KEY-03). React's synthetic and native pair, which kept it `false`, has no equivalent with one event. A C# ancestor has no `defaultPrevented` (decision 3 of ADR 02).
+- **Native-label fallback (C4; CHK-ARIA-07/08, CHK-DOM-22, CHK-EDGE-13, FFI-ALG-08, FFI-ARIA-06).** `FormControlOptions.LabelFallback` turns the native label lookup of the 2026-10-22 note on for a form-participation input. The part sends it while nothing earlier in CHK-ARIA-06 names the control and the control is not a native button.
+  - The module runs `discoverLabel` on `attach`, on every `update` and after every change of the document's labels and ids.
+  - One `MutationObserver` per document serves every such input. A Blazor component whose parameters did not change does not render again when a label elsewhere mounts, so "after every render of the root" (Base UI) cannot be the trigger.
+  - An id-less label gets `<element id>-label`. The label's id is reported, when it changed, as a `label` report carrying the id in `Value`. Neither payload grew: a new member would have cost every Field options record and every report 8 bytes.
+  - C# renders the id as `aria-labelledby`, a round trip after the change on Server (ADR 01's "FFI registration" row).
+  - The box's hidden input is now always attached, so its focus goes to the root outside a field too (CHK-FOC-03, FFI-FOC-05).
+- **The starting style is styled before it is cleared (C6; CHK-ANI-03, TRN-STA-04).** When the `transitions` module writes `data-starting-style`, or takes over the one C# rendered under the handover rule (Amendments 2026-10-18), it reads the element's computed style once.
+  - On a fast Server circuit, the render that creates an element open, its `attach` and the module's clearing frame landed before the frame that first styles the element. No transition ran from the starting style (`checkbox.spec.ts` "triggers enter animation via data-starting-style when mounting", Server).
+  - The read gives the element one computed style with the attribute before the clearing frame. TRN-STA-04's "removed on the next frame" is unchanged.
