@@ -9,7 +9,7 @@ import { test, expect, fixtureUrl, gotoFixture, type Page, type RenderMode } fro
 // transition status). The fixtures record OnCheckedChange and the consumer's clicks as data attributes. Animated cases
 // open with `?animations=1` (ADR 06 §2) and witness transient attributes by recorded markers, never by frame polls.
 
-type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field';
+type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field' | 'checkbox-enter';
 
 /** Opens a Checkbox fixture and waits until every box and listed indicator has its behaviors attached. */
 async function gotoCheckboxes(page: Page, mode: RenderMode, name: FixtureName, options: { animations?: boolean } = {}): Promise<Locator> {
@@ -716,6 +716,154 @@ test.describe('<Checkbox.Root />', () => {
         await expect(container.locator('[data-label]')).toHaveAttribute('for', explicit);
       });
     }
+  });
+
+  test.describe('Enter', () => {
+    // CHK-KEY-03..07 on native forms (design point C2 of M2 track 5, pending the user): the form module owns the path.
+    interface SubmitRecord {
+      submits: number;
+      submitter: string | null;
+      value: string | null;
+      submitterClicks: number;
+    }
+
+    /** Records the submits of the case's form (prevented), their submitter and value, and the submit button's clicks. */
+    async function recordSubmits(container: Locator): Promise<void> {
+      await container.evaluate((node) => {
+        const record = { submits: 0, submitter: null as string | null, value: null as string | null, submitterClicks: 0 };
+        (node as unknown as { submitRecord: unknown }).submitRecord = record;
+        const form = node.querySelector('form')!;
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          record.submits += 1;
+          record.submitter = (event as SubmitEvent).submitter?.textContent ?? null;
+          record.value = new FormData(form).get('test-checkbox') as string | null;
+        });
+        node.querySelector('[data-submit]')?.addEventListener('click', () => {
+          record.submitterClicks += 1;
+        });
+      });
+    }
+
+    async function submitRecord(container: Locator): Promise<SubmitRecord> {
+      return container.evaluate((node) => (node as unknown as { submitRecord: SubmitRecord }).submitRecord);
+    }
+
+    async function pressEnterOn(page: Page, container: Locator): Promise<void> {
+      await container.locator('[data-before]').focus();
+      await page.keyboard.press('Tab');
+      await expect(container.locator('[data-checkbox]')).toBeFocused();
+      await page.keyboard.press('Enter');
+    }
+
+    test('submits the form when Enter is pressed while focused', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="submit"]');
+      await recordSubmits(container);
+
+      await pressEnterOn(page, container);
+
+      await expect.poll(async () => (await submitRecord(container)).submits).toBe(1);
+      expect(await submitRecord(container)).toEqual({ submits: 1, submitter: 'Submit', value: null, submitterClicks: 1 });
+      await settle(fixture);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('does not submit the form with Enter when the consumer prevents default', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="consumer"]');
+      await recordSubmits(container);
+      await container.locator('[data-checkbox]').evaluate((element) => element.addEventListener('keydown', (event) => event.preventDefault()));
+
+      await pressEnterOn(page, container);
+      await settle(fixture);
+
+      expect((await submitRecord(container)).submits).toBe(0);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('does not submit the form with Enter when an ancestor prevents default', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="ancestor"]');
+      await recordSubmits(container);
+      await container.locator('[data-ancestor]').evaluate((element) => {
+        element.addEventListener('keydown', (event) => {
+          (element as HTMLElement).dataset.sawPrevented = String(event.defaultPrevented);
+          event.preventDefault();
+        });
+      });
+
+      await pressEnterOn(page, container);
+      await settle(fixture);
+
+      // Port (dated note on CHK-KEY-03): a JavaScript ancestor sees the native default already cancelled.
+      await expect(container.locator('[data-ancestor]')).toHaveAttribute('data-saw-prevented', 'true');
+      expect((await submitRecord(container)).submits).toBe(0);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('submits the form with Enter when readOnly', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="readonly"]');
+      await recordSubmits(container);
+
+      await pressEnterOn(page, container);
+
+      await expect.poll(async () => (await submitRecord(container)).submits).toBe(1);
+      expect((await submitRecord(container)).submitter).toBe('Submit');
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('submits the form once with Enter when rendered as a native button', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="native"]');
+      await recordSubmits(container);
+
+      await pressEnterOn(page, container);
+
+      await expect.poll(async () => (await submitRecord(container)).submits).toBe(1);
+      await settle(fixture);
+      const record = await submitRecord(container);
+      expect(record.submits).toBe(1);
+      expect(record.submitter).toBe('Submit');
+      expect(record.submitterClicks).toBe(1);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('does not submit the form with Enter when there is no submit button', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="none"]');
+      await recordSubmits(container);
+
+      await pressEnterOn(page, container);
+      await settle(fixture);
+
+      expect((await submitRecord(container)).submits).toBe(0);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('does not submit the form with Enter when the default button is disabled', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="disabled-submitter"]');
+      await recordSubmits(container);
+
+      await pressEnterOn(page, container);
+      await settle(fixture);
+
+      expect((await submitRecord(container)).submits).toBe(0);
+      await expect(container.locator('[data-checkbox]')).toHaveAttribute('aria-checked', 'false');
+    });
+
+    test('submits to an external form with Enter when `form` is provided', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-enter');
+      const container = fixture.locator('[data-case="external"]');
+      await recordSubmits(container);
+
+      await pressEnterOn(page, container);
+
+      await expect.poll(async () => (await submitRecord(container)).submits).toBe(1);
+      expect((await submitRecord(container)).submitter).toBe('Submit');
+    });
   });
 
   test('can render a native button', async ({ page, mode }) => {

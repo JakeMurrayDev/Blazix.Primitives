@@ -1,0 +1,97 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-enter` fixture (tests/browser/checkbox.spec.ts): CheckboxRoot.test.tsx's Enter-to-submit titles on native
+    forms (Base UI renders Form and Field.Root around them; neither takes part in the Enter path). Each case is a <form>
+    with one named box: with a submit button, without one, with a disabled default submitter, read-only, a native-button
+    box, a box whose consumer prevents the keydown, inside an ancestor that prevents it, and a box outside its form
+    through `form`. The specs record each form's submit events and submitter in the page and prevent the navigation.
+*@
+<FixtureContainer Name="checkbox-enter" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled box has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="submit">
+        <button type="button" data-before>Before</button>
+        <form data-form>
+            <CheckboxRoot @ref="submitRoot" data-checkbox Name="test-checkbox" />
+            <button id="submit-button" type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+
+    <div data-case="none">
+        <button type="button" data-before>Before</button>
+        <form data-form>
+            <CheckboxRoot @ref="noneRoot" data-checkbox Name="test-checkbox" />
+        </form>
+    </div>
+
+    <div data-case="disabled-submitter">
+        <button type="button" data-before>Before</button>
+        <form data-form>
+            <CheckboxRoot @ref="disabledSubmitterRoot" data-checkbox Name="test-checkbox" />
+            <button type="submit" disabled>Disabled</button>
+            <button type="submit">Enabled</button>
+        </form>
+    </div>
+
+    <div data-case="readonly">
+        <button type="button" data-before>Before</button>
+        <form data-form>
+            <CheckboxRoot @ref="readOnlyRoot" data-checkbox Name="test-checkbox" ReadOnly="true" />
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+
+    <div data-case="native">
+        <button type="button" data-before>Before</button>
+        <form data-form>
+            <CheckboxRoot @ref="nativeRoot" data-checkbox Name="test-checkbox" NativeButton="true">
+                <Render><button></button></Render>
+            </CheckboxRoot>
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+
+    <div data-case="consumer">
+        <button type="button" data-before>Before</button>
+        <form data-form>
+            <CheckboxRoot @ref="consumerRoot" data-checkbox Name="test-checkbox" />
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+
+    <div data-case="ancestor">
+        <button type="button" data-before>Before</button>
+        <form data-form data-ancestor>
+            <CheckboxRoot @ref="ancestorRoot" data-checkbox Name="test-checkbox" />
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+
+    <div data-case="external">
+        <button type="button" data-before>Before</button>
+        <CheckboxRoot @ref="externalRoot" data-checkbox Name="test-checkbox" Form="checkbox-enter-external" />
+        <form id="checkbox-enter-external" data-form>
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private CheckboxRoot? submitRoot;
+    private CheckboxRoot? noneRoot;
+    private CheckboxRoot? disabledSubmitterRoot;
+    private CheckboxRoot? readOnlyRoot;
+    private CheckboxRoot? nativeRoot;
+    private CheckboxRoot? consumerRoot;
+    private CheckboxRoot? ancestorRoot;
+    private CheckboxRoot? externalRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes =>
+        [submitRoot, noneRoot, disabledSubmitterRoot, readOnlyRoot, nativeRoot, consumerRoot, ancestorRoot, externalRoot];
+}

@@ -74,6 +74,7 @@ public static class FixtureCatalog
         ["checkbox-form"] = new(typeof(CheckboxFormFixture)),
         ["checkbox-indicator"] = new(typeof(CheckboxIndicatorFixture)),
         ["checkbox-field"] = new(typeof(CheckboxFieldFixture)),
+        ["checkbox-enter"] = new(typeof(CheckboxEnterFixture)),
         ["checkbox-prerender"] = new(typeof(CheckboxPrerenderFixture), Prerender: true),
     };
 }
