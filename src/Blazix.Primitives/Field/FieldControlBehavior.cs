@@ -591,7 +591,7 @@ internal sealed class FieldControlBehavior : IDisposable
     {
         Control = new FormControlOptions
         {
-            FormId = form.ElementId,
+            FormId = form.FormToken,
             CustomValidity = validationInput.OwnMessage,
             Controlled = controlled.IsControlled,
             Value = controlled.IsControlled ? controlled.Value : null,

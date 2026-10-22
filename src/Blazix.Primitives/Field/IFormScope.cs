@@ -18,9 +18,11 @@ internal interface IFormScope
     /// <value>The count; outside a form 0.</value>
     int SubmitCount { get; }
 
-    /// <summary>Gets the id of the form element, which the browser-side behavior compares a control's form owner with.</summary>
-    /// <value>The id, or <see langword="null"/> outside a form.</value>
-    string? ElementId { get; }
+    // FRM-DOM-03, design point F6 of M2 track 2 (settled by the orchestrator 2026-10-23): a token, never rendered, under
+    // which the form's browser-side behavior registers its element.
+    /// <summary>Gets the token that names the form to the browser-side behavior of its controls.</summary>
+    /// <value>The token, or <see langword="null"/> outside a form.</value>
+    string? FormToken { get; }
 
     /// <summary>Gets the form's error for a field name.</summary>
     /// <param name="name">The field's effective name.</param>
@@ -66,7 +68,7 @@ internal sealed class DefaultFormScope : IFormScope
     public int SubmitCount => 0;
 
     /// <inheritdoc />
-    public string? ElementId => null;
+    public string? FormToken => null;
 
     /// <inheritdoc />
     public bool TryGetErrors(string name, out IReadOnlyList<string> errors)
