@@ -9,6 +9,7 @@ using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
+using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -48,5 +49,8 @@ public static class FixtureCatalog
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
+        ["switch-basic"] = new(typeof(SwitchBasicFixture)),
+        ["switch-labels"] = new(typeof(SwitchLabelsFixture)),
+        ["switch-form"] = new(typeof(SwitchFormFixture)),
     };
 }
