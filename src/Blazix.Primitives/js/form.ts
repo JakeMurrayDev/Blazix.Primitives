@@ -308,7 +308,7 @@ function formById(element: Element, formId: string | null | undefined): HTMLForm
   return form instanceof HTMLFormElement ? form : null;
 }
 
-// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10 (design point C2 of M2 track 5, pending the user). The Enter path of a
+// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10 (design point C2 of M2 track 5, settled by the orchestrator 2026-10-23). The Enter path of a
 // checkbox's root. Base UI cancels the native default on the native event only, so that React ancestors still see
 // `defaultPrevented === false`, and decides in a microtask after React's dispatch; the port has one event, and a
 // microtask queued by a listener runs before the next listener of a user event. So the listener runs in the capture
@@ -364,7 +364,7 @@ function createEnterSubmission(element: HTMLElement, isEnabled: () => boolean): 
   return () => element.removeEventListener('keydown', onKeyDown, { capture: true });
 }
 
-// CHK-ARIA-08, CHK-EDGE-13 (design point C4 of M2 track 5, pending the user): Base UI looks for the label after every
+// CHK-ARIA-08, CHK-EDGE-13 (design point C4 of M2 track 5, settled by the orchestrator 2026-10-23): Base UI looks for the label after every
 // commit of the box; a Blazor component whose parameters did not change does not render again when a label elsewhere
 // mounts, so the module watches the document instead. One observer per document serves every input that looks for its
 // label; its callbacks run once per mutation batch, after the renderer's or a script's change of a label or an id.
@@ -533,7 +533,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     }
   }
 
-  // CHK-ARIA-07/08 (design point C4 of M2 track 5, pending the user): while the part asks for it, the native label of a
+  // CHK-ARIA-07/08 (design point C4 of M2 track 5, settled by the orchestrator 2026-10-23): while the part asks for it, the native label of a
   // form-participation input is discovered on attach, after every update and after every change of the document's labels
   // and ids, and reported when it changed.
   let discoveredLabel: string | null | undefined;

@@ -555,7 +555,7 @@ describe('label', () => {
   });
 });
 
-// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (pending the user): the Enter path of a box's root.
+// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (settled by the orchestrator 2026-10-23): the Enter path of a box's root.
 describe('Enter submission', () => {
   function box(html = '<form id="f"><span id="root" tabindex="0"></span><input type="checkbox" /><button type="submit">Submit</button></form>') {
     document.body.innerHTML = html;
@@ -694,7 +694,7 @@ describe('Enter submission', () => {
   });
 });
 
-// CHK-ARIA-07/08, CHK-DOM-22, CHK-EDGE-13, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (pending the user): the
+// CHK-ARIA-07/08, CHK-DOM-22, CHK-EDGE-13, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (settled by the orchestrator 2026-10-23): the
 // native-label fallback of a box's hidden input, discovered on attach, on every update and after every change of the
 // document's labels or ids, reported when it changes.
 describe('label fallback', () => {

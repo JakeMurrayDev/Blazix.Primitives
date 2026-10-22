@@ -7,8 +7,8 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives;
 
 // The field half of a control whose value is a hidden checkbox input's `checked` (Checkbox now; Switch's follow-up and
-// Radio may reuse it, design point C5 of M2 track 5, pending the user): FFI §8 as checkbox §8 states it for a standalone
-// box, the FieldControlBehavior pattern (Field/) with a boolean value and two form-module handles on one twin.
+// Radio reuse it; design point C5 of M2 track 5, settled by the orchestrator 2026-10-23): FFI §8 as checkbox §8 states it
+// for a standalone box, the FieldControlBehavior pattern with a boolean value and two form-module handles on one twin.
 // - The control-id claim (FFI-ALG-07, CHK-DOM-15/21, CHK-FRM-16): the labelable control id is the scope's control id, else
 //   the consumer's non-empty id, else the part's own; registered after the render; a box that shares its scope with a
 //   group claims nothing.
@@ -21,8 +21,8 @@ namespace Blazix.Primitives;
 //   attaches or becomes enabled (CHK-FRM-14, CHK-FOC-04/05; FFI-STA-09); the hidden input is the validation input,
 //   reporting only on a refresh and handing focus to the root (CHK-FRM-19, CHK-FOC-03; FFI-FOC-05). While nothing else
 //   names the control, the module also looks for the input's native label and reports its id (CHK-ARIA-07/08; design
-//   point C4, pending the user). A group's member registers that input with the field's validation inputs instead
-//   (checkbox-group §8, FFI-FRM-24); a commit it starts refreshes every member's input.
+//   point C4, settled by the orchestrator 2026-10-23). A group's member registers that input with the field's validation
+//   inputs instead (checkbox-group §8, FFI-FRM-24); a commit it starts refreshes every member's input.
 // - ADR 05 Amendments 2026-10-22: EditContext participation through the checked expression.
 /// <summary>The field behavior of a control backed by a hidden checkbox input.</summary>
 internal sealed class CheckableFieldBehavior : IDisposable
