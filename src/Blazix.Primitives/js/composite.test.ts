@@ -1223,6 +1223,18 @@ describe('Composite', () => {
       expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
       expect(byTestId('2').getAttribute('tabindex')).toBe('0');
     });
+
+    // CMP-STA-29: Base UI re-validates whenever the highlighted index changes too, so focus landing on an item that
+    // disabledIndices disables leaves the tab stop on the first enabled item.
+    it('moves the tab stop off an item that disabledIndices disables when focus lands on it (CMP-STA-29)', () => {
+      mountItems(['1', '2', '3'], { disabledIndices: [1] });
+
+      byTestId('2').focus();
+
+      expect(document.activeElement).toBe(byTestId('2'));
+      expect(byTestId('1').getAttribute('tabindex')).toBe('0');
+      expect(byTestId('2').getAttribute('tabindex')).toBe('-1');
+    });
   });
 
   // Each removal is what C# does: the render batch removes the element, then the root's `update` drops its id.
