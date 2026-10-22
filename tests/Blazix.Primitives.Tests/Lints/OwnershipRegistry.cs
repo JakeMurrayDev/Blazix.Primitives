@@ -33,5 +33,8 @@ internal static class OwnershipRegistry
         new("collapsible", "Panel", "hidden", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
+        // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
+        // property from attach; C# renders the initial value once (the handover).
+        new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
     ];
 }
