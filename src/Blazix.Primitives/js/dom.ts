@@ -730,9 +730,26 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   // accepts must stay until its commit arrives; a refused one is reverted natively (the `button` module's `toggle`
   // decision on WebAssembly, its read-only `preventDefault()`) or restored by the update that raises `checkedRestores`.
   const assertChecked = () => {
-    if (options.checked != null && element instanceof ownerWindow(element).HTMLInputElement) {
+    if (!disposed && options.checked != null && element instanceof ownerWindow(element).HTMLInputElement) {
       element.checked = options.checked;
     }
+  };
+
+  // switch.md §16 Q1 (b), chosen by the user 2026-10-22 (FFI-FRM-30's dated note): a form reset puts the input back to the
+  // `checked` attribute C# rendered first. The reset algorithm runs after the `reset` event's listeners, so the property is
+  // re-asserted one task later. The owning form is the input's `form`, which follows its `form` attribute.
+  let resetForm: HTMLFormElement | null = null;
+  const onReset = () => {
+    ownerWindow(element).setTimeout(assertChecked, 0);
+  };
+  const bindReset = () => {
+    const form = !disposed && options.checked != null && element instanceof ownerWindow(element).HTMLInputElement ? element.form : null;
+    if (form === resetForm) {
+      return;
+    }
+    resetForm?.removeEventListener('reset', onReset);
+    resetForm = form;
+    resetForm?.addEventListener('reset', onReset);
   };
 
   // A native click on a checkbox clears `indeterminate` before the click is dispatched; this listener restores it
@@ -829,6 +846,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const apply = () => {
     assertChecked();
+    bindReset();
     assertIndeterminate();
     applyLiveRegion();
     applyImage();
@@ -851,6 +869,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       }
       disposed = true;
       element.removeEventListener('click', onClick);
+      bindReset();
       unmarkLiveRegion?.();
       unmarkLiveRegion = null;
       supersedeProbe();
