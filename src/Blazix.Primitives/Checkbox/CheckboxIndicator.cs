@@ -119,6 +119,7 @@ public sealed class CheckboxIndicator : PartBase<CheckboxIndicatorState>
     private readonly Action rootChanged;
     private readonly Action<TransitionStatusChange> onTransitionStatus;
     private readonly Action<bool> onTransitionCompleted;
+    private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private CheckboxRootContext? context;
     private CheckboxIndicatorState? state;
     private bool mounted;
@@ -164,6 +165,11 @@ public sealed class CheckboxIndicator : PartBase<CheckboxIndicatorState>
 
     /// <inheritdoc />
     protected override StateAttributesMapping<CheckboxIndicatorState>? StateAttributesMapping => context!.State.Indeterminate ? s_mixedMapping : s_mapping;
+
+    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for the module before it toggles.
+    /// <summary>Gets a task that completes when the indicator's transitions behavior is first attached to its element.</summary>
+    /// <value>A task that completes after the first interactive render that showed the element.</value>
+    internal Task TwinAttached => attachedSource.Task;
 
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">The indicator is not placed within a <see cref="CheckboxRoot"/>.</exception>
@@ -360,5 +366,6 @@ public sealed class CheckboxIndicator : PartBase<CheckboxIndicatorState>
             OpenSelector = RenderedSelector,
         };
         transitionsHandle = await transitionsTwin.AttachAsync(element.Value, sentOptions);
+        attachedSource.TrySetResult();
     }
 }

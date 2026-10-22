@@ -1,0 +1,102 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-basic` fixture (tests/browser/checkbox.spec.ts): an uncontrolled box, a native-button box, a controlled
+    box with an external toggle, a controlled box whose consumer ignores the request, a canceling box, read-only and
+    disabled boxes, a box whose consumer vetoes from C# (onclick and Space keyup), and an indeterminate box whose consumer
+    passes the value back. Every case is inside an ancestor the specs count clicks on.
+*@
+<FixtureContainer Name="checkbox-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled box has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <CheckboxCaseFrame Name="uncontrolled" Case="uncontrolled">
+        <div data-ancestor>
+            <CheckboxRoot @ref="uncontrolledRoot" data-checkbox OnCheckedChange="uncontrolled.Change" @onclick="uncontrolled.Click" />
+        </div>
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="native" Case="native">
+        <div data-ancestor>
+            <CheckboxRoot @ref="nativeRoot" data-checkbox NativeButton="true" OnCheckedChange="native.Change" @onclick="native.Click">
+                <Render><button></button></Render>
+            </CheckboxRoot>
+        </div>
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="controlled" Case="controlled">
+        <button type="button" data-toggle @onclick="() => controlledValue = !controlledValue">Toggle</button>
+        <CheckboxRoot @ref="controlledRoot" data-checkbox Checked="controlledValue" CheckedChanged="value => controlledValue = value" OnCheckedChange="controlled.Change" />
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="ignored" Case="ignored">
+        <CheckboxRoot @ref="ignoredRoot" data-checkbox Checked="false" OnCheckedChange="ignored.Change" />
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="cancel" Case="cancel">
+        <CheckboxRoot @ref="cancelRoot" data-checkbox OnCheckedChange="cancel.Change" />
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="readonly" Case="readOnly">
+        <label data-label>
+            <CheckboxRoot @ref="readOnlyRoot" data-checkbox ReadOnly="true" OnCheckedChange="readOnly.Change" />
+            Read-only
+        </label>
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="disabled" Case="disabled">
+        <CheckboxRoot @ref="disabledRoot" data-checkbox Disabled="true" OnCheckedChange="disabled.Change" @onclick="disabled.Click" />
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="vetoed" Case="vetoed">
+        <CheckboxRoot @ref="vetoedRoot" data-checkbox OnCheckedChange="vetoed.Change" @onclick="VetoClick" @onkeyup="VetoSpace" />
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="indeterminate" Case="indeterminate">
+        <CheckboxRoot @ref="indeterminateRoot" data-checkbox Indeterminate="true" Checked="indeterminateValue" CheckedChanged="value => indeterminateValue = value" OnCheckedChange="indeterminate.Change" />
+    </CheckboxCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CheckboxCase uncontrolled = new();
+    private readonly CheckboxCase native = new();
+    private readonly CheckboxCase controlled = new();
+    private readonly CheckboxCase ignored = new();
+    private readonly CheckboxCase cancel = new() { Cancel = true };
+    private readonly CheckboxCase readOnly = new();
+    private readonly CheckboxCase disabled = new();
+    private readonly CheckboxCase vetoed = new();
+    private readonly CheckboxCase indeterminate = new();
+    private bool controlledValue;
+    private bool indeterminateValue;
+    private CheckboxRoot? uncontrolledRoot;
+    private CheckboxRoot? nativeRoot;
+    private CheckboxRoot? controlledRoot;
+    private CheckboxRoot? ignoredRoot;
+    private CheckboxRoot? cancelRoot;
+    private CheckboxRoot? readOnlyRoot;
+    private CheckboxRoot? disabledRoot;
+    private CheckboxRoot? vetoedRoot;
+    private CheckboxRoot? indeterminateRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes =>
+        [uncontrolledRoot, nativeRoot, controlledRoot, ignoredRoot, cancelRoot, readOnlyRoot, disabledRoot, vetoedRoot, indeterminateRoot];
+
+    private void VetoClick(MouseEventArgs e)
+    {
+        vetoed.Click(e);
+        e.PreventPartHandler();
+    }
+
+    private void VetoSpace(KeyboardEventArgs e)
+    {
+        if (e.Key == " ")
+        {
+            e.PreventPartHandler();
+        }
+    }
+}
