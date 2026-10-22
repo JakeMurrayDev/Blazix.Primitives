@@ -154,12 +154,19 @@ public sealed class FormSubmitTests : IDisposable
     [Fact(DisplayName = "attaches the form module to the form element with the submit options")]
     [Trait("Verifies", "ADR06-3")]
     [Trait("Requirement", "FRM-EVT-01")]
+    [Trait("Requirement", "FRM-DOM-02")]
+    [Trait("Requirement", "FRM-DOM-03")]
     public void Attaches_the_form_module_to_the_form_element()
     {
-        Render(Scenario.Values);
+        IRenderedComponent<FormSubmitScenarios> cut = Render(Scenario.Values);
 
         FormSubmitOptions options = Assert.IsType<FormSubmitOptions>(host.Module.FormElement.SubmitOptions);
         Assert.Equal(0, options.FocusRevision);
+
+        // Design point F6 (settled by the orchestrator 2026-10-23): the form's token, never rendered, names it to its controls.
+        Assert.False(string.IsNullOrEmpty(options.Token));
+        Assert.All(host.Module.Controls, control => Assert.Equal(options.Token, control.Options!.FormId));
+        Assert.False(cut.Find("form").HasAttribute("id"));
     }
 
     [Fact(DisplayName = "answers submit, handled or blocked, and counts every submission")]
