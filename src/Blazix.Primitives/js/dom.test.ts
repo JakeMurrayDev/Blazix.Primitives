@@ -1176,3 +1176,63 @@ describe('dom module: twin handle', () => {
     expect(element.textContent).toBe('Status');
   });
 });
+
+// The `checked` property of a hidden checkbox or radio input is the `dom` primitive's after attach (ADR 04 Amendments
+// 2026-10-22 item 2; SWT-DOM-08, SWT-EVT-04, SWT-STA-03). It is set on attach and on every update and is never re-asserted
+// inside a native click, which would undo an accepted toggle before C# commits it; a request that leaves the value
+// unchanged raises `checkedRestores`, so the update still arrives. Port titles: Base UI relies on React's controlled input.
+describe.each([
+  ['Server', false],
+  ['WebAssembly', true],
+])('SwitchRoot hidden input checked (%s)', (_mode, synchronous) => {
+  function hiddenInput(checked = false) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    document.body.appendChild(input);
+    return input;
+  }
+
+  it('sets the checked property of the hidden input on attach', () => {
+    const input = hiddenInput(false);
+
+    handles.push(attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin({ synchronous }).twin));
+
+    expect(input.checked).toBe(true);
+  });
+
+  it('follows the value of every update', () => {
+    const input = hiddenInput(false);
+    const handle = attach(input, JSON.stringify({ checked: false } satisfies DomOptions), createFakeTwin({ synchronous }).twin);
+    handles.push(handle);
+
+    handle.update(JSON.stringify({ checked: true } satisfies DomOptions));
+    expect(input.checked).toBe(true);
+
+    handle.update(JSON.stringify({ checked: false } satisfies DomOptions));
+    expect(input.checked).toBe(false);
+  });
+
+  it('keeps a native click until C# answers, then restores the unchanged value when the restore count rises', () => {
+    const input = hiddenInput(false);
+    const handle = attach(input, JSON.stringify({ checked: false, checkedRestores: 0 } satisfies DomOptions), createFakeTwin({ synchronous }).twin);
+    handles.push(handle);
+
+    input.click();
+    expect(input.checked).toBe(true);
+
+    handle.update(JSON.stringify({ checked: false, checkedRestores: 1 } satisfies DomOptions));
+    expect(input.checked).toBe(false);
+  });
+
+  it('restores the property a native click changed on any later update', () => {
+    const input = hiddenInput(true);
+    const handle = attach(input, JSON.stringify({ checked: true } satisfies DomOptions), createFakeTwin({ synchronous }).twin);
+    handles.push(handle);
+
+    input.checked = false;
+    handle.update(JSON.stringify({ checked: true, liveRegion: false } satisfies DomOptions));
+
+    expect(input.checked).toBe(true);
+  });
+});
