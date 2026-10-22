@@ -23,7 +23,7 @@ Renders every part through a `BunitContext` (with `Services.AddBlazixPrimitives(
 - Each twin options record has a contract test, so a change to it breaks L2 before L4.
 - Render-count requirements are asserted through bUnit's render counts (ADR 06 §1 amendment).
 - bUnit's markup shows one element-reference capture per element (the first written, the part's own); a second capture is asserted non-null, not located (ADR 06 §1: non-null capture for RND-DOM-44/45).
-- An allocation budget (`Rendering/AllocationBudgetTests`, `Button/ButtonAllocationBudgetTests`, `Separator/SeparatorAllocationBudgetTests`, `Avatar/AvatarAllocationBudgetTests`, `Field/FieldAllocationBudgetTests`) only tightens (ADR 16 rule 7).
+- An allocation budget (`Rendering/AllocationBudgetTests`, `Button/ButtonAllocationBudgetTests`, `Separator/SeparatorAllocationBudgetTests`, `Avatar/AvatarAllocationBudgetTests`, `Field/FieldAllocationBudgetTests`, `Form/FormAllocationBudgetTests`) only tightens (ADR 16 rule 7).
 - The development warnings switch is on for the whole run (`Button/DevelopmentWarningsSwitch`, a module initializer), as in a Debug build of an app; a test that needs it off sets the option it reads explicitly.
 - Family tests use the project's root namespace (and a `.razor` consumer in a family folder sets `@namespace`), because a namespace named after the family would hide the part's type.
 - `Rendering/RenderPipelineSequenceTests` reads a part's frames through a `Renderer` of its own, because bUnit reaches them only through a protected member; its Razor consumers (`Rendering/Consumers/CaptureConsumer.razor`) expose their fragments so the test can compare the consumer's own sequence numbers with the re-emitted ones.
