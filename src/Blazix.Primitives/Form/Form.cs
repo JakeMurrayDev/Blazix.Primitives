@@ -38,6 +38,7 @@ public sealed class Form : PartBase<EmptyState>
     private readonly FormScope scope = new();
     private readonly Action scopeChanged;
     private readonly Func<FormSubmitRequest, Task<FormSubmitAnswer>> submitHandler;
+    private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private FormTwin? twin;
     private TwinHandle<FormOptions>? handle;
     private FormOptions? sentOptions;
@@ -112,6 +113,11 @@ public sealed class Form : PartBase<EmptyState>
     /// <inheritdoc />
     protected override EmptyState State => EmptyState.Instance;
 
+    // For the fixtures: completes once the form module is attached, so a browser test can wait for its listener.
+    /// <summary>Gets a task that completes when the form's browser-side behavior is attached to its element.</summary>
+    /// <value>A task that completes after the first interactive render attached the behavior.</value>
+    internal Task TwinAttached => attachedSource.Task;
+
     // FRM-STA-03, for the tests: the number of submissions started.
     /// <summary>Gets the number of submissions the form has started.</summary>
     /// <value>The submission counter.</value>
@@ -167,6 +173,7 @@ public sealed class Form : PartBase<EmptyState>
         twin ??= new FormTwin(JSRuntime) { SubmitHandler = submitHandler };
         sentOptions = options;
         handle = Element is { } element ? await twin.AttachAsync(element, options).ConfigureAwait(true) : await twin.AttachAsync(elementId, options).ConfigureAwait(true);
+        attachedSource.TrySetResult();
     }
 
     /// <inheritdoc />
