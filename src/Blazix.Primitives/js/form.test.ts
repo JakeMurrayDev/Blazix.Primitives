@@ -719,14 +719,16 @@ describe('form submission', () => {
     const form = document.querySelector<HTMLFormElement>('#form')!;
     const shadow = document.querySelector('#host')!.attachShadow({ mode: 'open' });
     shadow.innerHTML = '<input id="shadowed" />';
-    const { twin, settled } = createSubmitTwin([{ verdict: 'blocked', focus: ['light', 'shadowed'] }]);
+    attachControl(shadow.querySelector<HTMLInputElement>('#shadowed')!, { formId: 'form' });
+    attachControl(document.querySelector<HTMLInputElement>('#light')!, { formId: 'form' });
+    const { twin, settled } = createSubmitTwin([{ verdict: 'blocked', focus: ['shadowed', 'light'] }]);
     attachForm(form, twin);
     recordSubmits(form);
 
     document.querySelector<HTMLButtonElement>('#send')!.click();
     await settled();
 
-    expect(document.activeElement).toBe(document.querySelector('#light'));
+    expect(shadow.activeElement).toBe(shadow.querySelector('#shadowed'));
   });
 
   it('calls select() only on an input', async () => {
