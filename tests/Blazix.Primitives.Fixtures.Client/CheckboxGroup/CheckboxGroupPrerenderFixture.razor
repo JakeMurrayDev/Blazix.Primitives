@@ -1,0 +1,79 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures
+@using Blazix.Primitives
+
+@*
+    The `checkbox-group-prerender` fixture (tests/browser/checkbox-group.spec.ts), prerendered: CheckboxGroup.test.tsx's
+    Field.Label titles that read the server markup and then the hydrated page. The claims of the group (the null control
+    id, CKG-ARIA-03) and of the members (their ids in the parent's aria-controls, CKG-ARIA-06) are made after the render,
+    so the static response carries the label's `for` and no aria-controls.
+*@
+<FixtureContainer Name="checkbox-group-prerender">
+    @foreach (bool native in s_modes)
+    {
+        <div data-case="@(native ? "shared-native" : "shared")">
+            <FieldRoot Name="apples">
+                <FieldLabel data-label>Apples</FieldLabel>
+                <CheckboxGroup AllValues="s_apples">
+                    @Box("parent", null, native)
+                    @Box("fuji", "fuji", native)
+                    @Box("gala", "gala", native)
+                </CheckboxGroup>
+            </FieldRoot>
+        </div>
+
+        <div data-case="@(native ? "items-native" : "items")">
+            <FieldRoot Name="apple">
+                <CheckboxGroup AllValues="s_fuji">
+                    <FieldItem>
+                        <FieldLabel data-label>All</FieldLabel>
+                        @Box("parent", null, native)
+                    </FieldItem>
+                    <FieldItem>
+                        <FieldLabel data-label>Fuji</FieldLabel>
+                        @Box("fuji", "fuji", native)
+                    </FieldItem>
+                </CheckboxGroup>
+            </FieldRoot>
+        </div>
+
+        @foreach (bool parent in s_modes)
+        {
+            <div data-case="@($"associate-{(native ? "native" : "input")}-{(parent ? "parent" : "member")}")">
+                <FieldRoot Name="apple">
+                    <CheckboxGroup AllValues="s_fuji">
+                        <FieldItem>
+                            <FieldLabel data-label>Fuji</FieldLabel>
+                            @Box(parent ? "parent" : "fuji", parent ? null : "fuji", native)
+                        </FieldItem>
+                    </CheckboxGroup>
+                </FieldRoot>
+            </div>
+        }
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly bool[] s_modes = [false, true];
+    private static readonly IReadOnlyList<string> s_apples = ["fuji", "gala"];
+    private static readonly IReadOnlyList<string> s_fuji = ["fuji"];
+
+    private static RenderFragment Box(string testId, string? value, bool native) => builder =>
+    {
+        builder.OpenComponent<CheckboxRoot>(0);
+        builder.AddAttribute(1, "data-checkbox", string.Empty);
+        builder.AddAttribute(2, "data-testid", testId);
+        builder.AddComponentParameter(3, nameof(CheckboxRoot.Parent), value is null);
+        builder.AddComponentParameter(4, nameof(CheckboxRoot.Value), value);
+        builder.AddComponentParameter(5, nameof(CheckboxRoot.NativeButton), native);
+        if (native)
+        {
+            builder.AddComponentParameter(6, nameof(CheckboxRoot.Render), (RenderFragment)(b =>
+            {
+                b.OpenElement(0, "button");
+                b.CloseElement();
+            }));
+        }
+
+        builder.CloseComponent();
+    };
+}

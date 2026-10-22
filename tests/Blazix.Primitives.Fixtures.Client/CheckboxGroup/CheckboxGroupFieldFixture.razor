@@ -1,0 +1,116 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-group-field` fixture (tests/browser/checkbox-group.spec.ts): CheckboxGroup.test.tsx's Field titles that
+    need a browser and render no Form. Required members validated on change and on blur (the native valueMissing of the
+    representative input), the custom message on a member's input, members named by their native labels, and the
+    per-mode rows of checkbox-group §9 (CKG-STA-11, CKG-ARIA-06).
+*@
+<FixtureContainer Name="checkbox-group-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled box has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="required-change">
+        <FieldRoot Name="protocols" ValidationMode="ValidationMode.OnChange">
+            <CheckboxGroup DefaultValue="s_empty">
+                <FieldItem>
+                    <CheckboxRoot @ref="changeHttp" data-checkbox data-testid="cb-http" Value="http" Required="true" />
+                </FieldItem>
+                <FieldItem>
+                    <CheckboxRoot @ref="changeHttps" data-checkbox data-testid="cb-https" Value="https" Required="true" />
+                </FieldItem>
+            </CheckboxGroup>
+        </FieldRoot>
+    </div>
+
+    <div data-case="required-blur">
+        <FieldRoot Name="protocols" ValidationMode="ValidationMode.OnBlur">
+            <CheckboxGroup DefaultValue="s_empty">
+                <FieldItem>
+                    <CheckboxRoot @ref="blurHttp" data-checkbox data-testid="cb-http" Value="http" Required="true" />
+                </FieldItem>
+                <FieldItem>
+                    <CheckboxRoot @ref="blurHttps" data-checkbox data-testid="cb-https" Value="https" Required="true" />
+                </FieldItem>
+            </CheckboxGroup>
+        </FieldRoot>
+    </div>
+
+    <div data-case="custom-validity">
+        <FieldRoot Name="protocols" ValidationMode="ValidationMode.OnChange" Validate="PickTwo">
+            <CheckboxGroup @bind-Value="customValue">
+                <FieldItem>
+                    <CheckboxRoot @ref="customHttp" data-checkbox data-testid="cb-http" Value="http" Disabled="customDisabled" />
+                </FieldItem>
+                <FieldItem>
+                    <CheckboxRoot @ref="customHttps" data-checkbox data-testid="cb-https" Value="https" />
+                </FieldItem>
+            </CheckboxGroup>
+            <button type="button" data-disable @onclick="() => customDisabled = true">disable</button>
+        </FieldRoot>
+    </div>
+
+    <div data-case="names">
+        <FieldRoot Name="apples">
+            <CheckboxGroup AllValues="s_apples">
+                <label><CheckboxRoot @ref="namesParent" data-checkbox data-testid="parent" Parent="true" />All</label>
+                <label><CheckboxRoot @ref="namesFuji" data-checkbox data-testid="fuji" Value="fuji" />Fuji</label>
+                <label><CheckboxRoot @ref="namesGala" data-checkbox data-testid="gala" Value="gala" />Gala</label>
+            </CheckboxGroup>
+        </FieldRoot>
+    </div>
+
+    <div data-case="filled">
+        <FieldRoot Name="fruits">
+            <CheckboxGroup data-group DefaultValue="s_cherry">
+                <CheckboxRoot @ref="filledApple" data-checkbox data-testid="apple" Value="apple" />
+            </CheckboxGroup>
+        </FieldRoot>
+    </div>
+
+    <div data-case="controls">
+        <FieldRoot Name="apples">
+            <CheckboxGroup AllValues="s_apples">
+                <CheckboxRoot @ref="controlsParent" data-checkbox data-testid="parent" Parent="true" />
+                <CheckboxRoot @ref="controlsFuji" data-checkbox data-testid="fuji" Value="fuji" />
+                @if (galaMounted)
+                {
+                    <CheckboxRoot data-checkbox data-testid="gala" Value="gala" />
+                }
+            </CheckboxGroup>
+        </FieldRoot>
+        <button type="button" data-unmount @onclick="() => galaMounted = false">Unmount</button>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> s_empty = [];
+    private static readonly IReadOnlyList<string> s_apples = ["fuji", "gala"];
+    private static readonly IReadOnlyList<string> s_cherry = ["cherry"];
+    private CheckboxRoot? changeHttp;
+    private CheckboxRoot? changeHttps;
+    private CheckboxRoot? blurHttp;
+    private CheckboxRoot? blurHttps;
+    private CheckboxRoot? customHttp;
+    private CheckboxRoot? customHttps;
+    private CheckboxRoot? namesParent;
+    private CheckboxRoot? namesFuji;
+    private CheckboxRoot? namesGala;
+    private CheckboxRoot? filledApple;
+    private CheckboxRoot? controlsParent;
+    private CheckboxRoot? controlsFuji;
+    private IReadOnlyList<string> customValue = [];
+    private bool customDisabled;
+    private bool galaMounted = true;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes =>
+        [changeHttp, changeHttps, blurHttp, blurHttps, customHttp, customHttps, namesParent, namesFuji, namesGala, filledApple, controlsParent, controlsFuji];
+
+    private static ValueTask<FieldValidationResult?> PickTwo(FieldValidationArguments arguments) =>
+        ValueTask.FromResult<FieldValidationResult?>(((IReadOnlyList<string>)arguments.Value!).Count < 2 ? "pick two" : null);
+}
