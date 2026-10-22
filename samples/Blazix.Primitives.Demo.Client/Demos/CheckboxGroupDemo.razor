@@ -1,0 +1,84 @@
+<DemoFrame Slug="checkbox-group" Note="A parent box that ticks or clears the group, and a group that is its field's control.">
+    <Hero>
+        <CheckboxGroup aria-labelledby="apples-heading" DefaultValue="s_fuji" class="flex flex-col items-start gap-1 text-neutral-950 dark:text-white">
+            <div class="text-sm font-bold" id="apples-heading">Apples</div>
+            @foreach ((string value, string label) in s_apples)
+            {
+                <label class="@LabelClass">
+                    <CheckboxRoot Name="apple" Value="@value" class="@RootClass">
+                        <CheckboxIndicator class="flex data-unchecked:hidden">@CheckIcon</CheckboxIndicator>
+                    </CheckboxRoot>
+                    @label
+                </label>
+            }
+        </CheckboxGroup>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <CheckboxGroup aria-labelledby="parent-heading" AllValues="s_allValues" @bind-Value="parentValue" class="flex flex-col items-start gap-1">
+                <div class="text-sm font-bold" id="parent-heading">Try it: a parent box</div>
+                <label class="@LabelClass">
+                    <CheckboxRoot Parent="true" class="@MixedRootClass">
+                        <CheckboxIndicator class="flex data-unchecked:hidden">
+                            @(parentValue.Count > 0 && parentValue.Count < s_allValues.Count ? MinusIcon : CheckIcon)
+                        </CheckboxIndicator>
+                    </CheckboxRoot>
+                    All apples
+                </label>
+                @foreach ((string value, string label) in s_apples)
+                {
+                    <label class="@LabelClass ml-4">
+                        <CheckboxRoot Value="@value" class="@RootClass">
+                            <CheckboxIndicator class="flex data-unchecked:hidden">@CheckIcon</CheckboxIndicator>
+                        </CheckboxRoot>
+                        @label
+                    </label>
+                }
+            </CheckboxGroup>
+            <span class="VariantName">value: <strong>[@string.Join(", ", parentValue)]</strong></span>
+        </div>
+        <div class="Variant">
+            <FieldRoot Name="protocols" ValidationMode="ValidationMode.OnChange" Validate="PickTwo" class="flex flex-col items-start gap-1">
+                <FieldLabel class="text-sm font-bold">Protocols</FieldLabel>
+                <CheckboxGroup DefaultValue="s_none" class="flex flex-col items-start gap-1">
+                    @foreach (string protocol in s_protocols)
+                    {
+                        <FieldItem>
+                            <FieldLabel class="@LabelClass">
+                                <CheckboxRoot Value="@protocol" class="@RootClass">
+                                    <CheckboxIndicator class="flex data-unchecked:hidden">@CheckIcon</CheckboxIndicator>
+                                </CheckboxRoot>
+                                @protocol.ToUpperInvariant()
+                            </FieldLabel>
+                        </FieldItem>
+                    }
+                </CheckboxGroup>
+                <FieldDescription class="text-sm text-neutral-600 dark:text-neutral-400">Pick at least two.</FieldDescription>
+            </FieldRoot>
+            <span class="VariantName">Inside a Field: the label names the group, and the field validates its value on change (the boxes turn aria-invalid)</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LabelClass = "flex items-center gap-2 text-sm font-normal text-neutral-950 dark:text-white";
+    private const string RootClass = "flex size-4 shrink-0 items-center justify-center border rounded-none p-0 border-neutral-950 bg-white text-white dark:border-white dark:bg-neutral-950 dark:text-neutral-950 data-checked:bg-neutral-950 data-checked:text-white dark:data-checked:bg-white dark:data-checked:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white aria-invalid:border-red-600";
+
+    // The hero's classes, plus the mixed state's (the parent box shows the group's mixed state).
+    private const string MixedRootClass = RootClass + " data-indeterminate:bg-neutral-950 data-indeterminate:text-white dark:data-indeterminate:bg-white dark:data-indeterminate:text-neutral-950";
+
+    private static readonly IReadOnlyList<string> s_fuji = ["fuji-apple"];
+    private static readonly IReadOnlyList<string> s_none = [];
+    private static readonly (string Value, string Label)[] s_apples = [("fuji-apple", "Fuji"), ("gala-apple", "Gala"), ("granny-smith-apple", "Granny Smith")];
+    private static readonly IReadOnlyList<string> s_allValues = ["fuji-apple", "gala-apple", "granny-smith-apple"];
+    private static readonly string[] s_protocols = ["http", "https", "ftp"];
+
+    private static readonly RenderFragment CheckIcon = @<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" style="display: block"><path d="m2.5 8.5 4 4 7-9" /></svg>;
+
+    private static readonly RenderFragment MinusIcon = @<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" style="display: block"><path d="M3 8h10" /></svg>;
+
+    private IReadOnlyList<string> parentValue = ["gala-apple"];
+
+    private static ValueTask<FieldValidationResult?> PickTwo(FieldValidationArguments arguments) =>
+        ValueTask.FromResult<FieldValidationResult?>(((IReadOnlyList<string>)arguments.Value!).Count < 2 ? "Pick at least two." : null);
+}
