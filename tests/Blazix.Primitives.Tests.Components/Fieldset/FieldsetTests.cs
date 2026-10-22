@@ -72,10 +72,11 @@ public sealed class FieldsetTests : IDisposable
         Assert.False(cut.Find("[data-testid=root]").HasAttribute("data-disabled"));
     }
 
-    // FST-DOM-09 re-cited (ADR 13 Amendments 2026-10-22): Base UI's title substitutes RadioGroup, CheckboxGroup and Slider,
-    // which arrive in tracks 8 and 6 and in M5; Button, whose Disabled receives the computed value, is the substitute that
-    // exists. Blazor matches a component parameter by name case-insensitively, so the spread `disabled` reaches Disabled.
-    [Fact(DisplayName = "passes disabled to a rendered Button root")]
+    // FST-DOM-09 and FST-STR-01 re-cited (ADR 13 Amendments 2026-10-22): Base UI's title substitutes RadioGroup,
+    // CheckboxGroup and Slider, which arrive in tracks 8 and 6 and in M5; Button, whose Disabled receives the computed
+    // value, is the substitute that exists. Blazor matches a component parameter by name case-insensitively, so the spread
+    // `disabled` reaches Disabled; a field inside the substituted root sees the fieldset scope.
+    [Fact(DisplayName = "passes disabled to a rendered Button root, and the scope reaches the fields inside it")]
     [Trait("Requirement", "FST-DOM-09")]
     [Trait("Requirement", "FST-STR-01")]
     public void Passes_disabled_to_a_rendered_Button_root()
@@ -84,19 +85,25 @@ public sealed class FieldsetTests : IDisposable
         {
             builder.OpenComponent<Button>(0);
             builder.AddMultipleAttributes(1, props.Attributes);
-            builder.AddComponentParameter(2, nameof(Button.ChildContent), props.ChildContent);
+            builder.AddComponentParameter(2, nameof(Button.NativeButton), false);
+            builder.AddComponentParameter(3, nameof(Button.Render), (RenderFragment)(b =>
+            {
+                b.OpenElement(0, "div");
+                b.CloseElement();
+            }));
+            builder.AddComponentParameter(4, nameof(Button.ChildContent), props.ChildContent);
             builder.CloseComponent();
         };
         IRenderedComponent<FieldsetRoot> cut = Context.Render<FieldsetRoot>(p => p
             .Add(x => x.Disabled, true)
             .Add(x => x.RenderFunction, button)
             .AddUnmatched("data-testid", "button")
-            .AddChildContent("Group"));
+            .AddChildContent<FieldRoot>(root => root.AddUnmatched("data-testid", "root")));
 
         IElement element = cut.Find("[data-testid=button]");
-        Assert.Equal("BUTTON", element.TagName);
-        Assert.True(element.HasAttribute("disabled"));
+        Assert.Equal("true", element.GetAttribute("aria-disabled"));
         Assert.True(element.HasAttribute("data-disabled"));
+        Assert.True(cut.Find("[data-testid=root]").HasAttribute("data-disabled"));
     }
 
     [Fact(DisplayName = "should set aria-labelledby on the fieldset automatically")]
