@@ -1,0 +1,64 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of FieldsetRoot.test.tsx, FieldsetLegend.test.tsx and useRegisteredLabelId.test.tsx. State a Base UI
+    test keeps with useState is kept in the parameters; a test changes it through cut.Render.
+*@
+@switch (Scenario)
+{
+    case FieldsetScenario.NestedPrecedence:
+        <FieldsetRoot Disabled="OuterDisabled">
+            <FieldsetRoot Disabled="InnerDisabled">
+                <FieldRoot data-testid="root">
+                    <FieldControl data-testid="control" />
+                </FieldRoot>
+            </FieldsetRoot>
+        </FieldsetRoot>
+        break;
+    case FieldsetScenario.LegendAssociation:
+        <FieldsetRoot data-testid="fieldset">
+            @if (ShowLegend)
+            {
+                <FieldsetLegend id="@LegendId">Legend</FieldsetLegend>
+            }
+        </FieldsetRoot>
+        break;
+    case FieldsetScenario.TwoLegends:
+        <FieldsetRoot data-testid="fieldset">
+            @if (Labels != "new")
+            {
+                <FieldsetLegend @key="@("old")" id="old-label">Old</FieldsetLegend>
+            }
+            @if (Labels != "old")
+            {
+                <FieldsetLegend @key="@("new")" id="new-label">New</FieldsetLegend>
+            }
+        </FieldsetRoot>
+        break;
+}
+
+@code {
+    public enum FieldsetScenario
+    {
+        NestedPrecedence,
+        LegendAssociation,
+        TwoLegends,
+    }
+
+    [Parameter]
+    public FieldsetScenario Scenario { get; set; }
+
+    [Parameter]
+    public bool OuterDisabled { get; set; }
+
+    [Parameter]
+    public bool InnerDisabled { get; set; }
+
+    [Parameter]
+    public string LegendId { get; set; } = "legend-a";
+
+    [Parameter]
+    public bool ShowLegend { get; set; } = true;
+
+    [Parameter]
+    public string Labels { get; set; } = "old";
+}

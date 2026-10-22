@@ -33,6 +33,14 @@ internal static class OwnershipRegistry
         new("collapsible", "Panel", "hidden", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-height", Writer.Js),
         new("collapsible", "Panel", "--collapsible-panel-width", Writer.Js),
+        // field.md §5 FLD-DOM-18 (M2 track 1): the transitions module writes the Error's enter and exit attributes. The part
+        // and its state record arrive in PR 1c, which adds the StateField (FieldErrorState.TransitionStatus).
+        new("field", "Error", "data-starting-style", Writer.Js),
+        new("field", "Error", "data-ending-style", Writer.Js),
+        // field.md §5.3 FLD-DOM-11 (ADR 04 Amendments 2026-10-22, chosen by the user 2026-10-22): C# renders the value once; the form
+        // module owns the element's value and defaultValue from attach. Input adopts the row (INP-STR-04).
+        new("field", "Control", "value", Writer.CsharpToJs),
+        new("field", "Control", "defaultValue", Writer.CsharpToJs),
         // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
         // property from attach; C# renders the initial value once (the handover).
         new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),

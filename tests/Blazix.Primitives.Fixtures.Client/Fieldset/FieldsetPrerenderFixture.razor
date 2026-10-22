@@ -1,0 +1,17 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldsetFixtures
+@using Blazix.Primitives
+
+@*
+    The `fieldset-prerender` fixture (tests/browser/fieldset.spec.ts), prerendered: FieldsetLegend.test.tsx "does not set
+    `aria-labelledby` during SSR when legend is absent" and "sets `aria-labelledby` after hydration without a custom legend
+    id" (FFI-FRM-34, FST-DOM-05, FST-DOM-08). The legend publishes its id while it initializes, so the static response
+    already carries the root's aria-labelledby (ADR 01 Amendments 2026-10-22, port note on FST-DOM-08), and the generated
+    id is the same after the runtime takes over.
+*@
+<FixtureContainer Name="fieldset-prerender">
+    <FieldsetRoot data-testid="absent" />
+
+    <FieldsetRoot data-testid="fieldset">
+        <FieldsetLegend data-testid="legend">Legend</FieldsetLegend>
+    </FieldsetRoot>
+</FixtureContainer>

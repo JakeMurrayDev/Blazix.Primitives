@@ -1,0 +1,118 @@
+namespace Blazix.Primitives;
+
+// FFI §2 (field registry), FFI-FRM-17..21, FFI-API-07; internals/form-context/FormContext.ts:13-28 (`formRef.current.fields`,
+// an insertion-ordered Map keyed by control id). Written by fields (FFI-ALG-12/14), read by the form: replacing an entry
+// keeps its position (a Map's set), removing and adding moves it to the end.
+/// <summary>The fields a form validates and submits, keyed by control id, in registration order.</summary>
+internal sealed class FieldRegistry
+{
+    private readonly List<string> order = [];
+    private readonly Dictionary<string, FieldRegistryEntry> entries = new(StringComparer.Ordinal);
+    private readonly bool accepts;
+
+    /// <summary>Initializes a new instance of the <see cref="FieldRegistry"/> class that accepts entries.</summary>
+    public FieldRegistry()
+        : this(accepts: true)
+    {
+    }
+
+    private FieldRegistry(bool accepts)
+    {
+        this.accepts = accepts;
+    }
+
+    /// <summary>Gets the registry outside a form, which accepts no entry.</summary>
+    /// <value>An always-empty registry.</value>
+    public static FieldRegistry None { get; } = new(accepts: false);
+
+    /// <summary>Gets the number of entries.</summary>
+    /// <value>The number of registered fields.</value>
+    public int Count => order.Count;
+
+    /// <summary>Gets the control ids in registration order.</summary>
+    /// <value>The keys.</value>
+    public IReadOnlyList<string> Ids => order;
+
+    /// <summary>Determines whether an entry has the given control id.</summary>
+    /// <param name="id">The control id.</param>
+    /// <returns><see langword="true"/> if the id is registered; otherwise, <see langword="false"/>.</returns>
+    public bool Contains(string id) => entries.ContainsKey(id);
+
+    /// <summary>Gets the entry of a control id.</summary>
+    /// <param name="id">The control id.</param>
+    /// <param name="entry">The entry when the method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> if the id is registered; otherwise, <see langword="false"/>.</returns>
+    public bool TryGet(string id, out FieldRegistryEntry entry) => entries.TryGetValue(id, out entry!);
+
+    /// <summary>Adds or replaces the entry of a control id; a replaced entry keeps its position.</summary>
+    /// <param name="id">The control id.</param>
+    /// <param name="entry">The entry.</param>
+    public void Set(string id, FieldRegistryEntry entry)
+    {
+        if (!accepts)
+        {
+            return;
+        }
+
+        if (!entries.ContainsKey(id))
+        {
+            order.Add(id);
+        }
+
+        entries[id] = entry;
+    }
+
+    /// <summary>Replaces the validity of a registered entry.</summary>
+    /// <param name="id">The control id.</param>
+    /// <param name="validityData">The validity, with the external invalid state folded in.</param>
+    public void SetValidity(string id, FieldValidityData validityData)
+    {
+        if (entries.TryGetValue(id, out FieldRegistryEntry? entry))
+        {
+            entries[id] = entry with { ValidityData = validityData };
+        }
+    }
+
+    /// <summary>Removes the entry of a control id.</summary>
+    /// <param name="id">The control id.</param>
+    /// <returns><see langword="true"/> if an entry was removed; otherwise, <see langword="false"/>.</returns>
+    public bool Remove(string id)
+    {
+        if (!entries.Remove(id))
+        {
+            return false;
+        }
+
+        order.Remove(id);
+        return true;
+    }
+
+    // FFI-API-07, FFI-EVT-05: computed at call time, named entries only, registration order.
+    /// <summary>Builds the values of the named entries.</summary>
+    /// <returns>The values, or <see cref="FormValues.Empty"/> when no entry has a name.</returns>
+    public FormValues BuildValues()
+    {
+        if (order.Count == 0)
+        {
+            return FormValues.Empty;
+        }
+
+        KeyValuePair<string?, object?>[] pairs = new KeyValuePair<string?, object?>[order.Count];
+        for (int i = 0; i < order.Count; i++)
+        {
+            FieldRegistryEntry entry = entries[order[i]];
+            pairs[i] = new KeyValuePair<string?, object?>(entry.Name, string.IsNullOrEmpty(entry.Name) ? null : entry.GetValue());
+        }
+
+        return FormValues.Create(pairs);
+    }
+}
+
+// FFI §2 (registry entry), FFI-ALG-12 `refresh()`; internals/form-context/FormContext.ts:15-27.
+/// <summary>One registered field: its name, its value projection, its validity, its imperative validation and its control.</summary>
+/// <param name="Name">The field's effective name, or <see langword="null"/> for a field that submits nothing.</param>
+/// <param name="GetValue">Returns the control's value as the form's values carry it.</param>
+/// <param name="ValidityData">The field's validity with the external invalid state folded in.</param>
+/// <param name="Validate">Runs the field's imperative validation; its synchronous part has updated this entry when it returns.</param>
+/// <param name="ControlId">The id of the element focused when the form blocks a submission, or <see langword="null"/>.</param>
+internal sealed record FieldRegistryEntry(string? Name, Func<object?> GetValue, FieldValidityData ValidityData, Func<Task> Validate, string? ControlId);

@@ -1,0 +1,167 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of FieldRoot.test.tsx and FieldControl.test.tsx, each scenario rendering the control type the test runs
+    (FieldControl or Input, INP-STR-04: one translation over both parts). State a Base UI test keeps with useState is kept
+    here; a test changes it through the parameters (cut.Render) or the scenario's own buttons.
+*@
+@switch (Scenario)
+{
+    case FieldScenario.TwoControls:
+        <FieldRoot data-testid="root">
+            <FieldLabel data-testid="label">Label</FieldLabel>
+            @if (FirstMounted)
+            {
+                @Control("first", FirstId, new() { ["data-testid"] = "first", ["Disabled"] = FirstDisabled }, key: "a")
+            }
+            @if (SecondMounted)
+            {
+                @Control("second", SecondId, new() { ["data-testid"] = "second" }, key: SecondKey)
+            }
+        </FieldRoot>
+        <button type="button" data-testid="outside"></button>
+        break;
+    case FieldScenario.Controlled:
+        <FieldRoot data-testid="root" ValidationMode="ValidationMode" Validate="Validate">
+            @if (FirstMounted)
+            {
+                @Control("control", FirstId, new()
+                {
+                    ["data-testid"] = "control",
+                    ["Value"] = value,
+                    ["ValueChanged"] = EventCallback.Factory.Create<string?>(this, next => { if (Applies) { value = next; } }),
+                }, key: SecondKey)
+            }
+            <button type="button" data-testid="set" @onclick="() => value = External">set</button>
+        </FieldRoot>
+        break;
+    case FieldScenario.ConsumerInput:
+        <FieldRoot data-testid="root">
+            @Control("control", null, new()
+            {
+                ["data-testid"] = "control",
+                ["Value"] = value,
+                ["oninput"] = EventCallback.Factory.Create<ChangeEventArgs>(this, e => value = (string?)e.Value),
+            })
+            <button type="button" data-testid="change" @onclick="@(() => value = "test")">change</button>
+            <button type="button" data-testid="reset" @onclick="@(() => value = string.Empty)">reset</button>
+        </FieldRoot>
+        break;
+    case FieldScenario.Uncontrolled:
+        <FieldRoot data-testid="root" ValidationMode="ValidationMode" Validate="Validate" Dirty="Dirty" Touched="Touched" Disabled="RootDisabled" Invalid="Invalid">
+            @if (FirstMounted)
+            {
+                @Control("control", FirstId, new() { ["data-testid"] = "control", ["DefaultValue"] = DefaultValue, ["Disabled"] = FirstDisabled }, key: SecondKey)
+            }
+            <FieldLabel data-testid="label" />
+            <FieldDescription data-testid="description" />
+        </FieldRoot>
+        break;
+}
+
+@code {
+    private string? value;
+    private bool initialized;
+
+    public enum FieldScenario
+    {
+        TwoControls,
+        Controlled,
+        ConsumerInput,
+        Uncontrolled,
+    }
+
+    [Parameter]
+    public FieldScenario Scenario { get; set; }
+
+    [Parameter]
+    public Type ControlType { get; set; } = typeof(FieldControl);
+
+    [Parameter]
+    public bool FirstMounted { get; set; } = true;
+
+    [Parameter]
+    public bool SecondMounted { get; set; } = true;
+
+    [Parameter]
+    public string? FirstId { get; set; }
+
+    [Parameter]
+    public string? SecondId { get; set; }
+
+    [Parameter]
+    public string? SecondKey { get; set; } = "b";
+
+    [Parameter]
+    public bool FirstDisabled { get; set; }
+
+    [Parameter]
+    public bool RootDisabled { get; set; }
+
+    [Parameter]
+    public bool Invalid { get; set; }
+
+    [Parameter]
+    public bool? Dirty { get; set; }
+
+    [Parameter]
+    public bool? Touched { get; set; }
+
+    [Parameter]
+    public string? DefaultValue { get; set; }
+
+    [Parameter]
+    public string? InitialValue { get; set; }
+
+    [Parameter]
+    public string? External { get; set; } = "external";
+
+    [Parameter]
+    public bool Applies { get; set; } = true;
+
+    [Parameter]
+    public string? ForceValue { get; set; }
+
+    [Parameter]
+    public ValidationMode? ValidationMode { get; set; }
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+
+    public string? Value => value;
+
+    protected override void OnParametersSet()
+    {
+        if (!initialized)
+        {
+            initialized = true;
+            value = InitialValue;
+        }
+
+        if (ForceValue is not null)
+        {
+            value = ForceValue;
+        }
+    }
+
+    private RenderFragment Control(string name, string? id, Dictionary<string, object?> parameters, string? key = null) => builder =>
+    {
+        if (id is not null)
+        {
+            parameters["id"] = id;
+        }
+
+        builder.OpenComponent(0, ControlType);
+        if (key is not null)
+        {
+            builder.SetKey(key);
+        }
+
+        int sequence = 1;
+        foreach (KeyValuePair<string, object?> parameter in parameters)
+        {
+            builder.AddComponentParameter(sequence++, parameter.Key, parameter.Value);
+        }
+
+        builder.CloseComponent();
+    };
+}
