@@ -710,9 +710,21 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
-    // CHK-FRM-14, CHK-FOC-04, CHK-FRM-11: touched, then focused released, then the onBlur commit of the current value.
+    // CHK-FRM-14, CHK-FOC-04, CHK-FRM-11: touched, then focused released, then the onBlur commit of the current value. A radio
+    // (design point R4 of M2 tracks 7-8, pending the user): standalone it only releases the focused flag (RAD-FOC-03,
+    // radio/root/RadioRoot.tsx:167-173); in a group its group handles focus leaving the group (RDG-FOC-04/05, RDG-FRM-11).
     private Task HandleBlurAsync()
     {
+        if (!parameters.BlurTouches)
+        {
+            if (parameters.BlurReleasesFocus)
+            {
+                fieldScope!.SetFocused(this, false, EffectiveDisabled);
+            }
+
+            return Task.CompletedTask;
+        }
+
         using (fieldScope!.Batch())
         {
             fieldScope.SetTouched(true);
@@ -803,6 +815,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
 /// <param name="EditContext">The cascaded edit context.</param>
 /// <param name="AdditionalAttributes">The unmatched attributes.</param>
 /// <param name="Enabled">Whether the part renders.</param>
+/// <param name="BlurTouches">Whether the root's blur touches the field and commits in onBlur mode, as a box's does.</param>
+/// <param name="BlurReleasesFocus">Whether the root's blur releases the field's focused flag when it does not touch the field.</param>
 internal readonly record struct CheckableFieldParameters(
     string? Name,
     bool Disabled,
@@ -816,4 +830,6 @@ internal readonly record struct CheckableFieldParameters(
     Expression<Func<bool>>? CheckedExpression,
     EditContext? EditContext,
     IReadOnlyDictionary<string, object>? AdditionalAttributes,
-    bool Enabled);
+    bool Enabled,
+    bool BlurTouches = true,
+    bool BlurReleasesFocus = true);
