@@ -49,8 +49,8 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/popover.md | POP | approved | 214 reqs |
 | components/preview-card.md | PRV | approved | 158 reqs |
 | components/progress.md | PRG | implemented | 55 reqs (opus) | |
-| components/radio.md | RAD | approved | 99 reqs |
-| components/radio-group.md | RDG | approved | 86 reqs |
+| components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7 |
+| components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-23, M2 track 8; RDG-FRM-04 and RDG-STR-02's portal clause open to M4 |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
 | components/select.md | SEL | approved | 332 reqs | |
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |
