@@ -531,11 +531,17 @@ test.describe('<Switch.Root />', () => {
     test('prefers `aria-label` over an associated label', async ({ page, mode }) => {
       // The native label half; the Field.Label half is SwitchFieldTests at L2.
       const fixture = await gotoSwitches(page, mode, 'switch-labels');
-      const { root } = switchCase(fixture, 'aria-label');
+      const { container, root, label } = switchCase(fixture, 'aria-label');
       await settle(fixture);
 
       await expect(root).not.toHaveAttribute('aria-labelledby');
       await expect(root).toHaveAccessibleName('Wi-Fi');
+
+      // Port: the label is the one SWT-ARIA-06's fallback would take; without the aria-label it names the switch.
+      await container.locator('[data-remove-aria-label]').evaluate((element) => (element as HTMLElement).click());
+      await expect(root).not.toHaveAttribute('aria-label');
+      await expect(root).toHaveAttribute('aria-labelledby', /.+/);
+      await expect(label).toHaveAttribute('id', (await root.getAttribute('aria-labelledby'))!);
     });
 
     test('port: focus on the hidden input moves to the switch', async ({ page, mode }) => {

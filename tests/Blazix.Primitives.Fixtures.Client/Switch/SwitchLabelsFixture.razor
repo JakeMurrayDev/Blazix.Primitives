@@ -6,7 +6,7 @@
     The `switch-labels` fixture (tests/browser/switch.spec.ts): a switch inside a wrapping native label, a switch named by
     a label's `for` through its id (which goes to the hidden input), and a native-button switch named the same way (the id
     goes to the button), two native labels and a switch whose id moves from the first label's to the second's (the
-    form module's native-label fallback), and a switch named by its aria-label inside a native label.
+    form module's native-label fallback), and a switch named by its aria-label inside a native label, which the page can remove.
 *@
 <FixtureContainer Name="switch-labels" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
@@ -40,8 +40,9 @@
     </SwitchCaseFrame>
 
     <SwitchCaseFrame Name="aria-label" Case="ariaLabel">
+        <button type="button" data-remove-aria-label @onclick="() => ariaLabelOn = false">Remove aria-label</button>
         <label data-label>
-            <SwitchRoot @ref="ariaLabelRoot" data-switch aria-label="Wi-Fi" />
+            <SwitchRoot @ref="ariaLabelRoot" data-switch aria-label="@(ariaLabelOn ? "Wi-Fi" : null)" />
             Wi-Fi
         </label>
     </SwitchCaseFrame>
@@ -59,6 +60,7 @@
     private string idChangeId = "switch-input-a";
     private SwitchRoot? idChangeRoot;
     private SwitchRoot? ariaLabelRoot;
+    private bool ariaLabelOn = true;
 
     private void MoveId() => idChangeId = "switch-input-b";
 
