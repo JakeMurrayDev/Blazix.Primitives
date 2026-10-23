@@ -1,0 +1,27 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The test consumer of CheckboxRoot.test.tsx's Form titles: a Form around one Field.Root, one box and its Field.Error
+    (match valueMissing when ErrorMatch is set, as "triggers native HTML validation on submit" renders it).
+*@
+<Form Errors="Errors" OnSubmit="args => Submits.Add(args)">
+    <FieldRoot Name="@FieldName">
+        <CheckboxRoot data-testid="checkbox" Required="Required" />
+        @if (ErrorMatch)
+        {
+            <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+        }
+        else
+        {
+            <FieldError data-testid="error" />
+        }
+    </FieldRoot>
+</Form>
+
+@code {
+    [Parameter] public string? FieldName { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public FormErrors? Errors { get; set; }
+    [Parameter] public bool ErrorMatch { get; set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+}

@@ -34,6 +34,7 @@ One Opus 5.5 reviewer per document or small group applied the marks of conventio
 
 - collapsible COL-DOM-05 (2026-10-21, M1 track 6, chosen by the user): the Trigger's `data-disabled` follows the Root's `disabled`, not the Trigger's effective value, because the Trigger renders the Root's state object (`collapsible/trigger/CollapsibleTrigger.tsx:31,49-50`; §3.2). The §3.2 attribute row was corrected with it.
 - field-and-form-infrastructure FFI-STR-05 (2026-10-23, M2 track 1, PR 1c; settled by the orchestrator 2026-10-23 (ADR 15; fidelity correction, COL-DOM-05 precedent)): outside a `<Form>` the default form scope is not empty. The default `FormContext` value holds one `fields` map that every field outside a `<Form>` registers in (`internals/form-context/FormContext.ts:33-46`, `internals/field-register-control/useFieldControlRegistration.ts:71,113`), and a validator's form values come from it (`field/root/useFieldValidation.ts:293-298`; `CheckboxGroup.test.tsx` expects `{ group: [...] }`). Found by M2 track 6. The glossary row, the index row and form.md §2 were corrected with it; the port keeps one registry per runtime.
+- checkbox CHK-DOM-01 (2026-10-23, M2 track 6, design point G3, settled by the orchestrator 2026-10-23): a substitute element's own `id` stays on a box's root (RND-DOM-32's precedence), where the port's first CheckboxRoot replaced it with the part's id; a group member registers the id the element carries for its parent's `aria-controls`. Dated note on CHK-DOM-01.
 
 ## Global consistency checks (script)
 
