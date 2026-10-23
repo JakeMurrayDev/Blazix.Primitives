@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using Blazix.Primitives.Interop;
+using Blazix.Primitives.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -151,6 +152,42 @@ public sealed class RadioRootTests : IDisposable
         Assert.Equal("false", radioA.GetAttribute("aria-checked"));
         await test.ToggleAsync(cut, 0);
         Assert.Equal("true", cut.Find("[data-testid=a]").GetAttribute("aria-checked"));
+    }
+
+    // RAD-EDGE-09's structure clause, re-cited from "points inputRef to the first radio input when nativeButton wraps a
+    // button" (inputRef is withdrawn, ADR 02 Amendments 2026-10-22). The label-click clause is L4 (radio.spec.ts).
+    [Fact(DisplayName = "port: a native-button radio wrapped in a label by a render callback renders its hidden input after the label")]
+    [Trait("Requirement", "RAD-EDGE-09")]
+    [Trait("Requirement", "RAD-STR-01")]
+    public void A_native_button_radio_wrapped_in_a_label_renders_its_hidden_input_after_the_label()
+    {
+        RenderFragment<RenderProps<RadioRootState>> wrapped = props => builder =>
+        {
+            builder.OpenElement(0, "label");
+            builder.AddAttribute(1, "data-testid", "label");
+            builder.OpenElement(2, "button");
+            builder.AddMultipleAttributes(3, props.Attributes);
+            builder.CloseElement();
+            builder.AddContent(4, "Apple");
+            builder.CloseElement();
+        };
+        IRenderedComponent<RadioGroup<string>> cut = Context.Render<RadioGroup<string>>(p => p.AddChildContent(builder =>
+        {
+            builder.OpenComponent<RadioRoot<string>>(0);
+            builder.AddComponentParameter(1, nameof(RadioRoot<string>.Value), "apple");
+            builder.AddComponentParameter(2, nameof(RadioRoot<string>.NativeButton), true);
+            builder.AddComponentParameter(3, nameof(RadioRoot<string>.RenderFunction), wrapped);
+            builder.CloseComponent();
+        }));
+
+        IElement label = cut.Find("[data-testid=label]");
+        IElement button = label.QuerySelector("button")!;
+        Assert.Equal("radio", button.GetAttribute("role"));
+        Assert.Empty(label.QuerySelectorAll("input"));
+        IElement? input = label.NextElementSibling;
+        Assert.Equal("INPUT", input?.TagName);
+        Assert.Equal("radio", input!.GetAttribute("type"));
+        Assert.Equal("apple", input.GetAttribute("value"));
     }
 
     [Fact(DisplayName = "prefers `aria-label` over an associated label")]
