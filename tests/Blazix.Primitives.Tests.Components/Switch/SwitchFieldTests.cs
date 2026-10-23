@@ -38,6 +38,30 @@ public sealed class SwitchFieldTests : IDisposable
         Assert.True(cut.Find("input[type=checkbox]").HasAttribute("disabled"));
     }
 
+    [Fact(DisplayName = "port: a switch inside a disabled Field.Item is not disabled by it, and claims the item's label")]
+    [Trait("Requirement", "SWT-API-04")]
+    public void Port_a_switch_inside_a_disabled_Field_Item_is_not_disabled_by_it()
+    {
+        // SWT-API-04: `fieldDisabled || disabled`; Base UI's Switch.Root reads the field root's disabled state only (a
+        // Field.Item disables a checkbox, not a switch), and takes the item's labelable scope.
+        IRenderedComponent<FieldRoot> cut = Context.Render<FieldRoot>(p => p.AddChildContent<FieldItem>(item => item
+            .Add(x => x.Disabled, true)
+            .AddChildContent(builder =>
+            {
+                builder.OpenComponent<FieldLabel>(0);
+                builder.AddComponentParameter(1, "data-testid", "item-label");
+                builder.CloseComponent();
+                builder.OpenComponent<SwitchRoot>(2);
+                builder.AddComponentParameter(3, "data-testid", "switch");
+                builder.CloseComponent();
+            })));
+
+        Assert.False(cut.Find(Switch).HasAttribute("aria-disabled"));
+        Assert.False(cut.Find(Switch).HasAttribute("data-disabled"));
+        Assert.False(cut.Find("input[type=checkbox]").HasAttribute("disabled"));
+        Assert.Equal(cut.Find("input[type=checkbox]").GetAttribute("id"), cut.Find("[data-testid=item-label]").GetAttribute("for"));
+    }
+
     [Fact(DisplayName = "should receive name prop from Field.Root")]
     [Trait("Requirement", "SWT-API-07")]
     [Trait("Requirement", "SWT-DOM-08")]
