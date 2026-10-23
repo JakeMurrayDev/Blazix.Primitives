@@ -53,6 +53,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private FieldRootContext? fieldScope;
     private FieldItemContext? item;
+    private bool itemDisables;
     private LabelableScope? scope;
     private readonly IFormScope formless;
     private IFormScope form;
@@ -112,10 +113,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
         && parameters.AdditionalAttributes.TryGetValue("id", out object? value)
         && value is string { Length: > 0 } text ? text : null;
 
-    // CHK-API-11: the field's, the item's and the part's own disabled state, OR'd.
-    /// <summary>Gets a value indicating whether the control is disabled, its field's and item's state included.</summary>
+    // CHK-API-11: the field's, the item's and the part's own disabled state, OR'd; SWT-API-04: a switch reads the field's
+    // and its own only (Base UI's Switch.Root does not read the item's context).
+    /// <summary>Gets a value indicating whether the control is disabled, its field's state, and its item's when it reads it, included.</summary>
     /// <value><see langword="true"/> when any of them is disabled.</value>
-    public bool EffectiveDisabled => (fieldScope is not null && FieldItemContext.DisabledOf(fieldScope, item)) || parameters.Disabled || GroupDisabled;
+    public bool EffectiveDisabled => (fieldScope is not null && (itemDisables ? FieldItemContext.DisabledOf(fieldScope, item) : fieldScope.Disabled)) || parameters.Disabled || GroupDisabled;
 
     /// <summary>Gets or sets a value indicating whether the control's group disables it.</summary>
     /// <value><see langword="true"/> while an enclosing group is disabled.</value>
@@ -210,10 +212,15 @@ internal sealed class CheckableFieldBehavior : IDisposable
     /// <summary>Takes the cascaded scopes; called once, when the part initializes.</summary>
     /// <param name="fieldContext">The nearest field, or <see langword="null"/>.</param>
     /// <param name="itemContext">The nearest item, or <see langword="null"/>.</param>
-    public void Initialize(FieldRootContext? fieldContext, FieldItemContext? itemContext)
+    /// <param name="itemDisablesControl">
+    /// <see langword="true"/>, the default, when a disabled item disables the control, as for a checkbox;
+    /// <see langword="false"/> when only the field's disabled state does, as for a switch. The item's label scope applies either way.
+    /// </param>
+    public void Initialize(FieldRootContext? fieldContext, FieldItemContext? itemContext, bool itemDisablesControl = true)
     {
         fieldScope = fieldContext;
         item = itemContext;
+        itemDisables = itemDisablesControl;
         scope = fieldScope is null ? null : FieldItemContext.LabelableOf(fieldScope, item);
         fieldScope?.AddListener(fieldChanged);
     }
@@ -312,7 +319,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
             }
         }
 
-        await AttachOrUpdateAsync(root, rootId, input).ConfigureAwait(true);
+        await AttachOrUpdateAsync(root, rootId, input, inputId).ConfigureAwait(true);
     }
 
     // DP6 (settled by the orchestrator 2026-10-22 under ADR 04 §3's one-way contract): a commit reads the hidden input's
@@ -522,7 +529,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
-    private async Task AttachOrUpdateAsync(ElementReference? root, string rootId, ElementReference? input)
+    private async Task AttachOrUpdateAsync(ElementReference? root, string rootId, ElementReference? input, string? inputId)
     {
         if (twin is null)
         {
@@ -581,6 +588,15 @@ internal sealed class CheckableFieldBehavior : IDisposable
             sentInputOptions = inputOptions;
             inputHandle = await twin.AttachAsync(inputElement, inputOptions).ConfigureAwait(true);
             attachedSource.TrySetResult();
+
+            // A submission's native state reaches the validation input by the input's id (SetSink). An input that renders
+            // no id (a native-button control) is validated at submit from its last report, so it reports once at attach,
+            // not only after a change: a required, unchecked native-button switch is valueMissing at its first submit
+            // (SWT-FRM-08).
+            if (InField && parameters.OwnsValue && inputId is null)
+            {
+                Observe(RefreshAsync());
+            }
         }
         else if (InputOptionsChanged())
         {

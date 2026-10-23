@@ -5,7 +5,8 @@
 @*
     The `switch-labels` fixture (tests/browser/switch.spec.ts): a switch inside a wrapping native label, a switch named by
     a label's `for` through its id (which goes to the hidden input), and a native-button switch named the same way (the id
-    goes to the button).
+    goes to the button), two native labels and a switch whose id moves from the first label's to the second's (the
+    form module's native-label fallback), and a switch named by its aria-label inside a native label, which the page can remove.
 *@
 <FixtureContainer Name="switch-labels" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
@@ -30,6 +31,21 @@
             <Render><button></button></Render>
         </SwitchRoot>
     </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="id-change" Case="idChange">
+        <label data-label-a for="switch-input-a">Label A</label>
+        <label data-label-b for="switch-input-b">Label B</label>
+        <SwitchRoot @ref="idChangeRoot" data-switch id="@idChangeId" />
+        <button type="button" data-toggle @onclick="MoveId">Toggle</button>
+    </SwitchCaseFrame>
+
+    <SwitchCaseFrame Name="aria-label" Case="ariaLabel">
+        <button type="button" data-remove-aria-label @onclick="() => ariaLabelOn = false">Remove aria-label</button>
+        <label data-label>
+            <SwitchRoot @ref="ariaLabelRoot" data-switch aria-label="@(ariaLabelOn ? "Wi-Fi" : null)" />
+            Wi-Fi
+        </label>
+    </SwitchCaseFrame>
 </FixtureContainer>
 
 @code {
@@ -39,7 +55,15 @@
     private SwitchRoot? wrappingRoot;
     private SwitchRoot? explicitRoot;
     private SwitchRoot? nativeRoot;
+    private readonly SwitchCase idChange = new();
+    private readonly SwitchCase ariaLabel = new();
+    private string idChangeId = "switch-input-a";
+    private SwitchRoot? idChangeRoot;
+    private SwitchRoot? ariaLabelRoot;
+    private bool ariaLabelOn = true;
+
+    private void MoveId() => idChangeId = "switch-input-b";
 
     /// <inheritdoc />
-    protected override IEnumerable<SwitchRoot?> Switches => [wrappingRoot, explicitRoot, nativeRoot];
+    protected override IEnumerable<SwitchRoot?> Switches => [wrappingRoot, explicitRoot, nativeRoot, idChangeRoot, ariaLabelRoot];
 }

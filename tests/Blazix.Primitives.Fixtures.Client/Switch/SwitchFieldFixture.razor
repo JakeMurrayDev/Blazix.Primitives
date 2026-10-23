@@ -1,0 +1,79 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+@using Blazix.Primitives
+@inherits SwitchFixtureBase
+
+@*
+    The `switch-field` fixture (tests/browser/switch.spec.ts): SwitchRoot.test.tsx's Field titles that need a browser. A
+    switch in a field that the page can disable or unmount (the focused state without a blur event), switches named by a
+    sibling and a wrapping Field.Label, a switch inside a non-native Field.Label, and a switch whose field's filled state
+    the spec watches (the "FFI registration" row of ADR 01).
+*@
+<FixtureContainer Name="switch-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled switch has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-switch] { display: inline-block; width: 2rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="focus">
+        <button type="button" data-disable @onclick="() => focusDisabled = true">Disable</button>
+        <button type="button" data-unmount @onclick="() => focusMounted = false">Unmount</button>
+        <FieldRoot data-root>
+            @if (focusMounted)
+            {
+                <SwitchRoot @ref="focusRoot" data-switch Disabled="focusDisabled" />
+            }
+        </FieldRoot>
+    </div>
+
+    <div data-case="sibling">
+        <FieldRoot data-root>
+            <FieldLabel @ref="siblingLabel" data-label>Label</FieldLabel>
+            <SwitchRoot @ref="siblingRoot" data-switch />
+        </FieldRoot>
+    </div>
+
+    <div data-case="wrapping">
+        <FieldRoot data-root>
+            <FieldLabel @ref="wrappingLabel" data-label>
+                <SwitchRoot @ref="wrappingRoot" data-switch />
+                OK
+            </FieldLabel>
+        </FieldRoot>
+    </div>
+
+    <div data-case="non-native-label">
+        <FieldRoot data-root>
+            <FieldLabel @ref="nonNativeLabel" data-label NativeLabel="false">
+                <Render><span></span></Render>
+                <ChildContent>
+                    <SwitchRoot @ref="nonNativeRoot" data-switch />
+                    OK
+                </ChildContent>
+            </FieldLabel>
+        </FieldRoot>
+    </div>
+
+    <div data-case="filled">
+        <FieldRoot data-root>
+            <SwitchRoot @ref="filledRoot" data-switch />
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private bool focusDisabled;
+    private bool focusMounted = true;
+    private SwitchRoot? focusRoot;
+    private SwitchRoot? siblingRoot;
+    private SwitchRoot? wrappingRoot;
+    private SwitchRoot? nonNativeRoot;
+    private SwitchRoot? filledRoot;
+    private FieldLabel? siblingLabel;
+    private FieldLabel? wrappingLabel;
+    private FieldLabel? nonNativeLabel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<SwitchRoot?> Switches => [focusRoot, siblingRoot, wrappingRoot, nonNativeRoot, filledRoot];
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> OtherParts => [siblingLabel, wrappingLabel, nonNativeLabel];
+}
