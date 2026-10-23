@@ -7,7 +7,7 @@ namespace Blazix.Primitives;
 // form focuses (FFI-FOC-01); RefreshAsync asks the browser-side behavior for the control's current value and validity
 // before an imperative validation (a commit no event started). ApplyState (FFI-FRM-04, FFI-EDGE-07; design point F2 of M2
 // track 2, settled by the orchestrator 2026-10-23): a form validates from the state read in the submit task, as Base UI's submit handler
-// reads the DOM.
+// reads the DOM. ResolveControlId (FFI-FOC-02; M2 track 6, pending the orchestrator): Base UI's controlRef getter.
 /// <summary>The registration of a field's active control.</summary>
 /// <param name="Id">The control id, which keys the field's entry in the form's registry, or <see langword="null"/>.</param>
 /// <param name="Name">The control's own name, which the field uses when it has none, or <see langword="null"/>.</param>
@@ -19,6 +19,10 @@ namespace Blazix.Primitives;
 /// Takes the value and native validity the browser-side behavior read from the control when its form submitted, before
 /// the form validates; or <see langword="null"/>.
 /// </param>
+/// <param name="ResolveControlId">
+/// Returns the id of the element a form focuses, read when the form blocks a submission, or <see langword="null"/> to use
+/// <paramref name="ControlId"/>. A group resolves its representative member then.
+/// </param>
 internal sealed record FieldControlRegistration(
     string? Id,
     string? Name,
@@ -26,4 +30,5 @@ internal sealed record FieldControlRegistration(
     Func<object?>? GetValue,
     string? ControlId,
     Func<Task>? RefreshAsync,
-    Action<string?, NativeValidity>? ApplyState = null);
+    Action<string?, NativeValidity>? ApplyState = null,
+    Func<string?>? ResolveControlId = null);

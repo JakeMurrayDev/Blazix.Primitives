@@ -66,6 +66,7 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
     private EditContextParticipation? participation;
     private Action? fieldChanged;
     private Func<object?>? getValue;
+    private Func<string?>? resolveControlId;
     private IReadOnlyList<string>? observedValue;
     private FieldControlRegistration? sentRegistration;
     private bool registered;
@@ -192,6 +193,7 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
             context.Scope = scope;
             fieldChanged = OnFieldChanged;
             getValue = GetFormValue;
+            resolveControlId = ResolveControlId;
             fieldScope.AddListener(fieldChanged);
         }
     }
@@ -354,7 +356,8 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
             CurrentValue,
             getValue,
             fieldScope!.Validation.Representative()?.ControlId,
-            context!.RefreshMembersAsync);
+            context!.RefreshMembersAsync,
+            ResolveControlId: resolveControlId);
         if (registered && next == sentRegistration)
         {
             return;
@@ -384,6 +387,10 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
             scope!.UnregisterControlId(this);
         }
     }
+
+    // CKG-FOC-02, FFI-FOC-02: the representative member's root when the form blocks a submission; none when no member is
+    // eligible, so the form focuses the next invalid field.
+    private string? ResolveControlId() => fieldScope!.Validation.Representative()?.ControlId;
 
     // CKG-FRM-03: outside a form the raw value.
     private object? GetFormValue() => fieldScope!.Form.FormToken is null ? CurrentValue : context!.Project(CurrentValue);

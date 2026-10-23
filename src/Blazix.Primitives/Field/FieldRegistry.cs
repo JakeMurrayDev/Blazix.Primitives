@@ -150,4 +150,5 @@ internal sealed class FieldRegistry
 /// <param name="Validate">Runs the field's imperative validation; its synchronous part has updated this entry when it returns.</param>
 /// <param name="ControlId">The id of the element focused when the form blocks a submission, or <see langword="null"/>.</param>
 /// <param name="ApplyState">Takes the control's value and native validity read when the form submitted, or <see langword="null"/>.</param>
-internal sealed record FieldRegistryEntry(string? Name, Func<object?> GetValue, FieldValidityData ValidityData, Func<Task> Validate, string? ControlId, Action<string?, NativeValidity>? ApplyState = null);
+/// <param name="ResolveControlId">Returns the id of the element the form focuses, read when it blocks a submission, or <see langword="null"/> to use <paramref name="ControlId"/>.</param>
+internal sealed record FieldRegistryEntry(string? Name, Func<object?> GetValue, FieldValidityData ValidityData, Func<Task> Validate, string? ControlId, Action<string?, NativeValidity>? ApplyState = null, Func<string?>? ResolveControlId = null);

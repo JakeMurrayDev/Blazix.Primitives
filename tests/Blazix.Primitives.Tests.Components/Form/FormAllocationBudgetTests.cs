@@ -12,8 +12,9 @@ namespace Blazix.Primitives.Tests.Components;
 public sealed class FormAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 2248 bytes, most of it the report's deserialization, the
-    // values object built for OnSubmit, the event details and the answer's JSON.
-    private const long PassedSubmitBudgetBytes = 2248;
+    // values object built for OnSubmit, the event details and the answer's JSON. 2256 since M2 track 6 (2026-10-23): the
+    // registry entry's ResolveControlId reference, 8 bytes in the entry record a commit copies with its validity.
+    private const long PassedSubmitBudgetBytes = 2256;
 
     private readonly FieldTestContext host = new();
 
