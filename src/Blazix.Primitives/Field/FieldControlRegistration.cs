@@ -7,7 +7,7 @@ namespace Blazix.Primitives;
 // form focuses (FFI-FOC-01); RefreshAsync asks the browser-side behavior for the control's current value and validity
 // before an imperative validation (a commit no event started). ApplyState (FFI-FRM-04, FFI-EDGE-07; design point F2 of M2
 // track 2, settled by the orchestrator 2026-10-23): a form validates from the state read in the submit task, as Base UI's submit handler
-// reads the DOM. ResolveControlId (FFI-FOC-02; M2 track 6, pending the orchestrator): Base UI's controlRef getter.
+// reads the DOM. ResolveControlId (FFI-FOC-02/FOC-04; M2 track 6, settled by the orchestrator 2026-10-23): Base UI's controlRef getter.
 /// <summary>The registration of a field's active control.</summary>
 /// <param name="Id">The control id, which keys the field's entry in the form's registry, or <see langword="null"/>.</param>
 /// <param name="Name">The control's own name, which the field uses when it has none, or <see langword="null"/>.</param>

@@ -326,7 +326,7 @@ public sealed class Form : PartBase<EmptyState>
     }
 
     // FFI-FOC-01/02: every invalid entry blocks; those with a control are listed, in registration order. A group's control
-    // is its representative member when the form blocks (pending the orchestrator, M2 track 6).
+    // is its representative member when the form blocks (M2 track 6, settled by the orchestrator 2026-10-23).
     private List<string> InvalidControlIds(out bool anyInvalid)
     {
         anyInvalid = false;
