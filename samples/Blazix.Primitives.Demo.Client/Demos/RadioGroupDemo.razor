@@ -1,0 +1,138 @@
+<DemoFrame Slug="radio-group" Note="A group bound from outside, a disabled radio button, a read-only group, a native button, a right-to-left group and a required group in a form.">
+    <Hero>
+        <RadioGroup aria-labelledby="best-apple-heading" DefaultValue="@("fuji-apple")" class="flex flex-col items-start gap-1 text-neutral-950 dark:text-white">
+            <div class="text-sm font-bold" id="best-apple-heading">Best apple</div>
+            @foreach ((string value, string label) in s_apples)
+            {
+                <label class="@LabelClass">
+                    <RadioRoot Value="@value" class="@RootClass">
+                        <RadioIndicator class="@IndicatorClass" />
+                    </RadioRoot>
+                    @label
+                </label>
+            }
+        </RadioGroup>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <RadioGroup aria-labelledby="bound-heading" @bind-Value="bound" class="flex flex-col items-start gap-1">
+                <div class="text-sm font-bold" id="bound-heading">Try it: bound</div>
+                @foreach ((string value, string label) in s_apples)
+                {
+                    <label class="@LabelClass">
+                        <RadioRoot Value="@value" class="@RootClass">
+                            <RadioIndicator class="@IndicatorClass" />
+                        </RadioRoot>
+                        @label
+                    </label>
+                }
+            </RadioGroup>
+            <button type="button" class="Control" @onclick="@(() => bound = "gala-apple")">Select Gala from outside</button>
+            <span class="VariantName">value: <strong>@(bound ?? "none")</strong></span>
+        </div>
+        <div class="Variant">
+            <RadioGroup aria-labelledby="disabled-heading" DefaultValue="@("fuji-apple")" class="flex flex-col items-start gap-1">
+                <div class="text-sm font-bold" id="disabled-heading">A disabled radio button</div>
+                @foreach ((string value, string label) in s_apples)
+                {
+                    <label class="@LabelClass">
+                        <RadioRoot Value="@value" Disabled="@(value == "gala-apple")" class="@DisabledRootClass">
+                            <RadioIndicator class="@IndicatorClass" />
+                        </RadioRoot>
+                        @label
+                    </label>
+                }
+            </RadioGroup>
+            <span class="VariantName">Disabled on Gala: the arrow keys skip it</span>
+        </div>
+        <div class="Variant">
+            <RadioGroup aria-labelledby="readonly-heading" DefaultValue="@("granny-smith-apple")" ReadOnly="true" class="flex flex-col items-start gap-1">
+                <div class="text-sm font-bold" id="readonly-heading">A read-only group</div>
+                @foreach ((string value, string label) in s_apples)
+                {
+                    <label class="@LabelClass">
+                        <RadioRoot Value="@value" class="@RootClass">
+                            <RadioIndicator class="@IndicatorClass" />
+                        </RadioRoot>
+                        @label
+                    </label>
+                }
+            </RadioGroup>
+            <span class="VariantName">ReadOnly (the arrow keys move the focus, nothing is selected)</span>
+        </div>
+        <div class="Variant">
+            <RadioGroup TValue="string" aria-labelledby="native-heading" class="flex flex-col items-start gap-1">
+                <div class="text-sm font-bold" id="native-heading">Native buttons</div>
+                @foreach ((string value, string label) in s_apples)
+                {
+                    <div class="@LabelClass">
+                        <RadioRoot Value="@value" NativeButton="true" id="@($"native-{value}")" class="@RootClass">
+                            <Render><button></button></Render>
+                            <ChildContent><RadioIndicator class="@IndicatorClass" /></ChildContent>
+                        </RadioRoot>
+                        <label for="@($"native-{value}")">@label</label>
+                    </div>
+                }
+            </RadioGroup>
+            <span class="VariantName">NativeButton="true" (buttons named by the labels' for)</span>
+        </div>
+        <div class="Variant">
+            <DirectionProvider Direction="TextDirection.Rtl">
+                <RadioGroup aria-labelledby="rtl-heading" DefaultValue="@("fuji-apple")" dir="rtl" class="flex flex-col items-start gap-1">
+                    <div class="text-sm font-bold" id="rtl-heading">Right to left</div>
+                    @foreach ((string value, string label) in s_apples)
+                    {
+                        <label class="@LabelClass">
+                            <RadioRoot Value="@value" class="@RootClass">
+                                <RadioIndicator class="@IndicatorClass" />
+                            </RadioRoot>
+                            @label
+                        </label>
+                    }
+                </RadioGroup>
+            </DirectionProvider>
+            <span class="VariantName">Inside a DirectionProvider: the left arrow moves forward</span>
+        </div>
+        <div class="Variant">
+            <Form class="flex flex-col items-start gap-2" OnFormSubmit="Submit">
+                <FieldRoot Name="apple" class="flex flex-col items-start gap-1">
+                    <FieldLabel class="text-sm font-bold">Your apple</FieldLabel>
+                    <RadioGroup TValue="string" Required="true" class="flex flex-col items-start gap-1">
+                        @foreach ((string value, string label) in s_apples)
+                        {
+                            <FieldItem>
+                                <FieldLabel class="@LabelClass">
+                                    <RadioRoot Value="@value" class="@RequiredRootClass">
+                                        <RadioIndicator class="@IndicatorClass" />
+                                    </RadioRoot>
+                                    @label
+                                </FieldLabel>
+                            </FieldItem>
+                        }
+                    </RadioGroup>
+                    <FieldError Match="ValidityFlag.ValueMissing" class="text-sm text-red-700 dark:text-red-400">Pick an apple.</FieldError>
+                </FieldRoot>
+                <button type="submit" class="Control">Submit</button>
+            </Form>
+            <span class="VariantName">Required, in a field named "apple": a required group needs a name. Submitted: <strong>@(submitted ?? "nothing yet")</strong></span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LabelClass = "flex items-center gap-2 text-sm font-normal text-neutral-950 dark:text-white";
+    private const string RootClass = "flex size-4 shrink-0 items-center justify-center border rounded-full p-0 border-neutral-950 bg-white text-white dark:border-white dark:bg-neutral-950 dark:text-neutral-950 data-checked:bg-neutral-950 data-checked:text-white dark:data-checked:bg-white dark:data-checked:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string IndicatorClass = "flex items-center justify-center data-unchecked:hidden before:size-2 before:rounded-full before:bg-current";
+
+    // The hero's classes, plus a dimmed disabled radio button and a red border while the field is invalid.
+    private const string DisabledRootClass = RootClass + " data-disabled:opacity-50";
+    private const string RequiredRootClass = RootClass + " aria-invalid:border-red-600";
+
+    private static readonly (string Value, string Label)[] s_apples = [("fuji-apple", "Fuji"), ("gala-apple", "Gala"), ("granny-smith-apple", "Granny Smith")];
+
+    private string? bound = "fuji-apple";
+    private string? submitted;
+
+    private void Submit(FormSubmitEventArgs args) =>
+        submitted = args.Values.TryGetValue("apple", out object? value) ? value as string : null;
+}
