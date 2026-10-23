@@ -482,6 +482,15 @@ internal sealed class CheckableFieldBehavior : IDisposable
             sentInputOptions = inputOptions;
             inputHandle = await twin.AttachAsync(inputElement, inputOptions).ConfigureAwait(true);
             attachedSource.TrySetResult();
+
+            // The field validates a submission from the input's last report (the module reports each enrolled element by
+            // its id, and the control registers under its root's), so the input's native state is read once at attach
+            // too, not only after a change: a required, unchecked input is valueMissing before any toggle (SWT-FRM-08,
+            // CHK-FRM-08).
+            if (InField && parameters.OwnsValue)
+            {
+                Observe(RefreshAsync());
+            }
         }
         else if (InputOptionsChanged())
         {
