@@ -320,7 +320,8 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
         // SWT-DOM-10: the labelable control id, drawn after the root's own, in render order (ADR 02 decision 5).
         controlId = IdGenerator.Next();
         fieldBehavior = new CheckableFieldBehavior(controlId, Formless, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
-        fieldBehavior.Initialize(FieldContext, ItemContext);
+        // SWT-API-04: a Field.Item's disabled state does not reach a switch; its label scope does.
+        fieldBehavior.Initialize(FieldContext, ItemContext, itemDisablesControl: false);
     }
 
     /// <inheritdoc />
