@@ -194,6 +194,21 @@ internal sealed class RadioGroupContext<TValue>
         }
     }
 
+    // RDG-EVT-04 on Server (design point R2 (c), pending the user): the browser can only have unchecked a radio that was
+    // checked, which is one showing the current value.
+    /// <summary>Restores the hidden inputs of the radios that show the group's value, after another radio's request was refused.</summary>
+    /// <param name="refused">The radio whose request was refused, which restores its own input.</param>
+    public void RestoreSelected(RadioRoot<TValue> refused)
+    {
+        for (int i = 0; i < radios.Count; i++)
+        {
+            if (!ReferenceEquals(radios[i], refused) && radios[i].Checked)
+            {
+                radios[i].RestoreCheckedInput();
+            }
+        }
+    }
+
     /// <summary>Gets the fragment that cascades this context to <paramref name="content"/>.</summary>
     /// <param name="content">The content that receives the context.</param>
     /// <returns>The fragment.</returns>

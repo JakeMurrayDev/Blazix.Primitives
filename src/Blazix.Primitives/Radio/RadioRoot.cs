@@ -563,6 +563,15 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
         return vetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
     }
 
+    // RDG-EVT-04 on Server (design point R2 (c), pending the user): the browser unchecked this radio's input natively when a
+    // same-name sibling was clicked, and the request was refused, so the input is restored without a render.
+    /// <summary>Restores the hidden input's <c>checked</c> property from the radio button's state.</summary>
+    internal void RestoreCheckedInput()
+    {
+        checkedRestores++;
+        _ = SendRestoreAsync();
+    }
+
     // RAD-EVT-01..03, RDG-EVT-01..07: the request of one click on the hidden input. A radio input only ever turns on, so
     // the next value is "selected"; the result says whether the radio now holds what the input shows. When it does not,
     // the module reverts the click (WebAssembly) or the part restores the input (RestoreInput).
@@ -684,11 +693,12 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
     }
 
     // RAD-STA-02, RAD-EVT-03, RDG-EVT-04 (restore clause): the ADR 01 row "C#-origin consumer vetoes" of 2026-10-22. The
-    // radio's own state did not change, so the input is restored without a render.
+    // radio's own state did not change, so the input is restored without a render; the browser may also have unchecked
+    // the selected same-name radio, which the group restores (design point R2 (c), pending the user).
     private void RestoreInput()
     {
-        checkedRestores++;
-        _ = SendRestoreAsync();
+        RestoreCheckedInput();
+        group?.RestoreSelected(this);
     }
 
     private async Task SendRestoreAsync()
