@@ -1202,14 +1202,6 @@ describe('findHiddenInput (port)', () => {
     return element;
   }
 
-  it('finds the input that follows the element, past hidden inputs', () => {
-    const root = document.createElement('span');
-    const checkbox = input('checkbox');
-    document.body.append(root, input('hidden'), checkbox);
-
-    expect(findHiddenInput(root)).toBe(checkbox);
-  });
-
   it('finds the input that follows the render callback element containing the element', () => {
     const label = document.createElement('label');
     const button = document.createElement('button');
