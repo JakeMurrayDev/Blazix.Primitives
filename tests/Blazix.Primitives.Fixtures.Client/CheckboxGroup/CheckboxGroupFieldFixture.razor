@@ -25,6 +25,7 @@
                     <CheckboxRoot @ref="changeHttps" data-checkbox data-testid="cb-https" Value="https" Required="true" />
                 </FieldItem>
             </CheckboxGroup>
+            <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
         </FieldRoot>
     </div>
 
@@ -38,6 +39,7 @@
                     <CheckboxRoot @ref="blurHttps" data-checkbox data-testid="cb-https" Value="https" Required="true" />
                 </FieldItem>
             </CheckboxGroup>
+            <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
         </FieldRoot>
     </div>
 
