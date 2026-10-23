@@ -6,6 +6,7 @@ using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
+using Blazix.Primitives.Fixtures.Client.FormFixtures;
 using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
@@ -65,6 +66,10 @@ public static class FixtureCatalog
         ["fieldset-basic"] = new(typeof(FieldsetBasicFixture)),
         ["fieldset-prerender"] = new(typeof(FieldsetPrerenderFixture), Prerender: true),
         ["input-showcase"] = new(typeof(InputShowcaseFixture)),
+        ["form-submit"] = new(typeof(FormSubmitFixture)),
+        ["form-blocked"] = new(typeof(FormBlockedFixture)),
+        ["form-native-validation"] = new(typeof(FormNativeValidationFixture)),
+        ["form-external-errors"] = new(typeof(FormExternalErrorsFixture)),
         ["switch-basic"] = new(typeof(SwitchBasicFixture)),
         ["switch-labels"] = new(typeof(SwitchLabelsFixture)),
         ["switch-form"] = new(typeof(SwitchFormFixture)),

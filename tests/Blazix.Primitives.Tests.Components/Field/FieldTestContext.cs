@@ -62,7 +62,13 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
     public IReadOnlyList<Attached> Controls => [.. Attachments().Where(a => a.IsControl && a.Twin is not null)];
 
     /// <summary>The attached labels, in attach order.</summary>
-    public IReadOnlyList<Attached> Labels => [.. Attachments().Where(a => !a.IsControl && a.Twin is not null)];
+    public IReadOnlyList<Attached> Labels => [.. Attachments().Where(a => !a.IsControl && !a.IsForm && a.Twin is not null)];
+
+    /// <summary>The attached form elements, in attach order.</summary>
+    public IReadOnlyList<Attached> Forms => [.. Attachments().Where(a => a.IsForm && a.Twin is not null)];
+
+    /// <summary>The form element attached last.</summary>
+    public Attached FormElement => Forms[^1];
 
     /// <summary>The control attached last.</summary>
     public Attached Control => Controls[^1];
@@ -113,6 +119,8 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
             this.host = host;
             Twin = twin;
             IsControl = attachOptions.Control is not null;
+            IsForm = attachOptions.Submit is not null;
+            SubmitOptions = attachOptions.Submit;
             options = attachOptions.Control;
             if (options is not null)
             {
@@ -124,6 +132,33 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
         public FormTwin? Twin { get; }
 
         public bool IsControl { get; }
+
+        public bool IsForm { get; }
+
+        /// <summary>The submit options the module last received, for a form element.</summary>
+        public FormSubmitOptions? SubmitOptions { get; private set; }
+
+        /// <summary>
+        /// A native submission of the form element: the module prevents it and reports it with the submitter and the
+        /// state it reads from each enrolled control; returns C#'s answer.
+        /// </summary>
+        public FormSubmitAnswer Submit<TComponent>(IRenderedComponent<TComponent> cut, string? submitterId = null, params FormControlState[] controls)
+            where TComponent : IComponent
+        {
+            FormSubmitRequest request = new()
+            {
+                Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
+                SubmitterId = submitterId,
+                Controls = controls,
+            };
+            string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+            string answer = cut.InvokeAsync(() => Twin!.OnSubmitRequest(json)).GetAwaiter().GetResult();
+            return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        }
+
+        /// <summary>The submit options of every update the form element received, in order.</summary>
+        public IReadOnlyList<FormSubmitOptions> SubmitUpdates() =>
+            [.. host.UpdateOptions().Select(FieldTestContext.Parse).Where(o => o.Submit is not null).Select(o => o.Submit!)];
 
         /// <summary>The element's value as the module keeps it.</summary>
         public string DomValue { get; set; } = string.Empty;

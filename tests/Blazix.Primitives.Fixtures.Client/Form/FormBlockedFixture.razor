@@ -1,0 +1,53 @@
+@namespace Blazix.Primitives.Fixtures.Client.FormFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `form-blocked` fixture (tests/browser/form.spec.ts): a blocked submission focuses the first invalid control.
+    `custom-native` is Form.test.tsx "blocks submit and focuses the first invalid field across custom and native validation"
+    (OnFormSubmit's calls as data-form-submits); `reordered` renders two required fields by key and reverses them, so the
+    document order differs from the registration order (FRM-FOC-01's document order; Base UI's title renders Checkbox).
+*@
+<FixtureContainer Name="form-blocked" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="custom-native" data-form-submits="@formSubmits">
+        <Form @ref="customNativeForm" OnFormSubmit="() => formSubmits++">
+            <FieldRoot Name="custom" Validate="CustomError">
+                <FieldControl @ref="customControl" data-testid="custom" DefaultValue="value" />
+            </FieldRoot>
+            <FieldRoot Name="native">
+                <FieldControl @ref="nativeControl" data-testid="native" required />
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="reordered">
+        <Form @ref="reorderedForm" OnFormSubmit="() => { }">
+            @foreach (string key in order)
+            {
+                <FieldRoot @key="key" Name="@key">
+                    <FieldControl data-testid="@key" required />
+                </FieldRoot>
+            }
+            <button type="submit">Submit</button>
+        </Form>
+        <button type="button" data-reverse @onclick="() => order = [.. order.Reverse()]">Reverse</button>
+    </div>
+</FixtureContainer>
+
+@code {
+    private Form? customNativeForm;
+    private FieldControl? customControl;
+    private FieldControl? nativeControl;
+    private Form? reorderedForm;
+    private int formSubmits;
+    private string[] order = ["first", "second"];
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [customNativeForm, customControl, nativeControl, reorderedForm];
+
+    private static ValueTask<FieldValidationResult?> CustomError(FieldValidationArguments arguments) => new("custom error");
+}

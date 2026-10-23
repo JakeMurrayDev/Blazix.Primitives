@@ -111,3 +111,57 @@ internal sealed record FormControlReport
 /// <summary>The payload of the label mismatch report: the rendered element contradicts the declared mode.</summary>
 /// <param name="ExpectedNative"><see langword="true"/> when the label is declared native but its element is not a <c>label</c>.</param>
 internal sealed record LabelMismatch(bool ExpectedNative);
+
+// FRM-EVT-01, FFI-ALG-05, FFI-FRM-04, FFI-EDGE-07 (M2 track 2; design points F1 and F2).
+/// <summary>The state the module read from one control enrolled on a form, when the form submitted.</summary>
+internal sealed record FormControlState
+{
+    /// <summary>Gets the control element's id.</summary>
+    /// <value>The id the control's field registered under.</value>
+    public string Id { get; init; } = string.Empty;
+
+    /// <summary>Gets the control's value.</summary>
+    /// <value>The live value, or <see langword="null"/> for an element without one.</value>
+    public string? Value { get; init; }
+
+    /// <summary>Gets the control's native validity.</summary>
+    /// <value>The validity, with the field's own custom message taken out.</value>
+    public NativeValidity Validity { get; init; } = NativeValidity.Default;
+}
+
+/// <summary>One native submission of a form, which the module prevented.</summary>
+internal sealed record FormSubmitRequest
+{
+    /// <summary>Gets the snapshot of the <c>submit</c> event.</summary>
+    /// <value>The snapshot, taken after the module prevented the event's default.</value>
+    public EventSnapshot Event { get; init; } = EventSnapshot.CreatePlaceholder();
+
+    /// <summary>Gets the id of the element that submitted the form.</summary>
+    /// <value>The submitter's id, or <see langword="null"/> when there is none or it has no id.</value>
+    public string? SubmitterId { get; init; }
+
+    /// <summary>Gets the state of every control enrolled on the form.</summary>
+    /// <value>The states, in the order the controls attached.</value>
+    public IReadOnlyList<FormControlState> Controls { get; init; } = [];
+}
+
+/// <summary>C#'s answer to a submission.</summary>
+internal sealed record FormSubmitAnswer
+{
+    /// <summary>Represents the verdict that re-issues the submission.</summary>
+    public const string SubmitVerdict = "submit";
+
+    /// <summary>Represents the verdict of a submission that validation blocked.</summary>
+    public const string BlockedVerdict = "blocked";
+
+    /// <summary>Represents the verdict of a submission C# handled itself.</summary>
+    public const string HandledVerdict = "handled";
+
+    /// <summary>Gets the verdict.</summary>
+    /// <value><see cref="SubmitVerdict"/>, <see cref="BlockedVerdict"/> or <see cref="HandledVerdict"/>.</value>
+    public string Verdict { get; init; } = HandledVerdict;
+
+    /// <summary>Gets the ids of the invalid fields' controls, in registration order.</summary>
+    /// <value>For <see cref="BlockedVerdict"/>: the controls the module focuses the first of; otherwise <see langword="null"/>.</value>
+    public IReadOnlyList<string>? Focus { get; init; }
+}

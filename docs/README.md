@@ -38,7 +38,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
 | components/field.md | FLD | approved | 143 reqs; owns normative Field.Control text; revised 2026-10-22, PR 1a; `implemented` proposed with PR 1c |
 | components/fieldset.md | FST | approved | 32 reqs; revised 2026-10-22, PR 1a; `implemented` proposed with PR 1c | |
-| components/form.md | FRM | approved | 48 reqs | |
+| components/form.md | FRM | approved | 48 reqs; revised 2026-10-23, M2 track 2; `implemented` proposed with PR 1c | |
 | components/input.md | INP | approved | 19 reqs; alias of Field.Control; revised 2026-10-22, PR 1a; `implemented` proposed with PR 1c | |
 | components/menu.md | MNU | approved | 308 reqs | |
 | components/menubar.md | MBR | approved | 91 reqs (opus) | builds on menu |
