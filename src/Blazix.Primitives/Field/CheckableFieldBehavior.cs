@@ -396,7 +396,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
         fieldScope!.RegisterControl(this, next);
     }
 
-    // FFI-FRM-04 (pending the orchestrator, M2 track 6): the state the module reads from the hidden input when the form
+    // FFI-FRM-04 (M2 track 6, settled by the orchestrator 2026-10-23 (F2/DP6, ADR 16 rule 6)): the state the module reads from the hidden input when the form
     // submits reaches the validation input by the input's id. A native-button box renders no id on its input, so its
     // input's state at submit is the last one reported.
     private void SetSink(string? inputId)

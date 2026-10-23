@@ -90,7 +90,7 @@ internal sealed class FieldRegistry
         return true;
     }
 
-    // FFI-FRM-04, FFI-FRM-24 (pending the orchestrator, M2 track 6): the hidden inputs of checkbox and radio controls are
+    // FFI-FRM-04, FFI-FRM-24 (M2 track 6, settled by the orchestrator 2026-10-23 (F2/DP6, ADR 16 rule 6)): the hidden inputs of checkbox and radio controls are
     // validation inputs whose element is not the field's entry (a box's entry is keyed by its root, a group's has no
     // element), so the state the module reads from them when the form submits reaches them by their element id.
     /// <summary>Registers a validation input under the id of its element, for the state read when the form submits.</summary>
