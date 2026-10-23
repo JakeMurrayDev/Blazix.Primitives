@@ -605,7 +605,7 @@ Non-normative.
 | RAD-API-03 | MUST | effective readOnly; blocks selection; input `readonly` | 3.1 |
 | RAD-API-04 | MUST | effective required → input `required` only | 3.1 |
 | RAD-API-05 | MUST | `nativeButton` default false; UBT mode | 3.1 |
-| RAD-API-06 | MUST | `inputRef` → hidden input | 3.1 |
+| RAD-API-06 | MUST | `inputRef` → hidden input. Port: withdrawn (ADR 02 Amendments 2026-10-22) | 3.1 |
 | RAD-API-07 | MUST | `id` → hidden input (non-native) / root (native) | 3.1 |
 | RAD-API-08 | MUST | className/style/render per RND | 3.1 |
 | RAD-API-09 | MUST | other props forwarded to root; consumer handlers first | 3.1 |
@@ -673,7 +673,7 @@ Non-normative.
 | RAD-FRM-01 | MUST | native participation rules | 8 |
 | RAD-FRM-02 | MUST | serializeValue rules | 8 |
 | RAD-FRM-03 | MUST | validation registry entry with root control | 8 |
-| RAD-FRM-04 | MUST | group registration for inputRef; re-register on change | 8 |
+| RAD-FRM-04 | MUST | group registration for inputRef; re-register on change. Port: withdrawn (ADR 02 Amendments 2026-10-22) | 8 |
 | RAD-FRM-05 | MUST | touched on selection | 8 |
 | RAD-FRM-06 | MUST | Field.Label `for`/aria-labelledby; click selects | 8 |
 | RAD-FRM-07 | MUST | form reset ignored | 8 |
