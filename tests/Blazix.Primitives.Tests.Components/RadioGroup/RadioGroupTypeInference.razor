@@ -1,0 +1,60 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    RadioGroup.spec.tsx and RadioRoot.spec.tsx as Razor consumers that must compile (issue 84): TValue inferred from Value,
+    from DefaultValue and from a nullable value; an explicit TValue; a RadioRoot inferring TValue through the group's
+    [CascadingTypeParameter]; and RadioRoot's own value types. A mismatched explicit type argument does not compile, which
+    is the C# compiler's check of `<Radio.Root<'a' | 'b'> value="c" />`.
+*@
+@* value={values[0]}: string *@
+<RadioGroup Value="@values[0]" OnValueChange="(ValueChangeEventArgs<string> e) => Seen(e.Value)" data-case="value">
+    <RadioRoot Value="@("a")" />
+</RadioGroup>
+
+@* defaultValue={narrowedValue}: the narrowed type, an enum here *@
+<RadioGroup DefaultValue="Fruit.Apple" OnValueChange="(ValueChangeEventArgs<Fruit> e) => Seen(e.Value)" data-case="default-value">
+    <RadioRoot Value="Fruit.Pear" />
+</RadioGroup>
+
+@* <RadioGroup<NarrowedValue> value={narrowedValue}>: an explicit type argument *@
+<RadioGroup TValue="Fruit" Value="narrowedValue" data-case="explicit">
+    <RadioRoot Value="Fruit.Apple" />
+</RadioGroup>
+
+@* <RadioGroup<string | null>> and value={null}: a nullable value; a radio whose value is a bare null takes TValue from
+   the group's cascade only when it names it (the Razor compiler infers from a radio's own Value first) *@
+<RadioGroup Value="nullableValue" OnValueChange="(ValueChangeEventArgs<string> e) => Seen(e.Value)" data-case="nullable">
+    <RadioRoot TValue="string" Value="null" />
+    <RadioRoot Value="@("a")" />
+</RadioGroup>
+
+@* @bind-Value supplies Value, ValueChanged and ValueExpression; a radio of a nullable value type names its TValue, since
+   the Razor compiler infers a radio's TValue from its own Value before the group's cascade *@
+<RadioGroup @bind-Value="bound" data-case="bind">
+    <RadioRoot TValue="int?" Value="1" />
+    <RadioRoot TValue="int?" Value="2" />
+</RadioGroup>
+
+@* RadioRoot.spec.tsx: <Radio.Root value={value} />, value={1}, value={null}, <Radio.Root<string | null> value={null} /> *@
+<RadioRoot Value="value" data-case="radio-string" />
+<RadioRoot Value="1" data-case="radio-int" />
+<RadioRoot TValue="string" Value="null" data-case="radio-explicit-null" />
+
+@code {
+    private readonly string[] values = ["a", "b", "c"];
+    private readonly Fruit narrowedValue = Fruit.Apple;
+    private readonly string? nullableValue = null;
+    private readonly string value = "a";
+    private int? bound;
+
+    /// <summary>The narrowed value type of the spec: a closed set of values.</summary>
+    public enum Fruit
+    {
+        Apple,
+        Pear,
+    }
+
+    /// <summary>Gets the values the change callbacks received.</summary>
+    public List<object?> Values { get; } = [];
+
+    private void Seen<T>(T value) => Values.Add(value);
+}

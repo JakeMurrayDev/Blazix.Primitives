@@ -1,0 +1,221 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Linq.Expressions
+@using Microsoft.AspNetCore.Components.Forms
+@*
+    The test consumer of RadioGroup.test.tsx's Field and Form titles: an optional Form around one Field.Root and one group,
+    with an optional Field.Label and Field.Description in the field's scope, each radio optionally inside a Field.Item with
+    its own label (wrapping or sibling) and description, and an optional Field.Error. A controlled host keeps the value a
+    Base UI test keeps with useState.
+*@
+@if (InForm)
+{
+    <Form Errors="Errors" OnSubmit="args => Submits.Add(args)" OnFormSubmit="OnFormSubmit">
+        @RenderField
+    </Form>
+}
+else
+{
+    @RenderField
+}
+
+@code {
+    [Parameter] public bool InForm { get; set; }
+    [Parameter] public FormErrors? Errors { get; set; }
+    [Parameter] public bool CaptureFormSubmit { get; set; }
+    [Parameter] public string? FieldName { get; set; }
+    [Parameter] public bool FieldDisabled { get; set; }
+    [Parameter] public ValidationMode? ValidationMode { get; set; }
+    [Parameter] public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+    [Parameter] public bool ShowLabel { get; set; }
+    [Parameter] public bool ShowGroupDescription { get; set; }
+    [Parameter] public MatchValue? ErrorMatch { get; set; }
+    [Parameter] public bool ShowError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
+    [Parameter] public ItemLayout Items { get; set; }
+    [Parameter] public IReadOnlyList<HostRadio> Radios { get; set; } = [];
+    [Parameter] public string? GroupName { get; set; }
+    [Parameter] public string? DefaultValue { get; set; }
+    [Parameter] public bool Controlled { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public bool GroupDisabled { get; set; }
+    [Parameter] public bool GroupRequired { get; set; }
+    [Parameter] public bool GroupMounted { get; set; } = true;
+    [Parameter] public Dictionary<string, object>? GroupAttributes { get; set; }
+    [Parameter] public EditContext? EditContext { get; set; }
+    [Parameter] public Expression<Func<string?>>? ValueExpression { get; set; }
+
+    public FieldRoot? Field { get; private set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+
+    public List<FormValues> FormSubmits { get; } = [];
+
+    public List<string?> Changes { get; } = [];
+
+    /// <summary>How each radio is placed.</summary>
+    public enum ItemLayout
+    {
+        None,
+        WrappingLabel,
+        SiblingLabel,
+    }
+
+    private EventCallback<FormSubmitEventArgs> OnFormSubmit =>
+        CaptureFormSubmit ? EventCallback.Factory.Create<FormSubmitEventArgs>(this, args => FormSubmits.Add(args.Values)) : default;
+
+    private RenderFragment RenderField => builder =>
+    {
+        builder.OpenComponent<FieldRoot>(0);
+        builder.AddAttribute(1, "data-testid", "field");
+        builder.AddComponentParameter(2, nameof(FieldRoot.Name), FieldName);
+        builder.AddComponentParameter(3, nameof(FieldRoot.Disabled), FieldDisabled);
+        builder.AddComponentParameter(4, nameof(FieldRoot.ValidationMode), ValidationMode);
+        builder.AddComponentParameter(5, nameof(FieldRoot.Validate), Validate);
+        builder.AddComponentParameter(7, nameof(FieldRoot.ChildContent), (RenderFragment)(content =>
+        {
+            if (ShowLabel)
+            {
+                content.OpenComponent<FieldLabel>(0);
+                content.AddAttribute(1, "data-testid", "field-label");
+                content.CloseComponent();
+            }
+
+            if (EditContext is not null)
+            {
+                content.OpenComponent<CascadingValue<EditContext>>(2);
+                content.AddComponentParameter(3, "Value", EditContext);
+                content.AddComponentParameter(4, "IsFixed", true);
+                content.AddComponentParameter(5, "ChildContent", RenderGroup);
+                content.CloseComponent();
+            }
+            else
+            {
+                content.AddContent(6, RenderGroup);
+            }
+
+            if (ShowError)
+            {
+                content.OpenComponent<FieldError>(7);
+                content.AddAttribute(8, "data-testid", "error");
+                content.AddComponentParameter(9, nameof(FieldError.Match), ErrorMatch);
+                if (ErrorText is not null)
+                {
+                    content.AddComponentParameter(10, nameof(FieldError.ChildContent), (RenderFragment)(error => error.AddContent(0, ErrorText)));
+                }
+
+                content.CloseComponent();
+            }
+        }));
+        builder.AddComponentReferenceCapture(11, component => Field = (FieldRoot)component);
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderGroup => builder =>
+    {
+        if (!GroupMounted)
+        {
+            return;
+        }
+
+        builder.OpenComponent<RadioGroup<string?>>(0);
+        builder.AddMultipleAttributes(1, GroupAttributes ?? new Dictionary<string, object> { ["data-testid"] = "group" });
+        builder.AddComponentParameter(2, nameof(RadioGroup<string?>.Name), GroupName);
+        builder.AddComponentParameter(3, nameof(RadioGroup<string?>.Disabled), GroupDisabled);
+        builder.AddComponentParameter(4, nameof(RadioGroup<string?>.Required), GroupRequired);
+        if (DefaultValue is not null)
+        {
+            builder.AddComponentParameter(5, nameof(RadioGroup<string?>.DefaultValue), DefaultValue);
+        }
+
+        if (Controlled)
+        {
+            builder.AddComponentParameter(6, nameof(RadioGroup<string?>.Value), Value);
+            builder.AddComponentParameter(7, nameof(RadioGroup<string?>.ValueChanged), EventCallback.Factory.Create<string?>(this, next => Value = next));
+        }
+
+        if (ValueExpression is not null)
+        {
+            builder.AddComponentParameter(8, nameof(RadioGroup<string?>.ValueExpression), ValueExpression);
+        }
+
+        builder.AddComponentParameter(9, nameof(RadioGroup<string?>.OnValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string?>>(this, args => Changes.Add(args.Value)));
+        builder.AddComponentParameter(10, nameof(RadioGroup<string?>.ChildContent), (RenderFragment)(content =>
+        {
+            if (ShowGroupDescription)
+            {
+                content.OpenComponent<FieldDescription>(0);
+                content.AddAttribute(1, "data-testid", "group-description");
+                content.CloseComponent();
+            }
+
+            foreach (HostRadio radio in Radios)
+            {
+                if (radio.Mounted)
+                {
+                    content.AddContent(2, RenderItem(radio));
+                }
+            }
+        }));
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderItem(HostRadio radio) => builder =>
+    {
+        if (Items == ItemLayout.None)
+        {
+            builder.AddContent(0, RenderRadio(radio));
+            return;
+        }
+
+        builder.OpenComponent<FieldItem>(1);
+        builder.SetKey(radio.TestId);
+        builder.AddComponentParameter(2, nameof(FieldItem.Disabled), radio.ItemDisabled);
+        builder.AddComponentParameter(3, nameof(FieldItem.ChildContent), (RenderFragment)(item =>
+        {
+            if (Items == ItemLayout.WrappingLabel)
+            {
+                item.OpenComponent<FieldLabel>(0);
+                item.AddAttribute(1, "data-testid", "label");
+                item.AddAttribute(2, "ChildContent", (RenderFragment)(label =>
+                {
+                    label.AddContent(0, RenderRadio(radio));
+                    label.AddContent(1, radio.TestId);
+                }));
+                item.CloseComponent();
+            }
+            else
+            {
+                item.AddContent(3, RenderRadio(radio));
+                item.OpenComponent<FieldLabel>(4);
+                item.AddAttribute(5, "data-testid", "label");
+                item.AddAttribute(6, "ChildContent", (RenderFragment)(label => label.AddContent(0, radio.TestId)));
+                item.CloseComponent();
+                item.OpenComponent<FieldDescription>(7);
+                item.AddAttribute(8, "data-testid", "description");
+                item.CloseComponent();
+            }
+        }));
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderRadio(HostRadio radio) => builder =>
+    {
+        builder.OpenComponent<RadioRoot<string?>>(0);
+        builder.SetKey(radio.TestId);
+        Dictionary<string, object> attributes = new() { ["data-testid"] = radio.TestId };
+        if (radio.Id is not null)
+        {
+            attributes["id"] = radio.Id;
+        }
+
+        if (radio.DescribedBy is not null)
+        {
+            attributes["aria-describedby"] = radio.DescribedBy;
+        }
+
+        builder.AddMultipleAttributes(1, attributes);
+        builder.AddComponentParameter(2, nameof(RadioRoot<string?>.Value), radio.Value);
+        builder.AddComponentParameter(3, nameof(RadioRoot<string?>.Disabled), radio.Disabled);
+        builder.CloseComponent();
+    };
+}

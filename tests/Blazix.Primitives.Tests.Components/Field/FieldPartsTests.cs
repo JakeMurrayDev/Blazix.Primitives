@@ -488,4 +488,38 @@ public sealed class FieldPartsTests : IDisposable
             builder.CloseComponent();
         }
     }
+
+    // FieldItem.test.tsx "disables a wrapped radio" (M2 track 8; FLD-API-27): a radio in a disabled item is disabled and its
+    // click reaches no request; one in an enabled item selects.
+    [Fact(DisplayName = "disables a wrapped radio")]
+    [Trait("Requirement", "FLD-API-27")]
+    [Trait("Requirement", "RAD-EDGE-11")]
+    public async Task Disables_a_wrapped_radio()
+    {
+        using RadioTestContext radio = new();
+        List<string> changes = [];
+        IRenderedComponent<FieldRoot> cut = radio.Context.Render<FieldRoot>(p => p
+            .Add(x => x.Name, "apple")
+            .AddChildContent<RadioGroup<string>>(g => g
+                .Add(x => x.DefaultValue, string.Empty)
+                .Add(x => x.OnValueChange, args => changes.Add(args.Value))
+                .AddChildContent(builder =>
+                {
+                    foreach ((string value, bool disabled, int sequence) in new[] { ("fuji-apple", true, 0), ("gala-apple", false, 10) })
+                    {
+                        builder.OpenComponent<FieldItem>(sequence);
+                        builder.AddComponentParameter(sequence + 1, nameof(FieldItem.Disabled), disabled);
+                        builder.AddComponentParameter(sequence + 2, nameof(FieldItem.ChildContent), RadioTestContext.StringRadios(value));
+                        builder.CloseComponent();
+                    }
+                })));
+        IReadOnlyList<IElement> radios = RadioTestContext.Radios(cut);
+        Assert.Equal("true", radios[0].GetAttribute("aria-disabled"));
+
+        await radio.ToggleAsync(cut, 0);
+        Assert.Empty(changes);
+
+        await radio.ToggleAsync(cut, 1);
+        Assert.Equal(["gala-apple"], changes);
+    }
 }
