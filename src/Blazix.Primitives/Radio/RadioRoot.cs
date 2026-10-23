@@ -202,6 +202,9 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
     private RadioGroupContext<TValue>? GroupContext { get; set; }
 
     [CascadingParameter]
+    private RadioGroupContext? AnyGroupContext { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? CompositeContext { get; set; }
 
     [CascadingParameter]
@@ -294,8 +297,17 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
     internal Task TwinAttached => Task.WhenAll(behavior!.TwinAttached, inputAttached.Task, fieldBehavior!.TwinAttached);
 
     /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">The radio button is inside a <see cref="RadioGroup{TValue}"/> whose value type differs from <typeparamref name="TValue"/>.</exception>
     protected override void OnInitialized()
     {
+        // Design point R7 (pending the user): a type mismatch would leave the radio outside its group, static and never
+        // selectable; it is reported in every build, as a missing context is.
+        if (GroupContext is null && AnyGroupContext is not null)
+        {
+            throw new InvalidOperationException(
+                "Blazix: A `RadioRoot` must have the `TValue` of its `RadioGroup`. Set `TValue` on the radio button, or give `Value` the group's type, for example `Value=\"(int?)1\"` in a `RadioGroup` of `int?`.");
+        }
+
         behavior = new ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp, onClick)
         {
             HiddenInput = true,

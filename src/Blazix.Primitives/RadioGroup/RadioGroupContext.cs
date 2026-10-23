@@ -11,7 +11,7 @@ namespace Blazix.Primitives;
 // field's focused flag their focus set, restores them after a refused selection and finds one by its element id.
 /// <summary>The state a radio group shares with the radio buttons in its subtree.</summary>
 /// <typeparam name="TValue">The type of the group's value.</typeparam>
-internal sealed class RadioGroupContext<TValue>
+internal sealed class RadioGroupContext<TValue> : RadioGroupContext
 {
     private readonly List<Action> listeners = [];
     private readonly List<RadioRoot<TValue>> radios = [];
@@ -251,3 +251,11 @@ internal sealed class RadioGroupContext<TValue>
     }
 }
 
+// Design point R7 (pending the user): a radio whose TValue differs from its group's finds no RadioGroupContext<TValue> (the
+// Razor compiler infers a radio's TValue from its own Value first, so `Value="1"` in a RadioGroup<int?> is a RadioRoot<int>).
+// Blazor supplies a cascading value to a parameter of an assignable type, so the radio also receives the group as this
+// base and reports the mismatch instead of rendering as a static radio outside any group.
+/// <summary>The part of a radio group's shared state that does not depend on the type of its value.</summary>
+internal abstract class RadioGroupContext
+{
+}
