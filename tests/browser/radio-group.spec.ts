@@ -404,6 +404,25 @@ test.describe('<RadioGroup />', () => {
 
       expect(await formData(form, 'group')).toEqual(['a']);
     });
+
+    test('port: a native form reset keeps the selection and re-syncs the hidden inputs, so the next submit matches it', async ({ page, mode }) => {
+      // radio.md §16 Q4 as switch.md §16 Q1 (b), chosen by the user 2026-10-22: no input is checked by default, so the
+      // reset unchecks the selected one, and the dom primitive re-asserts it one task later.
+      const fixture = await gotoRadios(page, mode, 'radio-group-form');
+      const { form, radio, input } = radioCase(fixture, 'native');
+      await radio('b').click();
+      await expect(input('b')).toHaveJSProperty('checked', true);
+
+      const checkedInResetTask = await form.evaluate((element) => {
+        (element as HTMLFormElement).reset();
+        return [...element.querySelectorAll('input[type="radio"]')].map((node) => (node as HTMLInputElement).checked);
+      });
+
+      expect(checkedInResetTask).toEqual([false, false, false]);
+      await expect(input('b')).toHaveJSProperty('checked', true);
+      await expect(radio('b')).toHaveAttribute('aria-checked', 'true');
+      expect(await formData(form, 'group')).toEqual(['b']);
+    });
   });
 
   test('should automatically select radio upon navigation', async ({ page, mode }) => {
