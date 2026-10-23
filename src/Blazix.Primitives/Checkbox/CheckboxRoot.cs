@@ -148,6 +148,9 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
+    [Inject]
+    private DefaultFormScope Formless { get; set; } = null!;
+
     // CHK-STA-04: the underlying value, which the hidden input's `checked` property mirrors.
     private bool IsChecked => checkedState!.Value;
 
@@ -347,7 +350,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
 
         // CHK-DOM-15: the labelable control id, drawn after the root's own, in render order (ADR 02 decision 5).
         controlId = IdGenerator.Next();
-        fieldBehavior = new CheckableFieldBehavior(controlId, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
+        fieldBehavior = new CheckableFieldBehavior(controlId, Formless, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
         fieldBehavior.Initialize(FieldContext, ItemContext);
     }
 
