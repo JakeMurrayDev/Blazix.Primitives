@@ -435,7 +435,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     {
         await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: false);
         await AttachInputAsync();
-        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
+        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input, InputId);
         RegisterChildId();
         RegisterMember();
         group?.BoxRendered();

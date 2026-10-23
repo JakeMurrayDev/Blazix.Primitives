@@ -62,6 +62,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private FieldControlRegistration? sentRegistration;
     private bool registered;
     private bool inputRegistered;
+    private FieldRegistry? sinkRegistry;
+    private string? sinkId;
     private bool previousDisabled;
     private FormTwin? twin;
     private TwinHandle<FormOptions>? rootHandle;
@@ -272,8 +274,9 @@ internal sealed class CheckableFieldBehavior : IDisposable
     /// <param name="rootId">The root element's id, which the hidden input hands focus to.</param>
     /// <param name="registrationId">The id the control registers with its field.</param>
     /// <param name="input">The hidden input, or <see langword="null"/> before it is rendered.</param>
+    /// <param name="inputId">The hidden input's id, or <see langword="null"/> when it renders none.</param>
     /// <returns>A task that completes when the module has the options.</returns>
-    public async Task AfterRenderAsync(ElementReference? root, string rootId, string registrationId, ElementReference? input)
+    public async Task AfterRenderAsync(ElementReference? root, string rootId, string registrationId, ElementReference? input, string? inputId)
     {
         if (!parameters.Enabled)
         {
@@ -298,6 +301,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
             using (fieldScope.Batch())
             {
                 ClaimControlId();
+                SetSink(inputId);
                 Register(rootId, registrationId);
                 SyncDisabled();
                 ObserveValue();
@@ -390,6 +394,36 @@ internal sealed class CheckableFieldBehavior : IDisposable
         registered = true;
         sentRegistration = next;
         fieldScope!.RegisterControl(this, next);
+    }
+
+    // FFI-FRM-04 (pending the orchestrator, M2 track 6): the state the module reads from the hidden input when the form
+    // submits reaches the validation input by the input's id. A native-button box renders no id on its input, so its
+    // input's state at submit is the last one reported.
+    private void SetSink(string? inputId)
+    {
+        FieldRegistry registry = form.Registry;
+        if (ReferenceEquals(registry, sinkRegistry) && string.Equals(inputId, sinkId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        RemoveSink();
+        if (inputId is not null)
+        {
+            sinkRegistry = registry;
+            sinkId = inputId;
+            registry.SetInput(inputId, validationInput);
+        }
+    }
+
+    private void RemoveSink()
+    {
+        if (sinkRegistry is not null)
+        {
+            sinkRegistry.RemoveInput(sinkId!, validationInput);
+            sinkRegistry = null;
+            sinkId = null;
+        }
     }
 
     // FFI-FRM-24, CHK-FRM-19: a member's hidden input is one of the field's validation inputs; a parent's is not.
@@ -716,6 +750,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
 
             ReleaseClaim();
             UnregisterInput();
+            RemoveSink();
             fieldScope.SetFocused(this, false, EffectiveDisabled);
             if (ReferenceEquals(fieldScope.Validation.InputRef, validationInput))
             {

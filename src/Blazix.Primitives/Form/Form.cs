@@ -291,6 +291,10 @@ public sealed class Form : PartBase<EmptyState>
             {
                 apply(state.Value, state.Validity);
             }
+            else if (registry.TryGetInput(state.Id, out FieldValidationInput input))
+            {
+                input.Report(state.Validity);
+            }
         }
 
         string[] ids = [.. registry.Ids];

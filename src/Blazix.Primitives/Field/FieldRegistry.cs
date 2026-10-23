@@ -10,6 +10,7 @@ internal sealed class FieldRegistry
 {
     private readonly List<string> order = [];
     private readonly Dictionary<string, FieldRegistryEntry> entries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FieldValidationInput> inputs = new(StringComparer.Ordinal);
     private readonly bool accepts;
 
     /// <summary>Initializes a new instance of the <see cref="FieldRegistry"/> class that accepts entries.</summary>
@@ -88,6 +89,37 @@ internal sealed class FieldRegistry
         order.Remove(id);
         return true;
     }
+
+    // FFI-FRM-04, FFI-FRM-24 (pending the orchestrator, M2 track 6): the hidden inputs of checkbox and radio controls are
+    // validation inputs whose element is not the field's entry (a box's entry is keyed by its root, a group's has no
+    // element), so the state the module reads from them when the form submits reaches them by their element id.
+    /// <summary>Registers a validation input under the id of its element, for the state read when the form submits.</summary>
+    /// <param name="id">The element's id.</param>
+    /// <param name="input">The validation input.</param>
+    public void SetInput(string id, FieldValidationInput input)
+    {
+        if (accepts)
+        {
+            inputs[id] = input;
+        }
+    }
+
+    /// <summary>Removes a validation input added with <see cref="SetInput"/>, unless another input took its id since.</summary>
+    /// <param name="id">The element's id.</param>
+    /// <param name="input">The validation input.</param>
+    public void RemoveInput(string id, FieldValidationInput input)
+    {
+        if (inputs.TryGetValue(id, out FieldValidationInput? current) && ReferenceEquals(current, input))
+        {
+            inputs.Remove(id);
+        }
+    }
+
+    /// <summary>Gets the validation input registered under an element id.</summary>
+    /// <param name="id">The element's id.</param>
+    /// <param name="input">The input when the method returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> if an input is registered under the id; otherwise, <see langword="false"/>.</returns>
+    public bool TryGetInput(string id, out FieldValidationInput input) => inputs.TryGetValue(id, out input!);
 
     // FFI-API-07, FFI-EVT-05: computed at call time, named entries only, registration order.
     /// <summary>Builds the values of the named entries.</summary>
