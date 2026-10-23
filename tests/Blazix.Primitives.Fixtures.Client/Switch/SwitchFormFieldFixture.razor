@@ -1,0 +1,134 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+@using Blazix.Primitives
+@inherits SwitchFixtureBase
+
+@*
+    The `switch-form-field` fixture (tests/browser/switch.spec.ts): SwitchRoot.test.tsx's titles that render Form with a
+    Field (and Field.Error). Each case is one Form; the spec records the FormData of every submit event in the page and
+    stops the navigation of the submission the form re-issues. `preserves` cancels every change until its toggle button
+    stops it.
+*@
+<FixtureContainer Name="switch-form-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled switch has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-switch] { display: inline-block; width: 2rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="native-validation" data-submits="@nativeSubmits">
+        <Form @ref="nativeForm" OnSubmit="() => nativeSubmits++">
+            <FieldRoot Name="test">
+                <SwitchRoot @ref="nativeRoot" data-switch Name="switch" Required="true" />
+                <FieldError @ref="nativeError" data-error Match="ValidityFlag.ValueMissing">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="on-submit">
+        <Form @ref="onSubmitForm" OnSubmit="e => e.PreventNativeSubmit()">
+            <FieldRoot>
+                <SwitchRoot @ref="onSubmitRoot" data-switch Required="true" />
+                <FieldError @ref="onSubmitError" data-error />
+            </FieldRoot>
+            <button type="submit" data-submit>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="preserves" data-submits="@preservesSubmits">
+        <button type="button" data-stop-canceling @onclick="() => cancelChanges = false">Stop canceling</button>
+        <Form @ref="preservesForm" OnSubmit="PreservesSubmit">
+            <FieldRoot Name="notifications">
+                <SwitchRoot @ref="preservesRoot" data-switch Required="true" aria-describedby="external-description" OnCheckedChange="CancelWhileAsked" />
+                <FieldDescription data-description>Choose a setting</FieldDescription>
+                <FieldError @ref="preservesError" data-error Match="ValidityFlag.ValueMissing">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+            <button type="reset" data-reset>Reset</button>
+        </Form>
+    </div>
+
+    <div data-case="value">
+        <Form @ref="valueForm" OnSubmit="e => e.PreventNativeSubmit()">
+            <FieldRoot Name="test-switch">
+                <SwitchRoot @ref="valueRoot" data-switch />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="unchecked-value">
+        <Form @ref="uncheckedForm" OnSubmit="e => e.PreventNativeSubmit()">
+            <FieldRoot Name="test-switch">
+                <SwitchRoot @ref="uncheckedRoot" data-switch UncheckedValue="off" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="custom-unchecked-value">
+        <Form @ref="customUncheckedForm" OnSubmit="e => e.PreventNativeSubmit()">
+            <FieldRoot Name="test-switch">
+                <SwitchRoot @ref="customUncheckedRoot" data-switch UncheckedValue="false" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="cycle">
+        <Form @ref="cycleForm" OnSubmit="e => e.PreventNativeSubmit()">
+            <FieldRoot Name="test-switch">
+                <SwitchRoot @ref="cycleRoot" data-switch Value="yes" UncheckedValue="no" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="native-checkbox">
+        <form data-native-form>
+            <input type="checkbox" name="native" data-native-checkbox />
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private bool cancelChanges = true;
+    private int nativeSubmits;
+    private int preservesSubmits;
+    private Form? nativeForm;
+    private Form? onSubmitForm;
+    private Form? preservesForm;
+    private Form? valueForm;
+    private Form? uncheckedForm;
+    private Form? customUncheckedForm;
+    private Form? cycleForm;
+    private FieldError? nativeError;
+    private FieldError? onSubmitError;
+    private FieldError? preservesError;
+    private SwitchRoot? nativeRoot;
+    private SwitchRoot? onSubmitRoot;
+    private SwitchRoot? preservesRoot;
+    private SwitchRoot? valueRoot;
+    private SwitchRoot? uncheckedRoot;
+    private SwitchRoot? customUncheckedRoot;
+    private SwitchRoot? cycleRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<SwitchRoot?> Switches => [nativeRoot, onSubmitRoot, preservesRoot, valueRoot, uncheckedRoot, customUncheckedRoot, cycleRoot];
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> OtherParts => [nativeForm, onSubmitForm, preservesForm, valueForm, uncheckedForm, customUncheckedForm, cycleForm];
+
+    private void CancelWhileAsked(ValueChangeEventArgs<bool> e)
+    {
+        if (cancelChanges)
+        {
+            e.Details.Cancel();
+        }
+    }
+
+    private void PreservesSubmit(FormSubmitEventArgs e)
+    {
+        preservesSubmits++;
+        e.PreventNativeSubmit();
+    }
+}

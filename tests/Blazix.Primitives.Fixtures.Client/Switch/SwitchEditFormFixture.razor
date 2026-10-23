@@ -1,0 +1,47 @@
+@namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures
+@using System.ComponentModel.DataAnnotations
+@using Blazix.Primitives
+@inherits SwitchFixtureBase
+
+@*
+    The `switch-edit-form` fixture (tests/browser/switch.spec.ts, `@verifies ADR-05/5`): Blazor's EditForm with
+    DataAnnotationsValidator and ValidationMessage over a FieldRoot and a SwitchRoot bound with @bind-Checked. The switch
+    notifies the EditContext of each change, takes the property's name, and the field shows the validator's messages as
+    its invalid state (ADR 05 Amendments 2026-10-22). Submissions are counted as data-valid-submits and data-invalid-submits.
+*@
+<FixtureContainer Name="switch-edit-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-valid-submits="@validSubmits" data-invalid-submits="@invalidSubmits">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled switch has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-switch] { display: inline-block; width: 2rem; height: 1rem; border: 1px solid; }</style>
+
+    <EditForm Model="model" OnValidSubmit="() => validSubmits++" OnInvalidSubmit="() => invalidSubmits++">
+        <DataAnnotationsValidator />
+        <FieldRoot data-testid="root">
+            <SwitchRoot @ref="root" data-switch @bind-Checked="model.Terms" />
+            <FieldError @ref="error" data-error />
+        </FieldRoot>
+        <ValidationMessage For="() => model.Terms" data-testid="message" />
+        <button type="submit">Submit</button>
+    </EditForm>
+</FixtureContainer>
+
+@code {
+    private readonly Agreement model = new();
+    private SwitchRoot? root;
+    private FieldError? error;
+    private int validSubmits;
+    private int invalidSubmits;
+
+    /// <inheritdoc />
+    protected override IEnumerable<SwitchRoot?> Switches => [root];
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> OtherParts => [];
+
+    private sealed class Agreement
+    {
+        [Range(typeof(bool), "true", "true", ErrorMessage = "Accept the terms.")]
+        public bool Terms { get; set; }
+    }
+}

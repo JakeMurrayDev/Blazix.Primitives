@@ -1,13 +1,13 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers';
 
-// The [L4] rows of docs/components/switch.md that render neither Field nor Form, and the L4 clauses of its L2 rows, on
+// The [L4] rows of docs/components/switch.md and the L4 clauses of its L2 rows, the Field and Form ones included, on
 // SwitchRoot over the `button` module's hidden-input bridge and the `dom` primitive's `checked`. Titles are Base UI's
 // (switch/root/SwitchRoot.test.tsx); "port:" titles assert the per-mode rows of ADR 01's relaxation table (SWT-PTR-09,
 // SWT-KEY-08, and the cancelled-toggle row of 2026-10-22: a C# veto is decided inside the dispatch on WebAssembly and a
 // round trip late on Server). The fixtures record OnCheckedChange and the consumer's clicks as data attributes.
 
-type FixtureName = 'switch-basic' | 'switch-labels' | 'switch-form';
+type FixtureName = 'switch-basic' | 'switch-labels' | 'switch-form' | 'switch-field' | 'switch-form-field' | 'switch-edit-form';
 
 /** Opens a Switch fixture and waits until every switch has its behaviors attached. */
 async function gotoSwitches(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
@@ -488,4 +488,374 @@ test.describe('<Switch.Root />', () => {
     await settle(fixture);
     await expect(container).toHaveAttribute('data-changes', '2');
   });
+
+  test.describe('native label fallback', () => {
+    test('sets `aria-labelledby` from a sibling label associated with the hidden input', async ({ page, mode }) => {
+      const fixture = await gotoSwitches(page, mode, 'switch-labels');
+      const { root, label } = switchCase(fixture, 'explicit');
+
+      await expect(label).not.toHaveAttribute('id', '');
+      const labelId = await label.getAttribute('id');
+      expect(labelId).toBe('mySwitch-label');
+      await expect(root).toHaveAttribute('aria-labelledby', labelId!);
+    });
+
+    test('port: a wrapping native label names the switch', async ({ page, mode }) => {
+      // SWT-ARIA-07's citation "should toggle the switch when a wrapping <label> is clicked" (name derived).
+      const fixture = await gotoSwitches(page, mode, 'switch-labels');
+      const { root, label } = switchCase(fixture, 'wrapping');
+
+      await expect(root).toHaveAttribute('aria-labelledby', /.+/);
+      await expect(label).toHaveAttribute('id', (await root.getAttribute('aria-labelledby'))!);
+      await expect(root).toHaveAccessibleName('Toggle');
+    });
+
+    test('updates fallback `aria-labelledby` when the hidden input id changes', async ({ page, mode }) => {
+      // SWT-ARIA-08 (row "FFI registration"): the module reports the label after the id change; C# renders it, a round
+      // trip later on Server. SWT-DOM-18: the previously assigned id stays on the first label.
+      const fixture = await gotoSwitches(page, mode, 'switch-labels');
+      const { container, root } = switchCase(fixture, 'id-change');
+      const labelA = container.locator('[data-label-a]');
+      const labelB = container.locator('[data-label-b]');
+      await expect(root).toHaveAttribute('aria-labelledby', 'switch-input-a-label');
+      await expect(labelA).toHaveAttribute('id', 'switch-input-a-label');
+
+      await container.locator('[data-toggle]').click();
+
+      await expect(container.locator('input[type="checkbox"]')).toHaveAttribute('id', 'switch-input-b');
+      await expect(root).toHaveAttribute('aria-labelledby', 'switch-input-b-label');
+      await expect(labelB).toHaveAttribute('id', 'switch-input-b-label');
+      await expect(labelA).toHaveAttribute('id', 'switch-input-a-label');
+    });
+
+    test('prefers `aria-label` over an associated label', async ({ page, mode }) => {
+      // The native label half; the Field.Label half is SwitchFieldTests at L2.
+      const fixture = await gotoSwitches(page, mode, 'switch-labels');
+      const { root } = switchCase(fixture, 'aria-label');
+      await settle(fixture);
+
+      await expect(root).not.toHaveAttribute('aria-labelledby');
+      await expect(root).toHaveAccessibleName('Wi-Fi');
+    });
+
+    test('port: focus on the hidden input moves to the switch', async ({ page, mode }) => {
+      // SWT-FOC-03 (Test: none), the form module's focus redirect (FFI-FOC-05).
+      const fixture = await gotoSwitches(page, mode, 'switch-labels');
+      const { root, input } = switchCase(fixture, 'explicit');
+
+      await input.evaluate((element) => (element as HTMLInputElement).focus());
+
+      await expect(root).toBeFocused();
+    });
+  });
+
+  test.describe('Field', () => {
+    test.describe('[data-focused] without a blur event', () => {
+      test('is removed when the focused switch becomes disabled', async ({ page, mode }) => {
+        const fixture = await gotoSwitches(page, mode, 'switch-field');
+        const container = fixture.locator('[data-case="focus"]');
+        const root = container.locator('[data-switch]');
+        await root.focus();
+        await expect(container.locator('[data-root]')).toHaveAttribute('data-focused', '');
+        await expect(root).toHaveAttribute('data-focused', '');
+
+        await container.locator('[data-disable]').evaluate((element) => (element as HTMLElement).click());
+
+        await expect(container.locator('[data-root]')).not.toHaveAttribute('data-focused');
+        await expect(root).not.toHaveAttribute('data-focused');
+      });
+
+      test('is removed when the focused switch unmounts', async ({ page, mode }) => {
+        const fixture = await gotoSwitches(page, mode, 'switch-field');
+        const container = fixture.locator('[data-case="focus"]');
+        await container.locator('[data-switch]').focus();
+        await expect(container.locator('[data-root]')).toHaveAttribute('data-focused', '');
+
+        await container.locator('[data-unmount]').evaluate((element) => (element as HTMLElement).click());
+
+        await expect(container.locator('[data-switch]')).toHaveCount(0);
+        await expect(container.locator('[data-root]')).not.toHaveAttribute('data-focused');
+      });
+    });
+
+    test.describe('Field.Label', () => {
+      test('sets `for` on the label', async ({ page, mode }) => {
+        // SWT-FRM-16's label-click clause: the browser clicks the input the label points at.
+        const fixture = await gotoSwitches(page, mode, 'switch-field');
+        const container = fixture.locator('[data-case="wrapping"]');
+        const label = container.locator('[data-label]');
+        const root = container.locator('[data-switch]');
+        await expect(label).toHaveAttribute('for', (await container.locator('input[type="checkbox"]').getAttribute('id'))!);
+        await expect(root).toHaveAttribute('aria-labelledby', (await label.getAttribute('id'))!);
+
+        await label.evaluate((element) => (element as HTMLElement).click());
+
+        await expect(root).toHaveAttribute('aria-checked', 'true');
+      });
+
+      test('when the label is sibling to the switch', async ({ page, mode }) => {
+        const fixture = await gotoSwitches(page, mode, 'switch-field');
+        const container = fixture.locator('[data-case="sibling"]');
+        const root = container.locator('[data-switch]');
+        await expect(root).toHaveAttribute('aria-checked', 'false');
+
+        await container.locator('[data-label]').click();
+
+        await expect(root).toHaveAttribute('aria-checked', 'true');
+      });
+
+      test('when rendering a non-native label', async ({ page, mode }) => {
+        // SWT-PTR-10: a non-native label focuses the switch and does not toggle it.
+        const fixture = await gotoSwitches(page, mode, 'switch-field');
+        const container = fixture.locator('[data-case="non-native-label"]');
+        const label = container.locator('[data-label]');
+        const root = container.locator('[data-switch]');
+        await expect(label).not.toHaveAttribute('for');
+        await expect(root).toHaveAttribute('aria-labelledby', (await label.getAttribute('id'))!);
+
+        await label.evaluate((element) => (element as HTMLElement).click());
+        await settle(fixture);
+
+        await expect(root).toBeFocused();
+        await expect(root).toHaveAttribute('aria-checked', 'false');
+      });
+    });
+
+    test('port: the field\'s filled state lands with the toggle on WebAssembly and a round trip later on Server', async ({ page, mode }) => {
+      // SWT-STA-06 and SWT-FRM-06 (ADR 01 row "FFI registration"): the field's writes run after the render that shows
+      // the new value, in OnAfterRender: before paint on WebAssembly, after paint plus a round trip on Server. The page
+      // records the switch's state at every animation frame from the click on, which is what a frame can paint.
+      if (mode === 'server') {
+        await delayCircuit(page, 150);
+      }
+      const fixture = await gotoSwitches(page, mode, 'switch-field');
+      const root = fixture.locator('[data-case="filled"] [data-switch]');
+      await root.evaluate((element) => {
+        const frames: string[] = [];
+        (window as unknown as { filledFrames: string[] }).filledFrames = frames;
+        element.addEventListener('click', () => {
+          const record = () => {
+            const state = `${element.getAttribute('aria-checked')}:${element.hasAttribute('data-filled')}`;
+            frames.push(state);
+            if (state !== 'true:true' && frames.length < 600) {
+              requestAnimationFrame(record);
+            }
+          };
+          requestAnimationFrame(record);
+        });
+      });
+
+      await root.click();
+      await expect(root).toHaveAttribute('data-filled', '');
+      await expect.poll(() => page.evaluate(() => (window as unknown as { filledFrames: string[] }).filledFrames.at(-1))).toBe('true:true');
+
+      const frames = await page.evaluate(() => (window as unknown as { filledFrames: string[] }).filledFrames);
+      if (mode === 'wasm') {
+        expect(frames).not.toContain('true:false');
+      } else {
+        expect(frames).toContain('true:false');
+      }
+    });
+  });
+
+  test.describe('Form with Field', () => {
+    interface Submission {
+      prevented: boolean;
+      entries: [string, string][];
+    }
+
+    /** Records the FormData of every submit event of the form in the page, and stops a navigation nobody prevented. */
+    async function recordSubmissions(form: Locator): Promise<() => Promise<Submission[]>> {
+      await form.evaluate((element) => {
+        const records: Submission[] = [];
+        (element as HTMLElement & { submissions?: Submission[] }).submissions = records;
+        element.addEventListener('submit', (event) => {
+          const entries = [...new FormData(element as HTMLFormElement).entries()].map(([key, value]) => [key, String(value)] as [string, string]);
+          records.push({ prevented: event.defaultPrevented, entries });
+          event.preventDefault();
+        });
+      });
+      return () => form.evaluate((element) => [...((element as HTMLElement & { submissions?: Submission[] }).submissions ?? [])]);
+    }
+
+    /** The values a name had in the last recorded submission. */
+    function lastValues(submissions: Submission[], name: string): string[] {
+      return submissions.at(-1)!.entries.filter(([key]) => key === name).map(([, value]) => value);
+    }
+
+    function formCase(fixture: Locator, name: string) {
+      const container = fixture.locator(`[data-case="${name}"]`);
+      return { container, form: container.locator('form'), root: container.locator('[data-switch]'), submit: container.locator('[data-submit]') };
+    }
+
+    test('triggers native HTML validation on submit', async ({ page, mode }) => {
+      // SWT-FRM-08: the field is invalid with valueMissing, the submission is blocked and the switch is focused.
+      const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+      const { container, root, submit } = formCase(fixture, 'native-validation');
+      await expect(container.locator('[data-error]')).toHaveCount(0);
+
+      await submit.click();
+
+      await expect(container.locator('[data-error]')).toHaveText('required');
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+      await expect(root).toBeFocused();
+      await settle(fixture);
+      await expect(container).toHaveAttribute('data-submits', '0');
+    });
+
+    test('prop: validationMode=onSubmit', async ({ page, mode }) => {
+      const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+      const { container, root, submit } = formCase(fixture, 'on-submit');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+
+      await submit.click();
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+      await expect(container.locator('[data-error]')).toHaveCount(1);
+
+      await root.click();
+      await expect(root).not.toHaveAttribute('aria-invalid');
+      await expect(container.locator('[data-error]')).toHaveCount(0);
+
+      await root.click();
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+      await expect(container.locator('[data-error]')).toHaveCount(1);
+    });
+
+    test('preserves Field validation props through canceled changes, submit, and reset', async ({ page, mode }) => {
+      // SWT-EVT-04, SWT-FRM-08, SWT-FRM-15, SWT-FRM-17.
+      const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+      const { container, root, submit } = formCase(fixture, 'preserves');
+      const descriptionId = await container.locator('[data-description]').getAttribute('id');
+      await expect(root).toHaveAttribute('aria-describedby', `external-description ${descriptionId}`);
+
+      await root.click();
+      await settle(fixture);
+      await expect(root).toHaveAttribute('aria-checked', 'false');
+      await expect(container.locator('input[type="checkbox"]')).toHaveJSProperty('checked', false);
+
+      await submit.click();
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+      await expect(container.locator('[data-error]')).toHaveText('required');
+      await settle(fixture);
+      await expect(container).toHaveAttribute('data-submits', '0');
+
+      await container.locator('[data-stop-canceling]').evaluate((element) => (element as HTMLElement).click());
+      await root.click();
+      await expect(root).toHaveAttribute('aria-checked', 'true');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+      await submit.click();
+      await settle(fixture);
+      await expect(container).toHaveAttribute('data-submits', '1');
+
+      await container.locator('[data-reset]').click();
+      await settle(fixture);
+      await expect(root).toHaveAttribute('aria-checked', 'true');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+      await expect(root).toHaveAttribute('aria-describedby', `external-description ${descriptionId}`);
+    });
+
+    test('should include the switch value in form submission, matching native checkbox behavior', async ({ page, mode }) => {
+      const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+      const { form, root, submit } = formCase(fixture, 'value');
+      const submissions = await recordSubmissions(form);
+
+      await submit.click();
+      await expect.poll(async () => (await submissions()).length).toBe(1);
+      expect(lastValues(await submissions(), 'test-switch')).toEqual([]);
+
+      await root.click();
+      await expect(root).toHaveAttribute('aria-checked', 'true');
+      await submit.click();
+      await expect.poll(async () => (await submissions()).length).toBe(2);
+      expect(lastValues(await submissions(), 'test-switch')).toEqual(['on']);
+    });
+
+    test('matches native checkbox form submission behavior', async ({ page, mode }) => {
+      const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+      const native = fixture.locator('[data-case="native-checkbox"]');
+      const nativeSubmissions = await recordSubmissions(native.locator('form'));
+      await native.locator('[data-submit]').click();
+      await native.locator('[data-native-checkbox]').click();
+      await native.locator('[data-submit]').click();
+      const nativeRecords = await nativeSubmissions();
+
+      const { form, root, submit } = formCase(fixture, 'value');
+      const customSubmissions = await recordSubmissions(form);
+      await submit.click();
+      await expect.poll(async () => (await customSubmissions()).length).toBe(1);
+      await root.click();
+      await expect(root).toHaveAttribute('aria-checked', 'true');
+      await submit.click();
+      await expect.poll(async () => (await customSubmissions()).length).toBe(2);
+      const customRecords = await customSubmissions();
+
+      expect(nativeRecords.map((r) => r.entries.filter(([k]) => k === 'native').map(([, v]) => v))).toEqual([[], ['on']]);
+      expect(customRecords.map((r) => r.entries.filter(([k]) => k === 'test-switch').map(([, v]) => v))).toEqual([[], ['on']]);
+    });
+
+    for (const [title, name, off] of [
+      ['should submit uncheckedValue when switch is off and uncheckedValue is specified', 'unchecked-value', 'off'],
+      ['should submit custom uncheckedValue when switch is off', 'custom-unchecked-value', 'false'],
+    ] as const) {
+      test(title, async ({ page, mode }) => {
+        const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+        const { form, root, submit } = formCase(fixture, name);
+        const submissions = await recordSubmissions(form);
+
+        await submit.click();
+        await expect.poll(async () => (await submissions()).length).toBe(1);
+        expect(lastValues(await submissions(), 'test-switch')).toEqual([off]);
+
+        await root.click();
+        await expect(root).toHaveAttribute('aria-checked', 'true');
+        await submit.click();
+        await expect.poll(async () => (await submissions()).length).toBe(2);
+        expect(lastValues(await submissions(), 'test-switch')).toEqual(['on']);
+
+        await root.click();
+        await expect(root).toHaveAttribute('aria-checked', 'false');
+        await submit.click();
+        await expect.poll(async () => (await submissions()).length).toBe(3);
+        expect(lastValues(await submissions(), 'test-switch')).toEqual([off]);
+      });
+    }
+
+    test('submits custom value and uncheckedValue across an off/on/off cycle', async ({ page, mode }) => {
+      const fixture = await gotoSwitches(page, mode, 'switch-form-field');
+      const { form, root, submit } = formCase(fixture, 'cycle');
+      const submissions = await recordSubmissions(form);
+
+      for (const [expected, count] of [['no', 1], ['yes', 2], ['no', 3]] as const) {
+        if (count > 1) {
+          await root.click();
+          await expect(root).toHaveAttribute('aria-checked', expected === 'yes' ? 'true' : 'false');
+        }
+        await submit.click();
+        await expect.poll(async () => (await submissions()).length).toBe(count);
+        expect(lastValues(await submissions(), 'test-switch')).toEqual([expected]);
+      }
+    });
+  });
+
+  test.describe('EditForm', () => {
+    test('@verifies ADR-05/5 a switch bound in an EditForm notifies the EditContext and shows its validator\'s message', async ({ page, mode }) => {
+      const fixture = await gotoSwitches(page, mode, 'switch-edit-form');
+      const root = fixture.locator('[data-switch]');
+      await expect(fixture.locator('input[type="checkbox"]')).toHaveAttribute('name', 'Terms');
+
+      await fixture.getByRole('button', { name: 'Submit' }).click();
+      await expect(fixture).toHaveAttribute('data-invalid-submits', '1');
+      await expect(fixture.locator('[data-testid="message"]')).toHaveText('Accept the terms.');
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+      await expect(fixture.locator('[data-error]')).toHaveText('Accept the terms.');
+
+      await root.click();
+      await expect(root).toHaveAttribute('aria-checked', 'true');
+      await expect(fixture.locator('[data-testid="message"]')).toHaveCount(0);
+      await expect(root).not.toHaveAttribute('aria-invalid');
+      await fixture.getByRole('button', { name: 'Submit' }).click();
+      await expect(fixture).toHaveAttribute('data-valid-submits', '1');
+    });
+  });
+
 });
