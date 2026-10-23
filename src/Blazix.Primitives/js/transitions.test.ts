@@ -651,6 +651,27 @@ describe('attach', () => {
     expect(fake.reported('OnStatusChange')).toEqual([{ status: null, mounted: true }]);
   });
 
+  // The C# render and the attach can land before the frame that first styles the element (Server on a fast circuit):
+  // the element's style is computed with the starting style before the clearing frame, so a transition runs from it.
+  it('computes the style of an element that shows data-starting-style before the frame that clears it', () => {
+    const fake = createFakeTwin();
+    const rendered = createElement();
+    rendered.setAttribute(STARTING_STYLE, '');
+    const opened = createElement();
+    const computed = vi.spyOn(window, 'getComputedStyle');
+
+    try {
+      attachTo(rendered, fake, { open: true, mounted: true, status: 'starting' });
+      const handle = attachTo(opened, fake, { keepMounted: true });
+      update(handle, { open: true, keepMounted: true });
+
+      expect(computed.mock.calls.map(([element]) => element)).toEqual([rendered, opened]);
+      expect(frames).toHaveLength(1);
+    } finally {
+      computed.mockRestore();
+    }
+  });
+
   it('does not request a frame or write a transition attribute for an element attached open', () => {
     const fake = createFakeTwin();
     const element = createElement();

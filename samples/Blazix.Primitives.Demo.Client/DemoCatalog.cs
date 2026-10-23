@@ -21,6 +21,7 @@ public static class DemoCatalog
         new("fieldset", "Fieldset", "Related fields grouped under a legend.", typeof(FieldsetDemo)),
         new("form", "Form", "A form that validates its fields and shows errors from a server.", typeof(FormDemo)),
         new("switch", "Switch", "A control that turns a setting on or off.", typeof(SwitchDemo)),
+        new("checkbox", "Checkbox", "A box that the user ticks or clears, and that can be shown as mixed.", typeof(CheckboxDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

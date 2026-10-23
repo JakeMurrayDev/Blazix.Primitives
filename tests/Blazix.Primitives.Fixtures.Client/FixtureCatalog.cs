@@ -2,6 +2,7 @@ using Blazix.Primitives.Fixtures.Client.Allocation;
 using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
+using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
@@ -73,5 +74,13 @@ public static class FixtureCatalog
         ["switch-basic"] = new(typeof(SwitchBasicFixture)),
         ["switch-labels"] = new(typeof(SwitchLabelsFixture)),
         ["switch-form"] = new(typeof(SwitchFormFixture)),
+        ["checkbox-basic"] = new(typeof(CheckboxBasicFixture)),
+        ["checkbox-labels"] = new(typeof(CheckboxLabelsFixture)),
+        ["checkbox-form"] = new(typeof(CheckboxFormFixture)),
+        ["checkbox-indicator"] = new(typeof(CheckboxIndicatorFixture)),
+        ["checkbox-field"] = new(typeof(CheckboxFieldFixture)),
+        ["checkbox-enter"] = new(typeof(CheckboxEnterFixture)),
+        ["checkbox-names"] = new(typeof(CheckboxNamesFixture)),
+        ["checkbox-prerender"] = new(typeof(CheckboxPrerenderFixture), Prerender: true),
     };
 }

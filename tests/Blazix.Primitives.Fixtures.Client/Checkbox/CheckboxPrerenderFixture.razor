@@ -1,0 +1,26 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+
+@*
+    The `checkbox-prerender` fixture (tests/browser/checkbox.spec.ts), prerendered: CheckboxRoot.test.tsx "defers an
+    explicit id until hydration but keeps Field.Label associated during SSR (nativeButton=%s)" (CHK-EDGE-10, CHK-FRM-16).
+    The explicit id is a claim registered after the render, so the static response carries the field's generated id on
+    both the label and the control, and the explicit id once the runtime has taken over.
+*@
+<FixtureContainer Name="checkbox-prerender">
+    <div data-case="input">
+        <FieldRoot>
+            <FieldLabel data-label>Label</FieldLabel>
+            <CheckboxRoot data-checkbox id="explicit-input" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="native">
+        <FieldRoot>
+            <FieldLabel data-label>Label</FieldLabel>
+            <CheckboxRoot data-checkbox id="explicit-native" NativeButton="true">
+                <Render><button></button></Render>
+            </CheckboxRoot>
+        </FieldRoot>
+    </div>
+</FixtureContainer>

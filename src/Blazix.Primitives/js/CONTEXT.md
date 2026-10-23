@@ -36,6 +36,7 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
   - These factories are what the `collapsible` component module composes with `dom`'s reads. That module is built by the Collapsible track: the orchestrator placed the measurement passes there under the placement rule. This module stays Collapsible-unaware.
   - Its `attach`: the animated part's handle.
     - It starts from the `status` and `mounted` C# rendered (the handover) and is from then on the only writer of `data-starting-style` and `data-ending-style`. Each is written only when its value changes, as a renderer diffs.
+    - When it writes `data-starting-style`, or takes over the one C# rendered, it reads the element's computed style once, so the starting style is styled before the clearing frame (ADR 04 Amendments 2026-10-23, C6).
     - With `openSelector` set, the open input is read from the DOM after every batch. A late `update` cannot reopen a part a newer batch closed. Without it, the input is `update`'s `open`.
     - Reports:
       - `OnStatusChange`: status literal and mounted, once per change;

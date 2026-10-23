@@ -1,0 +1,45 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-labels` fixture (tests/browser/checkbox.spec.ts): a box inside a wrapping native label, a box named by a
+    label's `for` through its id (which goes to the hidden input), and a native-button box named the same way (the id goes
+    to the button).
+*@
+<FixtureContainer Name="checkbox-labels" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled box has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <CheckboxCaseFrame Name="wrapping" Case="wrapping">
+        <label data-label>
+            <CheckboxRoot @ref="wrappingRoot" data-checkbox OnCheckedChange="wrapping.Change" />
+            Toggle
+        </label>
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="explicit" Case="@explicitCase">
+        <label data-label for="myCheckbox">Toggle</label>
+        <CheckboxRoot @ref="explicitRoot" data-checkbox id="myCheckbox" OnCheckedChange="explicitCase.Change" />
+    </CheckboxCaseFrame>
+
+    <CheckboxCaseFrame Name="native" Case="native">
+        <label data-label for="myNativeCheckbox">Toggle</label>
+        <CheckboxRoot @ref="nativeRoot" data-checkbox id="myNativeCheckbox" NativeButton="true" OnCheckedChange="native.Change">
+            <Render><button></button></Render>
+        </CheckboxRoot>
+    </CheckboxCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly CheckboxCase wrapping = new();
+    private readonly CheckboxCase explicitCase = new();
+    private readonly CheckboxCase native = new();
+    private CheckboxRoot? wrappingRoot;
+    private CheckboxRoot? explicitRoot;
+    private CheckboxRoot? nativeRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes => [wrappingRoot, explicitRoot, nativeRoot];
+}

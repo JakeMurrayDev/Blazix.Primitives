@@ -3,7 +3,8 @@
 // messages, disabled and form-owner eligibility, native label lookup, the default submitter, focus redirect; the module
 // owns a control's native input, change, blur and keydown listeners and reports value and validity in one message per
 // event (M2 plan, settled; ADR 16 rule 6). The scopes, the registry and the validation pipeline are C#.
-import { activeElement, closest, getTarget, ownerDocument } from './dom';
+import { findHiddenInput } from './button';
+import { activeElement, closest, getTarget, ownerDocument, ownerWindow } from './dom';
 import { decide } from './decide';
 import { eventInfo, type EventInfo } from './event-info';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
@@ -21,6 +22,8 @@ export interface FormControlOptions {
   reportEvents?: boolean;
   focusTarget?: string | null;
   autoFocus?: boolean;
+  enterSubmit?: boolean;
+  labelFallback?: boolean;
 }
 
 /** The options of an attached field label; mirrors `FormLabelOptions` in C#. */
@@ -86,7 +89,7 @@ export interface NativeValidity {
 
 /** One report of a control; mirrors `FormControlReport` in C#. */
 export interface FormControlReport {
-  type: 'input' | 'blur' | 'keydown' | 'enter' | 'sync' | 'focus';
+  type: 'input' | 'blur' | 'keydown' | 'enter' | 'sync' | 'focus' | 'label';
   value: string | null;
   validity: NativeValidity | null;
   event: EventInfo | null;
@@ -361,6 +364,93 @@ function formById(_element: Element, formId: string | null | undefined): HTMLFor
   return form instanceof HTMLFormElement ? form : null;
 }
 
+// CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10 (design point C2 of M2 track 5, settled by the orchestrator 2026-10-23). The Enter path of a
+// checkbox's root. Base UI cancels the native default on the native event only, so that React ancestors still see
+// `defaultPrevented === false`, and decides in a microtask after React's dispatch; the port has one event, and a
+// microtask queued by a listener runs before the next listener of a user event. So the listener runs in the capture
+// phase at the root (before the `button` module's Enter suppression and any bubbling listener), cancels the default at
+// once, records a later `preventDefault()` by shadowing it on the event, and decides in a window listener added during
+// the dispatch, which runs after every ancestor (a 0 ms task when an ancestor stopped the propagation). A JavaScript
+// ancestor therefore sees `defaultPrevented === true`, a dated note on CHK-KEY-03.
+function createEnterSubmission(element: HTMLElement, isEnabled: () => boolean): () => void {
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Enter' || !isEnabled()) {
+      return;
+    }
+
+    const preventedBefore = event.defaultPrevented;
+    Event.prototype.preventDefault.call(event);
+    let preventedLater = false;
+    Object.defineProperty(event, 'preventDefault', {
+      configurable: true,
+      value: () => {
+        preventedLater = true;
+      },
+    });
+
+    const win = ownerWindow(element);
+    let decided = false;
+    const decide = (): void => {
+      if (decided) {
+        return;
+      }
+      decided = true;
+      win.removeEventListener('keydown', onTail);
+      win.clearTimeout(fallback);
+      if (preventedBefore || preventedLater) {
+        return;
+      }
+      win.queueMicrotask(() => {
+        const submitter = getDefaultFormSubmitter(findHiddenInput(element)?.form ?? null);
+        if (submitter && !submitter.disabled) {
+          submitter.click();
+        }
+      });
+    };
+    const onTail = (tail: Event): void => {
+      if (tail === event) {
+        decide();
+      }
+    };
+    win.addEventListener('keydown', onTail);
+    const fallback = win.setTimeout(decide, 0);
+  };
+
+  element.addEventListener('keydown', onKeyDown, { capture: true });
+  return () => element.removeEventListener('keydown', onKeyDown, { capture: true });
+}
+
+// CHK-ARIA-08, CHK-EDGE-13 (design point C4 of M2 track 5, settled by the orchestrator 2026-10-23): Base UI looks for the label after every
+// commit of the box; a Blazor component whose parameters did not change does not render again when a label elsewhere
+// mounts, so the module watches the document instead. One observer per document serves every input that looks for its
+// label; its callbacks run once per mutation batch, after the renderer's or a script's change of a label or an id.
+const labelWatchers = new WeakMap<Document, { observer: MutationObserver; callbacks: Set<() => void> }>();
+
+function watchLabels(element: Element, callback: () => void): () => void {
+  const doc = ownerDocument(element);
+  let watcher = labelWatchers.get(doc);
+  if (!watcher) {
+    const callbacks = new Set<() => void>();
+    const observer = new (ownerWindow(element).MutationObserver)(() => {
+      for (const run of [...callbacks]) {
+        run();
+      }
+    });
+    observer.observe(doc, { childList: true, subtree: true, attributes: true, attributeFilter: ['id', 'for'] });
+    watcher = { observer, callbacks };
+    labelWatchers.set(doc, watcher);
+  }
+  const current = watcher;
+  current.callbacks.add(callback);
+  return () => {
+    current.callbacks.delete(callback);
+    if (current.callbacks.size === 0) {
+      current.observer.disconnect();
+      labelWatchers.delete(doc);
+    }
+  };
+}
+
 function focusWithVisible(element: HTMLElement): void {
   // focusVisible: Chrome 144+, Safari and Firefox.
   element.focus({ focusVisible: true } as FocusOptions);
@@ -503,6 +593,27 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     }
   }
 
+  // CHK-ARIA-07/08 (design point C4 of M2 track 5, settled by the orchestrator 2026-10-23): while the part asks for it, the native label of a
+  // form-participation input is discovered on attach, after every update and after every change of the document's labels
+  // and ids, and reported when it changed.
+  let discoveredLabel: string | null | undefined;
+  let stopWatchingLabels: (() => void) | null = null;
+  function discover(): void {
+    if (!options.labelFallback) {
+      discoveredLabel = undefined;
+      stopWatchingLabels?.();
+      stopWatchingLabels = null;
+      return;
+    }
+    stopWatchingLabels ??= watchLabels(element, discover);
+    const labelId = discoverLabel(element as HTMLInputElement, element.id ? `${element.id}-label` : null);
+    if (labelId !== discoveredLabel) {
+      discoveredLabel = labelId;
+      // The label's id travels as the report's value (one payload shape for every report).
+      report('label', undefined, { value: labelId });
+    }
+  }
+
   const reports = options.reportEvents !== false;
   // The handover at attach hands over the element's state: a live value that differs from the one C# rendered is the
   // user's edit, made before the module listened, so it is kept and reported rather than overwritten (settled by the
@@ -549,6 +660,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     element.addEventListener('keydown', onKeyDown);
   }
   element.addEventListener('focus', onFocus);
+  const removeEnterSubmission = createEnterSubmission(element, () => options.enterSubmit === true && !options.disabled);
   if (options.autoFocus && !options.disabled) {
     // FLD-FOC-04: the renderer replaces a prerendered element when the page becomes interactive, which loses the focus
     // the browser's autofocus gave it; the module focuses the control once, at attach, unless something else has focus.
@@ -564,6 +676,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
   if (reports && !options.disabled) {
     reportFocusIfActive();
   }
+  discover();
 
   return {
     update(optionsJson: string) {
@@ -577,6 +690,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       if (reports && previous.disabled && !options.disabled) {
         reportFocusIfActive();
       }
+      discover();
     },
     dispose() {
       withdraw();
@@ -586,6 +700,9 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       element.removeEventListener('blur', onBlur);
       element.removeEventListener('keydown', onKeyDown);
       element.removeEventListener('focus', onFocus);
+      removeEnterSubmission();
+      stopWatchingLabels?.();
+      stopWatchingLabels = null;
     },
   };
 }

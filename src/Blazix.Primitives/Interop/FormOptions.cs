@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (form row, Amendments 2026-10-18) and §3; FFI-ALG-02/04/08/10/16, FFI-FRM-09/10, FFI-PTR-01..04,
@@ -98,6 +100,28 @@ internal sealed record FormControlOptions
     /// <summary>Gets the id of the element focus moves to when the attached element receives focus.</summary>
     /// <value>The visible control of a form-participation input, or <see langword="null"/>.</value>
     public string? FocusTarget { get; init; }
+
+    // CHK-KEY-03..07, FFI-KEY-02, FFI-ALG-10; design point C2 of M2 track 5 (settled by the orchestrator 2026-10-23): ADR 04 §1's form row owns
+    // the Enter-to-submit path.
+    /// <summary>Gets a value indicating whether Enter on the element submits the form its hidden input belongs to.</summary>
+    /// <value>
+    /// <see langword="true"/> for a checkbox root: Enter cancels its native default and, unless a listener prevents it,
+    /// clicks the form's default submit button after the dispatch; nothing while <see cref="Disabled"/>. The default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool EnterSubmit { get; init; }
+
+    // CHK-ARIA-07/08, FFI-ALG-08, FFI-ARIA-06; design point C4 of M2 track 5 (settled by the orchestrator 2026-10-23).
+    /// <summary>Gets a value indicating whether the module looks for the element's native label.</summary>
+    /// <value>
+    /// <see langword="true"/> while the part's accessible name comes from the input's native label: the module looks for
+    /// the label on <c>attach</c>, on every <c>update</c> and after every change of the document's labels and ids, gives an
+    /// id-less one the id <c>&lt;element id&gt;-label</c> and reports the label's id when it changed. The default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool LabelFallback { get; init; }
 }
 
 /// <summary>The options of an attached field label.</summary>

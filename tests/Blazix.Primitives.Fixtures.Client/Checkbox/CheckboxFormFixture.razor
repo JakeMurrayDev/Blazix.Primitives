@@ -1,0 +1,43 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-form` fixture (tests/browser/checkbox.spec.ts): a native <form> with named boxes (one without a value,
+    one with a custom value, one with a value and an unchecked value, a disabled one with an unchecked value, a disabled one
+    that is ticked, a parent box), boxes outside it that belong to it through `form`, and a reset button. The specs
+    capture the FormData of a submit in the page and prevent the navigation.
+*@
+<FixtureContainer Name="checkbox-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled box has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <form id="checkbox-form" data-form>
+        <CheckboxRoot @ref="plainRoot" data-checkbox="plain" Name="plain" />
+        <CheckboxRoot @ref="customRoot" data-checkbox="custom" Name="custom" Value="custom-value" />
+        <CheckboxRoot @ref="cycleRoot" data-checkbox="cycle" Name="cycle" Value="yes" UncheckedValue="no" />
+        <CheckboxRoot @ref="disabledOffRoot" data-checkbox="disabled-off" Name="disabled-off" UncheckedValue="off" Disabled="true" />
+        <CheckboxRoot @ref="disabledOnRoot" data-checkbox="disabled-on" Name="disabled-on" DefaultChecked="true" Disabled="true" />
+        <CheckboxRoot @ref="parentRoot" data-checkbox="parent" Name="parent" Parent="true" DefaultChecked="true" UncheckedValue="off" />
+        <button type="submit" data-submit>Submit</button>
+        <button type="reset" data-reset>Reset</button>
+    </form>
+
+    <CheckboxRoot @ref="externalRoot" data-checkbox="external" Name="external" Form="checkbox-form" />
+    <CheckboxRoot @ref="externalOffRoot" data-checkbox="external-off" Name="external-off" UncheckedValue="off" Form="checkbox-form" />
+</FixtureContainer>
+
+@code {
+    private CheckboxRoot? plainRoot;
+    private CheckboxRoot? customRoot;
+    private CheckboxRoot? cycleRoot;
+    private CheckboxRoot? disabledOffRoot;
+    private CheckboxRoot? disabledOnRoot;
+    private CheckboxRoot? parentRoot;
+    private CheckboxRoot? externalRoot;
+    private CheckboxRoot? externalOffRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes => [plainRoot, customRoot, cycleRoot, disabledOffRoot, disabledOnRoot, parentRoot, externalRoot, externalOffRoot];
+}

@@ -1,0 +1,109 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-names` fixture (tests/browser/checkbox.spec.ts): CheckboxRoot.test.tsx's accessible-name titles, which
+    need the form module's native-label fallback (CHK-ARIA-06..08, CHK-DOM-22, CHK-EDGE-07/13; design point C4 of M2
+    track 5, settled by the orchestrator 2026-10-23). A box named by a sibling label; a box whose id the page switches between two labels;
+    boxes with an aria-label inside a native label and a Field.Label; for each blank aria-label, a wrapping native label,
+    a wrapping Field.Label and a sibling label; and, for a native label and a Field.Label, a box whose label and
+    aria-label the page changes.
+*@
+<FixtureContainer Name="checkbox-names" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="sibling">
+        <label for="checkbox-input">Label</label>
+        <CheckboxRoot @ref="siblingRoot" data-checkbox id="checkbox-input" />
+    </div>
+
+    <div data-case="id-change">
+        <label for="checkbox-input-a">Label A</label>
+        <label for="checkbox-input-b">Label B</label>
+        <CheckboxRoot @ref="idChangeRoot" data-checkbox id="@idChange" />
+        <button type="button" data-toggle @onclick="@(() => idChange = "checkbox-input-b")">Toggle</button>
+    </div>
+
+    <div data-case="preferred">
+        <label>
+            <CheckboxRoot @ref="preferredNativeRoot" data-checkbox="native" aria-label="lease.pdf" />
+            lease.pdf
+        </label>
+        <FieldRoot>
+            <FieldLabel>
+                <CheckboxRoot @ref="preferredFieldRoot" data-checkbox="field" aria-label="notes.txt" />
+                notes.txt
+            </FieldLabel>
+        </FieldRoot>
+    </div>
+
+    @for (int i = 0; i < Blanks.Length; i++)
+    {
+        int index = i;
+        <div data-case="blank-@index">
+            <label>
+                <CheckboxRoot @ref="blankRoots[index * 3]" data-checkbox="native" aria-label="@Blanks[index]" />
+                Native label
+            </label>
+            <FieldRoot>
+                <FieldLabel>
+                    <CheckboxRoot @ref="blankRoots[index * 3 + 1]" data-checkbox="field" aria-label="@Blanks[index]" />
+                    Field label
+                </FieldLabel>
+            </FieldRoot>
+            <label for="blank-aria-label-@index">Sibling label</label>
+            <CheckboxRoot @ref="blankRoots[index * 3 + 2]" data-checkbox="sibling" id="@($"blank-aria-label-{index}")" aria-label="@Blanks[index]" />
+        </div>
+    }
+
+    <div data-case="dynamic-native">
+        <button type="button" data-show @onclick="() => nativeShown = true">Show</button>
+        <button type="button" data-hide @onclick="() => nativeShown = false">Hide</button>
+        <button type="button" data-name @onclick="@(() => nativeName = "Custom name")">Name</button>
+        <button type="button" data-blank @onclick="@(() => nativeName = " \n\t ")">Blank</button>
+        <button type="button" data-unname @onclick="() => nativeName = null">Unname</button>
+        <FieldRoot>
+            @if (nativeShown)
+            {
+                <label for="dynamic-label-native">Associated label</label>
+            }
+            <CheckboxRoot @ref="dynamicNativeRoot" data-checkbox id="dynamic-label-native" aria-label="@nativeName" />
+        </FieldRoot>
+    </div>
+
+    <div data-case="dynamic-field">
+        <button type="button" data-show @onclick="() => fieldShown = true">Show</button>
+        <button type="button" data-hide @onclick="() => fieldShown = false">Hide</button>
+        <button type="button" data-name @onclick="@(() => fieldName = "Custom name")">Name</button>
+        <button type="button" data-blank @onclick="@(() => fieldName = " \n\t ")">Blank</button>
+        <button type="button" data-unname @onclick="() => fieldName = null">Unname</button>
+        <FieldRoot>
+            @if (fieldShown)
+            {
+                <FieldLabel>Associated label</FieldLabel>
+            }
+            <CheckboxRoot @ref="dynamicFieldRoot" data-checkbox id="dynamic-label-field" aria-label="@fieldName" />
+        </FieldRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] Blanks = ["", " ", "\n\t "];
+    private readonly CheckboxRoot?[] blankRoots = new CheckboxRoot?[9];
+    private string idChange = "checkbox-input-a";
+    private bool nativeShown = true;
+    private string? nativeName;
+    private bool fieldShown = true;
+    private string? fieldName;
+    private CheckboxRoot? siblingRoot;
+    private CheckboxRoot? idChangeRoot;
+    private CheckboxRoot? preferredNativeRoot;
+    private CheckboxRoot? preferredFieldRoot;
+    private CheckboxRoot? dynamicNativeRoot;
+    private CheckboxRoot? dynamicFieldRoot;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes =>
+        [siblingRoot, idChangeRoot, preferredNativeRoot, preferredFieldRoot, dynamicNativeRoot, dynamicFieldRoot, .. blankRoots];
+}

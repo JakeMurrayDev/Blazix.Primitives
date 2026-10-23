@@ -558,6 +558,12 @@ export function createTransitionAttributes(element: HTMLElement): TransitionAttr
       if (starting !== startingWritten) {
         startingWritten = starting;
         element.toggleAttribute(STARTING_STYLE, starting);
+        if (starting) {
+          // The element's style is computed with the starting style now: a render and an attach that land before the
+          // frame that first styles the element (Server on a fast circuit) would otherwise have the clearing frame take
+          // it off before any style was computed with it, and no transition would run from it.
+          element.ownerDocument.defaultView?.getComputedStyle(element).getPropertyValue('opacity');
+        }
       }
       if (ending !== endingWritten) {
         endingWritten = ending;

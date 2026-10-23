@@ -1,0 +1,98 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+@inherits CheckboxFixtureBase
+
+@*
+    The `checkbox-indicator` fixture (tests/browser/checkbox.spec.ts), opened with `?animations=1`: CheckboxIndicator.test.tsx
+    "animations" and the removal titles. Each case is a controlled box with a toggle button: an indicator with no exit
+    animation, an indicator with an exit keyframes animation, the same kept mounted, an indicator with an enter transition
+    through data-starting-style, and ten boxes unchecked by one button.
+*@
+<FixtureContainer Name="checkbox-indicator" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes checkbox-test-anim {
+            to {
+                opacity: 0;
+            }
+        }
+
+        [data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }
+
+        .animation-test-indicator[data-ending-style] {
+            animation: checkbox-test-anim 50ms;
+        }
+
+        .transition-test-indicator {
+            transition: opacity 50ms;
+        }
+
+        .transition-test-indicator[data-starting-style],
+        .transition-test-indicator[data-ending-style] {
+            opacity: 0;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="none">
+        <button type="button" data-toggle @onclick="() => none = !none">Toggle</button>
+        <CheckboxRoot @ref="noneRoot" data-checkbox Checked="none">
+            <CheckboxIndicator @ref="noneIndicator" data-indicator />
+        </CheckboxRoot>
+    </div>
+
+    <div data-case="keyframes">
+        <button type="button" data-toggle @onclick="() => keyframes = !keyframes">Toggle</button>
+        <CheckboxRoot @ref="keyframesRoot" data-checkbox Checked="keyframes">
+            <CheckboxIndicator @ref="keyframesIndicator" class="animation-test-indicator" data-indicator />
+        </CheckboxRoot>
+    </div>
+
+    <div data-case="kept">
+        <button type="button" data-toggle @onclick="() => kept = !kept">Toggle</button>
+        <CheckboxRoot @ref="keptRoot" data-checkbox Checked="kept">
+            <CheckboxIndicator @ref="keptIndicator" class="animation-test-indicator" data-indicator KeepMounted="true" />
+        </CheckboxRoot>
+    </div>
+
+    <div data-case="transition">
+        <button type="button" data-toggle @onclick="() => transition = !transition">Toggle</button>
+        <CheckboxRoot @ref="transitionRoot" data-checkbox Checked="transition">
+            <CheckboxIndicator class="transition-test-indicator" data-indicator />
+        </CheckboxRoot>
+    </div>
+
+    <div data-case="many">
+        <button type="button" data-toggle @onclick="() => many = !many">Toggle</button>
+        @for (int i = 0; i < 10; i++)
+        {
+            int index = i;
+            <CheckboxRoot @key="index" @ref="manyRoots[index]" data-checkbox Checked="many">
+                <CheckboxIndicator @ref="manyIndicators[index]" class="animation-test-indicator" data-indicator="@index" />
+            </CheckboxRoot>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly CheckboxRoot?[] manyRoots = new CheckboxRoot?[10];
+    private readonly CheckboxIndicator?[] manyIndicators = new CheckboxIndicator?[10];
+    private bool none = true;
+    private bool keyframes = true;
+    private bool kept = true;
+    private bool transition;
+    private bool many = true;
+    private CheckboxRoot? noneRoot;
+    private CheckboxRoot? keyframesRoot;
+    private CheckboxRoot? keptRoot;
+    private CheckboxRoot? transitionRoot;
+    private CheckboxIndicator? noneIndicator;
+    private CheckboxIndicator? keyframesIndicator;
+    private CheckboxIndicator? keptIndicator;
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxRoot?> Boxes => [noneRoot, keyframesRoot, keptRoot, transitionRoot, .. manyRoots];
+
+    /// <inheritdoc />
+    protected override IEnumerable<CheckboxIndicator?> Indicators => [noneIndicator, keyframesIndicator, keptIndicator, .. manyIndicators];
+}
