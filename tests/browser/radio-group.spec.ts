@@ -1112,8 +1112,10 @@ test.describe('<RadioGroup />', () => {
     // ADR 08 Amendments 2026-10-22 ("does not box … the primitives"), ADR 16 rule 7: the WebAssembly half of the radio's
     // allocation probe (tests/Blazix.Primitives.Tests/Radio/RadioAllocationProbeTests.cs is the CoreCLR half, 0 bytes for
     // every type). A round is what a radio and its group compare on the render path: two StrictEquals, one null test and
-    // two ValueChangedObserver.Observe.
-    test('port: the value comparisons of a radio allocate nothing for a string, an enum and a record class on the interpreter', async ({ page, mode }) => {
+    // two ValueChangedObserver.Observe. Design point R8 of M2 tracks 7-8, option (a), settled by the orchestrator
+    // 2026-10-23 (the user's no-boxing rule): the BCL primitives and their nullables compare without EqualityComparer<T>,
+    // which boxes on the interpreter (measured before: 192 bytes per round for int and int?).
+    test('port: the value comparisons of a radio allocate nothing for a string, an enum, a record class, an int and a nullable int on the interpreter', async ({ page, mode }) => {
       test.skip(mode !== 'wasm', 'the probe is about the WebAssembly interpreter; Server runs CoreCLR');
       const probe = await gotoFixture(page, mode, 'radio-group-allocation');
 
@@ -1121,25 +1123,22 @@ test.describe('<RadioGroup />', () => {
 
       await expect(probe).toHaveAttribute('data-iterations', /^[1-9]\d*$/);
       test.info().annotations.push({ type: 'bytes per round', description: (await probe.getAttribute('data-scenarios')) ?? '' });
-      for (const scenario of ['string', 'enum', 'record-class']) {
+      for (const scenario of ['string', 'enum', 'record-class', 'int', 'nullable-int']) {
         await expect(probe.locator(`[data-scenario="${scenario}"]`)).toHaveText('0');
       }
     });
 
-    // Design point R8 of M2 tracks 7-8 (pending the user): EqualityComparer<T>.Default boxes on the interpreter (ADR
-    // 05's third verification item, measured 2026-10-20; Amendments 2026-10-20 accept the cost for the generic Is<T>).
-    // Measured here 2026-10-23: 192 bytes per round for int and int?, 416 for a record struct. The title pins the
-    // profile, so a change of the platform or of Store/Equality.cs turns it red.
-    test('port: the value comparisons of a radio box an int, a nullable int and a record struct on the interpreter', async ({ page, mode }) => {
+    // A record struct still compares through EqualityComparer<T> (ADR 05 Amendments 2026-10-20, "Is<T> on the WebAssembly
+    // interpreter", as amended 2026-10-23): 416 bytes per round, measured 2026-10-23. The title pins the profile, so a
+    // change of the platform turns it red.
+    test('port: the value comparisons of a radio box a record struct on the interpreter', async ({ page, mode }) => {
       test.skip(mode !== 'wasm', 'the probe is about the WebAssembly interpreter; Server runs CoreCLR');
       const probe = await gotoFixture(page, mode, 'radio-group-allocation');
 
       await probe.locator('[data-measure]').click();
 
       await expect(probe).toHaveAttribute('data-iterations', /^[1-9]\d*$/);
-      for (const scenario of ['int', 'nullable-int', 'record-struct']) {
-        await expect(probe.locator(`[data-scenario="${scenario}"]`)).not.toHaveText('0');
-      }
+      await expect(probe.locator('[data-scenario="record-struct"]')).not.toHaveText('0');
     });
   });
 });
