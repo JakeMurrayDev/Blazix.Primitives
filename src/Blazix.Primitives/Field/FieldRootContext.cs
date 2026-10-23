@@ -538,7 +538,7 @@ internal sealed class FieldRootContext : IDisposable
 
         registeredInvalid = Invalid;
         registeredEntryName = name ?? registration.Name;
-        form.Registry.Set(id, new FieldRegistryEntry(registeredEntryName, GetValueForForm, validityData.Combined(registeredInvalid), validate, registration.ControlId));
+        form.Registry.Set(id, new FieldRegistryEntry(registeredEntryName, GetValueForForm, validityData.Combined(registeredInvalid), validate, registration.ControlId, registration.ApplyState));
     }
 
     private void OnFormChanged() => AfterExternalChange();

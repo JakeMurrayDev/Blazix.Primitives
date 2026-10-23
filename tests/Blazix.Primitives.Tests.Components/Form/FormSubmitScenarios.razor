@@ -1,0 +1,133 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of Form.test.tsx's submission titles, translated over FieldControl. Each Base UI test's useState is a
+    parameter; a test changes it through cut.Render.
+*@
+@switch (Scenario)
+{
+    case SubmitScenario.Pending:
+        <Form OnSubmit="Submitted">
+            <FieldRoot Validate="Pending">
+                <FieldControl data-testid="control" />
+            </FieldRoot>
+        </Form>
+        break;
+    case SubmitScenario.Unmount:
+        <Form OnSubmit="Submitted">
+            <FieldRoot Name="name">
+                <FieldControl DefaultValue="Alice" data-testid="name" />
+            </FieldRoot>
+            @if (Checked)
+            {
+                <FieldRoot Name="email">
+                    <FieldControl DefaultValue="" required data-testid="email" />
+                </FieldRoot>
+            }
+        </Form>
+        break;
+    case SubmitScenario.Fieldset:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldsetRoot Disabled="Disabled">
+                <FieldRoot Name="disabled">
+                    <FieldControl required data-testid="disabled" />
+                </FieldRoot>
+            </FieldsetRoot>
+            <FieldRoot Name="enabled">
+                <FieldControl DefaultValue="sent" data-testid="enabled" />
+            </FieldRoot>
+        </Form>
+        break;
+    case SubmitScenario.ControlDisabled:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot Name="control">
+                <FieldControl Disabled="Disabled" required data-testid="control" />
+            </FieldRoot>
+        </Form>
+        break;
+    case SubmitScenario.CustomAndNative:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot Name="custom" Validate="CustomError">
+                <FieldControl data-testid="custom" />
+            </FieldRoot>
+            <FieldRoot Name="native">
+                <FieldControl required data-testid="native" />
+            </FieldRoot>
+        </Form>
+        break;
+    case SubmitScenario.Values:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot Name="username">
+                <FieldControl DefaultValue="alice132" data-testid="username" />
+            </FieldRoot>
+            <FieldRoot>
+                <FieldControl DefaultValue="unnamed" data-testid="unnamed" />
+            </FieldRoot>
+        </Form>
+        break;
+    case SubmitScenario.Callbacks:
+        <Form @ref="form" OnSubmit="OnSubmit" OnFormSubmit="OnFormSubmit" Errors="Errors">
+            <FieldRoot Name="email" Validate="Validator">
+                <FieldControl data-testid="email" />
+            </FieldRoot>
+            <FieldRoot Name="name">
+                <FieldControl data-testid="name" />
+            </FieldRoot>
+        </Form>
+        break;
+}
+
+@code {
+    private Form? form;
+
+    public enum SubmitScenario
+    {
+        Pending,
+        Unmount,
+        Fieldset,
+        ControlDisabled,
+        CustomAndNative,
+        Values,
+        Callbacks,
+    }
+
+    [Parameter]
+    public SubmitScenario Scenario { get; set; }
+
+    [Parameter]
+    public bool Checked { get; set; } = true;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public FormErrors? Errors { get; set; }
+
+    [Parameter]
+    public EventCallback<FormSubmitEventArgs> OnSubmit { get; set; }
+
+    [Parameter]
+    public EventCallback<FormSubmitEventArgs> OnFormSubmit { get; set; }
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validator { get; set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+
+    public List<FormSubmitEventArgs> FormSubmits { get; } = [];
+
+    public int PendingCalls { get; private set; }
+
+    public Form Form => form!;
+
+    private void Submitted(FormSubmitEventArgs args) => Submits.Add(args);
+
+    private void FormSubmitted(FormSubmitEventArgs args) => FormSubmits.Add(args);
+
+    private ValueTask<FieldValidationResult?> Pending(FieldValidationArguments arguments)
+    {
+        PendingCalls++;
+        return new ValueTask<FieldValidationResult?>(new TaskCompletionSource<FieldValidationResult?>().Task);
+    }
+
+    private static ValueTask<FieldValidationResult?> CustomError(FieldValidationArguments arguments) => new("custom error");
+}

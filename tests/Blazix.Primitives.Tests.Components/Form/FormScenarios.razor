@@ -1,0 +1,78 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of Form.test.tsx. State a Base UI test keeps with useState is kept in the parameters; a test changes it
+    through cut.Render.
+*@
+@switch (Scenario)
+{
+    case FormScenario.Replacement:
+        <Form @ref="form">
+            @if (Step != 2)
+            {
+                <FieldRoot @key="Step" Name="@(Step == 0 ? "initial" : "current")" Validate="Validator">
+                    <FieldControl id="@($"control-{Step}")" />
+                </FieldRoot>
+            }
+        </Form>
+        break;
+    case FormScenario.Errors:
+        <Form @ref="form" Errors="Errors">
+            <FieldRoot Name="email" data-testid="email-root">
+                <FieldControl data-testid="email" />
+            </FieldRoot>
+            <FieldRoot Name="name" data-testid="name-root">
+                <FieldControl data-testid="name" />
+            </FieldRoot>
+        </Form>
+        break;
+    case FormScenario.Validation:
+        <Form @ref="form">
+            <FieldRoot Name="first" Validate='Record("first")'>
+                <FieldControl />
+            </FieldRoot>
+            <FieldRoot Name="second" Validate='Record("second")'>
+                <FieldControl />
+            </FieldRoot>
+            <FieldRoot Name="second" Validate='Record("second-again")'>
+                <FieldControl />
+            </FieldRoot>
+        </Form>
+        break;
+}
+
+@code {
+    private Form? form;
+
+    public enum FormScenario
+    {
+        Replacement,
+        Errors,
+        Validation,
+    }
+
+    [Parameter]
+    public FormScenario Scenario { get; set; }
+
+    [Parameter]
+    public int Step { get; set; }
+
+    [Parameter]
+    public FormErrors? Errors { get; set; }
+
+    [Parameter]
+    public List<string> Calls { get; set; } = [];
+
+    public Form Form => form!;
+
+    private ValueTask<FieldValidationResult?> Validator(FieldValidationArguments arguments)
+    {
+        Calls.Add(Step switch { 0 => "initial", 1 => "renamed", _ => "replacement" });
+        return default;
+    }
+
+    private Func<FieldValidationArguments, ValueTask<FieldValidationResult?>> Record(string name) => _ =>
+    {
+        Calls.Add(name);
+        return default;
+    };
+}
