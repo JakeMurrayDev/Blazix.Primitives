@@ -17,8 +17,11 @@ public sealed class SwitchAllocationBudgetTests : IDisposable
     // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): 672 bytes for the re-render, against Button's 560 with
     // a click and a key handler (the rest is the fixed cascade's re-set, about 80 bytes, Meter's measurement); 9,120 bytes
     // for the toggle, most of it the source-generated parse of the report's JSON and the request's async state machine.
-    private const long RerenderBudgetBytes = 672;
-    private const long ToggleBudgetBytes = 9120;
+    // Raised 2026-10-23 with the field integration (issue 80's follow-up): 704 bytes for the re-render, the 32 of the four
+    // cascading parameters the field behavior reads (Checkbox measures the same 704), and 9,272 bytes for the toggle, the
+    // field behavior's value reaction outside a field (the form's error lookup and the edit-context check).
+    private const long RerenderBudgetBytes = 704;
+    private const long ToggleBudgetBytes = 9272;
 
     private readonly SwitchTestContext test = new();
 

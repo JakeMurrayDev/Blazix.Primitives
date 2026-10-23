@@ -1,0 +1,191 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Linq.Expressions
+@using Microsoft.AspNetCore.Components.Forms
+@*
+    The test consumer of SwitchRoot.test.tsx's Field and Form rows: one Field.Root around one switch, with the label,
+    description, error and Form the test asks for (the CheckboxFieldHost pattern). State a Base UI test keeps with useState
+    is a parameter here; a test changes it through cut.Render, or through the host's own `Value` for a controlled switch.
+*@
+@if (InForm)
+{
+    <Form data-testid="form" Errors="Errors">
+        @Field
+        <button type="submit">submit</button>
+    </Form>
+}
+else
+{
+    @Field
+}
+
+@code {
+    [Parameter] public bool InForm { get; set; }
+    [Parameter] public FormErrors? Errors { get; set; }
+    [Parameter] public string? FieldName { get; set; }
+    [Parameter] public bool FieldDisabled { get; set; }
+    [Parameter] public ValidationMode? ValidationMode { get; set; }
+    [Parameter] public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+    [Parameter] public bool ShowLabel { get; set; }
+    [Parameter] public bool LabelWraps { get; set; }
+    [Parameter] public bool NativeLabel { get; set; } = true;
+    [Parameter] public bool ShowDescription { get; set; }
+    [Parameter] public bool ShowError { get; set; }
+    [Parameter] public bool SwitchMounted { get; set; } = true;
+    [Parameter] public string? SwitchKey { get; set; }
+    [Parameter] public string? SwitchId { get; set; }
+    [Parameter] public string? SwitchName { get; set; }
+    [Parameter] public bool SwitchDisabled { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public bool NativeButton { get; set; }
+    [Parameter] public bool SpanRender { get; set; }
+    [Parameter] public bool DefaultChecked { get; set; }
+    [Parameter] public bool Controlled { get; set; }
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public bool IgnoreChanges { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? AriaDescribedBy { get; set; }
+    [Parameter] public EventCallback<ValueChangeEventArgs<bool>> OnCheckedChange { get; set; }
+    [Parameter] public EditContext? EditContext { get; set; }
+    [Parameter] public Expression<Func<bool>>? CheckedExpression { get; set; }
+
+    private RenderFragment Field => builder =>
+    {
+        builder.OpenComponent<FieldRoot>(0);
+        builder.AddComponentParameter(1, "data-testid", "root");
+        builder.AddComponentParameter(2, nameof(FieldRoot.Name), FieldName);
+        builder.AddComponentParameter(3, nameof(FieldRoot.Disabled), FieldDisabled);
+        builder.AddComponentParameter(4, nameof(FieldRoot.ValidationMode), ValidationMode);
+        builder.AddComponentParameter(5, nameof(FieldRoot.Validate), Validate);
+        builder.AddComponentParameter(6, nameof(FieldRoot.ChildContent), (RenderFragment)FieldContent);
+        builder.CloseComponent();
+    };
+
+    private void FieldContent(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+    {
+        if (ShowLabel && !LabelWraps)
+        {
+            builder.OpenComponent<FieldLabel>(0);
+            builder.AddComponentParameter(1, "data-testid", "label");
+            builder.AddComponentParameter(2, nameof(FieldLabel.ChildContent), (RenderFragment)(b => b.AddContent(0, "Label")));
+            builder.CloseComponent();
+            Switch(builder);
+        }
+        else if (ShowLabel)
+        {
+            builder.OpenComponent<FieldLabel>(3);
+            builder.AddComponentParameter(4, "data-testid", "label");
+            builder.AddComponentParameter(5, nameof(FieldLabel.NativeLabel), NativeLabel);
+            if (!NativeLabel)
+            {
+                builder.AddComponentParameter(6, nameof(FieldLabel.Render), (RenderFragment)(b =>
+                {
+                    b.OpenElement(0, "span");
+                    b.CloseElement();
+                }));
+            }
+
+            builder.AddComponentParameter(7, nameof(FieldLabel.ChildContent), (RenderFragment)(b =>
+            {
+                Switch(b);
+                b.AddContent(100, "OK");
+            }));
+            builder.CloseComponent();
+        }
+        else
+        {
+            Switch(builder);
+        }
+
+        if (ShowDescription)
+        {
+            builder.OpenComponent<FieldDescription>(10);
+            builder.AddComponentParameter(11, "data-testid", "description");
+            builder.CloseComponent();
+        }
+
+        if (ShowError)
+        {
+            builder.OpenComponent<FieldError>(12);
+            builder.AddComponentParameter(13, "data-testid", "error");
+            builder.CloseComponent();
+        }
+    }
+
+    private void Switch(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+    {
+        if (!SwitchMounted)
+        {
+            return;
+        }
+
+        Dictionary<string, object> attributes = new() { ["data-testid"] = "switch" };
+        if (SwitchId is not null)
+        {
+            attributes["id"] = SwitchId;
+        }
+
+        if (AriaLabel is not null)
+        {
+            attributes["aria-label"] = AriaLabel;
+        }
+
+        if (AriaDescribedBy is not null)
+        {
+            attributes["aria-describedby"] = AriaDescribedBy;
+        }
+
+        if (EditContext is not null)
+        {
+            builder.OpenComponent<CascadingValue<EditContext>>(20);
+            builder.AddComponentParameter(21, "Value", EditContext);
+            builder.AddComponentParameter(22, "IsFixed", true);
+            builder.AddComponentParameter(23, "ChildContent", (RenderFragment)(inner => RenderSwitch(inner, attributes)));
+            builder.CloseComponent();
+            return;
+        }
+
+        RenderSwitch(builder, attributes);
+    }
+
+    private void RenderSwitch(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, Dictionary<string, object> attributes)
+    {
+        builder.OpenComponent<SwitchRoot>(30);
+        if (SwitchKey is not null)
+        {
+            builder.SetKey(SwitchKey);
+        }
+
+        builder.AddMultipleAttributes(31, attributes);
+        builder.AddComponentParameter(32, nameof(SwitchRoot.Name), SwitchName);
+        builder.AddComponentParameter(33, nameof(SwitchRoot.Disabled), SwitchDisabled);
+        builder.AddComponentParameter(34, nameof(SwitchRoot.Required), Required);
+        builder.AddComponentParameter(35, nameof(SwitchRoot.NativeButton), NativeButton);
+        builder.AddComponentParameter(36, nameof(SwitchRoot.DefaultChecked), DefaultChecked);
+        if (Controlled)
+        {
+            builder.AddComponentParameter(37, nameof(SwitchRoot.Checked), Value);
+            if (!IgnoreChanges)
+            {
+                builder.AddComponentParameter(38, nameof(SwitchRoot.CheckedChanged), EventCallback.Factory.Create<bool>(this, next => Value = next));
+            }
+        }
+
+        builder.AddComponentParameter(39, nameof(SwitchRoot.OnCheckedChange), OnCheckedChange);
+        if (CheckedExpression is not null)
+        {
+            builder.AddComponentParameter(40, nameof(SwitchRoot.CheckedExpression), CheckedExpression);
+        }
+
+        if (NativeButton || SpanRender)
+        {
+            string tag = NativeButton ? "button" : "span";
+            builder.AddComponentParameter(41, nameof(SwitchRoot.Render), (RenderFragment)(b =>
+            {
+                b.OpenElement(0, tag);
+                b.CloseElement();
+            }));
+        }
+
+        builder.CloseComponent();
+    }
+}
