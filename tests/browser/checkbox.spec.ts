@@ -9,7 +9,7 @@ import { test, expect, fixtureUrl, gotoFixture, type Page, type RenderMode } fro
 // transition status). The fixtures record OnCheckedChange and the consumer's clicks as data attributes. Animated cases
 // open with `?animations=1` (ADR 06 §2) and witness transient attributes by recorded markers, never by frame polls.
 
-type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field' | 'checkbox-enter' | 'checkbox-names';
+type FixtureName = 'checkbox-basic' | 'checkbox-labels' | 'checkbox-form' | 'checkbox-indicator' | 'checkbox-field' | 'checkbox-enter' | 'checkbox-names' | 'checkbox-base-ui-form';
 
 /** Opens a Checkbox fixture and waits until every box and listed indicator has its behaviors attached. */
 async function gotoCheckboxes(page: Page, mode: RenderMode, name: FixtureName, options: { animations?: boolean } = {}): Promise<Locator> {
@@ -1180,5 +1180,52 @@ test.describe('<Checkbox.Indicator />', () => {
     const records = await indicatorRecords(container);
     expect(records.filter((record) => record.kind === 'added' || record.kind === 'removed')).toEqual([]);
     expect(records).not.toContainEqual(expect.objectContaining({ name: 'data-starting-style', present: true }));
+  });
+  test.describe('Form (track 2)', () => {
+    // The submission is the form module's: it reads the hidden input in the submit task (FFI-FRM-04), so the field sees
+    // the native valueMissing of a box nobody touched.
+    test('prop: validationMode=onSubmit', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-base-ui-form');
+      const { container, root } = checkboxCase(fixture, 'on-submit');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+
+      await root.click();
+      await expect(root).toHaveAttribute('data-checked', '');
+      await root.click();
+      await expect(root).toHaveAttribute('data-unchecked', '');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+
+      await container.locator('[data-submit]').click();
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+
+      await root.click();
+      await expect(root).toHaveAttribute('data-checked', '');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+
+      await root.click();
+      await expect(root).toHaveAttribute('data-unchecked', '');
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+
+      await root.click();
+      await expect(root).toHaveAttribute('data-checked', '');
+      await expect(root).not.toHaveAttribute('aria-invalid');
+    });
+
+    test('port: a required box blocks the submit of its form, which focuses the root', async ({ page, mode }) => {
+      // "triggers native HTML validation on submit" without its Field.Error clause (PR 1c), with the focus of CHK-FOC-06.
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-base-ui-form');
+      const { container, root } = checkboxCase(fixture, 'blocked');
+
+      await container.locator('[data-submit]').click();
+
+      await expect(root).toHaveAttribute('aria-invalid', 'true');
+      await expect(root).toBeFocused();
+      await expect(container).toHaveAttribute('data-submits', '0');
+
+      await root.click();
+      await expect(root).not.toHaveAttribute('aria-invalid');
+      await container.locator('[data-submit]').click();
+      await expect(container).toHaveAttribute('data-submits', '1');
+    });
   });
 });

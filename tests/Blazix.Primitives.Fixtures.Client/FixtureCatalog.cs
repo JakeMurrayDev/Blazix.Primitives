@@ -83,6 +83,7 @@ public static class FixtureCatalog
         ["checkbox-enter"] = new(typeof(CheckboxEnterFixture)),
         ["checkbox-names"] = new(typeof(CheckboxNamesFixture)),
         ["checkbox-prerender"] = new(typeof(CheckboxPrerenderFixture), Prerender: true),
+        ["checkbox-base-ui-form"] = new(typeof(CheckboxBaseUiFormFixture)),
         ["checkbox-group-field"] = new(typeof(CheckboxGroupFieldFixture)),
         ["checkbox-group-prerender"] = new(typeof(CheckboxGroupPrerenderFixture), Prerender: true),
         ["checkbox-group-form"] = new(typeof(CheckboxGroupFormFixture)),
