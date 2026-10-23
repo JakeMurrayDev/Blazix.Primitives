@@ -42,7 +42,6 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private readonly Action stateHasChanged;
     private readonly Func<Exception, Task> dispatchException;
     private readonly IJSRuntime jsRuntime;
-    private readonly IFormScope formless;
     private readonly string ownId;
     private readonly FieldValidationInput validationInput;
     private readonly EditContextParticipation participation;
@@ -55,6 +54,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private FieldItemContext? item;
     private bool itemDisables;
     private LabelableScope? scope;
+    private readonly IFormScope formless;
     private IFormScope form;
     private CheckableFieldParameters parameters;
     private bool? syncedChecked;
