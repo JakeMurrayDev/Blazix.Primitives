@@ -1,7 +1,9 @@
+using System.Linq.Expressions;
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
@@ -75,8 +77,14 @@ public static class SwitchRootDataAttributes
 //   a report on Server. The input's `checked` property is the `dom` primitive's after attach (ADR 04 Amendments
 //   2026-10-22): C# renders the initial value once and then sends it in DomOptions, raising CheckedRestores when a request
 //   leaves the switch's value different from the box the browser toggled.
-// - id: in non-native mode the root keeps its generated id and the consumer's `id` goes to the input; in native mode the
-//   root takes the consumer's id, else the control id, and the input has none (SWT-API-11, SWT-DOM-01/10).
+// - id: in non-native mode the root keeps its generated id and the labelable control id goes to the input; in native mode
+//   the root takes the labelable control id and the input has none (SWT-API-11, SWT-DOM-01/10). The labelable control id
+//   is the field's control id, else the consumer's non-empty `id`, else the part's own (CheckableFieldBehavior).
+// - Inside a field the switch is the field's control (switch §8): Field/CheckableFieldBehavior, shared with Checkbox,
+//   registers it, writes the field's flags, validates through the hidden input, composes the label and description ids,
+//   and attaches the `form` module to the root (blur, focus at attach) and to the hidden input (the validity read, the
+//   focus redirect to the root, SWT-FOC-03, and the native-label fallback, SWT-ARIA-07). ADR 05 Amendments 2026-10-22:
+//   the cascaded EditContext through CheckedExpression.
 /// <summary>
 /// Represents a control that turns a setting on or off: Base UI's <c>Switch.Root</c>, rendered as a <c>span</c> with
 /// <c>role="switch"</c> followed by the hidden inputs that take part in forms, native validation and label activation.
@@ -92,10 +100,13 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
     private readonly EventCallback onClick;
+    private readonly EventCallback onFocus;
+    private readonly Action fieldStateChanged;
     private readonly Action<ElementReference> captureInput;
     private readonly TaskCompletionSource inputAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Controlled<bool>? checkedState;
     private ButtonBehavior? behavior;
+    private CheckableFieldBehavior? fieldBehavior;
     private DomTwin? domTwin;
     private TwinHandle<DomOptions>? domHandle;
     private DomOptions? sentDomOptions;
@@ -113,6 +124,8 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => behavior!.HandleKeyUpAsync(e));
         onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
+        onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => fieldBehavior!.HandleFocus());
+        fieldStateChanged = OnFieldStateChanged;
         captureInput = element => input = element;
     }
 
@@ -128,17 +141,41 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
+    [Inject]
+    private DefaultFormScope Formless { get; set; } = null!;
+
     private bool IsChecked => checkedState!.Value;
 
-    private bool EffectiveDisabled => Disabled;
+    // SWT-API-04: the field's disabled state OR'd with the part's.
+    private bool EffectiveDisabled => fieldBehavior!.EffectiveDisabled;
 
-    private string? EffectiveName => Name;
+    // SWT-API-07: the field's name, else the part's own, else the EditContext identifier's field name.
+    private string? EffectiveName => fieldBehavior!.Name;
 
-    private string? ConsumerId => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
+    private string RootId => NativeButton ? fieldBehavior!.ControlId : GeneratedId!;
 
-    private string RootId => NativeButton ? ConsumerId ?? controlId! : GeneratedId!;
+    private string? InputId => NativeButton ? null : fieldBehavior!.ControlId;
 
-    private string? InputId => NativeButton ? null : ConsumerId ?? controlId;
+    // SWT-ARIA-06 step 2, SWT-EDGE-07: a non-blank consumer aria-label names the switch, even with a label in its scope.
+    private bool ConsumerNamesSwitch => AdditionalAttributes is not null
+        && AdditionalAttributes.TryGetValue("aria-label", out object? label)
+        && label is string text
+        && !string.IsNullOrWhiteSpace(text);
+
+    // SWT-ARIA-06 step 1: the consumer's aria-labelledby wins at the merge.
+    private bool ConsumerLabelsSwitch => AdditionalAttributes is not null && AdditionalAttributes.ContainsKey("aria-labelledby");
+
+    [CascadingParameter]
+    private FieldRootContext? FieldContext { get; set; }
+
+    [CascadingParameter]
+    private FieldItemContext? ItemContext { get; set; }
+
+    [CascadingParameter]
+    private IFormScope? FormScope { get; set; }
+
+    [CascadingParameter]
+    private EditContext? CascadedEditContext { get; set; }
 
     // SWT-API-01; ADR 05 §2
     /// <summary>Gets or sets a value indicating whether the switch is on, when the consumer owns the value.</summary>
@@ -229,6 +266,18 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     [Parameter]
     public bool NativeButton { get; set; }
 
+    // ADR 05 Amendments 2026-10-22: EditContext participation (issue 76).
+    /// <summary>Gets or sets the expression of the bound value, which <c>@bind-Checked</c> supplies.</summary>
+    /// <value>
+    /// The expression that identifies the bound value; <see langword="null"/> by default. Inside an <c>EditForm</c> or any
+    /// other ancestor that cascades an <see cref="EditContext"/>, the switch notifies the context of every committed
+    /// change, takes the identifier's field name as its name when <see cref="Name"/> is <see langword="null"/>, and inside
+    /// a <see cref="FieldRoot"/> shows the context's messages for the identifier as the field's errors. Without an edit
+    /// context it has no effect.
+    /// </value>
+    [Parameter]
+    public Expression<Func<bool>>? CheckedExpression { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => DefaultTag;
 
@@ -246,7 +295,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     // can wait for the modules' listeners before it clicks.
     /// <summary>Gets a task that completes when the switch's behaviors are attached to its element and its hidden input.</summary>
     /// <value>A task that completes after the first interactive render has attached both.</value>
-    internal Task TwinAttached => Task.WhenAll(behavior!.TwinAttached, inputAttached.Task);
+    internal Task TwinAttached => Task.WhenAll(behavior!.TwinAttached, inputAttached.Task, fieldBehavior!.TwinAttached);
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
@@ -270,11 +319,17 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
 
         // SWT-DOM-10: the labelable control id, drawn after the root's own, in render order (ADR 02 decision 5).
         controlId = IdGenerator.Next();
+        fieldBehavior = new CheckableFieldBehavior(controlId, Formless, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
+        fieldBehavior.Initialize(FieldContext, ItemContext);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        // Switch never submits on Enter (Enter toggles it, SWT-KEY-01), so the form module's Enter path stays off.
+        fieldBehavior!.SetParameters(
+            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, EnterSubmit: false, LabelFallback: !NativeButton && !ConsumerNamesSwitch && !ConsumerLabelsSwitch, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
+            FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;
         behavior.ReadOnly = ReadOnly;
@@ -297,6 +352,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     {
         await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: false);
         await AttachInputAsync();
+        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
     }
 
     /// <inheritdoc />
@@ -305,6 +361,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
         if (disposing)
         {
             behavior?.Dispose();
+            fieldBehavior?.Dispose();
             if (domTwin is not null)
             {
                 _ = domTwin.DisposeAsync().AsTask();
@@ -334,21 +391,45 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
             attributes.Set("aria-required", "true");
         }
 
-        if (NativeButton)
+        if (fieldBehavior!.InField)
         {
-            // SWT-DOM-01: the labelable control id; the consumer's id replaces it at the merge.
-            attributes.Set("id", controlId!);
+            fieldBehavior.Rendered();
+            attributes.Set("onfocus", onFocus);
+        }
+
+        // SWT-ARIA-06: the consumer's aria-labelledby replaces this at the merge; a non-blank aria-label leaves it out;
+        // then the label of the switch's labelable scope, then the input's native label (SWT-ARIA-07, the form module).
+        if (!ConsumerNamesSwitch && (fieldBehavior.LabelId ?? fieldBehavior.FallbackLabelId) is { } labelId)
+        {
+            attributes.Set("aria-labelledby", labelId);
         }
     }
 
-    // ADR 02 Amendments 2026-10-21 (FinishAttributes); SWT-DOM-01 names the root's id as part-owned: in non-native mode the
-    // consumer's `id` is the hidden input's (SWT-API-11), so the root keeps its generated id.
+    // ADR 02 Amendments 2026-10-21 (FinishAttributes); part-owned by the document: the root's id (SWT-DOM-01: in non-native
+    // mode the consumer's `id` is the hidden input's, SWT-API-11; in native mode the labelable control id), the composed
+    // aria-describedby (SWT-ARIA-10) and aria-invalid while the field is invalid (SWT-ARIA-11).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes)
     {
-        if (!NativeButton)
+        attributes.Set("id", RootId);
+        if (!fieldBehavior!.InField)
         {
-            attributes.Set("id", GeneratedId!);
+            return;
+        }
+
+        string? consumer = attributes.TryGetValue("aria-describedby", out AttributeValue current) && current.TryGetValue(out string text) ? text : null;
+        if (fieldBehavior.DescribedBy(consumer) is { } describedBy)
+        {
+            attributes.Set("aria-describedby", describedBy);
+        }
+        else
+        {
+            attributes.Remove("aria-describedby");
+        }
+
+        if (fieldBehavior.AriaInvalid)
+        {
+            attributes.Set("aria-invalid", "true");
         }
     }
 
@@ -390,7 +471,11 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
         builder.AddAttribute(19, "id", InputId);
         builder.AddAttribute(20, "value", Value);
         builder.AddAttribute(21, "style", string.IsNullOrEmpty(name) ? VisuallyHidden.Style : VisuallyHidden.InputStyle);
-        builder.AddElementReferenceCapture(22, captureInput);
+
+        // SWT-DOM-15: the field's description ids without the consumer's, and its invalid state.
+        builder.AddAttribute(22, "aria-describedby", fieldBehavior!.InField ? fieldBehavior.DescribedBy(null) : null);
+        builder.AddAttribute(23, "aria-invalid", fieldBehavior.AriaInvalid ? "true" : null);
+        builder.AddElementReferenceCapture(24, captureInput);
         builder.CloseElement();
     }
 
@@ -414,6 +499,14 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
         }
 
         return IsChecked == next;
+    }
+
+    // A change of the field's state that the switch shows (its flags, label, descriptions, validity or disabled state).
+    private void OnFieldStateChanged()
+    {
+        behavior!.Disabled = EffectiveDisabled;
+        UpdateState();
+        StateHasChanged();
     }
 
     // SWT-EVT-04, SWT-STA-03 (restore clause): the ADR 01 row of 2026-10-22.
@@ -461,17 +554,24 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     private bool UpdateState()
     {
         bool isChecked = IsChecked;
-        bool disabled = EffectiveDisabled;
+        fieldBehavior!.SetValue(isChecked, isChecked);
+        FieldStateSnapshot snapshot = fieldBehavior.Snapshot;
         if (state is { } current
             && current.Checked == isChecked
-            && current.Disabled == disabled
+            && current.Disabled == snapshot.Disabled
             && current.ReadOnly == ReadOnly
-            && current.Required == Required)
+            && current.Required == Required
+            && current.Touched == snapshot.Touched
+            && current.Dirty == snapshot.Dirty
+            && current.Valid == snapshot.Valid
+            && current.Filled == snapshot.Filled
+            && current.Focused == snapshot.Focused)
         {
             return false;
         }
 
-        state = new SwitchRootState(isChecked, disabled, ReadOnly, Required, Touched: false, Dirty: false, Valid: null, Filled: false, Focused: false);
+        // SWT-STA-04: the field's state with the switch's four fields; disabled is the effective one.
+        state = new SwitchRootState(isChecked, snapshot.Disabled, ReadOnly, Required, snapshot.Touched, snapshot.Dirty, snapshot.Valid, snapshot.Filled, snapshot.Focused);
         context.SetState(state);
         return true;
     }
