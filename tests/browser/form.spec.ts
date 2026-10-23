@@ -1,17 +1,23 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, fixtureUrl, Fixture, type Page, type RenderMode } from './helpers';
 
-// The [L4] rows of docs/components/form.md that render only Form and Field parts (PR 2 of M2, issue 78), and the
-// relaxation of FRM-EVT-01 asserted on both render modes: the form module prevents every native submit and re-issues it
-// with requestSubmit(submitter) once C# answers. Titles are Base UI's (Form.test.tsx) except the port's own, which name
-// their row. A submission is observed through a submit listener the spec adds to the form, after the module's: it records
-// the submitter and defaultPrevented of every submit event and stops the navigation of a re-issued one itself.
+// The [L4] rows of docs/components/form.md that render only Form and Field parts (PR 2 of M2, issue 78), those that
+// render Field.Error (PR 1c), and the relaxation of FRM-EVT-01 asserted on both render modes: the form module prevents
+// every native submit and re-issues it with requestSubmit(submitter) once C# answers. Titles are Base UI's
+// (Form.test.tsx) except the port's own, which name their row. A submission is observed through a submit listener the spec
+// adds to the form, after the module's: it records the submitter, defaultPrevented and the native form data of every
+// submit event and stops the navigation of a re-issued one itself.
 
-type FixtureName = 'form-submit' | 'form-blocked' | 'form-native-validation' | 'form-external-errors';
+type FixtureName = 'form-submit' | 'form-blocked' | 'form-native-validation' | 'form-external-errors' | 'form-errors' | 'form-registration';
 
 interface RecordedSubmit {
   prevented: boolean;
   submitter: string | null;
+}
+
+interface RecordedFormData {
+  prevented: boolean;
+  entries: [string, string][];
 }
 
 /** Opens a Form fixture and waits until every form and control has the form module attached. */
@@ -42,6 +48,20 @@ async function recordSubmits(form: Locator): Promise<() => Promise<RecordedSubmi
     });
   });
   return () => form.evaluate((element) => [...((element as HTMLElement & { recordedSubmits?: RecordedSubmit[] }).recordedSubmits ?? [])]);
+}
+
+/** Adds a submit listener that records the native form data of every submit event (FRM-FRM-08); returns its reader. */
+async function recordFormData(form: Locator): Promise<() => Promise<RecordedFormData[]>> {
+  await form.evaluate((element) => {
+    const records: RecordedFormData[] = [];
+    (element as HTMLElement & { recordedFormData?: RecordedFormData[] }).recordedFormData = records;
+    element.addEventListener('submit', (event) => {
+      const entries = [...new FormData(element as HTMLFormElement).entries()].map(([key, value]) => [key, String(value)] as [string, string]);
+      records.push({ prevented: event.defaultPrevented, entries });
+      event.preventDefault();
+    });
+  });
+  return () => form.evaluate((element) => [...((element as HTMLElement & { recordedFormData?: RecordedFormData[] }).recordedFormData ?? [])]);
 }
 
 test.describe('Form', () => {
@@ -149,5 +169,175 @@ test.describe('Form', () => {
 
     await expect(fixture.locator('[data-testid="second"]')).toBeFocused();
     await expect(fixture.locator('[data-testid="second"]')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  // FRM-KEY-01: a click on a button with no type submits through the same pipeline.
+  test('does not submit if there are errors', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-errors');
+    const scope = fixture.locator('[data-case="required"]');
+
+    await scope.getByRole('button', { name: 'Submit' }).click();
+
+    await expect(scope.locator('[data-testid="error"]')).toBeVisible();
+    await settle(fixture);
+    await expect(scope).toHaveAttribute('data-submits', '0');
+  });
+
+  // FRM-FOC-02, FFI-FOC-03: errors set after a passed submission focus the first invalid field once, after the render.
+  test('focuses asynchronously replaced external errors and clears only the changed own property', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-errors');
+    const scope = fixture.locator('[data-case="async-replaced"]');
+
+    await scope.getByRole('button', { name: 'Submit' }).click();
+
+    await expect(scope.locator('[data-testid="first"]')).toBeFocused();
+    await expect(scope.locator('[data-testid="first-error"]')).toHaveText('First error');
+    await expect(scope.locator('[data-testid="second-error"]')).toHaveText('Second error');
+
+    await scope.locator('[data-testid="first"]').pressSequentially('a');
+
+    await expect(scope.locator('[data-testid="first-error"]')).toHaveCount(0);
+    await expect(scope.locator('[data-testid="second-error"]')).toHaveText('Second error');
+  });
+
+  // FRM-FOC-02 (and FRM-FOC-01 for the blocked submission); FRM-FRM-08: the native form data holds the controls' entries.
+  test('focuses the first invalid field only on submit', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-errors');
+    const scope = fixture.locator('[data-case="app"]');
+    const formData = await recordFormData(scope.locator('[data-testid="form"]'));
+    const submit = scope.getByRole('button', { name: 'Submit' });
+    const name = scope.locator('[data-testid="name"]');
+    const age = scope.locator('[data-testid="age"]');
+
+    await submit.click();
+    await expect(name).toBeFocused();
+    expect((await formData())[0]?.entries).toEqual([['name', ''], ['age', '']]);
+
+    await name.fill('John');
+    await settle(fixture);
+    await expect(age).not.toBeFocused();
+
+    await submit.click();
+    await expect(age).toBeFocused();
+
+    await age.fill('42');
+    await submit.click();
+    await settle(fixture);
+    await expect(scope.locator('[data-testid="age-error"]')).toHaveCount(0);
+    await expect(age).not.toBeFocused();
+  });
+
+  test('does not swap focus immediately on change after two submissions', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-errors');
+    const scope = fixture.locator('[data-case="app"]');
+    await recordFormData(scope.locator('[data-testid="form"]'));
+    const submit = scope.getByRole('button', { name: 'Submit' });
+    const name = scope.locator('[data-testid="name"]');
+    const age = scope.locator('[data-testid="age"]');
+
+    await submit.click();
+    await expect(name).toBeFocused();
+
+    await submit.click();
+    await settle(fixture);
+    await name.fill('John');
+    await settle(fixture);
+
+    await expect(age).not.toBeFocused();
+  });
+
+  // FRM-FRM-06, FRM-STA-03; FRM-FRM-08: the submission's native form data is the typed value.
+  test('runs field validation on first change after Form error is set', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-errors');
+    const scope = fixture.locator('[data-case="first-change"]');
+    const formData = await recordFormData(scope.locator('[data-testid="form"]'));
+    const input = scope.locator('[data-testid="name"]');
+
+    await input.click();
+    await page.keyboard.type('abcde');
+    await scope.getByRole('button', { name: 'Submit' }).click();
+    await expect(scope.locator('[data-testid="name-error"]')).toHaveText('submit error');
+    expect((await formData())[0]?.entries).toEqual([['name', 'abcde']]);
+    const before = Number(await scope.getAttribute('data-calls'));
+
+    await input.click();
+    await page.keyboard.press('Backspace');
+
+    await expect(scope.locator('[data-testid="name-error"]')).toHaveText('field error');
+    await expect(scope).toHaveAttribute('data-calls', String(before + 1));
+  });
+
+  // FFI-FRM-17: the registry follows mounting, a fieldset's disabled state and the control's.
+  test('unmounted fields should be removed from the form', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-registration');
+    const scope = fixture.locator('[data-case="unmounted"]');
+    const submit = scope.getByRole('button', { name: 'Submit' });
+
+    await submit.click();
+    await expect(scope.locator('[data-testid="email"]')).toHaveAttribute('aria-invalid', 'true');
+    await settle(fixture);
+    await expect(scope).toHaveAttribute('data-submits', '0');
+
+    await scope.getByRole('checkbox').click();
+    await submit.click();
+    await expect(scope).toHaveAttribute('data-submits', '1');
+  });
+
+  test('excludes disabled fieldset fields from validation and onFormSubmit values', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-registration');
+    const scope = fixture.locator('[data-case="fieldset"]');
+
+    await scope.getByRole('button', { name: 'Submit' }).click();
+
+    await expect(scope).toHaveAttribute('data-submits', '1');
+    await expect(scope).toHaveAttribute('data-values', 'enabled=sent');
+    await expect(scope.locator('[data-testid="disabled"]')).not.toHaveAttribute('aria-invalid');
+  });
+
+  test('clears invalid attributes when a field control becomes disabled', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-registration');
+    const scope = fixture.locator('[data-case="control-disabled"]');
+    const control = scope.locator('[data-testid="control"]');
+
+    await scope.getByRole('button', { name: 'Submit' }).click();
+    await expect(control).toHaveAttribute('aria-invalid', 'true');
+
+    await scope.getByRole('button', { name: 'Disable' }).click();
+    await expect(control).toBeDisabled();
+    await expect(control).not.toHaveAttribute('aria-invalid');
+
+    await scope.getByRole('button', { name: 'Submit' }).click();
+    await expect(scope).toHaveAttribute('data-submits', '1');
+    await expect(scope).toHaveAttribute('data-values', '');
+  });
+
+  test('re-registers field controls when they become enabled again', async ({ page, mode }) => {
+    const fixture = await gotoForm(page, mode, 'form-registration');
+    const scope = fixture.locator('[data-case="control-disabled"]');
+    const control = scope.locator('[data-testid="control"]');
+    const submit = scope.getByRole('button', { name: 'Submit' });
+
+    await submit.click();
+    await expect(control).toHaveAttribute('aria-invalid', 'true');
+    await settle(fixture);
+    await expect(scope).toHaveAttribute('data-submits', '0');
+
+    await scope.getByRole('button', { name: 'Disable' }).click();
+    await submit.click();
+    await expect(scope).toHaveAttribute('data-submits', '1');
+    await expect(scope).toHaveAttribute('data-values', '');
+
+    await scope.getByRole('button', { name: 'Enable' }).click();
+    await submit.click();
+    await expect(control).toHaveAttribute('aria-invalid', 'true');
+    // FRM-FOC-01 (§9): the blocked submission focuses and selects the control when C# answers; typing waits for it.
+    await expect(control).toBeFocused();
+    await settle(fixture);
+    await expect(scope).toHaveAttribute('data-submits', '1');
+
+    await control.pressSequentially('sent');
+    await submit.click();
+    await expect(scope).toHaveAttribute('data-submits', '2');
+    await expect(scope).toHaveAttribute('data-values', 'control=sent');
   });
 });

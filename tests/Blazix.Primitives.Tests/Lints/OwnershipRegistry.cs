@@ -39,10 +39,11 @@ internal static class OwnershipRegistry
         // `C# (standalone); C# → JS (in a group, from attach)`). There is no composite entry: the lint reads only
         // docs/components/*.md.
         new("radio", "Root", "tabindex", Writer.CsharpToJs),
-        // field.md §5 FLD-DOM-18 (M2 track 1): the transitions module writes the Error's enter and exit attributes. The part
-        // and its state record arrive in PR 1c, which adds the StateField (FieldErrorState.TransitionStatus).
-        new("field", "Error", "data-starting-style", Writer.Js),
-        new("field", "Error", "data-ending-style", Writer.Js),
+        // field.md §5 FLD-DOM-18 (M2 track 1, PR 1c): the transitions module writes the Error's enter and exit attributes,
+        // mirrored in FieldErrorState.TransitionStatus; C# renders data-starting-style once, on the element it creates (the
+        // handover, ADR 04 Amendments 2026-10-18).
+        new("field", "Error", "data-starting-style", Writer.Js, "FieldErrorState.TransitionStatus"),
+        new("field", "Error", "data-ending-style", Writer.Js, "FieldErrorState.TransitionStatus"),
         // field.md §5.3 FLD-DOM-11 (ADR 04 Amendments 2026-10-22, chosen by the user 2026-10-22): C# renders the value once; the form
         // module owns the element's value and defaultValue from attach. Input adopts the row (INP-STR-04).
         new("field", "Control", "value", Writer.CsharpToJs),

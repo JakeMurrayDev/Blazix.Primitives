@@ -3,6 +3,9 @@
         <FieldRoot class="flex w-full max-w-64 flex-col items-start gap-1">
             <FieldLabel class="@LabelClass">Name</FieldLabel>
             <FieldControl required placeholder="Required" class="@ControlClass" />
+            <FieldError class="text-sm text-red-700 dark:text-red-400" Match="ValidityFlag.ValueMissing">
+                Please enter your name
+            </FieldError>
 
             <FieldDescription class="@DescriptionClass">
                 Visible on your profile

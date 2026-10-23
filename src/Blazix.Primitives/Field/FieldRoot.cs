@@ -97,6 +97,9 @@ public sealed class FieldRoot : PartBase<FieldRootState>
     [Inject]
     private IServiceProvider Services { get; set; } = null!;
 
+    [Inject]
+    private DefaultFormScope Formless { get; set; } = null!;
+
     [CascadingParameter]
     private FieldsetRootContext? FieldsetContext { get; set; }
 
@@ -209,7 +212,7 @@ public sealed class FieldRoot : PartBase<FieldRootState>
     protected override void OnInitialized()
     {
         TimeProvider timeProvider = Services.GetService<TimeProvider>() ?? TimeProvider.System;
-        context = new FieldRootContext(IdGenerator.Next(), timeProvider, InvokeAsync, DispatchExceptionAsync);
+        context = new FieldRootContext(IdGenerator.Next(), Formless, timeProvider, InvokeAsync, DispatchExceptionAsync);
         context.AddListener(contextChanged);
         fieldset = FieldsetContext;
         fieldset?.AddListener(fieldsetChanged);

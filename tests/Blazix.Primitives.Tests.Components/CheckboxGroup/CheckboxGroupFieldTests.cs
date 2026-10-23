@@ -379,6 +379,10 @@ public sealed class CheckboxGroupFieldTests : IDisposable
 
         FieldValidationArguments call = Assert.Single(calls);
         Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<string>>(call.Value));
+
+        // `{ group: [] }`: outside a Form the fields of the runtime share one registry (FFI-STR-05, PR 92).
+        Assert.Equal("group", Assert.Single(call.Values).Key);
+        Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<string>>(call.Values["group"]));
     }
 
     [Fact(DisplayName = "validates an inputless controlled group on change with validationMode=onChange")]
@@ -405,9 +409,9 @@ public sealed class CheckboxGroupFieldTests : IDisposable
         FieldValidationArguments call = Assert.Single(calls);
         Assert.Equal(["one"], Assert.IsAssignableFrom<IReadOnlyList<string>>(call.Value));
 
-        // Base UI's second argument is `{ group: ['one'] }`; outside a Form the port's form values are empty (track 1's
-        // FieldRegistry.None), so that half is Field's and stays open with the Form rows.
-        Assert.Empty(call.Values);
+        // `{ group: ['one'] }`: outside a Form the fields of the runtime share one registry (FFI-STR-05, PR 92).
+        Assert.Equal("group", Assert.Single(call.Values).Key);
+        Assert.Equal(["one"], Assert.IsAssignableFrom<IReadOnlyList<string>>(call.Values["group"]));
     }
 
     [Fact(DisplayName = "port: the group registers only while its field has a name and it is enabled")]

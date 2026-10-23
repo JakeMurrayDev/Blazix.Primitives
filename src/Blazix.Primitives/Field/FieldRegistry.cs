@@ -11,22 +11,6 @@ internal sealed class FieldRegistry
     private readonly List<string> order = [];
     private readonly Dictionary<string, FieldRegistryEntry> entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FieldValidationInput> inputs = new(StringComparer.Ordinal);
-    private readonly bool accepts;
-
-    /// <summary>Initializes a new instance of the <see cref="FieldRegistry"/> class that accepts entries.</summary>
-    public FieldRegistry()
-        : this(accepts: true)
-    {
-    }
-
-    private FieldRegistry(bool accepts)
-    {
-        this.accepts = accepts;
-    }
-
-    /// <summary>Gets the registry outside a form, which accepts no entry.</summary>
-    /// <value>An always-empty registry.</value>
-    public static FieldRegistry None { get; } = new(accepts: false);
 
     /// <summary>Gets the number of entries.</summary>
     /// <value>The number of registered fields.</value>
@@ -52,11 +36,6 @@ internal sealed class FieldRegistry
     /// <param name="entry">The entry.</param>
     public void Set(string id, FieldRegistryEntry entry)
     {
-        if (!accepts)
-        {
-            return;
-        }
-
         if (!entries.ContainsKey(id))
         {
             order.Add(id);
@@ -96,13 +75,7 @@ internal sealed class FieldRegistry
     /// <summary>Registers a validation input under the id of its element, for the state read when the form submits.</summary>
     /// <param name="id">The element's id.</param>
     /// <param name="input">The validation input.</param>
-    public void SetInput(string id, FieldValidationInput input)
-    {
-        if (accepts)
-        {
-            inputs[id] = input;
-        }
-    }
+    public void SetInput(string id, FieldValidationInput input) => inputs[id] = input;
 
     /// <summary>Removes a validation input added with <see cref="SetInput"/>, unless another input took its id since.</summary>
     /// <param name="id">The element's id.</param>
@@ -126,7 +99,8 @@ internal sealed class FieldRegistry
     /// <returns>The values, or <see cref="FormValues.Empty"/> when no entry has a name.</returns>
     public FormValues BuildValues()
     {
-        if (order.Count == 0)
+        // The registry outside a form also holds unnamed fields, which contribute nothing: no array is built for them.
+        if (!HasNamedEntry())
         {
             return FormValues.Empty;
         }
@@ -139,6 +113,19 @@ internal sealed class FieldRegistry
         }
 
         return FormValues.Create(pairs);
+    }
+
+    private bool HasNamedEntry()
+    {
+        for (int i = 0; i < order.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(entries[order[i]].Name))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

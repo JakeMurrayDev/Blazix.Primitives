@@ -54,7 +54,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private FieldRootContext? fieldScope;
     private FieldItemContext? item;
     private LabelableScope? scope;
-    private IFormScope form = DefaultFormScope.Instance;
+    private readonly IFormScope formless;
+    private IFormScope form;
     private CheckableFieldParameters parameters;
     private bool? syncedChecked;
     private bool claimRegistered;
@@ -82,13 +83,16 @@ internal sealed class CheckableFieldBehavior : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="CheckableFieldBehavior"/> class.</summary>
     /// <param name="ownId">The id the control's labelable element renders when neither its field nor the consumer gives one.</param>
+    /// <param name="formless">The form scope of the runtime's fields outside a form.</param>
     /// <param name="jsRuntime">The runtime the twin imports the form module through.</param>
     /// <param name="stateHasChanged">Updates the part's state and renders it again.</param>
     /// <param name="invoke">Runs an action on the renderer's dispatcher.</param>
     /// <param name="dispatchException">Routes an exception to the part's error boundary.</param>
-    public CheckableFieldBehavior(string ownId, IJSRuntime jsRuntime, Action stateHasChanged, Func<Action, Task> invoke, Func<Exception, Task> dispatchException)
+    public CheckableFieldBehavior(string ownId, IFormScope formless, IJSRuntime jsRuntime, Action stateHasChanged, Func<Action, Task> invoke, Func<Exception, Task> dispatchException)
     {
         this.ownId = ownId;
+        this.formless = formless;
+        form = formless;
         this.jsRuntime = jsRuntime;
         this.stateHasChanged = stateHasChanged;
         this.dispatchException = dispatchException;
@@ -220,7 +224,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
     public void SetParameters(CheckableFieldParameters next, IFormScope? formScope)
     {
         parameters = next;
-        form = fieldScope?.Form ?? formScope ?? DefaultFormScope.Instance;
+        form = fieldScope?.Form ?? formScope ?? formless;
 
         // FFI-FRM-24: a group's validation inputs are in document order, as Base UI's ref callbacks add them, so the
         // representative is the first eligible member; registering after the render's interop would order them by the
