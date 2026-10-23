@@ -15,6 +15,8 @@ using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
+using Blazix.Primitives.Fixtures.Client.RadioFixtures;
+using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 
@@ -92,5 +94,16 @@ public static class FixtureCatalog
         ["checkbox-group-field"] = new(typeof(CheckboxGroupFieldFixture)),
         ["checkbox-group-prerender"] = new(typeof(CheckboxGroupPrerenderFixture), Prerender: true),
         ["checkbox-group-form"] = new(typeof(CheckboxGroupFormFixture)),
+        ["radio-standalone"] = new(typeof(RadioStandaloneFixture)),
+        ["radio-native-button"] = new(typeof(RadioNativeButtonFixture)),
+        ["radio-indicator"] = new(typeof(RadioIndicatorFixture)),
+        ["radio-group-basic"] = new(typeof(RadioGroupBasicFixture)),
+        ["radio-group-controlled"] = new(typeof(RadioGroupControlledFixture)),
+        ["radio-group-rtl"] = new(typeof(RadioGroupRtlFixture)),
+        ["radio-group-field"] = new(typeof(RadioGroupFieldFixture)),
+        ["radio-group-fieldset"] = new(typeof(RadioGroupFieldsetFixture)),
+        ["radio-group-form"] = new(typeof(RadioGroupFormFixture)),
+        ["radio-group-edit-form"] = new(typeof(RadioGroupEditFormFixture)),
+        ["radio-group-allocation"] = new(typeof(RadioGroupAllocationFixture)),
     };
 }

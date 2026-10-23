@@ -1,0 +1,42 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using System.ComponentModel.DataAnnotations
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-edit-form` fixture (tests/browser/radio-group.spec.ts, `@verifies ADR-05/5`): Blazor's EditForm with
+    DataAnnotationsValidator and ValidationMessage over a FieldRoot and a RadioGroup bound with @bind-Value. The group
+    notifies the EditContext of each change, takes the property's name, and the field shows the validator's messages as
+    its invalid state (ADR 05 Amendments 2026-10-22). Submissions are counted as data-valid-submits and data-invalid-submits.
+*@
+<FixtureContainer Name="radio-group-edit-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-valid-submits="@validSubmits" data-invalid-submits="@invalidSubmits">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <EditForm Model="model" OnValidSubmit="() => validSubmits++" OnInvalidSubmit="() => invalidSubmits++">
+        <DataAnnotationsValidator />
+        <FieldRoot data-testid="root">
+            <RadioGroup @ref="Group" @bind-Value="model.Fruit" data-testid="group">
+                <RadioRoot @ref="Radio" Value="@("apple")" data-radio data-value="apple" />
+                <RadioRoot @ref="Radio" Value="@("pear")" data-radio data-value="pear" />
+            </RadioGroup>
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        <ValidationMessage For="() => model.Fruit" data-testid="message" />
+        <button type="submit">Submit</button>
+    </EditForm>
+</FixtureContainer>
+
+@code {
+    private readonly Order model = new();
+    private int validSubmits;
+    private int invalidSubmits;
+
+    private sealed class Order
+    {
+        [Required(ErrorMessage = "Pick a fruit.")]
+        public string? Fruit { get; set; }
+    }
+}

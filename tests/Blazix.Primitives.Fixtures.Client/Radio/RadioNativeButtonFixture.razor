@@ -1,0 +1,40 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioFixtures
+@using Blazix.Primitives
+@inherits RadioFixtureBase
+
+@*
+    The `radio-native-button` fixture (tests/browser/radio.spec.ts): RadioRoot.test.tsx's "associates `id` with the native
+    button when `nativeButton=true`" (a <label htmlFor> naming the native button), Enter on a native-button radio (radio
+    §16 Q7), and the docs pattern of a native button wrapped in a <label> through a render callback (RAD-EDGE-09).
+*@
+<FixtureContainer Name="radio-native-button" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <RadioCaseFrame Name="native" Case="native">
+        <label data-label for="myRadio">A</label>
+        <RadioGroup @ref="Group" TValue="string" DefaultValue="@("b")" OnValueChange="native.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" id="myRadio" NativeButton="true" data-radio data-value="a">
+                <Render><button>A</button></Render>
+            </RadioRoot>
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="wrapped" Case="wrapped">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="wrapped.Change">
+            <RadioRoot @ref="Radio" Value="@("apple")" NativeButton="true">
+                <RenderFunction Context="props">
+                    <label data-wrapping-label>
+                        <button data-radio @attributes="props.Attributes"></button>
+                        Apple
+                    </label>
+                </RenderFunction>
+            </RadioRoot>
+        </RadioGroup>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase native = new();
+    private readonly RadioCase wrapped = new();
+}

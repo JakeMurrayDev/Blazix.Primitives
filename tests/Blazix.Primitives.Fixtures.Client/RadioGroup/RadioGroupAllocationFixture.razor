@@ -1,0 +1,77 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives.Store
+
+@*
+    The `radio-group-allocation` fixture (tests/browser/radio-group.spec.ts, the WebAssembly half of the radio's allocation
+    probe; ADR 08 Amendments 2026-10-22, ADR 16 rule 7): N rounds per value type of what a radio and its group compare on
+    the render path, Equality.StrictEquals<TValue>, ValueChangedObserver<TValue>.Observe and the null test, measured with
+    GC.GetTotalAllocatedBytes on the interpreter and rendered as bytes per round. The `allocation` fixture's pattern
+    (`@verifies ADR-05/3`).
+*@
+<FixtureContainer Name="radio-group-allocation" data-iterations="@iterations" data-scenarios="@string.Join(',', results.Select(r => $"{r.Key}={r.Value}"))">
+    <button type="button" data-measure @onclick="Measure">Measure</button>
+    <dl>
+        @foreach ((string name, long bytes) in results)
+        {
+            <dt>@name</dt>
+            <dd data-scenario="@name">@bytes</dd>
+        }
+    </dl>
+</FixtureContainer>
+
+@code {
+    private const int Iterations = 20_000;
+
+    private readonly Dictionary<string, long> results = [];
+    private int? iterations;
+
+    private enum Fruit
+    {
+        Apple,
+        Pear,
+    }
+
+    private sealed record Item(string Name);
+
+    private readonly record struct Point(int X, int Y);
+
+    private static readonly Item s_first = new("a");
+    private static readonly Item s_second = new("b");
+
+    private void Measure()
+    {
+        results.Clear();
+        Run("string", "a", "b");
+        Run("enum", Fruit.Apple, Fruit.Pear);
+        Run("int", 1, 2);
+        Run("record-class", s_first, s_second);
+        Run("record-struct", new Point(1, 2), new Point(3, 4));
+        Run("nullable-int", (int?)1, (int?)2);
+        iterations = Iterations;
+    }
+
+    private void Run<T>(string name, T first, T second)
+    {
+        int changes = 0;
+        ValueChangedObserver<T> observer = new(first, _ => changes++);
+        Round(observer, first, second, 16);
+        long before = GC.GetTotalAllocatedBytes(precise: true);
+        Round(observer, first, second, Iterations);
+        long after = GC.GetTotalAllocatedBytes(precise: true);
+        results[name] = (after - before) / Iterations;
+    }
+
+    private static void Round<T>(ValueChangedObserver<T> observer, T first, T second, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (!Equality.StrictEquals(first, first) || Equality.StrictEquals(first, second) || RadioValues.IsNull(first))
+            {
+                throw new InvalidOperationException("unexpected comparison");
+            }
+
+            observer.Observe(second);
+            observer.Observe(first);
+        }
+    }
+}

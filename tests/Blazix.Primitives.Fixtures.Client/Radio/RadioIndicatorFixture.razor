@@ -1,0 +1,92 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioFixtures
+@using Blazix.Primitives
+@inherits RadioFixtureBase
+
+@*
+    The `radio-indicator` fixture (tests/browser/radio.spec.ts; open with ?animations=1): RadioIndicator.test.tsx's pages, each
+    a controlled group whose value an outside button changes. An indicator with a CSS transition on its starting and ending
+    styles; one with a keyframe animation on its ending style; indicators with no exit animation on two radios of one
+    value; kept-mounted indicators with an exit animation; and a group whose radios a pointer selects, for the style hooks.
+*@
+<FixtureContainer Name="radio-indicator" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>
+        [data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }
+        .transition-indicator { display: inline-block; width: 0.5rem; height: 0.5rem; transition: opacity 1ms; }
+        .transition-indicator[data-starting-style], .transition-indicator[data-ending-style] { opacity: 0; }
+        @@keyframes test-anim { to { opacity: 0; } }
+        .animation-indicator { display: inline-block; width: 0.5rem; height: 0.5rem; }
+        .animation-indicator[data-ending-style] { animation: test-anim 1ms; }
+    </style>
+
+    <RadioCaseFrame Name="enter" Case="enter">
+        <button type="button" data-select @onclick="@(() => enterValue = "a")">Select a</button>
+        <RadioGroup @ref="Group" TValue="string" Value="enterValue">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio>
+                <RadioIndicator class="transition-indicator" data-indicator="a" />
+            </RadioRoot>
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio>
+                <RadioIndicator @ref="Indicator" class="transition-indicator" data-indicator="b" />
+            </RadioRoot>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="exit" Case="exit">
+        <button type="button" data-select @onclick="@(() => exitValue = "b")">Select b</button>
+        <RadioGroup @ref="Group" TValue="string" Value="exitValue">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio>
+                <RadioIndicator @ref="Indicator" class="animation-indicator" data-indicator="a" />
+            </RadioRoot>
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio>
+                <RadioIndicator class="animation-indicator" data-indicator="b" />
+            </RadioRoot>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="no-exit" Case="noExit">
+        <button type="button" data-select @onclick="@(() => noExitValue = "b")">Close</button>
+        <RadioGroup @ref="Group" TValue="string" Value="noExitValue">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio>
+                <RadioIndicator @ref="Indicator" data-indicator="a" />
+            </RadioRoot>
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio>
+                <RadioIndicator @ref="Indicator" data-indicator="a-twin" />
+            </RadioRoot>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="kept" Case="kept">
+        <button type="button" data-select @onclick="@(() => keptValue = "b")">Close</button>
+        <RadioGroup @ref="Group" TValue="string" Value="keptValue">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio>
+                <RadioIndicator @ref="Indicator" KeepMounted="true" class="animation-indicator" data-indicator="a" />
+            </RadioRoot>
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio>
+                <RadioIndicator @ref="Indicator" KeepMounted="true" class="animation-indicator" data-indicator="a-twin" />
+            </RadioRoot>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="hooks" Case="hooks">
+        <RadioGroup @ref="Group" TValue="string">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a">
+                <RadioIndicator @ref="Indicator" KeepMounted="true" data-indicator="a" />
+            </RadioRoot>
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b">
+                <RadioIndicator @ref="Indicator" KeepMounted="true" data-indicator="b" />
+            </RadioRoot>
+        </RadioGroup>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase enter = new();
+    private readonly RadioCase exit = new();
+    private readonly RadioCase noExit = new();
+    private readonly RadioCase kept = new();
+    private readonly RadioCase hooks = new();
+    private string enterValue = "b";
+    private string exitValue = "a";
+    private string noExitValue = "a";
+    private string keptValue = "a";
+}

@@ -1,0 +1,118 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioFixtures
+@using Blazix.Primitives
+@inherits RadioFixtureBase
+
+@*
+    The `radio-standalone` fixture (tests/browser/radio.spec.ts): RadioRoot.test.tsx's pages. A standalone radio whose value
+    is the empty string; a radio named by a sibling native label through its hidden input, and one whose id changes at
+    runtime; a radio named by aria-label inside a wrapping label; radios inside a counted ancestor (non-native and native);
+    a radio whose consumer vetoes from C# (onclick and Space keyup); a group inside a counted ancestor for the arrow keys;
+    disabled and read-only standalone radios inside a field.
+*@
+<FixtureContainer Name="radio-standalone" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    @* An unstyled radio has no content and no size; the specs click it with a real pointer. *@
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <RadioCaseFrame Name="empty" Case="empty">
+        <RadioRoot @ref="Radio" TValue="string" Value="@string.Empty" data-radio />
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="labelled" Case="labelled">
+        <label for="radio-input" data-label>Label</label>
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="labelled.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" id="radio-input" data-radio />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="id-change" Case="idChange">
+        <label for="radio-input-a" data-label-a>Label A</label>
+        <label for="radio-input-b" data-label-b>Label B</label>
+        <RadioGroup @ref="Group" TValue="string">
+            <RadioRoot @ref="Radio" Value="@("a")" id="@changingId" data-radio />
+        </RadioGroup>
+        <button type="button" data-toggle @onclick="@(() => changingId = "radio-input-b")">Toggle</button>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="aria-label" Case="ariaLabel">
+        <RadioGroup @ref="Group" TValue="string">
+            <label data-label>
+                <RadioRoot @ref="Radio" Value="@("a")" aria-label="Apple" data-radio />
+                Apple
+            </label>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="propagate" Case="propagate">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="propagate.Change">
+            <div data-ancestor>
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio @onclick="propagate.Click" />
+            </div>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="propagate-native" Case="propagateNative">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="propagateNative.Change">
+            <div data-ancestor>
+                <RadioRoot @ref="Radio" Value="@("a")" NativeButton="true" data-radio @onclick="propagateNative.Click">
+                    <Render><button></button></Render>
+                </RadioRoot>
+            </div>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="vetoed" Case="vetoed">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="vetoed.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio @onclick="VetoClick" @onkeyup="VetoSpace" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="arrows" Case="arrows">
+        <div data-ancestor>
+            <RadioGroup @ref="Group" TValue="string" DefaultValue="@("a")" OnValueChange="arrows.Change">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            </RadioGroup>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="disabled-field" Case="disabledField">
+        <FieldRoot data-field>
+            <RadioRoot @ref="Radio" TValue="string" Value="@("a")" Disabled="true" data-radio />
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="readonly-field" Case="readOnlyField">
+        <FieldRoot data-field>
+            <RadioRoot @ref="Radio" TValue="string" Value="@("a")" ReadOnly="true" data-radio />
+        </FieldRoot>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase empty = new();
+    private readonly RadioCase labelled = new();
+    private readonly RadioCase idChange = new();
+    private readonly RadioCase ariaLabel = new();
+    private readonly RadioCase propagate = new();
+    private readonly RadioCase propagateNative = new();
+    private readonly RadioCase vetoed = new();
+    private readonly RadioCase arrows = new();
+    private readonly RadioCase disabledField = new();
+    private readonly RadioCase readOnlyField = new();
+    private string changingId = "radio-input-a";
+
+    private void VetoClick(MouseEventArgs e)
+    {
+        vetoed.Click(e);
+        e.PreventPartHandler();
+    }
+
+    private void VetoSpace(KeyboardEventArgs e)
+    {
+        if (e.Key == " ")
+        {
+            e.PreventPartHandler();
+        }
+    }
+}
