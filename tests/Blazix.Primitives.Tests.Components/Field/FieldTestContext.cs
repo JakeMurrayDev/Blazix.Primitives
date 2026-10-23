@@ -10,14 +10,16 @@ namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Field, Fieldset and Input tests: the library's services, a <see cref="FakeTimeProvider"/>, and
-/// bUnit's JS interop mock standing in for the <c>form</c> module (ADR 06 §1, twin contract tests). <see cref="Module"/>
-/// is a C# stand-in for the module's side of the conversation: it keeps each attached control's value as the module would
-/// (the consumer's value, the default value while unedited), answers a refresh with a <c>sync</c> report, and drives the
-/// control's reports (input, blur, keydown) into its twin with the native state a test chooses.
+/// bUnit's JS interop mock standing in for the <c>form</c> and <c>transitions</c> modules (ADR 06 §1, twin contract tests).
+/// <see cref="Module"/> is a C# stand-in for the form module's side of the conversation: it keeps each attached control's
+/// value as the module would (the consumer's value, the default value while unedited), answers a refresh with a
+/// <c>sync</c> report, and drives the control's reports (input, blur, keydown) into its twin with the native state a test
+/// chooses. A field error's exit ends only when the transitions module reports it: <see cref="CompleteExits"/> does so.
 /// </summary>
 public sealed class FieldTestContext : IDisposable
 {
     public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
+    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
 
     public FieldTestContext()
     {
@@ -28,6 +30,10 @@ public sealed class FieldTestContext : IDisposable
         FormHandle = FormModule.SetupModule("attach", _ => true);
         FormHandle.SetupVoid("update", _ => true).SetVoidResult();
         FormHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        TransitionsModule = Context.JSInterop.SetupModule(TransitionsModulePath);
+        TransitionsHandle = TransitionsModule.SetupModule("attach", _ => true);
+        TransitionsHandle.SetupVoid("update", _ => true).SetVoidResult();
+        TransitionsHandle.SetupVoid("dispose", _ => true).SetVoidResult();
         Module = new FormModuleStandIn(this);
     }
 
@@ -38,6 +44,10 @@ public sealed class FieldTestContext : IDisposable
     public BunitJSModuleInterop FormModule { get; }
 
     public BunitJSModuleInterop FormHandle { get; }
+
+    public BunitJSModuleInterop TransitionsModule { get; }
+
+    public BunitJSModuleInterop TransitionsHandle { get; }
 
     internal FormModuleStandIn Module { get; }
 
@@ -50,7 +60,61 @@ public sealed class FieldTestContext : IDisposable
     /// <summary>The options JSON of every update sent through the form module's handles, in order.</summary>
     public IReadOnlyList<string> UpdateOptions() => [.. FormHandle.Invocations["update"].Select(invocation => (string)invocation.Arguments[0]!)];
 
+    /// <summary>The options of every attach of the transitions module, in order.</summary>
+    internal IReadOnlyList<TransitionsOptions> TransitionsAttachOptions() =>
+        [.. TransitionsModule.Invocations["attach"].Select(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[1]!, BlazixJsonContext.Default.TransitionsOptions)!)];
+
+    /// <summary>The options of every update sent through the transitions module's handles, in order.</summary>
+    internal IReadOnlyList<TransitionsOptions> TransitionsUpdateOptions() =>
+        [.. TransitionsHandle.Invocations["update"].Select(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[0]!, BlazixJsonContext.Default.TransitionsOptions)!)];
+
+    /// <summary>
+    /// Ends every exit in progress as the transitions module reports it, with no animation to wait for: each live twin
+    /// receives the completion of the close, which a part that is open again ignores.
+    /// </summary>
+    public void CompleteExits<TComponent>(IRenderedComponent<TComponent> cut)
+        where TComponent : IComponent
+    {
+        foreach (TransitionsTwin twin in LiveTransitionsTwins())
+        {
+            cut.InvokeAsync(() => twin.OnTransitionComplete("""{"open":false}"""));
+        }
+    }
+
+    /// <summary>Reports a status change from every live transitions twin, as the module's frame step does.</summary>
+    public void ReportTransitionStatus<TComponent>(IRenderedComponent<TComponent> cut, string? status)
+        where TComponent : IComponent
+    {
+        string literal = status is null ? "null" : $"\"{status}\"";
+        foreach (TransitionsTwin twin in LiveTransitionsTwins())
+        {
+            cut.InvokeAsync(() => twin.OnStatusChange($$"""{"status":{{literal}},"mounted":true}"""));
+        }
+    }
+
     internal static FormOptions Parse(string json) => JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!;
+
+    private List<TransitionsTwin> LiveTransitionsTwins()
+    {
+        List<TransitionsTwin> twins = [];
+        foreach (JSRuntimeInvocation invocation in TransitionsModule.Invocations["attach"])
+        {
+            try
+            {
+                TransitionsTwin twin = ((DotNetObjectReference<TransitionsTwin>)invocation.Arguments[2]!).Value;
+                if (!twins.Contains(twin))
+                {
+                    twins.Add(twin);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // The part that attached it has been disposed since.
+            }
+        }
+
+        return twins;
+    }
 }
 
 /// <summary>The module's side of the conversation, in C#: one entry per attached control or label, in attach order.</summary>
@@ -100,7 +164,7 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
                 twin = null;
             }
 
-            answered.Add(new Attached(host, twin, FieldTestContext.Parse((string)invocation.Arguments[1]!)));
+            answered.Add(new Attached(host, twin, FieldTestContext.Parse((string)invocation.Arguments[1]!), invocation.Arguments[0]));
         }
 
         return answered;
@@ -114,10 +178,11 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
         private bool edited;
         private FormControlOptions? options;
 
-        public Attached(FieldTestContext host, FormTwin? twin, FormOptions attachOptions)
+        public Attached(FieldTestContext host, FormTwin? twin, FormOptions attachOptions, object? target)
         {
             this.host = host;
             Twin = twin;
+            Target = target;
             IsControl = attachOptions.Control is not null;
             IsForm = attachOptions.Submit is not null;
             SubmitOptions = attachOptions.Submit;
@@ -130,6 +195,9 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
         }
 
         public FormTwin? Twin { get; }
+
+        /// <summary>What the element was attached by: its <see cref="ElementReference"/> or its id.</summary>
+        public object? Target { get; }
 
         public bool IsControl { get; }
 
@@ -154,6 +222,37 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
             string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
             string answer = cut.InvokeAsync(() => Twin!.OnSubmitRequest(json)).GetAwaiter().GetResult();
             return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        }
+
+        /// <summary>
+        /// A native submission that reads every attached control as the module would: its id, the value it keeps and its
+        /// native state.
+        /// </summary>
+        public FormSubmitAnswer SubmitAll<TComponent>(IRenderedComponent<TComponent> cut, string? submitterId = null)
+            where TComponent : IComponent
+        {
+            List<FormControlState> controls = [];
+            foreach (Attached control in host.Module.Controls)
+            {
+                if (control.ElementId(cut) is { } id)
+                {
+                    controls.Add(new FormControlState { Id = id, Value = control.DomValue, Validity = control.Native });
+                }
+            }
+
+            return Submit(cut, submitterId, [.. controls]);
+        }
+
+        /// <summary>The DOM id of the attached element, or <see langword="null"/> once it is no longer rendered.</summary>
+        public string? ElementId<TComponent>(IRenderedComponent<TComponent> cut)
+            where TComponent : IComponent
+        {
+            return Target switch
+            {
+                string id => cut.FindAll($"[id='{id}']").Count > 0 ? id : null,
+                ElementReference element => cut.FindAll($"[blazor\\:elementreference='{element.Id}']") is { Count: > 0 } found ? found[0].GetAttribute("id") : null,
+                _ => null,
+            };
         }
 
         /// <summary>The submit options of every update the form element received, in order.</summary>

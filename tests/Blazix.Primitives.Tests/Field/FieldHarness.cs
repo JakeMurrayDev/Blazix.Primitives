@@ -20,7 +20,7 @@ internal sealed class FieldHarness
         bool? dirty = null,
         bool invalid = false)
     {
-        Field = new FieldRootContext("base-ui-1", Clock, action => { action(); return Task.CompletedTask; }, exception => { Exceptions.Add(exception); return Task.CompletedTask; });
+        Field = new FieldRootContext("base-ui-1", Formless, Clock, action => { action(); return Task.CompletedTask; }, exception => { Exceptions.Add(exception); return Task.CompletedTask; });
         Input = new FieldValidationInput(input => SentMessages.Add(input.OwnMessage));
         if (inForm)
         {
@@ -35,6 +35,9 @@ internal sealed class FieldHarness
     public List<Exception> Exceptions { get; } = [];
 
     public TestFormScope Form { get; } = new();
+
+    /// <summary>Gets the runtime's form scope outside a form, which the field uses unless it is in <see cref="Form"/>.</summary>
+    public DefaultFormScope Formless { get; } = new();
 
     public FieldRootContext Field { get; }
 

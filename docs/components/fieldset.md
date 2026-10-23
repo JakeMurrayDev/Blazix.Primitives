@@ -7,8 +7,8 @@
 | Tests | `packages/react/src/fieldset/**/*.test.tsx` (2 files) |
 | Docs page | `docs/src/app/(docs)/react/components/fieldset/page.mdx` |
 | Prefix | `FST` |
-| Status | approved |
-| Revised | 2026-10-22 |
+| Status | implemented |
+| Revised | 2026-10-23 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) |

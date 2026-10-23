@@ -7,8 +7,8 @@
 | Tests | `packages/react/src/input/Input.test.tsx` (1 file; `Input.spec.tsx` is a type-level test) |
 | Docs page | `docs/src/app/(docs)/react/components/input/page.mdx` |
 | Prefix | `INP` |
-| Status | approved |
-| Revised | 2026-10-22 |
+| Status | implemented |
+| Revised | 2026-10-23 |
 | Builds on | [field](field.md) (`Field.Control`) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |

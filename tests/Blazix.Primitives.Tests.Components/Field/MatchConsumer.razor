@@ -1,0 +1,20 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The forms a consumer writes for the `MatchValue?` parameter of FieldError, compiled by the Razor SDK: the boolean
+    literals, a flag in enum syntax, fields of either case, `null`, and the parameter omitted.
+*@
+<FieldRoot Invalid="true">
+    <FieldError data-form="true literal" Match="true" />
+    <FieldError data-form="false literal" Match="false" />
+    <FieldError data-form="flag" Match="ValidityFlag.ValueMissing" />
+    <FieldError data-form="bool field" Match="@always" />
+    <FieldError data-form="flag field" Match="@flag" />
+    <FieldError data-form="null" Match="@nothing" />
+    <FieldError data-form="omitted" />
+</FieldRoot>
+
+@code {
+    private readonly bool always = true;
+    private readonly ValidityFlag flag = ValidityFlag.TooShort;
+    private readonly MatchValue? nothing = null;
+}

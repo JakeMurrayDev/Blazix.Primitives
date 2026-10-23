@@ -1,0 +1,77 @@
+@namespace Blazix.Primitives.Fixtures.Client.FormFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `form-registration` fixture (tests/browser/form.spec.ts): Form.test.tsx's titles of the registry (FFI-FRM-17),
+    in the browser. `unmounted`: a checkbox removes the required email field. `fieldset`: a disabled fieldset's required
+    field. `control-disabled`: a required control the buttons disable and enable. OnFormSubmit's values are rendered as
+    data-values (`name=value` pairs joined by `&`); OnSubmit calls PreventNativeSubmit().
+*@
+<FixtureContainer Name="form-registration" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="unmounted" data-submits="@unmountedSubmits">
+        <Form @ref="unmountedForm" OnSubmit="args => { unmountedSubmits++; args.PreventNativeSubmit(); }">
+            <FieldRoot Name="name">
+                <FieldControl @ref="unmountedName" DefaultValue="Alice" />
+            </FieldRoot>
+            <input type="checkbox" checked="@emailShown" @onchange="() => emailShown = !emailShown" />
+            @if (emailShown)
+            {
+                <FieldRoot Name="email">
+                    <FieldControl @ref="unmountedEmail" DefaultValue="" required data-testid="email" />
+                </FieldRoot>
+            }
+            <button>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="fieldset" data-submits="@fieldsetSubmits" data-values="@fieldsetValues">
+        <Form @ref="fieldsetForm" OnFormSubmit="args => { fieldsetSubmits++; fieldsetValues = Join(args.Values); }">
+            <FieldsetRoot Disabled="true">
+                <FieldRoot Name="disabled">
+                    <FieldControl required data-testid="disabled" />
+                </FieldRoot>
+            </FieldsetRoot>
+            <FieldRoot Name="enabled">
+                <FieldControl @ref="fieldsetEnabled" DefaultValue="sent" />
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="control-disabled" data-submits="@controlSubmits" data-values="@controlValues">
+        <Form @ref="controlForm" OnFormSubmit="args => { controlSubmits++; controlValues = Join(args.Values); }">
+            <FieldRoot Name="control">
+                <FieldControl @ref="controlControl" Disabled="controlDisabled" required data-testid="control" />
+            </FieldRoot>
+            <button type="button" @onclick="() => controlDisabled = true">Disable</button>
+            <button type="button" @onclick="() => controlDisabled = false">Enable</button>
+            <button type="submit">Submit</button>
+        </Form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private Form? unmountedForm;
+    private FieldControl? unmountedName;
+    private FieldControl? unmountedEmail;
+    private Form? fieldsetForm;
+    private FieldControl? fieldsetEnabled;
+    private Form? controlForm;
+    private FieldControl? controlControl;
+    private bool emailShown = true;
+    private bool controlDisabled;
+    private int unmountedSubmits;
+    private int fieldsetSubmits;
+    private string fieldsetValues = string.Empty;
+    private int controlSubmits;
+    private string controlValues = string.Empty;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [unmountedForm, unmountedName, unmountedEmail, fieldsetForm, fieldsetEnabled, controlForm, controlControl];
+
+    private static string Join(FormValues values) => string.Join('&', values.Select(pair => $"{pair.Key}={pair.Value}"));
+}

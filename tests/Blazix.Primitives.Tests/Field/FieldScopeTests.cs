@@ -157,9 +157,6 @@ public sealed class FieldScopeTests
         registry.Remove("a");
         registry.Set("a", Entry("a", "4"));
         Assert.Equal(["b", "a"], registry.Ids);
-        Assert.Equal(0, FieldRegistry.None.Count);
-        FieldRegistry.None.Set("x", Entry("x", "1"));
-        Assert.Equal(0, FieldRegistry.None.Count);
     }
 
     private static FieldRegistryEntry Entry(string? name, object value) => new(name, () => value, FieldValidityData.Initial, () => Task.CompletedTask, null);

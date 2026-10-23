@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/form/Form.test.tsx` (1 file; `Form.spec.tsx` is a type-level test) |
 | Docs page | `docs/src/app/(docs)/react/components/form/page.mdx` |
 | Prefix | `FRM` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-23 |
 | Builds on | none |
 | Derived by | none |
@@ -33,7 +33,7 @@ Form has a single part. Fields are discovered by *registration* through the form
 - **FRM-STR-02** — MUST. A `Form` MAY contain any number of fields, including zero; with no registered field a submission passes validation immediately (FRM-EVT-01 step 3 finds nothing).
   Source: `form/Form.tsx:113-120`. Test: [L2] `Form.test.tsx` "should disable native validation if set to true (default)" (empty form renders).
 
-Outside a `Form`, fields see the *default form scope* (empty registry, `errors = {}`, no-op `clearErrors`, `validationMode = 'onSubmit'`, counter `0`, no element; FFI-STR-05). Nested `<Form>` elements are not supported by HTML and are not handled specially (§16).
+Outside a `Form`, fields see the *default form scope* (one registry shared by the fields outside a `Form`, `errors = {}`, no-op `clearErrors`, `validationMode = 'onSubmit'`, counter `0`, no element; FFI-STR-05). Nested `<Form>` elements are not supported by HTML and are not handled specially (§16).
 
 ## 3. Public API
 
@@ -175,6 +175,7 @@ Not applicable — no pointer handlers; submit-button clicks are native.
 - **FRM-FOC-02** — MUST. After a submission that passed validation, the next change of the error map (normally the consumer setting `errors` from a server response) MUST, once and after paint, focus the first invalid field as in FRM-FOC-01 (the registry already reflects the new form errors, FFI-FRM-27); later changes MUST NOT move focus until another submission passes (FFI-FOC-03).
   Source: `form/Form.tsx:77-84,122`. Test: [L4] `Form.test.tsx` "focuses asynchronously replaced external errors and clears only the changed own property", "focuses the first invalid field only on submit", "does not swap focus immediately on change after two submissions".
   Port note 2026-10-23: after a passed submission, the first change of the error map (a new `Errors` instance, or a field's `clearErrors` that removes a key) sends the module a focus request after the render (`FormSubmitOptions.FocusRevision`). The port title "focuses the first invalid field when errors arrive after a passed submission" [L4] asserts it on both modes. The cited titles render `Field.Error` and land with PR 1c.
+  Port note 2026-10-23 (PR 1c): the three cited titles are green at L4 on both modes over the `form-errors` fixture, and "focuses asynchronously replaced external errors and clears only the changed own property" at L2 as the focus request the module receives.
 
 Form has no tab-order, roving-tabindex or focus-trap behavior.
 
@@ -239,6 +240,7 @@ Form *is* the form integration. The mechanism — registration, validation pipel
 
 - **FRM-FRM-08** — MUST. Form MUST NOT alter native form data: `new FormData(form)` inside `onSubmit` MUST reflect exactly the native controls and form-participation inputs rendered by the fields (FFI-FRM-28), and Form itself contributes no entries.
   Source: `form/Form.tsx:104-141` (no inputs rendered). Test: [L4] `Form.test.tsx` "focuses the first invalid field only on submit" (`formData.get('name')` inside `onSubmit`), "runs field validation on first change after Form error is set".
+  Port note 2026-10-23 (PR 1c): the consumer's `OnSubmit` reads the submitted values from `FormSubmitEventArgs.Values`; the L4 titles read the native form data in the spec's own submit listener, which holds exactly the controls' entries.
 - **FRM-FRM-09** — MUST. A field rendered outside the `<form>` element (portal) but inside the `Form` component MUST register, validate and submit through this Form; its native inputs are eligible for validation only per FFI-FRM-23 (no foreign owner form, or `form` attribute pointing at this form).
   Source: see [FFI-STR-04](../architecture/field-and-form-infrastructure.md). Test: [L2] `Form.test.tsx` "keeps the registration-order focus fallback stable across disconnected trees"; `CheckboxGroup.test.tsx` "includes a group fully portaled outside the form element". (L4 for the native-input eligibility clause)
 - **FRM-FRM-10** — MUST. Form MUST NOT listen for the `reset` event; a native reset restores only browser-managed values and leaves field flags and the error map untouched (FFI-FRM-30).
