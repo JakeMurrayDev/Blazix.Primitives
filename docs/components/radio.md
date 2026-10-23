@@ -184,7 +184,7 @@ The radio owns no selection state. Its state object is derived from the group va
 | `aria-describedby` | consumer tokens + field message ids | RAD-ARIA-07 | C# |
 | `aria-invalid` | `"true"` while the field is invalid, inside a group only | RAD-ARIA-08 | C# |
 | `aria-required`, `aria-readonly` | never | RAD-ARIA-09 | C# |
-| `tabindex` | in a group: roving `0`/`-1`; standalone non-native: `0` (`-1` when disabled); native: absent | RAD-FOC-01 | C# |
+| `tabindex` | in a group: roving `0`/`-1`; standalone non-native: `0` (`-1` when disabled); native: absent | RAD-FOC-01 | C# (standalone); C# → JS (in a group, from attach) |
 | `type` | `"button"` when `nativeButton=true` | RAD-DOM-07 | C# |
 | `data-composite-item-active` | `""` while checked | RAD-DOM-02 | C# |
 | `data-*` | §3.1 table | RAD-DOM-03..06 | C# |
@@ -215,7 +215,7 @@ Rendered always, as the root's next sibling.
 | `type` | `"radio"` | RAD-DOM-08 | C# |
 | `aria-hidden` | `"true"` | RAD-DOM-08 | C# |
 | `tabindex` | `-1` | RAD-DOM-08 | C# |
-| `checked` (property) | `checked` | RAD-DOM-09 | C# |
+| `checked` (property) | `checked` | RAD-DOM-09 | C# → JS |
 | `disabled` | effective disabled | RAD-DOM-09 | C# |
 | `required` | effective required | RAD-DOM-09 | C# |
 | `readonly` | effective readOnly | RAD-DOM-09 | C# |
@@ -229,6 +229,7 @@ Rendered always, as the root's next sibling.
 - **RAD-DOM-08** — MUST. The hidden input MUST be `<input type="radio">` with `aria-hidden="true"` and `tabindex="-1"`.
   Source: `radio/root/RadioRoot.tsx:183,188,190`. Test: [L2] `RadioGroup.test.tsx` `document.querySelector('input[type="radio"]')` queries.
 - **RAD-DOM-09** — MUST. The hidden input's `checked` property MUST always equal `checked`, and its `disabled`, `required`, `readonly`, `name` and `form` attributes MUST mirror the effective disabled, effective required, effective readOnly, the group's effective name and the group's `form`.
+  Port note 2026-10-23 (ADR 04 Amendments 2026-10-22, the ownership row of the hidden input's `checked`; ADR 13 §3): the `Writer` cell of `checked` is `C# → JS`, as SWT-DOM-08's. C# renders the initial `checked` once, in prerender and the first interactive render; from attach the `dom` primitive owns the property, sets it on every `update` and restores it when C# raises `DomOptions.CheckedRestores` after a refused request (a `Cancel()`, a controlled consumer that does not pass the value back, a standalone radio, a `null` value). It is re-asserted one task after the owning form's `reset` (§16 Q4).
   Source: `radio/root/RadioRoot.tsx:185,187,192-195`. Test: [L2] `RadioGroup.test.tsx` "should have the `aria-disabled` attribute" (`disabled` on input), "should set the name attribute on each radio input", "does not change state when canceled via a root click" (`input.checked` restored), "triggers native HTML validation on submit" (`required`).
 - **RAD-DOM-10** — MUST. With `nativeButton=false` the hidden input MUST carry the labelable control id (`id` prop; else the enclosing `Field.Item`/`Field.Root` scope's control id; else generated) — never absent; with `nativeButton=true` it MUST have no `id`.
   Source: `radio/root/RadioRoot.tsx:118-119,186`; see FFI-DOM-04, FFI-FRM-36. Test: [L2] `RadioRoot.test.tsx` "associates `id` with the native button when `nativeButton=true`", "sets `aria-labelledby` from a sibling label associated with the hidden input"; `RadioGroup.test.tsx` "associates explicitly" (Field.Label `for` equals the input id).
@@ -242,6 +243,14 @@ Rendered always, as the root's next sibling.
   Source: `radio/root/RadioRoot.tsx:39-52,129-134`. Test: [L2] `RadioRoot.test.tsx` "does not forward `value` prop", "uses aria-disabled instead of HTML disabled".
 
 ### 5.3 Indicator element
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-checked` / `data-unchecked`, `data-*` | the root's (§3.1 table) | RAD-DOM-15 | C# |
+| `data-starting-style` | `transitionStatus === 'starting'` | RAD-ANI-02 | JS |
+| `data-ending-style` | `transitionStatus === 'ending'` | RAD-ANI-02 | JS |
+
+Table and `Writer` cells added 2026-10-23 (conventions §3.4, ADR 04 §2 and Amendments 2026-10-18 and 2026-10-21, ADR 13 §3): RAD §3.2 states the two transition attributes in prose only, and the ownership lint needs a row for the mirrored field. The `transitions` module writes both from attach; C# mirrors the status into `RadioIndicatorState.TransitionStatus` (RAD-STA-04) and renders `data-starting-style` once on an element it creates checked (the handover, ADR 04 Amendments 2026-10-18).
 
 - **RAD-DOM-15** — MUST. The Indicator element MUST carry the root's data attributes (RAD-DOM-03..06, same mapping and values, same render) plus the transition attributes of RAD-ANI-02; it MUST NOT receive `hidden`, `inert` or inline styles when kept mounted while unchecked (TRN-DOM-07).
   Source: `radio/indicator/RadioIndicator.tsx:30-33,39-44`, `radio/utils/stateAttributesMapping.ts:7-20`. Test: [L2] `RadioGroup.test.tsx` "should place the style hooks on the root and subcomponents", "should apply data-checked and data-unchecked to radio root and indicator" (L4 for the transition-attribute clause). Docs: CHANGELOG v1.0.0-alpha.5 "Avoid applying `hidden` attr when `keepMounted=true` for indicators".
