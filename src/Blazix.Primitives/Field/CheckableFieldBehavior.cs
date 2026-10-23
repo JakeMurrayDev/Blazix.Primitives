@@ -319,7 +319,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
             }
         }
 
-        await AttachOrUpdateAsync(root, rootId, input).ConfigureAwait(true);
+        await AttachOrUpdateAsync(root, rootId, input, inputId).ConfigureAwait(true);
     }
 
     // DP6 (settled by the orchestrator 2026-10-22 under ADR 04 §3's one-way contract): a commit reads the hidden input's
@@ -529,7 +529,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
-    private async Task AttachOrUpdateAsync(ElementReference? root, string rootId, ElementReference? input)
+    private async Task AttachOrUpdateAsync(ElementReference? root, string rootId, ElementReference? input, string? inputId)
     {
         if (twin is null)
         {
@@ -589,11 +589,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
             inputHandle = await twin.AttachAsync(inputElement, inputOptions).ConfigureAwait(true);
             attachedSource.TrySetResult();
 
-            // The field validates a submission from the input's last report (the module reports each enrolled element by
-            // its id, and the control registers under its root's), so the input's native state is read once at attach
-            // too, not only after a change: a required, unchecked input is valueMissing before any toggle (SWT-FRM-08,
-            // CHK-FRM-08).
-            if (InField && parameters.OwnsValue)
+            // A submission's native state reaches the validation input by the input's id (SetSink). An input that renders
+            // no id (a native-button control) is validated at submit from its last report, so it reports once at attach,
+            // not only after a change: a required, unchecked native-button switch is valueMissing at its first submit
+            // (SWT-FRM-08).
+            if (InField && parameters.OwnsValue && inputId is null)
             {
                 Observe(RefreshAsync());
             }
