@@ -715,11 +715,17 @@ describe('form submission', () => {
     const form = registerForm(document.querySelector<HTMLFormElement>('#form')!, 'gone-token');
     const element = document.querySelector<HTMLInputElement>('#control')!;
     const { fake } = attachControl(element, { formId: 'gone-token' });
+    const enter = () => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 
+    // The token names the form while its handle lives, and nothing once it is disposed.
+    enter();
     form.dispose();
-    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    enter();
 
-    expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([expect.objectContaining({ type: 'keydown', sameForm: false })]);
+    expect(fake.reported<FormControlReport>('OnControlReport')).toEqual([
+      expect.objectContaining({ type: 'keydown', sameForm: true }),
+      expect.objectContaining({ type: 'keydown', sameForm: false }),
+    ]);
   });
 
   it('reads a control enrolled before its form attached', async () => {
@@ -815,14 +821,21 @@ describe('form submission', () => {
   it('stops intercepting after dispose', async () => {
     document.body.innerHTML = '<form id="form"><button id="send" type="submit">Send</button></form>';
     const form = document.querySelector<HTMLFormElement>('#form')!;
-    const { twin, requests } = createSubmitTwin([]);
+    const { twin, requests, settled } = createSubmitTwin([{ verdict: 'handled' }]);
     const handle = attachForm(form, twin);
     const seen = recordSubmits(form);
+    const send = document.querySelector<HTMLButtonElement>('#send')!;
 
+    // Intercepted and reported while the handle lives; the browser's own submission once it is disposed.
+    send.click();
+    await settled();
     handle.dispose();
-    document.querySelector<HTMLButtonElement>('#send')!.click();
+    send.click();
 
-    expect(requests).toHaveLength(0);
-    expect(seen).toEqual([{ defaultPrevented: false, submitter: 'send' }]);
+    expect(requests).toHaveLength(1);
+    expect(seen).toEqual([
+      { defaultPrevented: true, submitter: 'send' },
+      { defaultPrevented: false, submitter: 'send' },
+    ]);
   });
 });
