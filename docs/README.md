@@ -55,7 +55,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/select.md | SEL | approved | 332 reqs | |
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |
 | components/slider.md | SLD | approved | 191 reqs | |
-| components/switch.md | SWT | approved | pilot; 117 reqs |
+| components/switch.md | SWT | implemented | pilot; 117 reqs; revised 2026-10-23, M2 track 4 (SWT-API-12 withdrawn) |
 | components/tabs.md | TAB | approved | 156 reqs | |
 | components/toast.md | TST | approved | 186 reqs |
 | components/toggle.md | TGL | approved | 57 reqs | |
