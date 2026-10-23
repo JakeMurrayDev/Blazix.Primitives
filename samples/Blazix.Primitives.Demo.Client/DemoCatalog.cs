@@ -19,6 +19,7 @@ public static class DemoCatalog
         new("input", "Input", "A native input element that works with a field.", typeof(InputDemo)),
         new("field", "Field", "A form control with a label, a description and its validity.", typeof(FieldDemo)),
         new("fieldset", "Fieldset", "Related fields grouped under a legend.", typeof(FieldsetDemo)),
+        new("form", "Form", "A form that validates its fields and shows errors from a server.", typeof(FormDemo)),
         new("switch", "Switch", "A control that turns a setting on or off.", typeof(SwitchDemo)),
         new("checkbox", "Checkbox", "A box that the user ticks or clears, and that can be shown as mixed.", typeof(CheckboxDemo)),
         new("checkbox-group", "Checkbox Group", "A set of checkboxes that share one value, with an optional parent box.", typeof(CheckboxGroupDemo)),

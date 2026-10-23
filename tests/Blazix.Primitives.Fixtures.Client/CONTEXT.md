@@ -22,6 +22,7 @@ The fixture components and the harness services, in a Blazor WebAssembly project
 - `Field/`, `Fieldset/`, `Input/`: the Field, Fieldset and Input fixtures (namespaces `FieldFixtures`, `FieldsetFixtures`, `InputFixtures`; `tests/browser/field.spec.ts`, `fieldset.spec.ts`, `input.spec.ts`).
   - The pages: `field-basic`, `field-validation`, `field-label-non-native`, `field-autofocus` (prerendered; `?control=input` renders an Input), `field-edit-form` (Blazor's `EditForm` with `DataAnnotationsValidator`, for `@verifies ADR-05/5`), `fieldset-basic`, `fieldset-prerender` (prerendered) and `input-showcase`.
   - `FieldFixtureBase` renders `data-attached` once every listed control and label has the form module attached, and counts the sync button. `field-basic`'s `remount` case counts its control's attaches, so the spec types only into an attached control.
+- `Form/`: the Form fixtures (namespace `FormFixtures`; `tests/browser/form.spec.ts`): `form-submit` (OnSubmit with the re-issue, the veto, OnFormSubmit's values), `form-blocked` (custom and native errors; keyed fields reversed), `form-native-validation` (`NoValidate="false"`), `form-external-errors` (an `Errors` swap after a passed submission, used by PR 1c's titles too). They derive `FieldFixtureBase`, which also waits for a `Form`'s attach.
 - `Prerender/`, `Allocation/`, `KeepAlive/`: the fixtures of the M0 verification items (ADR-02/1, ADR-06/1, ADR-05/3, ADR-06/2).
 
 ## Outputs

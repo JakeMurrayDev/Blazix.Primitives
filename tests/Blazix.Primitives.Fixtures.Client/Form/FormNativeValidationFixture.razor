@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Fixtures.Client.FormFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `form-native-validation` fixture (tests/browser/form.spec.ts): NoValidate="false" removes novalidate, so the
+    browser validates the required control, shows its message and fires no submit event (FRM-API-06, FRM-DOM-01).
+*@
+<FixtureContainer Name="form-native-validation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-submits="@submits">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <Form @ref="form" NoValidate="false" OnFormSubmit="() => submits++" data-testid="form">
+        <FieldRoot Name="email">
+            <FieldControl @ref="control" data-testid="control" required />
+        </FieldRoot>
+        <button type="submit">Submit</button>
+    </Form>
+</FixtureContainer>
+
+@code {
+    private Form? form;
+    private FieldControl? control;
+    private int submits;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [form, control];
+}

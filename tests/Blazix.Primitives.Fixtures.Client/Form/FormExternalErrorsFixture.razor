@@ -1,0 +1,35 @@
+@namespace Blazix.Primitives.Fixtures.Client.FormFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `form-external-errors` fixture (tests/browser/form.spec.ts, and PR 1c's titles): errors from a server arrive after
+    a passed submission. OnFormSubmit records the submissions; the set button gives Errors a new instance naming the second
+    field, the way a server answer does, so the form focuses it once (FRM-FOC-02, FFI-FOC-03).
+*@
+<FixtureContainer Name="form-external-errors" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-form-submits="@formSubmits">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <Form @ref="form" Errors="errors" OnFormSubmit="() => formSubmits++" data-testid="form">
+        <FieldRoot Name="first">
+            <FieldControl @ref="first" data-testid="first" DefaultValue="one" />
+        </FieldRoot>
+        <FieldRoot Name="second">
+            <FieldControl @ref="second" data-testid="second" DefaultValue="two" />
+        </FieldRoot>
+        <button type="submit">Submit</button>
+    </Form>
+    <button type="button" data-set-errors @onclick='() => errors = new FormErrors { ["second"] = "Taken" }'>Set errors</button>
+</FixtureContainer>
+
+@code {
+    private Form? form;
+    private FieldControl? first;
+    private FieldControl? second;
+    private FormErrors? errors;
+    private int formSubmits;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [form, first, second];
+}

@@ -386,7 +386,7 @@ public sealed class CheckboxGroup : PartBase<CheckboxGroupState>
     }
 
     // CKG-FRM-03: outside a form the raw value.
-    private object? GetFormValue() => fieldScope!.Form.ElementId is null ? CurrentValue : context!.Project(CurrentValue);
+    private object? GetFormValue() => fieldScope!.Form.FormToken is null ? CurrentValue : context!.Project(CurrentValue);
 
     // CKG-STA-11/12, CKG-FRM-07/08/10; checkbox-group/CheckboxGroup.tsx:122-141. Filled on mount and on every change, the
     // rest on every change; a change is a new list (ADR 08 Amendments 2026-10-22: equality by reference).

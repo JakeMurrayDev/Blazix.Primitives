@@ -23,6 +23,13 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     /// <remarks>The argument is <see langword="true"/> when a native label's element is not a <c>label</c>.</remarks>
     public event Action<bool>? LabelMismatched;
 
+    /// <summary>Gets or sets the handler of a form element's submissions.</summary>
+    /// <value>
+    /// A function that runs the submission pipeline and returns the module's next step; <see langword="null"/> answers
+    /// <see cref="FormSubmitAnswer.HandledVerdict"/>.
+    /// </value>
+    public Func<FormSubmitRequest, Task<FormSubmitAnswer>>? SubmitHandler { get; set; }
+
     /// <summary>Gets or sets the C# handler chain of the label decision point.</summary>
     /// <value>
     /// A function that runs the consumer's pointer handler for the event and returns <see cref="DecisionPolicy.Stop"/>
@@ -30,6 +37,20 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     /// WebAssembly, synchronously inside the dispatch, and must not await.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? LabelDecider { get; set; }
+
+    // FRM-EVT-01 (design point F1 of M2 track 2: an invocation answered with a result, the OnRevealRequest precedent of ADR
+    // 04 Amendments 2026-10-21). The answer is JSON from the source-generated context, so nothing is serialized by reflection.
+    /// <summary>Receives a native submission of an attached form element, which the module prevented.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="FormSubmitRequest"/>.</param>
+    /// <returns>The JSON of the <see cref="FormSubmitAnswer"/>.</returns>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public async Task<string> OnSubmitRequest(string payloadJson)
+    {
+        FormSubmitRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.FormSubmitRequest);
+        FormSubmitAnswer answer = SubmitHandler is { } handler ? await handler(request).ConfigureAwait(true) : new FormSubmitAnswer();
+        return System.Text.Json.JsonSerializer.Serialize(answer, BlazixJsonContext.Default.FormSubmitAnswer);
+    }
 
     /// <summary>Receives one event of an attached control.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="FormControlReport"/>.</param>

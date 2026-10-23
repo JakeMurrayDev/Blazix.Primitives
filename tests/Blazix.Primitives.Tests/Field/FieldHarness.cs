@@ -153,7 +153,7 @@ internal sealed class TestFormScope : IFormScope
 
     public int SubmitCount { get; set; }
 
-    public string? ElementId => "form";
+    public string? FormToken => "form";
 
     public bool TryGetErrors(string name, out IReadOnlyList<string> errors)
     {

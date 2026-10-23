@@ -497,7 +497,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
             || sentRoot.Disabled != EffectiveDisabled
             || sentRoot.EnterSubmit != parameters.EnterSubmit
             || sentRoot.ReportEvents != InField
-            || !string.Equals(sentRoot.FormId, form.ElementId, StringComparison.Ordinal);
+            || !string.Equals(sentRoot.FormId, form.FormToken, StringComparison.Ordinal);
         if (!parameters.EnterSubmit && !InField)
         {
             // No root handle: nothing to report and no Enter path.
@@ -591,14 +591,14 @@ internal sealed class CheckableFieldBehavior : IDisposable
     // Inside a field the root reports its blur and its focus at attach; with EnterSubmit, Enter submits the owning form.
     private FormOptions RootOptions() => new()
     {
-        Control = new FormControlOptions { FormId = form.ElementId, Disabled = EffectiveDisabled, ReportEvents = InField, EnterSubmit = parameters.EnterSubmit },
+        Control = new FormControlOptions { FormId = form.FormToken, Disabled = EffectiveDisabled, ReportEvents = InField, EnterSubmit = parameters.EnterSubmit },
     };
 
     private FormOptions InputOptions() => new()
     {
         Control = new FormControlOptions
         {
-            FormId = form.ElementId,
+            FormId = form.FormToken,
             CustomValidity = validationInput.OwnMessage,
             Revision = revision,
             Disabled = EffectiveDisabled,
@@ -619,7 +619,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
         return sent.Revision != revision
             || sent.Disabled != EffectiveDisabled
             || !string.Equals(sent.CustomValidity, validationInput.OwnMessage, StringComparison.Ordinal)
-            || !string.Equals(sent.FormId, form.ElementId, StringComparison.Ordinal)
+            || !string.Equals(sent.FormId, form.FormToken, StringComparison.Ordinal)
             || !string.Equals(sent.FocusTarget, focusTarget, StringComparison.Ordinal)
             || sent.LabelFallback != LabelFallbackActive;
     }

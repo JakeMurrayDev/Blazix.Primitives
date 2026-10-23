@@ -1,0 +1,62 @@
+@namespace Blazix.Primitives.Fixtures.Client.FormFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.FieldFixtures
+@inherits FieldFixtureBase
+
+@*
+    The `form-submit` fixture (tests/browser/form.spec.ts): the module's interception and re-issue, observed by the spec
+    through a submit listener it adds to each form (the submitter and defaultPrevented of every submit event; it stops the
+    navigation itself). `onsubmit`: OnSubmit only, so the submission is re-issued with requestSubmit(submitter);
+    `vetoed`: OnSubmit calls PreventNativeSubmit(); `form-submit`: OnFormSubmit, whose values show as data-values.
+*@
+<FixtureContainer Name="form-submit" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <div data-case="onsubmit" data-submits="@submits">
+        <Form @ref="onSubmitForm" OnSubmit="() => submits++" data-testid="form">
+            <FieldRoot Name="email">
+                <FieldControl @ref="onSubmitControl" DefaultValue="a@b.co" />
+            </FieldRoot>
+            <button id="first-submitter" type="submit">First</button>
+            <button id="second-submitter" type="submit">Second</button>
+        </Form>
+    </div>
+
+    <div data-case="vetoed" data-submits="@vetoedSubmits">
+        <Form @ref="vetoedForm" OnSubmit="Veto" data-testid="form">
+            <button id="vetoed-submitter" type="submit">Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="form-submit" data-values="@values">
+        <Form @ref="formSubmitForm" OnFormSubmit="Record" data-testid="form">
+            <FieldRoot Name="username">
+                <FieldControl @ref="formSubmitControl" DefaultValue="alice132" />
+            </FieldRoot>
+            <button id="form-submitter" type="submit">Submit</button>
+        </Form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private Form? onSubmitForm;
+    private FieldControl? onSubmitControl;
+    private Form? vetoedForm;
+    private Form? formSubmitForm;
+    private FieldControl? formSubmitControl;
+    private int submits;
+    private int vetoedSubmits;
+    private string values = string.Empty;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [onSubmitForm, onSubmitControl, vetoedForm, formSubmitForm, formSubmitControl];
+
+    private void Veto(FormSubmitEventArgs args)
+    {
+        vetoedSubmits++;
+        args.PreventNativeSubmit();
+    }
+
+    private void Record(FormSubmitEventArgs args) =>
+        values = string.Join(",", args.Values.Select(pair => $"{pair.Key}={pair.Value}"));
+}
