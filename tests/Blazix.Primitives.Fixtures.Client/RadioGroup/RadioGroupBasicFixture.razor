@@ -1,0 +1,149 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-basic` fixture (tests/browser/radio-group.spec.ts): RadioGroup.test.tsx's pages that render neither
+    Field nor Form. Each case records its OnValueChange calls; every radio is inside the case's frame, between a button
+    before and one after it, for Tab.
+*@
+<FixtureContainer Name="radio-group-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <RadioCaseFrame Name="single" Case="single">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="single.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="three" Case="three">
+        <div data-ancestor>
+            <RadioGroup @ref="Group" TValue="string" OnValueChange="three.Change">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                <RadioRoot @ref="Radio" Value="@("c")" data-radio data-value="c" />
+            </RadioGroup>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="ignored" Case="ignored">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="ignored.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" aria-label="A" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" aria-label="B" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="ignored-single" Case="ignoredSingle">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="ignoredSingle.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" aria-label="A" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" aria-label="B" Disabled="true" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="initial" Case="initial">
+        <RadioGroup @ref="Group" TValue="string" DefaultValue="@("b")">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="first-disabled" Case="firstDisabled">
+        <RadioGroup @ref="Group" TValue="string">
+            <RadioRoot @ref="Radio" Value="@("a")" Disabled="true" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="removal" Case="removal">
+        <button type="button" data-toggle @onclick="() => showLast = !showLast">Toggle last</button>
+        <RadioGroup @ref="Group" TValue="string" Value="@("b")">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            @if (showLast)
+            {
+                <RadioRoot @ref="Radio" Value="@("c")" data-radio data-value="c" />
+            }
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="disabled" Case="disabled">
+        <RadioGroup @ref="Group" TValue="string" Disabled="true" OnValueChange="disabled.Change">
+            <RadioRoot @ref="Radio" Value="@string.Empty" data-radio data-value="" @onclick="disabled.Click" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="readonly" Case="readOnly">
+        <RadioGroup @ref="Group" TValue="string" ReadOnly="true" OnValueChange="readOnly.Change">
+            <label data-label>
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                A
+            </label>
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="implicit" Case="implicitLabels">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="implicitLabels.Change">
+            <label data-label>
+                <RadioRoot @ref="Radio" Value="@("apple")" data-radio />
+                Apple
+            </label>
+            <label data-label>
+                <RadioRoot @ref="Radio" Value="@("banana")" data-radio />
+                Banana
+            </label>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="explicit" Case="explicitLabels">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="explicitLabels.Change">
+            <div>
+                <label data-label for="RadioA">Apple</label>
+                <RadioRoot @ref="Radio" Value="@("apple")" id="RadioA" data-radio />
+            </div>
+            <div>
+                <label data-label for="RadioB">Banana</label>
+                <RadioRoot @ref="Radio" Value="@("banana")" id="RadioB" data-radio />
+            </div>
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="keydown" Case="keyDown">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="keyDown.Change" @onkeydown="GroupKeyDown">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" @onkeydown="keyDown.KeyDown" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" @onkeydown="keyDown.KeyDown" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="focus-veto" Case="focusVeto">
+        <RadioGroup @ref="Group" TValue="string" OnValueChange="focusVeto.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" @onfocus="VetoFocus" />
+        </RadioGroup>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase single = new();
+    private readonly RadioCase three = new();
+    private readonly RadioCase ignored = new();
+    private readonly RadioCase ignoredSingle = new();
+    private readonly RadioCase initial = new();
+    private readonly RadioCase firstDisabled = new();
+    private readonly RadioCase removal = new();
+    private readonly RadioCase disabled = new();
+    private readonly RadioCase readOnly = new();
+    private readonly RadioCase implicitLabels = new();
+    private readonly RadioCase explicitLabels = new();
+    private readonly RadioCase keyDown = new();
+    private readonly RadioCase focusVeto = new();
+    private bool showLast = true;
+
+    // The group's consumer onkeydown, recorded after the radio's; a veto of the arrow keys would stop the group's handling.
+    private void GroupKeyDown(KeyboardEventArgs e) => keyDown.KeyDown(new KeyboardEventArgs { Key = "group:" + e.Key });
+
+    // RAD-FOC-05: a C# consumer onfocus that prevents the part handler vetoes the focus-driven selection (WebAssembly).
+    private void VetoFocus(FocusEventArgs e) => e.PreventPartHandler();
+}

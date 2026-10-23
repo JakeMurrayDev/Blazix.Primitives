@@ -1,0 +1,40 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The test consumer of RadioGroup.test.tsx "updates label precedence without retaining replaced or unmounted IDs": an
+    explicit aria-labelledby, a field label and a fieldset legend, each removable or replaceable, as the Base UI test's
+    useState toggles.
+*@
+<span id="explicit-label">Explicit label</span>
+<FieldRoot Name="choice">
+    @if (ShowFieldLabel)
+    {
+        <FieldLabel @key="FieldLabelId" id="@FieldLabelId" NativeLabel="false" Render="@s_span">Field label</FieldLabel>
+    }
+    <FieldsetRoot>
+        @if (ShowLegend)
+        {
+            <FieldsetLegend @key="LegendId" id="@LegendId">Legend</FieldsetLegend>
+        }
+        <RadioGroup TValue="string" @attributes="GroupAttributes">
+            <RadioRoot Value="@("a")" />
+        </RadioGroup>
+    </FieldsetRoot>
+</FieldRoot>
+
+@code {
+    private static readonly RenderFragment s_span = builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.CloseElement();
+    };
+
+    [Parameter] public bool Explicit { get; set; } = true;
+    [Parameter] public string FieldLabelId { get; set; } = "field-label-a";
+    [Parameter] public bool ShowFieldLabel { get; set; } = true;
+    [Parameter] public string LegendId { get; set; } = "legend-a";
+    [Parameter] public bool ShowLegend { get; set; } = true;
+
+    // Blazor keeps a component's unmatched attributes when a later render splats none, so "remove explicit" passes the
+    // attribute as null, which the pipeline renders as absent (RND-DOM-19 as relaxed by ADR 02 Amendments 2026-10-20).
+    private Dictionary<string, object> GroupAttributes => new() { ["aria-labelledby"] = Explicit ? "explicit-label" : null! };
+}

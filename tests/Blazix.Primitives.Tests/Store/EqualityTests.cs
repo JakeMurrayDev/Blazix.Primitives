@@ -22,6 +22,49 @@ public sealed class EqualityTests
         Assert.True(Equality.Is((1, "a"), (1, "a")));
     }
 
+    // ADR 05 Amendments 2026-10-20 as amended 2026-10-23 (design point R8 of M2 tracks 7-8, settled by the orchestrator
+    // 2026-10-23): the BCL primitives and their nullables compare with == instead of EqualityComparer<T>, which boxes on
+    // the WebAssembly interpreter; the result is the same.
+    [Fact(DisplayName = "Object.is and ===: the BCL primitives and their nullables compare by value")]
+    public void Primitives_and_their_nullables_compare_by_value()
+    {
+        AssertByValue(true, false);
+        AssertByValue('a', 'b');
+        AssertByValue((byte)1, (byte)2);
+        AssertByValue((sbyte)-1, (sbyte)2);
+        AssertByValue((short)-1, (short)2);
+        AssertByValue((ushort)1, (ushort)2);
+        AssertByValue(-1, 2);
+        AssertByValue(1u, 2u);
+        AssertByValue(-1L, 2L);
+        AssertByValue(1ul, 2ul);
+        AssertByValue((nint)(-1), (nint)2);
+        AssertByValue((nuint)1, (nuint)2);
+        AssertByValue(1.5m, 2.5m);
+
+        // decimal compares by value, whatever the scale.
+        Assert.True(Equality.Is(1.0m, 1.00m));
+        Assert.True(Equality.StrictEquals<decimal?>(1.0m, 1.00m));
+    }
+
+    private static void AssertByValue<T>(T value, T other)
+        where T : struct
+    {
+        T copy = value;
+        Assert.True(Equality.Is(value, copy));
+        Assert.False(Equality.Is(value, other));
+        Assert.True(Equality.StrictEquals(value, copy));
+        Assert.False(Equality.StrictEquals(value, other));
+        Assert.True(Equality.Is<T?>(value, copy));
+        Assert.False(Equality.Is<T?>(value, other));
+        Assert.False(Equality.Is<T?>(value, null));
+        Assert.False(Equality.Is<T?>(null, value));
+        Assert.True(Equality.Is<T?>(null, null));
+        Assert.True(Equality.StrictEquals<T?>(value, copy));
+        Assert.False(Equality.StrictEquals<T?>(null, value));
+        Assert.True(Equality.StrictEquals<T?>(null, null));
+    }
+
     [Fact(DisplayName = "Object.is: strings compare by value")]
     public void Strings_compare_by_value()
     {

@@ -632,6 +632,7 @@ defaultSubmitter(form):
 
 - **FFI-ALG-11** — MUST. The implementation reproduces the following procedure exactly (**String serialization**).
   Source: `internals/serializeValue.ts:1-13`. Test: none (exercised indirectly by `RadioGroup.test.tsx` "submits to an external form when `form` is provided").
+  Port note 2026-10-23 (M2 track 7, issue 83; ADR 08 Amendments 2026-10-22; ADR 16 rule 1): the port's serializer differs for values that are not strings. A `string` is used as is and `null` gives `""` (no `value` attribute on a radio's input); any other value is its text under `CultureInfo.InvariantCulture`, built by an interpolated `string.Create`, which takes the value unboxed. So `true` gives `True`, an enum gives its name and a record its `ToString()`, where `JSON.stringify` gives `true`, a number and an object literal: a reflection-based JSON serializer fails ADR 16 rule 1. Radio is M2's only caller with a value that is not a string, so the serializer is internal to `Radio/` (`RadioValues.Serialize`; `RadioValuesTests`, L1, with `de-DE` as the current culture) until Select (M5) moves it here (RAD-FRM-02's note).
 
 ```
 serializeValue(v): if v = null/undefined: ""  else if v is string: v

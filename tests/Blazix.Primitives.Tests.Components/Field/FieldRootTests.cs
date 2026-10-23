@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using Microsoft.Extensions.DependencyInjection;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -377,4 +378,69 @@ public sealed class FieldRootTests : IDisposable
         .AddChildContent<FieldControl>(c => c.AddUnmatched("data-testid", "control").AddUnmatched("required", true)));
 
     private FormControlOptions? LastControlOptions() => host.UpdateOptions().Select(FieldTestContext.Parse).LastOrDefault(o => o.Control is not null)?.Control;
+
+    // FieldRoot.test.tsx "should debounce validation for radio groups" (M2 track 8; FLD-API-06, FLD-FRM-04): the group's
+    // change commit waits for the debounce, on the field's time provider.
+    [Fact(DisplayName = "should debounce validation for radio groups")]
+    [Trait("Requirement", "FLD-API-06")]
+    [Trait("Requirement", "FLD-FRM-04")]
+    public async Task Should_debounce_validation_for_radio_groups()
+    {
+        using RadioTestContext radio = new();
+        Microsoft.Extensions.Time.Testing.FakeTimeProvider clock = new();
+        radio.Context.Services.AddSingleton<TimeProvider>(clock);
+        List<object?> validated = [];
+        IRenderedComponent<FieldRoot> cut = radio.Context.Render<FieldRoot>(p => p
+            .Add(x => x.ValidationDebounceTime, 100)
+            .Add(x => x.ValidationMode, ValidationMode.OnChange)
+            .Add(x => x.Validate, args =>
+            {
+                validated.Add(args.Value);
+                return ValueTask.FromResult<FieldValidationResult?>((string?)args.Value == "item-b" ? "error" : null);
+            })
+            .AddChildContent<RadioGroup<string>>(g => g.AddChildContent(RadioTestContext.StringRadios("item-a", "item-b"))));
+        IElement Control() => cut.Find("[role=radiogroup]");
+
+        await radio.ToggleAsync(cut, 1);
+        await radio.SettleAllFormsAsync(cut);
+
+        Assert.Empty(validated);
+        Assert.False(Control().HasAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => clock.Advance(TimeSpan.FromMilliseconds(99)));
+        Assert.Empty(validated);
+        Assert.False(Control().HasAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => clock.Advance(TimeSpan.FromMilliseconds(1)));
+        await radio.SettleAllFormsAsync(cut);
+
+        Assert.Equal(["item-b"], validated.Select(v => (string?)v));
+        Assert.Equal("true", Control().GetAttribute("aria-invalid"));
+    }
+
+    // FieldRoot.test.tsx "keeps [data-dirty] on a RadioGroup when returning to the first picked value" (M2 track 8;
+    // FLD-DOM-02, FFI-STA-04/05): the baseline is the value at the group's first registration, here null.
+    [Fact(DisplayName = "keeps [data-dirty] on a RadioGroup when returning to the first picked value")]
+    [Trait("Requirement", "FLD-DOM-02")]
+    [Trait("Requirement", "FFI-STA-04")]
+    [Trait("Requirement", "FFI-STA-05")]
+    public async Task Keeps_data_dirty_on_a_RadioGroup_when_returning_to_the_first_picked_value()
+    {
+        using RadioTestContext radio = new();
+        IRenderedComponent<RadioGroupFieldHost> cut = radio.Context.Render<RadioGroupFieldHost>(p => p
+            .Add(x => x.Controlled, true)
+            .Add(x => x.Value, null)
+            .Add(x => x.Radios, [new HostRadio("a"), new HostRadio("b")]));
+        IElement Root() => cut.Find("[data-testid=field]");
+        Assert.False(Root().HasAttribute("data-dirty"));
+
+        cut.Render(p => p.Add(x => x.Value, "a"));
+        await radio.SettleAllFormsAsync(cut);
+        Assert.Equal(string.Empty, Root().GetAttribute("data-dirty"));
+
+        cut.Render(p => p.Add(x => x.Value, "b"));
+        cut.Render(p => p.Add(x => x.Value, "a"));
+        await radio.SettleAllFormsAsync(cut);
+        Assert.Equal(string.Empty, Root().GetAttribute("data-dirty"));
+    }
 }

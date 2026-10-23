@@ -1,0 +1,48 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-fieldset` fixture (tests/browser/radio-group.spec.ts): a Fieldset.Root substituted by a RadioGroup, whose
+    legend labels the group (RadioGroup.test.tsx "labels the radio group from the fieldset legend"), and a group inside a
+    <fieldset disabled> whose middle radio is a native button (RDG-EDGE-07: the native button is `:disabled` and skipped by
+    the arrow keys; the other radios are not aria-disabled).
+*@
+<FixtureContainer Name="radio-group-fieldset" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <RadioCaseFrame Name="legend" Case="legend">
+        <FieldRoot Name="test">
+            <FieldsetRoot>
+                <RenderFunction Context="props">
+                    <RadioGroup @ref="Group" TValue="string" @attributes="props.Attributes">@props.ChildContent</RadioGroup>
+                </RenderFunction>
+                <ChildContent>
+                    <FieldsetLegend data-legend>Legend</FieldsetLegend>
+                    <FieldItem>
+                        <RadioRoot @ref="Radio" TValue="string" Value="@("a")" data-radio data-value="a" />
+                    </FieldItem>
+                </ChildContent>
+            </FieldsetRoot>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="native-disabled" Case="nativeDisabled">
+        <fieldset disabled>
+            <RadioGroup @ref="Group" TValue="string">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" NativeButton="true" data-radio data-value="b">
+                    <Render><button></button></Render>
+                </RadioRoot>
+                <RadioRoot @ref="Radio" Value="@("c")" data-radio data-value="c" />
+            </RadioGroup>
+        </fieldset>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase legend = new();
+    private readonly RadioCase nativeDisabled = new();
+}

@@ -1,0 +1,152 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-field` fixture (tests/browser/radio-group.spec.ts): RadioGroup.test.tsx's Field titles. The "[data-focused]
+    without a blur event" pages, each a field with a group whose disabled state or radios a toggle changes; the onBlur page
+    with its validator's calls as data attributes; and the Field.Label pages, which a click on a label selects through.
+*@
+<FixtureContainer Name="radio-group-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <RadioCaseFrame Name="group-disabled" Case="groupDisabled">
+        <button type="button" data-toggle @onclick="() => groupDisabledValue = !groupDisabledValue">Toggle</button>
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string" Disabled="groupDisabledValue">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="group-unmount" Case="groupUnmount">
+        <button type="button" data-toggle @onclick="() => groupMounted = !groupMounted">Toggle</button>
+        <FieldRoot data-field>
+            @if (groupMounted)
+            {
+                <RadioGroup @ref="Group" TValue="string">
+                    <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                </RadioGroup>
+            }
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="radio-unmount" Case="radioUnmount">
+        <button type="button" data-toggle @onclick="() => firstMounted = !firstMounted">Toggle</button>
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string">
+                @if (firstMounted)
+                {
+                    <RadioRoot @key="@("first")" @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                }
+                <RadioRoot @key="@("second")" @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="disabled-radio" Case="disabledRadio">
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string">
+                <RadioRoot @ref="Radio" Value="@("a")" Disabled="true" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="toggle-disabled" Case="toggleDisabled">
+        <button type="button" data-toggle @onclick="() => firstDisabled = !firstDisabled">Toggle</button>
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string">
+                <RadioRoot @ref="Radio" Value="@("a")" Disabled="firstDisabled" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="item-disabled" Case="itemDisabled">
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string">
+                <FieldItem Disabled="true">
+                    <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                </FieldItem>
+                <FieldItem>
+                    <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                </FieldItem>
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="on-blur" Case="onBlur">
+        <div data-validated="@string.Join(' ', validated)">
+            <FieldRoot data-field ValidationMode="ValidationMode.OnBlur" Validate="ValidateOnBlur">
+                <RadioGroup @ref="Group" TValue="string" DefaultValue="@("a")">
+                    <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                    <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                </RadioGroup>
+            </FieldRoot>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="labels-implicit" Case="labelsImplicit">
+        <FieldRoot data-field Name="options">
+            <RadioGroup @ref="Group" TValue="string" OnValueChange="labelsImplicit.Change">
+                <FieldItem>
+                    <FieldLabel data-label>
+                        <RadioRoot @ref="Radio" Value="@("apple")" data-radio />
+                        Apple
+                    </FieldLabel>
+                </FieldItem>
+                <FieldItem>
+                    <FieldLabel data-label>
+                        <RadioRoot @ref="Radio" Value="@("banana")" data-radio />
+                        Banana
+                    </FieldLabel>
+                </FieldItem>
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="labels-explicit" Case="labelsExplicit">
+        <FieldRoot data-field Name="options">
+            <RadioGroup @ref="Group" TValue="string" OnValueChange="labelsExplicit.Change">
+                <FieldItem>
+                    <RadioRoot @ref="Radio" Value="@("apple")" data-radio />
+                    <FieldLabel data-label>Apple</FieldLabel>
+                    <FieldDescription data-description>An apple is the round, edible fruit of an apple tree</FieldDescription>
+                </FieldItem>
+                <FieldItem>
+                    <RadioRoot @ref="Radio" Value="@("banana")" data-radio />
+                    <FieldLabel data-label>Banana</FieldLabel>
+                    <FieldDescription data-description>A banana is an elongated, edible fruit</FieldDescription>
+                </FieldItem>
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase groupDisabled = new();
+    private readonly RadioCase groupUnmount = new();
+    private readonly RadioCase radioUnmount = new();
+    private readonly RadioCase disabledRadio = new();
+    private readonly RadioCase toggleDisabled = new();
+    private readonly RadioCase itemDisabled = new();
+    private readonly RadioCase onBlur = new();
+    private readonly RadioCase labelsImplicit = new();
+    private readonly RadioCase labelsExplicit = new();
+    private readonly List<string> validated = [];
+    private bool groupDisabledValue;
+    private bool groupMounted = true;
+    private bool firstMounted = true;
+    private bool firstDisabled;
+
+    // A validator that records a call renders its page: the field's own work renders only the field's parts.
+    private ValueTask<FieldValidationResult?> ValidateOnBlur(FieldValidationArguments args)
+    {
+        validated.Add(args.Value as string ?? "null");
+        StateHasChanged();
+        return ValueTask.FromResult<FieldValidationResult?>((string?)args.Value == "a" ? "error" : null);
+    }
+}

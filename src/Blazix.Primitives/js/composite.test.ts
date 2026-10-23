@@ -1680,6 +1680,27 @@ describe('composite selection on navigation (port)', () => {
     expect(events[0]).toMatchObject({ shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, detail: 0 });
   });
 
+  // RAD-EDGE-09 (design point R9 of M2 tracks 7-8, settled by the orchestrator 2026-10-23): a native radio whose render
+  // callback wraps its <button> in a <label>; the hidden input follows the label, not the item.
+  it('clicks the hidden input that follows the label a render callback wraps the item in', async () => {
+    const wrapped = (testId: string): Node[] => {
+      const [element, hidden] = radio(testId);
+      const label = document.createElement('label');
+      label.append(element!, ` ${testId}`);
+      return [label, hidden!];
+    };
+    mountGroup([...wrapped('a'), ...wrapped('b')], { selectOnNavigation: true, modifierKeys: ['Shift'] });
+    const clicks = countClicks();
+    byTestId('a').focus();
+
+    keyDown(byTestId('a'), 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(byTestId('b'));
+    expect(clicks).toEqual({ b: 1 });
+    expect(inputOf('b').checked).toBe(true);
+  });
+
   it('does not select an item that receives focus without a pending arrow key', () => {
     mountRadios();
     const clicks = countClicks();

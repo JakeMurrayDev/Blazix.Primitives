@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioFixtures
+
+@*
+    One case of a Radio or RadioGroup fixture (tests/browser/radio.spec.ts, radio-group.spec.ts): the record of RadioCase as
+    data attributes, around the case's content, with native buttons before and after it so a spec can focus them and
+    press Tab.
+*@
+<div data-case="@Name"
+     data-changes="@Case.Changes"
+     data-clicks="@Case.Clicks"
+     data-keydowns="@Case.KeyDowns"
+     data-last-change="@Case.LastChange"
+     data-log="@Case.Log">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+    <button type="button" data-after>After</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required RadioCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

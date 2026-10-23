@@ -1,0 +1,32 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-rtl` fixture (tests/browser/radio-group.spec.ts): RadioGroup.test.tsx's "direction: $direction" pages,
+    a group of three radios inside a DirectionProvider of each direction, between a button before and one after it.
+*@
+<FixtureContainer Name="radio-group-rtl" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    @foreach (TextDirection direction in new[] { TextDirection.Ltr, TextDirection.Rtl })
+    {
+        string name = direction == TextDirection.Ltr ? "ltr" : "rtl";
+        <RadioCaseFrame Name="@name" Case="@(direction == TextDirection.Ltr ? ltr : rtl)">
+            <DirectionProvider Direction="direction">
+                <RadioGroup @ref="Group" TValue="string">
+                    <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                    <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    <RadioRoot @ref="Radio" Value="@("c")" data-radio data-value="c" />
+                </RadioGroup>
+            </DirectionProvider>
+        </RadioCaseFrame>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase ltr = new();
+    private readonly RadioCase rtl = new();
+}

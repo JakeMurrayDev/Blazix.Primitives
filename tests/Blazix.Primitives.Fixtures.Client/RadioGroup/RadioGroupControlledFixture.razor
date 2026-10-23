@@ -1,0 +1,64 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-controlled` fixture (tests/browser/radio-group.spec.ts): a controlled group with an external value; the
+    three cancel paths of RadioGroup.test.tsx inside a field; a controlled group whose consumer ignores the request, named
+    and nameless (the restore of the hidden inputs, RDG-EVT-04); and the field flags of a change.
+*@
+<FixtureContainer Name="radio-group-controlled" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <RadioCaseFrame Name="external" Case="external">
+        <button type="button" data-select-c @onclick="@(() => externalValue = "c")">Select c</button>
+        <RadioGroup @ref="Group" TValue="string" Value="externalValue" ValueChanged="value => externalValue = value" OnValueChange="external.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            <RadioRoot @ref="Radio" Value="@("c")" data-radio data-value="c" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="cancel" Case="cancel">
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string" Name="cancel" OnValueChange="cancel.Change">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="ignored-named" Case="ignoredNamed">
+        <RadioGroup @ref="Group" TValue="string" Name="ignored" Value="@("a")" OnValueChange="ignoredNamed.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="ignored-nameless" Case="ignoredNameless">
+        <RadioGroup @ref="Group" TValue="string" Value="@("a")" OnValueChange="ignoredNameless.Change">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="flags" Case="flags">
+        <FieldRoot data-field>
+            <RadioGroup @ref="Group" TValue="string" OnValueChange="flags.Change">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+            </RadioGroup>
+        </FieldRoot>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase external = new();
+    private readonly RadioCase cancel = new() { Cancel = true };
+    private readonly RadioCase ignoredNamed = new();
+    private readonly RadioCase ignoredNameless = new();
+    private readonly RadioCase flags = new();
+    private string externalValue = "a";
+}

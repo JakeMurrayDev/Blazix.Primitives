@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attach,
   dispatchClickWithModifiers,
+  findHiddenInput,
   isElementDisabled,
   isTouchLikePointerType,
   type ButtonOptions,
@@ -1190,6 +1191,71 @@ interface Toggle {
   checked: boolean;
   event: EventInfo;
 }
+
+// RAD-EDGE-09 (design point R9 of M2 tracks 7-8, option (a), settled by the orchestrator 2026-10-23; ADR 04 Amendments
+// 2026-10-22, the bridge row, as amended 2026-10-23): a render callback may wrap the part's element, as the docs' native
+// radio wraps its <button> in a <label>; the input then follows the callback's top-level element.
+describe('findHiddenInput (port)', () => {
+  function input(type: string): HTMLInputElement {
+    const element = document.createElement('input');
+    element.type = type;
+    return element;
+  }
+
+  it('finds the input that follows the render callback element containing the element', () => {
+    const label = document.createElement('label');
+    const button = document.createElement('button');
+    label.append(button, 'Apple');
+    const radio = input('radio');
+    document.body.append(label, radio);
+
+    expect(findHiddenInput(button)).toBe(radio);
+  });
+
+  it('lets a non-input sibling stop the search at each level, so a neighbour\'s input is never taken', () => {
+    const wrapper = document.createElement('div');
+    const button = document.createElement('button');
+    const neighbour = document.createElement('span');
+    wrapper.append(button, neighbour, input('radio'));
+    const radio = input('radio');
+    document.body.append(wrapper, radio);
+
+    // The wrapper's own children: the button's next sibling is not an input, so the search moves up a level.
+    expect(findHiddenInput(button)).toBe(radio);
+
+    const lone = document.createElement('div');
+    const loneButton = document.createElement('button');
+    lone.append(loneButton, document.createElement('span'), input('radio'));
+    document.body.append(lone, document.createElement('p'));
+
+    expect(findHiddenInput(loneButton)).toBeNull();
+  });
+});
+
+describe.each([
+  ['Server', false],
+  ['WebAssembly', true],
+])('button module: hidden-input bridge under a render callback (%s)', (_mode, synchronous) => {
+  it('forwards a click on a button wrapped in a label to the input that follows the label', () => {
+    const label = document.createElement('label');
+    document.body.appendChild(label);
+    const { input, inputClicks, root } = mountBridge({}, {
+      twin: { synchronous },
+      tag: 'button',
+      parent: label,
+      before: (button, hidden) => {
+        label.appendChild(document.createTextNode('Apple'));
+        label.after(hidden);
+        void button;
+      },
+    });
+
+    click(root);
+
+    expect(inputClicks).toHaveLength(1);
+    expect(input.checked).toBe(true);
+  });
+});
 
 describe.each([
   ['Server', false],

@@ -230,4 +230,39 @@ public sealed class FieldsetTests : IDisposable
         Assert.Equal(string.Empty, cut.Find("[data-testid=legend]").GetAttribute("id"));
         Assert.Equal(string.Empty, cut.Find("fieldset").GetAttribute("aria-labelledby"));
     }
+
+    // FieldsetRoot.test.tsx "passes disabled to rendered Base UI roots", its RadioGroup half (M2 track 8; FST-DOM-09,
+    // FST-STR-01): the spread `disabled` binds to RadioGroup.Disabled (Blazor matches parameter names ignoring case), and
+    // the legend's id reaches the group as its aria-labelledby (FST-FRM-03).
+    [Fact(DisplayName = "passes disabled to rendered Base UI roots (RadioGroup)")]
+    [Trait("Requirement", "FST-DOM-09")]
+    [Trait("Requirement", "FST-STR-01")]
+    [Trait("Requirement", "FST-FRM-03")]
+    public void Passes_disabled_to_rendered_Base_UI_roots_RadioGroup()
+    {
+        using RadioTestContext radio = new();
+        RenderFragment<RenderProps<FieldsetRootState>> group = props => builder =>
+        {
+            builder.OpenComponent<RadioGroup<string>>(0);
+            builder.AddMultipleAttributes(1, props.Attributes);
+            builder.AddComponentParameter(2, nameof(RadioGroup<string>.ChildContent), props.ChildContent);
+            builder.CloseComponent();
+        };
+        IRenderedComponent<FieldsetRoot> cut = radio.Context.Render<FieldsetRoot>(p => p
+            .Add(x => x.Disabled, true)
+            .Add(x => x.RenderFunction, group)
+            .AddChildContent(builder =>
+            {
+                builder.OpenComponent<FieldsetLegend>(0);
+                builder.AddAttribute(1, "data-testid", "legend");
+                builder.CloseComponent();
+                builder.AddContent(2, RadioTestContext.StringRadios("a"));
+            }));
+
+        IElement element = cut.Find("[role=radiogroup]");
+        Assert.Equal("true", element.GetAttribute("aria-disabled"));
+        Assert.True(element.HasAttribute("data-disabled"));
+        Assert.Equal(cut.Find("[data-testid=legend]").GetAttribute("id"), element.GetAttribute("aria-labelledby"));
+        Assert.Equal("true", cut.Find("[role=radio]").GetAttribute("aria-disabled"));
+    }
 }

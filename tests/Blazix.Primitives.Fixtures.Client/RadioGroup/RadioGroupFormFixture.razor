@@ -1,0 +1,196 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-form` fixture (tests/browser/radio-group.spec.ts): RadioGroup.test.tsx's Form titles and the native form
+    data titles. Native forms with a named group, a group associated to an external form, and Base UI forms whose
+    OnFormSubmit values render as data attributes (data-values on each case): a required group with Field.Error, a selected
+    radio a toggle disables, an enabled selection, an ancestor <fieldset disabled>, a required group whose selected radio is
+    disabled, a required group whose radios start disabled, and a group associated to another form.
+*@
+<FixtureContainer Name="radio-group-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <RadioCaseFrame Name="native" Case="native">
+        <form data-form>
+            <RadioGroup @ref="Group" TValue="string" Name="group">
+                <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                <RadioRoot @ref="Radio" Value="@("c")" data-radio data-value="c" />
+            </RadioGroup>
+            <button type="submit" data-submit>Submit</button>
+        </form>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="external" Case="external">
+        <form id="external-form" data-form>
+            <button type="submit" data-submit>Submit</button>
+        </form>
+        <RadioGroup @ref="Group" TValue="string" Name="group" Form="external-form" DefaultValue="@("b")">
+            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+        </RadioGroup>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="required" Case="required">
+        <div data-values="@values.GetValueOrDefault("required")">
+            <Form data-form OnFormSubmit="@(args => Record("required", args))">
+                <FieldRoot Name="test" data-field>
+                    <RadioGroup @ref="Group" TValue="string" Name="group" Required="true">
+                        <FieldItem>
+                            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                        </FieldItem>
+                        <FieldItem>
+                            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                        </FieldItem>
+                    </RadioGroup>
+                    <FieldError Match="ValidityFlag.ValueMissing" data-error>required</FieldError>
+                </FieldRoot>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="disable-selected" Case="disableSelected">
+        <div data-values="@values.GetValueOrDefault("disable-selected")">
+            <button type="button" data-toggle @onclick="() => selectedDisabled = !selectedDisabled">Toggle disabled</button>
+            <Form data-form OnFormSubmit="@(args => Record("disable-selected", args))">
+                <FieldRoot Name="test">
+                    <RadioGroup @ref="Group" TValue="string" Name="group" DefaultValue="@("a")">
+                        <RadioRoot @ref="Radio" Value="@("a")" Disabled="selectedDisabled" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                </FieldRoot>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="initially-disabled" Case="initiallyDisabled">
+        <div data-values="@values.GetValueOrDefault("initially-disabled")">
+            <Form data-form OnFormSubmit="@(args => Record("initially-disabled", args))">
+                <FieldRoot Name="test">
+                    <RadioGroup @ref="Group" TValue="string" Name="group" DefaultValue="@("a")">
+                        <RadioRoot @ref="Radio" Value="@("a")" Disabled="true" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                </FieldRoot>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="projects" Case="projects">
+        <div data-values="@values.GetValueOrDefault("projects")">
+            <Form data-form OnFormSubmit="@(args => Record("projects", args))">
+                <FieldRoot Name="choice">
+                    <RadioGroup @ref="Group" TValue="string" DefaultValue="@("a")">
+                        <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                </FieldRoot>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="fieldset-disabled" Case="fieldsetDisabled">
+        <div data-values="@values.GetValueOrDefault("fieldset-disabled")">
+            <button type="button" data-toggle @onclick="() => fieldsetDisabledValue = !fieldsetDisabledValue">Enable</button>
+            <Form data-form OnFormSubmit="@(args => Record("fieldset-disabled", args))">
+                <fieldset disabled="@fieldsetDisabledValue">
+                    <FieldRoot Name="choice">
+                        <RadioGroup @ref="Group" TValue="string" DefaultValue="@("a")">
+                            <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                            <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                        </RadioGroup>
+                    </FieldRoot>
+                </fieldset>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="required-disabled-selected" Case="requiredDisabledSelected">
+        <div data-values="@values.GetValueOrDefault("required-disabled-selected")">
+            <Form data-form OnFormSubmit="@(args => Record("required-disabled-selected", args))">
+                <FieldRoot Name="choice">
+                    <RadioGroup @ref="Group" TValue="string" Name="choice" Required="true" DefaultValue="@("a")">
+                        <RadioRoot @ref="Radio" Value="@("a")" Disabled="true" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                    <FieldError Match="ValidityFlag.ValueMissing" data-error>required</FieldError>
+                </FieldRoot>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="all-disabled" Case="allDisabled">
+        <button type="button" data-toggle @onclick="() => allDisabledValue = false">Enable</button>
+        <Form data-form>
+            <FieldRoot Name="test">
+                <RadioGroup @ref="Group" TValue="string" Name="group" Required="true">
+                    <RadioRoot @ref="Radio" Value="@("a")" Disabled="allDisabledValue" data-radio data-value="a" />
+                    <RadioRoot @ref="Radio" Value="@("b")" Disabled="allDisabledValue" data-radio data-value="b" />
+                </RadioGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="fieldset-validate" Case="fieldsetValidate">
+        <button type="button" data-toggle @onclick="() => validateFieldsetDisabled = false">Enable</button>
+        <Form data-form>
+            <fieldset disabled="@validateFieldsetDisabled">
+                <FieldRoot Name="test">
+                    <RadioGroup @ref="Group" TValue="string" Name="group" Required="true">
+                        <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                    <FieldError Match="ValidityFlag.ValueMissing" data-error>required</FieldError>
+                </FieldRoot>
+            </fieldset>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </RadioCaseFrame>
+
+    <RadioCaseFrame Name="other-form" Case="otherForm">
+        <div data-values="@values.GetValueOrDefault("other-form")">
+            <form id="other-form"></form>
+            <Form data-form OnFormSubmit="@(args => Record("other-form", args))">
+                <FieldRoot Name="choice">
+                    <RadioGroup @ref="Group" TValue="string" Form="other-form" DefaultValue="@("a")">
+                        <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                </FieldRoot>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    </RadioCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly RadioCase native = new();
+    private readonly RadioCase external = new();
+    private readonly RadioCase required = new();
+    private readonly RadioCase disableSelected = new();
+    private readonly RadioCase initiallyDisabled = new();
+    private readonly RadioCase projects = new();
+    private readonly RadioCase fieldsetDisabled = new();
+    private readonly RadioCase requiredDisabledSelected = new();
+    private readonly RadioCase allDisabled = new();
+    private readonly RadioCase fieldsetValidate = new();
+    private readonly RadioCase otherForm = new();
+    private readonly Dictionary<string, string> values = [];
+    private bool selectedDisabled;
+    private bool fieldsetDisabledValue = true;
+    private bool allDisabledValue = true;
+    private bool validateFieldsetDisabled = true;
+
+    private void Record(string name, FormSubmitEventArgs args) => values[name] = RadioFormValues.Text(args.Values);
+}
