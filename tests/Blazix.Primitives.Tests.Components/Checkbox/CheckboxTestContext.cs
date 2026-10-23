@@ -227,6 +227,35 @@ public sealed class CheckboxTestContext : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reports a native submission of the enclosing <see cref="Form"/>, as the module does: the state it read from every
+    /// enrolled control, here every hidden input with <paramref name="validity"/> (the roots read no constraint).
+    /// </summary>
+    internal async Task<FormSubmitAnswer> SubmitAsync<TComponent>(IRenderedComponent<TComponent> cut, Func<string, NativeValidity> validity)
+        where TComponent : IComponent
+    {
+        JSRuntimeInvocation attach = FormModule.Invocations["attach"]
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+        FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
+        FormControlState[] controls =
+        [
+            .. cut.FindAll("input[type=checkbox][id]").Select(input => new FormControlState
+            {
+                Id = input.GetAttribute("id")!,
+                Value = "on",
+                Validity = validity(input.GetAttribute("id")!),
+            }),
+        ];
+        FormSubmitRequest request = new()
+        {
+            Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
+            Controls = controls,
+        };
+        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
+        return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+    }
+
     /// <summary>Reports the native label the hidden input's handle discovered, as the module does.</summary>
     internal Task ReportLabelAsync<TComponent>(IRenderedComponent<TComponent> cut, string? labelId)
         where TComponent : IComponent

@@ -1,0 +1,18 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The test consumer of CheckboxRoot.test.tsx's Form titles: a Form around one Field.Root and one box. Field.Error is not
+    on main (PR 1c), so the titles read the field's verdict from the box's aria-invalid.
+*@
+<Form Errors="Errors" OnSubmit="args => Submits.Add(args)">
+    <FieldRoot Name="@FieldName">
+        <CheckboxRoot data-testid="checkbox" Required="Required" />
+    </FieldRoot>
+</Form>
+
+@code {
+    [Parameter] public string? FieldName { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public FormErrors? Errors { get; set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+}
