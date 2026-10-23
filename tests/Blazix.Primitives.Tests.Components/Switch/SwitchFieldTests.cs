@@ -368,6 +368,21 @@ public sealed class SwitchFieldTests : IDisposable
         Assert.NotEmpty(cut.FindAll("[data-testid=error]"));
     }
 
+    [Fact(DisplayName = "port: a required native-button switch is invalid at its first submit, before any toggle")]
+    [Trait("Requirement", "SWT-FRM-08")]
+    public async Task Port_a_required_native_button_switch_is_invalid_at_its_first_submit()
+    {
+        // Under nativeButton the hidden input renders no id, so the state the module reads at submit cannot reach it by
+        // id: the field validates from the input's last report, which the input gives once when its handle attaches.
+        test.InputValidity = Native.ValueMissing;
+        IRenderedComponent<SwitchFieldHost> cut = Context.Render<SwitchFieldHost>(p => p.Add(x => x.InForm, true).Add(x => x.ShowError, true).Add(x => x.Required, true).Add(x => x.NativeButton, true));
+        await test.SettleFormAsync(cut);
+
+        await SubmitAsync(cut);
+
+        Assert.Equal("true", cut.Find(Switch).GetAttribute("aria-invalid"));
+    }
+
     [Fact(DisplayName = "clears external errors on change")]
     [Trait("Requirement", "SWT-FRM-13")]
     [Trait("Requirement", "SWT-ARIA-11")]
@@ -619,7 +634,9 @@ public sealed class SwitchFieldTests : IDisposable
         Assert.Equal("true", cut.Find(Switch).GetAttribute("aria-checked"));
     }
 
-    // A native submission of the form element: the module prevents it and reports it; C# answers.
+    // A native submission of the form element: the module prevents it and reports it with the state it reads, in the
+    // submit task, from every element enrolled on the form: the root and the hidden input, each by its DOM id (an input
+    // that renders no id under nativeButton is reported with an empty one, which nothing matches); C# answers.
     private async Task<string> SubmitAsync(IRenderedComponent<SwitchFieldHost> cut)
     {
         FormTwin form = ((DotNetObjectReference<FormTwin>)test.FormModule.Invocations["attach"]
@@ -628,6 +645,11 @@ public sealed class SwitchFieldTests : IDisposable
         FormSubmitRequest request = new()
         {
             Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
+            Controls =
+            [
+                new FormControlState { Id = cut.Find(Switch).GetAttribute("id") ?? string.Empty },
+                new FormControlState { Id = cut.Find("input[type=checkbox]").GetAttribute("id") ?? string.Empty, Validity = test.InputValidity },
+            ],
         };
         string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => form.OnSubmitRequest(json));
