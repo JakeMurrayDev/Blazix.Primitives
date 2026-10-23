@@ -85,5 +85,6 @@ public static class FixtureCatalog
         ["checkbox-prerender"] = new(typeof(CheckboxPrerenderFixture), Prerender: true),
         ["checkbox-group-field"] = new(typeof(CheckboxGroupFieldFixture)),
         ["checkbox-group-prerender"] = new(typeof(CheckboxGroupPrerenderFixture), Prerender: true),
+        ["checkbox-group-form"] = new(typeof(CheckboxGroupFormFixture)),
     };
 }
