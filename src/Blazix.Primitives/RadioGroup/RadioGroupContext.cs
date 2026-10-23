@@ -31,7 +31,8 @@ internal sealed class RadioGroupContext<TValue>
 
     /// <summary>Gets a value indicating whether the group holds a value at all.</summary>
     /// <value>
-    /// <see langword="false"/> while the group holds no value; a <see langword="null"/> value also selects no radio.
+    /// <see langword="false"/> while an uncontrolled group without a default value has not been selected (design point R1,
+    /// pending the user); a <see langword="null"/> value also selects no radio.
     /// </value>
     public bool HasSelection { get; private set; }
 

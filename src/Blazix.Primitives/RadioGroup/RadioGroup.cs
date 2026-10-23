@@ -38,7 +38,9 @@ public static class RadioGroupDataAttributes
 // Base UI's RadioGroup (radio-group/RadioGroup.tsx); the contract is docs/components/radio-group.md.
 // - One `div` with role="radiogroup" and no input of its own (RDG-STR-01); the consumer's attributes win (RDG-DOM-06).
 // - The value is a Controlled<TValue> fixed at the first parameter set (ADR 05 Amendments 2026-10-18; ADR 08 Amendments
-//   2026-10-22: any-typed values, `null` selects nothing, comparisons by Equality.StrictEquals).
+//   2026-10-22: any-typed values, `null` selects nothing, comparisons by Equality.StrictEquals). An uncontrolled group
+//   without a DefaultValue holds no value until its first selection (design point R1, pending the user), so a
+//   non-nullable TValue starts with nothing selected as Base UI's `undefined` does (RDG-API-02).
 // - The radios in the subtree read the group through RadioGroupContext<TValue> and run their requests through it:
 //   OnValueChange, then ValueChanged and the commit (RDG §7). TValue reaches them through [CascadingTypeParameter].
 // - It is the composite root of its radios (CompositeRootBehavior; RDG §11): Shift does not block an arrow, Home and End
@@ -77,6 +79,9 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     private readonly EventCallback onKeyDown;
     private readonly Action<EventSnapshot> focusLeft;
     private Controlled<TValue>? valueState;
+    private bool valueSupplied;
+    private bool defaultValueSupplied;
+    private bool selectedOnce;
     private CompositeRootBehavior? composite;
     private RadioGroupContext<TValue>? context;
     private RadioGroupState? state;
@@ -122,8 +127,8 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     // the initial default when a controlled value is removed.
     private TValue CurrentValue => valueState!.Value;
 
-    // Whether the group holds a value at all.
-    private bool HasSelection => true;
+    // Design point R1 (pending the user): whether the group holds a value at all.
+    private bool HasSelection => (valueState!.IsControlled && valueSupplied) || defaultValueSupplied || selectedOnce;
 
     // RDG §4 `checkedValue != null`.
     private bool Selected => HasSelection && !RadioValues.IsNull(CurrentValue);
@@ -175,7 +180,8 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     // RDG-API-02
     /// <summary>Gets or sets the value of the radio button initially selected, when the group owns the value.</summary>
     /// <value>
-    /// The value. Read at the first render only.
+    /// The value. Read at the first render only. Without it no radio button is selected until the user selects one,
+    /// whatever <typeparamref name="TValue"/> is.
     /// </value>
     [Parameter]
     public TValue DefaultValue { get; set; } = default!;
@@ -268,7 +274,13 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     public override Task SetParametersAsync(ParameterView parameters)
     {
         // RDG-API-01/02, RDG-EDGE-01: ownership is fixed at the first parameter set (ADR 05 Amendments 2026-10-18).
-        valueState ??= new Controlled<TValue>("RadioGroup", "value", Logger);
+        if (valueState is null)
+        {
+            valueState = new Controlled<TValue>("RadioGroup", "value", Logger);
+            defaultValueSupplied = parameters.TryGetValue<TValue>(nameof(DefaultValue), out _);
+        }
+
+        valueSupplied = parameters.TryGetValue<TValue>(nameof(Value), out _);
         valueState.SetParameters(parameters, nameof(Value), nameof(DefaultValue));
         return base.SetParametersAsync(parameters);
     }
@@ -435,6 +447,10 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
         }
 
         await valueState.CommitAsync(next, ValueChanged);
+        if (!valueState.IsControlled)
+        {
+            selectedOnce = true;
+        }
 
         // The radios whose state changed render as they are notified, and the first to finish its render runs the value
         // reaction (RadioRendered); rendering the group instead would render every radio again.
@@ -567,7 +583,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     // RDG-STA-05, RDG-FRM-10/12; radio-group/RadioGroup.tsx:171-183 (useValueChanged). Nothing on mount (a radio mounted
     // checked fills the field, RAD-STA-05); on every change: the form's error cleared, dirty, filled, the EditContext
     // notified, and the change validated once every radio's input has reported again. Observed by Object.is and acted on
-    // by strict inequality (ValueChangedObserver's rule).
+    // by strict inequality (ValueChangedObserver's rule), with "no value" a value of its own (design point R1).
     private void ObserveValue()
     {
         bool selected = Selected;
