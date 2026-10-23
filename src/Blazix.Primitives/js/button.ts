@@ -161,20 +161,26 @@ export function dispatchClickWithModifiers(
 // The bridge finds the input by position, at click time (ADR 04 Amendments 2026-10-22): the part renders it as the
 // element's next sibling, after the optional `<input type="hidden">` of the unchecked value (SWT-STR-01, CHK-STR-01,
 // RAD-STR-01). It has no `id` under `nativeButton`, so neither an id nor an element reference names it. Under a
-// `RenderFunction` callback this assumes the callback renders one top-level element.
+// `RenderFunction` callback the input follows the callback's top-level element, which may contain the part's element, as
+// the docs' native radio wraps its <button> in a <label> (RAD-EDGE-09; design point R9 of M2 tracks 7-8, option (a),
+// settled by the orchestrator 2026-10-23): when no input follows the element, the search moves up to each ancestor in
+// turn. A sibling that is not an input stops the search at its level, so another control's input is never taken.
 /**
  * Finds the hidden checkbox or radio input a bridged part renders after its element.
  * @param element The part's element.
- * @returns The first `checkbox` or `radio` input among the following siblings, past `hidden` inputs; otherwise `null`.
+ * @returns The first `checkbox` or `radio` input among the following siblings of the element, past `hidden` inputs, or else
+ * of the nearest ancestor that has one; otherwise `null`.
  */
 export function findHiddenInput(element: Element): HTMLInputElement | null {
   const InputElement = ownerWindow(element).HTMLInputElement;
-  for (let sibling = element.nextElementSibling; sibling instanceof InputElement; sibling = sibling.nextElementSibling) {
-    if (sibling.type === 'checkbox' || sibling.type === 'radio') {
-      return sibling;
-    }
-    if (sibling.type !== 'hidden') {
-      return null;
+  for (let level: Element | null = element; level; level = level.parentElement) {
+    for (let sibling = level.nextElementSibling; sibling instanceof InputElement; sibling = sibling.nextElementSibling) {
+      if (sibling.type === 'checkbox' || sibling.type === 'radio') {
+        return sibling;
+      }
+      if (sibling.type !== 'hidden') {
+        break;
+      }
     }
   }
   return null;

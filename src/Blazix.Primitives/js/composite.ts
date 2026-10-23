@@ -15,7 +15,7 @@
 // Decision points (ADR 04 §3, fallback run for both; names chosen by the user 2026-10-22, ADR 04 Amendments 2026-10-22):
 // `navigate`, the consumer's onKeyDown veto against key handling (EVD-EVT-26, CMP-EVT-12, RDG-API-12), and `select`,
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
-import { dispatchClickWithModifiers, isElementDisabled } from './button';
+import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
 import { contains, getTarget, isElement, isHTMLElement, ownerDocument } from './dom';
 import { eventInfo } from './event-info';
@@ -1127,9 +1127,11 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       return;
     }
 
-    const input = item.nextElementSibling;
-    if (isHTMLElement(input) && input.tagName === 'INPUT') {
-      const { disabled, readOnly } = input as HTMLInputElement;
+    // The item's hidden input, found as the `button` module's bridge finds it (RAD-EDGE-09: under a render callback it may
+    // follow an element that contains the item).
+    const input = findHiddenInput(item);
+    if (input) {
+      const { disabled, readOnly } = input;
       if (disabled || readOnly) {
         return;
       }

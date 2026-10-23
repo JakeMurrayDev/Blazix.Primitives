@@ -116,10 +116,9 @@ test.describe('<Radio.Root />', () => {
   });
 
   test('port: a native-button radio wrapped in a label by a render callback is selected by a click on the label', async ({ page, mode }) => {
-    // RAD-EDGE-09 (the label-click clause): the hidden input stays outside the label; the label activates the button.
-    // Design point R9 of M2 tracks 7-8 (pending the user): the `button` module finds the input as the element's next
-    // sibling (ADR 04 Amendments 2026-10-22), and here it is the label's, so the bridge finds none.
-    test.fail(true, 'design point R9 (pending the user): the hidden-input bridge looks only at the next sibling of the element');
+    // RAD-EDGE-09 (the label-click clause): the hidden input stays outside the label; the label activates the button, and
+    // the `button` module finds the input after the label that contains it (design point R9 of M2 tracks 7-8, option (a),
+    // settled by the orchestrator 2026-10-23; ADR 04 Amendments 2026-10-22 as amended 2026-10-23).
     const fixture = await gotoRadios(page, mode, 'radio-native-button');
     const { container, radio } = radioCase(fixture, 'wrapped');
     const label = container.locator('[data-wrapping-label]');
