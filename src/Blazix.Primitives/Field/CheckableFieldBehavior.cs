@@ -710,10 +710,10 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
-    // CHK-FRM-14, CHK-FOC-04, CHK-FRM-11: touched, then focused released, then the onBlur commit of the current value. A radio
-    // (design point R4 of M2 tracks 7-8, option (a), settled by the orchestrator 2026-10-23): standalone it only releases the
-    // focused flag (RAD-FOC-03, radio/root/RadioRoot.tsx:167-173); in a group its group handles focus leaving the group
-    // (RDG-FOC-04/05, RDG-FRM-11), so the radio's own blur does nothing.
+    // CHK-FRM-14, CHK-FOC-04, CHK-FRM-11: touched, then focused released, then the onBlur commit of the current value.
+    // A radio (design point R4 of M2 tracks 7-8, option (a), settled by the orchestrator 2026-10-23): standalone it
+    // only releases the focused flag (RAD-FOC-03, radio/root/RadioRoot.tsx:167-173); in a group its group handles focus
+    // leaving the group (RDG-FOC-04/05, RDG-FRM-11), so the radio's own blur does nothing.
     private Task HandleBlurAsync()
     {
         switch (parameters.BlurMode)

@@ -424,7 +424,7 @@ public sealed class RadioGroupTests : IDisposable
         AssertUnchanged(cut);
     }
 
-    // Design point R2 (c), pending the user: on Server the browser may have unchecked the selected same-name radio natively,
+    // Design point R2 (c), settled by the orchestrator 2026-10-23: on Server the browser may have unchecked the selected same-name radio natively,
     // so a refused click restores the clicked input and the selected one, each with one dom update and no other render.
     [Fact(DisplayName = "port: a refused selection restores the clicked input and the selected one on Server")]
     [Trait("Requirement", "RDG-EVT-04")]
@@ -515,7 +515,7 @@ public sealed class RadioGroupTests : IDisposable
         Assert.Equal(["false", "false", "true"], RadioTestContext.Radios(cut).Select(r => r.GetAttribute("aria-checked")));
     }
 
-    // Design point R1 (b), pending the user: a non-nullable group without a default holds no value until its first
+    // Design point R1 (b), settled by the orchestrator 2026-10-23: a non-nullable group without a default holds no value until its first
     // selection, so the radio whose value is default(TValue) is not checked (RDG-API-02's `undefined`).
     [Fact(DisplayName = "port: an uncontrolled group of a value type without a default selects nothing")]
     [Trait("Requirement", "RDG-API-02")]

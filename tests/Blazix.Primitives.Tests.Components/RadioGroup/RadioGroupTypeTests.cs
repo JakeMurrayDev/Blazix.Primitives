@@ -30,7 +30,7 @@ public sealed class RadioGroupTypeTests : IDisposable
         Assert.Single(cut.FindComponents<RadioRoot<int>>());
     }
 
-    // Design point R7 (pending the user): a radio whose TValue differs from its group's cannot join it, which would leave it
+    // Design point R7 (settled by the orchestrator 2026-10-23): a radio whose TValue differs from its group's cannot join it, which would leave it
     // static and never selectable; the mismatch is an error in every build.
     [Fact(DisplayName = "port: a radio whose TValue differs from its group's throws a descriptive error")]
     [Trait("Requirement", "RAD-STR-03")]

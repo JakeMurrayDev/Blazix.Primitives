@@ -39,8 +39,8 @@ public static class RadioGroupDataAttributes
 // - One `div` with role="radiogroup" and no input of its own (RDG-STR-01); the consumer's attributes win (RDG-DOM-06).
 // - The value is a Controlled<TValue> fixed at the first parameter set (ADR 05 Amendments 2026-10-18; ADR 08 Amendments
 //   2026-10-22: any-typed values, `null` selects nothing, comparisons by Equality.StrictEquals). An uncontrolled group
-//   without a DefaultValue holds no value until its first selection (design point R1, pending the user), so a
-//   non-nullable TValue starts with nothing selected as Base UI's `undefined` does (RDG-API-02).
+//   without a DefaultValue holds no value until its first selection (design point R1, settled by the orchestrator
+//   2026-10-23), so a non-nullable TValue starts with nothing selected as Base UI's `undefined` does (RDG-API-02).
 // - The radios in the subtree read the group through RadioGroupContext<TValue> and run their requests through it:
 //   OnValueChange, then ValueChanged and the commit (RDG §7). TValue reaches them through [CascadingTypeParameter].
 // - It is the composite root of its radios (CompositeRootBehavior; RDG §11): Shift does not block an arrow, Home and End
@@ -66,7 +66,8 @@ public static class RadioGroupDataAttributes
 /// A <see cref="RadioRoot{TValue}"/> inside the group takes <typeparamref name="TValue"/> from the group when its own
 /// <c>Value</c> does not determine it. For a nullable value type such as <c>int?</c>, which lets the consumer clear the
 /// selection with <see langword="null"/>, set <c>TValue</c> on each radio button: <c>Value="1"</c> alone is an
-/// <see cref="int"/>.
+/// <see cref="int"/>. A radio button whose <typeparamref name="TValue"/> differs from the group's throws
+/// <see cref="InvalidOperationException"/> when it is initialized.
 /// </remarks>
 [CascadingTypeParameter(nameof(TValue))]
 public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
@@ -128,7 +129,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     // the initial default when a controlled value is removed.
     private TValue CurrentValue => valueState!.Value;
 
-    // Design point R1 (pending the user): whether the group holds a value at all.
+    // Design point R1 (settled by the orchestrator 2026-10-23): whether the group holds a value at all.
     private bool HasSelection => (valueState!.IsControlled && valueSupplied) || defaultValueSupplied || selectedOnce;
 
     // RDG §4 `checkedValue != null`.
@@ -215,7 +216,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     [Parameter]
     public bool ReadOnly { get; set; }
 
-    // RDG-API-06; radio-group §16 Q4 (design point R5, pending the user).
+    // RDG-API-06; radio-group §16 Q4 (design point R5, settled by the orchestrator 2026-10-23: document only).
     /// <summary>Gets or sets a value indicating whether a radio button must be selected for the form to submit.</summary>
     /// <value><see langword="true"/> to set <c>required</c> on every radio button's hidden input; the default is <see langword="false"/>.</value>
     /// <remarks>
@@ -547,8 +548,9 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
         }
     }
 
-    // Design point R6 (pending the user), CKG-ARIA-03's precedent: post-render, the group claims its scope's control id as
-    // null, so a Field.Label in the scope names the group and points at no single radio's input.
+    // Design point R6 (settled by the orchestrator 2026-10-23), CKG-ARIA-03's precedent: post-render, the group claims
+    // its scope's control id as null, so a Field.Label in the scope names the group and points at no single radio's
+    // input.
     private void ClaimControlId()
     {
         if (!claimRegistered)

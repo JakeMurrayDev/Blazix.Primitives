@@ -98,6 +98,13 @@ public static class RadioRootDataAttributes
 /// Within a <see cref="RadioGroup{TValue}"/> the radio button is selected when the group's value is its
 /// <see cref="Value"/>, and selecting it asks the group to adopt that value. Outside a group it is selected only when
 /// <see cref="Value"/> is the empty string, and user interaction never changes it.
+/// <para>
+/// <typeparamref name="TValue"/> must be the group's. The compiler infers it from <see cref="Value"/> before the group's
+/// type, so in a group of a nullable value type such as <c>int?</c>, set <c>TValue</c> on the radio button or give
+/// <see cref="Value"/> the group's type, for example <c>Value="(int?)1"</c>. A radio button whose
+/// <typeparamref name="TValue"/> differs from its group's throws <see cref="InvalidOperationException"/> when it is
+/// initialized.
+/// </para>
 /// </remarks>
 public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
 {
@@ -300,8 +307,9 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
     /// <exception cref="InvalidOperationException">The radio button is inside a <see cref="RadioGroup{TValue}"/> whose value type differs from <typeparamref name="TValue"/>.</exception>
     protected override void OnInitialized()
     {
-        // Design point R7 (pending the user): a type mismatch would leave the radio outside its group, static and never
-        // selectable; it is reported in every build, as a missing context is.
+        // Design point R7 (settled by the orchestrator 2026-10-23; ADR 02 Amendments 2026-10-20, part-misuse errors are
+        // always on): a type mismatch would leave the radio outside its group, static and never selectable; it is reported
+        // in every build, as a missing context is.
         if (GroupContext is null && AnyGroupContext is not null)
         {
             throw new InvalidOperationException(
@@ -338,12 +346,13 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
     {
         SerializeValue();
 
-        // RDG §8: the group is the field's control; a grouped radio's hidden input is one of the field's validation inputs
-        // (RAD-FRM-03); a radio claims its labelable scope's control id (useLabelableId, FFI-ALG-07) and takes its label
-        // (RAD-ARIA-03 step 3), unless it shares the scope with its group (design point R6, pending the user: the inputs
-        // keep distinct ids, CheckboxGroup's CKG-ARIA-07 precedent). A radio has no name and no expression of its own. Its
-        // blur: inside a group the group owns it (RDG-FOC-04/05); standalone it only releases the focused flag (RAD-FOC-03;
-        // design point R4, settled by the orchestrator 2026-10-23: CheckableBlurMode).
+        // RDG §8: the group is the field's control; a grouped radio's hidden input is one of the field's validation
+        // inputs (RAD-FRM-03); a radio claims its labelable scope's control id (useLabelableId, FFI-ALG-07) and takes
+        // its label (RAD-ARIA-03 step 3), unless it shares the scope with its group (design point R6, settled by the
+        // orchestrator 2026-10-23: the inputs keep distinct ids, CheckboxGroup's CKG-ARIA-07 precedent). A radio has no
+        // name and no expression of its own. Its blur: inside a group the group owns it (RDG-FOC-04/05); standalone it
+        // only releases the focused flag (RAD-FOC-03; design point R4, settled by the orchestrator 2026-10-23:
+        // CheckableBlurMode).
         fieldBehavior!.GroupDisabled = group?.Disabled ?? false;
         fieldBehavior.SetParameters(
             new CheckableFieldParameters(
@@ -575,8 +584,9 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
         return vetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
     }
 
-    // RDG-EVT-04 on Server (design point R2 (c), pending the user): the browser unchecked this radio's input natively when a
-    // same-name sibling was clicked, and the request was refused, so the input is restored without a render.
+    // RDG-EVT-04 on Server (design point R2 (c), settled by the orchestrator 2026-10-23): the browser unchecked this
+    // radio's input natively when a same-name sibling was clicked, and the request was refused, so the input is
+    // restored without a render.
     /// <summary>Restores the hidden input's <c>checked</c> property from the radio button's state.</summary>
     internal void RestoreCheckedInput()
     {
@@ -706,7 +716,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
 
     // RAD-STA-02, RAD-EVT-03, RDG-EVT-04 (restore clause): the ADR 01 row "C#-origin consumer vetoes" of 2026-10-22. The
     // radio's own state did not change, so the input is restored without a render; the browser may also have unchecked
-    // the selected same-name radio, which the group restores (design point R2 (c), pending the user).
+    // the selected same-name radio, which the group restores (design point R2 (c), settled by the orchestrator 2026-10-23).
     private void RestoreInput()
     {
         RestoreCheckedInput();

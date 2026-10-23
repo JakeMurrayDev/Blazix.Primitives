@@ -284,7 +284,7 @@ test.describe('<RadioGroup />', () => {
       await expect(radio('a')).toHaveAttribute('aria-checked', 'false');
     });
 
-    // Design point R2 (c) of M2 tracks 7-8 (pending the user): the browser unchecks the selected same-name radio natively;
+    // Design point R2 (c) of M2 tracks 7-8 (settled by the orchestrator 2026-10-23): the browser unchecks the selected same-name radio natively;
     // a refused click restores it on both modes (natively on WebAssembly, by the group's restore on Server).
     test('port: a refused selection restores the input of the selected radio, named or not', async ({ page, mode }) => {
       const fixture = await gotoRadios(page, mode, 'radio-group-controlled');

@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
 
-// RDG §11 (the RadioGroupContext a Radio.Root reads); radio-group/RadioGroupContext.ts. Design point R3 (pending the user):
-// a plain listener list cascaded fixed (ADR 16 rule 9), the Switch, Checkbox and CheckboxGroup pattern. A change of the
-// value, the flags, the name or the form notifies every radio, which compares what it renders and renders only when that
-// changed, so a selection renders the radios whose Checked flipped and not the group (rules 8 and 9). The radios also
-// register here in render order: the group refreshes their hidden inputs, projects its form value onto them, clears the
-// field's focused flag their focus set, restores them after a refused selection and finds one by its element id.
+// RDG §11 (the RadioGroupContext a Radio.Root reads); radio-group/RadioGroupContext.ts. Design point R3 (settled by the
+// orchestrator 2026-10-23; ADR 05 §1, ADR 16 rule 9): a plain listener list cascaded fixed (ADR 16 rule 9), the Switch,
+// Checkbox and CheckboxGroup pattern. A change of the value, the flags, the name or the form notifies every radio,
+// which compares what it renders and renders only when that changed, so a selection renders the radios whose Checked
+// flipped and not the group (rules 8 and 9). The radios also register here in render order: the group refreshes their
+// hidden inputs, projects its form value onto them, clears the field's focused flag their focus set, restores them
+// after a refused selection and finds one by its element id.
 /// <summary>The state a radio group shares with the radio buttons in its subtree.</summary>
 /// <typeparam name="TValue">The type of the group's value.</typeparam>
 internal sealed class RadioGroupContext<TValue> : RadioGroupContext
@@ -29,10 +30,11 @@ internal sealed class RadioGroupContext<TValue> : RadioGroupContext
     /// <value>The committed value; meaningful only while <see cref="HasSelection"/> is <see langword="true"/>.</value>
     public TValue Value { get; private set; } = default!;
 
+    // Design point R1 (settled by the orchestrator 2026-10-23): ADR 08's "nothing selected", for a non-nullable TValue too.
     /// <summary>Gets a value indicating whether the group holds a value at all.</summary>
     /// <value>
-    /// <see langword="false"/> while an uncontrolled group without a default value has not been selected (design point R1,
-    /// pending the user); a <see langword="null"/> value also selects no radio.
+    /// <see langword="false"/> while an uncontrolled group without a default value has not been selected; a
+    /// <see langword="null"/> value also selects no radio.
     /// </value>
     public bool HasSelection { get; private set; }
 
@@ -56,8 +58,9 @@ internal sealed class RadioGroupContext<TValue> : RadioGroupContext
     /// <value>The group's form id, or <see langword="null"/>.</value>
     public string? Form { get; private set; }
 
-    // Design point R6 (pending the user), CheckboxGroup's precedent (CKG-ARIA-07): a radio that shares its group's labelable
-    // scope claims no control id, so the radios' hidden inputs keep distinct ids and the form's submit state reaches each.
+    // Design point R6 (settled by the orchestrator 2026-10-23), CheckboxGroup's precedent (CKG-ARIA-07): a radio that
+    // shares its group's labelable scope claims no control id, so the radios' hidden inputs keep distinct ids and the
+    // form's submit state reaches each.
     /// <summary>Gets or sets the labelable scope the group renders in.</summary>
     /// <value>The scope, or <see langword="null"/> outside a field; a radio that shares it claims no control id.</value>
     public LabelableScope? Scope { get; set; }
@@ -200,8 +203,8 @@ internal sealed class RadioGroupContext<TValue> : RadioGroupContext
         }
     }
 
-    // RDG-EVT-04 on Server (design point R2 (c), pending the user): the browser can only have unchecked a radio that was
-    // checked, which is one showing the current value.
+    // RDG-EVT-04 on Server (design point R2 (c), settled by the orchestrator 2026-10-23): the browser can only have
+    // unchecked a radio that was checked, which is one showing the current value.
     /// <summary>Restores the hidden inputs of the radios that show the group's value, after another radio's request was refused.</summary>
     /// <param name="refused">The radio whose request was refused, which restores its own input.</param>
     public void RestoreSelected(RadioRoot<TValue> refused)
@@ -251,10 +254,11 @@ internal sealed class RadioGroupContext<TValue> : RadioGroupContext
     }
 }
 
-// Design point R7 (pending the user): a radio whose TValue differs from its group's finds no RadioGroupContext<TValue> (the
-// Razor compiler infers a radio's TValue from its own Value first, so `Value="1"` in a RadioGroup<int?> is a RadioRoot<int>).
-// Blazor supplies a cascading value to a parameter of an assignable type, so the radio also receives the group as this
-// base and reports the mismatch instead of rendering as a static radio outside any group.
+// Design point R7 (settled by the orchestrator 2026-10-23): a radio whose TValue differs from its group's finds no
+// RadioGroupContext<TValue> (the Razor compiler infers a radio's TValue from its own Value first, so `Value="1"` in a
+// RadioGroup<int?> is a RadioRoot<int>). Blazor supplies a cascading value to a parameter of an assignable type, so the
+// radio also receives the group as this base and reports the mismatch instead of rendering as a static radio outside
+// any group.
 /// <summary>The part of a radio group's shared state that does not depend on the type of its value.</summary>
 internal abstract class RadioGroupContext
 {
