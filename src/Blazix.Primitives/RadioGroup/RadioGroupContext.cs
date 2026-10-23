@@ -56,6 +56,12 @@ internal sealed class RadioGroupContext<TValue>
     /// <value>The group's form id, or <see langword="null"/>.</value>
     public string? Form { get; private set; }
 
+    // Design point R6 (pending the user), CheckboxGroup's precedent (CKG-ARIA-07): a radio that shares its group's labelable
+    // scope claims no control id, so the radios' hidden inputs keep distinct ids and the form's submit state reaches each.
+    /// <summary>Gets or sets the labelable scope the group renders in.</summary>
+    /// <value>The scope, or <see langword="null"/> outside a field; a radio that shares it claims no control id.</value>
+    public LabelableScope? Scope { get; set; }
+
     /// <summary>Gets the group's half of a radio's request.</summary>
     /// <value>A function that receives the radio's value and details and returns whether the request was not canceled.</value>
     public Func<TValue, ChangeEventDetails, Task<bool>> Request { get; }

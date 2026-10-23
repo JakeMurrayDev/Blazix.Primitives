@@ -103,6 +103,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     private bool boxed;
     private FieldControlRegistration? sentRegistration;
     private bool registered;
+    private bool claimRegistered;
     private string? renderedLabelId;
     private string? renderedDescribedBy;
     private bool disposed;
@@ -308,6 +309,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
         if (fieldScope is not null)
         {
             scope = FieldItemContext.LabelableOf(fieldScope, ItemContext);
+            context.Scope = scope;
             getValue = GetFormValue;
             resolveControlId = ResolveControlId;
             fieldScope.AddListener(fieldChanged);
@@ -369,7 +371,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
                 fieldScope.RemoveListener(fieldChanged!);
                 using (fieldScope.Batch())
                 {
-                    Unregister();
+                    Unmount();
                 }
             }
         }
@@ -492,12 +494,13 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
         {
             if (Enabled)
             {
+                ClaimControlId();
                 Register();
                 ObserveValue();
             }
             else
             {
-                Unregister();
+                Unmount();
             }
         }
     }
@@ -541,6 +544,27 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
             registered = false;
             sentRegistration = null;
             fieldScope!.RegisterControl(this, null);
+        }
+    }
+
+    // Design point R6 (pending the user), CKG-ARIA-03's precedent: post-render, the group claims its scope's control id as
+    // null, so a Field.Label in the scope names the group and points at no single radio's input.
+    private void ClaimControlId()
+    {
+        if (!claimRegistered)
+        {
+            claimRegistered = true;
+            scope!.RegisterControlId(this, null);
+        }
+    }
+
+    private void Unmount()
+    {
+        Unregister();
+        if (claimRegistered)
+        {
+            claimRegistered = false;
+            scope!.UnregisterControlId(this);
         }
     }
 

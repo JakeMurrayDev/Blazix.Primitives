@@ -327,10 +327,11 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
         SerializeValue();
 
         // RDG §8: the group is the field's control; a grouped radio's hidden input is one of the field's validation inputs
-        // (RAD-FRM-03); every radio claims its labelable scope's control id (useLabelableId, FFI-ALG-07) and takes its
-        // label (RAD-ARIA-03 step 3). A radio has no name and no expression of its own. Its blur: inside a group the group
-        // owns it (RDG-FOC-04/05); standalone it only releases the focused flag (RAD-FOC-03; design point R4, pending the
-        // user).
+        // (RAD-FRM-03); a radio claims its labelable scope's control id (useLabelableId, FFI-ALG-07) and takes its label
+        // (RAD-ARIA-03 step 3), unless it shares the scope with its group (design point R6, pending the user: the inputs
+        // keep distinct ids, CheckboxGroup's CKG-ARIA-07 precedent). A radio has no name and no expression of its own. Its
+        // blur: inside a group the group owns it (RDG-FOC-04/05); standalone it only releases the focused flag (RAD-FOC-03;
+        // design point R4, pending the user).
         fieldBehavior!.GroupDisabled = group?.Disabled ?? false;
         fieldBehavior.SetParameters(
             new CheckableFieldParameters(
@@ -339,7 +340,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
                 IsChecked,
                 BlurValue: null,
                 OwnsValue: false,
-                ClaimsControlId: true,
+                ClaimsControlId: !fieldBehavior.SharesScope(group?.Scope),
                 RegistersInput: group is not null,
                 EnterSubmit: false,
                 LabelFallback: !NativeButton && !ConsumerNamesRadio && !ConsumerLabelsRadio,
