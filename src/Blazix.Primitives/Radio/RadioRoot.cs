@@ -343,7 +343,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
         // (RAD-ARIA-03 step 3), unless it shares the scope with its group (design point R6, pending the user: the inputs
         // keep distinct ids, CheckboxGroup's CKG-ARIA-07 precedent). A radio has no name and no expression of its own. Its
         // blur: inside a group the group owns it (RDG-FOC-04/05); standalone it only releases the focused flag (RAD-FOC-03;
-        // design point R4, pending the user).
+        // design point R4, settled by the orchestrator 2026-10-23: CheckableBlurMode).
         fieldBehavior!.GroupDisabled = group?.Disabled ?? false;
         fieldBehavior.SetParameters(
             new CheckableFieldParameters(
@@ -360,8 +360,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
                 EditContext: null,
                 AdditionalAttributes,
                 Enabled,
-                BlurTouches: false,
-                BlurReleasesFocus: group is null),
+                BlurMode: group is null ? CheckableBlurMode.FocusOnly : CheckableBlurMode.None),
             FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;

@@ -225,7 +225,7 @@ public sealed class RadioGroupFieldTests : IDisposable
     }
 
     // RadioGroup.test.tsx "onBlur validates only when focus leaves the group" (RDG-FRM-11 is L4; this is the C# half): a blur
-    // between radios reaches C# as nothing (design point R4, pending the user); focus leaving the group is one report.
+    // between radios reaches C# as nothing (design point R4, settled by the orchestrator 2026-10-23); focus leaving the group is one report.
     [Fact(DisplayName = "port: onBlur validates only on the group's leaving-blur report, once")]
     [Trait("Requirement", "RDG-FRM-11")]
     [Trait("Requirement", "RDG-FOC-05")]

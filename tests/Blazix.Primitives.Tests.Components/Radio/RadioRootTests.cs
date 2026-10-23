@@ -294,7 +294,7 @@ public sealed class RadioRootTests : IDisposable
 
         Assert.Equal(string.Empty, cut.Find("[data-testid=field]").GetAttribute("data-focused"));
 
-        // RAD-FOC-03: standalone, the radio's own blur releases the flag (design point R4, pending the user).
+        // RAD-FOC-03: standalone, the radio's own blur releases the flag (design point R4, settled by the orchestrator 2026-10-23).
         await test.BlurAsync(cut, cut.FindComponent<RadioRoot<string>>().Instance.Element);
         Assert.False(cut.Find("[data-testid=field]").HasAttribute("data-focused"));
         Assert.False(cut.Find("[data-testid=field]").HasAttribute("data-touched"));

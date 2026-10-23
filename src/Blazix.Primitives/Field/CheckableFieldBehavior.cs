@@ -711,18 +711,18 @@ internal sealed class CheckableFieldBehavior : IDisposable
     }
 
     // CHK-FRM-14, CHK-FOC-04, CHK-FRM-11: touched, then focused released, then the onBlur commit of the current value. A radio
-    // (design point R4 of M2 tracks 7-8, pending the user): standalone it only releases the focused flag (RAD-FOC-03,
-    // radio/root/RadioRoot.tsx:167-173); in a group its group handles focus leaving the group (RDG-FOC-04/05, RDG-FRM-11).
+    // (design point R4 of M2 tracks 7-8, option (a), settled by the orchestrator 2026-10-23): standalone it only releases the
+    // focused flag (RAD-FOC-03, radio/root/RadioRoot.tsx:167-173); in a group its group handles focus leaving the group
+    // (RDG-FOC-04/05, RDG-FRM-11), so the radio's own blur does nothing.
     private Task HandleBlurAsync()
     {
-        if (!parameters.BlurTouches)
+        switch (parameters.BlurMode)
         {
-            if (parameters.BlurReleasesFocus)
-            {
+            case CheckableBlurMode.None:
+                return Task.CompletedTask;
+            case CheckableBlurMode.FocusOnly:
                 fieldScope!.SetFocused(this, false, EffectiveDisabled);
-            }
-
-            return Task.CompletedTask;
+                return Task.CompletedTask;
         }
 
         using (fieldScope!.Batch())
@@ -815,8 +815,7 @@ internal sealed class CheckableFieldBehavior : IDisposable
 /// <param name="EditContext">The cascaded edit context.</param>
 /// <param name="AdditionalAttributes">The unmatched attributes.</param>
 /// <param name="Enabled">Whether the part renders.</param>
-/// <param name="BlurTouches">Whether the root's blur touches the field and commits in onBlur mode, as a box's does.</param>
-/// <param name="BlurReleasesFocus">Whether the root's blur releases the field's focused flag when it does not touch the field.</param>
+/// <param name="BlurMode">What the root's blur does to the field.</param>
 internal readonly record struct CheckableFieldParameters(
     string? Name,
     bool Disabled,
@@ -831,5 +830,17 @@ internal readonly record struct CheckableFieldParameters(
     EditContext? EditContext,
     IReadOnlyDictionary<string, object>? AdditionalAttributes,
     bool Enabled,
-    bool BlurTouches = true,
-    bool BlurReleasesFocus = true);
+    CheckableBlurMode BlurMode = CheckableBlurMode.Field);
+
+/// <summary>Specifies what the blur of a hidden-input control's root does to its field.</summary>
+internal enum CheckableBlurMode
+{
+    /// <summary>The blur touches the field, releases its focused flag and commits the value in onBlur mode, as a box's does.</summary>
+    Field,
+
+    /// <summary>The blur only releases the field's focused flag, as a standalone radio button's does.</summary>
+    FocusOnly,
+
+    /// <summary>The blur does nothing, as a grouped radio button's does: the group handles focus leaving it.</summary>
+    None,
+}
