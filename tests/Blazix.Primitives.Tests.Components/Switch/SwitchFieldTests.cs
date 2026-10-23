@@ -326,6 +326,24 @@ public sealed class SwitchFieldTests : IDisposable
         Assert.Equal("true", cut.Find(Switch).GetAttribute("aria-invalid"));
     }
 
+    [Fact(DisplayName = "port: a required switch is invalid at its first submit, before any toggle")]
+    [Trait("Requirement", "SWT-FRM-08")]
+    [Trait("Requirement", "SWT-API-06")]
+    public async Task Port_a_required_switch_is_invalid_at_its_first_submit()
+    {
+        // The field holds the hidden input's native state from the attach on, not only after a change refreshed it: the
+        // module reads valueMissing for a required unchecked input, which the submit then reports (triggers native HTML
+        // validation on submit, whose browser half is tests/browser/switch.spec.ts).
+        test.InputValidity = Native.ValueMissing;
+        IRenderedComponent<SwitchFieldHost> cut = Context.Render<SwitchFieldHost>(p => p.Add(x => x.InForm, true).Add(x => x.ShowError, true).Add(x => x.Required, true));
+        await test.SettleFormAsync(cut);
+
+        await SubmitAsync(cut);
+
+        Assert.Equal("true", cut.Find(Switch).GetAttribute("aria-invalid"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=error]"));
+    }
+
     [Fact(DisplayName = "clears external errors on change")]
     [Trait("Requirement", "SWT-FRM-13")]
     [Trait("Requirement", "SWT-ARIA-11")]
