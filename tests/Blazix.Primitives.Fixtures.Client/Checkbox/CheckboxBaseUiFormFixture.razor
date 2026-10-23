@@ -1,0 +1,69 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures
+@using Blazix.Primitives
+
+@*
+    The `checkbox-base-ui-form` fixture (tests/browser/checkbox.spec.ts): CheckboxRoot.test.tsx's titles that render
+    Base UI's Form, now that it is on main. `on-submit`: a required box in a nameless field; `blocked`: a required box in a
+    named field, whose form records its submissions; `native`: "triggers native HTML validation on submit", a required
+    box and its Field.Error matching valueMissing.
+*@
+<FixtureContainer Name="checkbox-base-ui-form" data-attached="@(attached ? "true" : "false")">
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="on-submit">
+        <Form @ref="onSubmitForm">
+            <FieldRoot>
+                <CheckboxRoot @ref="onSubmitBox" data-checkbox Required="true" />
+            </FieldRoot>
+            <button type="submit" data-submit>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="blocked" data-submits="@submits">
+        <Form @ref="blockedForm" OnSubmit="Submitted">
+            <FieldRoot Name="test">
+                <CheckboxRoot @ref="blockedBox" data-checkbox Required="true" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+    <div data-case="native">
+        <Form @ref="nativeForm" OnSubmit="args => args.PreventNativeSubmit()">
+            <FieldRoot Name="test">
+                <CheckboxRoot @ref="nativeBox" data-checkbox Required="true" />
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private Form? onSubmitForm;
+    private Form? blockedForm;
+    private CheckboxRoot? onSubmitBox;
+    private CheckboxRoot? blockedBox;
+    private Form? nativeForm;
+    private CheckboxRoot? nativeBox;
+    private bool attached;
+    private int submits;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await Task.WhenAll(onSubmitForm!.TwinAttached, blockedForm!.TwinAttached, onSubmitBox!.TwinAttached, blockedBox!.TwinAttached, nativeForm!.TwinAttached, nativeBox!.TwinAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void Submitted(FormSubmitEventArgs args)
+    {
+        submits++;
+        args.PreventNativeSubmit();
+    }
+}

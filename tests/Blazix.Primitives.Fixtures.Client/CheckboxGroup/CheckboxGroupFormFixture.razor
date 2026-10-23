@@ -1,0 +1,379 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures
+@using Blazix.Primitives
+
+@*
+    The `checkbox-group-form` fixture (tests/browser/checkbox-group.spec.ts): CheckboxGroup.test.tsx's Form titles that
+    render no Field.Error and no portal. Each case is one Form. A case records its validator's calls (data-calls, and the
+    last call's value and form values) and its OnFormSubmit or OnSubmit calls (data-submits, data-submitted: the last
+    values), as `name=a,b` pairs joined by `;`. The submission state is the form module's read in the submit task.
+*@
+<FixtureContainer Name="checkbox-group-form" data-attached="@(attached ? "true" : "false")" data-sync="@sync">
+    <button type="button" data-sync-button @onclick="() => sync++">Sync</button>
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+    <form id="external-form"></form>
+
+    <div data-case="on-submit" @attributes='Recorded("on-submit")'>
+        <Form @ref="forms[0]">
+            <FieldRoot Name="test" Validate='args => OnSubmitValidate(args)'>
+                <CheckboxGroup DefaultValue="s_none">
+                    <FieldItem><CheckboxRoot @ref="boxes[0]" data-checkbox data-testid="one" Value="one" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[1]" data-checkbox data-testid="two" Value="two" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[2]" data-checkbox data-testid="three" Value="three" /></FieldItem>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="projects" @attributes='Recorded("projects")' data-other-fruits="@otherFruits">
+        <Form @ref="forms[1]" OnFormSubmit='args => Submitted("projects", args)'>
+            <FieldRoot Name="fruits" Validate='args => Validate("projects", args, null)'>
+                <CheckboxGroup DefaultValue="s_appleBanana">
+                    <CheckboxRoot @ref="boxes[3]" data-checkbox Value="apple" />
+                    <CheckboxRoot @ref="boxes[4]" data-checkbox Value="banana" Disabled="projectsDisabled" />
+                </CheckboxGroup>
+            </FieldRoot>
+            <FieldRoot Name="other" Validate="OtherValidate">
+                <FieldControl DefaultValue="value" />
+            </FieldRoot>
+            <button type="button" data-enable @onclick="() => projectsDisabled = false">Enable</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="remount" @attributes='Recorded("remount")'>
+        <Form @ref="forms[2]" OnFormSubmit='args => Submitted("remount", args)'>
+            <FieldRoot Name="fruits">
+                <CheckboxGroup DefaultValue="s_appleBanana">
+                    <CheckboxRoot @ref="boxes[5]" data-checkbox Value="apple" />
+                    @if (bananaMounted)
+                    {
+                        <CheckboxRoot @ref="boxes[6]" data-checkbox data-testid="banana" Value="banana" />
+                    }
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="button" data-toggle @onclick="() => bananaMounted = !bananaMounted">Toggle</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="field-name" @attributes='Recorded("field-name")'>
+        <Form @ref="forms[3]" OnFormSubmit='args => Submitted("field-name", args)'>
+            <FieldRoot Name="fruits">
+                <CheckboxGroup DefaultValue="s_fruits">
+                    <CheckboxRoot @ref="boxes[7]" data-checkbox />
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="duplicates" @attributes='Recorded("duplicates")' data-trimmed="@(trimmed ? "true" : "false")">
+        <Form @ref="forms[4]" OnFormSubmit='args => Submitted("duplicates", args)'>
+            <FieldRoot Name="items">
+                <CheckboxGroup DefaultValue="s_oneTwo">
+                    @if (!trimmed)
+                    {
+                        <CheckboxRoot @ref="boxes[8]" data-checkbox Value="one" />
+                    }
+                    <CheckboxRoot @ref="boxes[9]" data-checkbox Value="two" />
+                    @if (!trimmed)
+                    {
+                        <CheckboxRoot @ref="boxes[10]" data-checkbox Value="two" />
+                    }
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="button" data-trim @onclick="() => trimmed = true">Trim</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="validated" @attributes='Recorded("validated")'>
+        <Form @ref="forms[5]" OnSubmit="args => args.PreventNativeSubmit()">
+            <FieldRoot Name="apple" Validate='args => Validate("validated", args, null)'>
+                <CheckboxGroup DefaultValue="s_fujiGala">
+                    <FieldItem><CheckboxRoot @ref="boxes[11]" data-checkbox Value="fuji-apple" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[12]" data-checkbox Value="gala-apple" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[13]" data-checkbox Value="granny-smith-apple" /></FieldItem>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="unblocks" @attributes='Recorded("unblocks")'>
+        <Form @ref="forms[6]" OnFormSubmit='args => Submitted("unblocks", args)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    @if (unblocksMounted)
+                    {
+                        <CheckboxRoot @ref="boxes[14]" data-checkbox Value="one" Required="true" />
+                    }
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="button" data-remove @onclick="() => unblocksMounted = false">Remove</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="custom-after-unmount" @attributes='Recorded("custom-after-unmount")'>
+        <Form @ref="forms[7]" OnFormSubmit='args => Submitted("custom-after-unmount", args)'>
+            <FieldRoot Name="group" Validate="CustomValidate">
+                <CheckboxGroup DefaultValue="s_none">
+                    @if (customMounted)
+                    {
+                        <CheckboxRoot @ref="boxes[15]" data-checkbox Value="one" />
+                    }
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="button" data-remove @onclick="() => customMounted = false">Remove</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    @foreach (ValidationMode mode in s_modes)
+    {
+        string name = $"final-unmount-{Mode(mode)}";
+        <div data-case="@name" @attributes='Recorded(name)'>
+            <Form @ref="forms[8 + Index(mode)]">
+                <FieldRoot Name="group" ValidationMode="mode" Validate='args => Validate(name, args, "invalid")'>
+                    <CheckboxGroup Value="finalValues[Index(mode)]">
+                        @if (finalMounted[Index(mode)])
+                        {
+                            <CheckboxRoot @ref="boxes[100 + Index(mode)]" data-checkbox Value="one" />
+                        }
+                    </CheckboxGroup>
+                </FieldRoot>
+                <button type="button" data-remove @onclick="() => finalMounted[Index(mode)] = false">Remove</button>
+                <button type="button" data-select @onclick="() => finalValues[Index(mode)] = s_one">Select</button>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+
+        string inputless = $"inputless-{Mode(mode)}";
+        <div data-case="@inputless" @attributes='Recorded(inputless)'>
+            <Form @ref="forms[10 + Index(mode)]">
+                <FieldRoot Name="group" ValidationMode="mode" Validate='args => Validate(inputless, args, "invalid")'>
+                    <CheckboxGroup Value="inputlessValues[Index(mode)]" />
+                </FieldRoot>
+                <button type="button" data-select-one @onclick="() => inputlessValues[Index(mode)] = s_one">Select one</button>
+                <button type="button" data-select-two @onclick="() => inputlessValues[Index(mode)] = s_two">Select two</button>
+                <button type="submit" data-submit>Submit</button>
+            </Form>
+        </div>
+    }
+
+    <div data-case="focus-inputless">
+        <Form @ref="forms[12]">
+            <FieldRoot Name="group" Validate="Invalid">
+                <CheckboxGroup Value="s_none" />
+            </FieldRoot>
+            <FieldRoot Name="email">
+                <FieldControl required data-testid="email" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="focus-disabled">
+        <Form @ref="forms[13]">
+            <FieldRoot Name="group" Validate="Invalid">
+                <CheckboxGroup DefaultValue="s_none">
+                    <CheckboxRoot @ref="boxes[17]" data-checkbox Value="one" Disabled="true" />
+                </CheckboxGroup>
+            </FieldRoot>
+            <FieldRoot Name="email">
+                <FieldControl required data-testid="email" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="other-form" @attributes='Recorded("other-form")'>
+        <Form @ref="forms[14]" OnFormSubmit='args => Submitted("other-form", args)'>
+            <FieldRoot Name="fruits">
+                <CheckboxGroup DefaultValue="s_appleBanana">
+                    <CheckboxRoot @ref="boxes[18]" data-checkbox Value="apple" />
+                    <CheckboxRoot @ref="boxes[19]" data-checkbox Value="banana" Form="external-form" />
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="fieldset" @attributes='Recorded("fieldset")' data-other-fruits="@fieldsetOtherFruits">
+        <Form @ref="forms[15]" OnFormSubmit='args => Submitted("fieldset", args)'>
+            <FieldRoot Name="fruits">
+                <CheckboxGroup DefaultValue="s_appleBanana">
+                    <CheckboxRoot @ref="boxes[20]" data-checkbox Value="apple" />
+                    <fieldset disabled>
+                        <CheckboxRoot @ref="boxes[21]" data-checkbox Value="banana" />
+                    </fieldset>
+                </CheckboxGroup>
+            </FieldRoot>
+            <FieldRoot Name="other" Validate="FieldsetOtherValidate">
+                <FieldControl DefaultValue="value" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="ignores-other-form" @attributes='Recorded("ignores-other-form")'>
+        <Form @ref="forms[16]" OnFormSubmit='args => Submitted("ignores-other-form", args)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    <CheckboxRoot @ref="boxes[22]" data-checkbox Value="external" Form="external-form" Required="true" />
+                    <CheckboxRoot @ref="boxes[23]" data-checkbox Value="current" />
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="changes-owner" @attributes='Recorded("changes-owner")'>
+        <Form @ref="forms[17]" OnFormSubmit='args => Submitted("changes-owner", args)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    <CheckboxRoot @ref="boxes[24]" data-checkbox Value="checkbox" Form='@(external ? "external-form" : null)' Required="true" />
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="button" data-move @onclick="() => external = true">Move</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> s_none = [];
+    private static readonly IReadOnlyList<string> s_one = ["one"];
+    private static readonly IReadOnlyList<string> s_two = ["two"];
+    private static readonly IReadOnlyList<string> s_oneTwo = ["one", "two"];
+    private static readonly IReadOnlyList<string> s_fruits = ["fruits"];
+    private static readonly IReadOnlyList<string> s_appleBanana = ["apple", "banana"];
+    private static readonly IReadOnlyList<string> s_fujiGala = ["fuji-apple", "gala-apple"];
+    private static readonly ValidationMode[] s_modes = [ValidationMode.OnSubmit, ValidationMode.OnBlur];
+
+    private readonly Form?[] forms = new Form?[18];
+    private readonly CheckboxRoot?[] boxes = new CheckboxRoot?[102];
+    private readonly Dictionary<string, Record> records = [];
+    private readonly IReadOnlyList<string>[] finalValues = [s_none, s_none];
+    private readonly bool[] finalMounted = [true, true];
+    private readonly IReadOnlyList<string>[] inputlessValues = [s_none, s_none];
+    private bool attached;
+    private int sync;
+    private bool projectsDisabled = true;
+    private bool bananaMounted = true;
+    private bool trimmed;
+    private bool unblocksMounted = true;
+    private bool customMounted = true;
+    private bool external;
+    private string otherFruits = string.Empty;
+    private string fieldsetOtherFruits = string.Empty;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await Task.WhenAll([.. forms.Select(form => form!.TwinAttached), .. boxes.Where(box => box is not null).Select(box => box!.TwinAttached)]);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private static int Index(ValidationMode mode) => mode == ValidationMode.OnSubmit ? 0 : 1;
+
+    private static string Mode(ValidationMode mode) => mode == ValidationMode.OnSubmit ? "onSubmit" : "onBlur";
+
+    private static int Count(FieldValidationArguments args) => ((IReadOnlyList<string>)args.Value!).Count;
+
+    private static string Format(object? value) => value is IReadOnlyList<string> list ? string.Join(',', list) : value?.ToString() ?? string.Empty;
+
+    private static string Format(FormValues values) => string.Join(';', values.Select(pair => $"{pair.Key}={Format(pair.Value)}"));
+
+    private static ValueTask<FieldValidationResult?> Invalid(FieldValidationArguments args) => ValueTask.FromResult<FieldValidationResult?>("Invalid group");
+
+    private Dictionary<string, object> Recorded(string name)
+    {
+        Record record = Of(name);
+        return new()
+        {
+            ["data-calls"] = record.Calls,
+            ["data-last-value"] = record.LastValue,
+            ["data-last-values"] = record.LastValues,
+            ["data-submits"] = record.Submits,
+            ["data-submitted"] = record.Submitted,
+        };
+    }
+
+    private Record Of(string name)
+    {
+        if (!records.TryGetValue(name, out Record? record))
+        {
+            record = new Record();
+            records[name] = record;
+        }
+
+        return record;
+    }
+
+    private ValueTask<FieldValidationResult?> Validate(string name, FieldValidationArguments args, string? error)
+    {
+        Record record = Of(name);
+        record.Calls++;
+        record.LastValue = Format(args.Value);
+        record.LastValues = Format(args.Values);
+        Rerender();
+        return ValueTask.FromResult<FieldValidationResult?>(error);
+    }
+
+    // The test's validateSpy: a message by the value's length and content.
+    private ValueTask<FieldValidationResult?> OnSubmitValidate(FieldValidationArguments args)
+    {
+        IReadOnlyList<string> value = (IReadOnlyList<string>)args.Value!;
+        string? error = value.Count == 0 ? "custom error 1" : value.Count < 2 ? "custom error 2" : value.Contains("two") ? "custom error 3" : null;
+        return Validate("on-submit", args, error);
+    }
+
+    private ValueTask<FieldValidationResult?> CustomValidate(FieldValidationArguments args) =>
+        Validate("custom-after-unmount", args, Count(args) > 0 ? null : "required");
+
+    private ValueTask<FieldValidationResult?> OtherValidate(FieldValidationArguments args)
+    {
+        otherFruits = args.Values.TryGetValue("fruits", out object? fruits) ? Format(fruits) : "(none)";
+        Rerender();
+        return ValueTask.FromResult<FieldValidationResult?>(null);
+    }
+
+    private ValueTask<FieldValidationResult?> FieldsetOtherValidate(FieldValidationArguments args)
+    {
+        fieldsetOtherFruits = args.Values.TryGetValue("fruits", out object? fruits) ? Format(fruits) : "(none)";
+        Rerender();
+        return ValueTask.FromResult<FieldValidationResult?>(null);
+    }
+
+    // A validator is a plain delegate, so the page renders its record on the next dispatch.
+    private void Rerender() => _ = InvokeAsync(StateHasChanged);
+
+    private void Submitted(string name, FormSubmitEventArgs args)
+    {
+        Record record = Of(name);
+        record.Submits++;
+        record.Submitted = Format(args.Values);
+    }
+
+    private sealed class Record
+    {
+        public int Calls { get; set; }
+
+        public string LastValue { get; set; } = string.Empty;
+
+        public string LastValues { get; set; } = string.Empty;
+
+        public int Submits { get; set; }
+
+        public string Submitted { get; set; } = string.Empty;
+    }
+}

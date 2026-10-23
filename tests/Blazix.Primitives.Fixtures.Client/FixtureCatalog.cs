@@ -3,6 +3,7 @@ using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
+using Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
@@ -90,5 +91,10 @@ public static class FixtureCatalog
         ["checkbox-enter"] = new(typeof(CheckboxEnterFixture)),
         ["checkbox-names"] = new(typeof(CheckboxNamesFixture)),
         ["checkbox-prerender"] = new(typeof(CheckboxPrerenderFixture), Prerender: true),
+        ["checkbox-base-ui-form"] = new(typeof(CheckboxBaseUiFormFixture)),
+        ["checkbox-group-field"] = new(typeof(CheckboxGroupFieldFixture)),
+        ["checkbox-group-prerender"] = new(typeof(CheckboxGroupPrerenderFixture), Prerender: true),
+        ["checkbox-group-form"] = new(typeof(CheckboxGroupFormFixture)),
+        ["checkbox-group-errors"] = new(typeof(CheckboxGroupErrorsFixture)),
     };
 }

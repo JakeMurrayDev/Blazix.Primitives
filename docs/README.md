@@ -29,8 +29,8 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
 | components/avatar.md | AVA | implemented | 58 reqs (opus) | |
 | components/button.md | BTN | implemented | 29 reqs (opus) | |
-| components/checkbox.md | CHK | approved | 151 reqs |
-| components/checkbox-group.md | CKG | approved | 83 reqs |
+| components/checkbox.md | CHK | implemented | 151 reqs; revised 2026-10-23, M2 tracks 5–6 |
+| components/checkbox-group.md | CKG | implemented | 83 reqs; revised 2026-10-23, M2 track 6; the five portal titles of CKG-STR-02, CKG-FRM-03/06 and CKG-FOC-02 open to M4 |
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |

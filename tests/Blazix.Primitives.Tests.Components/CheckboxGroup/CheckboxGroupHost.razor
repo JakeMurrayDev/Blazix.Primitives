@@ -1,0 +1,106 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The test consumer of CheckboxGroup.test.tsx and useCheckboxGroupParent.test.tsx: one group with the boxes a test lists,
+    in order. A controlled host keeps the value a Base UI test keeps with useState and applies each request unless
+    `Applies` is false; `Value` set by cut.Render is a change from outside.
+*@
+@RenderGroup
+
+@code {
+    [Parameter] public IReadOnlyList<GroupBox> Boxes { get; set; } = [];
+    [Parameter] public IReadOnlyList<string>? AllValues { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public IReadOnlyList<string>? DefaultValue { get; set; }
+    [Parameter] public bool Controlled { get; set; }
+    [Parameter] public IReadOnlyList<string>? Value { get; set; }
+    [Parameter] public bool Applies { get; set; } = true;
+    [Parameter] public bool CancelGroup { get; set; }
+    [Parameter] public Dictionary<string, object>? GroupAttributes { get; set; }
+
+    public CheckboxGroup? Group { get; private set; }
+
+    public List<IReadOnlyList<string>> Changes { get; } = [];
+
+    public List<ChangeEventDetails> GroupDetails { get; } = [];
+
+    // The value parameters are supplied only for a controlled host: supplying Value at all makes the group controlled.
+    private RenderFragment RenderGroup => builder =>
+    {
+        builder.OpenComponent<CheckboxGroup>(0);
+        builder.AddMultipleAttributes(1, GroupAttributes ?? new Dictionary<string, object> { ["data-testid"] = "group" });
+        builder.AddComponentParameter(2, nameof(CheckboxGroup.AllValues), AllValues);
+        builder.AddComponentParameter(3, nameof(CheckboxGroup.Disabled), Disabled);
+        builder.AddComponentParameter(4, nameof(CheckboxGroup.DefaultValue), DefaultValue);
+        builder.AddComponentParameter(5, nameof(CheckboxGroup.OnValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, HandleValueChange));
+        if (Controlled)
+        {
+            builder.AddComponentParameter(6, nameof(CheckboxGroup.Value), Value);
+            builder.AddComponentParameter(7, nameof(CheckboxGroup.ValueChanged), EventCallback.Factory.Create<IReadOnlyList<string>>(this, SetValue));
+        }
+
+        builder.AddComponentParameter(8, nameof(CheckboxGroup.ChildContent), (RenderFragment)(content =>
+        {
+            foreach (GroupBox box in Boxes)
+            {
+                if (box.Mounted)
+                {
+                    content.AddContent(0, RenderBox(box));
+                }
+            }
+        }));
+        builder.AddComponentReferenceCapture(9, reference => Group = (CheckboxGroup)reference);
+        builder.CloseComponent();
+    };
+
+    private void HandleValueChange(ValueChangeEventArgs<IReadOnlyList<string>> args)
+    {
+        Changes.Add(args.Value);
+        GroupDetails.Add(args.Details);
+        if (CancelGroup)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void SetValue(IReadOnlyList<string> next)
+    {
+        if (Controlled && Applies)
+        {
+            Value = next;
+        }
+    }
+
+    private RenderFragment RenderBox(GroupBox box) => builder =>
+    {
+        builder.OpenComponent<CheckboxRoot>(0);
+        builder.SetKey(box.TestId);
+        Dictionary<string, object> attributes = new() { ["data-testid"] = box.TestId };
+        if (box.Id is not null)
+        {
+            attributes["id"] = box.Id;
+        }
+
+        builder.AddMultipleAttributes(1, attributes);
+        builder.AddComponentParameter(2, nameof(CheckboxRoot.Name), box.Name);
+        builder.AddComponentParameter(3, nameof(CheckboxRoot.Value), box.Value);
+        builder.AddComponentParameter(4, nameof(CheckboxRoot.Parent), box.Parent);
+        builder.AddComponentParameter(5, nameof(CheckboxRoot.Disabled), box.Disabled);
+        builder.AddComponentParameter(6, nameof(CheckboxRoot.Indeterminate), box.Indeterminate);
+        builder.AddComponentParameter(7, nameof(CheckboxRoot.NativeButton), box.NativeButton);
+        builder.AddComponentParameter(8, nameof(CheckboxRoot.OnCheckedChange), EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+        {
+            box.Changes.Add(args.Value);
+            box.Details.Add(args.Details);
+            if (box.Cancel)
+            {
+                args.Details.Cancel();
+            }
+        }));
+        if (box.Render is not null)
+        {
+            builder.AddComponentParameter(9, nameof(CheckboxRoot.Render), box.Render);
+        }
+
+        builder.CloseComponent();
+    };
+}

@@ -180,7 +180,7 @@ public sealed class CheckboxTestContext : IDisposable
         }
 
         answeredRevision = input.Revision;
-        await ReportFormAsync(cut, "sync", null, input.Revision, input.CustomValidity is not null);
+        await ReportFormAsync(cut, FormTwin(), "sync", null, input.Revision, input.CustomValidity is not null);
         await cut.InvokeAsync(static () => { });
     }
 
@@ -188,8 +188,72 @@ public sealed class CheckboxTestContext : IDisposable
     internal async Task BlurAsync<TComponent>(IRenderedComponent<TComponent> cut)
         where TComponent : IComponent
     {
-        await ReportFormAsync(cut, "blur", new EventSnapshot { Kind = EventKind.FocusEvent, Type = "blur", Target = new EventTargetInfo { TagName = "SPAN" } }, 0, false);
+        await ReportFormAsync(cut, FormTwin(), "blur", BlurSnapshot(), 0, false);
         await SettleFormAsync(cut);
+    }
+
+    /// <summary>Reports the blur of one box of a group as the module does, then answers every refresh it starts.</summary>
+    internal async Task BlurAsync<TComponent>(IRenderedComponent<TComponent> cut, CheckboxRoot box)
+        where TComponent : IComponent
+    {
+        FormTwin twin = ((DotNetObjectReference<FormTwin>)FormModule.Invocations["attach"]
+            .Last(i => Equals(i.Arguments[0], box.Element))
+            .Arguments[2]!).Value;
+        await ReportFormAsync(cut, twin, "blur", BlurSnapshot(), 0, false);
+        await SettleAllFormsAsync(cut);
+    }
+
+    /// <summary>
+    /// Answers the pending refresh of every hidden input with <see cref="InputValidity"/>, as the module does for each box
+    /// of a group; twice, for the refreshes the work that waited for the first answers starts.
+    /// </summary>
+    internal async Task SettleAllFormsAsync<TComponent>(IRenderedComponent<TComponent> cut)
+        where TComponent : IComponent
+    {
+        for (int round = 0; round < 2; round++)
+        {
+            foreach (JSRuntimeInvocation attach in FormModule.Invocations["attach"].ToArray())
+            {
+                if (Parse((string)attach.Arguments[1]!).ReportEvents)
+                {
+                    continue;
+                }
+
+                FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
+                await ReportFormAsync(cut, twin, "sync", null, int.MaxValue, false);
+            }
+
+            await cut.InvokeAsync(static () => { });
+        }
+    }
+
+    /// <summary>
+    /// Reports a native submission of the enclosing <see cref="Form"/>, as the module does: the state it read from every
+    /// enrolled control, here every hidden input with <paramref name="validity"/> (the roots read no constraint).
+    /// </summary>
+    internal async Task<FormSubmitAnswer> SubmitAsync<TComponent>(IRenderedComponent<TComponent> cut, Func<string, NativeValidity> validity)
+        where TComponent : IComponent
+    {
+        JSRuntimeInvocation attach = FormModule.Invocations["attach"]
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+        FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
+        FormControlState[] controls =
+        [
+            .. cut.FindAll("input[type=checkbox][id]").Select(input => new FormControlState
+            {
+                Id = input.GetAttribute("id")!,
+                Value = "on",
+                Validity = validity(input.GetAttribute("id")!),
+            }),
+        ];
+        FormSubmitRequest request = new()
+        {
+            Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
+            Controls = controls,
+        };
+        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
+        return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
     }
 
     /// <summary>Reports the native label the hidden input's handle discovered, as the module does.</summary>
@@ -205,16 +269,18 @@ public sealed class CheckboxTestContext : IDisposable
     internal Task FocusedAtAttachAsync<TComponent>(IRenderedComponent<TComponent> cut)
         where TComponent : IComponent
     {
-        return ReportFormAsync(cut, "focus", null, 0, false);
+        return ReportFormAsync(cut, FormTwin(), "focus", null, 0, false);
     }
 
     private static FormControlOptions Parse(string json) =>
         JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
 
-    private Task ReportFormAsync<TComponent>(IRenderedComponent<TComponent> cut, string type, EventSnapshot? snapshot, int revision, bool ownMessage)
+    private static EventSnapshot BlurSnapshot() =>
+        new() { Kind = EventKind.FocusEvent, Type = "blur", Target = new EventTargetInfo { TagName = "SPAN" } };
+
+    private Task ReportFormAsync<TComponent>(IRenderedComponent<TComponent> cut, FormTwin twin, string type, EventSnapshot? snapshot, int revision, bool ownMessage)
         where TComponent : IComponent
     {
-        FormTwin twin = FormTwin();
         FormControlReport report = new()
         {
             Type = type,

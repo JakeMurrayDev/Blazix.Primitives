@@ -291,6 +291,10 @@ public sealed class Form : PartBase<EmptyState>
             {
                 apply(state.Value, state.Validity);
             }
+            else if (registry.TryGetInput(state.Id, out FieldValidationInput input))
+            {
+                input.Report(state.Validity);
+            }
         }
 
         string[] ids = [.. registry.Ids];
@@ -321,7 +325,8 @@ public sealed class Form : PartBase<EmptyState>
         return new FormSubmitAnswer { Verdict = submitArgs.NativeSubmitPrevented ? FormSubmitAnswer.HandledVerdict : FormSubmitAnswer.SubmitVerdict };
     }
 
-    // FFI-FOC-01/02: every invalid entry blocks; those with a control are listed, in registration order.
+    // FFI-FOC-01/02: every invalid entry blocks; those with a control are listed, in registration order. A group's control
+    // is its representative member when the form blocks (M2 track 6, settled by the orchestrator 2026-10-23).
     private List<string> InvalidControlIds(out bool anyInvalid)
     {
         anyInvalid = false;
@@ -335,7 +340,7 @@ public sealed class Form : PartBase<EmptyState>
             }
 
             anyInvalid = true;
-            if (entry.ControlId is { } controlId)
+            if ((entry.ResolveControlId is { } resolve ? resolve() : entry.ControlId) is { } controlId)
             {
                 ids.Add(controlId);
             }

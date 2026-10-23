@@ -329,7 +329,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     {
         // Switch never submits on Enter (Enter toggles it, SWT-KEY-01), so the form module's Enter path stays off.
         fieldBehavior!.SetParameters(
-            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, EnterSubmit: false, LabelFallback: !NativeButton && !ConsumerNamesSwitch && !ConsumerLabelsSwitch, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
+            new CheckableFieldParameters(Name, Disabled, IsChecked, CheckableFieldBehavior.Box(IsChecked), OwnsValue: true, ClaimsControlId: true, RegistersInput: false, EnterSubmit: false, LabelFallback: !NativeButton && !ConsumerNamesSwitch && !ConsumerLabelsSwitch, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
             FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;
@@ -353,7 +353,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     {
         await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: false);
         await AttachInputAsync();
-        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
+        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input, InputId);
     }
 
     /// <inheritdoc />
@@ -555,7 +555,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     private bool UpdateState()
     {
         bool isChecked = IsChecked;
-        fieldBehavior!.SetValue(isChecked, isChecked);
+        fieldBehavior!.SetValue(isChecked, CheckableFieldBehavior.Box(isChecked));
         FieldStateSnapshot snapshot = fieldBehavior.Snapshot;
         if (state is { } current
             && current.Checked == isChecked

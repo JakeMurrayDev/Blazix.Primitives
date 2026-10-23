@@ -109,11 +109,19 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     private readonly EventCallback onClick;
     private readonly EventCallback onFocus;
     private readonly Action fieldStateChanged;
+    private readonly Action groupChanged;
     private readonly Action<ElementReference> captureInput;
     private readonly TaskCompletionSource inputAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Controlled<bool>? checkedState;
     private ButtonBehavior? behavior;
     private CheckableFieldBehavior? fieldBehavior;
+    private CheckboxGroupContext? group;
+    private string? renderedRootId;
+    private string? renderedAriaControls;
+    private string? registeredChildIdentity;
+    private string? registeredChildId;
+    private string? registeredDisabledIdentity;
+    private bool memberRegistered;
     private DomTwin? domTwin;
     private TwinHandle<DomOptions>? domHandle;
     private DomOptions? sentDomOptions;
@@ -133,6 +141,7 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
         onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => fieldBehavior!.HandleFocus());
         fieldStateChanged = OnFieldStateChanged;
+        groupChanged = OnGroupChanged;
         captureInput = element => input = element;
     }
 
@@ -151,11 +160,23 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     [Inject]
     private DefaultFormScope Formless { get; set; } = null!;
 
-    // CHK-STA-04: the underlying value, which the hidden input's `checked` property mirrors.
-    private bool IsChecked => checkedState!.Value;
+    // CHK-STR-04, CHK-API-06: the identity is the value, an empty string included, else the effective name.
+    private string? Identity => Value ?? fieldBehavior!.Name;
 
-    // CHK-STA-09: the indeterminate rendering never changes the underlying value.
-    private bool EffectiveIndeterminate => Indeterminate;
+    // CHK-STR-04: a member reads and writes the group's value; a parent derives from it when the group lists all values;
+    // a detached box and a parent without that list keep their own state (CHK-STA-12, CHK-EDGE-11). Design point C3/G5
+    // (settled by the orchestrator 2026-10-23): the group's path runs beside Controlled<bool>, which keeps the box's own pair.
+    private bool IsMember => group is not null && !Parent && Identity is not null;
+
+    private bool IsDerivedParent => group is not null && Parent && group.AllValues is not null;
+
+    // CHK-STA-04/07/08: the value the hidden input's `checked` property mirrors.
+    private bool IsChecked => IsMember
+        ? ContainsOrdinal(group!.Value, Identity!)
+        : IsDerivedParent ? CheckboxGroupParent.IsChecked(group!.Value, group.AllValues!) : checkedState!.Value;
+
+    // CHK-STA-08/09: the indeterminate rendering never changes the underlying value; a parent adds the group's mixed state.
+    private bool EffectiveIndeterminate => Indeterminate || (IsDerivedParent && CheckboxGroupParent.IsIndeterminate(group!.Value, group.AllValues!));
 
     // CHK-API-11
     private bool EffectiveDisabled => fieldBehavior!.EffectiveDisabled;
@@ -175,6 +196,12 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
 
     // CHK-ARIA-06 step 1: the consumer's aria-labelledby wins at the merge.
     private bool ConsumerLabelsBox => AdditionalAttributes is not null && AdditionalAttributes.ContainsKey("aria-labelledby");
+
+    // CHK-ARIA-12: only a parent that derives from the group carries the members' ids.
+    private string? AriaControls => IsDerivedParent ? group!.Parent.AriaControls(group.AllValues!) : null;
+
+    [CascadingParameter]
+    private CheckboxGroupContext? GroupContext { get; set; }
 
     [CascadingParameter]
     private FieldRootContext? FieldContext { get; set; }
@@ -321,6 +348,11 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    // For the tests: the underlying value of a box shown as mixed.
+    /// <summary>Gets a value indicating whether the box's hidden input is checked, which a mixed box does not show.</summary>
+    /// <value>The underlying value.</value>
+    internal bool InputChecked => IsChecked;
+
     // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once both twins are attached, so a browser test
     // can wait for the modules' listeners before it clicks.
     /// <summary>Gets a task that completes when the box's behaviors are attached to its element and its hidden input.</summary>
@@ -352,13 +384,37 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         controlId = IdGenerator.Next();
         fieldBehavior = new CheckableFieldBehavior(controlId, Formless, JSRuntime, fieldStateChanged, InvokeAsync, DispatchExceptionAsync);
         fieldBehavior.Initialize(FieldContext, ItemContext);
+        group = GroupContext;
+        if (group is not null)
+        {
+            group.AddListener(groupChanged);
+            fieldBehavior.GroupRefresh = group.RefreshMembersAsync;
+        }
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        fieldBehavior!.SetParameters(
-            new CheckableFieldParameters(Name, Disabled, IsChecked, IsChecked, OwnsValue: true, ClaimsControlId: true, EnterSubmit: true, LabelFallback: !NativeButton && !ConsumerNamesBox && !ConsumerLabelsBox, CheckedExpression, CascadedEditContext, AdditionalAttributes, Enabled),
+        // CHK-FRM-20: inside a group the group is the field's control, a member's hidden input is one of the field's
+        // validation inputs, and the group's ValueExpression is the EditContext's (ADR05-5); CHK-DOM-15, CKG-ARIA-07: a box
+        // that shares its labelable scope with the group claims no control id and takes no label from it; CHK-API-11: the
+        // group's disabled state is OR'd in.
+        fieldBehavior!.GroupDisabled = group?.Disabled ?? false;
+        fieldBehavior.SetParameters(
+            new CheckableFieldParameters(
+                Name,
+                Disabled,
+                IsChecked,
+                BlurValue(),
+                OwnsValue: group is null,
+                ClaimsControlId: !fieldBehavior.SharesScope(group?.Scope),
+                RegistersInput: group is not null && !Parent,
+                EnterSubmit: true,
+                LabelFallback: !NativeButton && !ConsumerNamesBox && !ConsumerLabelsBox,
+                group is null ? CheckedExpression : null,
+                CascadedEditContext,
+                AdditionalAttributes,
+                Enabled),
             FormScope);
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;
@@ -382,7 +438,10 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     {
         await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: false);
         await AttachInputAsync();
-        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input);
+        await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input, InputId);
+        RegisterChildId();
+        RegisterMember();
+        group?.BoxRendered();
     }
 
     /// <inheritdoc />
@@ -392,6 +451,25 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         {
             behavior?.Dispose();
             fieldBehavior?.Dispose();
+            if (group is not null)
+            {
+                group.RemoveListener(groupChanged);
+                if (registeredChildIdentity is not null)
+                {
+                    group.Parent.UnregisterChild(registeredChildIdentity, registeredChildId!);
+                }
+
+                if (registeredDisabledIdentity is not null)
+                {
+                    group.Parent.RemoveDisabled(registeredDisabledIdentity);
+                }
+
+                if (memberRegistered)
+                {
+                    group.UnregisterMember(fieldBehavior!);
+                }
+            }
+
             if (domTwin is not null)
             {
                 _ = domTwin.DisposeAsync().AsTask();
@@ -448,12 +526,33 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     }
 
     // ADR 02 Amendments 2026-10-21 (FinishAttributes); part-owned by the document: the root's id (CHK-DOM-01: in non-native
-    // mode the consumer's `id` is the hidden input's, CHK-API-14; in native mode an empty one counts as absent), the
-    // composed aria-describedby (CHK-ARIA-10) and aria-invalid while the field is invalid (CHK-ARIA-11).
+    // mode the consumer's `id` is the hidden input's, CHK-API-14; in native mode an empty one counts as absent; a
+    // substitute element's own id wins, RND-DOM-32), the parent's group-derived aria-controls (CHK-ARIA-12, CHK-DOM-09),
+    // the composed aria-describedby (CHK-ARIA-10) and aria-invalid while the field is invalid (CHK-ARIA-11). The pipeline
+    // calls this after a substitute element's attributes merged, so the id kept here is the one on the element: a member
+    // registers it for the parent's aria-controls (design point G3, settled by the orchestrator 2026-10-23).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes)
     {
-        attributes.Set("id", RootId);
+        string? merged = attributes.TryGetValue("id", out AttributeValue mergedId) && mergedId.TryGetValue(out string idText) ? idText : null;
+        string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
+        string partId = NativeButton ? RootId : GeneratedId!;
+        if (merged is null || string.Equals(merged, consumerId, StringComparison.Ordinal) || string.Equals(merged, partId, StringComparison.Ordinal))
+        {
+            attributes.Set("id", RootId);
+            renderedRootId = RootId;
+        }
+        else
+        {
+            renderedRootId = merged;
+        }
+
+        renderedAriaControls = AriaControls;
+        if (renderedAriaControls is not null)
+        {
+            attributes.Set("aria-controls", renderedAriaControls);
+        }
+
         if (!fieldBehavior!.InField)
         {
             return;
@@ -487,7 +586,8 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     {
         bool isChecked = IsChecked;
         string? name = EffectiveName;
-        if (!isChecked && !string.IsNullOrEmpty(name) && UncheckedValue is not null)
+        // CHK-DOM-19, CHK-API-07: never inside a group.
+        if (!isChecked && group is null && !string.IsNullOrEmpty(name) && UncheckedValue is not null)
         {
             builder.OpenElement(0, "input");
             builder.AddAttribute(1, "type", "hidden");
@@ -511,7 +611,8 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         builder.AddAttribute(17, "name", name);
         builder.AddAttribute(18, "form", Form);
         builder.AddAttribute(19, "id", InputId);
-        builder.AddAttribute(20, "value", Value);
+        // CHK-DOM-16: inside a group the attribute is the value while checked and empty while clear.
+        builder.AddAttribute(20, "value", Value is null || group is null ? Value : isChecked ? Value : string.Empty);
         builder.AddAttribute(21, "style", string.IsNullOrEmpty(name) ? VisuallyHidden.Style : VisuallyHidden.InputStyle);
 
         // CHK-DOM-18: the field's description ids without the consumer's, and its invalid state.
@@ -534,13 +635,118 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         }
 
         ChangeEventDetails details = new(EventReason.None, snapshot);
-        await checkedState!.RequestAsync(next, details, OnCheckedChange, CheckedChanged);
+        if (IsMember || IsDerivedParent)
+        {
+            // CHK-EVT-09, CKG-EVT-01..05: the box's own callback, then the group's with the same details, then the commits.
+            // The box commits nothing of its own: the group's value is its state (CHK-STA-07/08).
+            if (await checkedState!.NotifyAsync(next, details, OnCheckedChange))
+            {
+                await RequestGroupAsync(next, details);
+            }
+        }
+        else
+        {
+            await checkedState!.RequestAsync(next, details, OnCheckedChange, CheckedChanged);
+        }
+
         if (UpdateState())
         {
             StateHasChanged();
         }
 
         return IsChecked == next;
+    }
+
+    private async Task RequestGroupAsync(bool next, ChangeEventDetails details)
+    {
+        CheckboxGroupContext current = group!;
+        if (IsMember)
+        {
+            // CKG-STA-03, CKG-STA-08: a committed member toggle also replaces the parent's snapshot.
+            IReadOnlyList<string> proposed = CheckboxGroupParent.ProposeMemberToggle(current.Value, Identity!, next);
+            if (await current.Request(proposed, details) && current.AllValues is not null)
+            {
+                current.Parent.CommitMemberToggle(proposed);
+            }
+
+            return;
+        }
+
+        // CKG-STA-07: the parent's proposal; the cycle advances only when it was not canceled.
+        ParentProposal proposal = current.Parent.ProposeParentToggle(current.Value, current.AllValues!);
+        if (await current.Request(proposal.Value, details))
+        {
+            current.Parent.CommitParentToggle(proposal);
+        }
+    }
+
+    // CKG-ARIA-06, CHK-ARIA-12: a member registers the id on its root after the render, and withdraws it on change.
+    private void RegisterChildId()
+    {
+        string? identity = group is not null && !Parent && Enabled ? Identity : null;
+        string? id = identity is null ? null : renderedRootId;
+        if (string.Equals(identity, registeredChildIdentity, StringComparison.Ordinal) && string.Equals(id, registeredChildId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (registeredChildIdentity is not null)
+        {
+            group!.Parent.UnregisterChild(registeredChildIdentity, registeredChildId!);
+        }
+
+        registeredChildIdentity = id is null ? null : identity;
+        registeredChildId = id;
+        if (registeredChildIdentity is not null)
+        {
+            group!.Parent.RegisterChild(registeredChildIdentity, id!);
+        }
+    }
+
+    // CKG-FRM-03, FFI-FRM-24: inside a field a member's input joins the group's refresh and its projection, by identity.
+    private void RegisterMember()
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        if (!Parent && Enabled && fieldBehavior!.InField)
+        {
+            memberRegistered = true;
+            group.RegisterMember(fieldBehavior, Identity);
+        }
+        else if (memberRegistered)
+        {
+            memberRegistered = false;
+            group.UnregisterMember(fieldBehavior!);
+        }
+    }
+
+    // A change of the group's value, list, disabled state or members' ids.
+    private void OnGroupChanged()
+    {
+        fieldBehavior!.GroupDisabled = group!.Disabled;
+        behavior!.Disabled = EffectiveDisabled;
+        if (UpdateState() || !string.Equals(AriaControls, renderedAriaControls, StringComparison.Ordinal))
+        {
+            StateHasChanged();
+        }
+    }
+
+    private object? BlurValue() => group is null ? CheckableFieldBehavior.Box(IsChecked) : group.Value;
+
+    private static bool ContainsOrdinal(IReadOnlyList<string> values, string identity)
+    {
+        for (int i = 0; i < values.Count; i++)
+        {
+            if (string.Equals(values[i], identity, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // A change of the field's state that the box shows (its flags, label, descriptions, validity or disabled state).
@@ -600,7 +806,8 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
     {
         bool isChecked = IsChecked;
         bool indeterminate = EffectiveIndeterminate;
-        fieldBehavior!.SetValue(isChecked, isChecked);
+        fieldBehavior!.SetValue(isChecked, BlurValue());
+        SyncDisabledEntry();
         FieldStateSnapshot snapshot = fieldBehavior.Snapshot;
         if (state is { } current
             && current.Checked == isChecked
@@ -620,5 +827,22 @@ public sealed class CheckboxRoot : PartBase<CheckboxRootState>
         state = new CheckboxRootState(isChecked, snapshot.Disabled, ReadOnly, Required, indeterminate, snapshot.Touched, snapshot.Dirty, snapshot.Valid, snapshot.Filled, snapshot.Focused);
         context.SetState(state);
         return true;
+    }
+
+    // CKG-STA-09 (design point G4, settled by the orchestrator 2026-10-23): a member's disabled state is the parent's to read at once, so the
+    // entry is updated with the box's state rather than after paint.
+    private void SyncDisabledEntry()
+    {
+        string? identity = group is not null && !Parent ? Identity : null;
+        if (registeredDisabledIdentity is not null && !string.Equals(registeredDisabledIdentity, identity, StringComparison.Ordinal))
+        {
+            group!.Parent.RemoveDisabled(registeredDisabledIdentity);
+        }
+
+        registeredDisabledIdentity = identity;
+        if (identity is not null)
+        {
+            group!.Parent.SetDisabled(identity, EffectiveDisabled);
+        }
     }
 }

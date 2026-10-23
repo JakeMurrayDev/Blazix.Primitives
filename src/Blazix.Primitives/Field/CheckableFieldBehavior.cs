@@ -21,7 +21,8 @@ namespace Blazix.Primitives;
 //   attaches or becomes enabled (CHK-FRM-14, CHK-FOC-04/05; FFI-STA-09); the hidden input is the validation input,
 //   reporting only on a refresh and handing focus to the root (CHK-FRM-19, CHK-FOC-03; FFI-FOC-05). While nothing else
 //   names the control, the module also looks for the input's native label and reports its id (CHK-ARIA-07/08; design
-//   point C4, settled by the orchestrator 2026-10-23).
+//   point C4, settled by the orchestrator 2026-10-23). A group's member registers that input with the field's validation
+//   inputs instead (checkbox-group §8, FFI-FRM-24); a commit it starts refreshes every member's input.
 // - ADR 05 Amendments 2026-10-22: EditContext participation through the checked expression.
 /// <summary>The field behavior of a control backed by a hidden checkbox input.</summary>
 internal sealed class CheckableFieldBehavior : IDisposable
@@ -62,6 +63,9 @@ internal sealed class CheckableFieldBehavior : IDisposable
     private bool hadExplicitId;
     private FieldControlRegistration? sentRegistration;
     private bool registered;
+    private bool inputRegistered;
+    private FieldRegistry? sinkRegistry;
+    private string? sinkId;
     private bool previousDisabled;
     private FormTwin? twin;
     private TwinHandle<FormOptions>? rootHandle;
@@ -113,7 +117,11 @@ internal sealed class CheckableFieldBehavior : IDisposable
     // and its own only (Base UI's Switch.Root does not read the item's context).
     /// <summary>Gets a value indicating whether the control is disabled, its field's state, and its item's when it reads it, included.</summary>
     /// <value><see langword="true"/> when any of them is disabled.</value>
-    public bool EffectiveDisabled => (fieldScope is not null && (itemDisables ? FieldItemContext.DisabledOf(fieldScope, item) : fieldScope.Disabled)) || parameters.Disabled;
+    public bool EffectiveDisabled => (fieldScope is not null && (itemDisables ? FieldItemContext.DisabledOf(fieldScope, item) : fieldScope.Disabled)) || parameters.Disabled || GroupDisabled;
+
+    /// <summary>Gets or sets a value indicating whether the control's group disables it.</summary>
+    /// <value><see langword="true"/> while an enclosing group is disabled.</value>
+    public bool GroupDisabled { get; set; }
 
     // CHK-API-08, FLD-API-18, ADR 05 Amendments 2026-10-22: the field's name, else the control's own, else the EditContext
     // identifier's field name.
@@ -126,10 +134,13 @@ internal sealed class CheckableFieldBehavior : IDisposable
     /// <value>The id a label's <c>for</c> points at.</value>
     public string ControlId => (parameters.ClaimsControlId && scope is not null ? scope.ControlId : null) ?? IdParameter ?? ownId;
 
-    // CHK-ARIA-06 step 3.
+    // CHK-ARIA-06 step 3; CKG-ARIA-07: a box that shares its group's scope leaves that scope's label to the group.
     /// <summary>Gets the id of the label in the control's labelable scope.</summary>
-    /// <value>The label's id, or <see langword="null"/> outside a field or without a mounted label.</value>
-    public string? LabelId => scope?.Label.Id;
+    /// <value>
+    /// The label's id, or <see langword="null"/> outside a field, without a mounted label, or when the scope is its
+    /// group's.
+    /// </value>
+    public string? LabelId => parameters.ClaimsControlId ? scope?.Label.Id : null;
 
     // CHK-ARIA-06 step 4, CHK-ARIA-07/09: the fallback is in play only while nothing earlier in the precedence names the
     // control and the control is not a native button.
@@ -150,6 +161,18 @@ internal sealed class CheckableFieldBehavior : IDisposable
     /// <summary>Gets a value indicating whether the control is inside a field.</summary>
     /// <value><see langword="true"/> when a <see cref="FieldRoot"/> encloses it.</value>
     public bool InField => fieldScope is not null;
+
+    /// <summary>Gets or sets the refresh a commit the control starts runs, when it is a member of a group.</summary>
+    /// <value>The group's refresh of its members' inputs, or <see langword="null"/> to refresh the control's own input.</value>
+    public Func<Task>? GroupRefresh { get; set; }
+
+    /// <summary>Gets a value indicating whether the control shows its value as ticked.</summary>
+    /// <value>The value the control last took.</value>
+    public bool Checked => parameters.Checked;
+
+    /// <summary>Gets the hidden input's validation state.</summary>
+    /// <value>The validation input the field reads.</value>
+    public FieldValidationInput ValidationInput => validationInput;
 
     /// <summary>Gets a task that completes when the form module is attached to the root and the hidden input.</summary>
     /// <value>The attach task, for the fixtures.</value>
@@ -177,6 +200,15 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
+    /// <summary>Gets the boxed form of a value, one instance per value.</summary>
+    /// <param name="value">The value.</param>
+    /// <returns>The shared boxed value.</returns>
+    public static object Box(bool value) => value ? s_true : s_false;
+
+    /// <summary>Brings the hidden input's native state up to date from the browser.</summary>
+    /// <returns>A task that completes when the input has reported, or at once before it is attached.</returns>
+    public Task RefreshInputAsync() => RefreshAsync();
+
     /// <summary>Takes the cascaded scopes; called once, when the part initializes.</summary>
     /// <param name="fieldContext">The nearest field, or <see langword="null"/>.</param>
     /// <param name="itemContext">The nearest item, or <see langword="null"/>.</param>
@@ -200,6 +232,19 @@ internal sealed class CheckableFieldBehavior : IDisposable
     {
         parameters = next;
         form = fieldScope?.Form ?? formScope ?? formless;
+
+        // FFI-FRM-24: a group's validation inputs are in document order, as Base UI's ref callbacks add them, so the
+        // representative is the first eligible member; registering after the render's interop would order them by the
+        // round trips' completion on Server.
+        if (fieldScope is not null && next.RegistersInput && next.Enabled)
+        {
+            RegisterInput();
+        }
+        else if (fieldScope is not null)
+        {
+            UnregisterInput();
+        }
+
         participation.Update(next.EditContext, next.CheckedExpression);
         if (!initialized)
         {
@@ -210,8 +255,13 @@ internal sealed class CheckableFieldBehavior : IDisposable
 
     /// <summary>Takes the value the control shows after a request or a parameter set.</summary>
     /// <param name="isChecked">The value.</param>
-    /// <param name="blurValue">The value an onBlur commit validates.</param>
-    public void SetValue(bool isChecked, bool blurValue) => parameters = parameters with { Checked = isChecked, BlurValue = blurValue };
+    /// <param name="blurValue">The value an onBlur commit validates: the control's own, boxed, or its group's.</param>
+    public void SetValue(bool isChecked, object? blurValue) => parameters = parameters with { Checked = isChecked, BlurValue = blurValue };
+
+    /// <summary>Determines whether the control's labelable scope is the given one.</summary>
+    /// <param name="other">A scope, such as the one a group renders in, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when <paramref name="other"/> is the control's scope.</returns>
+    public bool SharesScope(LabelableScope? other) => other is not null && ReferenceEquals(scope, other);
 
     /// <summary>Records what a render of the part shows, so a change of the field renders it again only when needed.</summary>
     public void Rendered()
@@ -235,8 +285,9 @@ internal sealed class CheckableFieldBehavior : IDisposable
     /// <param name="rootId">The root element's id, which the hidden input hands focus to.</param>
     /// <param name="registrationId">The id the control registers with its field.</param>
     /// <param name="input">The hidden input, or <see langword="null"/> before it is rendered.</param>
+    /// <param name="inputId">The hidden input's id, or <see langword="null"/> when it renders none.</param>
     /// <returns>A task that completes when the module has the options.</returns>
-    public async Task AfterRenderAsync(ElementReference? root, string rootId, string registrationId, ElementReference? input)
+    public async Task AfterRenderAsync(ElementReference? root, string rootId, string registrationId, ElementReference? input, string? inputId)
     {
         if (!parameters.Enabled)
         {
@@ -252,15 +303,16 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
         else
         {
+            validationInput.ControlId = rootId;
             if (parameters.OwnsValue)
             {
                 fieldScope.Validation.InputRef = validationInput;
-                validationInput.ControlId = rootId;
             }
 
             using (fieldScope.Batch())
             {
                 ClaimControlId();
+                SetSink(inputId);
                 Register(rootId, registrationId);
                 SyncDisabled();
                 ObserveValue();
@@ -285,8 +337,6 @@ internal sealed class CheckableFieldBehavior : IDisposable
         SendInputOptions();
         return refreshSource.Task;
     }
-
-    private static object Box(bool value) => value ? s_true : s_false;
 
     private RenderKey CurrentKey() => fieldScope is null
         ? new RenderKey(Snapshot, ControlId, Name, EffectiveDisabled, null, null, false)
@@ -357,6 +407,55 @@ internal sealed class CheckableFieldBehavior : IDisposable
         fieldScope!.RegisterControl(this, next);
     }
 
+    // FFI-FRM-04 (M2 track 6, settled by the orchestrator 2026-10-23 (F2/DP6, ADR 16 rule 6)): the state the module reads from the hidden input when the form
+    // submits reaches the validation input by the input's id. A native-button box renders no id on its input, so its
+    // input's state at submit is the last one reported.
+    private void SetSink(string? inputId)
+    {
+        FieldRegistry registry = form.Registry;
+        if (ReferenceEquals(registry, sinkRegistry) && string.Equals(inputId, sinkId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        RemoveSink();
+        if (inputId is not null)
+        {
+            sinkRegistry = registry;
+            sinkId = inputId;
+            registry.SetInput(inputId, validationInput);
+        }
+    }
+
+    private void RemoveSink()
+    {
+        if (sinkRegistry is not null)
+        {
+            sinkRegistry.RemoveInput(sinkId!, validationInput);
+            sinkRegistry = null;
+            sinkId = null;
+        }
+    }
+
+    // FFI-FRM-24, CHK-FRM-19: a member's hidden input is one of the field's validation inputs; a parent's is not.
+    private void RegisterInput()
+    {
+        if (!inputRegistered)
+        {
+            inputRegistered = true;
+            fieldScope!.Validation.RegisterInput(validationInput);
+        }
+    }
+
+    private void UnregisterInput()
+    {
+        if (inputRegistered)
+        {
+            inputRegistered = false;
+            fieldScope!.Validation.UnregisterInput(validationInput);
+        }
+    }
+
     // FFI-ALG-13 `useSetFieldFocused` effect on `disabled`: release, then the module reports focus when re-enabled.
     private void SyncDisabled()
     {
@@ -421,12 +520,12 @@ internal sealed class CheckableFieldBehavior : IDisposable
         }
     }
 
-    private async Task CommitAfterRefreshAsync(bool value)
+    private async Task CommitAfterRefreshAsync(object? value)
     {
-        await RefreshAsync().ConfigureAwait(true);
+        await (GroupRefresh ?? refresh)().ConfigureAwait(true);
         if (fieldScope is not null && !disposed)
         {
-            await fieldScope.Validation.CommitAsync(Box(value)).ConfigureAwait(true);
+            await fieldScope.Validation.CommitAsync(value).ConfigureAwait(true);
         }
     }
 
@@ -670,6 +769,8 @@ internal sealed class CheckableFieldBehavior : IDisposable
             }
 
             ReleaseClaim();
+            UnregisterInput();
+            RemoveSink();
             fieldScope.SetFocused(this, false, EffectiveDisabled);
             if (ReferenceEquals(fieldScope.Validation.InputRef, validationInput))
             {
@@ -708,9 +809,10 @@ internal sealed class CheckableFieldBehavior : IDisposable
 /// <param name="Name">The control's name parameter.</param>
 /// <param name="Disabled">The control's own disabled state, a group's included.</param>
 /// <param name="Checked">The value the control shows.</param>
-/// <param name="BlurValue">The value an onBlur commit validates: the control's own, or its group's.</param>
+/// <param name="BlurValue">The value an onBlur commit validates: the control's own, boxed, or its group's.</param>
 /// <param name="OwnsValue">Whether the control is its field's control: it registers, and writes filled and dirty.</param>
-/// <param name="ClaimsControlId">Whether the control claims its labelable scope's control id.</param>
+/// <param name="ClaimsControlId">Whether the control claims its labelable scope's control id and takes the scope's label.</param>
+/// <param name="RegistersInput">Whether the hidden input is one of the field's validation inputs, as a group member's is.</param>
 /// <param name="EnterSubmit">Whether Enter on the root submits the form the hidden input belongs to.</param>
 /// <param name="LabelFallback">Whether the hidden input's native label may name the control: it is not a native button and the consumer names it no other way.</param>
 /// <param name="CheckedExpression">The expression of the bound value.</param>
@@ -721,9 +823,10 @@ internal readonly record struct CheckableFieldParameters(
     string? Name,
     bool Disabled,
     bool Checked,
-    bool BlurValue,
+    object? BlurValue,
     bool OwnsValue,
     bool ClaimsControlId,
+    bool RegistersInput,
     bool EnterSubmit,
     bool LabelFallback,
     Expression<Func<bool>>? CheckedExpression,
