@@ -1211,8 +1211,19 @@ test.describe('<Checkbox.Indicator />', () => {
       await expect(root).not.toHaveAttribute('aria-invalid');
     });
 
+    test('triggers native HTML validation on submit', async ({ page, mode }) => {
+      const fixture = await gotoCheckboxes(page, mode, 'checkbox-base-ui-form');
+      const { container } = checkboxCase(fixture, 'native');
+      const error = container.locator('[data-testid="error"]');
+      await expect(error).toHaveCount(0);
+
+      await container.locator('[data-submit]').click();
+
+      await expect(error).toHaveText('required');
+    });
+
     test('port: a required box blocks the submit of its form, which focuses the root', async ({ page, mode }) => {
-      // "triggers native HTML validation on submit" without its Field.Error clause (PR 1c), with the focus of CHK-FOC-06.
+      // CHK-FOC-06: the root is the control the form focuses.
       const fixture = await gotoCheckboxes(page, mode, 'checkbox-base-ui-form');
       const { container, root } = checkboxCase(fixture, 'blocked');
 

@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/checkbox/**/*.test.tsx` (3 files) |
 | Docs page | `docs/src/app/(docs)/react/components/checkbox/page.mdx` |
 | Prefix | `CHK` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-23 |
 | Builds on | none |
 | Derived by | [checkbox-group](checkbox-group.md) (composes `Checkbox.Root` as its members and parent) |
@@ -96,7 +96,7 @@ If Indicator is omitted the root still functions fully; Indicator exists as a st
   Port note 2026-10-23 (ADR 13 Amendments 2026-10-22, the incidental case; settled by the orchestrator 2026-10-23): re-cited under conventions §3.5. Base UI's test renders `Form` only as the enclosing form, which takes no part in what this row states; the titles run on a native `<form>` in `checkbox.spec.ts`, and the row is green at its layer.
 - **CHK-API-10** — MUST. `required` defaults to `false`. When `true`, the hidden input MUST carry the `required` attribute and the root MUST carry `aria-required="true"`.
   Source: `checkbox/root/CheckboxRoot.tsx:64,205,301`. Test: [L2] `CheckboxRoot.test.tsx` "sets the correct aria attributes", "triggers native HTML validation on submit".
-  Port note 2026-10-23 (M2 track 6): "triggers native HTML validation on submit" asserts only its `Field.Error`, so it stays open to PR 1c; the hidden input's `required` reaching a blocked submission is asserted by the port title of CHK-FRM-08's note.
+  Port note 2026-10-23 (M2 track 6, Form and Field.Error on main): "triggers native HTML validation on submit" runs as written at L2 (`CheckboxFormTests`) and L4 (`checkbox.spec.ts`).
 - **CHK-API-11** — MUST. The effective disabled state MUST be `fieldDisabled || fieldItemDisabled || groupDisabled || disabled` (each term `false` when that ancestor is absent). The default of the prop is `false`; a `disabled={false}` on the box MUST NOT override a disabled ancestor.
   Source: `checkbox/root/CheckboxRoot.tsx:54,91-92`; see [FFI-STA-11](../architecture/field-and-form-infrastructure.md). Test: [L2] `CheckboxRoot.test.tsx` "should receive disabled prop from Field.Root"; `CheckboxGroup.test.tsx` "disables all checkboxes when `true`", "takes precedence over individual checkboxes".
 - **CHK-API-12** — MUST. `readOnly` defaults to `false`. When `true`, user interaction MUST NOT change the checked state (§6), `aria-readonly="true"` MUST be set (§5), and <kbd>Enter</kbd> MUST still submit the form (CHK-KEY-06).
@@ -544,7 +544,7 @@ Mechanism: [FFI](../architecture/field-and-form-infrastructure.md). This section
   Source: `internals/field-register-control/useFieldControlRegistration.ts:86-103`; see [FFI-STA-04](../architecture/field-and-form-infrastructure.md). Test: [L2] `CheckboxRoot.test.tsx` "[data-dirty]".
 - **CHK-FRM-08** — MUST. With `required` and unchecked, submitting an enclosing `Form` MUST mark the field invalid with native `valueMissing` (`aria-invalid="true"` on the root; `Field.Error match="valueMissing"` rendered), MUST prevent the submit, and MUST focus the root.
   Source: `checkbox/root/CheckboxRoot.tsx:205`, `field/root/useFieldValidation.ts:194-223`, `form/Form.tsx:41-69,109-121`; see [FFI-FRM-04](../architecture/field-and-form-infrastructure.md), [FFI-FRM-06](../architecture/field-and-form-infrastructure.md). Test: [L4] `CheckboxRoot.test.tsx` "triggers native HTML validation on submit", "prop: validationMode=onSubmit".
-  Port note 2026-10-23 (M2 track 6, Form on main): "prop: validationMode=onSubmit" runs at L4 (`checkbox.spec.ts`, Form (track 2)), with the hidden input's state read in the submit task (FFI-FRM-04's dated note). The port title "a required box blocks the submit of its form, which focuses the root" covers "triggers native HTML validation on submit" without its `Field.Error match="valueMissing"` clause, which stays open to PR 1c.
+  Port note 2026-10-23 (M2 track 6, Form and Field.Error on main): both titles run at L4 (`checkbox.spec.ts`, Form (track 2)), with the hidden input's state read in the submit task (FFI-FRM-04's dated note); "triggers native HTML validation on submit" also at L2. The port title "a required box blocks the submit of its form, which focuses the root" adds the blocked submission and CHK-FOC-06's focus.
 - **CHK-FRM-09** — MUST. The field's `validate` function MUST be invoked with the boolean `checked` value exactly once per user toggle when on-change validation applies (mode `onChange`, or mode `onSubmit` after the first submit).
   Source: `checkbox/root/CheckboxRoot.tsx:184-193`, `field/root/useFieldValidation.ts:349-365`, `field/root/FieldRoot.tsx:88-92`; see [FFI-EVT-02](../architecture/field-and-form-infrastructure.md), [FFI-FRM-01](../architecture/field-and-form-infrastructure.md). Test: [L2] `CheckboxRoot.test.tsx` "validates once when changed by the user", "props: validationMode=onChange". Docs: CHANGELOG.md v1.6.0 "Fix extra `validate` fn calls".
 - **CHK-FRM-10** — MUST. A change of a consumer-owned `checked` that did not come from user interaction MUST trigger the same on-change validation as a user toggle (one additional `validate` call with the new value).
@@ -556,7 +556,7 @@ Mechanism: [FFI](../architecture/field-and-form-infrastructure.md). This section
   Port note 2026-10-23 (M2 track 6): green at L2 (`CheckboxFormTests`) and L4 (`checkbox.spec.ts`).
 - **CHK-FRM-13** — MUST. On every change of `checked`, any external `Form` error registered under the effective name MUST be cleared (removing `aria-invalid` and the `Field.Error` content).
   Source: `checkbox/root/CheckboxRoot.tsx:189`, `form/Form.tsx:143-155`; see [FFI-EVT-03](../architecture/field-and-form-infrastructure.md). Test: [L2] `CheckboxRoot.test.tsx` "clears external errors on change".
-  Port note 2026-10-23 (M2 track 6): green at L2 (`CheckboxFormTests`) for the `aria-invalid` clause; the `Field.Error` clause stays open to PR 1c.
+  Port note 2026-10-23 (M2 track 6, Field.Error on main): green at L2 (`CheckboxFormTests`), the `Field.Error` clause included.
 - **CHK-FRM-14** — MUST. The field's `touched` state MUST become `true` on the root's blur, except when the hidden input is not mounted.
   Source: `checkbox/root/CheckboxRoot.tsx:307-314`. Test: [L2] `CheckboxRoot.test.tsx` "[data-touched]".
 - **CHK-FRM-15** — MUST. A native form reset MUST NOT change the box's checked state, its `aria-invalid`, or its `aria-describedby`.

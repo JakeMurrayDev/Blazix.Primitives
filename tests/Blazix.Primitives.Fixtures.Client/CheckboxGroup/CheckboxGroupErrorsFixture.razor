@@ -1,0 +1,231 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures
+@using Blazix.Primitives
+
+@*
+    The `checkbox-group-errors` fixture (tests/browser/checkbox-group.spec.ts): CheckboxGroup.test.tsx's titles that
+    render Field.Error, now on main, and CheckboxRoot.test.tsx's group titles that read the hidden input's properties.
+    A case whose form receives server errors sets them in OnSubmit, as the Base UI test's setErrors does, and prevents the
+    native submission; `submits` counts the passed submissions of the cases that record them.
+*@
+<FixtureContainer Name="checkbox-group-errors" data-attached="@(attached ? "true" : "false")">
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="keeps-required">
+        <Form @ref="forms[0]" OnSubmit="Prevent">
+            <FieldRoot Name="protocols">
+                <CheckboxGroup DefaultValue="s_none">
+                    <FieldItem><CheckboxRoot @ref="boxes[0]" data-checkbox data-testid="checkbox" Value="http" Required="true" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[1]" data-checkbox data-testid="checkbox" Value="https" Required="true" /></FieldItem>
+                </CheckboxGroup>
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-submit>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="disabled-required">
+        <Form @ref="forms[1]" OnSubmit="Prevent">
+            <FieldRoot Name="protocols">
+                <CheckboxGroup DefaultValue="s_none">
+                    <FieldItem><CheckboxRoot @ref="boxes[2]" data-checkbox data-testid="cb-enabled" Value="https" Required="true" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[3]" data-checkbox data-testid="cb-disabled" Value="http" Required="true" Disabled="true" /></FieldItem>
+                </CheckboxGroup>
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-submit>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="remaining-required">
+        <Form @ref="forms[2]" OnSubmit="Prevent">
+            <FieldRoot Name="protocols">
+                <CheckboxGroup DefaultValue="s_none">
+                    <FieldItem><CheckboxRoot @ref="boxes[4]" data-checkbox data-testid="checkbox-http" Value="http" Required="true" /></FieldItem>
+                    @if (showHttps)
+                    {
+                        <FieldItem><CheckboxRoot @ref="boxes[5]" data-checkbox data-testid="checkbox-https" Value="https" Required="true" /></FieldItem>
+                    }
+                </CheckboxGroup>
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="button" data-remove @onclick="() => showHttps = false">remove</button>
+            <button type="submit" data-submit>submit</button>
+        </Form>
+    </div>
+
+    <div data-case="first-on-error">
+        <Form @ref="forms[3]" Errors="errors[0]" OnSubmit='args => ServerError(args, 0)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_one">
+                    <FieldItem><CheckboxRoot @ref="boxes[6]" data-checkbox Value="one" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[7]" data-checkbox Value="two" /></FieldItem>
+                </CheckboxGroup>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="later-invalid">
+        <Form @ref="forms[4]">
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_one">
+                    <FieldItem><CheckboxRoot @ref="boxes[8]" data-checkbox data-testid="checkbox" Value="one" /></FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[9]" data-checkbox data-testid="checkbox" Value="two" Required="true" /></FieldItem>
+                </CheckboxGroup>
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="fieldset-skip">
+        <Form @ref="forms[5]" Errors="errors[1]" OnSubmit='args => ServerError(args, 1)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    <fieldset disabled>
+                        <CheckboxRoot @ref="boxes[10]" data-checkbox data-testid="disabled" Value="disabled" />
+                    </fieldset>
+                    <CheckboxRoot @ref="boxes[11]" data-checkbox data-testid="enabled" Value="enabled" />
+                </CheckboxGroup>
+                <FieldError />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="unmount-first">
+        <Form @ref="forms[6]" Errors="errors[2]" OnSubmit="UnmountFirst">
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    @if (showFirst)
+                    {
+                        <CheckboxRoot @ref="boxes[12]" data-checkbox data-testid="first" Value="one" />
+                    }
+                    <CheckboxRoot @ref="boxes[13]" data-checkbox data-testid="second" Value="two" />
+                </CheckboxGroup>
+                <FieldError />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="inputless-clears" data-submits="@inputlessSubmits">
+        <Form @ref="forms[7]" OnFormSubmit="() => inputlessSubmits++">
+            <FieldRoot Name="group" Validate="Required">
+                <CheckboxGroup Value="inputlessValue">
+                    @if (inputlessMounted)
+                    {
+                        <CheckboxRoot @ref="boxes[14]" data-checkbox Value="one" />
+                    }
+                </CheckboxGroup>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <button type="button" data-remove @onclick="() => inputlessMounted = false">Remove</button>
+            <button type="button" data-select @onclick="() => inputlessValue = s_one">Select</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="disabled-representative">
+        <Form @ref="forms[8]" Errors="errors[3]" OnSubmit='args => ServerError(args, 3)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    <CheckboxRoot @ref="boxes[15]" data-checkbox data-testid="first" Value="one" Disabled="firstDisabled" />
+                    <CheckboxRoot @ref="boxes[16]" data-checkbox data-testid="second" Value="two" />
+                </CheckboxGroup>
+                <FieldError />
+            </FieldRoot>
+            <button type="button" data-disable-first @onclick="() => firstDisabled = true">Disable first</button>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="parent-skip">
+        <Form @ref="forms[9]" Errors="errors[4]" OnSubmit='args => ServerError(args, 4)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none" AllValues="s_oneTwo">
+                    <CheckboxRoot @ref="boxes[17]" data-checkbox data-testid="parent" Parent="true" />
+                    <CheckboxRoot @ref="boxes[18]" data-checkbox data-testid="first" Value="one" />
+                    <CheckboxRoot @ref="boxes[19]" data-checkbox Value="two" />
+                </CheckboxGroup>
+                <FieldError />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="error-described">
+        <Form @ref="forms[10]" Errors="s_groupError">
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_one">
+                    <FieldItem>
+                        <CheckboxRoot @ref="boxes[20]" data-checkbox Value="one" />
+                        <FieldDescription data-testid="description">Description</FieldDescription>
+                    </FieldItem>
+                    <FieldItem><CheckboxRoot @ref="boxes[21]" data-checkbox Value="two" /></FieldItem>
+                </CheckboxGroup>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+    </div>
+
+    <div data-case="manual-indeterminate">
+        <CheckboxGroup Value="s_none" AllValues="s_justOne">
+            <CheckboxRoot @ref="boxes[22]" data-checkbox data-testid="parent" Parent="true" Indeterminate="true" />
+            <CheckboxRoot @ref="boxes[23]" data-checkbox Value="one" />
+        </CheckboxGroup>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> s_none = [];
+    private static readonly IReadOnlyList<string> s_one = ["one"];
+    private static readonly IReadOnlyList<string> s_justOne = ["one"];
+    private static readonly IReadOnlyList<string> s_oneTwo = ["one", "two"];
+    private static readonly FormErrors s_groupError = new() { ["group"] = "error" };
+
+    private readonly Form?[] forms = new Form?[11];
+    private readonly CheckboxRoot?[] boxes = new CheckboxRoot?[24];
+    private readonly FormErrors?[] errors = new FormErrors?[5];
+    private IReadOnlyList<string> inputlessValue = s_none;
+    private bool attached;
+    private bool showHttps = true;
+    private bool showFirst = true;
+    private bool inputlessMounted = true;
+    private bool firstDisabled;
+    private int inputlessSubmits;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await Task.WhenAll([.. forms.Select(form => form!.TwinAttached), .. boxes.Select(box => box!.TwinAttached)]);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private static void Prevent(FormSubmitEventArgs args) => args.PreventNativeSubmit();
+
+    private static ValueTask<FieldValidationResult?> Required(FieldValidationArguments args) =>
+        ValueTask.FromResult<FieldValidationResult?>(((IReadOnlyList<string>)args.Value!).Count > 0 ? null : "required");
+
+    // The Base UI test's onSubmit: preventDefault, then setErrors({ group: 'server error' }).
+    private void ServerError(FormSubmitEventArgs args, int index)
+    {
+        args.PreventNativeSubmit();
+        errors[index] = new FormErrors { ["group"] = "server error" };
+    }
+
+    private void UnmountFirst(FormSubmitEventArgs args)
+    {
+        args.PreventNativeSubmit();
+        showFirst = false;
+        errors[2] = new FormErrors { ["group"] = "server error" };
+    }
+}

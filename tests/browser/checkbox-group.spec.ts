@@ -1,12 +1,11 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, fixtureUrl, gotoFixture, type Page, type RenderMode } from './helpers';
 
-// The [L4] rows of docs/components/checkbox-group.md that render no Form, and the L4 clauses of its L2 rows, on
-// CheckboxGroup and its member and parent boxes. Titles are Base UI's (checkbox-group/CheckboxGroup.test.tsx); "port:"
-// titles assert the per-mode rows of checkbox-group §9 (CKG-STA-11, CKG-ARIA-03, CKG-ARIA-06). Field.Error is not on
-// main yet (PR 1c): the two "keeps the error" titles read the field's valueMissing verdict from the members'
-// aria-invalid, which with no validator is that verdict. The FormData titles run on native forms (the Form Base UI renders
-// around them takes no part in what they assert). Rows that need Form stay open (CKG-FOC-02, CKG-FRM-03/06/17).
+// The [L4] rows of docs/components/checkbox-group.md, and the L4 clauses of its L2 rows, on CheckboxGroup and its member
+// and parent boxes, with Field, Field.Error and Form. Titles are Base UI's (checkbox-group/CheckboxGroup.test.tsx, and
+// CheckboxRoot.test.tsx's group titles); "port:" titles assert the per-mode rows of checkbox-group §9 (CKG-STA-11,
+// CKG-ARIA-03, CKG-ARIA-06). The FormData titles run on native forms (the Form Base UI renders around them takes no part
+// in what they assert). The portal titles are open to M4 (dated notes on CKG-STR-02, CKG-FRM-03/06, CKG-FOC-02).
 
 /** Opens the field fixture and waits until every listed box has its behaviors attached. */
 async function gotoGroups(page: Page, mode: RenderMode): Promise<Locator> {
@@ -102,33 +101,32 @@ test.describe('<CheckboxGroup />', () => {
     test('validationMode=onChange keeps the error until every required checkbox is ticked', async ({ page, mode }) => {
       const fixture = await gotoGroups(page, mode);
       const container = fixture.locator('[data-case="required-change"]');
-      await expect(box(container, 'cb-http')).not.toHaveAttribute('aria-invalid');
+      const error = container.locator('[data-testid="error"]');
+      await expect(error).toHaveCount(0);
 
       // Ticking the second (last-mounted) checkbox must not clear the requirement on the first.
       await box(container, 'cb-https').click();
-      await expect(box(container, 'cb-http')).toHaveAttribute('aria-invalid', 'true');
-      await expect(box(container, 'cb-https')).toHaveAttribute('aria-invalid', 'true');
+      await expect(error).toHaveText('required');
 
       await box(container, 'cb-http').click();
-      await expect(box(container, 'cb-http')).not.toHaveAttribute('aria-invalid');
-      await expect(box(container, 'cb-https')).not.toHaveAttribute('aria-invalid');
+      await expect(error).toHaveCount(0);
     });
 
     test('validationMode=onBlur keeps the error until every required checkbox is ticked', async ({ page, mode }) => {
       const fixture = await gotoGroups(page, mode);
       const container = fixture.locator('[data-case="required-blur"]');
 
+      const error = container.locator('[data-testid="error"]');
+
       await box(container, 'cb-https').click();
       await settle(fixture);
-      await expect(box(container, 'cb-https')).not.toHaveAttribute('aria-invalid');
+      await expect(error).toHaveCount(0);
 
       await box(container, 'cb-https').evaluate((element) => (element as HTMLElement).blur());
-      await expect(box(container, 'cb-https')).toHaveAttribute('aria-invalid', 'true');
+      await expect(error).toHaveText('required');
 
-      // A toggle in onBlur mode clears the field's error (FFI-FRM-05's revalidate pass) once nothing is missing.
       await box(container, 'cb-http').click();
-      await expect(box(container, 'cb-http')).not.toHaveAttribute('aria-invalid');
-      await expect(box(container, 'cb-https')).not.toHaveAttribute('aria-invalid');
+      await expect(error).toHaveCount(0);
     });
 
     test('clears custom validity from disabled registered inputs when the group becomes valid', async ({ page, mode }) => {
@@ -221,6 +219,18 @@ test.describe('<CheckboxGroup />', () => {
           expect(markup.match(/<label[^>]*data-label[^>]*>/)?.[0].match(/ for="([^"]+)"/)?.[1]).toBe(controlId);
         });
       }
+    }
+
+    for (const nativeButton of [false, true]) {
+      test(`assigns the label association once the fallback ids arrive (nativeButton=${nativeButton})`, async ({ page, mode }) => {
+        // CheckboxRoot.react17.test.tsx, by its end state (checkbox §16 Q10: generated ids are drawn eagerly, so the
+        // server markup already carries them): after hydration the item's label points at the box's labelable element.
+        const fixture = await gotoFixture(page, mode, 'checkbox-group-prerender');
+        const container = fixture.locator(`[data-case="associate-${nativeButton ? 'native' : 'input'}-member"]`);
+        const labelable = nativeButton ? box(container, 'fuji') : container.locator('input[type="checkbox"]');
+        await expect(labelable).toHaveAttribute('id', /.+/);
+        await expect(container.locator('[data-label]')).toHaveAttribute('for', (await labelable.getAttribute('id'))!);
+      });
     }
 
     for (const nativeButton of [false, true]) {
@@ -461,6 +471,155 @@ test.describe('<CheckboxGroup />', () => {
       await container.locator('[data-submit]').click();
 
       await expect(container).toHaveAttribute('data-submits', '1');
+    });
+  });
+  test.describe('Field.Error (track 1c)', () => {
+    async function gotoErrors(page: Page, mode: RenderMode, name: string): Promise<Locator> {
+      const fixture = await gotoFixture(page, mode, 'checkbox-group-errors');
+      await expect(fixture).toHaveAttribute('data-attached', 'true');
+      return fixture.locator(`[data-case="${name}"]`);
+    }
+
+    test('keeps a required error while another required checkbox in the group is unchecked', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'keeps-required');
+      const checkboxes = container.locator('[data-testid="checkbox"]');
+      const error = container.locator('[data-testid="error"]');
+
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveText('required');
+
+      // Checking only one of the two required checkboxes must not clear the error.
+      await checkboxes.nth(1).click();
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveText('required');
+
+      await checkboxes.nth(0).click();
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveCount(0);
+    });
+
+    test('ignores a disabled required checkbox when validating the group', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'disabled-required');
+      const error = container.locator('[data-testid="error"]');
+
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveText('required');
+
+      await box(container, 'cb-enabled').click();
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveCount(0);
+    });
+
+    test('keeps validating the remaining required checkbox after a checked sibling unmounts', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'remaining-required');
+      const error = container.locator('[data-testid="error"]');
+
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveText('required');
+
+      await box(container, 'checkbox-https').click();
+      await container.locator('[data-remove]').click();
+      await expect(box(container, 'checkbox-https')).toHaveCount(0);
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveText('required');
+
+      await box(container, 'checkbox-http').click();
+      await container.locator('[data-submit]').click();
+      await expect(error).toHaveCount(0);
+    });
+
+    test('focuses the first checkbox when the field receives an error from Form', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'first-on-error');
+      const error = container.locator('[data-testid="error"]');
+      await expect(error).toHaveCount(0);
+
+      await container.locator('[data-submit]').click();
+
+      const checkbox1 = boxes(container).first();
+      await expect(checkbox1).toBeFocused();
+      await expect(checkbox1).toHaveAttribute('aria-invalid', 'true');
+      await expect(error).toHaveText('server error');
+    });
+
+    test('focuses the invalid checkbox when a later checkbox in the group fails validation', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'later-invalid');
+
+      await container.locator('[data-submit]').click();
+
+      await expect(container.locator('[data-testid="error"]')).toHaveText('required');
+      await expect(container.locator('[data-testid="checkbox"]').nth(1)).toBeFocused();
+    });
+
+    test('skips a checkbox disabled by a fieldset when focusing Form errors', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'fieldset-skip');
+
+      await container.locator('[data-submit]').click();
+
+      await expect(box(container, 'enabled')).toBeFocused();
+      await expect(box(container, 'disabled')).not.toBeFocused();
+    });
+
+    test('focuses a remaining checkbox when Form errors unmount the first checkbox', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'unmount-first');
+
+      await container.locator('[data-submit]').click();
+
+      await expect(box(container, 'first')).toHaveCount(0);
+      await expect(box(container, 'second')).toBeFocused();
+    });
+
+    test('clears a custom error when an inputless group becomes valid after submission', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'inputless-clears');
+
+      await container.locator('[data-submit]').click();
+      await expect(container.getByText('required', { exact: true })).toBeVisible();
+
+      await container.locator('[data-remove]').click();
+      await expect(boxes(container)).toHaveCount(0);
+      await container.locator('[data-select]').click();
+      await expect(container.getByText('required', { exact: true })).toHaveCount(0);
+
+      await container.locator('[data-submit]').click();
+      await expect(container).toHaveAttribute('data-submits', '1');
+    });
+
+    test('skips a disabled representative checkbox on a later focus attempt', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'disabled-representative');
+
+      await container.locator('[data-submit]').click();
+      await expect(box(container, 'first')).toBeFocused();
+
+      await container.locator('[data-disable-first]').click();
+      await expect(box(container, 'first')).toHaveAttribute('data-disabled', '');
+      await container.locator('[data-submit]').click();
+
+      await expect(box(container, 'second')).toBeFocused();
+    });
+
+    test('focuses the first child checkbox instead of a parent checkbox for Form errors', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'parent-skip');
+
+      await container.locator('[data-submit]').click();
+
+      await expect(box(container, 'first')).toBeFocused();
+      await expect(box(container, 'parent')).not.toBeFocused();
+    });
+
+    test('appends the id attribute of the error to aria-describedby of individual checkboxes', async ({ page, mode }) => {
+      const container = await gotoErrors(page, mode, 'error-described');
+      const error = container.locator('[data-testid="error"]');
+      await expect(error).toHaveCount(1);
+
+      const describedBy = await boxes(container).first().getAttribute('aria-describedby');
+      expect(describedBy).toContain(await error.getAttribute('id'));
+      expect(describedBy).toContain(await container.locator('[data-testid="description"]').getAttribute('id'));
+    });
+
+    test('sets grouped parent native input state when manually indeterminate', async ({ page, mode }) => {
+      // CheckboxRoot.test.tsx (CHK-DOM-13): the parent's hidden input carries the indeterminate property.
+      const container = await gotoErrors(page, mode, 'manual-indeterminate');
+
+      await expect(container.locator('[data-testid="parent"] + input[type="checkbox"]')).toHaveJSProperty('indeterminate', true);
     });
   });
 });

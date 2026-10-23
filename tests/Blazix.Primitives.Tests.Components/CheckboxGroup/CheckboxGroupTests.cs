@@ -81,6 +81,78 @@ public sealed class CheckboxGroupTests : IDisposable
         Assert.Equal(["group=0", "parent=1", "a=0", "b=0", "c=1"], renders.Select(entry => $"{entry.Key}={entry.Value - before[entry.Key]}"));
     }
 
+    [Fact(DisplayName = "assigns a root id to a valueless native button in a parent checkbox group")]
+    [Trait("Requirement", "CHK-DOM-01")]
+    [Trait("Requirement", "CHK-EDGE-12")]
+    public void Assigns_a_root_id_to_a_valueless_native_button_in_a_parent_checkbox_group()
+    {
+        IRenderedComponent<CheckboxGroup> cut = Context.Render<CheckboxGroup>(p => p
+            .Add(x => x.AllValues, ["one"])
+            .AddChildContent<CheckboxRoot>(b => b
+                .Add(x => x.NativeButton, true)
+                .Add(x => x.Render, (RenderFragment)(r =>
+                {
+                    r.OpenElement(0, "button");
+                    r.CloseElement();
+                }))));
+
+        Assert.False(string.IsNullOrEmpty(cut.Find("[role=checkbox]").GetAttribute("id")));
+    }
+
+    [Fact(DisplayName = "assigns an input id to a valueless child in a parent checkbox group")]
+    [Trait("Requirement", "CHK-DOM-15")]
+    [Trait("Requirement", "CHK-EDGE-12")]
+    public void Assigns_an_input_id_to_a_valueless_child_in_a_parent_checkbox_group()
+    {
+        IRenderedComponent<CheckboxGroup> cut = Context.Render<CheckboxGroup>(p => p
+            .Add(x => x.AllValues, ["one"])
+            .AddChildContent<CheckboxRoot>());
+
+        Assert.False(string.IsNullOrEmpty(cut.Find("input[type=checkbox]").GetAttribute("id")));
+    }
+
+    [Theory(DisplayName = "wires parent aria-controls once the fallback ids are assigned (nativeButton=%s)")]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Requirement", "CHK-ARIA-12")]
+    [Trait("Requirement", "CHK-EDGE-10")]
+    public void Wires_parent_aria_controls_once_the_fallback_ids_are_assigned(bool nativeButton)
+    {
+        // CheckboxRoot.react17.test.tsx, translated by its end state (checkbox §16 Q10: generated ids are drawn eagerly).
+        RenderFragment Box(string testId, string? value) => b =>
+        {
+            b.OpenComponent<CheckboxRoot>(0);
+            b.AddAttribute(1, "data-testid", testId);
+            b.AddComponentParameter(2, nameof(CheckboxRoot.Parent), value is null);
+            b.AddComponentParameter(3, nameof(CheckboxRoot.Value), value);
+            b.AddComponentParameter(4, nameof(CheckboxRoot.NativeButton), nativeButton);
+            if (nativeButton)
+            {
+                b.AddComponentParameter(5, nameof(CheckboxRoot.Render), (RenderFragment)(r =>
+                {
+                    r.OpenElement(0, "button");
+                    r.CloseElement();
+                }));
+            }
+
+            b.CloseComponent();
+        };
+        IRenderedComponent<FieldRoot> cut = Context.Render<FieldRoot>(p => p
+            .Add(x => x.Name, "apple")
+            .AddChildContent<CheckboxGroup>(g => g
+                .Add(x => x.AllValues, ["fuji", "gala"])
+                .AddChildContent(b =>
+                {
+                    b.AddContent(0, Box("parent", null));
+                    b.AddContent(1, Box("fuji", "fuji"));
+                    b.AddContent(2, Box("gala", "gala"));
+                })));
+
+        Assert.Equal(
+            $"{cut.Find("[data-testid=fuji]").GetAttribute("id")} {cut.Find("[data-testid=gala]").GetAttribute("id")}",
+            cut.Find("[data-testid=parent]").GetAttribute("aria-controls"));
+    }
+
     [Fact(DisplayName = "is forwarded to the root element")]
     [Trait("Requirement", "CKG-API-06")]
     [Trait("Requirement", "CKG-DOM-01")]

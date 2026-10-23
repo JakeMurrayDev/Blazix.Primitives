@@ -4,9 +4,8 @@ using Bunit;
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
 namespace Blazix.Primitives.Tests.Components;
 
-// CheckboxRoot.test.tsx's Form titles (CHK-FRM-08, CHK-FRM-12, CHK-FRM-13, CHK-FOC-06, CHK-API-10), now that Form is on
-// main. A submission is the module's report of the state it read from every enrolled hidden input; Field.Error is not on
-// main (PR 1c), so the field's verdict is read from the root's aria-invalid.
+// CheckboxRoot.test.tsx's Form titles (CHK-FRM-08, CHK-FRM-12, CHK-FRM-13, CHK-FOC-06, CHK-API-10), with Form and
+// Field.Error on main. A submission is the module's report of the state it read from every enrolled hidden input.
 /// <summary>A box in a field inside a form: submission, revalidation after it, and the form's errors.</summary>
 public sealed class CheckboxFormTests : IDisposable
 {
@@ -46,13 +45,28 @@ public sealed class CheckboxFormTests : IDisposable
         Assert.Null(Invalid());
     }
 
+    [Fact(DisplayName = "triggers native HTML validation on submit")]
+    [Trait("Requirement", "CHK-FRM-08")]
+    [Trait("Requirement", "CHK-API-10")]
+    public async Task Triggers_native_HTML_validation_on_submit()
+    {
+        IRenderedComponent<CheckboxFormHost> cut = test.Context.Render<CheckboxFormHost>(p => p
+            .Add(x => x.FieldName, "test")
+            .Add(x => x.Required, true)
+            .Add(x => x.ErrorMatch, true));
+        Assert.Empty(cut.FindAll("[data-testid=error]"));
+
+        await test.SubmitAsync(cut, _ => s_missing);
+
+        Assert.Equal("required", cut.Find("[data-testid=error]").TextContent);
+    }
+
     [Fact(DisplayName = "port: a required box blocks the submit of its form, which focuses the root")]
     [Trait("Requirement", "CHK-FRM-08")]
     [Trait("Requirement", "CHK-FOC-06")]
     [Trait("Requirement", "CHK-API-10")]
     public async Task Port_a_required_box_blocks_the_submit_of_its_form()
     {
-        // "triggers native HTML validation on submit" without its Field.Error clause, which waits for PR 1c.
         IRenderedComponent<CheckboxFormHost> cut = test.Context.Render<CheckboxFormHost>(p => p.Add(x => x.FieldName, "test").Add(x => x.Required, true));
 
         FormSubmitAnswer answer = await test.SubmitAsync(cut, _ => s_missing);
@@ -82,15 +96,19 @@ public sealed class CheckboxFormTests : IDisposable
     [Trait("Requirement", "CHK-ARIA-11")]
     public async Task Clears_external_errors_on_change()
     {
-        // The Field.Error clause waits for PR 1c; the aria-invalid clause is the field's state.
         IRenderedComponent<CheckboxFormHost> cut = test.Context.Render<CheckboxFormHost>(p => p
             .Add(x => x.FieldName, "test")
             .Add(x => x.Errors, new FormErrors { ["test"] = "test" }));
         Assert.Equal("true", cut.Find("[data-testid=checkbox]").GetAttribute("aria-invalid"));
+        Assert.Equal("test", cut.Find("[data-testid=error]").TextContent);
 
         await ToggleAsync(cut, true);
 
         Assert.Null(cut.Find("[data-testid=checkbox]").GetAttribute("aria-invalid"));
+
+        // The error unmounts when its exit transitions end, which the transitions module reports.
+        await test.CompleteExitAsync(cut);
+        Assert.Empty(cut.FindAll("[data-testid=error]"));
     }
 
     // A toggle, then the hidden input's refresh answered with the validity its new value has.

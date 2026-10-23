@@ -94,6 +94,7 @@ public static class FixtureCatalog
         ["checkbox-group-field"] = new(typeof(CheckboxGroupFieldFixture)),
         ["checkbox-group-prerender"] = new(typeof(CheckboxGroupPrerenderFixture), Prerender: true),
         ["checkbox-group-form"] = new(typeof(CheckboxGroupFormFixture)),
+        ["checkbox-group-errors"] = new(typeof(CheckboxGroupErrorsFixture)),
         ["radio-standalone"] = new(typeof(RadioStandaloneFixture)),
         ["radio-native-button"] = new(typeof(RadioNativeButtonFixture)),
         ["radio-indicator"] = new(typeof(RadioIndicatorFixture)),
