@@ -469,6 +469,43 @@ test.describe('Accordion relaxations (ACC §9)', () => {
     expect(hiddenAt).toBeLessThanOrEqual(removedAt);
   });
 
+  test('the panel status report costs one Server message per status change', async ({ page, mode }) => {
+    // Design point D1 (option (a), settled by the orchestrator 2026-10-26): switching items opens one panel ('idle' after its
+    // starting frame) and closes the other ('ending'); the starting of the opened panel and the unset status at the end of the
+    // exit are C#'s own and are never sent. Counted on the circuit's WebSocket.
+    test.skip(mode !== 'server', 'the messages exist on Server only');
+    const sent: string[] = [];
+    await page.routeWebSocket(/_blazor/, (socket) => {
+      const server = socket.connectToServer();
+      socket.onMessage((message) => {
+        // The circuit's frames are SignalR messages, text or binary.
+        const text = typeof message === 'string' ? message : message.toString('utf8');
+        if (text.includes('OnPanelStatusChange')) {
+          sent.push(text);
+        }
+        server.send(message);
+      });
+      server.onMessage((message) => socket.send(message));
+    });
+    const fixture = await gotoAccordion(page, mode, 'accordion-css-transition', { animations: true });
+    const { container } = accordionCase(fixture, 'switching');
+    const panel1 = container.getByTestId('panel-1');
+    const panel2 = container.getByTestId('panel-2');
+    await expect.poll(() => panel1.evaluate((node) => node.style.getPropertyValue('--accordion-panel-height'))).toBe('auto');
+    expect(sent).toEqual([]);
+
+    await container.getByRole('button', { name: 'Trigger 2' }).click();
+    await expect(panel1).toHaveAttribute('hidden');
+    await expect.poll(() => panel2.evaluate((node) => node.style.getPropertyValue('--accordion-panel-height'))).toBe('auto');
+    await settle(fixture);
+
+    // A frame can carry several invocations (SignalR's record separator), so every report in it is counted.
+    const statuses = sent.flatMap((frame) => [...frame.matchAll(/OnPanelStatusChange[^\u001e]*?status\\*":\\*"(\w+)/g)].map((match) => match[1]!)).sort();
+    await test.info().attach('accordion-status-messages.json', { body: JSON.stringify({ frames: sent.length, statuses }), contentType: 'application/json' });
+    console.log(`Accordion status reports per switch: ${JSON.stringify({ frames: sent.length, statuses })}`);
+    expect(statuses).toEqual(['ending', 'idle']);
+  });
+
   test('a new panel element shows its starting look until its module attaches', async ({ page, mode }) => {
     // The ADR 01 row of 2026-10-21 for a panel element that the opening render creates: on WebAssembly the module attaches
     // in the same task; on Server, with latency, the new element keeps data-starting-style for about a round trip.
