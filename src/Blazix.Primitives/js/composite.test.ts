@@ -2282,8 +2282,9 @@ describe('composite active-item follow (port)', () => {
     // item's evaluation that follows only clears its mark.
     keyDown(item1!, 'ArrowRight');
     expect(item3!.getAttribute('tabindex')).toBe('0');
-    button.focus();
+    // The module focuses the item a microtask later; focus leaves the root again.
     await flushMicrotasks();
+    button.focus();
     expect(item3!.getAttribute('tabindex')).toBe('0');
 
     item1!.removeAttribute(ACTIVE_COMPOSITE_ITEM);

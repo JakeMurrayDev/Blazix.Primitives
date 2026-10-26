@@ -7,9 +7,9 @@
 // RDG-FOC-04/05). M3 track 1 (ADR 04 Amendments 2026-10-26, chosen by the user) adds the items' `disabled` and
 // `focusableWhenDisabled` flags with the indices derived from them (CMP-STA-08, CMP-STA-29, CMP-KEY-08) and the items
 // report, `onMapChange` as ids in index order (CMP-EVT-03), and a registration-only mode for a root-less list that keeps
-// the registry and the report and nothing else (CMP-STR-03). Not built: grid, `onLoop`, the keyed registry (CMP §10 Q1),
-// the keyboard relay (CMP-KEY-14), a consumer-owned highlight (M3), list navigation and typeahead (M5), labels and
-// `guess` (M5).
+// the registry and the report and nothing else (CMP-STR-03), and TabsList's highlight that follows the item marked active
+// (CMP-STA-22, CMP-EDGE-09). Not built: grid, `onLoop`, the keyed registry (CMP §10 Q1), the keyboard relay
+// (CMP-KEY-14), a consumer-owned highlight beyond the follow, list navigation and typeahead (M5), labels and `guess` (M5).
 // Transcribed from Base UI v1.9.0: internals/composite/{composite,constants}.ts, root/useCompositeRoot.ts,
 // root/CompositeRoot.tsx, item/useCompositeItem.ts, list/CompositeList.tsx, list/useCompositeListItem.ts;
 // floating-ui-react/utils/composite.ts; radio-group/RadioGroup.tsx:205-245 and radio/root/RadioRoot.tsx:156-166.
@@ -21,7 +21,7 @@
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
 import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
-import { contains, getTarget, isElement, isHTMLElement, ownerDocument } from './dom';
+import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument } from './dom';
 import { eventInfo } from './event-info';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
 
@@ -788,6 +788,11 @@ export interface CompositeOptions extends TwinOptions {
    * the order, and installs no listener, writes no `tabindex` and keeps no highlight.
    */
   registrationOnly?: boolean | undefined;
+  /**
+   * Whether the highlight follows the item marked active when focus is outside the root and the item's `disabled` flag
+   * is off, except once after a keydown on that item; the re-validation against the disabled indices does not run.
+   */
+  followActiveItem?: boolean | undefined;
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
@@ -795,6 +800,13 @@ const attachedHandle = Symbol('blazix.composite.handle');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
+}
+
+/** What the follow last saw of one item: the dependencies of its evaluation. */
+interface FollowState {
+  active: boolean;
+  index: number;
+  disabled: boolean;
 }
 
 interface AttachedItem {
@@ -844,6 +856,15 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   let derivedDisabledIndices: number[] = [];
   // CMP-EVT-03 (M3 track 1, E2): the id sequence last reported, so a publication that keeps it reports nothing.
   let reportedIds: string[] | null = null;
+  // CMP-STA-22's consumer-owned clause as TabsList uses it (M3 track 1, E5): what each item's last evaluation saw, the
+  // highlight it saw, the items a keydown reached since their last evaluation (TabsTab.tsx's `isNavigatingRef`), and the
+  // observer of the marker.
+  let followStates = new Map<Element, FollowState>();
+  let followedHighlight: number | null = null;
+  const navigating = new Set<Element>();
+  let markerObserver: MutationObserver | null = null;
+  let following = false;
+  let followAgain = false;
   // CMP-STA-22: the root owns the highlight, initially 0, which is also the value C# mirrors before any report.
   let highlightedIndex = 0;
   let highlightedElement: HTMLElement | null = null;
@@ -904,7 +925,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   // first enabled index, after the first publication.
   const revalidateHighlight = (): void => {
     const disabledIndices = disabledIndicesOf(options);
-    if (disabledIndices == null || !defaultIndexSet) {
+    // CMP-EDGE-09: a highlight that follows the active item is the consumer's, so it is not re-validated.
+    if (disabledIndices == null || !defaultIndexSet || options.followActiveItem) {
       return;
     }
     const elements = registry.elements;
@@ -913,6 +935,77 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       if (!isIndexOutOfListBounds(elements, firstEnabledIndex)) {
         setHighlightedIndex(firstEnabledIndex, false);
       }
+    }
+  };
+
+  // TabsTab.tsx:83-109, run for each item whose dependencies changed since its last run: the marker, its index, the
+  // highlight, its `disabled` flag. A keydown on the item since then only clears that mark. Otherwise a marked item whose
+  // index differs from the highlight takes it, without scrolling, when focus is outside the root (across shadow roots)
+  // and its `disabled` flag is off (design point 5, option (b), pending the user). A highlight change made here runs
+  // the items again, as Base UI's effects run again on the new highlighted index.
+  function evaluateFollow(): void {
+    if (!options.followActiveItem || registrationOnly || !defaultIndexSet) {
+      return;
+    }
+    if (following) {
+      followAgain = true;
+      return;
+    }
+    following = true;
+    try {
+      do {
+        followAgain = false;
+        followPass();
+      } while (followAgain);
+    } finally {
+      following = false;
+    }
+  }
+
+  function followPass(): void {
+    const highlightChanged = followedHighlight !== highlightedIndex;
+    followedHighlight = highlightedIndex;
+    const next = new Map<Element, FollowState>();
+    registry.elements.forEach((element, index) => {
+      if (!element) {
+        return;
+      }
+      const state: FollowState = {
+        active: element.hasAttribute(ACTIVE_COMPOSITE_ITEM),
+        index,
+        disabled: itemsByElement.get(element)?.disabled ?? false,
+      };
+      next.set(element, state);
+      const previous = followStates.get(element);
+      if (!highlightChanged && previous && previous.active === state.active && previous.index === index && previous.disabled === state.disabled) {
+        return;
+      }
+      if (navigating.delete(element)) {
+        return;
+      }
+      if (!state.active || index === highlightedIndex) {
+        return;
+      }
+      const focused = activeElement(ownerDocument(root));
+      if (focused && contains(root, focused)) {
+        return;
+      }
+      if (!state.disabled) {
+        setHighlightedIndex(index, false);
+      }
+    });
+    followStates = next;
+  }
+
+  // Design point 4, option (a), pending the user: a change of the marker in the applied batch, pre-paint on both modes.
+  const syncMarkerObserver = (): void => {
+    const wanted = options.followActiveItem === true && !registrationOnly && typeof MutationObserver === 'function';
+    if (wanted && !markerObserver) {
+      markerObserver = new MutationObserver(() => evaluateFollow());
+      markerObserver.observe(root, { subtree: true, attributes: true, attributeFilter: [ACTIVE_COMPOSITE_ITEM] });
+    } else if (!wanted && markerObserver) {
+      markerObserver.disconnect();
+      markerObserver = null;
     }
   };
 
@@ -930,6 +1023,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     reportHighlightChange();
     if (changed) {
       revalidateHighlight();
+      evaluateFollow();
     }
   }
 
@@ -975,6 +1069,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     if (options.deriveDisabledIndices) {
       revalidateHighlight();
     }
+
+    // E5: a publication changes the items' indexes, and may register a marked item.
+    evaluateFollow();
   });
 
   // CMP-ALG-18, CMP-STA-23..28.
@@ -1091,6 +1188,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (options.selectOnNavigation && typeof event.key === 'string' && event.key.startsWith('Arrow')) {
       pendingNavigation = true;
+    }
+    // E5: TabsTab.tsx's capture-phase `isNavigatingRef`, set by any keydown that reaches the item.
+    if (options.followActiveItem) {
+      const item = itemOf(event);
+      if (item) {
+        navigating.add(item);
+      }
     }
   };
 
@@ -1292,6 +1396,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   if (!registrationOnly) {
     writeTabIndexes();
   }
+  syncMarkerObserver();
 
   const handle: TwinHandle = {
     update(nextOptionsJson: string) {
@@ -1314,6 +1419,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       if (!sameIndices(previousDisabledIndices, disabledIndicesOf(options))) {
         revalidateHighlight();
       }
+      // E5: a flag change re-runs the follow for the items it changed.
+      syncMarkerObserver();
+      evaluateFollow();
       reportHighlightChange();
     },
     dispose() {
@@ -1325,6 +1433,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       for (const [type, listener, capture] of listeners) {
         root.removeEventListener(type, listener, capture);
       }
+      markerObserver?.disconnect();
+      markerObserver = null;
       registry.dispose();
       items = new Map();
     },
