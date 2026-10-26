@@ -1,0 +1,30 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+
+@*
+    One case of a Tabs fixture (tests/browser/tabs.spec.ts): the record of TabsCase as data attributes, around the case's
+    content, with native buttons before and after it so a spec can focus them and press Tab.
+*@
+<div data-case="@Name"
+     data-changes="@Case.Changes"
+     data-list-keydowns="@Case.ListKeyDowns"
+     data-tab-keydowns="@Case.TabKeyDowns"
+     data-clicks="@Case.Clicks"
+     data-focuses="@Case.Focuses"
+     data-pointerdowns="@Case.PointerDowns"
+     data-last-change="@Case.LastChange"
+     data-log="@Case.Log">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+    <button type="button" data-after>After</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required TabsCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
