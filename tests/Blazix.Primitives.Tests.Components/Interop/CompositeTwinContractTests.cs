@@ -136,6 +136,16 @@ public sealed class CompositeTwinContractTests
         Assert.DoesNotContain("registrationOnly", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
+    // M3 track 1, E5 (ADR 04 Amendments 2026-10-26, chosen by the user): the active-item follow, sent only when set.
+    [Fact]
+    [Trait("Requirement", "CMP-STA-22")]
+    [Trait("Requirement", "CMP-EDGE-09")]
+    public void FollowActiveItem_is_sent_only_when_set()
+    {
+        Assert.Contains("\"followActiveItem\":true", JsonSerializer.Serialize(new CompositeOptions { FollowActiveItem = true }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("followActiveItem", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-API-01")]
     [Trait("Requirement", "CMP-API-02")]
