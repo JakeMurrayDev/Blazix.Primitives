@@ -147,7 +147,7 @@ Attributes on the single rendered element. "Composite" below means the toggle is
 | `aria-pressed` | `"true"` / `"false"`, always present | TGL-ARIA-01 | C# |
 | `type` | `"button"` when `nativeButton` is `true` (consumer `type` cannot override) | TGL-DOM-04 | C# |
 | `role` | `"button"` when `nativeButton` is `false`; none otherwise | TGL-DOM-04 | C# |
-| `tabindex` | standalone: `"0"` (`"-1"` when disabled and non-native); composite: `"0"` for the item holding the tab stop, `"-1"` otherwise | TGL-DOM-05 | C# |
+| `tabindex` | standalone: `"0"` (`"-1"` when disabled and non-native); composite: `"0"` for the item holding the tab stop, `"-1"` otherwise | TGL-DOM-05 | C# (standalone); C# → JS (in a group/toolbar, from attach) |
 | `disabled` | present per TGL-ARIA-02 matrix | TGL-ARIA-02 | C# |
 | `aria-disabled` | `"true"` / `"false"` / absent per TGL-ARIA-02 matrix | TGL-ARIA-02 | C# |
 | `data-pressed` | `""` while pressed | TGL-DOM-02 | C# |
@@ -164,6 +164,7 @@ Attributes on the single rendered element. "Composite" below means the toggle is
   Source: `toggle/Toggle.tsx:34,68-71`; `internals/use-button/useButton.ts:226`. Test: [L2] `Toggle.test.tsx` conformance suite "with a non-native button".
 - **TGL-DOM-05** — MUST. Standalone (no composite root ancestor), the element MUST carry `tabindex="0"`, or `tabindex="-1"` when disabled in non-native mode ([UBT-DOM-03](../architecture/button-behavior.md), [UBT-DOM-04](../architecture/button-behavior.md)). Inside a ToggleGroup the element MUST carry the roving value: `"0"` when the toggle's index equals the group's highlighted index, `"-1"` otherwise ([CMP-DOM-01](../architecture/composite-and-list-navigation.md)); the button mechanism emits no `tabindex` in composite mode ([UBT-DOM-05](../architecture/button-behavior.md)).
   Source: `toggle/Toggle.tsx:68-71,123-135`; `utils/useFocusableWhenDisabled.ts:30-36`; `internals/composite/item/useCompositeItem.ts:19,25`. Test: [L2] `Toggle.test.tsx` "should pass composite props" (`tabIndex: 0` on the only item); `ToggleGroup.test.tsx` "$direction, orientation: $orientation moves focus with arrow keys" (`tabindex="0"` follows focus).
+  Port note 2026-10-26 (ADR 04 Amendments 2026-10-22: the `composite` module owns every item's roving `tabindex` from attach; the cell text chosen by the user 2026-10-26, M3 plan §Settled; conventions §3.4, §3.5): the `Writer` cell of §5.1 reads `C# (standalone); C# → JS (in a group/toolbar, from attach)`, the `radio.md` §5.1 precedent. C# renders the standalone values and `-1` on a grouped toggle (CMP-STA-15), unchanged afterwards; the module writes the roving value from attach. The ownership registry has the row (toggle, Toggle, `tabindex`, C# → JS).
 - **TGL-DOM-06** — MUST. A consumer-supplied attribute with the same name as a built-in one (`aria-pressed`, `role`, `tabIndex`, `disabled`, `aria-disabled`, `data-*`) MUST win ([RND-DOM-19](../architecture/rendering-and-composition.md), [UBT-DOM-09](../architecture/button-behavior.md)); `type` is the single exception (TGL-DOM-04).
   Source: `toggle/Toggle.tsx:79-107` (`elementProps` merged after the built-in attributes and passed through the button props resolver). Test: [L2] `Toggle.test.tsx` conformance suite "Base UI component API" (prop forwarding).
 
