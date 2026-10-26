@@ -19,6 +19,14 @@ namespace Blazix.Primitives;
 // that only removes items runs no item's after-render, so an item's removal makes the root render, unless it already
 // rendered in that batch, and the root's after-render sends the change.
 //
+// Two items on one element (CMP-STR-04; ADR 04 Amendments 2026-10-26, chosen by the user): an outer item whose element is
+// an inner item, as a Toolbar.Button substituting a Toggle. Base UI's outer item attaches its ref last and the last
+// registration wins (CompositeItem.tsx:28-31). Blazor sets parameters parent before child, so the outer item registers
+// first and the root sends the first registration per id: the inner item's registration, its flags and the tabindex
+// the outer item put in its bag are never sent for that id, and a change to the inner item alone changes nothing sent.
+// When the outer item is removed, the inner item's registration becomes the first. FindItem returns the first item too,
+// so the key path runs the outer item's consumer onkeydown.
+//
 // The consumer's onkeydown (CMP-EVT-12): Base UI merges it before the root's handler, so a PreventPartHandler() there
 // vetoes the key handling (EVD-EVT-26). The part declines it (ForwardsConsumerHandler, ADR 02 Amendments 2026-10-21) and
 // runs it from its own handler; on WebAssembly the decision point `navigate` runs it inside the dispatch, and Blazor's
@@ -346,14 +354,19 @@ internal sealed class CompositeRootBehavior : IDisposable
     internal void Register(CompositeItemBehavior item)
     {
         items.Add(item);
-        itemsVersion++;
+        if (IsFirstWithId(item, item.Registration.Id))
+        {
+            itemsVersion++;
+        }
     }
 
     /// <summary>Removes an item from the registry; the root renders unless it already rendered in this batch.</summary>
     /// <param name="item">The item.</param>
     internal void Unregister(CompositeItemBehavior item)
     {
-        if (!items.Remove(item))
+        // An item behind another registration of its id was never sent, so its removal changes nothing sent.
+        bool sent = IsFirstWithId(item, item.Registration.Id);
+        if (!items.Remove(item) || !sent)
         {
             return;
         }
@@ -367,7 +380,15 @@ internal sealed class CompositeRootBehavior : IDisposable
     }
 
     /// <summary>Records that a registered item changed its id, its consumer <c>tabindex</c> or its flags.</summary>
-    internal void RegistrationChanged() => itemsVersion++;
+    /// <param name="item">The item, whose registration is already the new one.</param>
+    /// <param name="previousId">The id of the item's previous registration.</param>
+    internal void RegistrationChanged(CompositeItemBehavior item, string previousId)
+    {
+        if (IsFirstWithId(item, previousId) || IsFirstWithId(item, item.Registration.Id))
+        {
+            itemsVersion++;
+        }
+    }
 
     /// <summary>Records that a registered item rendered a new element under the same id, which the module must resolve again.</summary>
     internal void ElementReplaced() => elementReplaced = true;
@@ -448,6 +469,25 @@ internal sealed class CompositeRootBehavior : IDisposable
         return false;
     }
 
+    // Whether no item registered before this one carries the id, so the root sends this item's registration for it.
+    private bool IsFirstWithId(CompositeItemBehavior item, string id)
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (ReferenceEquals(items[i], item))
+            {
+                return true;
+            }
+
+            if (string.Equals(items[i].Registration.Id, id, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private CompositeItemBehavior? FindItem(string? id)
     {
         if (string.IsNullOrEmpty(id))
@@ -479,13 +519,27 @@ internal sealed class CompositeRootBehavior : IDisposable
         return created;
     }
 
-    // The lists are copied, so a part that mutates its list in place still sends the change.
+    // The lists are copied, so a part that mutates its list in place still sends the change. One registration per id, the
+    // first (the outer item's).
     private CompositeOptions BuildOptions()
     {
-        CompositeItemRegistration[] registrations = new CompositeItemRegistration[items.Count];
+        int count = 0;
         for (int i = 0; i < items.Count; i++)
         {
-            registrations[i] = items[i].Registration;
+            if (IsFirstWithId(items[i], items[i].Registration.Id))
+            {
+                count++;
+            }
+        }
+
+        CompositeItemRegistration[] registrations = new CompositeItemRegistration[count];
+        int next = 0;
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (IsFirstWithId(items[i], items[i].Registration.Id))
+            {
+                registrations[next++] = items[i].Registration;
+            }
         }
 
         CompositeOptions options = new()

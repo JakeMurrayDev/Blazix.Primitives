@@ -97,8 +97,9 @@ internal sealed class CompositeItemBehavior : IDisposable
             || Registration.Disabled != disabled
             || Registration.FocusableWhenDisabled != focusableWhenDisabled)
         {
+            string previousId = Registration.Id;
             Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
-            root.RegistrationChanged();
+            root.RegistrationChanged(this, previousId);
         }
     }
 
@@ -119,7 +120,7 @@ internal sealed class CompositeItemBehavior : IDisposable
 
         if (registered && had != HasKeyHandler)
         {
-            root.RegistrationChanged();
+            root.RegistrationChanged(this, Registration.Id);
         }
     }
 
