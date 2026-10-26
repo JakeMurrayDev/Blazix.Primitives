@@ -2179,18 +2179,13 @@ describe('composite registration-only list (port)', () => {
 // --- port titles: the highlight that follows the active item (M3 track 1, E5) ------------------------------------------
 // ADR 04 Amendments 2026-10-26 (chosen by the user): TabsList's consumer-owned highlight (CMP-STA-22, TAB-STA-19) becomes
 // an option of the module. Each item is evaluated as `TabsTab.tsx:83-109`'s effect is, when one of its dependencies changes
-// (the marker, its index, the highlight, its `disabled` flag): a keydown on the item since its last evaluation only clears
+// (the marker, its index, the highlight, its `aria-disabled`): a keydown on the item since its last evaluation only clears
 // that mark; otherwise a marked item whose index differs from the highlight takes it, without scrolling, when focus is
-// outside the root and its `disabled` flag is off. A marker change is seen by a `MutationObserver` on the root (design
-// point 4, option (a)); the `disabled` flag is the registration's (design point 5, option (b)); both pending the user.
+// outside the root and it is not `aria-disabled="true"`. A marker change is seen by a `MutationObserver` on the root
+// (design point 4, option (a)); `aria-disabled` is read from the applied batch (design point 5, option (a)); both settled
+// by the orchestrator 2026-10-26.
 
 describe('composite active-item follow (port)', () => {
-  type Flags = Pick<CompositeItemRegistration, 'disabled' | 'focusableWhenDisabled'>;
-
-  function flagged(elements: HTMLElement[], flags: Record<string, Flags> = {}): CompositeOptions['items'] {
-    return elements.map((element) => ({ id: element.id, tabIndex: null, ...flags[element.getAttribute('data-testid')!] }));
-  }
-
   function outside(): HTMLElement {
     const button = document.body.appendChild(document.createElement('button'));
     button.setAttribute('data-testid', 'outside');
@@ -2257,17 +2252,19 @@ describe('composite active-item follow (port)', () => {
     expect(document.activeElement).toBe(item1);
   });
 
-  it('does not follow a marked item whose disabled flag is set, and follows it once the flag is cleared', async () => {
+  // A disabled Tab renders `aria-disabled="true"` and never DOM `disabled` (TAB-DOM-10); the follow reads it from the
+  // applied batch, and a change of it runs the item again.
+  it('does not follow a marked item that is aria-disabled, and follows it once aria-disabled is removed', async () => {
     const button = outside();
-    const elements = [item('1'), item('2', { 'aria-disabled': 'true' }), item('3')];
-    const group = mountGroup(elements, { followActiveItem: true, disabledIndices: [], items: flagged(elements, { '2': { disabled: true } }) });
+    mountGroup([item('1'), item('2', { 'aria-disabled': 'true' }), item('3')], { followActiveItem: true, disabledIndices: [] });
     button.focus();
 
     mark('2');
     await flushMicrotasks();
     expect(byTestId('1')!.getAttribute('tabindex')).toBe('0');
 
-    group.update({ items: flagged(elements) });
+    byTestId('2').removeAttribute('aria-disabled');
+    await flushMicrotasks();
     expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
   });
 
