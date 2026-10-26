@@ -14,9 +14,13 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ToggleGroupRenderBudgetTests : IDisposable
 {
-    // First measurement pending (set by the commit that implements ToggleGroup).
-    private const long GroupRerenderBudgetBytes = 8192;
-    private const long SelectionBudgetBytes = 32768;
+    // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): 848 bytes for the re-render, which reaches no toggle
+    // (bUnit's parameterless Render() passes no parameter, so the cascade keeps its content); 29552 bytes for the click.
+    // The click's cost grows with the number of toggles in the group although only the two whose state changed render
+    // (ToggleGroupTests' render-count title): the same click costs 1568 bytes when the group cancels it, and 54176 bytes
+    // in a group of six, so the rest is bUnit's update of the group's markup after each render.
+    private const long GroupRerenderBudgetBytes = 848;
+    private const long SelectionBudgetBytes = 29552;
 
     private readonly ToggleTestContext test = new();
 
