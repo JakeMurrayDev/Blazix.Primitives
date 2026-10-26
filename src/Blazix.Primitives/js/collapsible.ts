@@ -50,10 +50,10 @@ export interface Dimensions {
   width: number | undefined;
 }
 
-/** The variable that carries the panel's measured height. */
+/** The variable that carries a Collapsible panel's measured height (`heightVariable` names another). */
 export const PANEL_HEIGHT = '--collapsible-panel-height';
 
-/** The variable that carries the panel's measured width. */
+/** The variable that carries a Collapsible panel's measured width (`widthVariable` names another). */
 export const PANEL_WIDTH = '--collapsible-panel-width';
 
 const EMPTY_DIMENSIONS: Dimensions = { height: undefined, width: undefined };
@@ -78,6 +78,10 @@ export interface CollapsibleOptions extends TwinOptions {
   panelId: string;
   /** The selector the element matches while C# renders it open (`[data-open]`). */
   openSelector?: string | null;
+  /** The variable that carries the measured height; absent for `--collapsible-panel-height`. Read when a session starts. */
+  heightVariable?: string | null;
+  /** The variable that carries the measured width; absent for `--collapsible-panel-width`. Read when a session starts. */
+  widthVariable?: string | null;
 }
 
 /**
@@ -253,6 +257,9 @@ interface SessionHost {
 // The session of an attached element: Base UI's `useCollapsiblePanel` for one element.
 function createElementSession(element: HTMLElement, initialOptions: CollapsibleOptions, host: SessionHost): Session {
   let options = initialOptions;
+  // Accordion's panel names its own variables (ACC-DOM-17); the Collapsible ones are then never written.
+  const heightVariable = options.heightVariable ?? PANEL_HEIGHT;
+  const widthVariable = options.widthVariable ?? PANEL_WIDTH;
   let disposed = false;
   let ready = false;
   let animationType: AnimationType | null = null;
@@ -336,8 +343,8 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
       !state.open && state.mounted && animationType === 'css-animation' && dimensions.height === undefined && dimensions.width === undefined
         ? lastMeasured
         : dimensions;
-    style.setBase(PANEL_HEIGHT, rendered.height === undefined ? 'auto' : `${rendered.height}px`);
-    style.setBase(PANEL_WIDTH, rendered.width === undefined ? 'auto' : `${rendered.width}px`);
+    style.setBase(heightVariable, rendered.height === undefined ? 'auto' : `${rendered.height}px`);
+    style.setBase(widthVariable, rendered.width === undefined ? 'auto' : `${rendered.width}px`);
     style.setBase('animation-name', state.open && suppressOpenAnimation ? 'none' : null);
   };
 
@@ -489,7 +496,7 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
       heldForClose = false;
       // The ending flip lands in the next frame's callback, before that frame computes styles, where React commits it in
       // a later task. Computing the style here makes the held pixel size the value the closing transition starts from.
-      ownerWindow(element).getComputedStyle(element).getPropertyValue(PANEL_HEIGHT);
+      ownerWindow(element).getComputedStyle(element).getPropertyValue(heightVariable);
     }
     armWatchers(machine);
   };
