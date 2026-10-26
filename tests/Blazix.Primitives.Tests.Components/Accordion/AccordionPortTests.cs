@@ -353,6 +353,43 @@ public sealed class AccordionPortTests : IDisposable
         Assert.False(panel.HasAttribute("role"));
     }
 
+    // Design point D5 (option (a), settled by the orchestrator 2026-10-26): the opt-in lives on the item's collapsible state,
+    // so a CollapsiblePanel inside an item reports its status too, and a CollapsibleTrigger there shows it.
+    [Fact(DisplayName = "port: a collapsible panel inside an item reports its status, which a collapsible trigger there shows")]
+    [Trait("Requirement", "ACC-EDGE-14")]
+    public void A_collapsible_panel_inside_an_item_reports_its_status()
+    {
+        TransitionStatus? seen = null;
+        IRenderedComponent<AccordionRoot<string>> cut = Context.Render<AccordionRoot<string>>(p => p
+            .AddChildContent<AccordionItem<string>>(item => item
+                .Add(x => x.Value, "a")
+                .AddChildContent<CollapsibleTrigger>(trigger => trigger.Add(x => x.ClassValue, (Func<CollapsibleTriggerState, string?>)(state =>
+                {
+                    seen = state.TransitionStatus;
+                    return null;
+                })))
+                .AddChildContent<CollapsiblePanel>(panel => panel.Add(x => x.KeepMounted, true))));
+        Assert.Contains("\"reportStatus\":true", host.AttachOptions(host.CollapsibleModule)[0], StringComparison.Ordinal);
+        cut.Find("button").Click();
+        Assert.Equal(TransitionStatus.Starting, seen);
+
+        cut.InvokeAsync(() => host.PanelTwins()[0].OnPanelStatusChange("""{"status":"idle"}"""));
+
+        Assert.Equal(TransitionStatus.Idle, seen);
+    }
+
+    [Fact(DisplayName = "port: a collapsible panel outside an accordion does not report its status")]
+    [Trait("Requirement", "ACC-EDGE-14")]
+    public void A_collapsible_panel_outside_an_accordion_does_not_report_its_status()
+    {
+        Context.Render<CollapsibleRoot>(p => p.AddChildContent<CollapsiblePanel>(panel => panel.Add(x => x.KeepMounted, true)));
+
+        // Collapsible's attach JSON is unchanged: the option is omitted.
+        string options = Assert.IsType<string>(Assert.Single(host.AttachOptions(host.CollapsibleModule)));
+        Assert.DoesNotContain("reportStatus", options, StringComparison.Ordinal);
+        Assert.Contains("\"openSelector\":\"[data-open]\"", options, StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "port: nested accordions are independent")]
     [Trait("Requirement", "ACC-STR-07")]
     public void Nested_accordions_are_independent()
