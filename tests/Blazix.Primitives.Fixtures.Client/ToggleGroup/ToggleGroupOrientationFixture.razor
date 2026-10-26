@@ -1,0 +1,40 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.ToggleFixtures
+@inherits ToggleFixtureBase
+
+@*
+    The `toggle-group-orientation` fixture (tests/browser/toggle-group.spec.ts): ToggleGroup.test.tsx's "$direction,
+    orientation: $orientation moves focus with arrow keys" pages, a group of three toggles inside a DirectionProvider per
+    (direction, orientation), between a button before and one after it. Each group also carries the opposite `dir`
+    attribute, which must not change the key mapping (TGG-EDGE-08).
+*@
+<FixtureContainer Name="toggle-group-orientation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-toggle] { display: inline-block; min-width: 2rem; min-height: 1rem; }</style>
+
+    @foreach ((string name, TextDirection direction, Orientation orientation) in s_cases)
+    {
+        <ToggleCaseFrame Name="@name" Case="@cases[name]">
+            <DirectionProvider Direction="direction">
+                <ToggleGroup @ref="Group" Orientation="orientation" dir="@(direction == TextDirection.Ltr ? "rtl" : "ltr")" data-group>
+                    <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">1</Toggle>
+                    <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">2</Toggle>
+                    <Toggle @ref="Toggle" Value="three" data-toggle data-value="three">3</Toggle>
+                </ToggleGroup>
+            </DirectionProvider>
+        </ToggleCaseFrame>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly (string Name, TextDirection Direction, Orientation Orientation)[] s_cases =
+    [
+        ("ltr-horizontal", TextDirection.Ltr, Orientation.Horizontal),
+        ("ltr-vertical", TextDirection.Ltr, Orientation.Vertical),
+        ("rtl-horizontal", TextDirection.Rtl, Orientation.Horizontal),
+        ("rtl-vertical", TextDirection.Rtl, Orientation.Vertical),
+    ];
+
+    private readonly Dictionary<string, ToggleCase> cases = s_cases.ToDictionary(c => c.Name, _ => new ToggleCase());
+}
