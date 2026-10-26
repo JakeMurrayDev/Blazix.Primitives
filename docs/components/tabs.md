@@ -367,17 +367,24 @@ All state data attributes are projected per [rendering-and-composition](../archi
 | Attribute | Value / present when | Req | Writer |
 |---|---|---|---|
 | `data-orientation` | `"horizontal"` \| `"vertical"`, always | TAB-DOM-01 | C# |
-| `data-activation-direction` | `"left"` \| `"right"` \| `"up"` \| `"down"` \| `"none"`, always | TAB-DOM-02 | C# |
+| `data-activation-direction` | `"left"` \| `"right"` \| `"up"` \| `"down"` \| `"none"`, always | TAB-DOM-02 | JS |
 
 - **TAB-DOM-01** — MUST. The Root element has `data-orientation` equal to the effective `orientation` prop.
   Source: `tabs/root/TabsRoot.tsx:332-342`; `internals/getStateAttributesProps.ts:26-27`. Test: none directly (the vertical activation-direction tests render `orientation="vertical"`).
 - **TAB-DOM-02** — MUST. The Root element always has `data-activation-direction`, whose value is the current activation direction (`"none"` initially and after automatic fallbacks).
   Source: `tabs/root/stateAttributesMapping.ts:5-9`; `tabs/root/TabsRootDataAttributes.ts:5`. Test: [L2] `TabsRoot.test.tsx` "should set the `data-activation-direction` attribute on the tabs root with orientation=horizontal", "resets `data-activation-direction` when the selection is cleared and restored".
+  Port note 2026-10-27 (ADR 04 Amendments 2026-10-26, chosen by the user 2026-10-26; the handover at attach of ADR 04 Amendments 2026-10-18; conventions §3.5): the `Writer` cell of `data-activation-direction` reads `JS` on §5.1–§5.5. The `tabs` module's List handle writes the attribute on the Root, the List, every Tab, every Panel and every Indicator from attach, in the `MutationObserver` callback of the batch that moves `[data-active]` (pre-paint on both modes), including on a Panel element the same batch creates. C# renders the value its part holds when the element is created, once per element, and mirrors `TabActivationDirection` in the five state records (`[MirroredField]`; ADR 01's row "RND-STA-01 for mirrored fields"). §5.2 gains its table for the same reason.
 
 ### 5.2 List element
 
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-orientation` | the Root's orientation, always | TAB-DOM-03 | C# |
+| `data-activation-direction` | the Root's activation direction, always | TAB-DOM-03 | JS |
+
 - **TAB-DOM-03** — MUST. The List element has `data-orientation` and `data-activation-direction` with the Root's values (TAB-DOM-01/02).
   Source: `tabs/list/TabsList.tsx:84-87,118`; `tabs/list/TabsListDataAttributes.ts:5,10`. Test: none.
+  Port note 2026-10-27: the table above was added for the `Writer` cell of `data-activation-direction` (TAB-DOM-02's note).
 
 The List element carries the composite root's `keydown` and `focus` handlers (CMP-KEY-01, CMP-KEY-17) and the ARIA attributes of §5.6; it carries no `tabindex` of its own.
 
@@ -388,9 +395,10 @@ The List element carries the composite root's `keydown` and `focus` handlers (CM
 | `id` | consumer `id` or generated `base-ui-…` | TAB-DOM-04 | C# |
 | `data-active` | active; empty value | TAB-DOM-05 | C# |
 | `data-disabled` | disabled; empty value | TAB-DOM-06 | C# |
-| `data-orientation`, `data-activation-direction` | always | TAB-DOM-07 | C# |
+| `data-orientation` | always | TAB-DOM-07 | C# |
+| `data-activation-direction` | always | TAB-DOM-07 | JS |
 | `data-composite-item-active` | active; empty value | TAB-DOM-08 | C# |
-| `tabindex` | `"0"` on the highlighted Tab, `"-1"` on every other | TAB-DOM-09 | C# |
+| `tabindex` | `"0"` on the highlighted Tab, `"-1"` on every other | TAB-DOM-09 | C# → JS |
 | `type` | `"button"` (native mode only; consumer `type` overrides) | TAB-DOM-10 | C# |
 | `disabled` | never emitted by the part | TAB-DOM-10 | C# |
 | `aria-disabled` | native: `"true"`/`"false"` always; non-native: `"true"` only while disabled | TAB-ARIA-06 | C# |
@@ -403,10 +411,12 @@ The List element carries the composite root's `keydown` and `focus` handlers (CM
   Source: `tabs/tab/TabsTab.tsx:180`; `tabs/tab/TabsTabDataAttributes.ts:14`. Test: none.
 - **TAB-DOM-07** — MUST. Every Tab element (active or not) has `data-orientation` and `data-activation-direction` with the Root's current values; the direction attribute on a Tab therefore changes on every selection change, not only on the newly active Tab.
   Source: `tabs/tab/TabsTab.tsx:182-183,207`; `tabs/tab/TabsTabDataAttributes.ts:5,10`. Test: [L2] `TabsRoot.test.tsx` "should update `data-activation-direction` on programmatic value changes with orientation=horizontal" (`tabs[0]` has `"none"`, then `tabs[1]` has `"right"`, then `tabs[0]` has `"left"`).
+  Port note 2026-10-27: the row is split so that `data-activation-direction` reads `JS` (TAB-DOM-02's note).
 - **TAB-DOM-08** — MUST. The active Tab element carries the composite active-item marker `data-composite-item-active=""` (CMP-DOM-02) and inactive Tabs do not; the composite mechanism reads it to choose the initial tab stop (TAB-FOC-02) and the fallback tab stop (TAB-FOC-08).
   Source: `tabs/tab/TabsTab.tsx:199`; `internals/composite/constants.ts:1`; `internals/composite/root/useCompositeRoot.ts:139-150,345-365`. Test: [L2] `TabsRoot.test.tsx` "puts the selected child in tab order"; `TabsList.test.tsx` "moves the tab stop off a hidden successor when the highlighted tab is removed".
 - **TAB-DOM-09** — MUST. Each Tab renders `tabindex="0"` when its composite index equals the List's highlighted index and `tabindex="-1"` otherwise (CMP-DOM-01); the button mechanism emits no `tabindex` in composite mode (UBT-DOM-05), and this holds for disabled Tabs too (they are focusable when disabled). A consumer `tabIndex` overrides.
   Source: `internals/composite/item/useCompositeItem.ts:19,25`; `tabs/tab/TabsTab.tsx:189-190`; `utils/useFocusableWhenDisabled.ts:30-36`. Test: [L2] `TabsRoot.test.tsx` "puts the selected child in tab order", "does not set tabIndex=0 on disabled tabs when they are programmatically selected"; `TabsTab.test.tsx` "settles when the rendered component recreates its merged ref".
+  Port note 2026-10-27 (ADR 04 Amendments 2026-10-22, the composite row, which names the items of Tabs; conventions §3.5): the `Writer` cell reads `C# → JS`. C# renders `tabindex="-1"` on every Tab on every render (CMP-STA-15) and the `composite` module writes the roving value from attach; a consumer `tabindex` wins and travels in the registration, which the module never writes over.
 - **TAB-DOM-10** — MUST. In native mode (`nativeButton` `true`) the Tab element has `type="button"` and **never** the `disabled` attribute, even while disabled (the Tab is focusable when disabled: UBT-DOM-07). In non-native mode it has no `type` and no `disabled`; the button mechanism's `role="button"` is overridden by `role="tab"` (TAB-ARIA-03). The dev-mode mode-mismatch errors of UBT-EDGE-01/02 apply (TAB-EDGE-05).
   Source: `tabs/tab/TabsTab.tsx:111-115,186-206`; `internals/use-button/useButton.ts:226-229`; `utils/useFocusableWhenDisabled.ts:45-47`. Test: [L2] `TabsTab.test.tsx` "does not activate a disabled tab that is pressed and focused" (disabled tab receives focus); `TabsRoot.test.tsx` "moves focus to a disabled tab without activating it".
 - **TAB-DOM-11** — MUST. When the consumer substitutes a `<button>` element that itself carries the `disabled` attribute while the Tab's `disabled` prop is `false`, the attribute is left in place (the element is natively disabled, unfocusable, and skipped by arrow navigation per TAB-KEY-07). When the Tab's `disabled` prop is `true` and the substituted `<button>` is natively disabled, the composite correction of UBT-DOM-10 removes the DOM `disabled` so the Tab stays focusable.
@@ -423,7 +433,8 @@ The List element carries the composite root's `keydown` and `focus` handlers (CM
 | `inert` | `!open` (closed, including during the exit transition) | TAB-DOM-15 | C# |
 | `tabindex` | `"0"` while open, `"-1"` while closed | TAB-DOM-16 | C# |
 | `data-index` | index among the Root's rendered Panels | TAB-DOM-17 | C# |
-| `data-orientation`, `data-activation-direction` | always | TAB-DOM-18 | C# |
+| `data-orientation` | always | TAB-DOM-18 | C# |
+| `data-activation-direction` | always | TAB-DOM-18 | JS |
 | `data-starting-style` / `data-ending-style` | transition status `'starting'` / `'ending'` | TAB-DOM-18 | JS |
 
 - **TAB-DOM-12** — MUST. The Panel element is rendered only when `keepMounted || mounted` (TRN-ANI-01); otherwise the part renders nothing (and holds no registration, TAB-STA-21). Consequently without `keepMounted` only the open Panel (plus any Panel still animating out) exists in the document.
@@ -440,6 +451,7 @@ The List element carries the composite root's `keydown` and `focus` handlers (CM
   Source: `tabs/panel/TabsPanel.tsx:47,76`; `tabs/root/TabsRoot.tsx:43,346`; `internals/composite/list/useCompositeListItem.ts:42-55,84-96`. Test: [L2] `TabsPanel.test.tsx` "sets the panel index data attribute".
 - **TAB-DOM-18** — MUST. The Panel element has `data-orientation` and `data-activation-direction` with the Root's current values (so a Panel animating out carries the direction of the change that closed it), `data-starting-style=""` while its transition status is `'starting'` and `data-ending-style=""` while it is `'ending'` (RND-DOM-11, TRN-DOM-01..03).
   Source: `tabs/panel/TabsPanel.tsx:20-23,55-60,80`; `tabs/panel/TabsPanelDataAttributes.ts:11,16,24,28`. Test: [L2] `TabsPanel.test.tsx` "triggers enter animation via data-starting-style when mounting", "applies data-ending-style before unmount"; `TabsRoot.test.tsx` activation-direction tests (Panel render state) (L4 for the `data-starting-style`/`data-ending-style` clause). Docs: `components/tabs/page.mdx` §"Animated panels"; CHANGELOG.md v1.1.0 "Add transition attributes to `<Tabs.Panel>` part".
+  Port note 2026-10-27: the row is split so that `data-activation-direction` reads `JS` (TAB-DOM-02's note); `data-starting-style` and `data-ending-style` stay `JS` (the `transitions` module, mirrored in `TabsPanelState.TransitionStatus`; C# renders `data-starting-style` on an element it creates open, under the handover).
 
 ### 5.5 Indicator element
 
@@ -449,7 +461,8 @@ The List element carries the composite root's `keydown` and `focus` handlers (CM
 | `role` | `"presentation"` | TAB-ARIA-09 | C# |
 | `hidden` | no active Tab element, or its measured width or height is `0` | TAB-DOM-23 | JS |
 | `style` | the six `--active-tab-*` variables while an active Tab element exists | TAB-DOM-24 | JS |
-| `data-orientation`, `data-activation-direction` | always | TAB-DOM-22 | C# |
+| `data-orientation` | always | TAB-DOM-22 | C# |
+| `data-activation-direction` | always | TAB-DOM-22 | JS |
 
 - **TAB-DOM-19** — MUST. When the root value is `null` (or `undefined`), the Indicator renders no element at all (and no pre-hydration script); it reappears when a non-`null` value is set.
   Source: `tabs/indicator/TabsIndicator.tsx:163-165`. Test: [L2] `TabsIndicator.test.tsx` "should not render when no tab is active"; `TabsRoot.test.tsx` "resets `data-activation-direction` when the selection is cleared and restored".
@@ -459,10 +472,13 @@ The List element carries the composite root's `keydown` and `focus` handlers (CM
   Source: `tabs/indicator/TabsIndicator.tsx:52-56,67-120`; `tabs/list/TabsList.tsx:35,116`. Test: [L4] `TabsIndicator.test.tsx` "exposes null active tab state when the selected value has no matching tab" (`indicatorStates.length > 1`), "should update the position and movement variables when the active tab changes".
 - **TAB-DOM-22** — MUST. The Indicator element has `data-orientation` and `data-activation-direction` with the Root's values; `activeTabPosition` and `activeTabSize` produce no data attribute.
   Source: `tabs/indicator/TabsIndicator.tsx:19-23,139-144,160`; `tabs/indicator/TabsIndicatorDataAttributes.ts:5,10`. Test: none.
+  Port note 2026-10-27: the row is split so that `data-activation-direction` reads `JS` (TAB-DOM-02's note).
 - **TAB-DOM-23** — MUST. The Indicator element has the boolean `hidden` attribute unless an active Tab element was found **and** its measured width and height (TAB-DOM-25) are both greater than `0`; "measured" refers to CSS/offset dimensions, not the bounding rect, so a Tab inside a `scale(0)` ancestor still counts as displayable. A consumer `hidden` prop replaces this value.
   Source: `tabs/indicator/TabsIndicator.tsx:137,153`. Test: [L4] `TabsIndicator.test.tsx` "overlays the active tab when an ancestor has a 2D rotation" (not hidden), "falls back to offset positions when the tab list is scaled to zero" (not hidden), "exposes null active tab state when the selected value has no matching tab" (hidden).
+  Port note 2026-10-27 (ADR 04 §2's `Tabs.Indicator` row and Amendments 2026-10-18 and 2026-10-26): the `Writer` cell stays `JS`. C# renders the initial `hidden` (a consumer's value, else `hidden`) under the handover, in prerender and the first interactive render, and freezes it from attach; the Indicator's `tabs` handle writes it from then on and never writes over a consumer's `hidden`, which travels as `TabsOptions.Hidden`.
 - **TAB-DOM-24** — MUST. While an active Tab element exists, the Indicator's inline style defines exactly `--active-tab-left`, `--active-tab-right`, `--active-tab-top`, `--active-tab-bottom`, `--active-tab-width`, `--active-tab-height`, each as `<number>px` (unrounded, sub-pixel values allowed) with the numbers of TAB-DOM-25..29; otherwise none of them is set. The same numbers are exposed as `activeTabPosition` / `activeTabSize` in the state.
   Source: `tabs/indicator/TabsIndicator.tsx:122-135`; `tabs/indicator/TabsIndicatorCssVars.ts:5-30`. Test: [L4] `TabsIndicator.test.tsx` "should set CSS variables corresponding to the active tab".
+  Port note 2026-10-27 (ADR 04 §2 and Amendments 2026-10-18): the `Writer` cell stays `JS`. C# renders the consumer's merged style under the handover and freezes it from attach; the Indicator's `tabs` handle composes the element's whole `style` from the consumer's string (`TwinOptions.Style`) and the six variables (TAB-DOM-32), and reports the measurement once per change, which C# mirrors in `ActiveTabPosition` and `ActiveTabSize` (ADR 01's row "RND-STA-01 for mirrored fields"; design point 2 of the Tabs track, pending the user).
 - **TAB-DOM-25** — MUST. *Size.* `width`/`height` are the active Tab's CSS dimensions per UTL-DOM-23: the computed `width`/`height` unless their rounded values differ from `offsetWidth`/`offsetHeight`, in which case the offset values are used. They are not affected by ancestor transforms.
   Source: `tabs/indicator/TabsIndicator.tsx:73,115-116`; `utils/getCssDimensions.ts:5-25`. Test: [L4] `TabsIndicator.test.tsx` "falls back to offset positions when the tab list is scaled to zero" (`--active-tab-width` is `100px`), "should set CSS variables corresponding to the active tab". Docs: CHANGELOG.md v1.0.0-beta.3 "Fix tab size rounding".
 - **TAB-DOM-26** — MUST. *Layout offset* (transform-immune baseline). `layoutLeft`/`layoutTop` = (cumulative offset of the Tab) − (cumulative offset of the List) − List `clientLeft`/`clientTop`, where the cumulative offset of an element sums, up the `offsetParent` chain, each element's `offsetLeft`/`offsetTop` plus its `offsetParent`'s `clientLeft`/`clientTop`. Then, walking from the Tab's parent up to (but excluding) the List and stopping at the document root (`html`/`body`/document), subtract each intermediate element's `scrollLeft`/`scrollTop`; the List's own scroll is **not** subtracted. The walk crosses shadow boundaries (slot/host).
