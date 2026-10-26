@@ -108,7 +108,7 @@
                 break;
 
             case "fixed-tabs":
-                <TabsRoot TValue="int" Value="2" data-root>
+                <TabsRoot TValue="int" Value="2" OnValueChange="main.Change" data-root>
                     <TabsList @ref="List" style="width: 320px; display: flex; overflow: hidden">
                         @if (inserted)
                         {

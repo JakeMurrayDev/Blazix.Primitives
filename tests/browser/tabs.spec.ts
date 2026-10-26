@@ -83,6 +83,42 @@ async function keyRecords(list: Locator): Promise<{ key: string; defaultPrevente
   return list.evaluate((element) => (element as unknown as { keys: { key: string; defaultPrevented: boolean }[] }).keys);
 }
 
+interface MoveRecord {
+  kind: 'tab-stop' | 'focus';
+  tabStop: string | null;
+  focused: string | null;
+}
+
+/**
+ * Records, as markers the page keeps (ADR 06 §2), each write of `tabindex="0"` inside the List (a mutation record,
+ * delivered in the microtask after the write) and each focus arriving inside it, with where the other one was at that
+ * moment, as composite.spec.ts does.
+ */
+async function recordMoves(list: Locator): Promise<void> {
+  await list.evaluate((element) => {
+    const records: MoveRecord[] = [];
+    (element as unknown as { moves: MoveRecord[] }).moves = records;
+    const label = (node: Element | null | undefined) => node?.getAttribute('data-tab') ?? null;
+    const tabStop = () => label(element.querySelector('[data-tab][tabindex="0"]'));
+    new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => (mutation.target as Element).getAttribute('tabindex') === '0')) {
+        records.push({ kind: 'tab-stop', tabStop: tabStop(), focused: label(document.activeElement) });
+      }
+    }).observe(element, { subtree: true, attributes: true, attributeFilter: ['tabindex'] });
+    element.addEventListener('focusin', (event) => {
+      records.push({ kind: 'focus', tabStop: tabStop(), focused: label(event.target as Element) });
+    });
+  });
+}
+
+async function moveRecords(list: Locator): Promise<MoveRecord[]> {
+  return list.evaluate((element) => (element as unknown as { moves: MoveRecord[] }).moves);
+}
+
+async function tabIndexes(tabs: Locator): Promise<(string | null)[]> {
+  return tabs.evaluateAll((elements) => elements.map((element) => element.getAttribute('tabindex')));
+}
+
 const keyboardCases = [
   { name: 'horizontal ltr', orientation: 'horizontal', direction: 'ltr', previousItemKey: 'ArrowLeft', nextItemKey: 'ArrowRight' },
   { name: 'horizontal rtl', orientation: 'horizontal', direction: 'rtl', previousItemKey: 'ArrowRight', nextItemKey: 'ArrowLeft' },
@@ -400,6 +436,58 @@ test.describe('<Tabs.List />', () => {
       await expect(tab(2)).toHaveAttribute('tabindex', '0');
       await expect(tab(3)).toHaveAttribute('tabindex', '-1');
     });
+  });
+});
+
+test.describe('<Tabs.Root /> (tab order)', () => {
+  // TAB-DOM-09, TAB-FOC-01, TAB-FOC-02 and TAB-DOM-08's clause, re-tagged to L4: the composite module writes the roving
+  // `tabindex` from attach (ADR 04 Amendments 2026-10-22). The tab stop following a programmatic selection is TAB-STA-19's
+  // follow clause: open until track 1's E5 (issue 100) is on main.
+  test.fixme('puts the selected child in tab order', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-list');
+    const { tabs, button } = tabsCase(fixture, 'tab-order');
+
+    await expect.poll(() => tabIndexes(tabs)).toEqual(['-1', '0']);
+
+    await button('select-0').click();
+
+    await expect.poll(() => tabIndexes(tabs)).toEqual(['0', '-1']);
+  });
+
+  test('does not set tabIndex=0 on disabled tabs when they are programmatically selected', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-list');
+    const { list, tab, button } = tabsCase(fixture, 'disabled-selected');
+    await expect(tab(1)).toHaveAttribute('tabindex', '0');
+    await expect(tab(0)).toHaveAttribute('tabindex', '-1');
+    await expect(tab(2)).toHaveAttribute('tabindex', '-1');
+    await recordMoves(list);
+
+    await button('select-0').click();
+
+    await expect(tab(0)).toHaveAttribute('aria-selected', 'true');
+    await settle(fixture);
+    await expect(tab(0)).toHaveAttribute('tabindex', '-1');
+    await expect(tab(1)).toHaveAttribute('tabindex', '0');
+    // The tab stop never moved, not even for a frame.
+    expect(await moveRecords(list)).toEqual([]);
+  });
+
+  test('port: focus moved by a navigation key lands one microtask after the keydown, after the tab stop', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-keyboard', { value: 0 });
+    const { list, tab } = tabsCase(fixture);
+    await focus(tab(0));
+    await recordMoves(list);
+
+    await page.keyboard.press('ArrowRight');
+
+    // TAB-FOC-10's microtask clause over CMP-FOC-02 (ADR 12 Amendments 2026-10-26 item 3): the tab stop moves inside the
+    // keydown's dispatch, the focus a microtask later, onto the Tab that already holds the tab stop. A focus inside the
+    // listener would dispatch `focusin` before the observer's record of the `tabindex` write.
+    await expect(tab(1)).toBeFocused();
+    expect(await moveRecords(list)).toEqual([
+      { kind: 'tab-stop', tabStop: '1', focused: '0' },
+      { kind: 'focus', tabStop: '1', focused: '1' },
+    ]);
   });
 });
 
@@ -753,6 +841,29 @@ test.describe('<Tabs.Tab />', () => {
         await expect(tab(0)).toHaveAttribute('aria-selected', 'false');
       });
     }
+  });
+
+  test.describe('element replacement', () => {
+    // TAB-DOM-09 and TAB-EDGE-11's "settles when the rendered component recreates its merged ref", restated under ADR 06
+    // Amendments 2026-10-18 rule 2 as an element replacement.
+    test('port: a Tab whose element is replaced keeps its registration, its activation and its tabindex', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'fixed-tabs' });
+      const { container, tab, button } = tabsCase(fixture);
+
+      await button('swap').click();
+      await expect.poll(() => tab(1).evaluate((element) => element.tagName)).toBe('A');
+      await expect(tab(1)).toHaveAttribute('tabindex', '-1');
+      await expect(tab(2)).toHaveAttribute('tabindex', '0');
+
+      await focus(tab(2));
+      await page.keyboard.press('ArrowLeft');
+      await expect(tab(1)).toBeFocused();
+      await expect(tab(1)).toHaveAttribute('tabindex', '0');
+
+      // The case's Root is controlled with a value its parent never changes: the request is what the click reaches.
+      await tab(1).click();
+      await expect(container).toHaveAttribute('data-last-change', /^value=1 reason=none /);
+    });
   });
 
   test.describe('consumer vetoes', () => {

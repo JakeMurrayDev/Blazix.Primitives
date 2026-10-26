@@ -3,9 +3,10 @@
 @inherits TabsFixtureBase
 
 @*
-    The `tabs-list` fixture (tests/browser/tabs.spec.ts, group B): TabsList.test.tsx's `loopFocus` pages and its "roving
-    focus after tab removal" pages, and TabsRoot.test.tsx's "keeps a roving focus entry point when a controlled selected tab
-    is removed". Each removal case has buttons that remove Tabs, as the tests' setProps does.
+    The `tabs-list` fixture (tests/browser/tabs.spec.ts, group B and the tab-stop rows): TabsList.test.tsx's keyboard,
+    `loopFocus` and "roving focus after tab removal" pages, and TabsRoot.test.tsx's tab-order pages and "keeps a roving
+    focus entry point when a controlled selected tab is removed". Buttons change a controlled value or remove Tabs, as the
+    tests' setProps does.
 *@
 <FixtureContainer Name="tabs-list" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
@@ -31,6 +32,32 @@
                     <TabsTab @ref="IntTab" Value="value" data-tab="@value">Tab @value</TabsTab>
                 }
             </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    @* TabsRoot.test.tsx "puts the selected child in tab order": a controlled value the buttons change, as setProps does. *@
+    <TabsCaseFrame Name="tab-order" Case="tabOrder">
+        <button type="button" data-action="select-0" @onclick="() => tabOrderValue = 0">Select 0</button>
+        <TabsRoot TValue="int" Value="tabOrderValue">
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+            </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    @* TabsRoot.test.tsx "does not set tabIndex=0 on disabled tabs when they are programmatically selected". *@
+    <TabsCaseFrame Name="disabled-selected" Case="disabledSelected">
+        <button type="button" data-action="select-0" @onclick="() => disabledSelectedValue = 0">Select 0</button>
+        <TabsRoot TValue="int" Value="disabledSelectedValue">
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" Disabled="true" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+                <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 2</TabsTab>
+            </TabsList>
+            <TabsPanel Value="0" data-panel="0">Panel 0</TabsPanel>
+            <TabsPanel Value="1" data-panel="1">Panel 1</TabsPanel>
+            <TabsPanel Value="2" data-panel="2">Panel 2</TabsPanel>
         </TabsRoot>
     </TabsCaseFrame>
 
@@ -122,6 +149,8 @@
 </FixtureContainer>
 
 @code {
+    private readonly TabsCase tabOrder = new();
+    private readonly TabsCase disabledSelected = new();
     private readonly TabsCase disabledProp = new();
     private readonly TabsCase nativeDisabled = new();
     private readonly TabsCase loopFirst = new();
@@ -130,6 +159,8 @@
     private readonly TabsCase disabledFallback = new();
     private readonly TabsCase successors = new();
     private readonly TabsCase entryPoint = new();
+    private int tabOrderValue = 1;
+    private int disabledSelectedValue = 1;
     private bool showMiddle = true;
     private bool showSelected = true;
     private bool successorFirst = true;
