@@ -541,7 +541,7 @@ public sealed class ToggleGroupTests : IDisposable
     [Trait("Requirement", "TGL-STA-04")]
     public void Port_a_selection_renders_only_the_toggles_whose_pressed_state_changed()
     {
-        // Design point 11.1 (a), pending the user: the listener-list context, each toggle comparing what it renders. A part
+        // Design point 11.1 (a), settled by the orchestrator 2026-10-26: the listener-list context, each toggle comparing what it renders. A part
         // calls its class function once per render of its element (the CheckboxGroup precedent).
         Dictionary<string, int> renders = new() { ["group"] = 0, ["one"] = 0, ["two"] = 0, ["three"] = 0 };
         IRenderedComponent<ToggleGroup> cut = Context.Render<ToggleGroup>(p => p
@@ -766,7 +766,7 @@ public sealed class ToggleGroupTests : IDisposable
     [Trait("Requirement", "TGG-API-09")]
     public async Task Port_in_a_group_arrows_home_and_end_run_the_consumer_onkeydown_once()
     {
-        // Design point 12.3 (a), pending the user: Home and End take the item gate as the arrows do.
+        // Design point 12.3 (a), settled by the orchestrator 2026-10-26: Home and End take the item gate as the arrows do.
         List<string> keys = [];
         EventCallback<KeyboardEventArgs> onKeyDown = EventCallback.Factory.Create<KeyboardEventArgs>(this, e =>
         {

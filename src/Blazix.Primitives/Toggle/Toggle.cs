@@ -43,14 +43,17 @@ public static class ToggleDataAttributes
 //   OnPressedChange, then, unless canceled, the group's request with the same details (TGL-EVT-04/05; the CheckboxGroup
 //   member path). The toggle commits nothing of its own, so toggle §16 Q4's second cancel check has nothing to guard. The
 //   identity is Value when non-empty, else the part's generated id, drawn once (ADR 08 Amendments 2026-10-26, chosen by
-//   the user); a grouped toggle draws it and renders it as its id (design point 12.1 (a), pending the user).
+//   the user); a grouped toggle draws it and renders it as its id (design point 12.1 (a), settled by the orchestrator
+//   2026-10-26).
 // - A grouped toggle is a composite item of the nearest root (CompositeItemBehavior; TGL-STR-02; the RadioRoot wiring):
 //   the item's tabindex="-1" follows the button writer's attributes, so it is rendered (CMP-STA-15), and the `composite`
 //   module owns it from attach (ADR 04 Amendments 2026-10-22). A toggle under a root without a group registers nothing.
 // - One keydown gate (ADR 01 and ADR 04 Amendments 2026-10-26, chosen by the user; the Radio precedent): both behaviours
 //   decline the consumer's onkeydown and the part's one handler runs it through the gate whose one-shot marker the key may
-//   have left: in a group, arrows, Home and End take the item's (`navigate`; Home and End are design point 12.3 (a),
-//   pending the user), every other key the button's (`activate`).
+//   have left: in a group, the keys the composite navigates by take the item's (`navigate`), every other key the button's
+//   (`activate`); standalone, every key the button's. The navigation set is the arrows, Home and End (design point 12.3
+//   (a), settled by the orchestrator 2026-10-26): a key the root does not handle leaves no marker in either gate, so a
+//   root without Home and End (Toolbar) and one with them (ToggleGroup, Tabs) follow the same rule.
 // - TGL-EDGE-01 is checked after render (ADR 01 decision 4, "after paint"), through the scoped ToggleDevelopmentLog.
 /// <summary>
 /// Represents a two-state button that is pressed or not: Base UI's <c>Toggle</c>, rendered as a <c>button</c> whose
@@ -186,7 +189,8 @@ public sealed class Toggle : PartBase<ToggleState>
     /// <inheritdoc />
     protected override ToggleState State => state;
 
-    // Design point 12.1 (a), pending the user: a grouped toggle draws the id it registers and identifies itself by; ADR 02
+    // Design point 12.1 (a), settled by the orchestrator 2026-10-26: a grouped toggle draws the id it registers and identifies
+    // itself by (ADR 08 and ADR 04 Amendments 2026-10-26 and 2026-10-22, the RadioRoot precedent); ADR 02
     // decision 1: under a substitute callback the twin finds the element by id (the Button precedent). A standalone toggle
     // draws none and renders none, as Base UI renders none.
     /// <inheritdoc />
@@ -387,7 +391,8 @@ public sealed class Toggle : PartBase<ToggleState>
         return true;
     }
 
-    // Arrows (TGL-KEY-03), Home and End (TGG-KEY-04; design point 12.3 (a), pending the user): never activation keys.
+    // The composite's navigation keys: arrows (TGL-KEY-03), Home and End (TGG-KEY-04; design point 12.3 (a), settled by the
+    // orchestrator 2026-10-26), never activation keys.
     private static bool IsItemKey(string? key)
     {
         return key is not null

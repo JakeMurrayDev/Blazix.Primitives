@@ -40,7 +40,7 @@ public static class ToggleGroupDataAttributes
 //   OnValueChange, then, unless canceled, ValueChanged and the commit (TGG-EVT-01..05).
 // - It is the composite root of its toggles (CompositeRootBehavior; TGG §11): the two-valued Orientation, LoopFocus, Home
 //   and End on, a handled key stopped, no modifier keys, the toggles' disabled state read from the document (toggle-group §16
-//   Q3, pending the user), no highlight mirror and no report; the first toggle holds the initial tab stop (TGG-STA-08,
+//   Q3, settled by the orchestrator 2026-10-26), no highlight mirror and no report; the first toggle holds the initial tab stop (TGG-STA-08,
 //   §16 Q2, chosen by the user 2026-10-26). The direction comes from the nearest DirectionProvider only (TGG-EDGE-08). Every
 //   toggle's tabindex is the `composite` module's from attach (ADR 04 Amendments 2026-10-22).
 // - The consumer's onkeydown is declined and run by the root at `navigate`, under option (i) (TGG-API-09; ADR 04 Amendments

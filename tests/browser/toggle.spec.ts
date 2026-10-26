@@ -145,7 +145,7 @@ test.describe('<Toggle />', () => {
   });
 
   test.describe('vetoes', () => {
-    // TGL-PTR-03, design point 12.2 (pending the user): the consumer's C# onclick is not declined, so it runs before the
+    // TGL-PTR-03, design point 12.2 (a), settled by the orchestrator 2026-10-26: the consumer's C# onclick is not declined, so it runs before the
     // toggle's in the same Blazor dispatch and its PreventPartHandler() keeps the toggle unpressed on both modes.
     test('port: a C# onclick that calls PreventPartHandler() keeps the toggle unpressed, on both modes', async ({ page, mode }) => {
       const fixture = await gotoToggles(page, mode, 'toggle-standalone');
@@ -177,7 +177,7 @@ test.describe('<Toggle />', () => {
       await expect(toggle).toHaveAttribute('aria-pressed', mode === 'wasm' ? 'false' : 'true');
     });
 
-    // Design point 12.3 (a), pending the user: in a group, Home and End take the item's gate as the arrows do, so a
+    // Design point 12.3 (a), settled by the orchestrator 2026-10-26: in a group, Home and End take the item's gate as the arrows do, so a
     // consumer's veto of Home inside `navigate` on WebAssembly leaves the one-shot marker where Blazor's dispatch of the
     // key reads it and the handler runs once; on Server the module moves focus and the handled-key report runs it once.
     test("port: a vetoed Home runs the toggle's C# onkeydown once", async ({ page, mode }) => {

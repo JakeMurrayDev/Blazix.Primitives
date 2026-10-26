@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 namespace Blazix.Primitives;
 
 // TGG §11 (the ToggleGroupContext a Toggle reads); toggle-group/ToggleGroupContext.ts:6-19. Design point 11.1 of M3 tracks
-// 2-3, option (a), pending the user: a plain listener list cascaded fixed (ADR 16 rule 9; the Switch, Checkbox,
+// 2-3, option (a), settled by the orchestrator 2026-10-26: a plain listener list cascaded fixed (ADR 16 rule 9; the Switch, Checkbox,
 // CheckboxGroup and RadioGroup pattern). A change of the value (by reference, ADR 08 Amendments 2026-10-22), the disabled
 // state or the initialized flag notifies every toggle, which compares what it renders and renders only when that changed;
 // the group never renders for a selection (CheckboxGroup's G1).
