@@ -4,8 +4,10 @@
 // resolution without the grid branch (CMP-ALG-14), the publication adjustments (CMP-ALG-18, CMP-STA-22..30), the
 // pointer and focus handling of the items (CMP-PTR-01/02, CMP-KEY-17), and RadioGroup's options (the pending-navigation
 // flag, the focus-driven selection and the leaving blur; ADR 04 Amendments 2026-10-20, RDG-STA-06, RAD-FOC-05,
-// RDG-FOC-04/05). Not built: grid, `onLoop`, the keyed registry (CMP §10 Q1), the keyboard relay (CMP-KEY-14), a
-// consumer-owned highlight and `onMapChange` (M3), list navigation and typeahead (M5), labels and `guess` (M5).
+// RDG-FOC-04/05). M3 track 1 (ADR 04 Amendments 2026-10-26, chosen by the user) adds the items' `disabled` and
+// `focusableWhenDisabled` flags with the indices derived from them (CMP-STA-08, CMP-STA-29, CMP-KEY-08). Not built:
+// grid, `onLoop`, the keyed registry (CMP §10 Q1), the keyboard relay (CMP-KEY-14), a consumer-owned highlight and
+// `onMapChange` (M3), list navigation and typeahead (M5), labels and `guess` (M5).
 // Transcribed from Base UI v1.9.0: internals/composite/{composite,constants}.ts, root/useCompositeRoot.ts,
 // root/CompositeRoot.tsx, item/useCompositeItem.ts, list/CompositeList.tsx, list/useCompositeListItem.ts;
 // floating-ui-react/utils/composite.ts; radio-group/RadioGroup.tsx:205-245 and radio/root/RadioRoot.tsx:156-166.
@@ -728,12 +730,19 @@ export function createCompositeRegistry(): CompositeRegistry {
 // The root (attach): CompositeTwin's handle
 // ---------------------------------------------------------------------------------------------------------------
 
-/** One item as C# registers it: the id of its element and the consumer's `tabindex`, which the module never overrides. */
+/**
+ * One item as C# registers it: the id of its element, the consumer's `tabindex`, which the module never overrides, and
+ * the item's flags, from which the module derives the indices navigation skips when the root asks it to.
+ */
 export interface CompositeItemRegistration {
   /** The id of the item's element, resolved from the root's root node. */
   id: string;
   /** The consumer's `tabindex`, or `null` when the module writes the roving value. */
   tabIndex?: string | null | undefined;
+  /** Whether the item is disabled; absent for `false`. */
+  disabled?: boolean | undefined;
+  /** Whether the item stays navigable and can hold the tab stop while disabled; absent for `false`. */
+  focusableWhenDisabled?: boolean | undefined;
 }
 
 // Mirrors `CompositeOptions` in C#.
@@ -753,6 +762,11 @@ export interface CompositeOptions extends TwinOptions {
   modifierKeys: ReadonlyArray<string>;
   /** The indices navigation skips; absent or `null` to read the items' disabled state from the DOM. */
   disabledIndices?: number[] | null | undefined;
+  /**
+   * Whether the indices navigation skips are derived from the items' flags, those that are disabled and not focusable
+   * when disabled, in place of `disabledIndices`.
+   */
+  deriveDisabledIndices?: boolean | undefined;
   /** The reading direction. */
   direction: TextDirection;
   /** The items, by element id. */
@@ -777,6 +791,8 @@ interface AttachedElement extends HTMLElement {
 interface AttachedItem {
   element: HTMLElement;
   tabIndex: string | null;
+  disabled: boolean;
+  focusableWhenDisabled: boolean;
 }
 
 function sameIndices(a: ReadonlyArray<number> | null | undefined, b: ReadonlyArray<number> | null | undefined): boolean {
@@ -809,6 +825,10 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   let items = new Map<string, AttachedItem>();
   // Elements whose `tabindex` belongs to the consumer.
   let consumerTabIndexes = new Set<Element>();
+  // The registered items by element, for their flags.
+  let itemsByElement = new Map<Element, AttachedItem>();
+  // CMP-STA-08, TLB-STA-02 (M3 track 1, E3): the indices derived from the items' flags, in the registry's order.
+  let derivedDisabledIndices: number[] = [];
   // CMP-STA-22: the root owns the highlight, initially 0, which is also the value C# mirrors before any report.
   let highlightedIndex = 0;
   let highlightedElement: HTMLElement | null = null;
@@ -826,6 +846,22 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     const element = found ?? ownerDocument(root).getElementById(id);
     return isHTMLElement(element) ? element : null;
   };
+
+  // ToolbarRoot.tsx:32-46: the items that are disabled and not focusable when disabled, by index.
+  const deriveDisabledIndices = (): number[] => {
+    const derived: number[] = [];
+    registry.elements.forEach((element, index) => {
+      const attached = element ? itemsByElement.get(element) : undefined;
+      if (attached?.disabled && !attached.focusableWhenDisabled) {
+        derived.push(index);
+      }
+    });
+    return derived;
+  };
+
+  // The indices navigation skips under a set of options: derived from the flags, or the root's own.
+  const disabledIndicesOf = (current: CompositeOptions): ReadonlyArray<number> | null | undefined =>
+    current.deriveDisabledIndices ? derivedDisabledIndices : current.disabledIndices;
 
   // CMP-DOM-01: "0" on the highlighted index, "-1" elsewhere, never over a consumer's value (RAD-DOM-16).
   const writeTabIndexes = (): void => {
@@ -852,7 +888,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   // CMP-STA-29 (M3, implemented early): a root-owned highlight on an index that `disabledIndices` disables moves to the
   // first enabled index, after the first publication.
   const revalidateHighlight = (): void => {
-    const disabledIndices = options.disabledIndices;
+    const disabledIndices = disabledIndicesOf(options);
     if (disabledIndices == null || !defaultIndexSet) {
       return;
     }
@@ -882,14 +918,29 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   }
 
-  // CMP-ALG-18, CMP-STA-23..28.
+  // The root's listener on each publication.
   registry.subscribe((map) => {
+    // E3: derived in the same pass as the publication, before the adjustments read it (TLB §14).
+    if (options.deriveDisabledIndices) {
+      derivedDisabledIndices = deriveDisabledIndices();
+    }
+
     if (map.size === 0) {
       return;
     }
 
+    adjustHighlight(map);
+
+    // CMP-STA-29: Base UI's derived array is new after every publication, so its re-validation effect runs again.
+    if (options.deriveDisabledIndices) {
+      revalidateHighlight();
+    }
+  });
+
+  // CMP-ALG-18, CMP-STA-23..28.
+  function adjustHighlight(map: Map<Element, CompositeMetadata>): void {
     const elements = registry.elements;
-    const { disabledIndices } = options;
+    const disabledIndices = disabledIndicesOf(options);
 
     if (defaultIndexSet) {
       // Items added or removed around the highlighted one shift its index, so the tab stop follows the element.
@@ -933,7 +984,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     // CMP-STA-25
     scrollIntoViewIfNeeded(root, activeItem, options.direction, options.orientation);
     writeTabIndexes();
-  });
+  }
 
   // Resolves the registered ids; registers new and replaced elements and unregisters removed ones. Returns whether the
   // registry changed, so one `update` rebuilds once (CMP-STA-10).
@@ -942,7 +993,12 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     for (const registration of registrations) {
       const element = resolveItem(registration.id);
       if (element) {
-        next.set(registration.id, { element, tabIndex: registration.tabIndex ?? null });
+        next.set(registration.id, {
+          element,
+          tabIndex: registration.tabIndex ?? null,
+          disabled: registration.disabled ?? false,
+          focusableWhenDisabled: registration.focusableWhenDisabled ?? false,
+        });
       }
     }
 
@@ -965,7 +1021,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
     items = next;
     consumerTabIndexes = new Set();
+    itemsByElement = new Map();
     next.forEach((attached) => {
+      itemsByElement.set(attached.element, attached);
       if (attached.tabIndex != null) {
         consumerTabIndexes.add(attached.element);
       }
@@ -1013,7 +1071,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
 
     const isRtl = current.direction === 'rtl';
-    const { orientation, disabledIndices } = current;
+    const { orientation } = current;
+    const disabledIndices = disabledIndicesOf(current);
 
     const horizontalForwardKey = isRtl ? ARROW_LEFT : ARROW_RIGHT;
     const horizontalBackwardKey = isRtl ? ARROW_RIGHT : ARROW_LEFT;
@@ -1194,13 +1253,17 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       if (disposed) {
         return;
       }
-      const previous = options;
+      const previousDisabledIndices = disabledIndicesOf(options);
       options = parseOptions<CompositeOptions>(nextOptionsJson);
       if (syncItems(options.items)) {
         registry.flush();
       }
+      // E3: a flag change re-derives without a publication.
+      if (options.deriveDisabledIndices) {
+        derivedDisabledIndices = deriveDisabledIndices();
+      }
       writeTabIndexes();
-      if (!sameIndices(previous.disabledIndices, options.disabledIndices)) {
+      if (!sameIndices(previousDisabledIndices, disabledIndicesOf(options))) {
         revalidateHighlight();
       }
       reportHighlightChange();
