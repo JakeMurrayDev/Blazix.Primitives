@@ -67,7 +67,11 @@ public static class TabsPanelDataAttributes
 /// <c>role="tabpanel"</c> while its tab is active and through its exit transition, or always with <see cref="KeepMounted"/>.
 /// </summary>
 /// <typeparam name="TValue">The type of the panel's value, which is the type of its root's value.</typeparam>
-/// <remarks>The part must be placed within a <see cref="TabsRoot{TValue}"/>.</remarks>
+/// <remarks>
+/// The part must be placed within a <see cref="TabsRoot{TValue}"/>. The panel's own <c>inert</c> attribute, present while
+/// its tab is not active, also tells the browser-side behavior when to play the enter and exit transitions, so an
+/// <c>inert</c> attribute supplied by the consumer replaces it for both.
+/// </remarks>
 public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
 {
     private const string DefaultTag = "div";
