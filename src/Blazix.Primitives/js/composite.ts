@@ -789,8 +789,9 @@ export interface CompositeOptions extends TwinOptions {
    */
   registrationOnly?: boolean | undefined;
   /**
-   * Whether the highlight follows the item marked active when focus is outside the root and the item's `disabled` flag
-   * is off, except once after a keydown on that item; the re-validation against the disabled indices does not run.
+   * Whether the highlight follows the item marked active when focus is outside the root and the item is not
+   * `aria-disabled="true"`, except once after a keydown on that item; the re-validation against the disabled indices does
+   * not run.
    */
   followActiveItem?: boolean | undefined;
 }
@@ -939,10 +940,11 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   // TabsTab.tsx:83-109, run for each item whose dependencies changed since its last run: the marker, its index, the
-  // highlight, its `disabled` flag. A keydown on the item since then only clears that mark. Otherwise a marked item whose
+  // highlight, its `aria-disabled`. A keydown on the item since then only clears that mark. Otherwise a marked item whose
   // index differs from the highlight takes it, without scrolling, when focus is outside the root (across shadow roots)
-  // and its `disabled` flag is off (design point 5, option (b), pending the user). A highlight change made here runs
-  // the items again, as Base UI's effects run again on the new highlighted index.
+  // and it is not `aria-disabled="true"`, read from the applied batch: a disabled Tab renders it and never DOM
+  // `disabled` (TAB-DOM-10; design point 5, option (a), settled by the orchestrator 2026-10-26). A highlight change made
+  // here runs the items again, as Base UI's effects run again on the new highlighted index.
   function evaluateFollow(): void {
     if (!options.followActiveItem || registrationOnly || !defaultIndexSet) {
       return;
@@ -973,7 +975,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       const state: FollowState = {
         active: element.hasAttribute(ACTIVE_COMPOSITE_ITEM),
         index,
-        disabled: itemsByElement.get(element)?.disabled ?? false,
+        disabled: element.getAttribute('aria-disabled') === 'true',
       };
       next.set(element, state);
       const previous = followStates.get(element);
@@ -997,12 +999,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     followStates = next;
   }
 
-  // Design point 4, option (a), pending the user: a change of the marker in the applied batch, pre-paint on both modes.
+  // Design point 4, option (a), settled by the orchestrator 2026-10-26: a change of the marker, or of an item's
+  // `aria-disabled`, in the applied batch, pre-paint on both modes.
   const syncMarkerObserver = (): void => {
     const wanted = options.followActiveItem === true && !registrationOnly && typeof MutationObserver === 'function';
     if (wanted && !markerObserver) {
       markerObserver = new MutationObserver(() => evaluateFollow());
-      markerObserver.observe(root, { subtree: true, attributes: true, attributeFilter: [ACTIVE_COMPOSITE_ITEM] });
+      markerObserver.observe(root, { subtree: true, attributes: true, attributeFilter: [ACTIVE_COMPOSITE_ITEM, 'aria-disabled'] });
     } else if (!wanted && markerObserver) {
       markerObserver.disconnect();
       markerObserver = null;
@@ -1419,7 +1422,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       if (!sameIndices(previousDisabledIndices, disabledIndicesOf(options))) {
         revalidateHighlight();
       }
-      // E5: a flag change re-runs the follow for the items it changed.
+      // E5: an update may turn the option on or off, and may register a marked item.
       syncMarkerObserver();
       evaluateFollow();
       reportHighlightChange();
