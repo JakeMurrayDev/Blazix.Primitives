@@ -9,7 +9,7 @@ import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers
 // sleeps: a state inside one dispatch is witnessed by a listener the page adds after the module's, a later one by
 // `expect`, and C#'s view by the fixture's data attributes after a sync barrier.
 
-type FixtureName = 'composite-list' | 'composite-rtl' | 'composite-reorder' | 'composite-selection';
+type FixtureName = 'composite-list' | 'composite-rtl' | 'composite-reorder' | 'composite-selection' | 'composite-nested' | 'composite-flags';
 
 /** Opens a composite fixture and waits until every root has its behavior attached. */
 async function gotoComposite(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
@@ -475,5 +475,64 @@ test.describe('composite selection on navigation (port)', () => {
     await settle(fixture);
     await expect(fixture).toHaveAttribute('data-focus-leaves', '1');
     await expect(fixture).toHaveAttribute('data-last-leave', `focusout:${leaving}`);
+  });
+});
+
+// --- M3 track 1 (ADR 04 Amendments 2026-10-26, chosen by the user): the items' flags (E3) and the outer registration (E4) ---
+
+test.describe('nested Composite items', () => {
+  // CMP-STR-04 and CMP-STA-29's cited title, on Base UI's NestedItemsRoot: the root derives its disabled indices from the
+  // flags, and the outer registration of each shared element (focusable when disabled) is the one the module receives.
+  test('keeps outer metadata and focus navigation when items share a DOM node', async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-nested');
+    const item = (label: string) => fixture.locator(`[data-root] [data-item="${label}"]`);
+
+    await fixture.locator('[data-before]').focus();
+    await page.keyboard.press('Tab');
+    await expect(item('first')).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await expect(item('second')).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await expect(item('third')).toBeFocused();
+  });
+});
+
+test.describe('composite item flags (port)', () => {
+  // CMP-STA-29 and CMP-KEY-08 over the derived indices, with ADR 01's row for `update`-carried values: on WebAssembly the
+  // flag's `update` runs in the task that applies the render batch, so the tab stop moves in the batch that marks the item
+  // disabled; on Server it moves a round trip later.
+  test('a runtime flag change moves the tab stop off an item that is no longer focusable', async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-flags');
+    const root = fixture.locator('[data-root]');
+    const item = (label: string) => root.locator(`[data-item="${label}"]`);
+    await expect(item('1')).toHaveAttribute('tabindex', '0');
+    await root.evaluate((element) => {
+      const batches: string[][] = [];
+      (element as unknown as { batches: string[][] }).batches = batches;
+      new MutationObserver((records) => {
+        batches.push(records.map((record) => `${(record.target as Element).getAttribute('data-item')}:${record.attributeName}`));
+      }).observe(element, { subtree: true, attributes: true, attributeFilter: ['tabindex', 'data-disabled'] });
+    });
+
+    await fixture.locator('[data-toggle]').click();
+    await expect(item('2')).toHaveAttribute('tabindex', '0');
+    await expect(item('1')).toHaveAttribute('tabindex', '-1');
+
+    const batches = await root.evaluate((element) => (element as unknown as { batches: string[][] }).batches);
+    const disabled = batches.findIndex((batch) => batch.includes('1:data-disabled'));
+    const tabStop = batches.findIndex((batch) => batch.includes('2:tabindex'));
+    expect(disabled).toBeGreaterThanOrEqual(0);
+    if (mode === 'wasm') {
+      expect(tabStop).toBe(disabled);
+    } else {
+      expect(tabStop).toBeGreaterThan(disabled);
+    }
+
+    // The arrow keys skip the disabled item: from the last item, looping, to the second.
+    await item('3').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(item('2')).toBeFocused();
   });
 });

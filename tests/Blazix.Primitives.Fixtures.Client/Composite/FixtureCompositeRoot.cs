@@ -45,7 +45,16 @@ public sealed class FixtureCompositeRoot : PartBase<EmptyState>
     public bool StopEventPropagation { get; set; } = true;
 
     [Parameter]
+    public bool HighlightItemOnHover { get; set; }
+
+    [Parameter]
     public IReadOnlyList<string>? ModifierKeys { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<int>? DisabledIndices { get; set; }
+
+    [Parameter]
+    public bool DeriveDisabledIndices { get; set; }
 
     [Parameter]
     public bool SelectOnNavigation { get; set; }
@@ -96,7 +105,10 @@ public sealed class FixtureCompositeRoot : PartBase<EmptyState>
         behavior.LoopFocus = LoopFocus;
         behavior.EnableHomeAndEndKeys = EnableHomeAndEndKeys;
         behavior.StopEventPropagation = StopEventPropagation;
+        behavior.HighlightItemOnHover = HighlightItemOnHover;
         behavior.ModifierKeys = ModifierKeys ?? [];
+        behavior.DisabledIndices = DisabledIndices;
+        behavior.DeriveDisabledIndices = DeriveDisabledIndices;
         behavior.SelectOnNavigation = SelectOnNavigation;
         behavior.ReportFocusLeave = ReportFocusLeave;
         behavior.ReportHighlight = ReportHighlight;
