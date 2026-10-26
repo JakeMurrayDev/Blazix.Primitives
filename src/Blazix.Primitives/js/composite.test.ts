@@ -29,6 +29,7 @@ import {
   isListIndexDisabled,
   isModifierKeySet,
   scrollIntoViewIfNeeded,
+  type CompositeItemRegistration,
   type CompositeMetadata,
   type CompositeOptions,
   type CompositeRegistry,
@@ -1956,5 +1957,96 @@ describe('composite handled-key report (port)', () => {
 
     expect(document.activeElement).toBe(byTestId('2'));
     expect(group.fake.reported('OnKeyHandled')).toEqual([]);
+  });
+});
+
+// --- port titles: the items' flags and the derived disabled indices (M3 track 1, E3) --------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): each registration carries the item's `disabled` and
+// `focusableWhenDisabled`, and the module derives the indices navigation skips from them, as ToolbarRoot.tsx:32-46 does
+// from its item map, in the same pass as each publication and on each `update` that changes a flag (TLB §14).
+
+describe('composite item flags (port)', () => {
+  type Flags = Pick<CompositeItemRegistration, 'disabled' | 'focusableWhenDisabled'>;
+
+  /** The registrations C# sends with each item's flags, by test id. */
+  function flagged(elements: HTMLElement[], flags: Record<string, Flags> = {}): CompositeOptions['items'] {
+    return elements.map((element) => ({ id: element.id, tabIndex: null, ...flags[element.getAttribute('data-testid')!] }));
+  }
+
+  // CMP-STA-24 over the derived indices.
+  it('moves the initial tab stop off a first item that its flags disable, in the first publication (CMP-STA-24)', () => {
+    const elements = [item('1'), item('2'), item('3')];
+    mountGroup(elements, { deriveDisabledIndices: true, items: flagged(elements, { '1': { disabled: true } }) });
+
+    expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
+    expect(byTestId('2').getAttribute('tabindex')).toBe('0');
+    expect(byTestId('3').getAttribute('tabindex')).toBe('-1');
+  });
+
+  // CMP-KEY-08 over the derived indices.
+  it('skips an item that its flags disable when an arrow key moves the highlight (CMP-KEY-08)', async () => {
+    const elements = [item('1'), item('2'), item('3')];
+    mountGroup(elements, { deriveDisabledIndices: true, items: flagged(elements, { '2': { disabled: true } }) });
+    const item1 = byTestId('1');
+    const item3 = byTestId('3');
+    item1.focus();
+
+    keyDown(item1, 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item3);
+    expect(item3.getAttribute('tabindex')).toBe('0');
+
+    keyDown(item3, 'ArrowUp');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item1);
+  });
+
+  // CMP-STA-29 over the derived indices: Toolbar's case, a flag that changes after the first publication.
+  it('moves the tab stop off the highlighted item when a flag change disables it after the first publication (CMP-STA-29)', () => {
+    const elements = [item('1'), item('2'), item('3')];
+    const group = mountGroup(elements, { deriveDisabledIndices: true, items: flagged(elements) });
+    expect(byTestId('1').getAttribute('tabindex')).toBe('0');
+
+    group.update({ items: flagged(elements, { '1': { disabled: true } }) });
+
+    expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
+    expect(byTestId('2').getAttribute('tabindex')).toBe('0');
+  });
+
+  // TLB-STA-04's shape: a disabled item that stays focusable is not derived, so its aria-disabled does not skip it.
+  it('keeps an aria-disabled item navigable when its flags make it focusable when disabled', async () => {
+    const elements = [item('1'), item('2', { 'aria-disabled': 'true' }), item('3')];
+    mountGroup(elements, {
+      deriveDisabledIndices: true,
+      items: flagged(elements, { '2': { disabled: true, focusableWhenDisabled: true } }),
+    });
+    const item1 = byTestId('1');
+    const item2 = byTestId('2');
+    item1.focus();
+
+    keyDown(item1, 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item2);
+    expect(item2.getAttribute('tabindex')).toBe('0');
+  });
+
+  // TabsList's case (TAB-KEY-07): its Tabs send `disabled`, but it keeps `disabledIndices={[]}` and derives nothing.
+  it('derives the indices only when asked: with deriveDisabledIndices a flagged item is skipped, under an explicit [] it is not', async () => {
+    const derived = [item('a1'), item('a2'), item('a3')];
+    mountGroup(derived, { deriveDisabledIndices: true, items: flagged(derived, { a2: { disabled: true } }) });
+    byTestId('a1').focus();
+    keyDown(byTestId('a1'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('a3'));
+
+    const explicit = [item('b1'), item('b2', { 'aria-disabled': 'true' }), item('b3')];
+    mountGroup(explicit, { disabledIndices: [], items: flagged(explicit, { b2: { disabled: true } }) });
+    byTestId('b1').focus();
+    keyDown(byTestId('b1'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('b2'));
   });
 });
