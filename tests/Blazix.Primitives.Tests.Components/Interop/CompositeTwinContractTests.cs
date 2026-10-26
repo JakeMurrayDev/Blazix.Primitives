@@ -72,6 +72,36 @@ public sealed class CompositeTwinContractTests
         Assert.Single(handle.Invocations["dispose"]);
     }
 
+    // M3 track 1, E3 (ADR 04 Amendments 2026-10-26, chosen by the user): sent only when set, so a group that uses none
+    // of them sends what it sent before.
+    [Fact]
+    [Trait("Requirement", "CMP-STA-08")]
+    [Trait("Requirement", "CMP-KEY-08")]
+    public void The_items_flags_and_deriveDisabledIndices_are_sent_only_when_set()
+    {
+        CompositeOptions options = new()
+        {
+            DeriveDisabledIndices = true,
+            Items =
+            [
+                new CompositeItemRegistration("a", null, Disabled: true, FocusableWhenDisabled: true),
+                new CompositeItemRegistration("b", "0", Disabled: true),
+                new CompositeItemRegistration("c", null),
+            ],
+        };
+
+        string json = JsonSerializer.Serialize(options, BlazixJsonContext.Default.CompositeOptions);
+
+        Assert.Contains("\"deriveDisabledIndices\":true", json, StringComparison.Ordinal);
+        Assert.Contains(
+            """
+            "items":[{"id":"a","disabled":true,"focusableWhenDisabled":true},{"id":"b","tabIndex":"0","disabled":true},{"id":"c"}]
+            """,
+            json,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("deriveDisabledIndices", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-API-01")]
     [Trait("Requirement", "CMP-API-02")]
