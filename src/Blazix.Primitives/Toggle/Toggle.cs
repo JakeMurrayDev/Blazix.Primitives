@@ -38,6 +38,20 @@ public static class ToggleDataAttributes
 //   consumer's onclick is not declined (ButtonBehavior declines it only with the hidden-input bridge), so it runs first in
 //   the pipeline's chain and its PreventPartHandler() stops the toggle on both render modes (TGL-PTR-03). Standalone the
 //   pressed state is a Controlled<bool> fixed at the first parameter set (TGL-API-01/02, TGL-STA-02).
+// - Inside a ToggleGroup, at any depth, the toggle is "always controlled" (TGL §14): pressed is "the group's value holds my
+//   identity" on every render, Pressed and DefaultPressed are ignored silently (TGL-STA-04, TGL-EDGE-06), and a click runs
+//   OnPressedChange, then, unless canceled, the group's request with the same details (TGL-EVT-04/05; the CheckboxGroup
+//   member path). The toggle commits nothing of its own, so toggle §16 Q4's second cancel check has nothing to guard. The
+//   identity is Value when non-empty, else the part's generated id, drawn once (ADR 08 Amendments 2026-10-26, chosen by
+//   the user); a grouped toggle draws it and renders it as its id (design point 12.1 (a), pending the user).
+// - A grouped toggle is a composite item of the nearest root (CompositeItemBehavior; TGL-STR-02; the RadioRoot wiring):
+//   the item's tabindex="-1" follows the button writer's attributes, so it is rendered (CMP-STA-15), and the `composite`
+//   module owns it from attach (ADR 04 Amendments 2026-10-22). A toggle under a root without a group registers nothing.
+// - One keydown gate (ADR 01 and ADR 04 Amendments 2026-10-26, chosen by the user; the Radio precedent): both behaviours
+//   decline the consumer's onkeydown and the part's one handler runs it through the gate whose one-shot marker the key may
+//   have left: in a group, arrows, Home and End take the item's (`navigate`; Home and End are design point 12.3 (a),
+//   pending the user), every other key the button's (`activate`).
+// - TGL-EDGE-01 is checked after render (ADR 01 decision 4, "after paint"), through the scoped ToggleDevelopmentLog.
 /// <summary>
 /// Represents a two-state button that is pressed or not: Base UI's <c>Toggle</c>, rendered as a <c>button</c> whose
 /// <c>aria-pressed</c> reports the state.
@@ -49,6 +63,7 @@ public static class ToggleDataAttributes
 public sealed class Toggle : PartBase<ToggleState>
 {
     private const string DefaultTag = "button";
+    private const string ArrowKeyPrefix = "Arrow";
 
     private static readonly ToggleState s_unpressed = new(Pressed: false, Disabled: false);
     private static readonly ToggleState s_pressed = new(Pressed: true, Disabled: false);
@@ -58,7 +73,10 @@ public sealed class Toggle : PartBase<ToggleState>
     private readonly EventCallback onClick;
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
+    private readonly Action groupChanged;
     private ButtonBehavior? behavior;
+    private CompositeItemBehavior? item;
+    private ToggleGroupContext? group;
     private Controlled<bool>? pressedState;
     private bool pressedSupplied;
     private bool defaultPressedSupplied;
@@ -68,8 +86,9 @@ public sealed class Toggle : PartBase<ToggleState>
     public Toggle()
     {
         onClick = CreateHandler<MouseEventArgs>("onclick", HandleClickAsync);
-        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", HandleKeyDownAsync);
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => behavior!.HandleKeyUpAsync(e));
+        groupChanged = OnGroupChanged;
     }
 
     [Inject]
@@ -84,14 +103,26 @@ public sealed class Toggle : PartBase<ToggleState>
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
+    [Inject]
+    private ToggleDevelopmentLog ToggleLog { get; set; } = null!;
+
     // UBT-STA-01: composite button mode under any composite root.
     private bool Composite => CompositeContext is not null;
 
     // TGL-API-04
-    private bool EffectiveDisabled => Disabled;
+    private bool EffectiveDisabled => Disabled || (group?.Disabled ?? false);
+
+    // TGL-API-05: Value when non-empty, else the generated id (`""` is replaced too, toggle/Toggle.tsx:41-42).
+    private string Identity => string.IsNullOrEmpty(Value) ? GeneratedId! : Value;
+
+    // TGL-STA-04: in a group, membership in the group's value; standalone, the controlled state.
+    private bool IsPressed => group is not null ? group.Contains(Identity) : pressedState!.Value;
 
     [CascadingParameter]
     private CompositeRootContext? CompositeContext { get; set; }
+
+    [CascadingParameter]
+    private ToggleGroupContext? GroupContext { get; set; }
 
     // TGL-API-01, TGL-STA-05; ADR 05 §2
     /// <summary>Gets or sets a value indicating whether the toggle is pressed, when the consumer owns the state.</summary>
@@ -155,9 +186,11 @@ public sealed class Toggle : PartBase<ToggleState>
     /// <inheritdoc />
     protected override ToggleState State => state;
 
-    // ADR 02 decision 1: under a substitute callback the twin finds the element by id (the Button precedent).
+    // Design point 12.1 (a), pending the user: a grouped toggle draws the id it registers and identifies itself by; ADR 02
+    // decision 1: under a substitute callback the twin finds the element by id (the Button precedent). A standalone toggle
+    // draws none and renders none, as Base UI renders none.
     /// <inheritdoc />
-    protected override bool UsesGeneratedId => RenderFunction is not null;
+    protected override bool UsesGeneratedId => GroupContext is not null || RenderFunction is not null;
 
     // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the twin is attached, so a browser test
     // can wait for the module's listeners before it clicks or presses keys.
@@ -180,25 +213,54 @@ public sealed class Toggle : PartBase<ToggleState>
         behavior = new ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp);
         pressedState = new Controlled<bool>("Toggle", "pressed", Logger);
         base.OnInitialized();
+        group = GroupContext;
+        if (group is not null)
+        {
+            // TGL-STR-02: a composite item only inside a group, of the nearest root.
+            item = new CompositeItemBehavior(CompositeContext, "Toggle", onKeyDown);
+            group.AddListener(groupChanged);
+        }
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
         // TGL-API-01/02, TGL-STA-02, TGL-EDGE-02/03: ownership is fixed at the first parameter set (ADR 05 Amendments
-        // 2026-10-18).
-        pressedState!.Update(pressedSupplied, Pressed, defaultPressedSupplied, DefaultPressed);
+        // 2026-10-18). TGL-EDGE-06: in a group the parameters are ignored, and so are their diagnostics.
+        if (group is null)
+        {
+            pressedState!.Update(pressedSupplied, Pressed, defaultPressedSupplied, DefaultPressed);
+        }
+
         behavior!.Disabled = EffectiveDisabled;
         behavior.Native = NativeButton;
         behavior.FocusableWhenDisabled = null;
         behavior.SetConsumerAttributes(AdditionalAttributes);
+        if (item is not null)
+        {
+            item.SetRegistration(Id, AdditionalAttributes);
+            // TGL-KEY-05: a disabled toggle's key handlers are not invoked, so the root's key handling runs none either.
+            item.SetConsumerAttributes(EffectiveDisabled ? null : AdditionalAttributes);
+        }
+
         UpdateState();
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        return behavior!.AfterRenderAsync(Enabled, Element, Id, Composite);
+        await behavior!.AfterRenderAsync(Enabled, Element, Id, Composite);
+        if (item is not null)
+        {
+            await item.AfterRenderAsync(Element);
+        }
+
+        // TGL-EDGE-01: only a null Value counts (`""` does not, toggle/Toggle.tsx:51), in a group whose value the consumer
+        // initialized (TGG-STA-07).
+        if (group is not null && Value is null && group.IsValueInitialized)
+        {
+            ToggleLog.ReportMissingValue(Logger);
+        }
     }
 
     /// <inheritdoc />
@@ -207,6 +269,8 @@ public sealed class Toggle : PartBase<ToggleState>
         if (disposing)
         {
             behavior?.Dispose();
+            item?.Dispose();
+            group?.RemoveListener(groupChanged);
         }
 
         base.Dispose(disposing);
@@ -219,6 +283,10 @@ public sealed class Toggle : PartBase<ToggleState>
         attributes.Set("aria-pressed", state.Pressed ? "true" : "false");
         attributes.Set("onclick", onClick);
         behavior!.AddAttributes(attributes, Id, Composite);
+
+        // CMP-STA-15: the item's tabindex replaces nothing the button writer rendered in composite mode (UBT-DOM-05), and
+        // the consumer's still wins at the merge.
+        item?.AddAttributes(attributes);
     }
 
     // ADR 02 Amendments 2026-10-21 (FinishAttributes); part-owned by the document: TGL-API-08 discards the consumer's
@@ -240,7 +308,7 @@ public sealed class Toggle : PartBase<ToggleState>
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName)
     {
-        return behavior!.ForwardsConsumerHandler(eventName);
+        return behavior!.ForwardsConsumerHandler(eventName) && (item?.ForwardsConsumerHandler(eventName) ?? true);
     }
 
     // TGL-PTR-01's seven steps (toggle/Toggle.tsx:82-103): the next state, the details with reason none and the click
@@ -253,8 +321,20 @@ public sealed class Toggle : PartBase<ToggleState>
             return;
         }
 
-        bool next = !state.Pressed;
+        bool next = !IsPressed;
         ChangeEventDetails details = new(EventReason.None, EventSnapshot.FromEventArgs(e));
+        if (group is not null)
+        {
+            // TGL-EVT-04/05: the group is asked only when the toggle's callback did not cancel, with the same details; the
+            // group notifies the toggles whose state changed.
+            if (await pressedState!.NotifyAsync(next, details, OnPressedChange))
+            {
+                await group.RequestAsync(Identity, next, details);
+            }
+
+            return;
+        }
+
         await pressedState!.RequestAsync(next, details, OnPressedChange, PressedChanged);
 
         // ADR 16 rule 8: a canceled or consumer-owned request renders nothing.
@@ -264,10 +344,33 @@ public sealed class Toggle : PartBase<ToggleState>
         }
     }
 
+    // The one keydown gate: the key reaches the gate whose decision point may have run the consumer's handler for it.
+    private Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        return item is not null && IsItemKey(e.Key) ? item.HandleKeyDownAsync(e) : behavior!.HandleKeyDownAsync(e);
+    }
+
+    // A change of the group's value, disabled state or initialized flag: render only when this toggle's state changed, or
+    // when the missing-value check now applies, so it runs after that render.
+    private void OnGroupChanged()
+    {
+        bool wasDisabled = behavior!.Disabled;
+        behavior.Disabled = EffectiveDisabled;
+        if (item is not null && wasDisabled != behavior.Disabled)
+        {
+            item.SetConsumerAttributes(EffectiveDisabled ? null : AdditionalAttributes);
+        }
+
+        if (UpdateState() || (Value is null && group!.IsValueInitialized && !ToggleLog.MissingValueWritten))
+        {
+            StateHasChanged();
+        }
+    }
+
     // Returns whether the state changed; the four states are shared instances, so a render allocates none (ADR 16 rule 7).
     private bool UpdateState()
     {
-        bool pressed = pressedState!.Value;
+        bool pressed = IsPressed;
         bool disabled = EffectiveDisabled;
         if (state.Pressed == pressed && state.Disabled == disabled)
         {
@@ -282,5 +385,14 @@ public sealed class Toggle : PartBase<ToggleState>
             (true, true) => s_pressedDisabled,
         };
         return true;
+    }
+
+    // Arrows (TGL-KEY-03), Home and End (TGG-KEY-04; design point 12.3 (a), pending the user): never activation keys.
+    private static bool IsItemKey(string? key)
+    {
+        return key is not null
+            && (key.StartsWith(ArrowKeyPrefix, StringComparison.Ordinal)
+                || string.Equals(key, "Home", StringComparison.Ordinal)
+                || string.Equals(key, "End", StringComparison.Ordinal));
     }
 }
