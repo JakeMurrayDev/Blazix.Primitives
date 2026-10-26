@@ -1,0 +1,77 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+@using Blazix.Primitives
+@inherits AccordionFixtureBase
+
+@*
+    The `accordion-css-transition` fixture (tests/browser/accordion.spec.ts), opened with `?animations=1`: AccordionPanel.test.tsx
+    "keeps the closing panel visible until its exit transition completes when switching items" (ACC-STA-08/09, ACC-DOM-14/17,
+    ACC-ANI-02), with Base UI's class names; a third case of non-kept panels for the new-panel-element row (ACC §9).
+*@
+<FixtureContainer Name="accordion-css-transition" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        .transition-test-panel {
+            overflow: hidden;
+            height: var(--accordion-panel-height);
+            transition: height 300ms linear;
+        }
+
+        .transition-test-panel[data-starting-style],
+        .transition-test-panel[data-ending-style] {
+            height: 0;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <AccordionCaseFrame Name="switching" Case="switching">
+        <AccordionRoot TValue="int" DefaultValue="[0]" Multiple="false">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="switchingTrigger1">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel @ref="switchingPanel1" class="transition-test-panel" data-testid="panel-1" KeepMounted="true">First panel</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="1">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="switchingTrigger2">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel @ref="switchingPanel2" class="transition-test-panel" data-testid="panel-2" KeepMounted="true">Second panel</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="unkept" Case="unkept">
+        <AccordionRoot TValue="int" DefaultValue="[0]">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="unkeptTrigger1">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel @ref="unkeptPanel1" class="transition-test-panel" data-testid="panel-1" ClassValue="@(state => $"status-{Literal(state.TransitionStatus)}")">First panel</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="1">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="unkeptTrigger2">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel class="transition-test-panel" data-testid="panel-2" ClassValue="@(state => $"status-{Literal(state.TransitionStatus)}")">Second panel</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly AccordionCase switching = new();
+    private readonly AccordionCase unkept = new();
+    private AccordionTrigger<int>? switchingTrigger1;
+    private AccordionTrigger<int>? switchingTrigger2;
+    private AccordionPanel<int>? switchingPanel1;
+    private AccordionPanel<int>? switchingPanel2;
+    private AccordionTrigger<int>? unkeptTrigger1;
+    private AccordionTrigger<int>? unkeptTrigger2;
+    private AccordionPanel<int>? unkeptPanel1;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        switchingTrigger1, switchingTrigger2, switchingPanel1, switchingPanel2, unkeptTrigger1, unkeptTrigger2, unkeptPanel1,
+    ];
+}

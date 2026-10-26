@@ -1,0 +1,46 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+@using Blazix.Primitives
+@inherits AccordionFixtureBase
+
+@*
+    The `accordion-reattach` fixture (tests/browser/accordion.spec.ts): AccordionPanel.test.tsx "React.Activity" (ACC-ANI-04).
+    Blazor has no Activity (collapsible §16 item 14): "toggle activity" sets the panel's Enabled, so the element goes away and
+    the module is disposed while the part and its state stay; showing it again renders a new element and attaches again.
+*@
+<FixtureContainer Name="accordion-reattach" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes panel-slide-down {
+            from {
+                height: 0;
+            }
+
+            to {
+                height: var(--accordion-panel-height);
+            }
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <AccordionCaseFrame Name="inline-keyframes-user-opened" Case="userOpened">
+        <button type="button" data-external @onclick="() => visible = !visible">toggle activity</button>
+        <AccordionRoot TValue="int">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="trigger">Trigger</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel @ref="panel" Enabled="visible" data-testid="panel" data-panel KeepMounted="true" style="animation-duration: 100ms; animation-name: panel-slide-down; animation-timing-function: linear; overflow: hidden">Panel contents</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly AccordionCase userOpened = new();
+    private AccordionTrigger<int>? trigger;
+    private AccordionPanel<int>? panel;
+    private bool visible = true;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [trigger, panel];
+}

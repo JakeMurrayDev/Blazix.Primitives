@@ -1,0 +1,127 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+@using Blazix.Primitives
+@inherits AccordionFixtureBase
+
+@*
+    The `accordion-basic` fixture (tests/browser/accordion.spec.ts): accordions without motion. Base UI's AccordionRoot.test.tsx
+    "keyboard interactions", "keyboard activation timing", "does not toggle or fire callbacks when the %s is disabled",
+    "prop: onValueChange" (the keyboard clause of ACC-EVT-05), and AccordionTrigger.test.tsx "removes a disabled non-native
+    trigger from the tab order" and "keeps a non-native trigger tabbable".
+*@
+<FixtureContainer Name="accordion-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <AccordionCaseFrame Name="uncontrolled" Case="uncontrolled">
+        <AccordionRoot TValue="string" OnValueChange="uncontrolled.OnValueChange">
+            <AccordionItem OnOpenChange="uncontrolled.OnOpenChange" data-item>
+                <AccordionHeader>
+                    <AccordionTrigger @ref="uncontrolledTrigger">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-panel ClassValue="@(state => $"status-{Literal(state.TransitionStatus)}")">Panel contents 1</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="non-native" Case="nonNative">
+        <AccordionRoot TValue="string" OnValueChange="nonNative.OnValueChange">
+            <AccordionItem OnOpenChange="nonNative.OnOpenChange">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="nonNativeTrigger" NativeButton="false" Render="@Span">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-panel>Panel contents 1</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="disabled-root" Case="disabledRoot">
+        <AccordionRoot TValue="string" Disabled="true" OnValueChange="disabledRoot.OnValueChange">
+            <AccordionItem Value="@("0")" OnOpenChange="disabledRoot.OnOpenChange">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="disabledRootTrigger1" Disabled="false">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-panel>Panel contents 1</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="@("1")" OnOpenChange="disabledRoot.OnOpenChange">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="disabledRootTrigger2" Disabled="false">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel>Panel contents 2</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="disabled-item" Case="disabledItem">
+        <AccordionRoot TValue="string" OnValueChange="disabledItem.OnValueChange">
+            <AccordionItem Value="@("0")" Disabled="true" OnOpenChange="disabledItem.OnOpenChange">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="disabledItemTrigger1" Disabled="false">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-panel>Panel contents 1</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="@("1")" OnOpenChange="disabledItem.OnOpenChange">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="disabledItemTrigger2" Disabled="false">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel>Panel contents 2</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="non-native-disabled" Case="nonNativeDisabled">
+        <AccordionRoot TValue="string">
+            <AccordionItem Disabled="true">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="nonNativeDisabledTrigger" NativeButton="false" Render="@Span">Trigger</AccordionTrigger>
+                </AccordionHeader>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="values" Case="values">
+        <AccordionRoot TValue="int" Multiple="true" OnValueChange="@(args => values.OnValueChange(new ValueChangeEventArgs<IReadOnlyList<string>>([.. args.Value.Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))], args.Details)))">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="valuesTrigger1">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel>1</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="1">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="valuesTrigger2">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel>2</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment Span = builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.CloseElement();
+    };
+
+    private readonly AccordionCase uncontrolled = new();
+    private readonly AccordionCase nonNative = new();
+    private readonly AccordionCase disabledRoot = new();
+    private readonly AccordionCase disabledItem = new();
+    private readonly AccordionCase nonNativeDisabled = new();
+    private readonly AccordionCase values = new();
+    private AccordionTrigger<string>? uncontrolledTrigger;
+    private AccordionTrigger<string>? nonNativeTrigger;
+    private AccordionTrigger<string>? disabledRootTrigger1;
+    private AccordionTrigger<string>? disabledRootTrigger2;
+    private AccordionTrigger<string>? disabledItemTrigger1;
+    private AccordionTrigger<string>? disabledItemTrigger2;
+    private AccordionTrigger<string>? nonNativeDisabledTrigger;
+    private AccordionTrigger<int>? valuesTrigger1;
+    private AccordionTrigger<int>? valuesTrigger2;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        uncontrolledTrigger, nonNativeTrigger, disabledRootTrigger1, disabledRootTrigger2, disabledItemTrigger1, disabledItemTrigger2,
+        nonNativeDisabledTrigger, valuesTrigger1, valuesTrigger2,
+    ];
+}

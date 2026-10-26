@@ -1,0 +1,58 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+@using Blazix.Primitives
+
+@*
+    One reveal case of the `accordion-hidden-until-found` fixture: two items `a` and `b` under a hidden-until-found root, the
+    callbacks recorded by the case's AccordionCase. `reveal` starts with `a` open, so a reveal of `b` closes it (single mode);
+    `controlled-ignoring` owns its value and ignores the requests, so its reveal is reverted.
+*@
+<AccordionCaseFrame Name="@Name" Case="Record">
+    <AccordionRoot TValue="string" HiddenUntilFound="true" @attributes="RootAttributes()">
+        <AccordionItem Value="@("a")" OnOpenChange="Record.OnOpenChange">
+            <AccordionHeader>
+                <AccordionTrigger @ref="triggerA">Trigger A</AccordionTrigger>
+            </AccordionHeader>
+            <AccordionPanel @ref="panelA" class="motion-panel" data-panel="a">Panel A</AccordionPanel>
+        </AccordionItem>
+        <AccordionItem Value="@("b")" OnOpenChange="Record.OnOpenChange">
+            <AccordionHeader>
+                <AccordionTrigger @ref="triggerB">Trigger B</AccordionTrigger>
+            </AccordionHeader>
+            <AccordionPanel @ref="panelB" class="motion-panel" data-panel="b">Panel B</AccordionPanel>
+        </AccordionItem>
+    </AccordionRoot>
+</AccordionCaseFrame>
+
+@code {
+    private AccordionTrigger<string>? triggerA;
+    private AccordionTrigger<string>? triggerB;
+    private AccordionPanel<string>? panelA;
+    private AccordionPanel<string>? panelB;
+
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required AccordionCase Record { get; set; }
+
+    /// <summary>Gets a task that completes once both triggers and both panels are attached.</summary>
+    internal Task TwinAttached => Task.WhenAll(triggerA!.TwinAttached, triggerB!.TwinAttached, panelA!.TwinAttached, panelB!.TwinAttached);
+
+    private Dictionary<string, object> RootAttributes()
+    {
+        Dictionary<string, object> attributes = new()
+        {
+            ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, Record.OnValueChange),
+        };
+        if (Name == "controlled-ignoring")
+        {
+            attributes["Value"] = Record.Value;
+        }
+        else if (Name == "reveal")
+        {
+            attributes["DefaultValue"] = (IReadOnlyList<string>)["a"];
+        }
+
+        return attributes;
+    }
+}
