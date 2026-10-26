@@ -168,6 +168,37 @@ public sealed class TabsRootTests : IDisposable
         Assert.Equal(Panels(cut)[0].Id, Tabs(cut)[1].GetAttribute("aria-controls"));
     }
 
+    // TAB-STA-14 and ADR 04 Amendments 2026-10-26: outside an event dispatch (the module's report on Server) each part's
+    // render is a batch of its own, and the `tabs` module reads `[data-active]` after each. The Tab that becomes active
+    // renders before the one it replaces, so no batch shows a selection change with no active Tab.
+    [Fact(DisplayName = "port: a selection renders the newly active tab before the tab it replaces")]
+    [Trait("Requirement", "TAB-STA-14")]
+    [Trait("Requirement", "TAB-STA-03")]
+    public async Task Port_a_selection_renders_the_newly_active_tab_before_the_tab_it_replaces()
+    {
+        List<string> renders = [];
+        Func<TabsTabState, string?> Record(int value) => state =>
+        {
+            renders.Add($"{value}:{(state.Active ? "active" : "inactive")}");
+            return null;
+        };
+
+        IRenderedComponent<TabsRoot<int>> cut = Context.Render<TabsRoot<int>>(p => p
+            .Add(x => x.DefaultValue, 2)
+            .AddChildContent(List(
+                Tab(0, t => t.Add(x => x.ClassValue, Record(0))),
+                Tab(1, t => t.Add(x => x.ClassValue, Record(1))),
+                Tab(2, t => t.Add(x => x.ClassValue, Record(2))))));
+
+        renders.Clear();
+        await test.SelectAsync(cut, Tabs(cut)[0].Id!, "left");
+        Assert.Equal(["0:active", "2:inactive"], renders);
+
+        renders.Clear();
+        await test.SelectAsync(cut, Tabs(cut)[2].Id!, "right");
+        Assert.Equal(["2:active", "0:inactive"], renders);
+    }
+
     [Fact(DisplayName = "should pass selected prop to children")]
     [Trait("Requirement", "TAB-API-01")]
     [Trait("Requirement", "TAB-STA-01")]
