@@ -6,8 +6,8 @@ namespace Blazix.Primitives.Interop;
 // ADR 04 Amendments 2026-10-20 (the pending-navigation flag and the focus-driven selection, RDG-STA-06, RAD-FOC-05) and
 // the reports of RDG-FOC-04/05 and CMP-EVT-01; the items' ids and consumer tabindex of ADR 04 Amendments 2026-10-22
 // (RAD-DOM-16); the M3 extensions of ADR 04 Amendments 2026-10-26 (chosen by the user): the items' flags and the
-// derived indices (CMP-STA-08, CMP-KEY-08, TLB-STA-02) and the items report, onMapChange as ids (CMP-EVT-03), sent only
-// when set. Not carried (CMP §10 Q1, M3, M5): grid, onLoop, a consumer-owned highlight, metadata or an explicit index
+// derived indices (CMP-STA-08, CMP-KEY-08, TLB-STA-02), the items report, onMapChange as ids (CMP-EVT-03), and the
+// registration-only mode of a root-less list (CMP-STR-03), sent only when set. Not carried (CMP §10 Q1, M3, M5): grid, onLoop, a consumer-owned highlight, metadata or an explicit index
 // from C#: values stay in C#, joined to the reported ids.
 /// <summary>
 /// The options of the <c>composite</c> module: the roving group's configuration and its items, sent on <c>attach</c> and
@@ -95,6 +95,15 @@ internal sealed record CompositeOptions : TwinOptions
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool ReportItems { get; init; }
+
+    /// <summary>Gets a value indicating whether the root is a list that only orders and reports its items.</summary>
+    /// <value>
+    /// <see langword="true"/> for a list without a roving group, read once on <c>attach</c>: the module keeps the items'
+    /// order and reports it to <see cref="CompositeTwin.ItemsChanged"/>, handles no key, writes no <c>tabindex</c> and
+    /// keeps no highlight, so every other option is ignored. The default is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RegistrationOnly { get; init; }
 }
 
 // ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16); the flags of ADR 04

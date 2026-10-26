@@ -28,7 +28,7 @@ public sealed class CompositeListTests : IDisposable
 
         Assert.Equal("-1", cut.Find("[data-testid=\"orphan\"]").GetAttribute("data-index"));
         Assert.Empty(Context.JSInterop.Invocations);
-        Exception? error = Record.Exception(() => Context.DisposeComponentsAsync().AsTask().GetAwaiter().GetResult());
+        Exception? error = Record.Exception(() => Context.DisposeComponentsAsync().GetAwaiter().GetResult());
         Assert.Null(error);
     }
 
