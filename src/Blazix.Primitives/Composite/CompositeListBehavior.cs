@@ -17,7 +17,7 @@ namespace Blazix.Primitives;
 // plus a round trip, ADR 01's row "EVD-STA-07, CMP-STA-10, FFI registration", which names the published indexes), and
 // sets each item's index from the report: its position, or -1 when the report does not name it. Each report is the whole
 // sequence, joined when it arrives, before or after the handle exists; an id no registration carries is ignored
-// (design points 1 and 3, option (a), pending the user). The first registration of an id is the one sent and joined, as
+// (design points 1 and 3, option (a), settled by the orchestrator 2026-10-26). The first registration of an id is the one sent and joined, as
 // the root's.
 /// <summary>
 /// The registration-only list mechanism of one part: its <see cref="CompositeTwin"/> in registration-only mode, the

@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// module reports the items' ids in index order on each publication that changed them, and
 /// <see cref="CompositeRootBehavior"/> joins them to its registrations, exposing them in order with one change event per
 /// report. Values never cross to JavaScript. Each report is a self-contained sequence, joined when it arrives (design
-/// points 1 and 3, option (a); pending the user).
+/// points 1 and 3, option (a); settled by the orchestrator 2026-10-26).
 /// </summary>
 public sealed class CompositeItemsReportTests : IDisposable
 {

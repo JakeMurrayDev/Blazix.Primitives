@@ -109,9 +109,9 @@ internal sealed record CompositeOptions : TwinOptions
     /// <summary>Gets a value indicating whether the highlight follows the item marked active.</summary>
     /// <value>
     /// <see langword="true"/> to move the highlight to the item that carries <c>data-composite-item-active</c> whenever it
-    /// changes while focus is outside the root and the item is not <see cref="CompositeItemRegistration.Disabled"/>,
-    /// except once after a keydown on that item; the highlight is then not moved off an item that
-    /// <see cref="DisabledIndices"/> disables. The default is <see langword="false"/>, which is not sent.
+    /// changes while focus is outside the root and the item is not <c>aria-disabled="true"</c>, except once after a keydown
+    /// on that item; the highlight is then not moved off an item that <see cref="DisabledIndices"/> disables. The default
+    /// is <see langword="false"/>, which is not sent.
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool FollowActiveItem { get; init; }

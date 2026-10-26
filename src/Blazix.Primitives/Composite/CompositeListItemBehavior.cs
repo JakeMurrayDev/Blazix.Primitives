@@ -7,7 +7,7 @@ namespace Blazix.Primitives;
 // component (ADR 16 rule 10).
 // - It registers the id its part renders, in the batch that creates the part, and unregisters on dispose. Every list
 //   item renders an id, the consumer's or a generated one, so the module can resolve it (design point 2, option (a),
-//   pending the user).
+//   settled by the orchestrator 2026-10-26).
 // - It renders nothing of its own: no tabindex and no handler (a TabsPanel renders its own tabindex, TAB-DOM-15/16).
 // - Its index is -1 until the list's first report and in prerender (CMP-STA-15), then the item's position in the
 //   reported order; the part re-renders only when the index changes (ADR 16 rule 8).

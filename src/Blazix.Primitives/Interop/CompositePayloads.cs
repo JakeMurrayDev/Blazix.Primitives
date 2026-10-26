@@ -16,7 +16,7 @@ internal sealed record CompositeFocusLeave(EventSnapshot Event);
 internal sealed record CompositeKeyHandled(EventSnapshot Event);
 
 // CMP-EVT-03 as a report of ids (M3 track 1, E2; ADR 04 Amendments 2026-10-26, chosen by the user; one self-contained
-// sequence per report, design points 1 and 3, pending the user).
+// sequence per report, design points 1 and 3, option (a), settled by the orchestrator 2026-10-26).
 /// <summary>The payload of the <c>composite</c> module's report of the items' order.</summary>
 /// <param name="Ids">The ids of the registered items in index order, each once.</param>
 internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids);

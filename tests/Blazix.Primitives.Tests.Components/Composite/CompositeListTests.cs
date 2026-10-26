@@ -9,7 +9,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// registration-only mode and reads its items' indexes from the order report. An item's index is <c>-1</c> until the
 /// first report and in prerender (CMP-STA-15); its part re-renders only when its index changes (ADR 16 rule 8). An item
 /// without a list is inert (CMP-STR-03). Every list item renders an id (design point 2) and the list cascades its own
-/// context (design point 6), option (a) both; pending the user.
+/// context (design point 6), option (a) both; settled by the orchestrator 2026-10-26.
 /// </summary>
 public sealed class CompositeListTests : IDisposable
 {

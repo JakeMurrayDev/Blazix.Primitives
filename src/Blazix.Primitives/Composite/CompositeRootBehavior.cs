@@ -153,7 +153,7 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <summary>Gets or sets a value indicating whether the highlight follows the item marked active.</summary>
     /// <value>
     /// <see langword="true"/> to move the highlight to the item that carries <see cref="CompositeAttributes.ActiveItem"/>
-    /// whenever it changes while focus is outside the root and the item is not disabled; the default is
+    /// whenever it changes while focus is outside the root and the item is not <c>aria-disabled="true"</c>; the default is
     /// <see langword="false"/>.
     /// </value>
     public bool FollowActiveItem { get; set; }
@@ -641,7 +641,7 @@ internal sealed class CompositeRootBehavior : IDisposable
 
     private void OnFocusLeave(EventSnapshot snapshot) => FocusLeft?.Invoke(snapshot);
 
-    // CMP-EVT-03 (M3 track 1, E2; design points 1 and 3, option (a), pending the user): each report is the whole sequence,
+    // CMP-EVT-03 (M3 track 1, E2; design points 1 and 3, option (a), settled by the orchestrator 2026-10-26): each report is the whole sequence,
     // joined when it arrives, before or after the handle exists. An id no registration carries is ignored (an item C# has
     // already removed, on Server); the first registration of an id is the one joined, as the one sent.
     private void OnItemsChange(IReadOnlyList<string> ids)

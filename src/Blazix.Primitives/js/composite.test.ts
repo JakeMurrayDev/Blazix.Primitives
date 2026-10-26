@@ -2055,7 +2055,7 @@ describe('composite item flags (port)', () => {
 // ADR 04 Amendments 2026-10-26 (chosen by the user): on every publication whose id sequence changed, the module reports the
 // items' ids in index order, before the root's own adjustment of the same publication (CMP-EVT-03, `CompositeRoot.tsx:88-91`
 // calls `onMapChange` first); C# joins them to its registrations, so no value crosses. One self-contained sequence per
-// report (design points 1 and 3, option (a); pending the user).
+// report (design points 1 and 3, option (a); settled by the orchestrator 2026-10-26).
 
 describe('composite items report (port)', () => {
   type ItemsChange = { ids: string[] };
@@ -2118,7 +2118,7 @@ describe('composite items report (port)', () => {
 // ADR 04 Amendments 2026-10-26 (chosen by the user): a root-less `CompositeList` (TabsRoot's panels, AccordionRoot's
 // items; CMP-STR-03) attaches in a registration-only mode that installs no listeners, writes no `tabindex`, keeps no
 // highlight, reads no marker and asks no decision point, and keeps the registry (move detection, CMP-STA-11/12; shadow-root
-// items, CMP-STA-13) with the items report (design points 1 and 2, option (a); pending the user).
+// items, CMP-STA-13) with the items report (design points 1 and 2, option (a); settled by the orchestrator 2026-10-26).
 
 describe('composite registration-only list (port)', () => {
   type ItemsChange = { ids: string[] };
