@@ -2050,3 +2050,66 @@ describe('composite item flags (port)', () => {
     expect(document.activeElement).toBe(byTestId('b2'));
   });
 });
+
+// --- port titles: the items report (M3 track 1, E2) --------------------------------------------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): on every publication whose id sequence changed, the module reports the
+// items' ids in index order, before the root's own adjustment of the same publication (CMP-EVT-03, `CompositeRoot.tsx:88-91`
+// calls `onMapChange` first); C# joins them to its registrations, so no value crosses. One self-contained sequence per
+// report (design points 1 and 3, option (a); pending the user).
+
+describe('composite items report (port)', () => {
+  type ItemsChange = { ids: string[] };
+
+  it('reports the ids in index order on the first publication, an addition and a removal, only with reportItems', () => {
+    const quiet = mountItems(['x', 'y']);
+    quiet.update();
+    expect(quiet.fake.reported('OnItemsChange')).toEqual([]);
+    document.body.replaceChildren();
+
+    const group = mountItems(['a', 'b', 'c'], { reportItems: true });
+    const [a, b, c] = ['a', 'b', 'c'].map(byTestId);
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [a!.id, b!.id, c!.id] }]);
+
+    const d = item('d');
+    group.root.insertBefore(d, b!);
+    group.update();
+    c!.remove();
+    group.update();
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([
+      { ids: [a!.id, b!.id, c!.id] },
+      { ids: [a!.id, d.id, b!.id, c!.id] },
+      { ids: [a!.id, d.id, b!.id] },
+    ]);
+  });
+
+  it('reports an observed move, and nothing for a publication that keeps the id sequence', async () => {
+    const sections = ['a', 'b'].map((label) => {
+      const section = document.createElement('section');
+      section.appendChild(item(label));
+      return section;
+    });
+    const group = mountGroup(sections, { reportItems: true });
+    const [a, b] = ['a', 'b'].map(byTestId);
+
+    group.root.insertBefore(sections[1]!, sections[0]!);
+    await nextTask();
+
+    // A replaced element under the same id is a publication (CMP-STA-09) whose ids do not change.
+    const replacement = item('b');
+    replacement.id = b!.id;
+    b!.replaceWith(replacement);
+    group.update();
+    group.update();
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [a!.id, b!.id] }, { ids: [b!.id, a!.id] }]);
+  });
+
+  it("reports the ids before the root's own adjustment of the same publication", () => {
+    const elements = [item('1'), item('2', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('3')];
+    const group = mountGroup(elements, { reportItems: true, reportHighlight: true });
+
+    expect(group.fake.reports.map((report) => report.method)).toEqual(['OnItemsChange', 'OnHighlightChange']);
+    expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
+  });
+});
