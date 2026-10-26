@@ -1,0 +1,158 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+@using Blazix.Primitives
+@inherits TabsFixtureBase
+
+@*
+    The `tabs-direction` fixture (tests/browser/tabs.spec.ts, group F): TabsRoot.test.tsx's "activation direction" pages.
+    Every Panel's class is its state's direction (`dir-<direction>`), the C# mirror of the attribute the `tabs` module
+    writes; buttons change a controlled value, clear it, or add and select a Tab, as the tests' setProps does.
+*@
+<FixtureContainer Name="tabs-direction" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <TabsCaseFrame Name="horizontal" Case="horizontal">
+        <TabsRoot TValue="int" OnValueChange="horizontal.Change" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+            </TabsList>
+            <TabsPanel Value="0" ClassValue="DirectionClass" data-panel="0">Panel 0</TabsPanel>
+            <TabsPanel Value="1" ClassValue="DirectionClass" data-panel="1">Panel 1</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="vertical" Case="vertical">
+        <TabsRoot TValue="int" Orientation="Orientation.Vertical" OnValueChange="vertical.Change" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" style="display: block" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" style="display: block" data-tab="1">Tab 1</TabsTab>
+            </TabsList>
+            <TabsPanel Value="0" ClassValue="DirectionClass" data-panel="0">Panel 0</TabsPanel>
+            <TabsPanel Value="1" ClassValue="DirectionClass" data-panel="1">Panel 1</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    @foreach (Orientation orientation in new[] { Orientation.Horizontal, Orientation.Vertical })
+    {
+        Orientation current = orientation;
+        string name = current == Orientation.Horizontal ? "programmatic-horizontal" : "programmatic-vertical";
+        TabsCase record = current == Orientation.Horizontal ? programmaticHorizontal : programmaticVertical;
+        <TabsCaseFrame Name="@name" Case="record">
+            <button type="button" data-action="select-0" @onclick="() => programmatic[current] = 0">Select 0</button>
+            <button type="button" data-action="select-1" @onclick="() => programmatic[current] = 1">Select 1</button>
+            <TabsRoot TValue="int" Value="programmatic[current]" Orientation="current" data-root>
+                <TabsList @ref="List">
+                    <TabsTab @ref="IntTab" Value="0" style="@TabStyle(current)" data-tab="0">Tab 0</TabsTab>
+                    <TabsTab @ref="IntTab" Value="1" style="@TabStyle(current)" data-tab="1">Tab 1</TabsTab>
+                </TabsList>
+                <TabsPanel Value="0" ClassValue="DirectionClass" data-panel="0">Panel 0</TabsPanel>
+                <TabsPanel Value="1" ClassValue="DirectionClass" data-panel="1">Panel 1</TabsPanel>
+            </TabsRoot>
+        </TabsCaseFrame>
+    }
+
+    <TabsCaseFrame Name="cleared" Case="cleared">
+        <button type="button" data-action="select-1" @onclick="() => clearedValue = 1">Select 1</button>
+        <button type="button" data-action="clear" @onclick="() => clearedValue = null">Clear</button>
+        <button type="button" data-action="select-0" @onclick="() => clearedValue = 0">Select 0</button>
+        <TabsRoot TValue="int?" Value="clearedValue" data-root>
+            <TabsList @ref="List">
+                <TabsTab TValue="int?" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab TValue="int?" Value="1" data-tab="1">Tab 1</TabsTab>
+                <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+            </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="canceled" Case="canceled">
+        <button type="button" data-action="select-1" @onclick="() => canceledValue = 1">Select 1</button>
+        <TabsRoot TValue="int" Value="canceledValue" OnValueChange="canceled.Change" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+            </TabsList>
+            <TabsPanel Value="0" data-panel="0" />
+            <TabsPanel Value="1" data-panel="1" />
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="ignored" Case="ignored">
+        <button type="button" data-action="select-1" @onclick="() => ignoredValue = 1">Select 1</button>
+        <TabsRoot TValue="int" Value="ignoredValue" OnValueChange="ignored.Change" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+            </TabsList>
+            <TabsPanel Value="0" data-panel="0" />
+            <TabsPanel Value="1" data-panel="1" />
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="add-number" Case="addNumber">
+        <button type="button" data-action="add" @onclick="AddNumber">Add and Select</button>
+        <TabsRoot TValue="int" Value="numberValue" data-root>
+            <TabsList @ref="List">
+                @foreach (int tab in numberTabs)
+                {
+                    <TabsTab @key="tab" Value="tab" data-tab="@tab">Tab @tab</TabsTab>
+                }
+            </TabsList>
+            @foreach (int tab in numberTabs)
+            {
+                <TabsPanel @key="tab" Value="tab" ClassValue="DirectionClass" data-panel="@tab">Panel @tab</TabsPanel>
+            }
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="add-string" Case="addString">
+        <button type="button" data-action="add" @onclick="AddString">Add and Select</button>
+        <TabsRoot TValue="string" Value="stringValue" data-root>
+            <TabsList @ref="List">
+                @foreach (string tab in stringTabs)
+                {
+                    <TabsTab @key="tab" Value="tab" data-tab="@tab">@tab</TabsTab>
+                }
+            </TabsList>
+            @foreach (string tab in stringTabs)
+            {
+                <TabsPanel @key="tab" Value="tab" ClassValue="DirectionClass" data-panel="@tab">@tab</TabsPanel>
+            }
+        </TabsRoot>
+    </TabsCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly TabsCase horizontal = new();
+    private readonly TabsCase vertical = new();
+    private readonly TabsCase programmaticHorizontal = new();
+    private readonly TabsCase programmaticVertical = new();
+    private readonly TabsCase cleared = new();
+    private readonly TabsCase canceled = new() { Cancel = true };
+    private readonly TabsCase ignored = new();
+    private readonly TabsCase addNumber = new();
+    private readonly TabsCase addString = new();
+    private readonly Dictionary<Orientation, int> programmatic = new() { [Orientation.Horizontal] = 0, [Orientation.Vertical] = 0 };
+    private int? clearedValue = 0;
+    private int canceledValue;
+    private int ignoredValue;
+    private List<int> numberTabs = [0, 1];
+    private int numberValue;
+    private List<string> stringTabs = ["Overview", "Projects"];
+    private string stringValue = "Overview";
+
+    private static string? TabStyle(Orientation orientation) => orientation == Orientation.Vertical ? "display: block" : null;
+
+    private static string DirectionClass(TabsPanelState state) => $"dir-{state.TabActivationDirection.ToString().ToLowerInvariant()}";
+
+    private void AddNumber()
+    {
+        numberTabs = [0, 1, 2];
+        numberValue = 2;
+    }
+
+    private void AddString()
+    {
+        stringTabs = ["Overview", "Projects", "Account"];
+        stringValue = "Account";
+    }
+}

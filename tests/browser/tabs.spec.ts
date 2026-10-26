@@ -736,3 +736,164 @@ test.describe('<Tabs.Tab />', () => {
     });
   });
 });
+
+/** One Panel element the page saw created: its value, and its direction attribute and class in the batch that created it. */
+interface CreatedPanel {
+  panel: string | null;
+  direction: string | null;
+  className: string;
+}
+
+/**
+ * Records, as markers the page keeps (ADR 06 §2), each Panel element a batch creates in a case, with the
+ * `data-activation-direction` and class it carries in that batch's mutation callback: the `tabs` module's observer was
+ * created first, at attach, so this one runs after it, before paint.
+ */
+async function recordCreatedPanels(container: Locator): Promise<void> {
+  await container.evaluate((element) => {
+    const records: CreatedPanel[] = [];
+    (element as unknown as { created: CreatedPanel[] }).created = records;
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement && node.getAttribute('role') === 'tabpanel') {
+            records.push({
+              panel: node.getAttribute('data-panel'),
+              direction: node.getAttribute('data-activation-direction'),
+              className: node.className,
+            });
+          }
+        }
+      }
+    }).observe(element, { subtree: true, childList: true });
+  });
+}
+
+async function createdPanels(container: Locator): Promise<CreatedPanel[]> {
+  return container.evaluate((element) => (element as unknown as { created: CreatedPanel[] }).created);
+}
+
+test.describe('<Tabs.Root /> (activation direction)', () => {
+  for (const { orientation, forward, backward } of [
+    { orientation: 'horizontal', forward: 'right', backward: 'left' },
+    { orientation: 'vertical', forward: 'down', backward: 'up' },
+  ] as const) {
+    test(`should set the \`data-activation-direction\` attribute on the tabs root with orientation=${orientation}`, async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-direction');
+      const { container, root, tab, panel } = tabsCase(fixture, orientation);
+      await recordCreatedPanels(container);
+      await expect(root).toHaveAttribute('data-activation-direction', 'none');
+
+      await tab(1).click();
+
+      await expect(root).toHaveAttribute('data-activation-direction', forward);
+      // TAB-STA-14, TAB-ANI-01: the first open render of the Panel already carries the new direction, before paint.
+      await expect.poll(() => createdPanels(container)).toEqual([expect.objectContaining({ panel: '1', direction: forward })]);
+      await expect(container).toHaveAttribute('data-last-change', new RegExp(`direction=${forward} `));
+      await expect(panel(0)).toHaveCount(0);
+
+      await tab(0).click();
+
+      await expect(root).toHaveAttribute('data-activation-direction', backward);
+      await expect.poll(async () => (await createdPanels(container)).at(-1)).toEqual(expect.objectContaining({ panel: '0', direction: backward }));
+      // The C# mirror (ADR 01's RND-STA-01 row): the Panel's class function sees the direction once the report arrives.
+      await expect(panel(0)).toHaveClass(`dir-${backward}`);
+    });
+
+    test(`should update \`data-activation-direction\` on programmatic value changes with orientation=${orientation}`, async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-direction');
+      const { container, root, tab, button } = tabsCase(fixture, `programmatic-${orientation}`);
+      await recordCreatedPanels(container);
+      await expect(root).toHaveAttribute('data-activation-direction', 'none');
+      await expect(tab(0)).toHaveAttribute('data-activation-direction', 'none');
+
+      await button('select-1').click();
+
+      await expect(root).toHaveAttribute('data-activation-direction', forward);
+      await expect(tab(1)).toHaveAttribute('data-activation-direction', forward);
+      await expect.poll(() => createdPanels(container)).toEqual([expect.objectContaining({ panel: '1', direction: forward })]);
+
+      await button('select-0').click();
+
+      await expect(root).toHaveAttribute('data-activation-direction', backward);
+      await expect(tab(0)).toHaveAttribute('data-activation-direction', backward);
+      await expect.poll(async () => (await createdPanels(container)).at(-1)).toEqual(expect.objectContaining({ panel: '0', direction: backward }));
+    });
+  }
+
+  test('resets `data-activation-direction` when the selection is cleared and restored', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-direction');
+    const { root, indicator, button } = tabsCase(fixture, 'cleared');
+
+    await button('select-1').click();
+    await expect(root).toHaveAttribute('data-activation-direction', 'right');
+
+    // Clearing the selection is not a directional transition.
+    await button('clear').click();
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+    await expect(indicator()).toHaveCount(0);
+
+    // Neither is selecting a tab again from a cleared state.
+    await button('select-0').click();
+    await expect(indicator()).toHaveCount(1);
+    await settle(fixture);
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+  });
+
+  test('should update `data-activation-direction` on programmatic change after a canceled click', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-direction');
+    const { container, root, tab, button } = tabsCase(fixture, 'canceled');
+
+    // Click is canceled: the value stays at 0.
+    await tab(1).click();
+    await expect(container).toHaveAttribute('data-changes', '1');
+    await settle(fixture);
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+
+    // A later programmatic change still computes the direction correctly.
+    await button('select-1').click();
+    await expect(root).toHaveAttribute('data-activation-direction', 'right');
+  });
+
+  test('should update `data-activation-direction` on programmatic change after a controlled parent ignores click', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-direction');
+    const { container, root, tab, button } = tabsCase(fixture, 'ignored');
+
+    // The click calls OnValueChange but the parent does not update the value.
+    await tab(1).click();
+    await expect(container).toHaveAttribute('data-changes', '1');
+    await settle(fixture);
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+
+    await button('select-1').click();
+    await expect(root).toHaveAttribute('data-activation-direction', 'right');
+  });
+
+  test('should compute correct direction when adding and selecting a new tab in one controlled update', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-direction');
+    const { container, root, button, panel } = tabsCase(fixture, 'add-number');
+    await recordCreatedPanels(container);
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+
+    await button('add').click();
+
+    await expect(root).toHaveAttribute('data-activation-direction', 'right');
+    await expect.poll(() => createdPanels(container)).toEqual([expect.objectContaining({ panel: '2', direction: 'right' })]);
+    await expect(panel(2)).toHaveClass('dir-right');
+  });
+
+  test('should compute correct direction on final render when adding and selecting a new tab in one controlled update with out of order string values', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-direction');
+    const { container, root, button, panel } = tabsCase(fixture, 'add-string');
+    await recordCreatedPanels(container);
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+
+    await button('add').click();
+
+    // TAB-STA-16/17 (design point 7, pending the user): the new Tab is in the batch the module reads, so the positional
+    // direction is the first one shown; the provisional value-based guess ('Account' < 'Overview') never appears.
+    await expect(root).toHaveAttribute('data-activation-direction', 'right');
+    await expect.poll(() => createdPanels(container)).toEqual([expect.objectContaining({ panel: 'Account', direction: 'right' })]);
+    await expect(panel('Account')).toHaveClass('dir-right');
+  });
+});
