@@ -897,3 +897,161 @@ test.describe('<Tabs.Root /> (activation direction)', () => {
     await expect(panel('Account')).toHaveClass('dir-right');
   });
 });
+
+/** One change the page saw on a Panel of a case, with the number of the observer callback that delivered it. */
+interface PanelRecord {
+  kind: 'added' | 'removed' | 'attribute';
+  panel: string | null;
+  name: string | null;
+  present: boolean;
+  batch: number;
+  /** For `data-ending-style` appearing: the `aria-controls` of the Tab with the Panel's value, and the Panel's id. */
+  controls?: string | null;
+  id?: string;
+}
+
+/**
+ * Records, from now on, every insertion and removal of a Panel in a case and every change of its transition attributes,
+ * `inert` and `hidden`, with the number of the observer callback that delivered it (one callback per microtask checkpoint
+ * after a DOM change, so two records with one batch number landed before the same paint).
+ */
+async function recordPanels(container: Locator): Promise<void> {
+  await container.evaluate((node) => {
+    const records: unknown[] = [];
+    let batch = 0;
+    (node as unknown as { panelRecords: unknown[] }).panelRecords = records;
+    new MutationObserver((mutations) => {
+      batch++;
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((added) => {
+            if (added instanceof Element && added.matches('[data-panel]')) {
+              records.push({ kind: 'added', panel: added.getAttribute('data-panel'), name: null, present: true, batch });
+            }
+          });
+          mutation.removedNodes.forEach((removed) => {
+            if (removed instanceof Element && removed.matches('[data-panel]')) {
+              records.push({ kind: 'removed', panel: removed.getAttribute('data-panel'), name: null, present: false, batch });
+            }
+          });
+        } else if (mutation.target instanceof Element && mutation.target.matches('[data-panel]')) {
+          const panel = mutation.target.getAttribute('data-panel');
+          const present = mutation.target.hasAttribute(mutation.attributeName!);
+          const record: Record<string, unknown> = { kind: 'attribute', panel, name: mutation.attributeName, present, batch };
+          if (mutation.attributeName === 'data-ending-style' && present) {
+            record.controls = node.querySelector(`[data-tab="${panel}"]`)?.getAttribute('aria-controls') ?? null;
+            record.id = mutation.target.id;
+          }
+          records.push(record);
+        }
+      }
+    }).observe(node, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-starting-style', 'data-ending-style', 'inert', 'hidden'],
+    });
+  });
+}
+
+async function panelRecords(container: Locator): Promise<PanelRecord[]> {
+  return container.evaluate((node) => (node as unknown as { panelRecords: PanelRecord[] }).panelRecords);
+}
+
+/** Opens a fixture with animations on (ADR 06 §2: the host turns them off unless `?animations=1`). */
+async function gotoAnimated(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
+  return gotoTabs(page, mode, name, { animations: 1 });
+}
+
+test.describe('<Tabs.Panel />', () => {
+  test.describe('animations', () => {
+    test('triggers enter animation via data-starting-style when mounting', async ({ page, mode }) => {
+      const fixture = await gotoAnimated(page, mode, 'tabs-panels');
+      const { container, tab, panel } = tabsCase(fixture, 'enter');
+      await expect(panel('two')).toHaveCount(0);
+      await container.evaluate((node) => {
+        node.addEventListener('transitionend', (event) => {
+          if ((event.target as Element).matches('[data-panel="two"]')) {
+            (node as HTMLElement).dataset.transitionEnded = 'true';
+          }
+        });
+      });
+      await recordPanels(container);
+      await recordCreatedPanels(container);
+
+      await tab('two').click();
+
+      await expect(container).toHaveAttribute('data-transition-ended', 'true');
+      await expect(panel('two')).toHaveCount(1);
+      await expect(panel('two')).not.toHaveAttribute('data-starting-style');
+      // TAB-ANI-01: the element appeared with data-starting-style (C#'s handover) and the new direction, which were
+      // there before the frame that cleared the starting style.
+      const records = await panelRecords(container);
+      const added = records.find((record) => record.kind === 'added' && record.panel === 'two');
+      const cleared = records.find((record) => record.panel === 'two' && record.name === 'data-starting-style' && !record.present);
+      expect(added).toBeDefined();
+      expect(cleared).toBeDefined();
+      expect(cleared!.batch).toBeGreaterThan(added!.batch);
+      expect(await createdPanels(container)).toEqual([{ panel: 'two', direction: 'right', className: 'animation-test-panel' }]);
+    });
+
+    test('applies data-ending-style before unmount', async ({ page, mode }) => {
+      const fixture = await gotoAnimated(page, mode, 'tabs-panels');
+      const { container, tab, panel } = tabsCase(fixture, 'exit');
+      await expect(panel('one')).toHaveCount(1);
+      await recordPanels(container);
+
+      await tab('two').click();
+
+      await expect(panel('one')).toHaveCount(0);
+      const records = await panelRecords(container);
+      const ending = records.findIndex((record) => record.panel === 'one' && record.name === 'data-ending-style' && record.present);
+      const removed = records.findIndex((record) => record.kind === 'removed' && record.panel === 'one');
+      expect(ending).toBeGreaterThanOrEqual(0);
+      expect(removed).toBeGreaterThan(ending);
+      // TAB-ANI-05: the closing Panel keeps its registration through its exit, so its Tab still names it.
+      expect(records[ending]!.controls).toBe(records[ending]!.id);
+      // TAB-ANI-03 with design point 1 (OpenSelector ":not([inert])", pending the user): data-ending-style and inert
+      // appear in the same batch, before paint, on both modes.
+      const inert = records.find((record) => record.panel === 'one' && record.name === 'inert' && record.present);
+      expect(inert?.batch).toBe(records[ending]!.batch);
+    });
+
+    test('port: a kept-mounted panel plays its exit, is hidden at its end, and starts from data-starting-style when reopened', async ({ page, mode }) => {
+      const fixture = await gotoAnimated(page, mode, 'tabs-panels');
+      const { container, tab, panel } = tabsCase(fixture, 'kept');
+      await expect(panel('two')).toHaveAttribute('hidden', '');
+      await recordPanels(container);
+
+      await tab('two').click();
+
+      // The closing Panel: data-ending-style for its exit, then hidden and data-hidden (TAB-DOM-14, TAB-ANI-03).
+      await expect(panel('one')).toHaveAttribute('hidden', '');
+      await expect(panel('one')).toHaveAttribute('data-hidden', '');
+      await expect(panel('one')).not.toHaveAttribute('data-ending-style');
+      // The opening Panel: no longer hidden, its starting style written and cleared by the module.
+      await expect(panel('two')).not.toHaveAttribute('hidden');
+      await expect(panel('two')).not.toHaveAttribute('data-starting-style');
+      const records = await panelRecords(container);
+      expect(records).toContainEqual(expect.objectContaining({ panel: 'one', name: 'data-ending-style', present: true }));
+      expect(records).toContainEqual(expect.objectContaining({ panel: 'two', name: 'data-starting-style', present: true }));
+      expect(records.filter((record) => record.kind === 'removed')).toEqual([]);
+    });
+  });
+
+  test('port: with animations disabled a closed panel unmounts at once', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-panels');
+    const { container, tab, panel } = tabsCase(fixture, 'exit');
+    await recordPanels(container);
+
+    await tab('two').click();
+
+    // TAB-ANI-06 (TRN-EDGE-01): the exit completes when the completion watcher arms; data-ending-style lasts at most one
+    // batch before the element is removed.
+    await expect(panel('one')).toHaveCount(0);
+    await expect(panel('two')).toHaveCount(1);
+    const records = await panelRecords(container);
+    const ending = records.filter((record) => record.panel === 'one' && record.name === 'data-ending-style' && record.present);
+    expect(ending.length).toBeLessThanOrEqual(1);
+  });
+});
