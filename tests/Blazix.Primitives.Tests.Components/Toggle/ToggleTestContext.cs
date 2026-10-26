@@ -25,6 +25,7 @@ public sealed class ToggleTestContext : IDisposable
     {
         Context.Services.AddBlazixPrimitives();
         Context.Services.AddSingleton<ILogger<Toggle>>(ToggleLogger);
+        Context.Services.AddSingleton<ILogger<ToggleGroup>>(GroupLogger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
         CompositeModule = Context.JSInterop.SetupModule(CompositeModulePath);
@@ -34,6 +35,8 @@ public sealed class ToggleTestContext : IDisposable
     public BunitContext Context { get; } = new();
 
     public CapturingLogger<Toggle> ToggleLogger { get; } = new();
+
+    public CapturingLogger<ToggleGroup> GroupLogger { get; } = new();
 
     public BunitJSModuleInterop ButtonModule { get; }
 
@@ -45,6 +48,9 @@ public sealed class ToggleTestContext : IDisposable
 
     /// <summary>The messages written to the toggles' logger, in order.</summary>
     public IReadOnlyList<string> ToggleMessages => [.. ToggleLogger.Entries.Select(entry => entry.Message)];
+
+    /// <summary>The messages written to the groups' logger, in order.</summary>
+    public IReadOnlyList<string> GroupMessages => [.. GroupLogger.Entries.Select(entry => entry.Message)];
 
     /// <summary>The options JSON of every <c>button</c> attach, in order.</summary>
     public IReadOnlyList<string> ButtonAttaches => [.. ButtonModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!)];
