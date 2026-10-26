@@ -647,15 +647,30 @@ test.describe('<Tabs.Root /> (activation)', () => {
       const fixture = await gotoTabs(page, mode, 'tabs-activation');
       const { tab } = tabsCase(fixture, 'uncontrolled');
 
-      // TAB-PTR-01's "synchronously after the click" (design point 8 of the Tabs track, pending the user): the request
-      // runs inside the `select` decision on WebAssembly; on Server the module reports the activation and C# commits a
-      // round trip later.
+      // TAB-PTR-01's "synchronously after the click" (design point 8 of the Tabs track, settled by the orchestrator
+      // 2026-10-26: a row of ADR 01's relaxation table): the request runs inside the `select` decision on WebAssembly;
+      // on Server the module reports the activation and C# commits a round trip later.
       const selectedAfterClick = await tab(1).evaluate((element) => {
         (element as HTMLElement).click();
         return element.getAttribute('aria-selected');
       });
 
       expect(selectedAfterClick).toBe(mode === 'wasm' ? 'true' : 'false');
+      await expect(tab(1)).toHaveAttribute('aria-selected', 'true');
+    });
+
+    test('port: a focus activation commits inside the focus on WebAssembly and a round trip later on Server', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-activation');
+      const { tab } = tabsCase(fixture, 'pointer');
+
+      // TAB-KEY-10 with ActivateOnFocus under the same ADR 01 row as TAB-PTR-01 (design point 8 of the Tabs track,
+      // settled by the orchestrator 2026-10-26).
+      const selectedAfterFocus = await tab(1).evaluate((element) => {
+        (element as HTMLElement).focus();
+        return element.getAttribute('aria-selected');
+      });
+
+      expect(selectedAfterFocus).toBe(mode === 'wasm' ? 'true' : 'false');
       await expect(tab(1)).toHaveAttribute('aria-selected', 'true');
     });
   });
@@ -1065,8 +1080,9 @@ test.describe('<Tabs.Root /> (activation direction)', () => {
 
     await button('add').click();
 
-    // TAB-STA-16/17 (design point 7, pending the user): the new Tab is in the batch the module reads, so the positional
-    // direction is the first one shown; the provisional value-based guess ('Account' < 'Overview') never appears.
+    // TAB-STA-16/17 (design point 7, settled by the orchestrator 2026-10-26): the new Tab is in the batch the module
+    // reads, so the positional direction is the first one shown; the provisional value-based guess ('Account' <
+    // 'Overview') never appears.
     await expect(root).toHaveAttribute('data-activation-direction', 'right');
     await expect.poll(() => createdPanels(container)).toEqual([expect.objectContaining({ panel: 'Account', direction: 'right' })]);
     await expect(panel('Account')).toHaveClass('dir-right');
@@ -1186,8 +1202,8 @@ test.describe('<Tabs.Panel />', () => {
       expect(removed).toBeGreaterThan(ending);
       // TAB-ANI-05: the closing Panel keeps its registration through its exit, so its Tab still names it.
       expect(records[ending]!.controls).toBe(records[ending]!.id);
-      // TAB-ANI-03 with design point 1 (OpenSelector ":not([inert])", pending the user): data-ending-style and inert
-      // appear in the same batch, before paint, on both modes.
+      // TAB-ANI-03 with design point 1 (OpenSelector ":not([inert])", settled by the orchestrator 2026-10-26):
+      // data-ending-style and inert appear in the same batch, before paint, on both modes.
       const inert = records.find((record) => record.panel === 'one' && record.name === 'inert' && record.present);
       expect(inert?.batch).toBe(records[ending]!.batch);
     });
