@@ -6,7 +6,8 @@
 // flag, the focus-driven selection and the leaving blur; ADR 04 Amendments 2026-10-20, RDG-STA-06, RAD-FOC-05,
 // RDG-FOC-04/05). M3 track 1 (ADR 04 Amendments 2026-10-26, chosen by the user) adds the items' `disabled` and
 // `focusableWhenDisabled` flags with the indices derived from them (CMP-STA-08, CMP-STA-29, CMP-KEY-08) and the items
-// report, `onMapChange` as ids in index order (CMP-EVT-03). Not built: grid, `onLoop`, the keyed registry (CMP §10 Q1),
+// report, `onMapChange` as ids in index order (CMP-EVT-03), and a registration-only mode for a root-less list that keeps
+// the registry and the report and nothing else (CMP-STR-03). Not built: grid, `onLoop`, the keyed registry (CMP §10 Q1),
 // the keyboard relay (CMP-KEY-14), a consumer-owned highlight (M3), list navigation and typeahead (M5), labels and
 // `guess` (M5).
 // Transcribed from Base UI v1.9.0: internals/composite/{composite,constants}.ts, root/useCompositeRoot.ts,
@@ -782,6 +783,11 @@ export interface CompositeOptions extends TwinOptions {
   reportHandledKeys?: boolean | undefined;
   /** Whether the module reports the items' ids in index order on each publication that changed them. */
   reportItems?: boolean | undefined;
+  /**
+   * Whether the root is a list without a roving group: read once at `attach`. The module keeps the registry and reports
+   * the order, and installs no listener, writes no `tabindex` and keeps no highlight.
+   */
+  registrationOnly?: boolean | undefined;
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
@@ -809,7 +815,8 @@ function sameIndices(a: ReadonlyArray<number> | null | undefined, b: ReadonlyArr
 /**
  * Attaches the roving group to a root element. From here on the module resolves the items C# registers, keeps their
  * order, owns their `tabindex` (except where the consumer set one), handles the navigation keys on the root, follows
- * focus and, when asked, the pointer, and reports highlight changes and focus leaving the root.
+ * focus and, when asked, the pointer, and reports highlight changes, focus leaving the root and the items' order. With
+ * `registrationOnly` it only resolves the items, keeps their order and reports it.
  * @param elementOrId The root element, or its id when the part has no element reference.
  * @param optionsJson The `CompositeOptions` JSON.
  * @param twinReference The twin's object reference.
@@ -824,6 +831,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<CompositeOptions>(optionsJson);
+  // CMP-STR-03 (M3 track 1, E1): a root-less list, such as TabsRoot's panels and AccordionRoot's items.
+  const registrationOnly = options.registrationOnly === true;
   let disposed = false;
   const registry = createCompositeRegistry();
   let items = new Map<string, AttachedItem>();
@@ -928,7 +937,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   // asked (ADR 16 rule 6). Subscribed first, so it runs before the root's adjustment of the same publication, as
   // CompositeRoot.tsx:88-91 calls `onMapChange` before its own handler.
   registry.subscribe(() => {
-    if (!options.reportItems) {
+    if (!options.reportItems && !registrationOnly) {
       return;
     }
     const ids: string[] = [];
@@ -945,8 +954,12 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     twin.report('OnItemsChange', { ids });
   });
 
-  // The root's listener on each publication.
+  // The root's listener on each publication; a registration-only list has no highlight to adjust.
   registry.subscribe((map) => {
+    if (registrationOnly) {
+      return;
+    }
+
     // E3: derived in the same pass as the publication, before the adjustments read it (TLB §14).
     if (options.deriveDisabledIndices) {
       derivedDisabledIndices = deriveDisabledIndices();
@@ -1267,14 +1280,18 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     ['mousemove', onMouseMove as EventListener, false],
   ];
 
-  for (const [type, listener, capture] of listeners) {
-    root.addEventListener(type, listener, capture);
+  if (!registrationOnly) {
+    for (const [type, listener, capture] of listeners) {
+      root.addEventListener(type, listener, capture);
+    }
   }
 
   // The first publication (CMP-STA-23..25, ALG-18).
   syncItems(options.items);
   registry.flush();
-  writeTabIndexes();
+  if (!registrationOnly) {
+    writeTabIndexes();
+  }
 
   const handle: TwinHandle = {
     update(nextOptionsJson: string) {
@@ -1285,6 +1302,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       options = parseOptions<CompositeOptions>(nextOptionsJson);
       if (syncItems(options.items)) {
         registry.flush();
+      }
+      if (registrationOnly) {
+        return;
       }
       // E3: a flag change re-derives without a publication.
       if (options.deriveDisabledIndices) {
