@@ -34,6 +34,30 @@
         </TabsRoot>
     </TabsCaseFrame>
 
+    @* TabsList.test.tsx "keyboard navigation": a Tab disabled with the prop is reachable; a natively disabled one is not. *@
+    <TabsCaseFrame Name="disabled-prop" Case="disabledProp">
+        <TabsRoot TValue="int" Value="0">
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" Disabled="true" data-tab="1">Tab 1</TabsTab>
+                <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 2</TabsTab>
+            </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="native-disabled" Case="nativeDisabled">
+        <TabsRoot TValue="int" Value="0">
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">
+                    <Render><button type="button" disabled></button></Render>
+                    <ChildContent>Tab 1</ChildContent>
+                </TabsTab>
+                <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 2</TabsTab>
+            </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+
     <TabsCaseFrame Name="hidden-successor" Case="hiddenSuccessor">
         <button type="button" data-action="remove-middle" @onclick="() => showMiddle = false">Remove middle</button>
         <TabsRoot TValue="int" DefaultValue="0">
@@ -98,6 +122,8 @@
 </FixtureContainer>
 
 @code {
+    private readonly TabsCase disabledProp = new();
+    private readonly TabsCase nativeDisabled = new();
     private readonly TabsCase loopFirst = new();
     private readonly TabsCase loopLast = new();
     private readonly TabsCase hiddenSuccessor = new();

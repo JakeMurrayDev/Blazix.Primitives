@@ -136,6 +136,27 @@
         </TabsRoot>
     </TabsCaseFrame>
 
+    @* TabsRoot.test.tsx "keeps a nested root independent from the one hosting its panel". *@
+    <TabsCaseFrame Name="nested" Case="nested">
+        <TabsRoot TValue="string" DefaultValue="@("outer-1")" data-root>
+            <TabsList @ref="List" data-list="outer">
+                <TabsTab @ref="StringTab" Value="@("outer-1")" data-tab="outer-1">Outer 1</TabsTab>
+                <TabsTab @ref="StringTab" Value="@("outer-2")" data-tab="outer-2">Outer 2</TabsTab>
+            </TabsList>
+            <TabsPanel @ref="StringPanel" Value="@("outer-1")" data-panel="outer-1">
+                <TabsRoot TValue="string" DefaultValue="@("inner-1")">
+                    <TabsList @ref="List" data-list="inner">
+                        <TabsTab @ref="StringTab" Value="@("inner-1")" data-tab="inner-1">Inner 1</TabsTab>
+                        <TabsTab @ref="StringTab" Value="@("inner-2")" data-tab="inner-2">Inner 2</TabsTab>
+                    </TabsList>
+                    <TabsPanel @ref="StringPanel" Value="@("inner-1")" data-panel="inner-1">Inner panel 1</TabsPanel>
+                    <TabsPanel Value="@("inner-2")" data-panel="inner-2">Inner panel 2</TabsPanel>
+                </TabsRoot>
+            </TabsPanel>
+            <TabsPanel Value="@("outer-2")" data-panel="outer-2">Outer panel 2</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+
     @* TAB-PTR-09: the consumer's onclick and onfocus call PreventPartHandler() (port titles per mode). *@
     <TabsCaseFrame Name="veto" Case="veto">
         <TabsRoot TValue="int" DefaultValue="0" OnValueChange="veto.Change" data-root>
@@ -160,6 +181,7 @@
     private readonly TabsCase cancel = new() { Cancel = true };
     private readonly TabsCase applied = new();
     private readonly TabsCase veto = new();
+    private readonly TabsCase nested = new();
     private int appliedValue;
     private bool vetoFocus;
 

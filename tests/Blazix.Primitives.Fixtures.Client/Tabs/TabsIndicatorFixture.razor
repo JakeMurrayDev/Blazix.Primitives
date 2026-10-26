@@ -150,6 +150,16 @@
                 </div>
                 break;
 
+            case "consumer-style":
+                <TabsRoot TValue="int" Value="2" data-root>
+                    <TabsList @ref="List">
+                        <TabsTab @ref="IntTab" Value="1" data-tab="1">One</TabsTab>
+                        <TabsTab @ref="IntTab" Value="2" data-tab="2">Two</TabsTab>
+                        <TabsIndicator @ref="Indicator" style="--active-tab-left: 7px; color: red" data-indicator="indicator" />
+                    </TabsList>
+                </TabsRoot>
+                break;
+
             case "missing":
                 <TabsRoot TValue="string" Value="@("missing")" data-root>
                     <TabsList @ref="List">

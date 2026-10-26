@@ -305,6 +305,37 @@ test.describe('<Tabs.Root />', () => {
 });
 
 test.describe('<Tabs.List />', () => {
+  test.describe('keyboard navigation', () => {
+    test('moves focus to a tab disabled with the `disabled` prop', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-list');
+      const { container, tab } = tabsCase(fixture, 'disabled-prop');
+
+      await focus(tab(0));
+      await page.keyboard.press('ArrowRight');
+
+      await expect(tab(1)).toBeFocused();
+      await expect(tab(1)).toHaveAttribute('aria-disabled', 'true');
+      await expect(tab(1)).not.toHaveAttribute('disabled');
+      await expect(tab(1)).toHaveAttribute('aria-selected', 'false');
+      await settle(fixture);
+      await expect(container).toHaveAttribute('data-changes', '0');
+    });
+
+    test('skips a natively disabled tab in a single keypress', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-list');
+      const { tab } = tabsCase(fixture, 'native-disabled');
+      // TAB-DOM-11: the substitute's own `disabled` stays while the Tab's `Disabled` is false.
+      await expect(tab(1)).toHaveAttribute('disabled', '');
+
+      await focus(tab(0));
+      await page.keyboard.press('ArrowRight');
+
+      await expect(tab(2)).toBeFocused();
+      await page.keyboard.press('ArrowLeft');
+      await expect(tab(0)).toBeFocused();
+    });
+  });
+
   test.describe('prop: loopFocus', () => {
     test('does not wrap focus past the first tab when `loopFocus` is false', async ({ page, mode }) => {
       const fixture = await gotoTabs(page, mode, 'tabs-list');
@@ -394,6 +425,39 @@ test.describe('<Tabs.Root /> (roving focus)', () => {
     await expect(tab(1)).toBeFocused();
     await settle(fixture);
     await expect(container).toHaveAttribute('data-changes', '0');
+  });
+});
+
+test.describe('<Tabs.Root /> (nesting)', () => {
+  test('keeps a nested root independent from the one hosting its panel', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-activation');
+    const { tab, panel } = tabsCase(fixture, 'nested');
+
+    // Each Root wires only its own Tabs and Panels.
+    await expect(tab('outer-1')).toHaveAttribute('aria-controls', (await panel('outer-1').getAttribute('id'))!);
+    await expect(tab('inner-1')).toHaveAttribute('aria-controls', (await panel('inner-1').getAttribute('id'))!);
+
+    // Arrow keys inside the nested List move only within it, and loop there.
+    await focus(tab('inner-1'));
+    await page.keyboard.press('ArrowRight');
+    await expect(tab('inner-2')).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(tab('inner-1')).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(tab('inner-2')).toBeFocused();
+
+    // Activating a nested Tab does not change the outer selection.
+    await tab('inner-2').click();
+    await expect(tab('inner-2')).toHaveAttribute('aria-selected', 'true');
+    await expect(panel('inner-2')).toBeVisible();
+    await expect(tab('outer-1')).toHaveAttribute('aria-selected', 'true');
+    await expect(panel('outer-1')).toBeVisible();
+
+    // Selecting another outer Tab unmounts the nested Root with its Panel.
+    await tab('outer-2').click();
+    await expect(panel('outer-2')).toBeVisible();
+    await expect(tab('inner-1')).toHaveCount(0);
+    await expect(panel('outer-1')).toHaveCount(0);
   });
 });
 
@@ -1299,6 +1363,19 @@ test.describe('<Tabs.Indicator />', () => {
 
       await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(220, 0);
       await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+    });
+
+    test('port: a consumer style overrides the CSS variables the module writes', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'consumer-style' });
+      const { indicator, list, tab } = tabsCase(fixture);
+
+      // TAB-DOM-32: the variables first, then the consumer's style, which wins on the property both set; the other
+      // five variables are the module's measurement.
+      await expect
+        .poll(async () => (await positionMismatches(indicator(), list, tab(2))).filter((entry) => !entry.startsWith('--active-tab-left:')))
+        .toEqual([]);
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBe(7);
+      await expect(indicator()).toHaveCSS('color', 'rgb(255, 0, 0)');
     });
 
     test('updates all indicators when a different tab resizes', async ({ page, mode }) => {
