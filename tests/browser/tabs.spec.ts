@@ -1392,3 +1392,86 @@ test.describe('<Tabs.Indicator />', () => {
     });
   });
 });
+
+/** Records, from now on, every change of `aria-selected` on the Tabs of a case, as the attribute's new value. */
+async function recordSelections(container: Locator): Promise<void> {
+  await container.evaluate((element) => {
+    const records: string[] = [];
+    (element as unknown as { selections: string[] }).selections = records;
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        const tab = mutation.target as Element;
+        records.push(`${tab.getAttribute('data-tab')}:${tab.getAttribute('aria-selected')}`);
+      }
+    }).observe(element, { subtree: true, attributes: true, attributeFilter: ['aria-selected'] });
+  });
+}
+
+async function selections(container: Locator): Promise<string[]> {
+  return container.evaluate((element) => (element as unknown as { selections: string[] }).selections);
+}
+
+// The rows of ADR 01's relaxation table §9 names for Tabs, asserted per mode; on Server the circuit is slowed in both
+// directions so that "a round trip late" is a gap the page records, not a race.
+test.describe('<Tabs /> (relaxations per mode)', () => {
+  const latency = 200;
+
+  test('port: a List onkeydown veto suppresses the navigation on WebAssembly; on Server the key is handled and the handler runs a round trip late', async ({ page, mode }) => {
+    if (mode === 'server') await delayCircuit(page, latency);
+    const fixture = await gotoTabs(page, mode, 'tabs-keyboard', { value: 0, vetoKeys: true });
+    const { container, tab } = tabsCase(fixture);
+    // The List's recorded key count at the moment focus reaches Tab 1, if it does.
+    await tab(1).evaluate((element, owner) => {
+      element.addEventListener('focus', () => element.setAttribute('data-keydowns-at-focus', owner!.getAttribute('data-list-keydowns') ?? ''));
+    }, await container.elementHandle());
+
+    await focus(tab(0));
+    await page.keyboard.press('ArrowRight');
+
+    // TAB-KEY-09 with the "EVD-EVT-26 against composite/button key handling" row.
+    await expect(container).toHaveAttribute('data-list-keydowns', '1');
+    await settle(fixture);
+    if (mode === 'wasm') {
+      await expect(tab(0)).toBeFocused();
+      await expect(tab(1)).not.toHaveAttribute('data-keydowns-at-focus');
+    } else {
+      await expect(tab(1)).toBeFocused();
+      await expect(tab(1)).toHaveAttribute('data-keydowns-at-focus', '0');
+    }
+    await expect(container).toHaveAttribute('data-changes', '0');
+  });
+
+  test('port: a C# onclick veto holds on both modes, with no transient selection under Server latency', async ({ page, mode }) => {
+    if (mode === 'server') await delayCircuit(page, latency);
+    const fixture = await gotoTabs(page, mode, 'tabs-activation');
+    const { container, tab } = tabsCase(fixture, 'veto');
+    await recordSelections(container);
+
+    await tab(1).click();
+
+    // TAB-PTR-09 with the "C#-origin consumer vetoes" row: the module selects nothing on its own; C# runs the consumer's
+    // handler before the request (inside `select` on WebAssembly, from the report on Server).
+    await expect(container).toHaveAttribute('data-clicks', '1');
+    await settle(fixture);
+    expect(await selections(container)).toEqual([]);
+    await expect(container).toHaveAttribute('data-changes', '0');
+  });
+
+  test('port: the C# mirror of the activation direction follows the attribute the module writes', async ({ page, mode }) => {
+    if (mode === 'server') await delayCircuit(page, latency);
+    const fixture = await gotoTabs(page, mode, 'tabs-direction');
+    const { container, tab, panel } = tabsCase(fixture, 'horizontal');
+    await recordCreatedPanels(container);
+
+    await tab(1).click();
+
+    // The "RND-STA-01 for mirrored fields" row (TAB-STA-14's class clause, TAB-STA-20). The Panel's first render carries
+    // the module's attribute. On WebAssembly the module's report runs .NET inside its own observer callback, so the
+    // mirror's render lands before this later observer reads the Panel, before paint; on Server the first render keeps
+    // the class of the mirror's previous value and the class follows a round trip later.
+    const className = mode === 'wasm' ? 'dir-right' : 'dir-none';
+    await expect.poll(() => createdPanels(container)).toEqual([{ panel: '1', direction: 'right', className }]);
+    await expect(panel(1)).toHaveClass('dir-right');
+    await expect(panel(1)).toHaveAttribute('data-activation-direction', 'right');
+  });
+});
