@@ -1,10 +1,13 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (composite row) and §3; CMP §6.1 (the root part's options and defaults) and §6.2; the RadioGroup options of
 // ADR 04 Amendments 2026-10-20 (the pending-navigation flag and the focus-driven selection, RDG-STA-06, RAD-FOC-05) and
 // the reports of RDG-FOC-04/05 and CMP-EVT-01; the items' ids and consumer tabindex of ADR 04 Amendments 2026-10-22
-// (RAD-DOM-16). Not carried (CMP §10 Q1, M3, M5): grid, onLoop, a consumer-owned highlight, onMapChange, metadata or an
-// explicit index from C#.
+// (RAD-DOM-16); the M3 extensions of ADR 04 Amendments 2026-10-26 (chosen by the user): the items' flags and the
+// derived indices (CMP-STA-08, CMP-KEY-08, TLB-STA-02), sent only when set. Not carried (CMP §10 Q1, M3, M5): grid,
+// onLoop, a consumer-owned highlight, onMapChange, metadata or an explicit index from C#.
 /// <summary>
 /// The options of the <c>composite</c> module: the roving group's configuration and its items, sent on <c>attach</c> and
 /// on every <c>update</c>. The module resolves the items, keeps their order, writes their <c>tabindex</c> and handles the
@@ -44,6 +47,15 @@ internal sealed record CompositeOptions : TwinOptions
     /// </value>
     public IReadOnlyList<int>? DisabledIndices { get; init; }
 
+    /// <summary>Gets a value indicating whether the module derives the indices navigation skips from the items' flags.</summary>
+    /// <value>
+    /// <see langword="true"/> to skip the items that are <see cref="CompositeItemRegistration.Disabled"/> and not
+    /// <see cref="CompositeItemRegistration.FocusableWhenDisabled"/>, in place of <see cref="DisabledIndices"/>; the
+    /// default is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool DeriveDisabledIndices { get; init; }
+
     /// <summary>Gets the reading direction, which swaps the horizontal arrow keys.</summary>
     /// <value><c>ltr</c>, the default, or <c>rtl</c>.</value>
     public string Direction { get; init; } = "ltr";
@@ -76,11 +88,21 @@ internal sealed record CompositeOptions : TwinOptions
     public bool ReportHandledKeys { get; init; }
 }
 
-// ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16).
+// ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16); the flags of ADR 04
+// Amendments 2026-10-26 (chosen by the user), Base UI's Toolbar item metadata (ToolbarRoot.tsx:79-82).
 /// <summary>One item of a composite group as the module receives it.</summary>
 /// <param name="Id">The id of the item's element, which the module resolves from the root's document or shadow root.</param>
 /// <param name="TabIndex">
 /// The consumer's <c>tabindex</c> on the item, which the module never writes over; <see langword="null"/> when the module
 /// writes the roving value.
 /// </param>
-internal sealed record CompositeItemRegistration(string Id, string? TabIndex);
+/// <param name="Disabled">Whether the item is disabled; <see langword="false"/>, the default, is not sent.</param>
+/// <param name="FocusableWhenDisabled">
+/// Whether the item stays navigable and can hold the tab stop while disabled; <see langword="false"/>, the default, is not
+/// sent.
+/// </param>
+internal sealed record CompositeItemRegistration(
+    string Id,
+    string? TabIndex,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Disabled = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool FocusableWhenDisabled = false);

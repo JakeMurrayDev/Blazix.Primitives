@@ -114,6 +114,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <value>The indices, or <see langword="null"/>, the default, to read each item's disabled state from the document.</value>
     public IReadOnlyList<int>? DisabledIndices { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the indices navigation skips are derived from the items' flags.</summary>
+    /// <value>
+    /// <see langword="true"/> to skip the items that are disabled and not focusable when disabled, in place of
+    /// <see cref="DisabledIndices"/>; the default is <see langword="false"/>.
+    /// </value>
+    public bool DeriveDisabledIndices { get; set; }
+
     /// <summary>Gets or sets a value indicating whether an item that an arrow key focuses is selected by clicking the input that follows it.</summary>
     /// <value><see langword="true"/> to select on keyboard navigation; the default is <see langword="false"/>.</value>
     public bool SelectOnNavigation { get; set; }
@@ -359,7 +366,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
     }
 
-    /// <summary>Records that a registered item changed its id or its consumer <c>tabindex</c>.</summary>
+    /// <summary>Records that a registered item changed its id, its consumer <c>tabindex</c> or its flags.</summary>
     internal void RegistrationChanged() => itemsVersion++;
 
     /// <summary>Records that a registered item rendered a new element under the same id, which the module must resolve again.</summary>
@@ -490,6 +497,7 @@ internal sealed class CompositeRootBehavior : IDisposable
             HighlightItemOnHover = HighlightItemOnHover,
             ModifierKeys = ModifierKeys.Count == 0 ? s_noModifierKeys : [.. ModifierKeys],
             DisabledIndices = DisabledIndices is null ? null : [.. DisabledIndices],
+            DeriveDisabledIndices = DeriveDisabledIndices,
             Direction = CompositeLiterals.ToLiteral(Direction),
             Items = registrations,
             SelectOnNavigation = SelectOnNavigation,
@@ -516,6 +524,7 @@ internal sealed class CompositeRootBehavior : IDisposable
             && sent.HighlightItemOnHover == HighlightItemOnHover
             && SameStrings(sent.ModifierKeys, ModifierKeys)
             && SameIndices(sent.DisabledIndices, DisabledIndices)
+            && sent.DeriveDisabledIndices == DeriveDisabledIndices
             && string.Equals(sent.Direction, CompositeLiterals.ToLiteral(Direction), StringComparison.Ordinal)
             && sent.SelectOnNavigation == SelectOnNavigation
             && sent.ReportFocusLeave == ReportFocusLeave

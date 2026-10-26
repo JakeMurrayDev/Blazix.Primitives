@@ -41,7 +41,7 @@ internal sealed class CompositeRootContext
     /// <param name="item">The item.</param>
     public void Unregister(CompositeItemBehavior item) => root.Unregister(item);
 
-    /// <summary>Records that a registered item changed its id or its consumer <c>tabindex</c>.</summary>
+    /// <summary>Records that a registered item changed its id, its consumer <c>tabindex</c> or its flags.</summary>
     public void RegistrationChanged() => root.RegistrationChanged();
 
     /// <summary>Records that a registered item rendered a new element under the same id.</summary>
