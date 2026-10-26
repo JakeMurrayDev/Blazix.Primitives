@@ -2113,3 +2113,65 @@ describe('composite items report (port)', () => {
     expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
   });
 });
+
+// --- port titles: the registration-only list (M3 track 1, E1) ----------------------------------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): a root-less `CompositeList` (TabsRoot's panels, AccordionRoot's
+// items; CMP-STR-03) attaches in a registration-only mode that installs no listeners, writes no `tabindex`, keeps no
+// highlight, reads no marker and asks no decision point, and keeps the registry (move detection, CMP-STA-11/12; shadow-root
+// items, CMP-STA-13) with the items report (design points 1 and 2, option (a); pending the user).
+
+describe('composite registration-only list (port)', () => {
+  type ItemsChange = { ids: string[] };
+
+  /** An item element as a list item part renders it: an id and no `tabindex`. */
+  function listEntry(testId: string): HTMLElement {
+    const element = item(testId);
+    element.removeAttribute('tabindex');
+    return element;
+  }
+
+  describe.each([false, true])('synchronous: %s', (synchronous) => {
+    it('reports the order and leaves keys, focus and tabindex to the page', async () => {
+      const group = mountGroup([listEntry('1'), listEntry('2'), listEntry('3')], { registrationOnly: true, reportHighlight: true }, { synchronous });
+      const [one, two, three] = ['1', '2', '3'].map(byTestId);
+
+      expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [one!.id, two!.id, three!.id] }]);
+
+      one!.setAttribute('tabindex', '0');
+      one!.focus();
+      const event = keyDown(one!, 'ArrowDown');
+      await flushMicrotasks();
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(one);
+      expect([two, three].map((element) => element!.hasAttribute('tabindex'))).toEqual([false, false]);
+      expect(group.fake.reported('OnHighlightChange')).toEqual([]);
+      expect(group.fake.decisions).toEqual([]);
+    });
+  });
+
+  it('reports a move and an update, and resolves items inside a shadow root', async () => {
+    const host = document.body.appendChild(document.createElement('div'));
+    const shadow = host.attachShadow({ mode: 'open' });
+    const sections = ['a', 'b'].map((label) => {
+      const section = document.createElement('section');
+      section.appendChild(listEntry(label));
+      return section;
+    });
+    const group = mountGroup(sections, { registrationOnly: true }, {}, shadow);
+    const [a, b] = ['a', 'b'].map((label) => shadow.querySelector<HTMLElement>(`[data-testid="${label}"]`)!);
+
+    group.root.insertBefore(sections[1]!, sections[0]!);
+    await nextTask();
+
+    const c = listEntry('c');
+    group.root.appendChild(c);
+    group.handle.update(JSON.stringify({ ...group.options, items: registrations([b!, a!, c]) }));
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([
+      { ids: [a!.id, b!.id] },
+      { ids: [b!.id, a!.id] },
+      { ids: [b!.id, a!.id, c.id] },
+    ]);
+  });
+});
