@@ -24,6 +24,7 @@ public static class DemoCatalog
         new("checkbox", "Checkbox", "A box that the user ticks or clears, and that can be shown as mixed.", typeof(CheckboxDemo)),
         new("checkbox-group", "Checkbox Group", "A set of checkboxes that share one value, with an optional parent box.", typeof(CheckboxGroupDemo)),
         new("radio-group", "Radio Group", "Radio buttons (Radio) in a group (Radio Group) that holds the one value selected.", typeof(RadioGroupDemo)),
+        new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
