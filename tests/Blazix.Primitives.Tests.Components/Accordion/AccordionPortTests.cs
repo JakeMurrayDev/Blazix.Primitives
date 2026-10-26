@@ -390,6 +390,35 @@ public sealed class AccordionPortTests : IDisposable
         Assert.Contains("\"openSelector\":\"[data-open]\"", options, StringComparison.Ordinal);
     }
 
+    // Design point D3 (option (a), settled by the orchestrator 2026-10-26; track 1's design point 2 (a)): an item of the
+    // registration-only list is resolved by its element id, so the item renders the consumer's id, else one drawn after Base
+    // UI's three ids (fallback value, panel, trigger), which keep their order, so prerender equals the interactive render.
+    [Fact(DisplayName = "port: an item renders the consumer's id, else one drawn after its three Base UI ids")]
+    [Trait("Requirement", "ACC-STR-02")]
+    [Trait("Requirement", "ACC-ARIA-06")]
+    public void An_item_renders_the_consumer_id_else_one_drawn_after_its_three_ids()
+    {
+        IRenderedComponent<AccordionRoot<string>> cut = Context.Render<AccordionRoot<string>>(p => p
+            .Add(x => x.DefaultValue, ["b"])
+            .AddChildContent<AccordionItem<string>>(item => item
+                .Add(x => x.Value, "a")
+                .AddUnmatched("data-testid", "generated")
+                .AddChildContent<AccordionTrigger<string>>()
+                .AddChildContent<AccordionPanel<string>>(panel => panel.Add(x => x.KeepMounted, true)))
+            .AddChildContent<AccordionItem<string>>(item => item
+                .Add(x => x.Value, "b")
+                .AddUnmatched("id", "consumer-item")
+                .AddChildContent<AccordionTrigger<string>>()));
+        IElement generated = cut.Find("[data-testid=generated]");
+        int Number(string? id) => int.Parse(id!["base-ui-".Length..], System.Globalization.CultureInfo.InvariantCulture);
+        int panel = Number(cut.FindAll("[role=region]")[0].Id);
+        int trigger = Number(cut.FindAll("button")[0].Id);
+
+        Assert.Equal(trigger + 1, Number(generated.Id));
+        Assert.Equal(panel + 1, trigger);
+        Assert.Equal("consumer-item", cut.Find("#consumer-item").Id);
+    }
+
     [Fact(DisplayName = "port: nested accordions are independent")]
     [Trait("Requirement", "ACC-STR-07")]
     public void Nested_accordions_are_independent()
