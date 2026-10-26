@@ -113,5 +113,6 @@ public static class FixtureCatalog
         ["tabs-keyboard"] = new(typeof(TabsKeyboardFixture)),
         ["tabs-list"] = new(typeof(TabsListFixture)),
         ["tabs-activation"] = new(typeof(TabsActivationFixture)),
+        ["tabs-direction"] = new(typeof(TabsDirectionFixture)),
     };
 }
