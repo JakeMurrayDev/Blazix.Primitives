@@ -20,12 +20,13 @@ Open <http://localhost:5290>. The home page lists every family with both links.
 | Button | <http://localhost:5290/server/button> | <http://localhost:5290/wasm/button> |
 | Avatar | <http://localhost:5290/server/avatar> | <http://localhost:5290/wasm/avatar> |
 | Collapsible | <http://localhost:5290/server/collapsible> | <http://localhost:5290/wasm/collapsible> |
+| Accordion | <http://localhost:5290/server/accordion> | <http://localhost:5290/wasm/accordion> |
 
 ## What a page shows
 
 - The mode is the first segment of the address, `server` or `wasm`. Every page prerenders first. The badge under the title shows the mode that was asked for and flips from *prerendered* to *interactive* once Blazor has taken the page over; the first WebAssembly visit downloads the runtime, later ones use the cache.
 - **Hero demo:** the documentation's Tailwind demo, in the documentation's demo box (the page follows the system's colour scheme, as the documentation does).
-- **Try it:** variants where the family has behaviour to try: a meter with a slider, a progress bar you can restart or make indeterminate, the button's states (disabled, focusable when disabled, loading, a span instead of a button), an avatar whose source you can change (the status is what `OnLoadingStatusChange` reports), a collapsible you can also drive from outside.
+- **Try it:** variants where the family has behaviour to try: a meter with a slider, a progress bar you can restart or make indeterminate, the button's states (disabled, focusable when disabled, loading, a span instead of a button), an avatar whose source you can change (the status is what `OnLoadingStatusChange` reports), a collapsible you can also drive from outside, an accordion with several items open at once and one whose closed answers the browser's find-in-page opens.
 - The hero Avatar loads the documentation's photo from `images.unsplash.com`, so it needs a network connection; offline it shows the fallback initials, which is the fallback working. The "Try it" block uses a local image.
 - In a Debug build (the default for `dotnet run`) the library's development warnings are on and go to the server's console output (Blazor Server) or the browser's console (WebAssembly).
 
