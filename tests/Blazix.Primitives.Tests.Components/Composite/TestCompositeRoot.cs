@@ -59,6 +59,9 @@ internal sealed class TestCompositeRoot : PartBase<EmptyState>
     public bool DeriveDisabledIndices { get; set; }
 
     [Parameter]
+    public bool ReportItems { get; set; }
+
+    [Parameter]
     public bool SelectOnNavigation { get; set; }
 
     [Parameter]
@@ -119,6 +122,7 @@ internal sealed class TestCompositeRoot : PartBase<EmptyState>
         behavior.ModifierKeys = ModifierKeys ?? [];
         behavior.DisabledIndices = DisabledIndices;
         behavior.DeriveDisabledIndices = DeriveDisabledIndices;
+        behavior.ReportItems = ReportItems;
         behavior.SelectOnNavigation = SelectOnNavigation;
         behavior.ReportFocusLeave = ReportFocusLeave;
         behavior.ReportHighlight = ReportHighlight;

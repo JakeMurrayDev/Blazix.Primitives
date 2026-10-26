@@ -102,6 +102,26 @@ public sealed class CompositeTwinContractTests
         Assert.DoesNotContain("deriveDisabledIndices", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
+    // M3 track 1, E2 (ADR 04 Amendments 2026-10-26, chosen by the user): the items report, asked for only when set.
+    [Fact]
+    [Trait("Requirement", "CMP-EVT-03")]
+    public void ReportItems_is_sent_only_when_set_and_OnItemsChange_raises_ItemsChanged_with_the_ids_in_order()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        List<IReadOnlyList<string>> changes = [];
+        twin.ItemsChanged += changes.Add;
+
+        twin.OnItemsChange("""{"ids":["base-ui-3","base-ui-1"]}""");
+        twin.OnItemsChange("""{"ids":[]}""");
+
+        Assert.Equal(2, changes.Count);
+        Assert.Equal(["base-ui-3", "base-ui-1"], changes[0]);
+        Assert.Empty(changes[1]);
+        Assert.Contains("\"reportItems\":true", JsonSerializer.Serialize(new CompositeOptions { ReportItems = true }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("reportItems", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-API-01")]
     [Trait("Requirement", "CMP-API-02")]
