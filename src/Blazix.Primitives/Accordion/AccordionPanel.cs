@@ -72,7 +72,8 @@ public static class AccordionPanelCssVars
 // - The behavior is CollapsiblePanelBehavior over the item's collapsible state ("Accordion.Panel attaches the same module", ADR
 //   04 Amendments 2026-10-21), with Accordion's inputs (ADR 04 note dated 2026-10-26): the --accordion-panel-* variables
 //   (ACC-DOM-17), an empty id rendered as written and not registered (ACC-API-18), the Accordion message (ACC-EDGE-05) and
-//   the status report (ACC-STA-03/09; design point D1, option (a), pending the user).
+//   the status report, which the item's shared state asks for (ACC-STA-03/09; design points D1 and D5, option (a), settled
+//   by the orchestrator 2026-10-26).
 // - KeepMounted and HiddenUntilFound are bool?: null takes the root's (ACC-API-16/17; settled by the orchestrator 2026-10-25).
 // - role="region" and aria-labelledby the item's trigger id (ACC-ARIA-03/04, ACC-STR-06); the consumer's win at the merge, and
 //   the behavior's FinishAttributes puts the handed-over style above them (ACC-DOM-18).
@@ -196,7 +197,6 @@ public sealed class AccordionPanel<TValue> : PartBase<AccordionPanelState<TValue
         behavior = new CollapsiblePanelBehavior(collapsible, JSRuntime, DevelopmentLog, Logger, stateChanged, dispatchException, CollapsiblePanelVariables.Accordion)
         {
             RendersEmptyId = true,
-            ReportsStatus = true,
             KeepMountedIgnoredMessage = CollapsibleDevelopmentLog.AccordionPanelKeepMountedIgnoredMessage,
         };
         item.AddListener(itemChanged);

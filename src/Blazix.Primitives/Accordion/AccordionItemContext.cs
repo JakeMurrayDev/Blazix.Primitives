@@ -120,6 +120,8 @@ internal sealed class AccordionItemContext<TValue> : AccordionItemContext, IDisp
     {
         Root = root;
         Collapsible = collapsible;
+        // ACC-STA-03/09, ACC-EDGE-14 (D5 (a)): no root element mirrors the item's status, so its panel reports it.
+        collapsible.PanelReportsStatus = true;
         collapsible.OnOpenChange = new EventCallback<ValueChangeEventArgs<bool>>(null, (Func<ValueChangeEventArgs<bool>, Task>)ChainAsync);
         rootChanged = Sync;
         root.AddListener(rootChanged);

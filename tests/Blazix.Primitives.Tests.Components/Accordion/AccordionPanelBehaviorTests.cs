@@ -92,15 +92,16 @@ public sealed class AccordionPanelBehaviorTests : IDisposable
             CollapsibleDevelopmentLog.AccordionRootKeepMountedIgnoredMessage);
     }
 
-    // Edit (d); D1 option (a), pending the user: an Accordion Item has no root twin, so the panel's report is its status.
+    // Edit (d); D1 and D5 option (a), settled by the orchestrator 2026-10-26: an Accordion Item has no root twin, so the panel's
+    // report is its status, asked for by the shared state.
     [Fact(DisplayName = "port: a panel that reports its status asks the module for it and mirrors each report into the shared state once")]
     [Trait("Requirement", "ACC-STA-03")]
     [Trait("Requirement", "ACC-STA-09")]
     public async Task A_panel_that_reports_its_status_mirrors_each_report_into_the_shared_state()
     {
         CollapsibleRootContext root = Root(open: false);
+        root.PanelReportsStatus = true;
         using CollapsiblePanelBehavior behavior = Behavior(root, CollapsiblePanelVariables.Accordion);
-        behavior.ReportsStatus = true;
         behavior.KeepMounted = true;
         behavior.SetId(null);
         int notifications = 0;
