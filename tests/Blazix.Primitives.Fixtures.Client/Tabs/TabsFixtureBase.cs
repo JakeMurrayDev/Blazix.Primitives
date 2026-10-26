@@ -91,8 +91,9 @@ public abstract class TabsFixtureBase : ComponentBase
         foreach (string pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             int equals = pair.IndexOf('=', StringComparison.Ordinal);
-            string key = Uri.UnescapeDataString(equals < 0 ? pair : pair[..equals]);
-            values[key] = equals < 0 ? "" : Uri.UnescapeDataString(pair[(equals + 1)..]);
+            // application/x-www-form-urlencoded, as URLSearchParams writes it: `+` is a space.
+            string key = Uri.UnescapeDataString((equals < 0 ? pair : pair[..equals]).Replace('+', ' '));
+            values[key] = equals < 0 ? "" : Uri.UnescapeDataString(pair[(equals + 1)..].Replace('+', ' '));
         }
 
         return values;

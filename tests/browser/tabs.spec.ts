@@ -1055,3 +1055,263 @@ test.describe('<Tabs.Panel />', () => {
     expect(ending.length).toBeLessThanOrEqual(1);
   });
 });
+
+/**
+ * Base UI's expectBubblePositionVariables, in the page: the six variables of an Indicator against the active Tab's
+ * measurement (CSS size, the rect offset over the List's scale, scroll and border, `right`/`bottom` against the List's
+ * scrollable content), within 0.01 px. Returns the mismatches, empty when they agree.
+ */
+async function positionMismatches(indicator: Locator, list: Locator, tab: Locator): Promise<string[]> {
+  const tabHandle = await tab.elementHandle();
+  const listHandle = await list.elementHandle();
+  return indicator.evaluate(
+    (bubble, [activeTab, tabList]) => {
+      const dimensions = (element: Element) => {
+        const css = getComputedStyle(element);
+        let width = parseFloat(css.width) || 0;
+        let height = parseFloat(css.height) || 0;
+        const html = element as HTMLElement;
+        if (Math.round(width) !== html.offsetWidth || Math.round(height) !== html.offsetHeight) {
+          width = html.offsetWidth;
+          height = html.offsetHeight;
+        }
+        return { width, height };
+      };
+      const tabElement = activeTab as HTMLElement;
+      const listElement = tabList as HTMLElement;
+      const tabRect = tabElement.getBoundingClientRect();
+      const listRect = listElement.getBoundingClientRect();
+      const tabSize = dimensions(tabElement);
+      const listSize = dimensions(listElement);
+      const scaleX = listSize.width > 0 ? listRect.width / listSize.width : 1;
+      const scaleY = listSize.height > 0 ? listRect.height / listSize.height : 1;
+      const left = (tabRect.left - listRect.left) / scaleX + listElement.scrollLeft - listElement.clientLeft;
+      const top = (tabRect.top - listRect.top) / scaleY + listElement.scrollTop - listElement.clientTop;
+      const expected: Record<string, number> = {
+        '--active-tab-left': left,
+        '--active-tab-right': listElement.scrollWidth - left - tabSize.width,
+        '--active-tab-top': top,
+        '--active-tab-bottom': listElement.scrollHeight - top - tabSize.height,
+        '--active-tab-width': tabSize.width,
+        '--active-tab-height': tabSize.height,
+      };
+      const style = getComputedStyle(bubble);
+      return Object.entries(expected)
+        .filter(([name, value]) => !(Math.abs(parseFloat(style.getPropertyValue(name)) - value) <= 0.01))
+        .map(([name, value]) => `${name}: ${style.getPropertyValue(name)} != ${value}`);
+    },
+    [tabHandle, listHandle] as const,
+  );
+}
+
+/** Base UI's waitForBubbleToOverlapActiveTab: the Indicator's on-screen box coincides with the active Tab's within 1 px. */
+async function overlapMismatches(indicator: Locator, tab: Locator): Promise<string[]> {
+  const tabHandle = await tab.elementHandle();
+  return indicator.evaluate((bubble, activeTab) => {
+    const bubbleRect = bubble.getBoundingClientRect();
+    const tabRect = (activeTab as Element).getBoundingClientRect();
+    return (['left', 'top', 'right', 'bottom'] as const)
+      .filter((edge) => !(Math.abs(bubbleRect[edge] - tabRect[edge]) <= 1))
+      .map((edge) => `${edge}: ${bubbleRect[edge]} != ${tabRect[edge]}`);
+  }, tabHandle);
+}
+
+async function cssVariable(indicator: Locator, name: string): Promise<number> {
+  return indicator.evaluate((element, variable) => parseFloat(getComputedStyle(element).getPropertyValue(variable)), name);
+}
+
+test.describe('<Tabs.Indicator />', () => {
+  test('exposes null active tab state when the selected value has no matching tab', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'missing' });
+    const { indicator } = tabsCase(fixture);
+
+    // The render function ran more than once (the module's report renders it again), and its state has no position.
+    await expect(indicator()).toHaveAttribute('data-states', /^[2-9]|[1-9][0-9]+$/);
+    await expect(indicator()).toHaveAttribute('data-position', 'null');
+    await expect(indicator()).toHaveAttribute('data-size', 'null');
+    await expect(indicator()).toHaveAttribute('hidden', '');
+  });
+
+  test.describe('rendering', () => {
+    test('should set CSS variables corresponding to the active tab', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'plain' });
+      const { indicator, list, tab } = tabsCase(fixture);
+
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+      await expect(indicator()).not.toHaveAttribute('hidden');
+    });
+
+    test('should update the position and movement variables when the active tab changes', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'plain' });
+      const { indicator, list, tab, button } = tabsCase(fixture);
+
+      await button('select-3').click();
+      await expect.poll(() => positionMismatches(indicator(), list, tab(3))).toEqual([]);
+
+      await button('select-1').click();
+      await expect.poll(() => positionMismatches(indicator(), list, tab(1))).toEqual([]);
+    });
+
+    test('should update the position variables when the tab list is resized', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'resize-list' });
+      const { indicator, list, tab, button } = tabsCase(fixture);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(1))).toEqual([]);
+      const before = await cssVariable(indicator(), '--active-tab-width');
+
+      await button('widen').click();
+
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-width')).toBeGreaterThan(before);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(1))).toEqual([]);
+    });
+
+    test('should account for scroll and border when the tab list is transformed', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'scaled' });
+      const { indicator, list, tab } = tabsCase(fixture);
+
+      await list.evaluate((element) => {
+        element.scrollLeft = 80;
+      });
+      // Scrolling alone does not re-measure (TAB-DOM-30, §16 Q11); Base UI's test relies on the first resize notification
+      // arriving after the scroll, so the active tab is nudged to bring one.
+      await tab(3).evaluate((element) => {
+        (element as HTMLElement).style.flex = '0 0 121px';
+      });
+
+      await expect.poll(() => positionMismatches(indicator(), list, tab(3))).toEqual([]);
+    });
+
+    test('accounts for a scrolled container between the tab list and the active tab', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'scroller' });
+      const { container, indicator, tab } = tabsCase(fixture);
+
+      await container.locator('[data-scroller]').evaluate((element) => {
+        element.scrollLeft = 40;
+      });
+      // Scrolling on its own doesn't notify the indicator, only tab resizes do: the active tab is nudged.
+      await tab(3).evaluate((element) => {
+        (element as HTMLElement).style.width = '84px';
+      });
+
+      await expect.poll(() => overlapMismatches(indicator(), tab(3))).toEqual([]);
+    });
+
+    for (const [title, wrapper] of [
+      ['overlays the active tab when an ancestor has a 2D rotation', 'transform: rotate(40deg)'],
+      ['overlays the active tab when an ancestor has a size-preserving flip', 'transform: scaleX(-1)'],
+      ['overlays the active tab when an ancestor uses the rotate longhand', 'rotate: 40deg'],
+      ['overlays the active tab when an ancestor uses a flipping scale longhand', 'scale: -1 1'],
+      ['overlays the active tab when an ancestor has a 3D rotation (#4837)', 'transform: perspective(600px) rotateY(35deg)'],
+    ] as const) {
+      test(title, async ({ page, mode }) => {
+        const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'transformed', wrapper });
+        const { container, indicator, tab } = tabsCase(fixture);
+        // The page applied the ancestor's transform, so an untransformed overlay cannot pass for it.
+        const applied = await container.locator('.styled-indicator').evaluate((element) => {
+          const style = getComputedStyle(element);
+          return [style.transform, style.rotate, style.scale].some((value) => value !== 'none');
+        });
+        expect(applied).toBe(true);
+
+        await expect.poll(() => overlapMismatches(indicator(), tab(3))).toEqual([]);
+        await expect(indicator()).not.toHaveAttribute('hidden');
+      });
+    }
+
+    test('sets transformed offsets relative to the tab list when the list is not the offset parent', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', {
+        case: 'transformed',
+        wrapper: 'position: relative; transform: rotate(40deg)',
+        list: 'display: flex; margin-left: 40px',
+      });
+      const { indicator } = tabsCase(fixture);
+
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(160, 2);
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-top')).toBeCloseTo(0, 2);
+    });
+
+    for (const [title, tabStyle] of [
+      ['follows the active tab when it has its own transform translation', 'transform: translateX(12px) translateY(4px)'],
+      ['follows the active tab when it uses the translate longhand', 'translate: 12px 4px'],
+      // 50% of 80px = 40px across, 25% of 32px = 8px down.
+      ['follows the active tab when the translate longhand uses percentages', 'translate: 50% 25%'],
+    ] as const) {
+      test(title, async ({ page, mode }) => {
+        const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'translated', tab: tabStyle });
+        const { indicator, tab } = tabsCase(fixture);
+        // The page applied the Tab's own translation, so the Indicator must follow it off its layout slot.
+        const translated = await tab(3).evaluate((element) => {
+          const style = getComputedStyle(element);
+          return style.transform !== 'none' || style.translate !== 'none';
+        });
+        expect(translated).toBe(true);
+
+        await expect.poll(() => overlapMismatches(indicator(), tab(3))).toEqual([]);
+      });
+    }
+
+    test('updates position when a different tab resizes', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'fixed-tabs' });
+      const { indicator, list, tab } = tabsCase(fixture);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+
+      await tab(1).evaluate((element) => element.setAttribute('style', 'width: 140px; flex-shrink: 0;'));
+
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(140, 0);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+    });
+
+    test('keeps observing a tab whose rendered element type changes', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'fixed-tabs' });
+      const { indicator, list, tab, button } = tabsCase(fixture);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+
+      await button('swap').click();
+      await expect.poll(() => tab(1).evaluate((element) => element.tagName)).toBe('A');
+
+      await tab(1).evaluate((element) => element.setAttribute('style', 'width: 160px; flex-shrink: 0;'));
+
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(160, 0);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+    });
+
+    test('falls back to offset positions when the tab list is scaled to zero', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'scale-zero' });
+      const { indicator, tab } = tabsCase(fixture);
+      const offsets = await tab(2).evaluate((element) => ({ left: (element as HTMLElement).offsetLeft, top: (element as HTMLElement).offsetTop }));
+
+      // The collapsed bounding rects can't be divided by, so the indicator uses the untransformed offsets.
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(offsets.left, 2);
+      expect(await cssVariable(indicator(), '--active-tab-top')).toBeCloseTo(offsets.top, 2);
+      expect(await cssVariable(indicator(), '--active-tab-width')).toBeCloseTo(100, 2);
+      await expect(indicator()).not.toHaveAttribute('hidden');
+    });
+
+    test('updates position when a new tab is inserted and then resized', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'fixed-tabs' });
+      const { indicator, list, tab, button } = tabsCase(fixture);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+
+      await button('insert').click();
+      await expect(tab(0)).toHaveCount(1);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+
+      await tab(0).evaluate((element) => element.setAttribute('style', 'width: 120px; flex-shrink: 0;'));
+
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(220, 0);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+    });
+
+    test('updates all indicators when a different tab resizes', async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-indicator', { case: 'fixed-tabs', second: true });
+      const { indicator, list, tab } = tabsCase(fixture);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+      await expect.poll(() => positionMismatches(indicator('second'), list, tab(2))).toEqual([]);
+
+      await tab(1).evaluate((element) => element.setAttribute('style', 'width: 140px; flex-shrink: 0;'));
+
+      await expect.poll(() => cssVariable(indicator(), '--active-tab-left')).toBeCloseTo(140, 0);
+      await expect.poll(() => positionMismatches(indicator(), list, tab(2))).toEqual([]);
+      await expect.poll(() => positionMismatches(indicator('second'), list, tab(2))).toEqual([]);
+    });
+  });
+});
