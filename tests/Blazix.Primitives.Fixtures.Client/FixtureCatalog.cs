@@ -64,6 +64,8 @@ public static class FixtureCatalog
         ["composite-selection"] = new(typeof(CompositeSelectionFixture)),
         ["composite-nested"] = new(typeof(CompositeNestedFixture)),
         ["composite-flags"] = new(typeof(CompositeFlagsFixture)),
+        ["composite-follow"] = new(typeof(CompositeFollowFixture)),
+        ["composite-registration"] = new(typeof(CompositeRegistrationFixture)),
         ["field-basic"] = new(typeof(FieldBasicFixture)),
         ["field-validation"] = new(typeof(FieldValidationFixture)),
         ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),
