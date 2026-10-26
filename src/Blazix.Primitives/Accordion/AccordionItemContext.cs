@@ -100,7 +100,7 @@ internal abstract class AccordionItemContext
 //   consumer-owned; ACC-STA-09);
 // - the chain the collapsible's OnOpenChange runs (settled by the orchestrator 2026-10-25, the CheckboxGroup C3 precedent): the
 //   consumer's Item callback, then, unless it canceled, the Root's request with the same details, whose commit notifies every
-//   Item before the chain returns (ACC-EVT-01..04, EVD-EVT-04; design point D2 of track 6, option (a), pending the user);
+//   Item before the chain returns (ACC-EVT-01..04, EVD-EVT-04; design point D2 of track 6, option (a), settled by the orchestrator 2026-10-26);
 // - the item's state (ACC-STA-02, ACC-STA-10), rebuilt when the root, the collapsible state or the parameters change.
 /// <summary>The state an accordion item shares with its header, trigger and panel.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>

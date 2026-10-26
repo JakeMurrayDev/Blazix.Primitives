@@ -254,7 +254,7 @@ describe('<Collapsible.Panel />', () => {
     });
   });
 
-  // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), pending the user): an Accordion Item has no root twin, so its panel
+  // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), settled by the orchestrator 2026-10-26): an Accordion Item has no root twin, so its panel
   // reports the machine's status (before the forced idle) once per change when asked. Never the unset status, which the
   // completion implies, nor the `starting` the evaluation step gives a panel that was not mounted, which C# computes too.
   describe.each([

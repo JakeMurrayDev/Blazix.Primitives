@@ -69,7 +69,7 @@ internal sealed record CollapsibleOptions : TwinOptions
     /// </value>
     public string? WidthVariable { get; init; }
 
-    // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), pending the user): an Accordion Item has no root twin.
+    // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), settled by the orchestrator 2026-10-26): an Accordion Item has no root twin.
     /// <summary>Gets a value indicating whether the module reports the panel's transition status.</summary>
     /// <value>
     /// <see langword="true"/> for a panel whose shared state has no root element to mirror its status from;

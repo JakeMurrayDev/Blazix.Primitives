@@ -7,7 +7,7 @@ namespace Blazix.Primitives.Interop;
 /// <param name="ForcedIdle"><see langword="true"/> from a motion-skipping open until the shared status leaves its starting phase.</param>
 internal sealed record PanelForcedIdleChange(bool ForcedIdle);
 
-// ACC-STA-03/09 (the status of a panel whose shared state has no root twin; D1 option (a), pending the user)
+// ACC-STA-03/09 (the status of a panel whose shared state has no root twin; D1 option (a), settled by the orchestrator 2026-10-26)
 /// <summary>The payload of the status report: the transition status the panel's machine has, before the forced idle.</summary>
 /// <param name="Status">The status; never the unset status, which the end of the exit implies.</param>
 internal sealed record PanelStatusChange([property: JsonConverter(typeof(TransitionStatusJsonConverter))] TransitionStatus? Status);

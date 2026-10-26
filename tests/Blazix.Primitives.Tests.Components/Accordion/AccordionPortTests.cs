@@ -202,7 +202,7 @@ public sealed class AccordionPortTests : IDisposable
         Assert.True(cut.Find("[data-testid=panel1]").HasAttribute("data-closed"));
     }
 
-    // Design point D2 (option (a), pending the user): the item's request re-applies its open state after the chain; the three
+    // Design point D2 (option (a), settled by the orchestrator 2026-10-26): the item's request re-applies its open state after the chain; the three
     // ownership shapes show that the re-apply changes nothing.
     [Fact(DisplayName = "port: with an uncontrolled root the item is open when its request returns")]
     [Trait("Requirement", "ACC-STA-07")]
@@ -443,7 +443,7 @@ public sealed class AccordionPortTests : IDisposable
         Assert.Equal("true", cut.Find("button").GetAttribute("aria-expanded"));
     }
 
-    // Design point D4 (option (a), pending the user): Base UI renders every part of every item once on a commit, because the
+    // Design point D4 (option (a), settled by the orchestrator 2026-10-26): Base UI renders every part of every item once on a commit, because the
     // value is in every state. Blazor renders more: the root's and each item's cascade re-renders its content in a later queue
     // entry than the parts' own subscription renders, so an item renders twice and its header, trigger and open panel three
     // times. The counts are a budget (ADR 16 rule 7: they only tighten), measured 2026-10-26 at 3 and 20 items.

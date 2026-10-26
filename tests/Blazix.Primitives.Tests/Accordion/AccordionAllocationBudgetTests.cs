@@ -3,7 +3,7 @@ namespace Blazix.Primitives.Tests.Accordion;
 /// <summary>
 /// ADR 16 rule 7 for Accordion, on the shared state the parts subscribe to: a parameter set that changes nothing allocates
 /// nothing, and a committed toggle with no receivers allocates the new value and each item's new records. The toggle is
-/// measured at 3 and 20 items for design point D4 (option (a), pending the user).
+/// measured at 3 and 20 items for design point D4 (option (a), settled by the orchestrator 2026-10-26).
 /// </summary>
 public sealed class AccordionAllocationBudgetTests
 {
