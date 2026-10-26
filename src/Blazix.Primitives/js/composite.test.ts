@@ -2175,3 +2175,151 @@ describe('composite registration-only list (port)', () => {
     ]);
   });
 });
+
+// --- port titles: the highlight that follows the active item (M3 track 1, E5) ------------------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): TabsList's consumer-owned highlight (CMP-STA-22, TAB-STA-19) becomes
+// an option of the module. Each item is evaluated as `TabsTab.tsx:83-109`'s effect is, when one of its dependencies changes
+// (the marker, its index, the highlight, its `disabled` flag): a keydown on the item since its last evaluation only clears
+// that mark; otherwise a marked item whose index differs from the highlight takes it, without scrolling, when focus is
+// outside the root and its `disabled` flag is off. A marker change is seen by a `MutationObserver` on the root (design
+// point 4, option (a)); the `disabled` flag is the registration's (design point 5, option (b)); both pending the user.
+
+describe('composite active-item follow (port)', () => {
+  type Flags = Pick<CompositeItemRegistration, 'disabled' | 'focusableWhenDisabled'>;
+
+  function flagged(elements: HTMLElement[], flags: Record<string, Flags> = {}): CompositeOptions['items'] {
+    return elements.map((element) => ({ id: element.id, tabIndex: null, ...flags[element.getAttribute('data-testid')!] }));
+  }
+
+  function outside(): HTMLElement {
+    const button = document.body.appendChild(document.createElement('button'));
+    button.setAttribute('data-testid', 'outside');
+    return button;
+  }
+
+  function mark(testId: string): void {
+    document.querySelector(`[${ACTIVE_COMPOSITE_ITEM}]`)?.removeAttribute(ACTIVE_COMPOSITE_ITEM);
+    byTestId(testId).setAttribute(ACTIVE_COMPOSITE_ITEM, '');
+  }
+
+  // Restated (dated 2026-10-26, M3 track 1): the consumer-owned highlight of Base UI's title is TabsList's, which the port
+  // builds as the follow; the keys move the highlight as they do in a root-owned group, and a marker moved while focus is
+  // outside the root moves the tab stop.
+  it('controlled mode', async () => {
+    const button = outside();
+    mountItems(['1', '2', '3'], { followActiveItem: true });
+    const [item1, item2, item3] = ['1', '2', '3'].map(byTestId);
+
+    item1!.focus();
+    expect(item1!.getAttribute('tabindex')).toBe('0');
+
+    keyDown(item1!, 'ArrowDown');
+    await flushMicrotasks();
+    expect(item2!.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(item2);
+
+    keyDown(item2!, 'ArrowDown');
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(item3);
+
+    keyDown(item3!, 'ArrowUp');
+    await flushMicrotasks();
+    expect(item2!.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(item2);
+
+    button.focus();
+    mark('1');
+    await flushMicrotasks();
+    expect(item1!.getAttribute('tabindex')).toBe('0');
+    expect(item2!.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('moves the highlight to the marked item while focus is outside the root, and keeps it while focus is inside', async () => {
+    const button = outside();
+    const group = mountGroup([item('1', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('2'), item('3')], { followActiveItem: true, reportHighlight: true });
+    const [item1, item3] = ['1', '3'].map(byTestId);
+    button.focus();
+
+    mark('3');
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 2 }]);
+
+    item3!.focus();
+    mark('1');
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    expect(item1!.getAttribute('tabindex')).toBe('-1');
+
+    keyDown(item3!, 'ArrowRight');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(item1);
+  });
+
+  it('does not follow a marked item whose disabled flag is set, and follows it once the flag is cleared', async () => {
+    const button = outside();
+    const elements = [item('1'), item('2', { 'aria-disabled': 'true' }), item('3')];
+    const group = mountGroup(elements, { followActiveItem: true, disabledIndices: [], items: flagged(elements, { '2': { disabled: true } }) });
+    button.focus();
+
+    mark('2');
+    await flushMicrotasks();
+    expect(byTestId('1')!.getAttribute('tabindex')).toBe('0');
+
+    group.update({ items: flagged(elements) });
+    expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('skips the follow once after a keydown on the marked item', async () => {
+    const button = outside();
+    const group = mountGroup([item('1', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('2'), item('3')], { followActiveItem: true });
+    const [item1, item2, item3] = ['1', '2', '3'].map(byTestId);
+    item2!.focus();
+    button.focus();
+
+    // A keydown that reaches the marked item while focus is elsewhere: the highlight moves from 2 to 3, and the marked
+    // item's evaluation that follows only clears its mark.
+    keyDown(item1!, 'ArrowRight');
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    button.focus();
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+
+    item1!.removeAttribute(ACTIVE_COMPOSITE_ITEM);
+    await flushMicrotasks();
+    item1!.setAttribute(ACTIVE_COMPOSITE_ITEM, '');
+    await flushMicrotasks();
+    expect(item1!.getAttribute('tabindex')).toBe('0');
+    expect(group.root.contains(document.activeElement)).toBe(false);
+  });
+
+  // On Server the batch that adds a marked item is observed before the `update` that registers it arrives.
+  it('follows a marked item that registers after the marker is observed', async () => {
+    const button = outside();
+    const group = mountGroup([item('1', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('2')], { followActiveItem: true });
+    button.focus();
+
+    byTestId('1').removeAttribute(ACTIVE_COMPOSITE_ITEM);
+    group.root.appendChild(item('3', { [ACTIVE_COMPOSITE_ITEM]: '' }));
+    await flushMicrotasks();
+    expect(byTestId('1')!.getAttribute('tabindex')).toBe('0');
+
+    group.update();
+    expect(byTestId('3')!.getAttribute('tabindex')).toBe('0');
+  });
+
+  // CMP-EDGE-09: the consumer-owned highlight is not re-validated against disabledIndices.
+  it('leaves the followed highlight on an item that a changed disabledIndices disables (CMP-EDGE-09)', async () => {
+    const button = outside();
+    const group = mountItems(['1', '2', '3'], { followActiveItem: true, disabledIndices: [] });
+    button.focus();
+
+    mark('2');
+    await flushMicrotasks();
+    expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
+
+    group.update({ disabledIndices: [1] });
+    expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
+  });
+});
