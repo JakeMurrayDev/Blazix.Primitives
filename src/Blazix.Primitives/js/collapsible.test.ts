@@ -223,6 +223,37 @@ describe('<Collapsible.Panel />', () => {
     });
   });
 
+  // ACC-DOM-17 (M3 track 6, edit (c); ADR 04 Amendments 2026-10-26, the names chosen by the user): an Accordion panel's
+  // variables are `--accordion-panel-height/width`, named by the options; the Collapsible ones are never set on it.
+  describe('the variable names', () => {
+    it('writes the size variables the options name and never the collapsible ones', async () => {
+      const fake = createFakeTwin();
+      const panel = createPanel({ style: 'transition-duration: 100ms' });
+      attachTo(panel, fake, {
+        keepMounted: true,
+        style: 'transition-duration: 100ms',
+        heightVariable: '--accordion-panel-height',
+        widthVariable: '--accordion-panel-width',
+      });
+      expect(panel.style.getPropertyValue('--accordion-panel-height')).toBe('auto');
+      expect(panel.style.getPropertyValue('--accordion-panel-width')).toBe('auto');
+
+      await renderOpen(panel, true);
+      expect(panel.style.getPropertyValue('--accordion-panel-height')).toBe('120px');
+      expect(panel.style.getPropertyValue('--accordion-panel-width')).toBe('240px');
+
+      runFrame();
+      await flushTasks();
+      runFrame();
+      await flushTasks();
+      await renderOpen(panel, false);
+      // The closing pass holds the measured size in the named variable.
+      expect(panel.style.getPropertyValue('--accordion-panel-height')).toBe('120px');
+      expect(panel.style.getPropertyValue(PANEL_HEIGHT)).toBe('');
+      expect(panel.style.getPropertyValue(PANEL_WIDTH)).toBe('');
+    });
+  });
+
   describe('a withheld or replaced element', () => {
     it('ends a close at once when no element is left in the ending phase, and finds a new one by the panel id', async () => {
       // With the watcher on, a no-motion open keeps its measured size until the frame after it.
