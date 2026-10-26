@@ -23,7 +23,8 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
     // public properties to find the getter's property, 8 bytes per property: TestCompositeRoot gained
     // `DeriveDisabledIndices`. A probe property that is not a parameter costs the same 8 bytes, and the options'
     // comparison of the new field allocates nothing.
-    private const long RerenderBudgetBytes = 4040;
+    // 4048 the same day (M3 track 1, E2): TestCompositeRoot gained `ReportItems`, the same 8 bytes of the harness.
+    private const long RerenderBudgetBytes = 4048;
 
     private readonly CompositeTestContext host = new();
 

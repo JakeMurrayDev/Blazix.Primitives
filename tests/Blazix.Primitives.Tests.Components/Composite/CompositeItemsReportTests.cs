@@ -65,7 +65,7 @@ public sealed class CompositeItemsReportTests : IDisposable
     }
 
     // On WebAssembly the first report runs re-entrantly inside the C# `attach` call, and on Server it reaches C# ahead of
-    // the attach's completion: either way the behaviour has no handle yet.
+    // the attach's completion: either way the behaviour has no handle yet. The mock reports from inside `attach`.
     [Fact(DisplayName = "applies a report that arrives before AttachAsync returns")]
     [Trait("Requirement", "CMP-EVT-03")]
     [Trait("Requirement", "CMP-STA-10")]
@@ -74,19 +74,29 @@ public sealed class CompositeItemsReportTests : IDisposable
         using BunitContext context = new();
         context.Services.AddBlazixPrimitives();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(CompositeTestContext.ModulePath);
-        module.Setup<IJSObjectReference>("attach", _ => true);
+        string[]? reported = null;
+        BunitJSModuleInterop handle = module.SetupModule("attach", invocation =>
+        {
+            if (reported is null)
+            {
+                // The ids in reverse, so the joined order is the report's and not the registrations'.
+                reported = [.. CompositeTestContext.ItemIds((string)invocation.Arguments[1]!).Reverse()];
+                CompositeTwin twin = ((DotNetObjectReference<CompositeTwin>)invocation.Arguments[2]!).Value;
+                twin.OnItemsChange("{\"ids\":[" + string.Join(",", reported.Select(id => $"\"{id}\"")) + "]}");
+            }
+
+            return true;
+        });
+        handle.SetupVoid("update", _ => true).SetVoidResult();
 
         IRenderedComponent<TestCompositeRoot> cut = context.Render<TestCompositeRoot>(p => p
             .Add(x => x.ReportItems, true)
             .AddChildContent(CompositeItems.Of("a", "b")));
         string[] ids = CompositeTestContext.RenderedItemIds(cut);
-        JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
-        CompositeTwin twin = ((DotNetObjectReference<CompositeTwin>)attach.Arguments[2]!).Value;
-        Assert.False(cut.Instance.TwinAttached.IsCompleted);
 
-        cut.InvokeAsync(() => twin.OnItemsChange($$"""{"ids":["{{ids[1]}}","{{ids[0]}}"]}"""));
-
+        Assert.Equal([ids[1], ids[0]], reported!);
         Assert.Equal([ids[1], ids[0]], cut.Instance.Behavior.OrderedItems.Select(item => item.Registration.Id));
+        Assert.Empty(handle.Invocations["update"]);
     }
 
     // On WebAssembly a report from inside `update` runs re-entrantly inside the C# call; the part re-renders on it, and its

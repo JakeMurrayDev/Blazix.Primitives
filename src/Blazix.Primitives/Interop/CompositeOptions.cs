@@ -6,8 +6,9 @@ namespace Blazix.Primitives.Interop;
 // ADR 04 Amendments 2026-10-20 (the pending-navigation flag and the focus-driven selection, RDG-STA-06, RAD-FOC-05) and
 // the reports of RDG-FOC-04/05 and CMP-EVT-01; the items' ids and consumer tabindex of ADR 04 Amendments 2026-10-22
 // (RAD-DOM-16); the M3 extensions of ADR 04 Amendments 2026-10-26 (chosen by the user): the items' flags and the
-// derived indices (CMP-STA-08, CMP-KEY-08, TLB-STA-02), sent only when set. Not carried (CMP §10 Q1, M3, M5): grid,
-// onLoop, a consumer-owned highlight, onMapChange, metadata or an explicit index from C#.
+// derived indices (CMP-STA-08, CMP-KEY-08, TLB-STA-02) and the items report, onMapChange as ids (CMP-EVT-03), sent only
+// when set. Not carried (CMP §10 Q1, M3, M5): grid, onLoop, a consumer-owned highlight, metadata or an explicit index
+// from C#: values stay in C#, joined to the reported ids.
 /// <summary>
 /// The options of the <c>composite</c> module: the roving group's configuration and its items, sent on <c>attach</c> and
 /// on every <c>update</c>. The module resolves the items, keeps their order, writes their <c>tabindex</c> and handles the
@@ -86,6 +87,14 @@ internal sealed record CompositeOptions : TwinOptions
     /// that never reaches Blazor's dispatcher; the default is <see langword="false"/>.
     /// </value>
     public bool ReportHandledKeys { get; init; }
+
+    /// <summary>Gets a value indicating whether the module reports the items' ids in index order on each publication that changed them.</summary>
+    /// <value>
+    /// <see langword="true"/> to receive <see cref="CompositeTwin.ItemsChanged"/>; the default is <see langword="false"/>,
+    /// which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReportItems { get; init; }
 }
 
 // ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16); the flags of ADR 04

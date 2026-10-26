@@ -14,3 +14,9 @@ internal sealed record CompositeFocusLeave(EventSnapshot Event);
 /// <summary>The payload of the <c>composite</c> module's report of a key it handled and stopped without asking C# first.</summary>
 /// <param name="Event">The snapshot of the <c>keydown</c>.</param>
 internal sealed record CompositeKeyHandled(EventSnapshot Event);
+
+// CMP-EVT-03 as a report of ids (M3 track 1, E2; ADR 04 Amendments 2026-10-26, chosen by the user; one self-contained
+// sequence per report, design points 1 and 3, pending the user).
+/// <summary>The payload of the <c>composite</c> module's report of the items' order.</summary>
+/// <param name="Ids">The ids of the registered items in index order, each once.</param>
+internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids);
