@@ -13,6 +13,7 @@ namespace Blazix.Primitives;
 internal abstract class TabsRootContext
 {
     private readonly List<Action> listeners = [];
+    private readonly List<Action<bool>> tabListeners = [];
 
     /// <summary>Initializes a new instance of the <see cref="TabsRootContext"/> class.</summary>
     /// <param name="controlled">Whether the consumer owns the root's value.</param>
@@ -58,6 +59,21 @@ internal abstract class TabsRootContext
     /// <param name="listener">The listener.</param>
     public void RemoveListener(Action listener) => listeners.Remove(listener);
 
+    // TAB-STA-14 with ADR 04 Amendments 2026-10-26: outside an event dispatch (the `tabs` module's report on Server) each
+    // part's render is a render batch of its own, and the module reads `[data-active]` after each. A tab's listener runs
+    // twice, so the Tab that becomes active renders in the first pass, before the one it replaces renders in the second,
+    // and no batch shows a selection change with no active Tab.
+    /// <summary>Adds a tab's listener, which runs in both passes of every change of the root's shared state.</summary>
+    /// <param name="listener">
+    /// The listener, which receives <see langword="true"/> in the first pass, where only a tab that becomes active renders,
+    /// and <see langword="false"/> in the second, before the other listeners.
+    /// </param>
+    public void AddTabListener(Action<bool> listener) => tabListeners.Add(listener);
+
+    /// <summary>Removes a listener added with <see cref="AddTabListener"/>.</summary>
+    /// <param name="listener">The listener.</param>
+    public void RemoveTabListener(Action<bool> listener) => tabListeners.Remove(listener);
+
     /// <summary>Takes the root's orientation and notifies the parts when it changed.</summary>
     /// <param name="orientation">The orientation.</param>
     public void SetOrientation(Orientation orientation)
@@ -84,11 +100,27 @@ internal abstract class TabsRootContext
         Notify();
     }
 
-    /// <summary>Runs every listener.</summary>
+    /// <summary>Runs every listener: the tabs' first pass, then their second, then the other listeners.</summary>
     protected void Notify()
     {
         // A listener may remove itself or another (a part disposed by the render it triggers): iterating backwards with a
         // bounds check never skips a listener that is still registered.
+        for (int i = tabListeners.Count - 1; i >= 0; i--)
+        {
+            if (i < tabListeners.Count)
+            {
+                tabListeners[i](true);
+            }
+        }
+
+        for (int i = tabListeners.Count - 1; i >= 0; i--)
+        {
+            if (i < tabListeners.Count)
+            {
+                tabListeners[i](false);
+            }
+        }
+
         for (int i = listeners.Count - 1; i >= 0; i--)
         {
             if (i < listeners.Count)

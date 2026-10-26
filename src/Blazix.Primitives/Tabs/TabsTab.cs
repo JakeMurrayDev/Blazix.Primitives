@@ -63,7 +63,7 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
 
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
-    private readonly Action rootChanged;
+    private readonly Action<bool> rootChanged;
     private readonly Entry entry;
     private TabsRootContext<TValue>? root;
     private TabsListContext? list;
@@ -176,7 +176,7 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
 
         root = RootContext;
         list = TabsListContext.Require(ListContext);
-        root.AddListener(rootChanged);
+        root.AddTabListener(rootChanged);
         behavior = new ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp)
         {
             FocusableWhenDisabled = true,
@@ -230,7 +230,7 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
         if (disposing && !disposed)
         {
             disposed = true;
-            root?.RemoveListener(rootChanged);
+            root?.RemoveTabListener(rootChanged);
             behavior?.Dispose();
             item?.Dispose();
             if (registered)
@@ -438,10 +438,11 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
         }
     }
 
-    // A change of the root's value, orientation, mirrored direction or panel registry.
-    private void OnRootChanged()
+    // A change of the root's value, orientation, mirrored direction or panel registry. In the root's first pass only a tab
+    // that becomes active renders, so it renders before the tab it replaces (TabsRootContext.AddTabListener).
+    private void OnRootChanged(bool activationPass)
     {
-        if (disposed)
+        if (disposed || (activationPass && (state!.Active || !IsActive)))
         {
             return;
         }
