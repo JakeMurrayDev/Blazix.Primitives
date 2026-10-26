@@ -5,9 +5,10 @@
 // pointer and focus handling of the items (CMP-PTR-01/02, CMP-KEY-17), and RadioGroup's options (the pending-navigation
 // flag, the focus-driven selection and the leaving blur; ADR 04 Amendments 2026-10-20, RDG-STA-06, RAD-FOC-05,
 // RDG-FOC-04/05). M3 track 1 (ADR 04 Amendments 2026-10-26, chosen by the user) adds the items' `disabled` and
-// `focusableWhenDisabled` flags with the indices derived from them (CMP-STA-08, CMP-STA-29, CMP-KEY-08). Not built:
-// grid, `onLoop`, the keyed registry (CMP §10 Q1), the keyboard relay (CMP-KEY-14), a consumer-owned highlight and
-// `onMapChange` (M3), list navigation and typeahead (M5), labels and `guess` (M5).
+// `focusableWhenDisabled` flags with the indices derived from them (CMP-STA-08, CMP-STA-29, CMP-KEY-08) and the items
+// report, `onMapChange` as ids in index order (CMP-EVT-03). Not built: grid, `onLoop`, the keyed registry (CMP §10 Q1),
+// the keyboard relay (CMP-KEY-14), a consumer-owned highlight (M3), list navigation and typeahead (M5), labels and
+// `guess` (M5).
 // Transcribed from Base UI v1.9.0: internals/composite/{composite,constants}.ts, root/useCompositeRoot.ts,
 // root/CompositeRoot.tsx, item/useCompositeItem.ts, list/CompositeList.tsx, list/useCompositeListItem.ts;
 // floating-ui-react/utils/composite.ts; radio-group/RadioGroup.tsx:205-245 and radio/root/RadioRoot.tsx:156-166.
@@ -779,6 +780,8 @@ export interface CompositeOptions extends TwinOptions {
   reportHighlight: boolean;
   /** Whether the module reports a key it handled and stopped without asking C# inside the dispatch. */
   reportHandledKeys?: boolean | undefined;
+  /** Whether the module reports the items' ids in index order on each publication that changed them. */
+  reportItems?: boolean | undefined;
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
@@ -789,6 +792,7 @@ interface AttachedElement extends HTMLElement {
 }
 
 interface AttachedItem {
+  id: string;
   element: HTMLElement;
   tabIndex: string | null;
   disabled: boolean;
@@ -829,6 +833,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   let itemsByElement = new Map<Element, AttachedItem>();
   // CMP-STA-08, TLB-STA-02 (M3 track 1, E3): the indices derived from the items' flags, in the registry's order.
   let derivedDisabledIndices: number[] = [];
+  // CMP-EVT-03 (M3 track 1, E2): the id sequence last reported, so a publication that keeps it reports nothing.
+  let reportedIds: string[] | null = null;
   // CMP-STA-22: the root owns the highlight, initially 0, which is also the value C# mirrors before any report.
   let highlightedIndex = 0;
   let highlightedElement: HTMLElement | null = null;
@@ -918,6 +924,27 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   }
 
+  // CMP-EVT-03 as a report (M3 track 1, E2): the ids in index order, on each publication that changed them, only when
+  // asked (ADR 16 rule 6). Subscribed first, so it runs before the root's adjustment of the same publication, as
+  // CompositeRoot.tsx:88-91 calls `onMapChange` before its own handler.
+  registry.subscribe(() => {
+    if (!options.reportItems) {
+      return;
+    }
+    const ids: string[] = [];
+    for (const element of registry.elements) {
+      const attached = element ? itemsByElement.get(element) : undefined;
+      if (attached) {
+        ids.push(attached.id);
+      }
+    }
+    if (reportedIds && ids.length === reportedIds.length && ids.every((id, index) => id === reportedIds![index])) {
+      return;
+    }
+    reportedIds = ids;
+    twin.report('OnItemsChange', { ids });
+  });
+
   // The root's listener on each publication.
   registry.subscribe((map) => {
     // E3: derived in the same pass as the publication, before the adjustments read it (TLB §14).
@@ -994,6 +1021,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       const element = resolveItem(registration.id);
       if (element) {
         next.set(registration.id, {
+          id: registration.id,
           element,
           tabIndex: registration.tabIndex ?? null,
           disabled: registration.disabled ?? false,
