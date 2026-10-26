@@ -122,6 +122,20 @@ public sealed class CompositeTwinContractTests
         Assert.DoesNotContain("reportItems", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
+    // M3 track 1, E1 (ADR 04 Amendments 2026-10-26, chosen by the user): the registration-only mode, sent only when set.
+    [Fact]
+    [Trait("Requirement", "CMP-STR-03")]
+    public void RegistrationOnly_is_sent_only_when_set()
+    {
+        string json = JsonSerializer.Serialize(
+            new CompositeOptions { RegistrationOnly = true, Items = [new CompositeItemRegistration("base-ui-1", null)] },
+            BlazixJsonContext.Default.CompositeOptions);
+
+        Assert.Contains("\"registrationOnly\":true", json, StringComparison.Ordinal);
+        Assert.Contains("\"items\":[{\"id\":\"base-ui-1\"}]", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("registrationOnly", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-API-01")]
     [Trait("Requirement", "CMP-API-02")]
