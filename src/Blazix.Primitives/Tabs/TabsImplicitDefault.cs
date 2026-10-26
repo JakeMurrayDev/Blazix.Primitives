@@ -2,13 +2,15 @@ using System.Runtime.CompilerServices;
 
 namespace Blazix.Primitives;
 
-// TAB-API-02, TAB-STA-08; tabs/root/TabsRoot.tsx:30 (`defaultValue = 0`). ADR 08 Amendments 2026-10-26 (chosen by the user
-// 2026-10-26): while a Root has neither Value nor DefaultValue it holds an implicit default that is not a TValue, and a Tab
-// matches it only when TValue is a numeric primitive and the Tab's value is zero, compared without boxing. JavaScript's
-// `0 === value`: -0 matches, NaN does not; an enum, char, bool or BigInteger is not a JavaScript number, so none matches.
-// Design point 3 of the Tabs track (the branches and this place, Tabs/ rather than Store/Equality.cs) is pending the
-// user. The branches use Unsafe.As as Equality's do (design point R8 of M2, settled by the orchestrator 2026-10-23): each
-// is a JIT-time constant for a value-type TValue, and the interpreter tests them in turn without allocating.
+// TAB-API-02, TAB-STA-08; tabs/root/TabsRoot.tsx:30 (`defaultValue = 0`). ADR 08 Amendments 2026-10-26 (chosen by the
+// user 2026-10-26): while a Root has neither Value nor DefaultValue it holds an implicit default that is not a TValue,
+// and a Tab matches it only when TValue is a numeric primitive and the Tab's value is zero, compared without boxing.
+// JavaScript's `0 === value`: -0 matches, NaN does not; an enum, char, bool or BigInteger is not a JavaScript number,
+// so none matches. Design point 3 of the Tabs track (the branches and this place, Tabs/ rather than Store/Equality.cs)
+// was settled by the orchestrator 2026-10-26: one consumer, so no shared-path helper; a second family that needs it
+// moves it to Store/. The branches use Unsafe.As as Equality's do (design point R8 of M2, settled by the orchestrator
+// 2026-10-23): each is a JIT-time constant for a value-type TValue, and the interpreter tests them in turn without
+// allocating.
 /// <summary>Decides whether a tab's value matches the implicit default of a root that has neither a value nor a default value.</summary>
 internal static class TabsImplicitDefault
 {

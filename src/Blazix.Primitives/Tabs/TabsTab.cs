@@ -43,10 +43,10 @@ public static class TabsTabDataAttributes
 //   (ADR 04 Amendments 2026-10-22). One keydown gate (option (i), the RadioRoot precedent): arrows go to the item, every
 //   other key to the button mechanism, so a key goes through at most one decision.
 // - The activation is the `tabs` module's (ADR 04 Amendments 2026-10-26, chosen by the user 2026-10-26): it listens for
-//   the Tab's click and focus on the List and asks `select`. The Tab declines the consumer's onclick and onfocus and runs
-//   them from the List: inside the decision on WebAssembly, from the module's report on Server, and from the module's
-//   report for a gesture that activates nothing (design point 5 of the Tabs track, pending the user). A Tab that is
-//   active or disabled requests nothing (TAB-PTR-02/03).
+//   the Tab's click and focus on the List and asks `select`. The Tab declines the consumer's onclick and onfocus and
+//   runs them from the List: inside the decision on WebAssembly, from the module's report on Server, and from the
+//   module's report for a gesture that activates nothing (design point 5 of the Tabs track, settled by the orchestrator
+//   2026-10-26). A Tab that is active or disabled requests nothing (TAB-PTR-02/03).
 // - Not here yet (open until track 1's E2 and E5 are on `main`): the Tab's place in the Root's tab registry and the
 //   tab stop following the active Tab.
 /// <summary>
@@ -275,8 +275,8 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
         attributes.Set(TabsTabDataAttributes.ActivationDirection, renderedDirection);
     }
 
-    // The tabs module runs the consumer's onclick and onfocus (design point 5, pending the user); the button mechanism and
-    // the composite item decline their own.
+    // The tabs module runs the consumer's onclick and onfocus (design point 5, settled by the orchestrator 2026-10-26);
+    // the button mechanism and the composite item decline their own.
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName)
     {

@@ -2,11 +2,12 @@ namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (the `tabs` component module), §2 (the Tabs.Indicator row) and Amendments 2026-10-26 (chosen by the user
 // 2026-10-26): one handle on the List (the activation and its `select` decision point, the pressing state of
-// TAB-PTR-05/06, data-activation-direction on the five parts, the ResizeObserver over the List and its Tabs) and one per
-// Indicator (its `hidden` and the six --active-tab-* variables over the consumer's style). Values never cross: the options
-// carry flags and literals only, and the module finds its Tabs, Panels and Indicators by ownership (design point 4 of the
-// Tabs track, pending the user). Controlled is design point 7's input and ReportClicks/ReportFocus design point 5's, both
-// pending the user. Handlers read the options of the latest update.
+// TAB-PTR-05/06, data-activation-direction on the five parts, the ResizeObserver over the List and its Tabs) and one
+// per Indicator (its `hidden` and the six --active-tab-* variables over the consumer's style). Values never cross: the
+// options carry flags and literals only, and the module finds its Tabs, Panels and Indicators by ownership (design
+// point 4 of the Tabs track, settled by the orchestrator 2026-10-26). Controlled is design point 7's input and
+// ReportClicks/ReportFocus design point 5's, both settled by the orchestrator 2026-10-26. Handlers read the options of
+// the latest update.
 /// <summary>
 /// The options of the <c>tabs</c> module, sent on <c>attach</c> and on every <c>update</c>: a tab list's activation and
 /// activation direction, or a tab indicator's measurement.

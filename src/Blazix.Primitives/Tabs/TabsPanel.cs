@@ -48,15 +48,16 @@ public static class TabsPanelDataAttributes
 }
 
 // Base UI's Tabs.Panel (tabs/panel/TabsPanel.tsx); the contract is docs/components/tabs.md §9.
-// - Open is `value === root value` (TAB-STA-22); the element is rendered while KeepMounted || mounted (TAB-DOM-12), with
-//   role="tabpanel", a generated id (a consumer id overrides the attribute only, TAB-EDGE-12, §16 Q1 as 1.9.0: design point
-//   9 of the Tabs track, pending the user), hidden and data-hidden while not mounted, inert while not open, tabindex 0 or
-//   -1 (TAB-DOM-13..16).
+// - Open is `value === root value` (TAB-STA-22); the element is rendered while KeepMounted || mounted (TAB-DOM-12),
+//   with role="tabpanel", a generated id (a consumer id overrides the attribute only, TAB-EDGE-12, §16 Q1 as 1.9.0:
+//   design point 9 of the Tabs track, settled by the orchestrator 2026-10-26), hidden and data-hidden while not
+//   mounted, inert while not open, tabindex 0 or -1 (TAB-DOM-13..16).
 // - The default machine (TRN-ALG-01 with no idle state, no deferred ending, no initial-open animation): the handover of
 //   the Checkbox and Radio indicators (ADR 04 Amendments 2026-10-18) for an element C# creates open; from attach the
 //   `transitions` module writes the two transition attributes, reads the open input from the applied batch through
-//   OpenSelector (design point 1 of the Tabs track, ":not([inert])", pending the user) and reports its status, which C#
-//   mirrors; its completion message unmounts the element (ADR 01's TRN-ANI-03/09/10 row, with the convergent `hidden`).
+//   OpenSelector (design point 1 of the Tabs track, ":not([inert])", settled by the orchestrator 2026-10-26) and
+//   reports its status, which C# mirrors; its completion message unmounts the element (ADR 01's TRN-ANI-03/09/10 row,
+//   with the convergent `hidden`).
 // - The Root's mounted-panel registry holds the generated id for every render that renders the element (TAB-STA-21,
 //   TAB-ANI-05). The id is published in the render that creates the element (ADR 01 Amendments 2026-10-22), so the Tab's
 //   aria-controls lands in the same batch.
@@ -77,7 +78,8 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
     private const string DefaultTag = "div";
     private const string UnpublishedIndex = "-1";
 
-    // Design point 1 of the Tabs track (pending the user): the panel renders `inert` exactly while it is not open.
+    // Design point 1 of the Tabs track (settled by the orchestrator 2026-10-26): the panel renders `inert` exactly
+    // while it is not open.
     private const string OpenSelector = ":not([inert])";
 
     private readonly Action rootChanged;

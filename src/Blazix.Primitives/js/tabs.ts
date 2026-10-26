@@ -10,10 +10,11 @@
 // Transcribed from Base UI v1.9.0: tabs/root/TabsRoot.tsx:374-406 (computeActivationDirection), tabs/tab/TabsTab.tsx:
 // 119-177 (the activation and the pressing state), tabs/list/TabsList.tsx:37-82 (the observer), tabs/indicator/
 // TabsIndicator.tsx:58-137,204-290 (the measurement).
-// Port points pending the user (design points of the Tabs track, 2026-10-26): the module finds its parts by ownership
-// rather than by id (4); it reports a click or focus that activates nothing only while a consumer handler exists (5); it
-// hands the Tab and the direction over with the synchronous `OnSelecting` before `select`, probing the mode itself (6);
-// a change it did not start takes `none` in an uncontrolled root and the positional direction in a controlled one (7).
+// Port points settled by the orchestrator 2026-10-26 (design points of the Tabs track): the module finds its parts by
+// ownership rather than by id (4); it reports a click or focus that activates nothing only while a consumer handler
+// exists (5); it hands the Tab and the direction over with the synchronous `OnSelecting` before `select`, reading the
+// channel's `synchronous` (6); a change it did not start takes `none` in an uncontrolled root and the positional
+// direction in a controlled one (7).
 import {
   getCssDimensions,
   getElementTransform,
@@ -298,7 +299,7 @@ function sameMeasurement(a: IndicatorMeasurement | null, b: IndicatorMeasurement
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Ownership (design point 4 of the Tabs track, pending the user)
+// Ownership (design point 4 of the Tabs track, settled by the orchestrator 2026-10-26)
 // ---------------------------------------------------------------------------------------------------------------
 
 // Symbols on the elements, not a module registry: a repeated attach of the same element returns the live handle, and a
@@ -442,26 +443,12 @@ function attachList(element: TabsElement, initialOptions: TabsOptions, twinRefer
   const doc = ownerDocument(element);
   let options = initialOptions;
   let disposed = false;
-  let synchronous: boolean | undefined;
   let lastActive: HTMLElement | null = findActiveTab(element);
   let direction: ActivationDirection = 'none';
   let pending: PendingActivation | null = null;
   const presses = new WeakMap<Element, { main: boolean }>();
   const indicators = new Set<IndicatorController>();
   const observed = new Map<Element, () => void>();
-
-  // Design point 6 (pending the user): the mode, probed once per handle as the channel does, so the activation can be
-  // handed over before `select` is asked.
-  const isSynchronous = (): boolean => {
-    if (synchronous === undefined) {
-      try {
-        synchronous = twinReference.invokeMethod<boolean>('Ping') === true;
-      } catch {
-        synchronous = false;
-      }
-    }
-    return synchronous;
-  };
 
   const report = (tab: HTMLElement, event: Event) => twin.report('OnTabEvent', { tabId: tab.id, event: eventInfo(event) });
 
@@ -472,7 +459,7 @@ function attachList(element: TabsElement, initialOptions: TabsOptions, twinRefer
     const from = findActiveTab(element);
     const record: PendingActivation = { from, to: tab, direction: computeActivationDirection(from, tab, options.orientation) };
     pending = record;
-    if (isSynchronous()) {
+    if (twin.synchronous) {
       twinReference.invokeMethod<void>('OnSelecting', JSON.stringify({ tabId: tab.id, direction: record.direction }));
       if (decide(twin, SELECT_POINT, event, 'run') !== 'run' && pending === record) {
         // A consumer handler vetoed it: nothing changes (TAB-STA-18).
@@ -534,10 +521,10 @@ function attachList(element: TabsElement, initialOptions: TabsOptions, twinRefer
     doc.addEventListener('pointercancel', end);
   };
 
-  // TAB-STA-14..18 and design point 7 (pending the user): the direction of a change of the active Tab. A change the module
-  // started keeps the direction measured in its dispatch; any other is `none` in an uncontrolled Root (an automatic
-  // fallback) and positional in a controlled one (a programmatic change); `none` when either side is empty or the old
-  // Tab has left the document.
+  // TAB-STA-14..18 and design point 7 (settled by the orchestrator 2026-10-26): the direction of a change of the active
+  // Tab. A change the module started keeps the direction measured in its dispatch; any other is `none` in an
+  // uncontrolled Root (an automatic fallback) and positional in a controlled one (a programmatic change); `none` when
+  // either side is empty or the old Tab has left the document.
   const directionOf = (from: HTMLElement | null, to: HTMLElement | null): ActivationDirection => {
     if (from === null || to === null) {
       return 'none';

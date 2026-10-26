@@ -1,9 +1,9 @@
 namespace Blazix.Primitives.Tests.Tabs;
 
-// TAB-API-02, TAB-STA-08; ADR 08 Amendments 2026-10-26 (chosen by the user 2026-10-26): Base UI's implicit `defaultValue`
-// is the number 0, so while a Root has neither Value nor DefaultValue a Tab matches it only when TValue is a numeric
-// primitive and the Tab's value is zero (JavaScript's `0 === value`). Design point 3 of the Tabs track (the helper's
-// branches and its place in Tabs/) is pending the user.
+// TAB-API-02, TAB-STA-08; ADR 08 Amendments 2026-10-26 (chosen by the user 2026-10-26): Base UI's implicit
+// `defaultValue` is the number 0, so while a Root has neither Value nor DefaultValue a Tab matches it only when TValue
+// is a numeric primitive and the Tab's value is zero (JavaScript's `0 === value`). Design point 3 of the Tabs track
+// (the helper's branches and its place in Tabs/) was settled by the orchestrator 2026-10-26.
 /// <summary>The implicit default of a Root without <c>Value</c> or <c>DefaultValue</c>, per value type.</summary>
 public sealed class TabsImplicitDefaultTests
 {

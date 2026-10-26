@@ -6,9 +6,10 @@ using static Blazix.Primitives.Tests.Components.TabsTestContext;
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
 namespace Blazix.Primitives.Tests.Components;
 
-// TabsIndicator.test.tsx, the [L2] clauses (issue 104): whether the element renders, what C# renders under the handover,
-// what the Indicator's `tabs` handle is told, and the C# reaction to the module's measurement report (ADR 04 §2 and
-// Amendments 2026-10-26; design point 2 of the Tabs track, pending the user). The measurement itself is L3 and L4.
+// TabsIndicator.test.tsx, the [L2] clauses (issue 104): whether the element renders, what C# renders under the
+// handover, what the Indicator's `tabs` handle is told, and the C# reaction to the module's measurement report (ADR 04
+// §2 and Amendments 2026-10-26; design point 2 of the Tabs track, settled by the orchestrator 2026-10-26). The
+// measurement itself is L3 and L4.
 /// <summary>The tab indicator: its element, its handover and its mirrored measurement.</summary>
 public sealed class TabsIndicatorTests : IDisposable
 {

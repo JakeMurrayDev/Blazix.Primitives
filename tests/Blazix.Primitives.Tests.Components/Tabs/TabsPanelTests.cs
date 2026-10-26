@@ -164,7 +164,8 @@ public sealed class TabsPanelTests : IDisposable
         Assert.Empty(cut.FindAll("[data-testid=panel-one][data-ending-style]"));
     }
 
-    // TAB-EDGE-12 (Test: none) with §16 Q1 as 1.9.0 (design point 9 of the Tabs track, pending the user).
+    // TAB-EDGE-12 (Test: none) with §16 Q1 as 1.9.0 (design point 9 of the Tabs track, settled by the orchestrator
+    // 2026-10-26).
     [Fact(DisplayName = "port: a consumer id lands on the panel while aria-controls keeps the generated id")]
     [Trait("Requirement", "TAB-EDGE-12")]
     [Trait("Requirement", "TAB-DOM-13")]

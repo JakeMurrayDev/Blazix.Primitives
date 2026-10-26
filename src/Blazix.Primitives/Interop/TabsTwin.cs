@@ -5,10 +5,10 @@ namespace Blazix.Primitives.Interop;
 // ADR 04 §1 (the `tabs` component module), §2 (the Tabs.Indicator row), §3 (decision points) and Amendments 2026-10-26
 // (chosen by the user 2026-10-26): the module listens for a Tab's click and focus, measures the two Tab rects and asks
 // `select` on this twin, fallback run; it owns data-activation-direction on the five parts from attach and the
-// Indicator's hidden and --active-tab-*. One twin per part: the List's handle beside its CompositeTwin, one per Indicator
-// (the Switch and Avatar two-twin precedents). Design point 6 of the Tabs track (the stash invocation before `select`)
-// is pending the user. ADR 01 relaxation table: "C#-origin consumer vetoes" (TAB-PTR-09), "RND-STA-01 for mirrored
-// fields" (the direction and the Indicator's measurement).
+// Indicator's hidden and --active-tab-*. One twin per part: the List's handle beside its CompositeTwin, one per
+// Indicator (the Switch and Avatar two-twin precedents). Design point 6 of the Tabs track (the stash invocation before
+// `select`) was settled by the orchestrator 2026-10-26. ADR 01 relaxation table: "C#-origin consumer vetoes"
+// (TAB-PTR-09), "RND-STA-01 for mirrored fields" (the direction and the Indicator's measurement).
 /// <summary>
 /// The C# half of the <c>tabs</c> module: on a tab list, the activation of its tabs by click and focus and the activation
 /// direction it writes on every part of the tabs; on a tab indicator, the measurement of the active tab.

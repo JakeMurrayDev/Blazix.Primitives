@@ -7,9 +7,10 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives;
 
 // TAB-STA-20, TAB-DOM-22/24; tabs/indicator/TabsIndicator.tsx:19-23,139-144. ADR 04 §2 (the Tabs.Indicator row) and
-// Amendments 2026-10-26: the `tabs` module writes the six --active-tab-* variables, `hidden` and data-activation-direction,
-// so the measurement and the direction are mirrored fields (RND-STA-01 row of ADR 01); the measurement is never projected
-// (TAB-DOM-22). Design point 2 of the Tabs track (record classes, one report per change) is pending the user.
+// Amendments 2026-10-26: the `tabs` module writes the six --active-tab-* variables, `hidden` and
+// data-activation-direction, so the measurement and the direction are mirrored fields (RND-STA-01 row of ADR 01); the
+// measurement is never projected (TAB-DOM-22). Design point 2 of the Tabs track (record classes, one report per change)
+// was settled by the orchestrator 2026-10-26.
 /// <summary>Represents the state of a tab indicator, which the part exposes as data attributes and passes to its class and style functions.</summary>
 /// <param name="Orientation">The axis along which the tabs are laid out; projected as <c>data-orientation</c>.</param>
 /// <param name="ActiveTabPosition">The active tab's offsets the browser-side behavior last measured, or <see langword="null"/> while none is measurable.</param>
@@ -67,8 +68,9 @@ public static class TabsIndicatorCssVars
 //   module; a consumer `hidden` is sent as Hidden and the module never writes over it (TAB-DOM-23). The prerendered and
 //   the first interactive Indicator are hidden with no variables (TAB-EDGE-09; no pre-hydration script, ADR 06 Amendments
 //   2026-10-26).
-// - The measurement is mirrored once per report (design point 2 of the Tabs track, pending the user): a report renders
-//   the Indicator alone, never the List or the Tabs (TAB-DOM-31 restated as a mirror count).
+// - The measurement is mirrored once per report (design point 2 of the Tabs track, settled by the orchestrator
+//   2026-10-26): a report renders the Indicator alone, never the List or the Tabs (TAB-DOM-31 restated as a mirror
+//   count).
 /// <summary>
 /// Represents a visual marker of the active tab: Base UI's <c>Tabs.Indicator</c>, rendered as a <c>span</c> that carries
 /// the active tab's position and size as CSS variables, so it can be styled to follow the active tab.

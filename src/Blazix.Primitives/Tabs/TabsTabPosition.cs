@@ -1,7 +1,8 @@
 namespace Blazix.Primitives;
 
-// TAB-STA-20, TAB-DOM-24; tabs/tab/TabsTab.tsx:217-222 (Tabs.Tab.Position). ADR 08 §1/§3 (companion types). Design point
-// 2 of the Tabs track (a record class, mirrored once per change of the measurement) is pending the user.
+// TAB-STA-20, TAB-DOM-24; tabs/tab/TabsTab.tsx:217-222 (Tabs.Tab.Position). ADR 08 §1/§3 (companion types). Design
+// point 2 of the Tabs track (a record class, mirrored once per change of the measurement) was settled by the
+// orchestrator 2026-10-26.
 /// <summary>
 /// Represents the offsets of the active tab from the edges of its tab list, in CSS pixels, as a tab indicator measures
 /// them.

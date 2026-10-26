@@ -6,7 +6,7 @@ namespace Blazix.Primitives;
 // TAB §11 (TabsListContext); tabs/list/TabsListContext.ts. The List's registry of its Tabs by element id: the `tabs`
 // module reports an activation, or a click or focus it did not activate, by the Tab's id (ADR 04 Amendments 2026-10-26;
 // values never cross to JavaScript), and the List asks for the reports only while a Tab has a consumer handler (design
-// point 5 of the Tabs track, pending the user). Cascaded fixed (ADR 16 rule 9).
+// point 5 of the Tabs track, settled by the orchestrator 2026-10-26). Cascaded fixed (ADR 16 rule 9).
 /// <summary>The registry a tab list shares with the tabs and indicators rendered inside it.</summary>
 internal sealed class TabsListContext
 {

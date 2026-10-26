@@ -268,7 +268,8 @@ public sealed class TabsList : PartBase<TabsListState>
         }
     }
 
-    // A click or focus that activated nothing reaches the Tab's consumer handler (design point 5, pending the user).
+    // A click or focus that activated nothing reaches the Tab's consumer handler (design point 5, settled by the
+    // orchestrator 2026-10-26).
     private async Task RunTabEventAsync(TabsTabEvent tabEvent)
     {
         if (disposed || listContext!.Find(tabEvent.TabId) is not { } tab)
