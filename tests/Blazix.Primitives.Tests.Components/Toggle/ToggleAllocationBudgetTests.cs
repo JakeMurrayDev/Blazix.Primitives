@@ -14,9 +14,12 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ToggleAllocationBudgetTests : IDisposable
 {
-    // First measurement pending (set by the commit that implements Toggle).
-    private const long RerenderBudgetBytes = 4096;
-    private const long ClickBudgetBytes = 16384;
+    // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): 624 bytes for the re-render, Button's 560 with the same
+    // bag plus the toggle's own onclick chained with the consumer's; 6088 bytes for the click, mostly Blazor's dispatch and
+    // the render of the new state. The re-render passes neither Pressed nor DefaultPressed: bUnit's parameterless Render()
+    // sends an empty parameter set, which a parent's render never does, and Controlled<bool> would read it as a crossing.
+    private const long RerenderBudgetBytes = 624;
+    private const long ClickBudgetBytes = 6088;
 
     private readonly ToggleTestContext test = new();
 
@@ -30,7 +33,6 @@ public sealed class ToggleAllocationBudgetTests : IDisposable
         EventCallback<MouseEventArgs> onClick = EventCallback.Factory.Create<MouseEventArgs>(this, () => { });
         EventCallback<KeyboardEventArgs> onKeyDown = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => { });
         IRenderedComponent<Toggle> cut = test.Context.Render<Toggle>(p => p
-            .Add(x => x.DefaultPressed, true)
             .AddUnmatched("class", "consumer")
             .AddUnmatched("aria-label", "Favorite")
             .AddUnmatched("onclick", onClick)
