@@ -92,6 +92,44 @@ public sealed class AccordionPanelBehaviorTests : IDisposable
             CollapsibleDevelopmentLog.AccordionRootKeepMountedIgnoredMessage);
     }
 
+    // Edit (d); D1 option (a), pending the user: an Accordion Item has no root twin, so the panel's report is its status.
+    [Fact(DisplayName = "port: a panel that reports its status asks the module for it and mirrors each report into the shared state once")]
+    [Trait("Requirement", "ACC-STA-03")]
+    [Trait("Requirement", "ACC-STA-09")]
+    public async Task A_panel_that_reports_its_status_mirrors_each_report_into_the_shared_state()
+    {
+        CollapsibleRootContext root = Root(open: false);
+        using CollapsiblePanelBehavior behavior = Behavior(root, CollapsiblePanelVariables.Accordion);
+        behavior.ReportsStatus = true;
+        behavior.KeepMounted = true;
+        behavior.SetId(null);
+        int notifications = 0;
+        using IDisposable subscription = root.Subscribe(_ => notifications++);
+        _ = Render(behavior, root);
+        await behavior.AfterRenderAsync(rendered: true, element: null);
+        JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
+        Assert.Contains("\"reportStatus\":true", Assert.IsType<string>(attach.Arguments[1]), StringComparison.Ordinal);
+        CollapsibleTwin twin = ((DotNetObjectReference<CollapsibleTwin>)attach.Arguments[2]!).Value;
+
+        root.OpenState.Update(true, true, false, false);
+        root.ApplyOpen(true);
+        Assert.Equal(TransitionStatus.Starting, root.State.TransitionStatus);
+        int before = notifications;
+        twin.OnPanelStatusChange("""{"status":"idle"}""");
+        twin.OnPanelStatusChange("""{"status":"idle"}""");
+
+        Assert.Equal(TransitionStatus.Idle, root.State.TransitionStatus);
+        Assert.Equal(before + 1, notifications);
+
+        // The close's ending, then the exit's end: the shared status ends unset, as a collapsible root's does.
+        root.OpenState.Update(true, false, false, false);
+        root.ApplyOpen(false);
+        twin.OnPanelStatusChange("""{"status":"ending"}""");
+        twin.OnTransitionComplete("""{"open":false}""");
+        Assert.False(root.State.Mounted);
+        Assert.Null(root.State.TransitionStatus);
+    }
+
     private static CollapsibleRootContext Root(bool open)
     {
         CollapsibleRootContext root = new("base-ui-panel", logger: null);
