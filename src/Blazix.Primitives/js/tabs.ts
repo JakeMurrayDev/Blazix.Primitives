@@ -166,9 +166,10 @@ function getCumulativeOffset(element: HTMLElement): { left: number; top: number 
   return { left, top };
 }
 
+// TAB-DOM-26.
 /**
- * The transform-immune layout offset of a Tab inside its List (TAB-DOM-26): the cumulative offsets, less the List's
- * border, less the scroll of every container between the two (the List's own scroll excluded).
+ * The transform-immune layout offset of a Tab inside its List: the cumulative offsets, less the List's border, less
+ * the scroll of every container between the two (the List's own scroll excluded).
  * @param tab The active Tab.
  * @param list The List.
  * @returns The offset in CSS pixels.
@@ -187,9 +188,10 @@ export function getLayoutOffset(tab: HTMLElement, list: HTMLElement): { left: nu
   return { left, top };
 }
 
+// TAB-DOM-29.
 /**
- * Resolves one component of the `translate` longhand to pixels (TAB-DOM-29): a number, or a percentage of the reference
- * size; anything else (`calc(...)`) or nothing is 0.
+ * Resolves one component of the `translate` longhand to pixels: a number, or a percentage of the reference size;
+ * anything else (`calc(...)`) or nothing is 0.
  * @param value The component, or `undefined`.
  * @param referenceSize The Tab's border-box size on that axis.
  * @returns The translation in CSS pixels.
@@ -205,9 +207,9 @@ export function resolveTranslateLength(value: string | undefined, referenceSize:
   return value.endsWith('%') ? (numeric / 100) * referenceSize : numeric;
 }
 
+// TAB-DOM-29.
 /**
- * The active Tab's own 2D translation (TAB-DOM-29): the computed `transform` matrix's translation plus the `translate`
- * longhand.
+ * The active Tab's own 2D translation: the computed `transform` matrix's translation plus the `translate` longhand.
  * @param tab The active Tab.
  * @returns The translation in CSS pixels.
  */
@@ -225,10 +227,11 @@ export function getActiveTabTranslation(tab: HTMLElement): { x: number; y: numbe
   return { x: translateX, y: translateY };
 }
 
+// TAB-DOM-25..29.
 /**
- * Measures the active Tab against its List (TAB-DOM-25..29): the CSS size, the sub-pixel rect offset when it agrees with
- * the layout offset within 2 px once the Tab's own translation is removed, else the layout offset; `right` and `bottom`
- * against the List's scrollable content.
+ * Measures the active Tab against its List: the CSS size, the sub-pixel rect offset when it agrees with the layout
+ * offset within 2 px once the Tab's own translation is removed, else the layout offset; `right` and `bottom` against
+ * the List's scrollable content.
  * @param tab The active Tab.
  * @param list The List.
  * @returns The position and size in CSS pixels, unrounded.
@@ -264,9 +267,9 @@ export function measureActiveTab(tab: HTMLElement, list: HTMLElement): Indicator
   };
 }
 
+// TAB-DOM-24, TAB-DOM-32.
 /**
- * Composes an Indicator's whole inline style (TAB-DOM-24/32): the six variables, then the consumer's string, whose
- * declarations win.
+ * Composes an Indicator's whole inline style: the six variables, then the consumer's string, whose declarations win.
  * @param measurement The measurement, or `null` for no variables.
  * @param consumerStyle The consumer's merged style string.
  * @returns The `cssText` to write.
@@ -364,8 +367,9 @@ export function findOwnTabs(list: HTMLElement): HTMLElement[] {
   return Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]')).filter((tab) => findOwnTab(list, tab) === tab);
 }
 
+// Design point 4 (b) of the Tabs track.
 /**
- * The active Tab of a List (design point 4 (b)): the first `[data-active]` Tab the List owns.
+ * The active Tab of a List: the first `[data-active]` Tab the List owns.
  * @param list The List.
  * @returns The Tab, or `null`.
  */
