@@ -150,6 +150,14 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <value><see langword="true"/> to raise <see cref="ItemsChanged"/>; the default is <see langword="false"/>.</value>
     public bool ReportItems { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the highlight follows the item marked active.</summary>
+    /// <value>
+    /// <see langword="true"/> to move the highlight to the item that carries <see cref="CompositeAttributes.ActiveItem"/>
+    /// whenever it changes while focus is outside the root and the item is not disabled; the default is
+    /// <see langword="false"/>.
+    /// </value>
+    public bool FollowActiveItem { get; set; }
+
     /// <summary>Gets or sets the part's own chain of the navigation decision point, run before the consumer's <c>onkeydown</c>.</summary>
     /// <value>
     /// A function that returns <see cref="DecisionPolicy.Stop"/> to veto the key, or <see langword="null"/>. It runs only on
@@ -583,6 +591,7 @@ internal sealed class CompositeRootBehavior : IDisposable
             ReportHighlight = ReportHighlight,
             ReportHandledKeys = ReportHandledKeys(),
             ReportItems = ReportItems,
+            FollowActiveItem = FollowActiveItem,
         };
         sentOptions = options;
         sentItemsVersion = itemsVersion;
@@ -609,7 +618,8 @@ internal sealed class CompositeRootBehavior : IDisposable
             && sent.ReportFocusLeave == ReportFocusLeave
             && sent.ReportHighlight == ReportHighlight
             && sent.ReportHandledKeys == ReportHandledKeys()
-            && sent.ReportItems == ReportItems)
+            && sent.ReportItems == ReportItems
+            && sent.FollowActiveItem == FollowActiveItem)
         {
             return null;
         }
