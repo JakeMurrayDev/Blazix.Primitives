@@ -19,6 +19,7 @@ using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
+using Blazix.Primitives.Fixtures.Client.TabsFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -109,5 +110,8 @@ public static class FixtureCatalog
         ["radio-group-form"] = new(typeof(RadioGroupFormFixture)),
         ["radio-group-edit-form"] = new(typeof(RadioGroupEditFormFixture)),
         ["radio-group-allocation"] = new(typeof(RadioGroupAllocationFixture)),
+        ["tabs-keyboard"] = new(typeof(TabsKeyboardFixture)),
+        ["tabs-list"] = new(typeof(TabsListFixture)),
+        ["tabs-activation"] = new(typeof(TabsActivationFixture)),
     };
 }
