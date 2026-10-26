@@ -37,7 +37,7 @@ public static class AccordionItemDataAttributes
 //   fallback under string, and an always-on error under any other TValue (ACC-API-10, ACC-EDGE-09; ADR 08 Amendments
 //   2026-10-26).
 // - Its ids are drawn in Base UI's order: the fallback value, the panel id (inside useCollapsibleRoot), the trigger id
-//   (ACC-ARIA-06: prerender equals the interactive render).
+//   (ACC-ARIA-06: prerender equals the interactive render); then its element id (D3), which Base UI does not render.
 // - Two fixed cascades (settled; ACC-EDGE-14): CollapsibleRootContext, so real Collapsible parts bind to the item, and
 //   AccordionItemContext<TValue>.
 // - ACC-EDGE-01: outside a root it throws in every build. The index (ACC-STA-13) waits for track 1's registration-only
@@ -119,6 +119,12 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
 
     /// <inheritdoc />
     protected override StateAttributesMapping<AccordionItemState<TValue>>? StateAttributesMapping => s_mapping;
+
+    // Design point D3 (option (a), settled by the orchestrator 2026-10-26; track 1's design point 2 (a)): the registration-only
+    // list resolves its items by element id, so the item renders the consumer's id, else a generated one. The base draws it in
+    // OnInitialized after the item's three Base UI ids (ACC-ARIA-06: prerender equals the interactive render).
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => true;
 
     /// <summary>Gets the shared state the item cascades to its parts.</summary>
     /// <value>The context; available from the first render.</value>
