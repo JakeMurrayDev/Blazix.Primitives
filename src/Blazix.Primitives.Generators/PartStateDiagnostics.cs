@@ -31,7 +31,7 @@ internal static class PartStateDiagnostics
     public static readonly DiagnosticDescriptor NotPrimitiveProperty = new(
         "BLZX1003",
         "A [PartState] property must be projectable",
-        "Blazix: property `{0}` of `[PartState]` record `{1}` has type `{2}`, which cannot be projected to a `data-*` attribute; use a `bool`, number, `string` or enum (or their nullable forms), project it through a custom mapping on a primitive field, or mark it `[MirroredField]` to keep it out of the projection",
+        "Blazix: property `{0}` of `[PartState]` record `{1}` has type `{2}`, which cannot be projected to a `data-*` attribute; use a `bool`, number, `string` or enum (or their nullable forms), project it through a custom mapping on a primitive field, mark it `[NotProjected]` to keep it in the state without an attribute, or mark it `[MirroredField]` when JavaScript writes its attribute",
         Category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
