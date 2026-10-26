@@ -18,7 +18,9 @@ namespace Blazix.Primitives;
 // - the forced idle the module reports (COL-STA-06), the end of an exit (COL-STA-04), the detected type (COL-ANI-20,
 //   COL-EDGE-03) and the reveal (COL-EVT-04/05: the decision point `reveal`, fallback run, ADR 04 Amendments 2026-10-21);
 // - Accordion's names and rules as inputs (M3 track 6, ADR 04 Amendments 2026-10-26): the size variables (ACC-DOM-17), the
-//   empty-id policy (ACC-API-18) and the KeepMounted message (ACC-EDGE-05); Collapsible's are the defaults.
+//   empty-id policy (ACC-API-18) and the KeepMounted message (ACC-EDGE-05); Collapsible's are the defaults;
+// - the status report of a panel whose shared state has no root twin (ACC-STA-03/09; D1 option (a), pending the user),
+//   forwarded to the shared state's MirrorStatus.
 /// <summary>The behavior of a collapsible panel that its part renders through.</summary>
 internal sealed class CollapsiblePanelBehavior : IDisposable
 {
@@ -103,6 +105,13 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     /// </value>
     public bool RendersEmptyId { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the module reports the panel's status into the shared state.</summary>
+    /// <value>
+    /// <see langword="true"/> for an accordion panel, whose item has no root element to mirror its status from; the default
+    /// is <see langword="false"/>. Read when the module is attached.
+    /// </value>
+    public bool ReportsStatus { get; set; }
+
     /// <summary>Gets or sets the development message of a <c>KeepMounted</c> that <c>HiddenUntilFound</c> overrides.</summary>
     /// <value>One of the messages of <see cref="CollapsibleDevelopmentLog"/>; the collapsible panel's by default.</value>
     public string KeepMountedIgnoredMessage { get; set; } = CollapsibleDevelopmentLog.KeepMountedIgnoredMessage;
@@ -133,6 +142,7 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
             twin.ForcedIdleChanged -= OnForcedIdleChanged;
             twin.ExitCompleted -= root.CompleteExit;
             twin.AnimationTypeChanged -= OnAnimationTypeChanged;
+            twin.StatusChanged -= root.MirrorStatus;
             twin.RevealDecider = null;
             twin.RevealRequestHandler = null;
             _ = twin.DisposeAsync().AsTask();
@@ -356,6 +366,7 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
             OpenSelector = OpenAttributeSelector,
             HeightVariable = variables.IsCollapsible ? null : variables.Height,
             WidthVariable = variables.IsCollapsible ? null : variables.Width,
+            ReportStatus = ReportsStatus ? true : null,
             Style = consumerStyle,
         };
     }
@@ -411,6 +422,7 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
         created.ForcedIdleChanged += OnForcedIdleChanged;
         created.ExitCompleted += root.CompleteExit;
         created.AnimationTypeChanged += OnAnimationTypeChanged;
+        created.StatusChanged += root.MirrorStatus;
         return created;
     }
 

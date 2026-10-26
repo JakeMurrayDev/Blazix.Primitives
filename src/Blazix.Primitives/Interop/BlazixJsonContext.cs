@@ -23,6 +23,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(CollapsibleOptions))]
 [JsonSerializable(typeof(PanelForcedIdleChange))]
 [JsonSerializable(typeof(PanelAnimationTypeChange))]
+[JsonSerializable(typeof(PanelStatusChange))]
 [JsonSerializable(typeof(CompositeOptions))]
 [JsonSerializable(typeof(CompositeHighlightChange))]
 [JsonSerializable(typeof(CompositeFocusLeave))]

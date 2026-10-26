@@ -68,4 +68,12 @@ internal sealed record CollapsibleOptions : TwinOptions
     /// the JSON, for <c>--collapsible-panel-width</c>. Read when the module starts on an element.
     /// </value>
     public string? WidthVariable { get; init; }
+
+    // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), pending the user): an Accordion Item has no root twin.
+    /// <summary>Gets a value indicating whether the module reports the panel's transition status.</summary>
+    /// <value>
+    /// <see langword="true"/> for a panel whose shared state has no root element to mirror its status from;
+    /// <see langword="null"/>, the default and omitted from the JSON, reports nothing.
+    /// </value>
+    public bool? ReportStatus { get; init; }
 }

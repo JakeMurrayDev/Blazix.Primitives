@@ -33,6 +33,7 @@ import {
   observeOpenInput,
   REVEAL_POINT,
   statusFromLiteral,
+  statusToLiteral,
   type RevealController,
   type RevealDecision,
   type TransitionState,
@@ -82,6 +83,8 @@ export interface CollapsibleOptions extends TwinOptions {
   heightVariable?: string | null;
   /** The variable that carries the measured width; absent for `--collapsible-panel-width`. Read when a session starts. */
   widthVariable?: string | null;
+  /** Whether the machine's status is reported (`OnPanelStatusChange`); set by a panel whose shared state has no root twin. */
+  reportStatus?: boolean | null;
 }
 
 /**
@@ -252,6 +255,8 @@ interface SessionHost {
   reportForcedIdle(forcedIdle: boolean): void;
   /** Reports the detected type when it changes. */
   reportType(type: AnimationType, mixed: boolean): void;
+  /** Reports the machine's status, before the forced idle, when it changes and the options ask for it. */
+  reportStatus(status: TransitionStatusLiteral): void;
 }
 
 // The session of an attached element: Base UI's `useCollapsiblePanel` for one element.
@@ -520,6 +525,7 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
         return;
       }
       pass(state);
+      reportStatus(state, previous);
       // The end of an exit, whichever pass ended it: Base UI's setMounted(false), once per close (COL-STA-04).
       if (previous.mounted && !state.mounted && !state.open) {
         host.completeExit();
@@ -528,6 +534,22 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
   );
 
   const openInput = () => (options.openSelector ? element.matches(options.openSelector) : options.open);
+
+  // ACC-STA-03/09: the status of a panel whose shared state has no root twin (an Accordion Item), what C# cannot evaluate
+  // itself. The unset status is implied by `OnTransitionComplete`, and the `starting` of a panel that was not mounted is
+  // the evaluation step's, which C# runs in the same render (TransitionStatusRules, ADR 01 Amendments 2026-10-21).
+  let knownStatus = machine.status;
+  function reportStatus(state: TransitionState, previous: TransitionState): void {
+    const status = state.status;
+    if (status === knownStatus) {
+      return;
+    }
+    knownStatus = status;
+    if (status === undefined || (status === 'starting' && !previous.mounted) || !options.reportStatus) {
+      return;
+    }
+    host.reportStatus(statusToLiteral(status));
+  }
 
   style.setConsumer(options.style);
   // The listener exists whenever the element does, whatever `hiddenUntilFound` says (§16 Q9).
@@ -668,6 +690,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
         reportedType = key;
         twin.report('OnAnimationTypeChange', { type, mixed });
       }
+    },
+    reportStatus(status) {
+      twin.report('OnPanelStatusChange', { status });
     },
   };
 
