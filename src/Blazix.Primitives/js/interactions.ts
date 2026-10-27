@@ -546,6 +546,8 @@ interface SessionRecord extends InteractionSession {
   positionListeners: Set<() => void>;
   /** The hook regions' private per-session state (`sessionSlot`). */
   slots: Map<string, unknown>;
+  /** Called after the session applied a commit, or gained or lost its floating element or a trigger (`onSessionChange`). */
+  changeListeners: Set<() => void>;
   treeEvents: SessionEvents;
   context: SessionFloatingContext;
 }
@@ -630,6 +632,7 @@ function createSessionRecord(token: string): SessionRecord {
     channel: null,
     positionListeners: new Set(),
     slots: new Map(),
+    changeListeners: new Set(),
     treeEvents: createEventEmitter(),
     dataRef,
     events,
@@ -822,6 +825,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   }
   record.open = open;
   record.activeTriggerId = role.activeTriggerId ?? null;
+  notifySessionChange(record);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -922,6 +926,24 @@ function sessionSlot<T>(record: SessionRecord, key: string, create: () => T): T 
     record.slots.set(key, value);
   }
   return value;
+}
+
+/**
+ * Subscribes to a session's applied changes: a commit the relay brought, after the state is applied (the moment Base UI's
+ * effects keyed on the store re-run), and the floating element or a trigger attaching or detaching.
+ * @returns The unsubscribe function.
+ */
+function onSessionChange(record: SessionRecord, listener: () => void): Cleanup {
+  record.changeListeners.add(listener);
+  return () => {
+    record.changeListeners.delete(listener);
+  };
+}
+
+function notifySessionChange(record: SessionRecord): void {
+  for (const listener of [...record.changeListeners]) {
+    listener();
+  }
 }
 
 /** What a hook's controller reads: its session, its handle's element and channel, and the handle's current options. */
@@ -1553,8 +1575,7 @@ function createDelayGroupController(context: HandleContext): Controller {
     }
   };
 
-  const schedule = createDeferredRun(sync);
-  record.events.on('openchange', schedule);
+  const stopListening = onSessionChange(record, sync);
   sync();
 
   return {
@@ -1564,7 +1585,7 @@ function createDelayGroupController(context: HandleContext): Controller {
         return;
       }
       disposed = true;
-      record.events.off('openchange', schedule);
+      stopListening();
       if (group) {
         leave(group);
         group = null;
@@ -1645,15 +1666,21 @@ function createFocusController(context: HandleContext): Controller {
       }
     }
     const movedFromOtherEnabledTrigger = isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements);
+    // A delay group's member opens in the group's instant phase whatever the origin (FloatingDelayGroup.tsx:216-251, on
+    // commit): the request carries it, as a hover open's does.
+    const open = () => {
+      const instant = delayGroupInstantPhase(record, context.options.trigger?.hover?.delayGroupToken);
+      requestOpenChange(record, channel, true, 'trigger-focus', event, element, instant ? { instant: true } : undefined);
+    };
     if ((record.open && movedFromOtherEnabledTrigger) || !delay) {
-      requestOpenChange(record, channel, true, 'trigger-focus', event, element);
+      open();
       return;
     }
     timeout.start(delay, () => {
       if (blockFocus) {
         return;
       }
-      requestOpenChange(record, channel, true, 'trigger-focus', event, element);
+      open();
     });
   };
 
@@ -2004,7 +2031,7 @@ function createClientPointController(context: HandleContext): Controller {
     }
   };
 
-  record.events.on('openchange', schedule);
+  const stopListening = onSessionChange(record, sync);
   sync();
 
   return {
@@ -2014,7 +2041,7 @@ function createClientPointController(context: HandleContext): Controller {
         return;
       }
       disposed = true;
-      record.events.off('openchange', schedule);
+      stopListening();
       referenceListeners?.();
       referenceListeners = null;
       effectCleanup?.();
@@ -2298,7 +2325,7 @@ function attachTrigger(element: HTMLElement, token: string, initialOptions: Inte
   const record = acquireRecord(token);
   let triggerId = initialOptions.trigger?.triggerId ?? element.id;
   record.triggers.set(triggerId, element);
-  return composeHandle(
+  const handle = composeHandle(
     record,
     element,
     initialOptions,
@@ -2320,14 +2347,18 @@ function attachTrigger(element: HTMLElement, token: string, initialOptions: Inte
         }
         triggerId = nextId;
         record.triggers.set(triggerId, element);
+        notifySessionChange(record);
       }
     },
     () => {
       if (record.triggers.get(triggerId) === element) {
         record.triggers.delete(triggerId);
+        notifySessionChange(record);
       }
     },
   );
+  notifySessionChange(record);
+  return handle;
 }
 
 function attachFloating(element: HTMLElement, token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
@@ -2336,7 +2367,7 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
   record.hasNode = initialOptions.floating?.node !== false;
   // FLT-STR-05, FLT-STR-08: the latest floating context, never cleared once published (FLT §10 Q13, replicated).
   record.dataRef.current.floatingContext = record.context;
-  return composeHandle(
+  const handle = composeHandle(
     record,
     element,
     initialOptions,
@@ -2349,9 +2380,12 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
       if (record.floatingElement === element) {
         record.floatingElement = null;
         record.hasNode = false;
+        notifySessionChange(record);
       }
     },
   );
+  notifySessionChange(record);
+  return handle;
 }
 
 /**
