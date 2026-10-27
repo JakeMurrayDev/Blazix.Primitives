@@ -8,6 +8,8 @@ import {
   FOCUS_OUT_CLOSE_REPORT,
   INTERACTION_TYPE_REPORT,
   attach,
+  disableFocusInside,
+  enableFocusInside,
   enqueueFocus,
   getTabbableNearElement,
   isTabbable,
@@ -19,6 +21,7 @@ import {
   type InteractionTypeChange,
   type OpenChangeRelay,
 } from './focus-manager';
+import { attach as attachComposite, type CompositeOptions } from './composite';
 import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
@@ -763,6 +766,45 @@ describe('markOthers', () => {
 
     expect(outside.hasAttribute('aria-hidden')).toBe(false);
     expect(outside.hasAttribute('data-base-ui-inert')).toBe(false);
+  });
+});
+
+// FLT-DOM-18 on a composite item (design point 4, settled by the orchestrator 2026-10-27): the composite writes its
+// roving value into the stash while the item carries it, so enabling focus inside restores one tab stop.
+describe('the focus stash on composite items', () => {
+  it('enableFocusInside restores a composite group with one tab stop after the stop moved while stashed', async () => {
+    const container = element('div');
+    const root = element('div', undefined, { id: 'stash-root' });
+    const items = ['1', '2', '3'].map((id) => element('div', `item-${id}`, { id: `stash-item-${id}`, tabindex: '-1' }));
+    root.append(...items);
+    container.append(root, element('button', 'plain'));
+    document.body.append(container);
+    const options: CompositeOptions = {
+      orientation: 'both',
+      loopFocus: true,
+      enableHomeAndEndKeys: false,
+      stopEventPropagation: true,
+      highlightItemOnHover: false,
+      modifierKeys: [],
+      disabledIndices: null,
+      direction: 'ltr',
+      selectOnNavigation: false,
+      reportFocusLeave: false,
+      reportHighlight: false,
+      items: items.map((item) => ({ id: item.id, tabIndex: null })),
+    };
+    handles.push(attachComposite(root, JSON.stringify(options), createFakeTwin().twin));
+    expect(items[0]!.getAttribute('tabindex')).toBe('0');
+
+    disableFocusInside(container);
+    expect(tabbable(container)).toEqual([]);
+    items[0]!.focus();
+    items[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    enableFocusInside(container);
+
+    expect(items.map((item) => item.getAttribute('tabindex'))).toEqual(['-1', '0', '-1']);
+    expect(tabbable(container)).toEqual([items[1], byTestId('plain')]);
   });
 });
 
