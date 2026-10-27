@@ -49,6 +49,7 @@
     <BlazixJsEntry Include="js/composite.ts" Out="js/composite" />
     <BlazixJsEntry Include="js/form.ts" Out="js/form" />
     <BlazixJsEntry Include="js/tabs.ts" Out="js/tabs" />
+    <BlazixJsEntry Include="js/interactions.ts" Out="js/interactions" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 
