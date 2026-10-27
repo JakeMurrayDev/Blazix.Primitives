@@ -20,6 +20,7 @@ using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
+using Blazix.Primitives.Fixtures.Client.TabsFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
 
@@ -125,5 +126,12 @@ public static class FixtureCatalog
         ["toggle-composite-root"] = new(typeof(ToggleCompositeRootFixture)),
         ["toggle-group-orientation"] = new(typeof(ToggleGroupOrientationFixture)),
         ["toggle-group-basic"] = new(typeof(ToggleGroupBasicFixture)),
+        ["tabs-keyboard"] = new(typeof(TabsKeyboardFixture)),
+        ["tabs-list"] = new(typeof(TabsListFixture)),
+        ["tabs-activation"] = new(typeof(TabsActivationFixture)),
+        ["tabs-direction"] = new(typeof(TabsDirectionFixture)),
+        ["tabs-panels"] = new(typeof(TabsPanelsFixture)),
+        ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
+        ["tabs-focus"] = new(typeof(TabsFocusFixture)),
     };
 }

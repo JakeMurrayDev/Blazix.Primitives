@@ -32,6 +32,11 @@ export interface TwinChannel {
    * synchronously on `invokeMethod`, WebAssembly's answers.
    */
   decide(point: string, event: Event | undefined, fallback: DecisionPolicy): DecisionPolicy;
+  /**
+   * Whether the twin answers synchronous invocations (WebAssembly), from the same probe `decide` uses. A module reads it
+   * to hand state over through a synchronous `[JSInvokable]` method just before it asks a decision point.
+   */
+  readonly synchronous: boolean;
   /** Whether `decide` ran the C# chain on the last call (`true`) or returned the fallback (`false`). */
   readonly lastDecisionWasSynchronous: boolean;
   /** Sends one callback payload to the twin's `[JSInvokable]` method; never awaited by the module. */
@@ -66,6 +71,9 @@ export function createTwinChannel(twin: DotNetTwin): TwinChannel {
       }
       lastSynchronous = true;
       return twin.invokeMethod<DecisionPolicy>('Decide', point, JSON.stringify(eventInfo(event)));
+    },
+    get synchronous() {
+      return supportsSynchronousInvoke();
     },
     get lastDecisionWasSynchronous() {
       return lastSynchronous;

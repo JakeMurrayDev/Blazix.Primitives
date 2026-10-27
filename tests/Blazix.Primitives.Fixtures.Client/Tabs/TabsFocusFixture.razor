@@ -1,0 +1,117 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+@using Blazix.Primitives
+@inherits TabsFixtureBase
+
+@*
+    The `tabs-focus` fixture (tests/browser/tabs.spec.ts, group E and the automatic fallbacks): TabsRoot.test.tsx's
+    "highlight synchronization on external value change relative to focus" pages, TabsList.test.tsx's "keeps the tab stop
+    on the selected tab when focus is inside the list", and the uncontrolled fallbacks of a Tab that becomes disabled or is
+    removed. Buttons change a value or the Tabs as the tests' setProps does; a spec clicks them from script when focus must
+    stay inside the List.
+*@
+<FixtureContainer Name="tabs-focus" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    @* "keeps controlled async activation and focus aligned with activateOnFocus=%s": the parent applies the value a
+       moment after OnValueChange, as the test's Promise.resolve().then(setValue). *@
+    @foreach (bool activateOnFocus in new[] { true, false })
+    {
+        bool current = activateOnFocus;
+        TabsCase record = current ? asyncFocus : asyncClick;
+        <TabsCaseFrame Name="@(current ? "async-focus" : "async-click")" Case="record">
+            <TabsRoot TValue="int" Value="asyncValues[current]" OnValueChange="args => ApplyLaterAsync(current, record, args)" data-root>
+                <TabsList @ref="List" ActivateOnFocus="current">
+                    <TabsTab @ref="IntTab" Value="0" data-tab="0">First</TabsTab>
+                    <TabsTab @ref="IntTab" Value="1" Disabled="true" data-tab="1">Disabled</TabsTab>
+                    <TabsTab @ref="IntTab" Value="2" data-tab="2">Third</TabsTab>
+                </TabsList>
+            </TabsRoot>
+        </TabsCaseFrame>
+    }
+
+    @* "when focus is outside the tablist, highlight follows the new active tab (tabIndex=0 moves)" and "when focus is
+       inside the tablist, highlight stays put on external change and arrow keys continue from the focused tab". *@
+    @foreach (string name in new[] { "outside", "inside" })
+    {
+        string current = name;
+        <TabsCaseFrame Name="@current" Case="@(current == "outside" ? outside : inside)">
+            <button type="button" data-action="select-2" @onclick="() => externalValues[current] = 2">Select 2</button>
+            <button type="button" data-action="select-1" @onclick="() => externalValues[current] = 1">Select 1</button>
+            <TabsRoot TValue="int" Value="externalValues[current]" data-root>
+                <TabsList @ref="List" ActivateOnFocus="false">
+                    <TabsTab @ref="IntTab" Value="0" data-tab="0">Tab 1</TabsTab>
+                    <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 2</TabsTab>
+                    <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 3</TabsTab>
+                </TabsList>
+            </TabsRoot>
+        </TabsCaseFrame>
+    }
+
+    @* TabsList.test.tsx "keeps the tab stop on the selected tab when focus is inside the list". *@
+    <TabsCaseFrame Name="list-inside" Case="listInside">
+        <button type="button" data-action="remove-first" @onclick="() => showFirst = false">Remove the first tab</button>
+        <TabsRoot TValue="int" Value="2" data-root>
+            <TabsList @ref="List">
+                @if (showFirst)
+                {
+                    <TabsTab Value="0" data-tab="0">Tab 0</TabsTab>
+                }
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+                <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 2</TabsTab>
+            </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    @* "calls onValueChange when the selected tab becomes disabled" and "keeps activation direction none after automatic
+       disabled fallback". *@
+    <TabsCaseFrame Name="becomes-disabled" Case="becomesDisabled">
+        <button type="button" data-action="disable-first" @onclick="() => disableFirst = true">Disable the first tab</button>
+        <TabsRoot TValue="int" DefaultValue="0" OnValueChange="becomesDisabled.Change" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="IntTab" Value="0" Disabled="disableFirst" data-tab="0">Tab 0</TabsTab>
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+                <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 2</TabsTab>
+            </TabsList>
+            <TabsPanel @ref="IntPanel" Value="0" data-panel="0">Panel 0</TabsPanel>
+            <TabsPanel Value="1" data-panel="1">Panel 1</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    @* "calls onValueChange when the selected tab is removed". *@
+    <TabsCaseFrame Name="removed" Case="removed">
+        <button type="button" data-action="remove-first" @onclick="() => showSelected = false">Remove the first tab</button>
+        <TabsRoot TValue="int" DefaultValue="0" OnValueChange="removed.Change" data-root>
+            <TabsList @ref="List">
+                @if (showSelected)
+                {
+                    <TabsTab Value="0" data-tab="0">Tab 0</TabsTab>
+                }
+                <TabsTab @ref="IntTab" Value="1" data-tab="1">Tab 1</TabsTab>
+                <TabsTab @ref="IntTab" Value="2" data-tab="2">Tab 2</TabsTab>
+            </TabsList>
+        </TabsRoot>
+    </TabsCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly TabsCase asyncFocus = new();
+    private readonly TabsCase asyncClick = new();
+    private readonly TabsCase outside = new();
+    private readonly TabsCase inside = new();
+    private readonly TabsCase listInside = new();
+    private readonly TabsCase becomesDisabled = new();
+    private readonly TabsCase removed = new();
+    private readonly Dictionary<bool, int> asyncValues = new() { [true] = 0, [false] = 0 };
+    private readonly Dictionary<string, int> externalValues = new() { ["outside"] = 0, ["inside"] = 0 };
+    private bool showFirst = true;
+    private bool disableFirst;
+    private bool showSelected = true;
+
+    private async Task ApplyLaterAsync(bool activateOnFocus, TabsCase record, ValueChangeEventArgs<int> args)
+    {
+        record.Change(args);
+        await Task.Yield();
+        asyncValues[activateOnFocus] = args.Value;
+        StateHasChanged();
+    }
+}

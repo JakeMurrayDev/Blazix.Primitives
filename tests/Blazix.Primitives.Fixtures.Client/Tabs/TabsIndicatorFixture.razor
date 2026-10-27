@@ -1,0 +1,193 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+@using Blazix.Primitives
+@inherits TabsFixtureBase
+
+@*
+    The `tabs-indicator` fixture (tests/browser/tabs.spec.ts, group H): TabsIndicator.test.tsx's "rendering" pages, one per
+    page, chosen by `?case=`; `?wrapper=` and `?list=` give the transformed pages their styles. Every Indicator is
+    `data-indicator`; the transformed and translated pages style it as a box laid over the active Tab with its variables,
+    as Base UI's STYLED_INDICATOR_CSS does. Buttons change the value, the List's width, swap or insert a Tab.
+*@
+<FixtureContainer Name="tabs-indicator" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>
+        .styled-indicator [data-indicator] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: var(--active-tab-width);
+            height: var(--active-tab-height);
+            transform: translate(var(--active-tab-left), var(--active-tab-top));
+        }
+    </style>
+
+    <TabsCaseFrame Name="main" Case="main">
+        <button type="button" data-action="select-1" @onclick="() => value = 1">Select 1</button>
+        <button type="button" data-action="select-3" @onclick="() => value = 3">Select 3</button>
+        <button type="button" data-action="widen" @onclick="() => rootWidth = 800">Widen</button>
+        <button type="button" data-action="swap" @onclick="() => asAnchor = true">Swap</button>
+        <button type="button" data-action="insert" @onclick="() => inserted = true">Insert</button>
+        @switch (caseName)
+        {
+            case "plain":
+                <TabsRoot TValue="int" Value="value" data-root>
+                    <TabsList @ref="List">
+                        <TabsTab @ref="IntTab" Value="1" data-tab="1">One</TabsTab>
+                        <TabsTab @ref="IntTab" Value="2" data-tab="2">Two</TabsTab>
+                        <TabsTab @ref="IntTab" Value="3" data-tab="3">Three</TabsTab>
+                        <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                    </TabsList>
+                </TabsRoot>
+                break;
+
+            case "resize-list":
+                <TabsRoot TValue="int" Value="1" style="@($"width: {rootWidth}px")" data-root>
+                    <TabsList @ref="List" style="display: flex">
+                        <TabsTab @ref="IntTab" Value="1" style="flex: 1 1 auto" data-tab="1">One</TabsTab>
+                        <TabsTab @ref="IntTab" Value="2" style="flex: 1 1 auto" data-tab="2">Two</TabsTab>
+                        <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                    </TabsList>
+                </TabsRoot>
+                break;
+
+            case "scaled":
+                <div style="transform: scale(1.5)">
+                    <TabsRoot TValue="int" Value="3" data-root>
+                        <TabsList @ref="List" style="width: 240px; display: flex; gap: 8px; overflow-x: auto; border: 6px solid black; padding: 4px">
+                            @for (int index = 1; index <= 5; index++)
+                            {
+                                int tab = index;
+                                <TabsTab @ref="IntTab" Value="tab" style="flex: 0 0 120px" data-tab="@tab">Tab @tab</TabsTab>
+                            }
+                            <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                        </TabsList>
+                    </TabsRoot>
+                </div>
+                break;
+
+            case "scroller":
+                <div class="styled-indicator">
+                    <TabsRoot TValue="int" Value="3" data-root>
+                        <TabsList @ref="List" style="display: flex; position: relative">
+                            @* 240px of tabs inside a 200px viewport, so the container scrolls by 40px. *@
+                            <div data-scroller style="display: flex; width: 200px; overflow-x: auto">
+                                <TabsTab @ref="IntTab" Value="1" style="width: 80px; height: 32px; flex-shrink: 0" data-tab="1">One</TabsTab>
+                                <TabsTab @ref="IntTab" Value="2" style="width: 80px; height: 32px; flex-shrink: 0" data-tab="2">Two</TabsTab>
+                                <TabsTab @ref="IntTab" Value="3" style="width: 80px; height: 32px; flex-shrink: 0" data-tab="3">Three</TabsTab>
+                            </div>
+                            <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                        </TabsList>
+                    </TabsRoot>
+                </div>
+                break;
+
+            case "transformed":
+                <div class="styled-indicator" style="@Query("wrapper", "")">
+                    <TabsRoot TValue="int" Value="3" data-root>
+                        <TabsList @ref="List" style="@Query("list", "display: flex; position: relative")">
+                            <TabsTab @ref="IntTab" Value="1" style="width: 80px; height: 32px" data-tab="1">One</TabsTab>
+                            <TabsTab @ref="IntTab" Value="2" style="width: 80px; height: 32px" data-tab="2">Two</TabsTab>
+                            <TabsTab @ref="IntTab" Value="3" style="width: 80px; height: 32px" data-tab="3">Three</TabsTab>
+                            <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                        </TabsList>
+                    </TabsRoot>
+                </div>
+                break;
+
+            case "translated":
+                <div class="styled-indicator">
+                    <TabsRoot TValue="int" Value="3" data-root>
+                        <TabsList @ref="List" style="display: flex; position: relative">
+                            <TabsTab @ref="IntTab" Value="1" style="width: 80px; height: 32px" data-tab="1">One</TabsTab>
+                            <TabsTab @ref="IntTab" Value="2" style="width: 80px; height: 32px" data-tab="2">Two</TabsTab>
+                            <TabsTab @ref="IntTab" Value="3" style="@($"width: 80px; height: 32px; {Query("tab", "")}")" data-tab="3">Three</TabsTab>
+                            <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                        </TabsList>
+                    </TabsRoot>
+                </div>
+                break;
+
+            case "fixed-tabs":
+                <TabsRoot TValue="int" Value="2" OnValueChange="main.Change" data-root>
+                    <TabsList @ref="List" style="width: 320px; display: flex; overflow: hidden">
+                        @if (inserted)
+                        {
+                            <TabsTab Value="0" style="width: 60px; flex-shrink: 0" data-tab="0">Inserted</TabsTab>
+                        }
+                        <TabsTab @ref="IntTab" Value="1" NativeButton="!asAnchor" style="width: 100px; flex-shrink: 0" data-tab="1">
+                            <Render>
+                                @if (asAnchor)
+                                {
+                                    <a href="@(PageUrl + "#one")"></a>
+                                }
+                                else
+                                {
+                                    <button></button>
+                                }
+                            </Render>
+                            <ChildContent>One</ChildContent>
+                        </TabsTab>
+                        <TabsTab @ref="IntTab" Value="2" style="width: 100px; flex-shrink: 0" data-tab="2">Two</TabsTab>
+                        <TabsTab @ref="IntTab" Value="3" style="width: 100px; flex-shrink: 0" data-tab="3">Three</TabsTab>
+                        <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                        @if (Query("second", "false") == "true")
+                        {
+                            <TabsIndicator @ref="Indicator" data-indicator="second" />
+                        }
+                    </TabsList>
+                </TabsRoot>
+                break;
+
+            case "scale-zero":
+                <div style="transform: scale(0)">
+                    <TabsRoot TValue="int" Value="2" data-root>
+                        <TabsList @ref="List" style="position: relative; width: 300px; display: flex; overflow: hidden">
+                            <TabsTab @ref="IntTab" Value="1" style="width: 100px; flex-shrink: 0" data-tab="1">One</TabsTab>
+                            <TabsTab @ref="IntTab" Value="2" style="width: 100px; flex-shrink: 0" data-tab="2">Two</TabsTab>
+                            <TabsIndicator @ref="Indicator" data-indicator="indicator" />
+                        </TabsList>
+                    </TabsRoot>
+                </div>
+                break;
+
+            case "consumer-style":
+                <TabsRoot TValue="int" Value="2" data-root>
+                    <TabsList @ref="List">
+                        <TabsTab @ref="IntTab" Value="1" data-tab="1">One</TabsTab>
+                        <TabsTab @ref="IntTab" Value="2" data-tab="2">Two</TabsTab>
+                        <TabsIndicator @ref="Indicator" style="--active-tab-left: 7px; color: red" data-indicator="indicator" />
+                    </TabsList>
+                </TabsRoot>
+                break;
+
+            case "missing":
+                <TabsRoot TValue="string" Value="@("missing")" data-root>
+                    <TabsList @ref="List">
+                        <TabsTab @ref="StringTab" Value="@("one")" data-tab="one">One</TabsTab>
+                        <TabsIndicator @ref="Indicator" data-indicator="indicator">
+                            <RenderFunction Context="props">
+                                @{ states.Add(props.State); }
+                                <span @attributes="props.Attributes" data-states="@states.Count" data-position="@(props.State.ActiveTabPosition is null ? "null" : "set")" data-size="@(props.State.ActiveTabSize is null ? "null" : "set")"></span>
+                            </RenderFunction>
+                        </TabsIndicator>
+                    </TabsList>
+                </TabsRoot>
+                break;
+        }
+    </TabsCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly TabsCase main = new();
+    private readonly List<TabsIndicatorState> states = [];
+    private string caseName = "plain";
+    private int value = 2;
+    private int rootWidth = 400;
+    private bool asAnchor;
+    private bool inserted;
+
+    protected override void OnInitialized()
+    {
+        caseName = Query("case", "plain");
+    }
+}

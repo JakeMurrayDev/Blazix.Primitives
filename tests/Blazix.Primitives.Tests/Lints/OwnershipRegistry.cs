@@ -77,5 +77,26 @@ internal static class OwnershipRegistry
         new("checkbox", "Hidden checkbox input", "indeterminate", Writer.Js),
         new("checkbox", "Indicator", "data-starting-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
         new("checkbox", "Indicator", "data-ending-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
+        // Tabs (M3 track 5). ADR 04 Amendments 2026-10-22 (the composite row names the items of Tabs): the composite module
+        // writes every Tab's roving tabindex from attach; C# renders "-1" (CMP-STA-15) and a consumer tabindex wins.
+        new("tabs", "Tab", "tabindex", Writer.CsharpToJs),
+        // ADR 04 Amendments 2026-10-26 (chosen by the user 2026-10-26): the tabs module's List handle writes
+        // data-activation-direction on the five parts from attach; C# renders the initial value once per element (the
+        // handover) and mirrors it in each state's TabActivationDirection.
+        new("tabs", "Root", "data-activation-direction", Writer.Js, "TabsRootState.TabActivationDirection"),
+        new("tabs", "List", "data-activation-direction", Writer.Js, "TabsListState.TabActivationDirection"),
+        new("tabs", "Tab", "data-activation-direction", Writer.Js, "TabsTabState.TabActivationDirection"),
+        new("tabs", "Panel", "data-activation-direction", Writer.Js, "TabsPanelState.TabActivationDirection"),
+        new("tabs", "Indicator", "data-activation-direction", Writer.Js, "TabsIndicatorState.TabActivationDirection"),
+        // ADR 04 §2 (the Tabs.Indicator row) and Amendments 2026-10-18 and 2026-10-26: the Indicator's tabs handle writes
+        // hidden and the element's whole style (the six --active-tab-* variables over the consumer's string), C# rendering
+        // the initial values under the handover; the measurement is mirrored in ActiveTabPosition and ActiveTabSize.
+        new("tabs", "Indicator", "hidden", Writer.Js),
+        new("tabs", "Indicator", "style", Writer.Js, "TabsIndicatorState.ActiveTabPosition"),
+        new("tabs", "Indicator", "style", Writer.Js, "TabsIndicatorState.ActiveTabSize"),
+        // ADR 04 §2 (every animated part): the transitions module writes the Panel's transition attributes, mirrored in
+        // TabsPanelState.TransitionStatus; C# renders data-starting-style once, on an element it creates open.
+        new("tabs", "Panel", "data-starting-style", Writer.Js, "TabsPanelState.TransitionStatus"),
+        new("tabs", "Panel", "data-ending-style", Writer.Js, "TabsPanelState.TransitionStatus"),
     ];
 }

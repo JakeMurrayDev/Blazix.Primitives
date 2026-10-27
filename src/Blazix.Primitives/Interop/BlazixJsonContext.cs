@@ -34,4 +34,9 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(LabelMismatch))]
 [JsonSerializable(typeof(FormSubmitRequest))]
 [JsonSerializable(typeof(FormSubmitAnswer))]
+[JsonSerializable(typeof(TabsOptions))]
+[JsonSerializable(typeof(TabsSelection))]
+[JsonSerializable(typeof(TabsTabEvent))]
+[JsonSerializable(typeof(TabsDirectionChange))]
+[JsonSerializable(typeof(TabsIndicatorMeasurement))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

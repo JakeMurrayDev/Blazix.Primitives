@@ -1,0 +1,53 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+@using Blazix.Primitives
+@inherits TabsFixtureBase
+
+@*
+    The `tabs-keyboard` fixture (tests/browser/tabs.spec.ts, group A): TabsRoot.test.tsx's "keyboard navigation when focus is
+    on a tab" pages, one Root of three Tabs chosen by the query: `orientation` (horizontal, vertical), `direction` (ltr,
+    rtl: inside a DirectionProvider), `activateOnFocus`, `value` (a controlled value its parent never applies), `default`
+    (an uncontrolled DefaultValue instead), `disabled` (comma-separated indexes) and `vetoKeys` (the List's onkeydown calls
+    PreventPartHandler()). The List's onkeydown and every OnValueChange are recorded on the case.
+*@
+<FixtureContainer Name="tabs-keyboard" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <TabsCaseFrame Name="main" Case="main">
+        <DirectionProvider Direction="@(Query("direction", "ltr") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
+            @if (Query("default", "") is { Length: > 0 } defaultValue)
+            {
+                <TabsRoot TValue="int" DefaultValue="@int.Parse(defaultValue)" Orientation="orientation" OnValueChange="main.Change">
+                    @tabs
+                </TabsRoot>
+            }
+            else
+            {
+                <TabsRoot TValue="int" Value="@int.Parse(Query("value", "0"))" Orientation="orientation" OnValueChange="main.Change">
+                    @tabs
+                </TabsRoot>
+            }
+        </DirectionProvider>
+    </TabsCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly TabsCase main = new();
+    private Orientation orientation;
+    private HashSet<int> disabled = [];
+    private RenderFragment? tabs;
+
+    protected override void OnInitialized()
+    {
+        orientation = Query("orientation", "horizontal") == "vertical" ? Orientation.Vertical : Orientation.Horizontal;
+        disabled = [.. Query("disabled", "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse)];
+        main.VetoKeys = Query("vetoKeys", "false") == "true";
+        bool activateOnFocus = Query("activateOnFocus", "false") == "true";
+        tabs = @<TabsList @ref="List" ActivateOnFocus="activateOnFocus" @onkeydown="main.ListKeyDown" data-list>
+                    @for (int index = 0; index < 3; index++)
+                    {
+                        int value = index;
+                        <TabsTab @ref="IntTab" Value="value" Disabled="disabled.Contains(value)" data-tab="@value">Tab @value</TabsTab>
+                    }
+                </TabsList>;
+    }
+}
