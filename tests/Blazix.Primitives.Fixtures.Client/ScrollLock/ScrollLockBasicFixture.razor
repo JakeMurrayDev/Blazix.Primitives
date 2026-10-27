@@ -1,0 +1,21 @@
+@namespace Blazix.Primitives.Fixtures.Client.ScrollLockFixtures
+
+@*
+    The `scroll-lock-basic` fixture (tests/browser/scroll-lock.spec.ts): the `scroll-lock` module through
+    PopupScrollLockBehavior (UTL §4.8) on a page taller than the viewport, with two locks on one page, each toggled by
+    `[data-toggle-lock]` and rendering `data-scroll-lock-enabled`.
+*@
+<FixtureContainer Name="scroll-lock-basic" data-sync="@sync">
+    <button type="button" data-sync-button @onclick="() => sync++">Sync</button>
+    <button type="button" data-toggle-lock="1" @onclick="() => first = !first">Toggle lock 1</button>
+    <button type="button" data-toggle-lock="2" @onclick="() => second = !second">Toggle lock 2</button>
+    <FixtureScrollLock Enabled="@first" data-lock="1">Lock 1</FixtureScrollLock>
+    <FixtureScrollLock Enabled="@second" data-lock="2">Lock 2</FixtureScrollLock>
+    <div data-tall style="height: 3000px">Tall content</div>
+</FixtureContainer>
+
+@code {
+    private int sync;
+    private bool first;
+    private bool second;
+}

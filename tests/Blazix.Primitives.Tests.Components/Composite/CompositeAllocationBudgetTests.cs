@@ -25,7 +25,11 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
     // comparison of the new field allocates nothing.
     // 4048 the same day (M3 track 1, E2): TestCompositeRoot gained `ReportItems`, the same 8 bytes of the harness.
     // 4056 the same day (M3 track 1, E5): TestCompositeRoot gained `FollowActiveItem`, the same 8 bytes again.
-    private const long RerenderBudgetBytes = 4056;
+    // 4064 on 2026-10-27 (M4 track 1, the host wrapper of ADR 02 Amendments 2026-10-27): the library's share is unchanged
+    // (a part that does not opt in reads one virtual property and allocates nothing); the harness's grew. `PartBase` gained
+    // the protected `HostWrapperTagName`, and `Expression.Property` copies the public and non-public properties, 8 bytes
+    // each: a second protected probe property moved the figure to 4072, measured the same day.
+    private const long RerenderBudgetBytes = 4064;
 
     private readonly CompositeTestContext host = new();
 

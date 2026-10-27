@@ -118,6 +118,65 @@ public sealed class TwinContractTests
         Assert.Equal(element, attach.Arguments[0]);
     }
 
+    // ADR 04 Amendments 2026-10-27 (element-typed option values cross as interop arguments, settled by the orchestrator
+    // 2026-10-27): the references follow the options string as one array, which Blazor revives, and an element-typed
+    // option is the index of its reference.
+    [Fact]
+    [Trait("Requirement", "ADR04-element-typed-options")]
+    public async Task Attach_and_update_pass_the_references_after_the_options_and_an_option_names_its_reference_by_index()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        BunitJSModuleInterop handle = SetupHandle(module);
+        ScriptHeldReference scriptHeld = new();
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+        Microsoft.AspNetCore.Components.ElementReference target = new("element-7");
+
+        TwinReferences first = new();
+        int targetIndex = first.Add(target);
+        int scriptHeldIndex = first.Add(scriptHeld);
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { TargetRef = targetIndex }, first);
+        TwinReferences second = new();
+        await attached.UpdateAsync(new TestTwinOptions { TargetRef = second.Add(scriptHeld) }, second);
+        await twin.AttachAsync("base-ui-2", new TestTwinOptions(), new TwinReferences());
+
+        Assert.Equal(0, targetIndex);
+        Assert.Equal(1, scriptHeldIndex);
+        JSRuntimeInvocation attach = module.Invocations["attach"][0];
+        Assert.Equal(4, attach.Arguments.Count);
+        Assert.Equal("""{"threshold":0,"targetRef":0}""", attach.Arguments[1]);
+        object[] sent = Assert.IsType<object[]>(attach.Arguments[3]);
+        Assert.Equal(2, sent.Length);
+        Assert.Equal(target, sent[0]);
+        Assert.Same(scriptHeld, sent[1]);
+
+        JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
+        Assert.Equal(2, update.Arguments.Count);
+        Assert.Equal("""{"threshold":0,"targetRef":0}""", update.Arguments[0]);
+        Assert.Same(scriptHeld, Assert.Single(Assert.IsType<object[]>(update.Arguments[1])));
+
+        // An empty list sends no array: the module's references argument is then absent.
+        Assert.Equal(3, module.Invocations["attach"][1].Arguments.Count);
+    }
+
+    [Fact]
+    [Trait("Requirement", "ADR04-element-typed-options")]
+    public async Task An_update_without_references_sends_only_the_options_after_an_attach_that_sent_some()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        BunitJSModuleInterop handle = SetupHandle(module);
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+        TwinReferences references = new();
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { TargetRef = references.Add(new Microsoft.AspNetCore.Components.ElementReference("element-7")) }, references);
+
+        await attached.UpdateAsync(new TestTwinOptions { Threshold = 2 });
+
+        Assert.Equal(4, Assert.Single(module.Invocations["attach"]).Arguments.Count);
+        JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
+        Assert.Equal("""{"threshold":2}""", Assert.Single(update.Arguments));
+    }
+
     // ADR 04 Amendments 2026-10-27 (decision 3, the token form of attach; chosen by the user 2026-10-27).
     [Fact]
     public async Task The_token_form_attaches_an_elementless_handle_once_per_token_and_passes_null_as_the_target()
@@ -129,7 +188,8 @@ public sealed class TwinContractTests
 
         TwinHandle<TestTwinOptions> first = await twin.AttachTokenAsync("base-ui-7", new TestTwinOptions { Threshold = 1 });
         TwinHandle<TestTwinOptions> second = await twin.AttachTokenAsync("base-ui-7", new TestTwinOptions { Threshold = 2 });
-        await twin.AttachTokenAsync("base-ui-8", new TestTwinOptions());
+        TwinReferences references = new();
+        await twin.AttachTokenAsync("base-ui-8", new TestTwinOptions { TargetRef = references.Add(new Microsoft.AspNetCore.Components.ElementReference("element-8")) }, references);
 
         Assert.Same(first, second);
         Assert.Equal("base-ui-7", first.Key);
@@ -137,7 +197,10 @@ public sealed class TwinContractTests
         Assert.Null(attach.Arguments[0]);
         Assert.Equal("""{"threshold":1}""", attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<TestTwin>>(attach.Arguments[2]);
+        Assert.Equal(3, attach.Arguments.Count);
         Assert.Equal(2, module.Invocations["attach"].Count);
+        Assert.Null(module.Invocations["attach"][1].Arguments[0]);
+        Assert.Single(Assert.IsType<object[]>(module.Invocations["attach"][1].Arguments[3]));
 
         await first.DisposeAsync();
         Assert.Single(handle.Invocations["dispose"]);

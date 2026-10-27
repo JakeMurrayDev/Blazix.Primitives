@@ -8,7 +8,7 @@ namespace Blazix.Primitives.Interop;
 
 /// <summary>
 /// The C# half of one JavaScript module. A twin imports its module lazily on first use, attaches parts to it
-/// (<c>attach(elementOrId, options)</c> returning a handle per element), owns the single
+/// (<c>attach(elementOrId, options, self, references)</c> returning a handle per element), owns the single
 /// <see cref="DotNetObjectReference{TValue}"/> the module calls back through, and answers the module's decision
 /// points. Parts talk to twins and never to <see cref="IJSRuntime"/>.
 /// </summary>
@@ -79,11 +79,15 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// </summary>
     /// <param name="element">The element to attach to.</param>
     /// <param name="options">The options sent with <c>attach</c>.</param>
+    /// <param name="references">
+    /// The elements and script-held objects the options name by index, sent after the twin's reference; or
+    /// <see langword="null"/>, or an empty instance, to send none.
+    /// </param>
     /// <returns>The handle for the element.</returns>
     /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
-    public ValueTask<TwinHandle<TOptions>> AttachAsync(ElementReference element, TOptions options)
+    public ValueTask<TwinHandle<TOptions>> AttachAsync(ElementReference element, TOptions options, TwinReferences? references = null)
     {
-        return AttachAsync(element.Id, element, options);
+        return AttachAsync(element.Id, element, options, references);
     }
 
     /// <summary>
@@ -92,11 +96,15 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// </summary>
     /// <param name="elementId">The id of the element in the document.</param>
     /// <param name="options">The options sent with <c>attach</c>.</param>
+    /// <param name="references">
+    /// The elements and script-held objects the options name by index, sent after the twin's reference; or
+    /// <see langword="null"/>, or an empty instance, to send none.
+    /// </param>
     /// <returns>The handle for the element.</returns>
     /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
-    public ValueTask<TwinHandle<TOptions>> AttachAsync(string elementId, TOptions options)
+    public ValueTask<TwinHandle<TOptions>> AttachAsync(string elementId, TOptions options, TwinReferences? references = null)
     {
-        return AttachAsync(elementId, elementId, options);
+        return AttachAsync(elementId, elementId, options, references);
     }
 
     // ADR 04 Amendments 2026-10-27 (decision 3, the token form; chosen by the user 2026-10-27): a popup Root, a tooltip
@@ -108,11 +116,15 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// </summary>
     /// <param name="token">The token, for example one drawn with <c>PartIdGenerator.Next()</c>.</param>
     /// <param name="options">The options sent with <c>attach</c>, which carry the token.</param>
+    /// <param name="references">
+    /// The elements and script-held objects the options name by index, sent after the twin's reference; or
+    /// <see langword="null"/>, or an empty instance, to send none.
+    /// </param>
     /// <returns>The handle for the token.</returns>
     /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
-    public ValueTask<TwinHandle<TOptions>> AttachTokenAsync(string token, TOptions options)
+    public ValueTask<TwinHandle<TOptions>> AttachTokenAsync(string token, TOptions options, TwinReferences? references = null)
     {
-        return AttachAsync<string?>(token, null, options);
+        return AttachAsync<string?>(token, null, options, references);
     }
 
     /// <summary>
@@ -156,7 +168,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     }
 
     // Generic over the target so an ElementReference reaches the interop argument array unboxed until that call.
-    private async ValueTask<TwinHandle<TOptions>> AttachAsync<TTarget>(string key, TTarget elementOrId, TOptions options)
+    private async ValueTask<TwinHandle<TOptions>> AttachAsync<TTarget>(string key, TTarget elementOrId, TOptions options, TwinReferences? references)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -165,7 +177,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
             return existing;
         }
 
-        Task<IJSObjectReference?> reference = AttachCoreAsync(elementOrId, options);
+        Task<IJSObjectReference?> reference = AttachCoreAsync(elementOrId, options, references?.ToArgument());
         TwinHandle<TOptions> handle = new(key, reference, optionsTypeInfo, released => handles.Remove(released.Key));
         handles[key] = handle;
 
@@ -184,7 +196,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     // A JSDisconnectedException means the Server circuit is gone and the part is being torn down: the attach yields
     // a handle that is already a no-op rather than an exception in OnAfterRenderAsync (null = disconnected).
-    private async Task<IJSObjectReference?> AttachCoreAsync<TTarget>(TTarget elementOrId, TOptions options)
+    private async Task<IJSObjectReference?> AttachCoreAsync<TTarget>(TTarget elementOrId, TOptions options, object[]? references)
     {
         IJSObjectReference? imported = await ImportAsync().ConfigureAwait(false);
         if (imported is null)
@@ -196,7 +208,12 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
         try
         {
-            return await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, JsonSerializer.Serialize(options, optionsTypeInfo), selfReference).ConfigureAwait(false);
+            // ADR 04 Amendments 2026-10-27: the references follow the twin's reference only when there are some, so a module
+            // that names none receives the three arguments it always did.
+            string json = JsonSerializer.Serialize(options, optionsTypeInfo);
+            return references is null
+                ? await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, json, selfReference).ConfigureAwait(false)
+                : await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, json, selfReference, references).ConfigureAwait(false);
         }
         catch (JSDisconnectedException)
         {

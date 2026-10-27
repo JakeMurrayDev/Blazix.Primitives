@@ -1,0 +1,3 @@
+@* The cascaded type parameter: a child Trigger without Payload takes TPayload from the Root. *@
+<GenRoot Handle="@handle"><GenTrigger>open</GenTrigger></GenRoot>
+@code { private readonly PopHandle<int> handle = new(); }

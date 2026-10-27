@@ -22,7 +22,7 @@ import { decide } from './decide';
 import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
-import { attachTarget, createTwinChannel, type AttachTarget, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
+import { attachTarget, createTwinChannel, type AttachTarget, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constants
@@ -4566,7 +4566,7 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
  * @param _references The element-typed option values passed after the options; the module's options carry none.
  * @returns The handle.
  */
-export function attach(elementOrId: AttachTarget, optionsJson: string, twinReference: DotNetTwin, _references?: readonly unknown[]): TwinHandle {
+export function attach(elementOrId: AttachTarget, optionsJson: string, twinReference: DotNetTwin, _references?: TwinReferences): TwinHandle {
   const options = parseOptions<InteractionsOptions>(optionsJson);
   if (options.provider) {
     return attachProvider(options.provider.token ?? '', options, twinReference);

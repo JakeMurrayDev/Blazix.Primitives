@@ -6,7 +6,8 @@ namespace Blazix.Primitives.Interop;
 
 /// <summary>
 /// The handle of one attached element: the JavaScript object the module returned from <c>attach</c>, with
-/// <see cref="UpdateAsync"/> to send new options and an idempotent <see cref="DisposeAsync"/> to detach.
+/// <see cref="UpdateAsync"/> to send new options and the references they name, and an idempotent
+/// <see cref="DisposeAsync"/> to detach.
 /// </summary>
 /// <typeparam name="TOptions">The options record of the module.</typeparam>
 internal sealed class TwinHandle<TOptions> : IAsyncDisposable
@@ -69,8 +70,12 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
 
     /// <summary>Sends new options to the module's <c>update</c>. A no-op once disposed or once the circuit is gone.</summary>
     /// <param name="options">The options record to serialize and send.</param>
+    /// <param name="references">
+    /// The elements and script-held objects the options name by index, sent after the options string; or
+    /// <see langword="null"/>, or an empty instance, to send none.
+    /// </param>
     /// <returns>A task that completes when the module has applied the options.</returns>
-    public async ValueTask UpdateAsync(TOptions options)
+    public async ValueTask UpdateAsync(TOptions options, TwinReferences? references = null)
     {
         if (disposed)
         {
@@ -85,7 +90,17 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
 
         try
         {
-            await handle.InvokeVoidAsync("update", JsonSerializer.Serialize(options, optionsTypeInfo)).ConfigureAwait(false);
+            // ADR 04 Amendments 2026-10-27: the references follow the options string only when there are some.
+            string json = JsonSerializer.Serialize(options, optionsTypeInfo);
+            object[]? argument = references?.ToArgument();
+            if (argument is null)
+            {
+                await handle.InvokeVoidAsync("update", json).ConfigureAwait(false);
+            }
+            else
+            {
+                await handle.InvokeVoidAsync("update", json, argument).ConfigureAwait(false);
+            }
         }
         catch (JSDisconnectedException)
         {

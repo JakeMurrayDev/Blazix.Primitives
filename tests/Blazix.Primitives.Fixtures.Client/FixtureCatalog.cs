@@ -14,11 +14,14 @@ using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ScrollLockFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 using Blazix.Primitives.Fixtures.Client.TabsFixtures;
@@ -115,6 +118,7 @@ public static class FixtureCatalog
         ["checkbox-group-field"] = new(typeof(CheckboxGroupFieldFixture)),
         ["checkbox-group-prerender"] = new(typeof(CheckboxGroupPrerenderFixture), Prerender: true),
         ["checkbox-group-form"] = new(typeof(CheckboxGroupFormFixture)),
+        ["checkbox-group-portal"] = new(typeof(CheckboxGroupPortalFixture)),
         ["checkbox-group-errors"] = new(typeof(CheckboxGroupErrorsFixture)),
         ["radio-standalone"] = new(typeof(RadioStandaloneFixture)),
         ["radio-native-button"] = new(typeof(RadioNativeButtonFixture)),
@@ -125,6 +129,7 @@ public static class FixtureCatalog
         ["radio-group-field"] = new(typeof(RadioGroupFieldFixture)),
         ["radio-group-fieldset"] = new(typeof(RadioGroupFieldsetFixture)),
         ["radio-group-form"] = new(typeof(RadioGroupFormFixture)),
+        ["radio-group-portal"] = new(typeof(RadioGroupPortalFixture)),
         ["radio-group-edit-form"] = new(typeof(RadioGroupEditFormFixture)),
         ["radio-group-allocation"] = new(typeof(RadioGroupAllocationFixture)),
         ["toggle-standalone"] = new(typeof(ToggleStandaloneFixture)),
@@ -145,5 +150,11 @@ public static class FixtureCatalog
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
+        ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
+        ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
+        ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
+        ["portal-basic"] = new(typeof(PortalBasicFixture)),
+        ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
+        ["scroll-lock-basic"] = new(typeof(ScrollLockBasicFixture)),
     };
 }
