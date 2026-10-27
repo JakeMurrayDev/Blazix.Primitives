@@ -1,3 +1,4 @@
+using Blazix.Primitives.Fixtures.Client.AccordionFixtures;
 using Blazix.Primitives.Fixtures.Client.Allocation;
 using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
@@ -58,6 +59,11 @@ public static class FixtureCatalog
         ["collapsible-initially-open"] = new(typeof(CollapsibleInitiallyOpenFixture), Prerender: true),
         ["collapsible-reattach"] = new(typeof(CollapsibleReattachFixture)),
         ["collapsible-hidden-until-found"] = new(typeof(CollapsibleHiddenUntilFoundFixture)),
+        ["accordion-basic"] = new(typeof(AccordionBasicFixture)),
+        ["accordion-css-transition"] = new(typeof(AccordionCssTransitionFixture)),
+        ["accordion-initially-open"] = new(typeof(AccordionInitiallyOpenFixture), Prerender: true),
+        ["accordion-reattach"] = new(typeof(AccordionReattachFixture)),
+        ["accordion-hidden-until-found"] = new(typeof(AccordionHiddenUntilFoundFixture)),
         ["meter-basic"] = new(typeof(MeterBasicFixture)),
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),

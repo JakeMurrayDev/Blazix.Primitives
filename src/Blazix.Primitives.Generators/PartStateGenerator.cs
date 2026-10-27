@@ -20,6 +20,7 @@ public sealed class PartStateGenerator : IIncrementalGenerator
 {
     private const string PartStateAttributeName = "Blazix.Primitives.Rendering.PartStateAttribute";
     private const string MirroredFieldAttributeName = "Blazix.Primitives.Rendering.MirroredFieldAttribute";
+    private const string NotProjectedAttributeName = "Blazix.Primitives.Rendering.NotProjectedAttribute";
     private const string Rendering = "global::Blazix.Primitives.Rendering";
 
     /// <inheritdoc />
@@ -76,7 +77,8 @@ public sealed class PartStateGenerator : IIncrementalGenerator
         foreach (IPropertySymbol property in OwnPublicProperties(symbol))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (HasAttribute(property, MirroredFieldAttributeName))
+            // ADR 04 §2 (a JavaScript-written attribute) and ADR 02 Amendments 2026-10-26 (no attribute at all).
+            if (HasAttribute(property, MirroredFieldAttributeName) || HasAttribute(property, NotProjectedAttributeName))
             {
                 continue;
             }

@@ -6,6 +6,7 @@ namespace Blazix.Primitives.Tests.Store;
 /// ADR 05 §1's <c>Is&lt;T&gt;</c> against <c>Object.is</c> (UTL §8.2): value types and strings by value, every other
 /// reference type by reference, records never structurally, <c>NaN</c> equal to itself and <c>-0</c> distinct from <c>0</c>.
 /// <c>StrictEquals</c> is JavaScript's <c>===</c>, used where Base UI compares with <c>!==</c> (UTL-STA-19, UTL-STA-36).
+/// <c>SameValueZero</c> is <c>Array.prototype.includes</c>' comparison (ACC-STA-04; ADR 05 note dated 2026-10-26).
 /// </summary>
 public sealed class EqualityTests
 {
@@ -131,5 +132,59 @@ public sealed class EqualityTests
         Assert.True(Equality.StrictEquals("a", "a"));
         Assert.False(Equality.StrictEquals(new Point(1, 2), new Point(1, 2)));
         Assert.True(Equality.StrictEquals(3, 3));
+    }
+
+    // ACC-STA-04, ACC-EDGE-10: Base UI's membership test is Array.prototype.includes, whose SameValueZero is Object.is with
+    // 0 equal to -0 (settled by the orchestrator 2026-10-25, M3 plan §Settled).
+    [Fact(DisplayName = "SameValueZero: NaN equals NaN and -0 equals 0")]
+    [Trait("Requirement", "ACC-STA-04")]
+    public void SameValueZero_follows_JavaScript()
+    {
+        Assert.True(Equality.SameValueZero(double.NaN, double.NaN));
+        Assert.True(Equality.SameValueZero(0.0, -0.0));
+        Assert.True(Equality.SameValueZero(-0.0, 0.0));
+        Assert.False(Equality.SameValueZero(0.0, 1.0));
+        Assert.True(Equality.SameValueZero(float.NaN, float.NaN));
+        Assert.True(Equality.SameValueZero(0f, -0f));
+        Assert.True(Equality.SameValueZero(Half.NaN, Half.NaN));
+        Assert.True(Equality.SameValueZero(Half.Zero, Half.NegativeZero));
+        Assert.True(Equality.SameValueZero<double?>(0.0, -0.0));
+        Assert.True(Equality.SameValueZero<double?>(double.NaN, double.NaN));
+        Assert.False(Equality.SameValueZero<double?>(null, 0.0));
+        Assert.True(Equality.SameValueZero<double?>(null, null));
+        Assert.True(Equality.SameValueZero<float?>(-0f, 0f));
+        Assert.True(Equality.SameValueZero<Half?>(Half.NegativeZero, Half.Zero));
+        Assert.False(Equality.SameValueZero<Half?>(Half.Zero, null));
+        Assert.True(Equality.SameValueZero("a", "a"));
+        Assert.False(Equality.SameValueZero(new Point(1, 2), new Point(1, 2)));
+        Assert.True(Equality.SameValueZero(3, 3));
+        Assert.False(Equality.SameValueZero(3, 4));
+    }
+
+    // ADR 05 Amendments 2026-10-20 as amended 2026-10-23 (R8): the primitives allocate nothing.
+    [Fact(DisplayName = "SameValueZero: the primitives allocate nothing")]
+    [Trait("Requirement", "ACC-STA-04")]
+    public void SameValueZero_allocates_nothing_for_primitives()
+    {
+        bool sink = Run();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 100; i++)
+        {
+            sink ^= Run();
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(0, allocated);
+        GC.KeepAlive(sink);
+
+        static bool Run() =>
+            Equality.SameValueZero(1, 1)
+            & Equality.SameValueZero<int?>(1, null)
+            & Equality.SameValueZero(0.0, -0.0)
+            & Equality.SameValueZero<double?>(double.NaN, double.NaN)
+            & Equality.SameValueZero(true, true)
+            & Equality.SameValueZero('a', 'a')
+            & Equality.SameValueZero(1m, 1m)
+            & Equality.SameValueZero("a", "a");
     }
 }

@@ -24,7 +24,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-23 (M2 track 1, PRs 1a and 1c) | |
 | architecture/button-behavior.md | UBT | approved | 100 reqs |
 | architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store |
-| components/accordion.md | ACC | approved | 101 reqs (opus) | builds on collapsible |
+| components/accordion.md | ACC | implemented | 101 reqs (opus) | builds on collapsible |
 | components/alert-dialog.md | ADL | approved | 30 reqs + adoption (opus) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
 | components/avatar.md | AVA | implemented | 58 reqs (opus) | |

@@ -21,6 +21,11 @@ internal static class LibraryShims
             {
             }
 
+            [global::System.AttributeUsage(global::System.AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+            public sealed class NotProjectedAttribute : global::System.Attribute
+            {
+            }
+
             public interface IPartState<TSelf>
                 where TSelf : IPartState<TSelf>
             {
