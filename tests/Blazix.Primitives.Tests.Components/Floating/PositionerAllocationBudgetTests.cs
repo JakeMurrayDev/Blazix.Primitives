@@ -20,8 +20,11 @@ public sealed class PositionerAllocationBudgetTests : IDisposable
     // AllocationBudgets collection (settled by the orchestrator the same day). The five samples of one run are equal, and the
     // test alone always measures 6208, but a full run of the project measures 6208, 6288, 6320 or 6352 by run: the state the
     // earlier tests leave in the process (the harness's pools, the JIT's tiering) moves this floor, not work inside the
-    // window. The budget is the envelope of 46 full runs (31 at 6208), taken before it first landed on main.
-    private const long RerenderBudgetBytes = 6352;
+    // window. The budget is the envelope of 46 full runs (31 at 6208), taken before it first landed on main. 2026-10-28:
+    // main's merge (track 1) adds 24 bytes and the part's cascading portal context parameter another 24, which every
+    // portaled positioner part carries (the test alone measures 6256); 25 full runs measure 6256 (20 runs), 6336, 6368 (3)
+    // and 6400, the same spread, so the budget is again their envelope before it first lands.
+    private const long RerenderBudgetBytes = 6400;
 
     private readonly PositioningTestContext host = new();
 
