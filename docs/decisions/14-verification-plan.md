@@ -24,7 +24,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | 02 scratch-render cost on a list part | M5 (Menu) | timed measurement; result appended to ADR 02; decides frame caching (ADR 16 B) |
 | 04 Server preserves the order between JS-to-.NET invocations and event dispatches | M0 | permanent L4 Server test on the twin base |
 | 04 a render queued inside a synchronous invoke flushes before the listener returns | M0 | permanent L4 WebAssembly test on `decide()` |
-| 04 a portal node with siblings in its logical parent | M4 | permanent L4 test, both modes, plus the "only child of its wrapper" shape rule |
+| 04 a portal node with siblings in its logical parent | M4, track 1 (Amendments 2026-10-27) | permanent L4 test `@verifies ADR-04/3` on the test-only `FixturePortal` host, both modes, with the wrapper shape of ADR 04 Amendments 2026-10-27 ([issue 8](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/8)) |
 | 04 build without Node via `BlazixSkipJsBuild` | M0 | a manual CI job that builds with the flag and prebuilt outputs (ADR 11), run before every tagged release |
 | 05 Razor binds union-typed parameters | **now** | `spikes/union-binding/` on the RC2 SDK; blocks the parameter shape of M0 |
 | 05 `EqualityComparer<T>.Default` does not box on WebAssembly | M0 | permanent L4 WebAssembly allocation probe (`GC.GetTotalAllocatedBytes` around N comparisons) on the interpreter; AOT by inspection of the generated code, stated as such |
@@ -37,7 +37,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 
 | ADR item | Milestone | How |
 |---|---|---|
-| 07 the Floating UI legal banner survives esbuild chunking | M4, the first pack that contains the `positioning` chunk (was "first pack", Amendments 2026-10-21) | inspect the chunk |
+| 07 the Floating UI legal banner survives esbuild chunking | M4, track 2 (was "first pack", Amendments 2026-10-21; the track, Amendments 2026-10-27) | a permanent check in `.github/scripts/assert-package.mjs` that the output containing `computePosition` carries the banner of `js/floating-ui.ts` (ADR 07 Amendments 2026-10-27; [issue 16](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/16)) |
 | 08 a `[Union]` struct parameter binds from a Razor literal | now, with the union spike | `spikes/union-binding/` |
 | 08 MUI's trademark position on "Base UI" in the package description | before the first public release | read MUI's trademark policy; ask if unclear |
 | 09 route-segment render mode with prerender off on a Blazor Web App serving WebAssembly assets | M0 | the first fixture |
@@ -47,7 +47,8 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | 11 the scoped-L4 path mapping classifies mixed PRs as full L4 | M0 | a synthetic PR |
 | 11 `--fail-on-flaky-tests` with `retries: 0` is a guard only | first nightly | — |
 | 15 the citation-migration tool works on the shallow clone (history depth) | before the first re-pin | — |
-| 16 frame caching for substitutes; `[JSImport]` transport inside twins | M5; M4–M6 | measurements (ADR 16) |
+| 16 frame caching for substitutes; `[JSImport]` transport inside twins | M5; M4, track 3 (was M4–M6, Amendments 2026-10-27) | measurements (ADR 16); the `[JSImport]` probe fixture of ADR 16 Amendments 2026-10-27 ([issue 26](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/26)) |
+| 08 a non-generic and a generic part of one tag name resolve without ambiguity; a `RenderFragment<TPayload?>` child content binds plain markup (ADR 08 Amendments 2026-10-27) | M4, track 1, before the popup parts are shaped | `spikes/payload-generic/` on the RC2 SDK; the finding appended to ADR 08 ([issue 116](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/116)) |
 | 16 `ChangeDetection`'s known-immutable set covers enums and nullable enums | M0 | read `ChangeDetection.cs` in aspnetcore `release/11.0`; note in ADR 16 |
 | 16 generator-emitted `SetParametersAsync` and per-item unmatched-bag cost | M5 | part of the M5 list-part measurement |
 | 16 Combobox `virtualized` (CMB-API-22) with Blazor `Virtualize` | M5 | permanent L4 test |
@@ -78,3 +79,5 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 **2026-10-21 (M1 planning; chosen by the user the same day).** §2: the ADR 07 banner item moves from "first pack" to M4, the first pack that contains the `positioning` chunk, because no module imported `@floating-ui/dom` before the `positioning` module (M0 Track 3 phase B re-implemented Floating UI's DOM predicates in `dom.ts`, so the M0 and M1 packs carry no Floating UI chunk to inspect); [issue 16](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/16) is re-assigned to milestone M4. §1: the ADR 01 round-trip item ([issue 2](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/2)) closes before Collapsible is declared done, per ADR 12 Amendments 2026-10-21, so the pipeline-only M1 families are not held by it.
 
 **2026-10-22 (M2 planning; chosen by the user the same day).** §2 gains the ADR 05 row for the form controls inside a cascaded `EditContext` (ADR 05 Amendments 2026-10-22), assigned to M2 as [issue 76](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/76), label `verification`; it is an item of the milestone as a whole and closes before the M2 tag (ADR 12 Amendments 2026-10-21). M2 has no other verification item.
+
+**2026-10-27 (M4 planning; chosen by the user the same day).** §1: the ADR 04 portal item ([issue 8](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/8)) is M4 track 1's: the permanent L4 test `@verifies ADR-04/3` on the test-only `FixturePortal` host, both modes, with the wrapper shape of ADR 04 Amendments 2026-10-27. §2: the ADR 07 banner item ([issue 16](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/16)) is track 2's and becomes a permanent check in `.github/scripts/assert-package.mjs` on the banner of `js/floating-ui.ts` (ADR 07 Amendments 2026-10-27); the `[JSImport]` item ([issue 26](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/26)) is measured in M4 by track 3, with a probe fixture and an `update`, a report and a `Decide` per message against `[JSImport]`/`[JSExport]` on WebAssembly under a hover-and-flip traffic sample, the finding recorded in ADR 16 and the issue closed or re-assigned by the figures (ADR 16 Amendments 2026-10-27); §2 gains the ADR 08 row for the Razor probe of the payload type parameter (ADR 08 Amendments 2026-10-27), track 1's, as [issue 116](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/116), label `verification`, run before the popup parts are shaped. Every M4 item closes inside its track (ADR 12 Amendments 2026-10-27).

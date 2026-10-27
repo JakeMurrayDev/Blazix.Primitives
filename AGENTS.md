@@ -25,6 +25,8 @@ Blazor port of MUI Base UI v1.9.0, built documentation-first. This file routes; 
 | `src/Blazix.Primitives/<Family>/` | the parts of one Base UI family; contract = `docs/components/<family>.md`; browser specs = `tests/browser/<family>.spec.ts` |
 | `src/Blazix.Primitives/{Rendering,Store,Events,Interop}/` | pipeline, store, event details, twins |
 | `src/Blazix.Primitives/Composite/` | the C# half of the composite mechanism (root and item behaviours); contract = `docs/architecture/composite-and-list-navigation.md` (decision record 09, amended 2026-10-22) |
+| `src/Blazix.Primitives/Popup/` | the C# half of the popup store and handles (the store record, the trigger registry, the handles, `ModalValue`, `InteractionType`, `PortalContainerValue`); contract = `docs/architecture/popup-store-and-handles.md` (decision record 09, amended 2026-10-22 and 2026-10-27) |
+| `src/Blazix.Primitives/Floating/` | the C# half of floating positioning (the Positioner and Arrow behaviours, `Side`, `Align`, `AnchorValue`, the collision and offset types); contract = `docs/architecture/floating-and-positioning.md` (decision record 09, amended 2026-10-27) |
 | `src/Blazix.Primitives/Utilities/` | cross-family helpers; contract = `docs/architecture/shared-utilities.md` (decision record 09, amended 2026-10-21) |
 | `src/Blazix.Primitives/js/` | TypeScript modules (one per decision-record-04 module) with their vitest tests beside them |
 | `src/Blazix.Primitives.Generators/`, `src/Blazix.Primitives.Analyzers/` | shipped generator; internal convention analyzers |
