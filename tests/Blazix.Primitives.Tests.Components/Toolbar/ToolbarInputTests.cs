@@ -142,7 +142,11 @@ public sealed class ToolbarInputTests : IDisposable
             .Add(x => x.Disabled, true)
             .AddUnmatched("onclick", EventCallback.Factory.Create<MouseEventArgs>(this, () => calls.Add("click")))
             .AddUnmatched("onpointerdown", EventCallback.Factory.Create<PointerEventArgs>(this, () => calls.Add("pointerdown")))
-            .AddUnmatched("onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => calls.Add(e.Key)))));
+            .AddUnmatched("onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e =>
+            {
+                calls.Add(e.Key);
+                e.PreventPartHandler();
+            }))));
         string id = cut.Find("input").GetAttribute("id")!;
 
         cut.Find("input").Click();
@@ -150,8 +154,8 @@ public sealed class ToolbarInputTests : IDisposable
         cut.Find("input").KeyDown(new KeyboardEventArgs { Key = "a", Code = "KeyA" });
         Assert.Equal(["click", "pointerdown", "a"], calls);
 
-        // A key the root handles runs at navigate, and Blazor's later dispatch of it skips the handler.
-        await test.DecideNavigateAsync(cut, "ArrowRight", id, "INPUT");
+        // WebAssembly: a key the root handles runs at navigate; its veto leaves the key to Blazor, whose dispatch skips it.
+        Assert.Equal("stop", await test.DecideNavigateAsync(cut, "ArrowRight", id, "INPUT"));
         cut.Find("input").KeyDown(new KeyboardEventArgs { Key = "ArrowRight", Code = "ArrowRight" });
         Assert.Equal(["click", "pointerdown", "a", "ArrowRight"], calls);
     }
