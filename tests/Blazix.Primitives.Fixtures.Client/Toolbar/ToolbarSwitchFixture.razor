@@ -6,7 +6,7 @@
     The `toolbar-switch` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's Switch block, a SwitchRoot
     substituted into a toolbar button that keeps NativeButton="true", so the declared-mode check reports once per session.
     - `renders`: "renders a switch".
-    - `interactions`: "handles interactions", the consumer's onclick and the switch's OnCheckedChange.
+    - `interactions`: "handles interactions", the consumer's onclick and the switch's CheckedChanged.
     - `disabled`: "disabled state", the same on a disabled button.
 *@
 <FixtureContainer Name="toolbar-switch" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
@@ -40,7 +40,7 @@
 
     private RenderFragment RendersSwitch => @<SwitchRoot @ref="Switch" />;
 
-    private RenderFragment InteractionsSwitch => @<SwitchRoot @ref="Switch" DefaultChecked="false" OnCheckedChange="interactions.CheckedChange" />;
+    private RenderFragment InteractionsSwitch => @<SwitchRoot @ref="Switch" DefaultChecked="false" CheckedChanged="interactions.CheckedChange" />;
 
-    private RenderFragment DisabledSwitch => @<SwitchRoot @ref="Switch" OnCheckedChange="disabled.CheckedChange" />;
+    private RenderFragment DisabledSwitch => @<SwitchRoot @ref="Switch" CheckedChanged="disabled.CheckedChange" />;
 }

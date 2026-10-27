@@ -4,7 +4,7 @@ namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
 
 /// <summary>
 /// The record of one case of the Toolbar fixtures, as the specs read it: the consumer's clicks, key presses, pointer and
-/// mouse presses and mouse moves Blazor invoked, a substituted switch's <c>OnCheckedChange</c>, and the order of them; and
+/// mouse presses and mouse moves Blazor invoked, a substituted switch's <c>CheckedChanged</c>, and the order of them; and
 /// the keys for which a consumer's <c>onkeydown</c> calls <c>PreventPartHandler()</c>.
 /// </summary>
 public sealed class ToolbarCase
@@ -63,10 +63,10 @@ public sealed class ToolbarCase
     // Not logged: a hover dispatches many.
     public void MouseMove() => MouseMoves++;
 
-    public void CheckedChange(ValueChangeEventArgs<bool> e)
+    public void CheckedChange(bool value)
     {
         Changes++;
-        Checked = e.Value ? "true" : "false";
+        Checked = value ? "true" : "false";
         log.Add($"checked:{Checked}");
     }
 }
