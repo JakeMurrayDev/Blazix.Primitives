@@ -1,0 +1,126 @@
+@namespace Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PortalFixtures
+
+@*
+    The `checkbox-group-portal` fixture (tests/browser/checkbox-group.spec.ts): CheckboxGroup.test.tsx's five portal titles
+    (CKG-STR-02, CKG-FRM-03, CKG-FRM-06, CKG-FOC-02; left open to M4 on 2026-10-23, ADR 12 Amendments 2026-10-27 item 4),
+    each one Form whose checkboxes FixturePortal moves into a container outside it, as ReactDOM.createPortal does. A case
+    records its OnFormSubmit calls (data-submits, data-submitted: the last values as `name=a,b` pairs joined by `;`).
+*@
+<FixtureContainer Name="checkbox-group-portal" data-attached="@(attached ? "true" : "false")" data-sync="@sync">
+    <button type="button" data-sync-button @onclick="() => sync++">Sync</button>
+    <style>[data-checkbox] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="context" @attributes='Recorded("context")'>
+        <Form @ref="forms[0]" OnFormSubmit='args => Submitted("context", args)'>
+            <FieldRoot Name="fruits">
+                <CheckboxGroup DefaultValue="s_apple">
+                    <FixturePortal @ref="portals[0]" Container="@("#ckg-target-context")">
+                        <CheckboxRoot @ref="boxes[0]" data-checkbox Value="apple" />
+                    </FixturePortal>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <div id="ckg-target-context" data-target></div>
+    </div>
+
+    <div data-case="fully-portaled" @attributes='Recorded("fully-portaled")'>
+        <Form @ref="forms[1]" OnFormSubmit='args => Submitted("fully-portaled", args)'>
+            <FixturePortal @ref="portals[1]" Container="@("#ckg-target-full")">
+                <FieldRoot Name="fruits">
+                    <CheckboxGroup DefaultValue="s_appleBanana">
+                        <CheckboxRoot @ref="boxes[1]" data-checkbox Value="apple" />
+                        <CheckboxRoot @ref="boxes[2]" data-checkbox Value="banana" Disabled="true" />
+                    </CheckboxGroup>
+                </FieldRoot>
+            </FixturePortal>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <div id="ckg-target-full" data-target></div>
+    </div>
+
+    <div data-case="explicit-form" @attributes='Recorded("explicit-form")'>
+        <Form @ref="forms[2]" id="ckg-current-form" OnFormSubmit='args => Submitted("explicit-form", args)'>
+            <FieldRoot Name="fruits">
+                <CheckboxGroup DefaultValue="s_apple">
+                    <FixturePortal @ref="portals[2]" Container="@("#ckg-target-explicit")">
+                        <CheckboxRoot @ref="boxes[3]" data-checkbox Value="apple" Form="ckg-current-form" />
+                    </FixturePortal>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <div id="ckg-target-explicit" data-target></div>
+    </div>
+
+    <div data-case="required" @attributes='Recorded("required")'>
+        <Form @ref="forms[3]" OnFormSubmit='args => Submitted("required", args)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    <FixturePortal @ref="portals[3]" Container="@("#ckg-target-required")">
+                        <CheckboxRoot @ref="boxes[4]" data-checkbox Value="portaled" Required="true" data-testid="portaled" />
+                    </FixturePortal>
+                    <CheckboxRoot @ref="boxes[5]" data-checkbox Value="current" />
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <div id="ckg-target-required" data-target></div>
+    </div>
+
+    <div data-case="external-form" @attributes='Recorded("external-form")'>
+        <Form @ref="forms[4]" OnFormSubmit='args => Submitted("external-form", args)'>
+            <FieldRoot Name="group">
+                <CheckboxGroup DefaultValue="s_none">
+                    <FixturePortal @ref="portals[4]" Container="@("#ckg-external-form")">
+                        <CheckboxRoot @ref="boxes[6]" data-checkbox Value="external" Required="true" />
+                    </FixturePortal>
+                </CheckboxGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <form id="ckg-external-form"></form>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> s_none = [];
+    private static readonly IReadOnlyList<string> s_apple = ["apple"];
+    private static readonly IReadOnlyList<string> s_appleBanana = ["apple", "banana"];
+
+    private readonly Form?[] forms = new Form?[5];
+    private readonly FixturePortal?[] portals = new FixturePortal?[5];
+    private readonly CheckboxRoot?[] boxes = new CheckboxRoot?[7];
+    private readonly Dictionary<string, (int Submits, string Submitted)> records = [];
+    private bool attached;
+    private int sync;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await Task.WhenAll([.. forms.Select(form => form!.TwinAttached), .. portals.Select(portal => portal!.TwinAttached), .. boxes.Select(box => box!.TwinAttached)]);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private static string Format(object? value) => value is IReadOnlyList<string> list ? string.Join(',', list) : value?.ToString() ?? string.Empty;
+
+    private Dictionary<string, object> Recorded(string name)
+    {
+        (int submits, string submitted) = records.GetValueOrDefault(name, (0, string.Empty));
+        return new() { ["data-submits"] = submits, ["data-submitted"] = submitted };
+    }
+
+    private void Submitted(string name, FormSubmitEventArgs args)
+    {
+        int submits = (records.TryGetValue(name, out (int Submits, string Submitted) record) ? record.Submits : 0) + 1;
+        records[name] = (submits, string.Join(';', args.Values.Select(pair => $"{pair.Key}={Format(pair.Value)}")));
+    }
+}
