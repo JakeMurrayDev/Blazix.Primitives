@@ -3,9 +3,9 @@ using Bunit;
 namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
-/// ADR 16 rule 7 for the positioner's behaviour: a re-render of <see cref="TestPositioner"/> with unchanged inputs,
+/// ADR 16 rule 7 for the positioner's behavior: a re-render of <see cref="TestPositioner"/> with unchanged inputs,
 /// measured around bUnit's synchronous render on the test thread, as the composite root's budget is. It includes Blazor's
-/// own per-render cost, the inputs record the part builds per parameter set and the behaviour's comparison of its options,
+/// own per-render cost, the inputs record the part builds per parameter set and the behavior's comparison of its options,
 /// which sends nothing. The budget was taken from the first measurement and only tightens afterwards.
 /// </summary>
 public sealed class PositionerAllocationBudgetTests : IDisposable

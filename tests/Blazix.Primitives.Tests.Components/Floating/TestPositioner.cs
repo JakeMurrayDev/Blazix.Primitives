@@ -11,7 +11,7 @@ public sealed partial record TestPositionerState(bool Open, Side Side, Align Ali
 /// <summary>
 /// A test-only positioner (the <see cref="TestCompositeRoot"/> precedent; ADR 12 Amendments 2026-10-27 item 1): a
 /// <c>div</c> that composes <see cref="PositionerBehavior"/> as a family's Positioner part will (Popover, Tooltip and
-/// PreviewCard in M4 tracks 5 to 7), with every input of the behaviour as a parameter. It renders <c>data-open</c> while
+/// PreviewCard in M4 tracks 5 to 7), with every input of the behavior as a parameter. It renders <c>data-open</c> while
 /// open, which the module reads as the open input, and cascades the positioner's context to its content.
 /// </summary>
 internal sealed class TestPositioner : PartBase<TestPositionerState>
