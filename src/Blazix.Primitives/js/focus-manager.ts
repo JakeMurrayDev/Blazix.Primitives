@@ -586,8 +586,9 @@ export function enqueueFocus(el: FocusableElement | null | undefined, options: E
 }
 
 /**
- * Drops the module's page-global state: every outside-marking lock's bookkeeping and the queued focus. For tests only, like `resetFrameScheduler`: the state is shared by every handle on the page, so a lock
- * or a pending focus one test left behind would otherwise reach the next.
+ * Drops the module's page-global state: every outside-marking lock's bookkeeping and the queued focus. For tests only,
+ * like `resetFrameScheduler`: the state is shared by every handle on the page, so a lock or a pending focus one test
+ * left behind would otherwise reach the next.
  */
 export function resetFocusManagerState(): void {
   resetOutsideMarking();
