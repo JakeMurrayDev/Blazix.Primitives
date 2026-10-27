@@ -30,8 +30,9 @@ public static class ToolbarRootDataAttributes
 //   DirectionProvider only (TLB-EDGE-06).
 // - It is the composite root of every item in its subtree, buttons, links, inputs and the toggles of a toggle group, in
 //   document order (TLB-STR-01; CompositeRootBehavior, TLB §11): the two-valued Orientation, LoopFocus, Home and End off
-//   (TLB-KEY-04, §16 Q2, chosen by the user 2026-10-26), a handled key stopped, no modifier keys, no highlight mirror. The
-//   items' tabindex is the `composite` module's from attach (ADR 04 Amendments 2026-10-22).
+//   (TLB-KEY-04, §16 Q2, chosen by the user 2026-10-26), a handled key stopped, no modifier keys, no highlight mirror, and
+//   the disabled indices derived from the items' flags (M3 track 1's E3; TLB-STA-02). The items' tabindex is the
+//   `composite` module's from attach (ADR 04 Amendments 2026-10-22).
 // - It cascades ToolbarRootContext (design point 14.4 (a), pending the user), then the composite registry, both fixed.
 // - The consumer's onkeydown is declined and run by the root at `navigate`, under option (i) (TLB-API-05; ADR 04
 //   Amendments 2026-10-22, chosen by the user 2026-10-23). Base UI's root onFocus only selects a native text input's value
@@ -125,10 +126,13 @@ public sealed class ToolbarRoot : PartBase<ToolbarRootState>
     {
         base.OnInitialized();
 
-        // TLB-KEY-04: Home and End are not the toolbar's (enableHomeAndEndKeys is false, useCompositeRoot.ts:79).
+        // TLB-KEY-04: Home and End are not the toolbar's (enableHomeAndEndKeys is false, useCompositeRoot.ts:79). TLB-STA-02,
+        // M3 track 1's E3: the disabled indices are the items that are disabled and not focusable when disabled, derived in
+        // JavaScript from the flags each item registers.
         composite = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown)
         {
             EnableHomeAndEndKeys = false,
+            DeriveDisabledIndices = true,
         };
         context = new ToolbarRootContext(Disabled, Orientation);
     }

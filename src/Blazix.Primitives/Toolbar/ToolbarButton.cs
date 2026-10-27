@@ -162,7 +162,9 @@ public sealed class ToolbarButton : PartBase<ToolbarButtonState>
         behavior.Native = NativeButton;
         behavior.FocusableWhenDisabled = FocusableWhenDisabled;
         behavior.SetConsumerAttributes(AdditionalAttributes);
-        item!.SetRegistration(Id, AdditionalAttributes);
+        // TLB-STA-03, M3 track 1's E3: the flags are the effective disabled state and FocusableWhenDisabled; this
+        // registration is the element's when a substituted part registers it too (E4, the outer one wins).
+        item!.SetRegistration(Id, AdditionalAttributes, EffectiveDisabled, FocusableWhenDisabled);
 
         // TLB-API-10: a disabled button's key handlers are not invoked, so the root's key handling runs none either.
         item.SetConsumerAttributes(EffectiveDisabled ? null : AdditionalAttributes);
@@ -224,8 +226,10 @@ public sealed class ToolbarButton : PartBase<ToolbarButtonState>
         bool disabled = EffectiveDisabled;
         if (behavior!.Disabled != disabled)
         {
+            // TLB-STA-06: the new flags are sent after the render this change causes.
             behavior.Disabled = disabled;
-            item!.SetConsumerAttributes(disabled ? null : AdditionalAttributes);
+            item!.SetRegistration(Id, AdditionalAttributes, disabled, FocusableWhenDisabled);
+            item.SetConsumerAttributes(disabled ? null : AdditionalAttributes);
         }
 
         if (UpdateState())

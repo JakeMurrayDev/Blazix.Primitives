@@ -169,7 +169,8 @@ public sealed class ToolbarInput : PartBase<ToolbarInputState>
 
         behavior!.Disabled = EffectiveDisabled;
         behavior.FocusableWhenDisabled = FocusableWhenDisabled;
-        item!.SetRegistration(Id, AdditionalAttributes);
+        // TLB-STA-03, M3 track 1's E3: the flags are the effective disabled state and FocusableWhenDisabled.
+        item!.SetRegistration(Id, AdditionalAttributes, EffectiveDisabled, FocusableWhenDisabled);
         item.SetConsumerAttributes(AdditionalAttributes);
         UpdateState();
     }
@@ -220,7 +221,9 @@ public sealed class ToolbarInput : PartBase<ToolbarInputState>
     // A change of the toolbar's or the group's state: render only when this input's state changed.
     private void OnContextChanged()
     {
+        // TLB-STA-06: the new flags are sent after the render this change causes.
         behavior!.Disabled = EffectiveDisabled;
+        item!.SetRegistration(Id, AdditionalAttributes, EffectiveDisabled, FocusableWhenDisabled);
         if (UpdateState())
         {
             StateHasChanged();

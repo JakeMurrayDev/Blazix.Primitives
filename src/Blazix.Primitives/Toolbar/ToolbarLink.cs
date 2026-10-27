@@ -80,7 +80,8 @@ public sealed class ToolbarLink : PartBase<ToolbarLinkState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        item!.SetRegistration(Id, AdditionalAttributes);
+        // TLB-STA-03 (toolbar/link/ToolbarLink.tsx:8-12): a link is never disabled and holds a focusable item slot.
+        item!.SetRegistration(Id, AdditionalAttributes, disabled: false, focusableWhenDisabled: true);
         item.SetConsumerAttributes(AdditionalAttributes);
         UpdateState();
     }
