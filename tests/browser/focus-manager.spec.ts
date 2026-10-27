@@ -208,6 +208,21 @@ test.describe('focus manager', () => {
     await expect(popup).toBeFocused();
   });
 
+  // The attach-order rule (the standing rule of CI run 40461905812; design point 1's composite clause): every composite
+  // item renders tabindex="-1" until js/composite.js attaches, so with that module held back initial focus first finds
+  // the button after the group and moves onto the group's tab stop once the composite writes it.
+  test("port: initial focus lands on the composite group's tab stop when js/composite.js attaches last", async ({ page, mode }) => {
+    await page.route('**/js/composite.js', (route) => {
+      setTimeout(() => void route.continue(), 1000);
+    });
+    const fixture = await gotoFocusManager(page, mode, 'focus-manager-composite');
+    await fixture.locator('[data-reference]').click();
+    const first = fixture.locator('[data-item="1"]');
+
+    await expect(first).toHaveAttribute('tabindex', '0', { timeout: 10_000 });
+    await expect(first).toBeFocused();
+  });
+
   // ADR 04 Amendments 2026-10-27 (the focus manager's open input): an attached popup's marking and trap land with the
   // batch that opens or closes it, before paint, on both modes; on Server under a 150 ms one-way delay.
   test.describe('the open input under latency', () => {
