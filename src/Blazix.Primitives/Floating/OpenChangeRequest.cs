@@ -11,7 +11,7 @@ namespace Blazix.Primitives;
 /// state in the same render as its open state.
 /// </param>
 /// <param name="InteractionType">
-/// For a press, how it happened: <c>mouse</c>, <c>touch</c>, <c>pen</c>, <c>keyboard</c> or the empty string; otherwise
-/// <see langword="null"/>.
+/// For a press, how it happened (<see cref="Blazix.Primitives.InteractionType.Unknown"/> for the empty literal), which the
+/// store records with <c>SetOpenInteractionType</c>; otherwise <see langword="null"/>.
 /// </param>
-internal readonly record struct OpenChangeRequest(bool Open, OpenChangeEventDetails Details, bool Instant, string? InteractionType);
+internal readonly record struct OpenChangeRequest(bool Open, OpenChangeEventDetails Details, bool Instant, InteractionType? InteractionType);

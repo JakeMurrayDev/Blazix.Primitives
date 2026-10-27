@@ -6,8 +6,8 @@ namespace Blazix.Primitives;
 
 // ADR 04 Amendments 2026-10-27 (decision 3: the token form of attach and the per-popup session; the verdict Prevent at
 // escape; chosen by the user 2026-10-27); design point 8 of M4 track 3 (Floating/, settled by the orchestrator
-// 2026-10-27; the CompositeRootBehavior precedent). A popup root renders no element: it draws a session token, never
-// renders it, cascades it to its parts, and attaches the session handle by token. The Escape chain (FLT-KEY-01,
+// 2026-10-27; the CompositeRootBehavior precedent). A popup root renders no element: it joins its popup store's session
+// token (or draws one), never renders it, cascades it to its parts, and attaches the session handle by token. The Escape chain (FLT-KEY-01,
 // FLT-EVT-05; ADR 01 relaxation row "EVD-EVT-11, EVD-DIS-01, FLT-KEY-01"): on WebAssembly the module asks `escape` inside
 // the keydown and the decider runs the store's request synchronously, mapping IsCanceled and IsPropagationAllowed to
 // the four verdicts; on Server the module applies the fallback to the innermost popup and reports the close.
@@ -28,7 +28,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     private int answered;
     private bool disposed;
 
-    /// <summary>Initializes a new instance of the <see cref="InteractionsSessionBehavior"/> class.</summary>
+    /// <summary>Initializes a new instance of the <see cref="InteractionsSessionBehavior"/> class with a token it draws.</summary>
     /// <param name="jsRuntime">The runtime the twin imports its module through.</param>
     /// <param name="idGenerator">The source of the session token.</param>
     /// <param name="requestOpenChange">Runs the popup store's open-change sequence for a request.</param>
@@ -38,10 +38,26 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         PartIdGenerator idGenerator,
         Func<OpenChangeRequest, Task> requestOpenChange,
         Func<Exception, Task> dispatchException)
+        : this(jsRuntime, idGenerator.Next(), requestOpenChange, dispatchException)
+    {
+    }
+
+    // PSH-STR-01; ADR 04 Amendments 2026-10-27: a popup family's root joins the token its popup store drew, so every
+    // module of the popup (interactions, focus-manager) looks up one session.
+    /// <summary>Initializes a new instance of the <see cref="InteractionsSessionBehavior"/> class with a given token.</summary>
+    /// <param name="jsRuntime">The runtime the twin imports its module through.</param>
+    /// <param name="token">The session token, such as the popup store's <c>SessionToken</c>.</param>
+    /// <param name="requestOpenChange">Runs the popup store's open-change sequence for a request.</param>
+    /// <param name="dispatchException">Routes an exception of a request that ran in a decision to the part.</param>
+    public InteractionsSessionBehavior(
+        IJSRuntime jsRuntime,
+        string token,
+        Func<OpenChangeRequest, Task> requestOpenChange,
+        Func<Exception, Task> dispatchException)
     {
         this.requestOpenChange = requestOpenChange;
         this.dispatchException = dispatchException;
-        Token = idGenerator.Next();
+        Token = token;
         InteractionsTwin twin = new(jsRuntime);
         twin.RequestReported += OnRequest;
         twin.EscapeDecider = DecideEscape;
@@ -75,6 +91,10 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     /// <summary>Gets or sets the dismissal configuration.</summary>
     /// <value>The configuration, or <see langword="null"/> when nothing dismisses the popup.</value>
     public InteractionsDismissOptions? Dismiss { get; set; }
+
+    /// <summary>Gets or sets the last open change the popup committed.</summary>
+    /// <value>The popup store's relay, or <see langword="null"/> before the popup has committed a change.</value>
+    public OpenChangeRelay? Relay { get; set; }
 
     /// <summary>Gets the number of option records sent to the module since the attach, the attach's included.</summary>
     /// <value>The count, which an unchanged render does not move.</value>
@@ -119,11 +139,13 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         && string.Equals(session.ParentToken, ParentToken, StringComparison.Ordinal)
         && string.Equals(session.FloatingId, FloatingId, StringComparison.Ordinal)
         && session.Answered == answered
-        && Equals(session.Dismiss, Dismiss);
+        && Equals(session.Dismiss, Dismiss)
+        && Equals(sent.Relay, Relay);
 
     private InteractionsOptions BuildOptions() => new()
     {
         SessionToken = Token,
+        Relay = Relay,
         Session = new InteractionsSessionOptions
         {
             Open = Open,
@@ -202,14 +224,14 @@ internal static class InteractionsRequests
     /// <param name="open">The open state the press computed.</param>
     /// <param name="reason">The reason's literal.</param>
     /// <param name="triggerId">The pressed trigger's id.</param>
-    /// <param name="interactionType">How the press happened.</param>
+    /// <param name="interactionType">How the press happened, as its literal.</param>
     /// <param name="snapshot">The click's snapshot.</param>
-    /// <returns>The request.</returns>
+    /// <returns>The request, with the interaction type mapped.</returns>
     public static OpenChangeRequest FromPress(bool open, string reason, string? triggerId, string interactionType, EventSnapshot snapshot) => new(
         open,
         new OpenChangeEventDetails(InteractionsLiterals.ParseReason(reason), snapshot, Trigger(triggerId)),
         false,
-        interactionType);
+        InteractionTypeLiterals.FromLiteral(interactionType));
 
     private static EventTrigger? Trigger(string? id) => id is null ? null : new EventTrigger(id, null);
 }

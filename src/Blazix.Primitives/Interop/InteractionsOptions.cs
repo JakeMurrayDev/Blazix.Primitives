@@ -7,7 +7,7 @@ namespace Blazix.Primitives.Interop;
 // 2026-10-27). FLT §6.3-§6.9 name the options; design point 6 of M4 track 3 (the naming table, accepted by the
 // orchestrator 2026-10-27) maps them. One record per twin with one sub-record per attaching role (the FormOptions
 // precedent; design point 2, settled by the orchestrator 2026-10-27). Every option is sent only when set; a role's hook sub-record left null turns that hook off. Records compare by
-// value, so an unchanged render sends nothing (ADR 16 rule 7). The relay member arrives with track 1's record.
+// value, so an unchanged render sends nothing (ADR 16 rule 7). The relay is track 1's record (OpenChangeRelay, PR 126).
 /// <summary>
 /// The options of the <c>interactions</c> module, sent on <c>attach</c> and on every <c>update</c>. Exactly one role is set
 /// per handle: a popup root's session, a trigger, the floating element or a tooltip provider.
@@ -18,6 +18,13 @@ internal sealed record InteractionsOptions : TwinOptions
     /// <summary>Gets the token of the popup session the handle joins.</summary>
     /// <value>The token the popup root drew and cascades; it is never rendered. <see langword="null"/> for a provider.</value>
     public string? SessionToken { get; init; }
+
+    /// <summary>Gets the last open change the popup committed, which the session handle relays as <c>openchange</c>.</summary>
+    /// <value>
+    /// The popup store's relay, with a close committed before it in the same batch; <see langword="null"/> for another
+    /// role, or before the popup has committed a change.
+    /// </value>
+    public OpenChangeRelay? Relay { get; init; }
 
     /// <summary>Gets the options of a popup root's session handle, which has no element.</summary>
     /// <value>The session options, or <see langword="null"/> for another role.</value>

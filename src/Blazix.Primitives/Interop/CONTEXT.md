@@ -67,7 +67,7 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
 
   | C# | JSON | Base UI |
   |---|---|---|
-  | `InteractionsOptions.SessionToken`, `.Relay` (track 1's `OpenChangeRelay`, joined once on `main`), `.Session`, `.Trigger`, `.Floating`, `.Provider` | `sessionToken`, `relay`, `session`, `trigger`, `floating`, `provider` | one role per handle |
+  | `InteractionsOptions.SessionToken`, `.Relay` (track 1's `OpenChangeRelay`, set by the session behaviour from the store), `.Session`, `.Trigger`, `.Floating`, `.Provider` | `sessionToken`, `relay`, `session`, `trigger`, `floating`, `provider` | one role per handle |
   | `InteractionsSessionOptions.Open`, `.ActiveTriggerId`, `.ParentToken`, `.FloatingId`, `.Ending`, `.Answered` | camelCase | the root store's state (`transitionStatus === 'ending'`); `Answered` re-arms the session after any answered request (design point 10) |
   | `OpenChangeRelay.CoalescedCloseRevision`, `.CoalescedCloseReason` (track 1's members) | `coalescedCloseRevision`, `coalescedCloseReason` | a close committed before the relayed open in one batch, replayed first (design point 11) |
   | `InteractionsSessionOptions.Dismiss`: `EscapeKey`, `OutsidePress`, `OutsidePressEvent` (`InteractionsPressEvents(Mouse, Touch)`), `BubblesEscapeKey`, `BubblesOutsidePress`, `PrimaryButtonOnly`, `SingleTouch`, `OwnBackdropIds`, `Topmost` | camelCase; `outsidePressEvent: { mouse, touch }` | `useDismiss` and Dialog's predicates |

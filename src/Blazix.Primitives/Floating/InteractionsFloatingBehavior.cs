@@ -6,7 +6,9 @@ namespace Blazix.Primitives;
 
 // Design points 2 and 8 of M4 track 3 (the floating role; Floating/; both settled by the orchestrator 2026-10-27): the floating element (a Positioner, or Dialog's Popup) carries the inside-press marks, the floating keydown
 // and the hover leave (FLT-DIS-04/12, FLT-KEY-01, FLT-PTR-23/24), and publishes the tree node's context (FLT-STR-08). The
-// Positioner carries a second handle (positioning's), so the attach order of the two is pinned by an L4 title.
+// Positioner carries a second handle (positioning's), so the attach order of the two is pinned by an L4 title. Inside a
+// portal the first attach awaits the portal's move (PopupPortalContext.WhenMoved; design point 3 of M4 track 1, settled by
+// the orchestrator 2026-10-27).
 /// <summary>The floating element's handle on the <c>interactions</c> module: its tree node, its hover close and its requests.</summary>
 internal sealed class InteractionsFloatingBehavior : IAsyncDisposable
 {
@@ -31,6 +33,12 @@ internal sealed class InteractionsFloatingBehavior : IAsyncDisposable
     /// <summary>Gets or sets the session token of the popup.</summary>
     /// <value>The token the popup root cascades.</value>
     public string? SessionToken { get; set; }
+
+    /// <summary>Gets or sets the context of the portal the floating element renders in.</summary>
+    /// <value>
+    /// The enclosing portal's context, whose move the first attach awaits; <see langword="null"/> outside any portal.
+    /// </value>
+    public PopupPortalContext? PortalContext { get; set; }
 
     /// <summary>Gets or sets the floating element's options.</summary>
     /// <value>The options the part builds each render; compared by value, so an equal record sends nothing.</value>
@@ -69,7 +77,7 @@ internal sealed class InteractionsFloatingBehavior : IAsyncDisposable
             return attachment.DetachAsync();
         }
 
-        return attachment.SyncAsync(new InteractionsTarget(element, element is null ? id : null, null), Unchanged, BuildOptions);
+        return attachment.SyncAsync(new InteractionsTarget(element, element is null ? id : null, null), Unchanged, BuildOptions, PopupPortalContext.WhenMoved(PortalContext));
     }
 
     private bool Unchanged(InteractionsOptions sent) =>

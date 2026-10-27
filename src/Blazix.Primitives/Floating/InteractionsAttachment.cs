@@ -57,8 +57,11 @@ internal sealed class InteractionsAttachment : IAsyncDisposable
     /// <param name="target">Where to attach: an element, an element id or a token.</param>
     /// <param name="unchanged">Compares the part's inputs with the options last sent, before any record is built.</param>
     /// <param name="build">Builds the options from the part's inputs.</param>
+    /// <param name="ready">
+    /// A task the first attach awaits, such as an enclosing portal's move; <see langword="null"/> to attach at once.
+    /// </param>
     /// <returns>A task that completes when the module has the options.</returns>
-    public async Task SyncAsync(InteractionsTarget target, Func<InteractionsOptions, bool> unchanged, Func<InteractionsOptions> build)
+    public async Task SyncAsync(InteractionsTarget target, Func<InteractionsOptions, bool> unchanged, Func<InteractionsOptions> build, Task? ready = null)
     {
         if (disposed || attaching)
         {
@@ -67,10 +70,22 @@ internal sealed class InteractionsAttachment : IAsyncDisposable
 
         if (handle is null)
         {
-            InteractionsOptions options = build();
             attaching = true;
+            InteractionsOptions options;
             try
             {
+                // Design point 3 of M4 track 1 (settled by the orchestrator 2026-10-27): a portaled part attaches once the
+                // portal has moved its node; the options are built after the wait, so they are the latest render's.
+                if (ready is { IsCompleted: false })
+                {
+                    await ready;
+                    if (disposed)
+                    {
+                        return;
+                    }
+                }
+
+                options = build();
                 handle = target switch
                 {
                     { Element: { } element } => await Twin.AttachAsync(element, options),
