@@ -1,0 +1,51 @@
+@namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PortalFixtures
+@using Blazix.Primitives.Fixtures.Client.RadioFixtures
+@inherits RadioFixtureBase
+
+@*
+    The `radio-group-portal` fixture (tests/browser/radio-group.spec.ts): RadioGroup.test.tsx's two portal titles
+    (RDG-STR-02's portal clause, RDG-FRM-04; left open to M4 on 2026-10-23, ADR 12 Amendments 2026-10-27 item 4), each one
+    Form whose radios FixturePortal moves into a container outside it, as ReactDOM.createPortal does. OnFormSubmit values
+    render as data-values on each case.
+*@
+<FixtureContainer Name="radio-group-portal" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-radio] { display: inline-block; width: 1rem; height: 1rem; border: 1px solid; }</style>
+
+    <div data-case="context" data-values="@values.GetValueOrDefault("context")">
+        <Form data-testid="form" OnFormSubmit="@(args => Record("context", args))">
+            <FieldRoot Name="choice">
+                <RadioGroup @ref="Group" TValue="string" DefaultValue="@("a")">
+                    <FixturePortal Container="@("#rdg-target-context")">
+                        <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                    </FixturePortal>
+                </RadioGroup>
+            </FieldRoot>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <div id="rdg-target-context" data-target></div>
+    </div>
+
+    <div data-case="fully-portaled" data-values="@values.GetValueOrDefault("fully-portaled")">
+        <Form OnFormSubmit="@(args => Record("fully-portaled", args))">
+            <FixturePortal Container="@("#rdg-target-full")">
+                <FieldRoot Name="choice">
+                    <RadioGroup @ref="Group" TValue="string" DefaultValue="@("a")">
+                        <RadioRoot @ref="Radio" Value="@("a")" data-radio data-value="a" />
+                        <RadioRoot @ref="Radio" Value="@("b")" data-radio data-value="b" />
+                    </RadioGroup>
+                </FieldRoot>
+            </FixturePortal>
+            <button type="submit" data-submit>Submit</button>
+        </Form>
+        <div id="rdg-target-full" data-target></div>
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, string> values = [];
+
+    private void Record(string name, FormSubmitEventArgs args) => values[name] = RadioFormValues.Text(args.Values);
+}

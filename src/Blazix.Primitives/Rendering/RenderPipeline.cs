@@ -57,7 +57,11 @@ internal static class RenderPipeline
     // has no capture of the part's, so its consumer captures take CaptureSequence. A capture after the children takes
     // TrailingCaptureSequence. Razor emits at most one capture per element or component, so a second one comes only from a
     // hand-written fragment; it repeats the literal, which is how the diff recognises a loop. What the part renders after
-    // its element sits in the region at AfterElementSequence, its own sequence space (ADR 02 Amendments 2026-10-22).
+    // its element sits in the region at AfterElementSequence, its own sequence space (ADR 02 Amendments 2026-10-22); what it
+    // renders before its element, in the region at BeforeElementSequence (ADR 02 Amendments 2026-10-27). Both regions are
+    // emitted on every render, empty or not, so the host keeps its position among its siblings from render to render. A
+    // part that opts into the host wrapper gets one element at HostWrapperSequence around the host's frames, between the
+    // two regions, with its attributes at HostWrapperAttributeSequence; the host keeps HostSequence inside it.
     private const int HostSequence = 0;
     private const int AttributeSequence = 1;
     private const int CaptureSequence = 2;
@@ -65,6 +69,9 @@ internal static class RenderPipeline
     private const int ChildrenSequence = 100;
     private const int TrailingCaptureSequence = 101;
     private const int AfterElementSequence = 102;
+    private const int BeforeElementSequence = 103;
+    private const int HostWrapperSequence = 104;
+    private const int HostWrapperAttributeSequence = 105;
     private const string DirectivePrefix = "__internal_";
     private const string PreventDefaultPrefix = "__internal_preventDefault_";
     private const string StopPropagationPrefix = "__internal_stopPropagation_";
@@ -82,7 +89,9 @@ internal static class RenderPipeline
     /// </exception>
     /// <remarks>
     /// When <see cref="RenderInputs{TState}.Enabled"/> is <see langword="false"/>, nothing is rendered and the host's
-    /// element is released. Otherwise the host's content after the element follows the element, in a region of its own.
+    /// element is released. Otherwise the host's content before the element precedes it and its content after the element
+    /// follows it, each in a region of its own; a host that opts into a wrapper gets one element around the host element
+    /// between them.
     /// </remarks>
     public static void Render<TState>(RenderTreeBuilder builder, PartRenderState state, IPartHost host, in RenderInputs<TState> inputs)
         where TState : class, IPartState<TState>
@@ -101,8 +110,33 @@ internal static class RenderPipeline
             return;
         }
 
+        // ADR 02 Amendments 2026-10-27: the part's siblings before the element, on every path.
+        builder.OpenRegion(BeforeElementSequence);
+        host.BuildBeforeElement(builder);
+        builder.CloseRegion();
+
+        // ADR 02 Amendments 2026-10-27 (the host wrapper, settled by the orchestrator 2026-10-27): outside the host's frames
+        // and inside the two regions, so the before and after content are the wrapper's siblings.
+        string? wrapperTag = host.HostWrapperTagName;
+        if (wrapperTag is not null)
+        {
+            builder.OpenElement(HostWrapperSequence, wrapperTag);
+            AttributeList wrapperAttributes = state.HostWrapperAttributes;
+            wrapperAttributes.Clear();
+            host.AddHostWrapperAttributes(wrapperAttributes);
+            foreach (AttributeEntry entry in wrapperAttributes)
+            {
+                entry.Value.EmitTo(builder, HostWrapperAttributeSequence, entry.Name);
+            }
+        }
+
         Pass<TState> pass = new(builder, state, host, inputs);
         pass.Run();
+
+        if (wrapperTag is not null)
+        {
+            builder.CloseElement();
+        }
 
         // ADR 02 Amendments 2026-10-22 item 2: the part's siblings, after the element on every path.
         builder.OpenRegion(AfterElementSequence);

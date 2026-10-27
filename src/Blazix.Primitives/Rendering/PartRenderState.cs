@@ -9,6 +9,10 @@ namespace Blazix.Primitives.Rendering;
 /// </summary>
 internal interface IPartHost : IHandleEvent
 {
+    /// <summary>Gets the tag of the element the pipeline wraps around the host element.</summary>
+    /// <value>The wrapper's tag name, or <see langword="null"/> for no wrapper.</value>
+    string? HostWrapperTagName { get; }
+
     /// <summary>Stores the rendered element.</summary>
     /// <param name="element">The rendered element, or <see langword="null"/> when there is none.</param>
     void SetElement(ElementReference? element);
@@ -25,6 +29,14 @@ internal interface IPartHost : IHandleEvent
     /// <summary>Renders the content that follows the host element, inside the pipeline's region.</summary>
     /// <param name="builder">The render tree builder of the owning component.</param>
     void BuildAfterElement(RenderTreeBuilder builder);
+
+    /// <summary>Renders the content that precedes the host element, inside the pipeline's region.</summary>
+    /// <param name="builder">The render tree builder of the owning component.</param>
+    void BuildBeforeElement(RenderTreeBuilder builder);
+
+    /// <summary>Adds the attributes of the element the pipeline wraps around the host element.</summary>
+    /// <param name="attributes">The cleared list to add to.</param>
+    void AddHostWrapperAttributes(AttributeList attributes);
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3
@@ -39,6 +51,7 @@ internal sealed class PartRenderState : IDisposable
 {
     private readonly IPartHost host;
     private RenderTreeBuilder? scratch;
+    private AttributeList? hostWrapperAttributes;
 
     public ClassMemo ClassMemo;
 
@@ -53,6 +66,9 @@ internal sealed class PartRenderState : IDisposable
     public AttributeList PartAttributes { get; } = new();
 
     public AttributeList Merged { get; } = new();
+
+    // ADR 02 Amendments 2026-10-27: created on the first render of a part that opts into the host wrapper, then reused.
+    public AttributeList HostWrapperAttributes => hostWrapperAttributes ??= new();
 
     public List<HandlerSlot> Slots { get; } = [];
 

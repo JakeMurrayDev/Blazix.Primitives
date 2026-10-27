@@ -28,7 +28,10 @@ public sealed class TabsAllocationBudgetTests : IDisposable
     // render, and Expression.Property copies the host's array of properties, 8 bytes each, and TabsRoot gained two, the
     // injected IJSRuntime and PartIdGenerator of its list of panels (CompositeAllocationBudgetTests, 4032 to 4056, is the
     // precedent).
-    private const long RerenderBudgetBytes = 2608;
+    // 2616 on 2026-10-27 (M4 track 1, the host wrapper of ADR 02 Amendments 2026-10-27): the same harness share again.
+    // `PartBase` gained the protected `HostWrapperTagName`, 8 bytes in Expression.Property's copy; the library's share is
+    // unchanged (CompositeAllocationBudgetTests' note of the same day has the probe).
+    private const long RerenderBudgetBytes = 2616;
     private const long ActivationBudgetBytes = 48184;
 
     private readonly TabsTestContext test = new();

@@ -1,0 +1,3 @@
+@* A Trigger inside a generic Root, without a Payload: only the cascaded type parameter could pick the generic one. *@
+<PopRoot Handle="@handle"><PopTrigger>open</PopTrigger></PopRoot>
+@code { private readonly PopHandle<int> handle = new(); }

@@ -1,0 +1,6 @@
+@* Two generic Roots nested, both with RenderFragment<TPayload?> child content and no Context. *@
+<PopRoot Handle="@outer"><PopRoot Handle="@inner"><span>nested</span></PopRoot></PopRoot>
+@code {
+    private readonly PopHandle<int> outer = new();
+    private readonly PopHandle<string> inner = new();
+}

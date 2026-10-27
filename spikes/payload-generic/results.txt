@@ -1,0 +1,12 @@
+== Rendered cases (which component each tag resolved to, and what it received)
+G2b  <root kind="generic&lt;String&gt;"><span>plain</span></root>
+H1   <root kind="generic&lt;Int32&gt;"><span>plain markup, no Context</span></root>
+H2   <root kind="generic&lt;Int32&gt;"><trigger kind="generic&lt;Int32&gt;" payload="0">open</trigger></root>
+H3   <root kind="generic&lt;Int32&gt;"><trigger kind="generic&lt;Int32&gt;" payload="7">open</trigger><trigger kind="generic&lt;Int32&gt;" payload="8">open</trigger></root>
+H4   <root kind="generic&lt;NoPayload&gt;"><trigger kind="generic&lt;NoPayload&gt;" payload="null">open</trigger></root>
+H5   <root kind="generic&lt;Int32&gt;"><span>42</span></root>
+H7   <trigger kind="generic&lt;Int32&gt;" payload="3">open</trigger>
+P2   <root kind="non-generic"></root>
+P3   <root kind="non-generic">text</root>
+T1   <root kind="generic&lt;Int32&gt;"><root kind="generic&lt;String&gt;"><span>nested</span></root><b>5</b></root>
+T2   <root kind="generic&lt;NoPayload&gt;"><span>plain</span></root>

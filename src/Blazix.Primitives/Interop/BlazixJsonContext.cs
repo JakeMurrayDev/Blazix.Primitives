@@ -9,6 +9,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(EventSnapshot))]
+[JsonSerializable(typeof(OpenChangeRelay))]
 [JsonSerializable(typeof(ButtonOptions))]
 [JsonSerializable(typeof(ButtonInteraction))]
 [JsonSerializable(typeof(ButtonHoldEvent))]
@@ -38,6 +39,8 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]
+[JsonSerializable(typeof(ScrollLockOptions))]
+[JsonSerializable(typeof(PortalOptions))]
 [JsonSerializable(typeof(TabsIndicatorMeasurement))]
 [JsonSerializable(typeof(PositioningOptions))]
 [JsonSerializable(typeof(PositioningPlacement))]
