@@ -172,6 +172,10 @@ public sealed class FocusManagerBehaviorTests : IDisposable
     {
         IRenderedComponent<TestFocusManaged> managed = await RenderAttachedAsync();
 
+        // A render whose parameters changed nothing sends nothing.
+        managed.Render();
+        Assert.Empty(handle.Invocations["update"]);
+
         await managed.InvokeAsync(() => managed.Instance.Behavior.SetInputs(managed.Instance.Inputs() with { Disabled = true }));
 
         // No render ran: the update left from the parameter set itself.
@@ -179,7 +183,6 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         Assert.Contains("\"disabled\":true", (string)update.Arguments[0]!, StringComparison.Ordinal);
 
         await managed.InvokeAsync(() => managed.Instance.Behavior.SetInputs(managed.Instance.Inputs() with { Disabled = true }));
-        managed.Render();
 
         Assert.Single(handle.Invocations["update"]);
     }
@@ -221,8 +224,9 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         string fallback = (string)updates[1].Arguments[0]!;
         Assert.Contains("\"initialFocus\":false,", fallback, StringComparison.Ordinal);
         Assert.Contains("\"returnFocus\":true,", fallback, StringComparison.Ordinal);
-        Assert.DoesNotContain("Element\":", fallback, StringComparison.Ordinal);
-        Assert.Null(updates[1].Arguments[1]);
+        Assert.DoesNotContain("\"initialFocusElement\"", fallback, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"returnFocusElement\"", fallback, StringComparison.Ordinal);
+        Assert.Single(updates[1].Arguments);
     }
 
     [Fact(DisplayName = "port: a focus-out close request is routed to the popup, and the answered count rises whether or not it closed")]
