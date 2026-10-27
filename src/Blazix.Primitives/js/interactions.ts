@@ -18,6 +18,7 @@
 // useClientPoint.ts, useHoverReferenceInteraction.ts, useHoverFloatingInteraction.ts, useHoverShared.ts,
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
 import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
+import { decide } from './decide';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
@@ -993,9 +994,215 @@ function createFrameRequest(): FrameRequest {
   };
 }
 
-function createClickController(_context: HandleContext): Controller {
-  void createFrameRequest;
-  return { dispose() {} };
+// popover/store/PopoverStore.ts:161-167, internals/constants.ts:4 (PATIENT_CLICK_THRESHOLD).
+const PATIENT_CLICK_THRESHOLD = 500;
+
+/** How a click happened (Base UI's `InteractionType`); `''` when unknown. */
+export type PressInteractionType = 'mouse' | 'touch' | 'pen' | 'keyboard' | '';
+
+// Popover's patient-click window (FLT-API-06), per session: a hover open or close keeps `stickIfOpen` on for 500 ms, then
+// off; read at press time and never sent to C#. It starts when the relay brings the hover change, as the store applies it.
+interface PatientClickState {
+  stickIfOpen: boolean;
+  timer: Timer;
+  listening: number;
+  onOpenChange: (details: SessionOpenChangeDetails) => void;
+}
+
+function patientClickState(record: SessionRecord): PatientClickState {
+  return sessionSlot(record, 'click.patient', () => {
+    const state: PatientClickState = {
+      stickIfOpen: true,
+      timer: createTimer(),
+      listening: 0,
+      onOpenChange: (details) => {
+        if (details.reason === 'trigger-hover') {
+          state.stickIfOpen = true;
+          state.timer.start(PATIENT_CLICK_THRESHOLD, () => {
+            state.stickIfOpen = false;
+          });
+        }
+      },
+    };
+    return state;
+  });
+}
+
+/**
+ * useClick on a trigger (useClick.ts) with the decision point `press`: the trigger computes the next open value from the
+ * relayed state (FLT-ALG-16) and asks `press` on its own twin, fallback `run`. On WebAssembly it first hands the press
+ * over (`OnPressing`) and C# runs the consumer's declined `onclick` and the request inside the dispatch; on Server it
+ * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later.
+ */
+function createClickController(context: HandleContext): Controller {
+  const { record, channel, twinReference } = context;
+  const element = context.element as HTMLElement;
+  const frame = createFrameRequest();
+  const touchOpenTimeout = createTimer();
+  let pointerType: 'mouse' | 'pen' | 'touch' | 'virtual' | string | undefined;
+  // The enhanced click handler's last pointerdown type (PSH-ALG-19), kept apart from useClick's own record.
+  let lastPressPointerType: PressInteractionType = '';
+  let cleanup: Cleanup | null = null;
+  let patient: PatientClickState | null = null;
+
+  const clickOptions = (): ClickOptions | null => context.options.trigger?.click ?? null;
+
+  // PSH-ALG-19 (utils/useEnhancedClickHandler.ts, utils/useOpenInteractionType.ts:18-27): a click without a click count
+  // is the keyboard's, else the click's pointer type, else the last pointerdown's; iOS's empty type is touch.
+  const classify = (event: MouseEvent): PressInteractionType => {
+    let type: PressInteractionType;
+    if (event.detail === 0) {
+      type = 'keyboard';
+    } else if ('pointerType' in event && typeof (event as PointerEvent).pointerType === 'string') {
+      type = (event as PointerEvent).pointerType as PressInteractionType;
+    } else {
+      type = lastPressPointerType;
+    }
+    return type || (platform.os.ios ? 'touch' : '');
+  };
+
+  const press = (nextOpen: boolean, event: MouseEvent, target: HTMLElement) => {
+    const options = clickOptions();
+    const reason = options?.reason ?? 'trigger-press';
+    const payload = { open: nextOpen, reason, triggerId: triggerIdOf(record, target === element ? element : target), interactionType: classify(event) };
+    record.pending = { open: nextOpen, reason, event };
+    if (channel.synchronous) {
+      twinReference.invokeMethod<void>('OnPressing', JSON.stringify(payload));
+      decide(channel, PRESS_POINT, event, 'run');
+      return;
+    }
+    decide(channel, PRESS_POINT, event, 'run');
+    channel.report('OnPress', { ...payload, event: eventInfo(event) });
+  };
+
+  // FLT-PTR-04: a touch open waits `touchOpenDelay`; a close never waits.
+  const setOpenWithTouchDelay = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, type: string | undefined) => {
+    const touchOpenDelay = clickOptions()?.touchOpenDelay ?? 0;
+    if (nextOpen && type === 'touch' && touchOpenDelay > 0) {
+      touchOpenTimeout.start(touchOpenDelay, () => press(true, event, target));
+    } else {
+      press(nextOpen, event, target);
+    }
+  };
+
+  // FLT-ALG-16: the next open value.
+  const getNextOpen = (open: boolean, currentTarget: EventTarget | null, isClickLikeOpenEvent: (type: string | undefined) => boolean) => {
+    const options = clickOptions();
+    const openEvent = record.dataRef.current.openEvent;
+    const hasClickedOnInactiveTrigger = record.domReferenceElement !== currentTarget;
+    if (open && hasClickedOnInactiveTrigger) {
+      return true;
+    }
+    if (!open) {
+      return true;
+    }
+    if (options?.toggle === false) {
+      return true;
+    }
+    const stickIfOpen = options?.patientClick ? (patient?.stickIfOpen ?? true) : options?.stickIfOpen !== false;
+    if (openEvent && stickIfOpen) {
+      return !isClickLikeOpenEvent(openEvent.type);
+    }
+    return false;
+  };
+
+  const onPointerDown = (event: PointerEvent) => {
+    pointerType = isMouseLikePointerType(event.pointerType, true) && isVirtualPointerEvent(event) ? 'virtual' : event.pointerType;
+    if (!event.defaultPrevented) {
+      lastPressPointerType = event.pointerType as PressInteractionType;
+    }
+  };
+
+  // FLT-PTR-02: the mousedown paths (no M4 consumer; built and proven at L3).
+  const onMouseDown = (event: MouseEvent) => {
+    const options = clickOptions();
+    const eventOption = options?.event ?? 'click';
+    const type = pointerType;
+    if (event.button !== 0 || eventOption === 'click' || (isMouseLikePointerType(type, true) && options?.ignoreMouse)) {
+      return;
+    }
+    const nextOpen = getNextOpen(record.open, element, (openEventType) => openEventType === 'click' || openEventType === 'mousedown');
+    const target = getTarget(event);
+    const isTypeable = isTypeableElement(target);
+    if (isTypeable || type === 'virtual') {
+      setOpenWithTouchDelay(nextOpen, event, (isTypeable ? target : element) as HTMLElement, type);
+      return;
+    }
+    frame.request(() => setOpenWithTouchDelay(nextOpen, event, element, type));
+  };
+
+  // FLT-PTR-03.
+  const onClick = (event: MouseEvent) => {
+    const options = clickOptions();
+    const eventOption = options?.event ?? 'click';
+    if (eventOption === 'mousedown-only') {
+      return;
+    }
+    const type = pointerType;
+    if (eventOption === 'mousedown' && type) {
+      pointerType = undefined;
+      return;
+    }
+    if (isMouseLikePointerType(type, true) && options?.ignoreMouse) {
+      return;
+    }
+    const nextOpen = getNextOpen(
+      record.open,
+      element,
+      (openEventType) => openEventType === 'click' || openEventType === 'mousedown' || openEventType === 'keydown' || openEventType === 'keyup',
+    );
+    setOpenWithTouchDelay(nextOpen, event, element, type);
+    lastPressPointerType = '';
+  };
+
+  // FLT-KEY-08.
+  const onKeyDown = () => {
+    pointerType = undefined;
+  };
+
+  const install = () => {
+    if (cleanup !== null || clickOptions() === null) {
+      return;
+    }
+    patient = patientClickState(record);
+    if (patient.listening === 0) {
+      record.events.on('openchange', patient.onOpenChange);
+    }
+    patient.listening += 1;
+    const state = patient;
+    cleanup = mergeCleanups(
+      listen(element, 'pointerdown', onPointerDown),
+      listen(element, 'mousedown', onMouseDown),
+      listen(element, 'click', onClick),
+      listen(element, 'keydown', onKeyDown),
+      () => {
+        state.listening -= 1;
+        if (state.listening === 0) {
+          record.events.off('openchange', state.onOpenChange);
+          state.timer.clear();
+        }
+      },
+    );
+  };
+
+  const uninstall = () => {
+    cleanup?.();
+    cleanup = null;
+    frame.cancel();
+    touchOpenTimeout.clear();
+  };
+
+  install();
+  return {
+    update() {
+      if (clickOptions() === null) {
+        uninstall();
+      } else {
+        install();
+      }
+    },
+    dispose: uninstall,
+  };
 }
 
 // #endregion click
