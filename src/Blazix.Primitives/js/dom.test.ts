@@ -23,6 +23,7 @@ import {
   isScrollable,
   isScrollableX,
   isScrollableY,
+  isShadowRoot,
   markLiveRegion,
   normalizeScrollOffset,
   observeIntersection,
@@ -262,6 +263,24 @@ describe('shadow DOM utilities', () => {
 
       expect(document.activeElement).toBe(host);
       expect(activeElement(document)).toBe(inner);
+    });
+  });
+
+  describe('isShadowRoot', () => {
+    // Exported for the focus manager's tabbable search and outside marking (M4 track 4), which walk out of shadow roots.
+    it('recognizes a shadow root of this window and of another window, and nothing else', () => {
+      const host = document.createElement('div');
+      const root = host.attachShadow({ mode: 'open' });
+      const iframe = document.createElement('iframe');
+      document.body.appendChild(iframe);
+      const otherHost = iframe.contentDocument!.createElement('div');
+      const otherRoot = otherHost.attachShadow({ mode: 'open' });
+
+      expect(isShadowRoot(root)).toBe(true);
+      expect(isShadowRoot(otherRoot)).toBe(true);
+      expect(isShadowRoot(host)).toBe(false);
+      expect(isShadowRoot(document.createDocumentFragment())).toBe(false);
+      expect(isShadowRoot(null)).toBe(false);
     });
   });
 
