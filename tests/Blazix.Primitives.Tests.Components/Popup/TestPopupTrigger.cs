@@ -46,7 +46,19 @@ internal sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerStat
 
     protected override string DefaultTagName => "button";
 
-    protected override TestPopupTriggerState State => state;
+    // The pipeline reads the state before the part's attributes, so the record follows the store here.
+    protected override TestPopupTriggerState State
+    {
+        get
+        {
+            if (state.Open != behavior.IsOpenedByTrigger)
+            {
+                state = new TestPopupTriggerState(behavior.IsOpenedByTrigger);
+            }
+
+            return state;
+        }
+    }
 
     protected override StateAttributesMapping<TestPopupTriggerState>? StateAttributesMapping => s_mapping;
 
@@ -78,11 +90,6 @@ internal sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerStat
     protected override void AddPartAttributes(AttributeList attributes)
     {
         Renders++;
-        if (state.Open != behavior.IsOpenedByTrigger)
-        {
-            state = new TestPopupTriggerState(behavior.IsOpenedByTrigger);
-        }
-
         attributes.Set("onclick", onClick);
         behavior.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: "dialog");
     }

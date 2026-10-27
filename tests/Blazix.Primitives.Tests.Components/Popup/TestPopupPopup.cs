@@ -33,7 +33,19 @@ internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
 
     protected override string DefaultTagName => "div";
 
-    protected override TestPopupPopupState State => state;
+    // The pipeline reads the state before the part's attributes, so the record follows the store here.
+    protected override TestPopupPopupState State
+    {
+        get
+        {
+            if (state.Open != open!.Value)
+            {
+                state = new TestPopupPopupState(open.Value);
+            }
+
+            return state;
+        }
+    }
 
     protected override StateAttributesMapping<TestPopupPopupState>? StateAttributesMapping => s_mapping;
 
@@ -66,11 +78,6 @@ internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
     protected override void AddPartAttributes(AttributeList attributes)
     {
         Renders++;
-        if (state.Open != open!.Value)
-        {
-            state = new TestPopupPopupState(open.Value);
-        }
-
         if (!HasConsumerId)
         {
             attributes.Set("id", Store!.Popup.FloatingId);
