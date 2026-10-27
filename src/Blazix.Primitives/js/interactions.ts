@@ -543,6 +543,8 @@ interface SessionRecord extends InteractionSession {
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
   channel: TwinChannel | null;
   positionListeners: Set<() => void>;
+  /** The hook regions' private per-session state (`sessionSlot`). */
+  slots: Map<string, unknown>;
   treeEvents: SessionEvents;
   context: SessionFloatingContext;
 }
@@ -626,6 +628,7 @@ function createSessionRecord(token: string): SessionRecord {
     triggers,
     channel: null,
     positionListeners: new Set(),
+    slots: new Map(),
     treeEvents: createEventEmitter(),
     dataRef,
     events,
@@ -907,6 +910,19 @@ function requestOpenChange(
   });
 }
 
+/**
+ * A region's private state on a session, created on first use: each hook region keeps what Base UI keeps in its refs
+ * per root store here (never in a module-level map), under its own key.
+ */
+function sessionSlot<T>(record: SessionRecord, key: string, create: () => T): T {
+  let value = record.slots.get(key) as T | undefined;
+  if (value === undefined) {
+    value = create();
+    record.slots.set(key, value);
+  }
+  return value;
+}
+
 /** What a hook's controller reads: its session, its handle's element and channel, and the handle's current options. */
 interface HandleContext {
   readonly record: SessionRecord;
@@ -930,6 +946,7 @@ interface Controller {
 
 /** The session's half: the document listeners for Escape and outside presses. */
 function createSessionDismissController(_context: HandleContext): Controller {
+  void sessionSlot;
   return { dispose() {} };
 }
 

@@ -546,3 +546,15 @@ describe('useFocus', () => {
     expect(popup.activeTriggerId).toBe(other.id);
   });
 });
+
+// #region click tests
+// #endregion click tests
+
+// #region dismiss tests
+// #endregion dismiss tests
+
+// #region hover tests
+// #endregion hover tests
+
+// #region pointer tests (useClientPoint, the delay group, the hovered line)
+// #endregion pointer tests
