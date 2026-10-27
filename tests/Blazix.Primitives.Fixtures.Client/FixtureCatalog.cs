@@ -147,5 +147,6 @@ public static class FixtureCatalog
         ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
+        ["portal-basic"] = new(typeof(PortalBasicFixture)),
     };
 }
