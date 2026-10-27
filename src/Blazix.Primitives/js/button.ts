@@ -2,8 +2,9 @@
 // modifiers (UBT-ALG-01/02/05), pointer-type classification (UBT-ALG-06), disabled press suppression (UBT-PTR-01..03),
 // the focusable-when-disabled key suppression (UBT-KEY-20/21), the composite `disabled` property correction
 // (UBT-ALG-04), the native-mode development check (UBT-EDGE-01..03), the press-and-hold repeater (UBT-ALG-07), the
-// hidden-input bridge of Switch, Checkbox and Radio (UBT-EVT-09; ADR 12 Amendments 2026-10-22 item 4) and their Enter
-// suppression (UBT-KEY-06; ADR 04 Amendments 2026-10-18 item 4).
+// hidden-input bridge of Switch, Checkbox and Radio (UBT-EVT-09; ADR 12 Amendments 2026-10-22 item 4), their Enter
+// suppression (UBT-KEY-06; ADR 04 Amendments 2026-10-18 item 4) and the input item of Toolbar.Input (UBT-DOM-12; ADR 04
+// Amendments 2026-10-26, the `button` row).
 // Transcribed from Base UI v1.9.0: internals/use-button/useButton.ts, utils/useFocusableWhenDisabled.ts,
 // utils/dispatchClickWithModifiers.ts, internals/usePressAndHold.ts, packages/utils/src/useEnhancedClickHandler.ts,
 // packages/utils/src/isElementDisabled.ts. Requirements: docs/architecture/button-behavior.md (UBT).
@@ -62,6 +63,8 @@ export interface ButtonOptions extends TwinOptions {
   readOnly?: boolean | null;
   /** Whether an Enter keydown is prevented and never activates the element (Checkbox, Radio). */
   suppressEnter?: boolean | null;
+  /** Whether the element is a toolbar input: keys never activate it and its Space is typed (Toolbar.Input). */
+  inputItem?: boolean | null;
 }
 
 /** The name of the decision point a keyboard activation asks C# about. */
@@ -473,7 +476,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     if (disabled && focusableWhenDisabled === true && event.key !== 'Tab') {
       event.preventDefault();
     }
-    if (disabled || wasActivated(event)) {
+    // A toolbar input is never activated by a key, and a space is typed into it (Toolbar.Input applies only the
+    // focusable-when-disabled props, toolbar/input/ToolbarInput.tsx:40-45).
+    if (disabled || options.inputItem || wasActivated(event)) {
       return;
     }
 
@@ -523,8 +528,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   const onKeyUp = (event: KeyboardEvent) => {
-    const { disabled, native, composite } = options;
-    if (disabled) {
+    const { disabled, native, composite, inputItem } = options;
+    if (disabled || inputItem) {
       return;
     }
     const isCurrentTarget = event.target === element;
