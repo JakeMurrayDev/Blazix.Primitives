@@ -30,6 +30,8 @@ namespace Blazix.Primitives;
 // is declined too: the `activate` decision runs it on WebAssembly with a one-shot marker, and the part's own onclick
 // handler runs it otherwise (on Server after the toggle, the order of the ADR 01 row "EVD-EVT-26 against composite/button
 // key handling").
+// ToolbarInput turns InputItem on (UBT-DOM-12; design point 14.5 (a) of M3 track 4, pending the user): the module never
+// activates the input, and the part declines none of the consumer's handlers, which run after the module's prevention.
 // The attributes of UBT-ALG-03 are ButtonAttributeWriter's. Attach: by Element; by the generated id under a substitute
 // callback; by a late id drawn after the first render when a component root leaves no Element (ADR 02 decision 1).
 /// <summary>The button mechanism of one button-like part: its consumer handler gate, its attributes and its <see cref="ButtonTwin"/>.</summary>
@@ -115,6 +117,13 @@ internal sealed class ButtonBehavior : IDisposable
     /// <value><see langword="true"/> for Checkbox and Radio; the default is <see langword="false"/>.</value>
     public bool SuppressEnter { get; set; }
 
+    // UBT-DOM-12, TLB-API-14; design point 14.5 (a) of M3 track 4, pending the user.
+    /// <summary>Gets or sets a value indicating whether the element is a toolbar input, which no key activates and whose consumer handlers are never declined.</summary>
+    /// <value>
+    /// <see langword="true"/> for ToolbarInput, which renders its own attributes; the default is <see langword="false"/>.
+    /// </value>
+    public bool InputItem { get; set; }
+
     /// <summary>Gets or sets the part's request for a toggle of its hidden input.</summary>
     /// <value>
     /// A function that receives the input's new <c>checked</c> value, or <see langword="null"/> when the toggle is decided
@@ -195,11 +204,18 @@ internal sealed class ButtonBehavior : IDisposable
     /// <summary>Determines whether the consumer's handler for an event is rendered on the element.</summary>
     /// <param name="eventName">The event's attribute name in lowercase.</param>
     /// <returns>
-    /// <see langword="false"/> for the key handlers, for <c>onclick</c> with <see cref="HiddenInput"/>, and for the press
-    /// handlers while disabled.
+    /// <see langword="true"/> for every handler with <see cref="InputItem"/>; otherwise <see langword="false"/> for the key
+    /// handlers, for <c>onclick</c> with <see cref="HiddenInput"/>, and for the press handlers while disabled.
     /// </returns>
     public bool ForwardsConsumerHandler(string eventName)
     {
+        // Base UI merges a toolbar input's handlers after its own and runs them whatever the disabled state
+        // (toolbar/input/ToolbarInput.tsx:73); the module, whose listeners run first, has already prevented the default.
+        if (InputItem)
+        {
+            return true;
+        }
+
         return !(IsKeyDown(eventName) || IsKeyUp(eventName) || (HiddenInput && IsClick(eventName)) || (Disabled && IsGated(eventName)));
     }
 
@@ -347,6 +363,7 @@ internal sealed class ButtonBehavior : IDisposable
             HiddenInput = HiddenInput,
             ReadOnly = ReadOnly,
             SuppressEnter = SuppressEnter,
+            InputItem = InputItem,
         };
     }
 
@@ -354,7 +371,7 @@ internal sealed class ButtonBehavior : IDisposable
     private ButtonOptions? NextOptions(bool composite)
     {
         if (sentOptions is { } sent && sent.Disabled == Disabled && sent.FocusableWhenDisabled == FocusableWhenDisabled && sent.Native == Native && sent.Composite == composite
-            && sent.HiddenInput == HiddenInput && sent.ReadOnly == ReadOnly && sent.SuppressEnter == SuppressEnter)
+            && sent.HiddenInput == HiddenInput && sent.ReadOnly == ReadOnly && sent.SuppressEnter == SuppressEnter && sent.InputItem == InputItem)
         {
             return null;
         }
