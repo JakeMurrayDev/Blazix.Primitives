@@ -64,6 +64,15 @@ public sealed class ToolbarTestContext : IDisposable
     /// <inheritdoc />
     public void Dispose() => Context.Dispose();
 
+    /// <summary>
+    /// Waits until the composite module has been attached <paramref name="count"/> times: a toolbar with a substituted button
+    /// attaches after that button's handle, in a continuation that renders nothing a render-driven wait would see.
+    /// </summary>
+    public void WaitForCompositeAttaches(int count = 1)
+    {
+        Assert.True(SpinWait.SpinUntil(() => CompositeModule.Invocations["attach"].Count >= count, TimeSpan.FromSeconds(10)), $"the composite module was not attached {count} times");
+    }
+
     /// <summary>Gets the item ids an options JSON carries, in the order sent.</summary>
     public static string[] ItemIds(string optionsJson) =>
         [.. JsonDocument.Parse(optionsJson).RootElement.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()!)];

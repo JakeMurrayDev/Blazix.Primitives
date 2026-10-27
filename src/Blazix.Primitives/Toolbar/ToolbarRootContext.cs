@@ -11,6 +11,8 @@ namespace Blazix.Primitives;
 internal sealed class ToolbarRootContext
 {
     private readonly List<Action> listeners = [];
+    private List<Task>? pendingItemAttaches;
+    private bool rootAttaching;
 
     /// <summary>Initializes a new instance of the <see cref="ToolbarRootContext"/> class.</summary>
     /// <param name="disabled">The toolbar's disabled state at its first render.</param>
@@ -65,6 +67,34 @@ internal sealed class ToolbarRootContext
     /// <summary>Removes a listener added with <see cref="AddListener"/>.</summary>
     /// <param name="listener">The listener.</param>
     public void RemoveListener(Action listener) => listeners.Remove(listener);
+
+    // TLB-STA-04, TLB-DOM-08: a substituted part may render the DOM `disabled` property until its toolbar button's `button`
+    // handle clears it (UBT-ALG-04), and the composite module skips a natively disabled item when it places the first tab
+    // stop. Base UI clears it in a layout effect before its item map is published; the port's toolbar holds its first
+    // attach until the substituted buttons' handles have attached, whatever order the browser loads the modules in.
+    /// <summary>Records a toolbar button whose handle the toolbar's first composite attach waits for.</summary>
+    /// <returns>The source the button completes once its handle's attach has run, or <see langword="null"/> once the toolbar attached.</returns>
+    internal TaskCompletionSource? BeginItemAttach()
+    {
+        if (rootAttaching)
+        {
+            return null;
+        }
+
+        TaskCompletionSource source = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        (pendingItemAttaches ??= []).Add(source.Task);
+        return source;
+    }
+
+    /// <summary>Gets a task that completes when every recorded toolbar button's handle has attached; later buttons are not waited for.</summary>
+    /// <returns>The task.</returns>
+    internal Task ItemAttachesAsync()
+    {
+        rootAttaching = true;
+        List<Task>? pending = pendingItemAttaches;
+        pendingItemAttaches = null;
+        return pending is null ? Task.CompletedTask : Task.WhenAll(pending);
+    }
 
     /// <summary>Gets the fragment that cascades this context to <paramref name="content"/>.</summary>
     /// <param name="content">The content that receives the context.</param>

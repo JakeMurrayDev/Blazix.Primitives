@@ -149,6 +149,9 @@ public sealed class ToggleGroupToolbarTests : IDisposable
 
         // "renders toggle and toggle group": three buttons with aria-pressed, three registrations, the outer ones.
         IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent(buttons(disabled: false)));
+
+        // The toolbar's first attach waits for its substituted buttons' handles.
+        test.WaitForCompositeAttaches();
         IReadOnlyList<IElement> elements = cut.FindAll("button");
         Assert.Equal(3, elements.Count);
         Assert.All(elements, element => Assert.Equal("false", element.GetAttribute("aria-pressed")));
@@ -168,6 +171,7 @@ public sealed class ToggleGroupToolbarTests : IDisposable
 
         // "disabled state": the outer registration is focusable when disabled, the toggles are aria-disabled and ignore clicks.
         IRenderedComponent<ToolbarRoot> disabled = Context.Render<ToolbarRoot>(p => p.AddChildContent(buttons(disabled: true)));
+        test.WaitForCompositeAttaches(2);
         Assert.All(ToolbarTestContext.Items(test.LastCompositeOptions), item => Assert.Contains("\"disabled\":true,\"focusableWhenDisabled\":true", item, StringComparison.Ordinal));
         Assert.All(disabled.FindAll("button"), element =>
         {

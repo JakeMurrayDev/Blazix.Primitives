@@ -276,6 +276,9 @@ public sealed class ToolbarButtonTests : IDisposable
         Assert.Equal("true", element.GetAttribute("aria-disabled"));
         Assert.Equal("-1", element.GetAttribute("tabindex"));
         Assert.True(cut.FindComponent<SwitchRoot>().Instance.Disabled);
+
+        // The toolbar's first attach waits for its substituted button's handle.
+        test.WaitForCompositeAttaches();
         Assert.Equal([element.GetAttribute("id")!], ToolbarTestContext.ItemIds(test.LastCompositeOptions));
     }
 

@@ -78,6 +78,7 @@ public sealed class ToolbarButton : PartBase<ToolbarButtonState>
     private ToolbarRootContext? toolbar;
     private ToolbarGroupContext? group;
     private ToolbarButtonState? state;
+    private TaskCompletionSource? pendingAttach;
 
     /// <summary>Initializes a new instance of the <see cref="ToolbarButton"/> class.</summary>
     public ToolbarButton()
@@ -164,6 +165,13 @@ public sealed class ToolbarButton : PartBase<ToolbarButtonState>
         group = GroupContext;
         toolbar.AddListener(contextChanged);
         group?.AddListener(contextChanged);
+
+        // A substituted part may render the DOM `disabled` property until this button's handle clears it, so the toolbar's
+        // first attach waits for that handle (ToolbarRootContext.BeginItemAttach).
+        if (Render is not null || RenderFunction is not null)
+        {
+            pendingAttach = toolbar.BeginItemAttach();
+        }
     }
 
     /// <inheritdoc />
@@ -185,7 +193,16 @@ public sealed class ToolbarButton : PartBase<ToolbarButtonState>
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await behavior!.AfterRenderAsync(Enabled, Element, Id, composite: true);
+        try
+        {
+            await behavior!.AfterRenderAsync(Enabled, Element, Id, composite: true);
+        }
+        finally
+        {
+            pendingAttach?.TrySetResult();
+            pendingAttach = null;
+        }
+
         await item!.AfterRenderAsync(Element);
     }
 
@@ -198,6 +215,7 @@ public sealed class ToolbarButton : PartBase<ToolbarButtonState>
             item?.Dispose();
             toolbar?.RemoveListener(contextChanged);
             group?.RemoveListener(contextChanged);
+            pendingAttach?.TrySetResult();
         }
 
         base.Dispose(disposing);

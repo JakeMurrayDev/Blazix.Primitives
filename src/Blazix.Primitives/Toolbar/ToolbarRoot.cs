@@ -32,7 +32,8 @@ public static class ToolbarRootDataAttributes
 //   document order (TLB-STR-01; CompositeRootBehavior, TLB §11): the two-valued Orientation, LoopFocus, Home and End off
 //   (TLB-KEY-04, §16 Q2, chosen by the user 2026-10-26), a handled key stopped, no modifier keys, no highlight mirror, and
 //   the disabled indices derived from the items' flags (M3 track 1's E3; TLB-STA-02). The items' tabindex is the
-//   `composite` module's from attach (ADR 04 Amendments 2026-10-22).
+//   `composite` module's from attach (ADR 04 Amendments 2026-10-22). The first attach waits for the substituted toolbar
+//   buttons' handles, which clear a substituted part's DOM `disabled` property before the first tab stop is placed.
 // - It cascades ToolbarRootContext (design point 14.4 (a), settled by the orchestrator 2026-10-27), then the composite
 //   registry, both fixed.
 // - The consumer's onkeydown is declined and run by the root at `navigate`, under option (i) (TLB-API-05; ADR 04
@@ -60,6 +61,7 @@ public sealed class ToolbarRoot : PartBase<ToolbarRootState>
     private ToolbarRootState? state;
     private RenderFragment? cascade;
     private RenderFragment? cascadedContent;
+    private bool waitingForItems;
 
     /// <summary>Initializes a new instance of the <see cref="ToolbarRoot"/> class.</summary>
     public ToolbarRoot()
@@ -162,7 +164,13 @@ public sealed class ToolbarRoot : PartBase<ToolbarRootState>
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        return composite!.AfterRenderAsync(Enabled, Element, IdParameter ?? GeneratedId);
+        if (firstRender)
+        {
+            return AttachAfterItemsAsync();
+        }
+
+        // A render while the first attach waits: that attach sends what this one would.
+        return waitingForItems ? Task.CompletedTask : composite!.AfterRenderAsync(Enabled, Element, IdParameter ?? GeneratedId);
     }
 
     /// <inheritdoc />
@@ -187,6 +195,23 @@ public sealed class ToolbarRoot : PartBase<ToolbarRootState>
 
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName) => composite!.ForwardsConsumerHandler(eventName);
+
+    // TLB-STA-04, TLB-DOM-08: the first attach waits for the substituted toolbar buttons' handles, which clear a substituted
+    // part's DOM `disabled` property, so the module never places the first tab stop past it (ToolbarRootContext).
+    private async Task AttachAfterItemsAsync()
+    {
+        waitingForItems = true;
+        try
+        {
+            await context!.ItemAttachesAsync();
+        }
+        finally
+        {
+            waitingForItems = false;
+        }
+
+        await composite!.AfterRenderAsync(Enabled, Element, IdParameter ?? GeneratedId);
+    }
 
     // A new record only when the state changed (ADR 16 rule 7).
     private void UpdateState()
