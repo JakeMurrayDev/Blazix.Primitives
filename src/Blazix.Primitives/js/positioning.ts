@@ -75,19 +75,24 @@ export interface PositioningRect {
   height: number;
 }
 
+// Traceability of the fields: sessionToken ADR 04 Amendments 2026-10-27 (the session, track 3); transitionStatus FLT-ANI-05;
+// triggerId FLT-POS-13, PSH; anchorId and virtualAnchor FLT-API-11, FLT-STA-07; the offsets and their function forms
+// FLT-API-12 (design point 2); sticky FLT-POS-14; disableAnchorTracking FLT-POS-11; collisionAvoidance FLT-API-10; shift
+// FLT-API-17; lazyFlip FLT-ANI-04; adaptiveOrigin FLT-DOM-04, PSH-POS-02; direction FLT-I18N-01; arrowId and arrowStyle
+// FLT-DOM-09/10 (design point 6).
 /** The options of a `positioning` handle; mirrors `PositioningOptions` in C#. */
 export interface PositioningOptions extends TwinOptions {
-  /** The popup's session token (ADR 04 Amendments 2026-10-27); looked up through the `interactions` export once it exists. */
+  /** The popup's session token; looked up through the `interactions` export once it exists. */
   sessionToken?: string | null;
   /** The selector the Positioner matches while C# renders it open; `[data-open]` when absent. Mounted is `:not([hidden])`. */
   openSelector?: string | null;
   /** Whether the popup stays in the document while closed: tracking runs only while mounted and `isPositioned` resets on unmount. */
   keepMounted?: boolean;
-  /** The popup's transition status; `starting` adds `transition: none` (FLT-ANI-05). */
+  /** The popup's transition status; `starting` adds `transition: none`. */
   transitionStatus?: 'starting' | 'ending' | 'idle' | null;
-  /** The id of the active trigger: the position reference when no anchor is given (FLT-POS-13, PSH). */
+  /** The id of the active trigger: the position reference when no anchor is given. */
   triggerId?: string | null;
-  /** The id of a custom anchor element (FLT-API-11). */
+  /** The id of a custom anchor element. */
   anchorId?: string | null;
   /** A virtual anchor in viewport coordinates, re-sent on change. */
   virtualAnchor?: PositioningRect | null;
@@ -113,23 +118,23 @@ export interface PositioningOptions extends TwinOptions {
   collisionPadding?: number | null;
   /** A padding per side, a missing side being 0. */
   collisionPaddingSides?: Partial<SideObject> | null;
-  /** Whether the popup stays inside the boundary when the anchor leaves it (FLT-POS-14). */
+  /** Whether the popup stays inside the boundary when the anchor leaves it. */
   sticky?: boolean;
   /** The arrow's distance from the popup's edges; 5 when absent. */
   arrowPadding?: number;
-  /** Whether anchor tracking is off (FLT-POS-11). */
+  /** Whether anchor tracking is off. */
   disableAnchorTracking?: boolean;
-  /** How each axis avoids collisions; every key defaults individually (FLT-API-10). */
+  /** How each axis avoids collisions; every key defaults individually. */
   collisionAvoidance?: { side?: CollisionAvoidanceMode | null; align?: CollisionAvoidanceMode | null; fallbackAxisSide?: 'start' | 'end' | 'none' | null } | null;
-  /** Base UI's private `shift` option (FLT-API-17): Context Menu and Navigation Menu pass it. */
+  /** Base UI's private `shift` option: Context Menu and Navigation Menu pass it. */
   shift?: { crossAxis?: boolean; rootBoundary?: 'layoutViewport' } | null;
-  /** Base UI's private `lazyFlip` (FLT-ANI-04): `side` for `true`, `placement` to lock the alignment too. */
+  /** Base UI's private `lazyFlip`: `side` for `true`, `placement` to lock the alignment too. */
   lazyFlip?: 'side' | 'placement' | null;
-  /** Whether a Viewport part is present, which adds the adaptive-origin middleware (FLT-DOM-04, PSH-POS-02). */
+  /** Whether a Viewport part is present, which adds the adaptive-origin middleware. */
   adaptiveOrigin?: boolean;
-  /** The reading direction from the nearest DirectionProvider (FLT-I18N-01). */
+  /** The reading direction from the nearest DirectionProvider. */
   direction?: 'ltr' | 'rtl';
-  /** The id of the registered Arrow part, or none for the detached stand-in (FLT-DOM-10). */
+  /** The id of the registered Arrow part, or none for the detached stand-in. */
   arrowId?: string | null;
   /** The Arrow's merged consumer style, composed under the arrow styles from the arrow's handover on. */
   arrowStyle?: string | null;
@@ -139,7 +144,8 @@ export interface PositioningOptions extends TwinOptions {
 // The Base UI middleware (FLT-ALG-09..12)
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Base UI's `hide` replacement (FLT-ALG-10): the engine's `referenceHidden` strategy, or an all-zero anchor rect. */
+// FLT-ALG-10, FLT-POS-09.
+/** Base UI's `hide` replacement: the engine's `referenceHidden` strategy, or an all-zero anchor rect. */
 export const hide: Middleware = {
   name: 'hide',
   async fn(state) {
@@ -169,8 +175,9 @@ export interface ArrowOptions {
   padding?: Padding;
 }
 
+// FLT-ALG-09.
 /**
- * Base UI's fork of the engine's `arrow` middleware (FLT-ALG-09), which always measures against the floating element
+ * Base UI's fork of the engine's `arrow` middleware, which always measures against the floating element
  * rather than the arrow's offset parent.
  * @param options The element and padding, or a function of the middleware state returning them.
  * @returns The middleware.
@@ -244,8 +251,9 @@ export function arrow(options: ArrowOptions | Derivable<ArrowOptions>): Middlewa
 /** The sides the adaptive-origin coordinates are measured from when no transition runs. */
 export const DEFAULT_SIDES = { sideX: 'left', sideY: 'top' } as const;
 
+// FLT-ALG-12, FLT-ANI-03, FLT-DOM-04.
 /**
- * Base UI's `adaptiveOrigin` middleware (FLT-ALG-12, FLT-ANI-03): while the floating element has a transition, a left
+ * Base UI's `adaptiveOrigin` middleware: while the floating element has a transition, a left
  * placement is measured from the right edge and a top placement from the bottom edge, so a size transition grows away
  * from the anchor. PSH's Viewport supplies it; the module runs it last when the `adaptiveOrigin` option is on.
  */
@@ -322,17 +330,18 @@ export const adaptiveOrigin: Middleware = {
 export interface TransformOriginOptions {
   /** The registered Arrow element, or `null` when the stand-in is used. */
   arrow(): HTMLElement | null;
-  /** The side offset of the pass, resolved from the state (FLT-API-12). */
+  /** The side offset of the pass, resolved from the state. */
   sideOffset(state: MiddlewareState): number;
-  /** The side-axis shift flag of FLT-POS-05. */
+  /** The side-axis shift flag: whether the popup also shifts on the side axis. */
   crossAxisShiftEnabled: boolean;
   /** Writes the `--transform-origin` value. */
   write(value: string): void;
 }
 
+// FLT-ALG-11, FLT-DOM-07, FLT-I18N-03.
 /**
- * Base UI's `transformOrigin` middleware (FLT-ALG-11, FLT-DOM-07): runs after `arrow`, before `hide`, and writes
- * `--transform-origin` from the arrow position, the alignment, the platform's direction (FLT-I18N-03) and the shift.
+ * Base UI's `transformOrigin` middleware: runs after `arrow`, before `hide`, and writes
+ * `--transform-origin` from the arrow position, the alignment, the platform's direction and the shift.
  * @param options What the middleware reads and where it writes.
  * @returns The middleware.
  */
@@ -385,8 +394,9 @@ export function transformOrigin(options: TransformOriginOptions): Middleware {
 // Sides and offsets (FLT-I18N-01/02, FLT-API-12)
 // ---------------------------------------------------------------------------------------------------------------
 
+// FLT-I18N-02.
 /**
- * Returns the side reported for a rendered physical side (FLT-I18N-02): logical when the requested side was logical.
+ * Returns the side reported for a rendered physical side: logical when the requested side was logical.
  * @param sideParam The requested side.
  * @param renderedSide The physical side of the rendered placement.
  * @param isRtl Whether the reading direction is right to left.
@@ -406,7 +416,8 @@ export function getLogicalSide(sideParam: Side, renderedSide: PhysicalSide, isRt
   )[renderedSide];
 }
 
-/** The data an offset is evaluated with (FLT-API-12). */
+// FLT-API-12.
+/** The data an offset is evaluated with. */
 export interface OffsetData {
   side: Side;
   align: Align;
@@ -414,8 +425,9 @@ export interface OffsetData {
   positioner: { width: number; height: number };
 }
 
+// FLT-API-12.
 /**
- * Returns the data of the placement a pass is evaluating (FLT-API-12): its logical side, its alignment, and the measured
+ * Returns the data of the placement a pass is evaluating: its logical side, its alignment, and the measured
  * anchor and floating sizes.
  * @param state The middleware state.
  * @param sideParam The requested side.
@@ -447,13 +459,15 @@ export interface OffsetOverride extends OffsetTerms {
   align?: Align | null;
 }
 
-/** The declarative form of Base UI's offset function (design point 2, settled by the orchestrator 2026-10-27); mirrors `PositioningOffset` in C#. */
+// Design point 2 of the positioning track, settled by the orchestrator 2026-10-27.
+/** The declarative form of Base UI's offset function; mirrors `PositioningOffset` in C#. */
 export interface OffsetFunction extends OffsetTerms {
   overrides?: OffsetOverride[] | null;
 }
 
+// FLT-API-12, FLT-POS-06.
 /**
- * Evaluates an offset for the placement a pass evaluates (FLT-API-12): a number as given, or the terms of the first
+ * Evaluates an offset for the placement a pass evaluates: a number as given, or the terms of the first
  * override whose side and align match (else the base terms) applied to the measured sizes.
  * @param value A number, the declarative function, or nothing for 0.
  * @param data The offset data of the pass.
@@ -527,9 +541,10 @@ function writeLayer(layer: StyleLayer, previous: Declarations, next: Declaration
   }
 }
 
+// FLT-DOM-08; design point 3 of the positioning track, settled by the orchestrator 2026-10-27.
 /**
- * Reads the placement an attached Positioner rendered last, for the `popup` module's anchoring styles (design point 3,
- * settled by the orchestrator 2026-10-27): before the first pass, the requested placement.
+ * Reads the placement an attached Positioner rendered last, for the `popup` module's anchoring styles: before the first
+ * pass, the requested placement.
  * @param element The Positioner element.
  * @returns The rendered placement and whether the current mount has been positioned, or `null` when no handle is attached.
  */
@@ -537,8 +552,9 @@ export function readPlacement(element: Element): RenderedPlacement | null {
   return (element as AttachedElement)[attachedHandle]?.placement() ?? null;
 }
 
+// FLT-POS-16; design point 3 of the positioning track.
 /**
- * Runs one positioning pass of an attached Positioner now (FLT-POS-16), as Base UI's `positioning.update()`: PreviewCard
+ * Runs one positioning pass of an attached Positioner now, as Base UI's `positioning.update()`: PreviewCard
  * calls it when its hovered line changes.
  * @param element The Positioner element.
  */

@@ -45,8 +45,9 @@ export const moduleKinds: Record<string, ModuleKind> = {
   initializer: 'shared',
 };
 
+// ADR 04 and ADR 07 Amendments 2026-10-27.
 /**
- * The Floating UI wrapper (ADR 04 and ADR 07 Amendments 2026-10-27): js/floating-ui.ts carries Floating UI's legal comment
+ * The Floating UI wrapper: js/floating-ui.ts carries Floating UI's legal comment
  * and re-exports the engine, so the comment ships in the one output that bundles the engine. It is no module of its own
  * (`readModules` skips it, as it skips test-support/), `positioning` is its only importer, and no module imports
  * `@floating-ui/*` around it.
@@ -80,7 +81,7 @@ export function checkGraph(modules: { name: string; imports: string[] }[], kinds
     for (const specifier of imports) {
       if (!specifier.startsWith('.')) {
         if (isFloatingUiPackage(specifier)) {
-          problems.push(`${name} imports ${specifier}: a module imports Floating UI only through js/floating-ui.ts, which carries its licence banner`);
+          problems.push(`${name} imports ${specifier}: a module imports Floating UI only through js/floating-ui.ts, which carries its license banner`);
         } else if (kind === 'component') {
           problems.push(`${name} (component) imports the package ${specifier}: a component module imports only mechanism modules and shared helpers`);
         }
