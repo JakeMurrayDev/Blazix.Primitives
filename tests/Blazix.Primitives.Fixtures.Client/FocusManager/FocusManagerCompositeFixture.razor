@@ -1,0 +1,24 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@using Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@inherits FocusManagerFixtureBase
+
+@*
+    The `focus-manager-composite` fixture (tests/browser/focus-manager.spec.ts): a modal popup the opening render creates
+    whose first tab stop is a composite group (TAB-FOC-10's shape). Every composite item renders `tabindex="-1"` until
+    js/composite.js attaches (CompositeItemBehavior.cs:139), so the attach order decides what initial focus finds (the
+    attach-order rule; design point 1's composite clause).
+*@
+<FixtureContainer Name="focus-manager-composite" data-attached="@(Attached ? "true" : "false")" @onkeydown="OnKeyDown">
+    <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
+    @if (IsOpen)
+    {
+        @FocusManagerMarkup.InsideGuard
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+            <FixtureCompositeRoot data-root>
+                <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+                <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+            </FixtureCompositeRoot>
+            <button type="button" data-after-group>after</button>
+        </FixtureFocusManaged>
+    }
+</FixtureContainer>

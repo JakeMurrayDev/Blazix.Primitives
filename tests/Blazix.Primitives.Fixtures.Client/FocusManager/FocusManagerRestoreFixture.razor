@@ -1,0 +1,33 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@inherits FocusManagerFixtureBase
+
+@*
+    The `focus-manager-restore` fixture (tests/browser/focus-manager.spec.ts): Base UI's `prop: restoreFocus` App
+    (FloatingFocusManager.test.tsx:2240-2273): a remove button before the trigger, and a popup the opening render creates
+    with its initial focus on the second of three buttons. The mode buttons choose `restoreFocus` (`none`, `tabbable` for
+    Base UI's `true`, `popup`) before the open; the remove button removes the second button in a render batch (FLT-FOC-12).
+*@
+<FixtureContainer Name="focus-manager-restore" data-attached="@(Attached ? "true" : "false")" data-restore="@restore" @onkeydown="OnKeyDown">
+    <button type="button" data-remove @onclick="() => removed = true">remove</button>
+    <button type="button" data-mode="none" @onclick="@(() => restore = "none")">none</button>
+    <button type="button" data-mode="tabbable" @onclick="@(() => restore = "tabbable")">tabbable</button>
+    <button type="button" data-mode="popup" @onclick="@(() => restore = "popup")">popup</button>
+    <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
+    @if (IsOpen)
+    {
+        @FocusManagerMarkup.InsideGuard
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" RestoreFocus="@restore" InitialFocusId="fm-two" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+            <button type="button" data-one>one</button>
+            @if (!removed)
+            {
+                <button type="button" id="fm-two" data-two>two</button>
+            }
+            <button type="button" data-three>three</button>
+        </FixtureFocusManaged>
+    }
+</FixtureContainer>
+
+@code {
+    private string restore = "tabbable";
+    private bool removed;
+}

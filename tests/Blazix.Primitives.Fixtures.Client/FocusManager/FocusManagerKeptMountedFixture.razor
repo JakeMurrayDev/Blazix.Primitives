@@ -1,0 +1,57 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@inherits FocusManagerFixtureBase
+@using Microsoft.AspNetCore.Components.Web
+
+@*
+    The `focus-manager-kept-mounted` fixture (tests/browser/focus-manager.spec.ts): an attached modal popup kept in the
+    document, disabled while closed (Base UI's `disabled={!isOpen}`) and while opened by hover (Popover passes
+    `!mounted || openReason === trigger-hover`, PopoverPopup.tsx:112). The trigger opens it; the hover button opens it
+    disabled; the target button makes the next open's initial focus the second button. The open, the marking, the trap and
+    their release land with the batch (ADR 04 Amendments 2026-10-27); the options are sent before that batch (design
+    point 1 (d)); `?push=after` sends them from OnAfterRender only, the order design point 1 (c) has to wait for.
+*@
+<FixtureContainer Name="focus-manager-kept-mounted" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" data-interaction-type="@InteractionType" @onkeydown="OnKeyDown">
+    <button type="button" id="fm-reference" data-reference @onclick="FromTrigger">Open</button>
+    <button type="button" data-hover-open @onclick="HoverOpen">Hover open</button>
+    <button type="button" data-target-two @onclick="@(() => initialFocusId = "fm-two")">Target two</button>
+    <div data-outside><button type="button" data-outside-button>Outside</button></div>
+    @if (enabled)
+    {
+        @FocusManagerMarkup.InsideGuard
+    }
+    <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" Disabled="!enabled" InitialFocusId="@initialFocusId" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" PushBeforeRender="pushBeforeRender" data-popup>
+        <button type="button" data-one>one</button>
+        <button type="button" id="fm-two" data-two>two</button>
+        <button type="button" data-close @onclick="Toggle">Close</button>
+    </FixtureFocusManaged>
+    <button type="button" data-last>Last</button>
+</FixtureContainer>
+
+@code {
+    private bool hovered;
+    private string? initialFocusId;
+    private bool pushBeforeRender = true;
+
+    [SupplyParameterFromQuery(Name = "push")]
+    public string? Push { get; set; }
+
+    private bool enabled => IsOpen && !hovered;
+
+    protected override void OnInitialized()
+    {
+        pushBeforeRender = Push != "after";
+    }
+
+    private void HoverOpen()
+    {
+        hovered = true;
+        OpenType = "mouse";
+        IsOpen = true;
+    }
+
+    private void FromTrigger(MouseEventArgs e)
+    {
+        hovered = false;
+        Toggle(e);
+    }
+}

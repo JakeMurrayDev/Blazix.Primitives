@@ -1,0 +1,36 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@inherits FocusManagerFixtureBase
+
+@*
+    The `focus-manager-modal` fixture (tests/browser/focus-manager.spec.ts): a modal popup the opening render creates
+    (Base UI's `{open && <FloatingFocusManager>}`), with three buttons and a Close button, between a trigger and outside
+    content that holds an aria-live region, a <script> and an element with its own aria-hidden (FLT-ARIA-01, DOM-15,
+    KEY-04, KEY-05, FOC-06, FOC-07). A switch disables the manager (the inside guards are not rendered while disabled).
+*@
+<FixtureContainer Name="focus-manager-modal" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" data-interaction-type="@InteractionType" @onkeydown="OnKeyDown">
+    <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
+    <button type="button" data-disable @onclick="() => disabled = !disabled">Toggle disabled</button>
+    <div data-outside>
+        <div data-live aria-live="polite">status</div>
+        <div data-own-hidden aria-hidden="true">decoration</div>
+        <script data-script type="application/json">{}</script>
+        <button type="button" data-outside-button>Outside</button>
+    </div>
+    @if (IsOpen)
+    {
+        @if (!disabled)
+        {
+            @FocusManagerMarkup.InsideGuard
+        }
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" Disabled="disabled" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+            <button type="button" data-one>one</button>
+            <button type="button" data-two>two</button>
+            <button type="button" data-close @onclick="Toggle">Close</button>
+        </FixtureFocusManaged>
+    }
+    <button type="button" data-last>Last</button>
+</FixtureContainer>
+
+@code {
+    private bool disabled;
+}

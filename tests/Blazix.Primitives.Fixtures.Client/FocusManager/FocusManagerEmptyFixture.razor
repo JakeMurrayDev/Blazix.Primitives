@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@inherits FocusManagerFixtureBase
+
+@*
+    The `focus-manager-empty` fixture (tests/browser/focus-manager.spec.ts): a modal dialog-role popup with no tabbable
+    content, rendered without the Popup parts' `tabindex` (FLT-ALG-27, DOM-17: the module manages it; every built-in
+    Popup renders `tabindex="-1"`, so the management is inert there), between a trigger and an outside button (KEY-04).
+*@
+<FixtureContainer Name="focus-manager-empty" data-attached="@(Attached ? "true" : "false")" @onkeydown="OnKeyDown">
+    <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
+    @if (IsOpen)
+    {
+        @FocusManagerMarkup.InsideGuard
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" RenderTabIndex="false" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+            <p>Nothing to tab to.</p>
+        </FixtureFocusManaged>
+    }
+    <button type="button" data-last>Last</button>
+</FixtureContainer>
