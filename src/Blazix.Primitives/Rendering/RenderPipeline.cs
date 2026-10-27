@@ -314,9 +314,12 @@ internal static class RenderPipeline
         }
 
         // A component root's parameters are kept as the objects Razor passed (a typed parameter must survive); only
-        // class, style and handlers take part in the merge. Returns the index of the first non-parameter child frame.
+        // class, style and the DOM handlers the component does not declare take part in the merge (design point 14.8 of
+        // M3 track 4: a declared `On*` callback stays typed). Returns the index of the first non-parameter child frame.
+        [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "The component type comes from the consumer's own OpenComponent<T> call in the scratch render, which already preserved its members.")]
         private int MergeSubstituteComponentParameters(ArrayRange<RenderTreeFrame> frames, int rootIndex)
         {
+            Type componentType = frames.Array[rootIndex].ComponentType;
             int end = rootIndex + frames.Array[rootIndex].ComponentSubtreeLength;
             int i = rootIndex + 1;
             for (; i < end && frames.Array[i].FrameType == RenderTreeFrameType.Attribute; i++)
@@ -335,7 +338,7 @@ internal static class RenderPipeline
                 else
                 {
                     AttributeValue value = AttributeValue.FromObject(frame.AttributeValue);
-                    if (MergeProps.IsHandler(name, value))
+                    if (MergeProps.IsHandler(name, value) && !SubstituteParameters.Declares(componentType, name))
                     {
                         state.GetOrAddSlot(MergeProps.HandlerName(name)).Substitute = value;
                     }

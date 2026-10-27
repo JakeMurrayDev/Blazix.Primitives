@@ -44,7 +44,9 @@ public sealed class SubstituteComponentParameterTests : IDisposable
         probe.OnSelect!("one");
 
         Assert.Equal(["value:True", "select:one"], log);
-        Assert.Null(probe.Attributes);
+
+        // The part's own attributes arrive unmatched; the declared callbacks are not among them.
+        Assert.DoesNotContain(probe.Attributes!.Keys, key => key.StartsWith("onvalue", StringComparison.OrdinalIgnoreCase) || key.StartsWith("onselect", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>A component substitute with a typed callback, a delegate parameter, and the attributes it does not declare.</summary>
