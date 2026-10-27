@@ -100,6 +100,8 @@ public sealed class TabsListTests : IDisposable
     [Trait("Requirement", "TAB-KEY-07")]
     [Trait("Requirement", "TAB-API-06")]
     [Trait("Requirement", "TAB-PTR-08")]
+    [Trait("Requirement", "TAB-STA-04")]
+    [Trait("Requirement", "TAB-STA-19")]
     public void Port_the_list_configures_the_composite_root_for_tabs()
     {
         IRenderedComponent<TabsRoot<int>> cut = Context.Render<TabsRoot<int>>(p => p
@@ -114,6 +116,10 @@ public sealed class TabsListTests : IDisposable
         Assert.Contains("\"highlightItemOnHover\":false", options, StringComparison.Ordinal);
         Assert.Contains("\"modifierKeys\":[]", options, StringComparison.Ordinal);
         Assert.Contains("\"disabledIndices\":[]", options, StringComparison.Ordinal);
+
+        // Track 1's E2 (the Tabs' order for the Root's registry) and E5 (the tab stop follows the active marker).
+        Assert.Contains("\"reportItems\":true", options, StringComparison.Ordinal);
+        Assert.Contains("\"followActiveItem\":true", options, StringComparison.Ordinal);
 
         cut.Render(p => p.Add(x => x.DefaultValue, 0).AddChildContent(Part<TabsList>(l => l.Add(x => x.LoopFocus, true).AddChildContent(Fragments(Tab(0), Tab(1))))));
         Assert.Contains("\"loopFocus\":true", test.LastCompositeOptions, StringComparison.Ordinal);

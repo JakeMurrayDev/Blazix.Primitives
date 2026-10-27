@@ -222,6 +222,7 @@ public sealed class TabsRootTests : IDisposable
     [Fact(DisplayName = "should support values of different types")]
     [Trait("Requirement", "TAB-API-07")]
     [Trait("Requirement", "TAB-API-12")]
+    [Trait("Requirement", "TAB-ARIA-08")]
     [Trait("Requirement", "TAB-EDGE-07")]
     public async Task Should_support_values_of_different_types()
     {
@@ -231,9 +232,11 @@ public sealed class TabsRootTests : IDisposable
         IRenderedComponent<TabsRoot<object>> cut = Context.Render<TabsRoot<object>>(p => p.AddChildContent(Fragments(
             List([.. values.Select(value => Part<TabsTab<object>>(t => t.Add(x => x.Value, value)))]),
             Fragments([.. values.Select(value => Part<TabsPanel<object>>(t => t.Add(x => x.Value, value).Add(x => x.KeepMounted, true)))]))));
+        await test.ReportTabsAsync(cut);
 
         for (int index = 0; index < values.Length; index++)
         {
+            Assert.Equal(Tabs(cut)[index].Id, Panels(cut)[index].GetAttribute("aria-labelledby"));
             await test.SelectAsync(cut, Tabs(cut)[index].Id!);
             await test.CompleteExitsAsync(cut);
 
@@ -359,6 +362,10 @@ public sealed class TabsRootTests : IDisposable
         IElement innerTab1 = cut.Find("[data-testid=tab-inner-1]");
         Assert.Equal(cut.Find("[data-testid=panel-outer-1]").Id, outerTab1.GetAttribute("aria-controls"));
         Assert.Equal(cut.Find("[data-testid=panel-inner-1]").Id, innerTab1.GetAttribute("aria-controls"));
+        await test.ReportTabsAsync(cut, cut.Find("[data-testid=outer-list]"));
+        await test.ReportTabsAsync(cut, cut.Find("[data-testid=inner-list]"));
+        Assert.Equal(innerTab1.Id, cut.Find("[data-testid=panel-inner-1]").GetAttribute("aria-labelledby"));
+        Assert.Equal(outerTab1.Id, cut.Find("[data-testid=panel-outer-1]").GetAttribute("aria-labelledby"));
 
         // The inner list's activation leaves the outer selection.
         await test.SelectAsync(cut, cut.Find("[data-testid=tab-inner-2]").Id!, "right", list: cut.Find("[data-testid=inner-list]"));

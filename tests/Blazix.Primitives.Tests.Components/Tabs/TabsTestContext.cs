@@ -64,11 +64,15 @@ public sealed class TabsTestContext : IDisposable
     /// <summary>The options JSON of every <c>transitions</c> attach, in order.</summary>
     public IReadOnlyList<string> TransitionsAttaches => [.. TransitionsModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!)];
 
-    /// <summary>The options JSON of every <c>composite</c> attach, in order.</summary>
-    public IReadOnlyList<string> CompositeAttaches => [.. CompositeModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!)];
+    /// <summary>The options JSON of every <c>composite</c> attach of a list's roving group, in order.</summary>
+    public IReadOnlyList<string> CompositeAttaches => [.. CompositeModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!).Where(json => !IsRegistrationOnly(json))];
 
-    /// <summary>The options JSON of every <c>composite</c> update, in order.</summary>
-    public IReadOnlyList<string> CompositeUpdates => [.. CompositeHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!)];
+    /// <summary>The options JSON of every <c>composite</c> update of a list's roving group, in order.</summary>
+    public IReadOnlyList<string> CompositeUpdates => [.. CompositeHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!).Where(json => !IsRegistrationOnly(json))];
+
+    /// <summary>The options JSON of every <c>composite</c> attach and update of a root's registration-only list of panels, in order.</summary>
+    public IReadOnlyList<string> PanelListOptions =>
+        [.. CompositeModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!).Concat(CompositeHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!)).Where(IsRegistrationOnly)];
 
     /// <summary>The options JSON of the composite's last attach or update.</summary>
     public string LastCompositeOptions => CompositeUpdates.Count > 0 ? CompositeUpdates[^1] : CompositeAttaches[^1];
@@ -126,9 +130,52 @@ public sealed class TabsTestContext : IDisposable
     internal TransitionsTwin TransitionsTwin(int index = -1) =>
         ((DotNetObjectReference<TransitionsTwin>)TransitionsModule.Invocations["attach"][index < 0 ? ^1 : index].Arguments[2]!).Value;
 
-    /// <summary>The <see cref="CompositeTwin"/> attached last.</summary>
-    internal CompositeTwin CompositeTwin() =>
-        ((DotNetObjectReference<CompositeTwin>)CompositeModule.Invocations["attach"][^1].Arguments[2]!).Value;
+    /// <summary>The <see cref="CompositeTwin"/> of the list attached last: a list's roving group, not a root's panel list.</summary>
+    internal CompositeTwin CompositeTwin() => CompositeTwins(registrationOnly: false)[^1];
+
+    /// <summary>The <see cref="CompositeTwin"/> attached to the given list element.</summary>
+    internal CompositeTwin CompositeTwinOf(IElement element)
+    {
+        string? reference = element.GetAttribute("blazor:elementreference");
+        JSRuntimeInvocation attach = CompositeModule.Invocations["attach"].Last(i => i.Arguments[0] is ElementReference attached && string.Equals(attached.Id, reference, StringComparison.Ordinal));
+        return ((DotNetObjectReference<CompositeTwin>)attach.Arguments[2]!).Value;
+    }
+
+    /// <summary>The registration-only <see cref="CompositeTwin"/> of the root attached at <paramref name="index"/>, the last by default: the root's list of panels.</summary>
+    internal CompositeTwin PanelListTwin(int index = -1)
+    {
+        IReadOnlyList<CompositeTwin> twins = CompositeTwins(registrationOnly: true);
+        return twins[index < 0 ? twins.Count + index : index];
+    }
+
+    /// <summary>Reports a list's tabs in document order, as the composite module does after the batch that changed them.</summary>
+    internal Task ReportTabsAsync<TComponent>(IRenderedComponent<TComponent> cut, IElement? list = null)
+        where TComponent : IComponent
+    {
+        CompositeTwin twin = list is null ? CompositeTwin() : CompositeTwinOf(list);
+        IEnumerable<IElement> tabs = list is null ? cut.FindAll("[role=tab]") : list.QuerySelectorAll("[role=tab]");
+        return cut.InvokeAsync(() => twin.OnItemsChange(IdsJson(tabs)));
+    }
+
+    /// <summary>Reports a root's panels in document order to its registration-only list, as the composite module does.</summary>
+    internal Task ReportPanelsAsync<TComponent>(IRenderedComponent<TComponent> cut, int root = -1)
+        where TComponent : IComponent
+    {
+        CompositeTwin twin = PanelListTwin(root);
+        return cut.InvokeAsync(() => twin.OnItemsChange(IdsJson(cut.FindAll("[role=tabpanel]"))));
+    }
+
+    /// <summary>Whether a composite attach's options ask for the registration-only mode.</summary>
+    internal static bool IsRegistrationOnly(string optionsJson) =>
+        JsonDocument.Parse(optionsJson).RootElement.TryGetProperty("registrationOnly", out JsonElement value) && value.GetBoolean();
+
+    private IReadOnlyList<CompositeTwin> CompositeTwins(bool registrationOnly) =>
+        [.. CompositeModule.Invocations["attach"]
+            .Where(i => IsRegistrationOnly((string)i.Arguments[1]!) == registrationOnly)
+            .Select(i => ((DotNetObjectReference<CompositeTwin>)i.Arguments[2]!).Value)];
+
+    private static string IdsJson(IEnumerable<IElement> elements) =>
+        JsonSerializer.Serialize(new { ids = elements.Select(element => element.Id).ToArray() });
 
     /// <summary>The <see cref="ButtonTwin"/> attached at <paramref name="index"/>, the last by default; tabs attach in render order.</summary>
     internal ButtonTwin ButtonTwin(int index = -1) =>
