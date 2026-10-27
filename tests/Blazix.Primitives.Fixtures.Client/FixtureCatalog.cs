@@ -9,6 +9,7 @@ using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
+using Blazix.Primitives.Fixtures.Client.FloatingFixtures;
 using Blazix.Primitives.Fixtures.Client.FormFixtures;
 using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
@@ -141,5 +142,9 @@ public static class FixtureCatalog
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
+        ["positioning-suite"] = new(typeof(PositioningSuiteFixture)),
+        ["positioning-origin"] = new(typeof(PositioningOriginFixture)),
+        ["positioning-lifecycle"] = new(typeof(PositioningLifecycleFixture)),
+        ["positioning-prerender"] = new(typeof(PositioningPrerenderFixture), Prerender: true),
     };
 }
