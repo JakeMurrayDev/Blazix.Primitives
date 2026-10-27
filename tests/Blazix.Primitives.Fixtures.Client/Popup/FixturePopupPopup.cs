@@ -27,6 +27,7 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
     private TransitionsOptions? sentTransitions;
+    private Task? attaching;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -88,6 +89,7 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
             TwinHandle<TransitionsOptions> previous = transitionsHandle;
             transitionsHandle = null;
             sentTransitions = null;
+            attaching = null;
             await previous.DisposeAsync();
         }
 
@@ -154,15 +156,23 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
 
         if (transitionsHandle is null)
         {
-            sentTransitions = options;
-            transitionsHandle = await transitions.AttachAsync(element, options);
-            attached.TrySetResult();
+            // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
+            attaching ??= AttachTransitionsAsync(element, options);
+            await attaching;
         }
         else if (options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
+    }
+
+    private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
+    {
+        sentTransitions = options;
+        transitionsHandle = await transitions!.AttachAsync(element, options);
+        attaching = null;
+        attached.TrySetResult();
     }
 
     private bool HasConsumerId => AdditionalAttributes is not null && AdditionalAttributes.ContainsKey("id");
