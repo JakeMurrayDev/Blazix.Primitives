@@ -1216,7 +1216,7 @@ describe('FloatingFocusManager', () => {
       await settle();
       keyDown(document.activeElement!, 'Escape');
 
-      await unmount(manager, { closeInteractionType: 'keyboard', openChange: relay('escape-key', 'KeyboardEvent', 'keydown') });
+      await unmount(manager, { closeInteractionType: 'keyboard', relay: relay('escape-key', 'KeyboardEvent', 'keydown') });
 
       expect(document.activeElement).toBe(openDialog);
     });
@@ -1240,7 +1240,7 @@ describe('FloatingFocusManager', () => {
       };
       try {
         pointerDown(document.body);
-        await unmount(manager, { closeInteractionType: 'mouse', openChange: relay('outside-press', 'PointerEvent', 'pointerdown', 'mouse') });
+        await unmount(manager, { closeInteractionType: 'mouse', relay: relay('outside-press', 'PointerEvent', 'pointerdown', 'mouse') });
       } finally {
         HTMLElement.prototype.focus = original;
       }
@@ -1259,7 +1259,7 @@ describe('FloatingFocusManager', () => {
       expect(document.activeElement).toBe(floating);
 
       // jsdom's focus() never reads `preventScroll`, which is what an engine without the option looks like.
-      await unmount(manager, { closeInteractionType: 'mouse', openChange: relay('outside-press', 'PointerEvent', 'pointerdown', 'mouse') });
+      await unmount(manager, { closeInteractionType: 'mouse', relay: relay('outside-press', 'PointerEvent', 'pointerdown', 'mouse') });
 
       expect(document.activeElement).not.toBe(reference);
     });
@@ -1276,7 +1276,7 @@ describe('FloatingFocusManager', () => {
 
       const focusSpy = vi.spyOn(reference, 'focus');
       keyDown(floating, 'Escape');
-      await unmount(manager, { closeInteractionType: 'keyboard', openChange: relay('escape-key', 'KeyboardEvent', 'keydown') });
+      await unmount(manager, { closeInteractionType: 'keyboard', relay: relay('escape-key', 'KeyboardEvent', 'keydown') });
 
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true, focusVisible: true });
     });
@@ -1293,7 +1293,7 @@ describe('FloatingFocusManager', () => {
 
       const focusSpy = vi.spyOn(reference, 'focus');
       pointerDown(reference);
-      await unmount(manager, { closeInteractionType: 'mouse', openChange: relay('trigger-press', 'MouseEvent', 'click', 'mouse') });
+      await unmount(manager, { closeInteractionType: 'mouse', relay: relay('trigger-press', 'MouseEvent', 'click', 'mouse') });
 
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
       expect(focusSpy).not.toHaveBeenCalledWith(expect.objectContaining({ focusVisible: true }));
@@ -1693,7 +1693,7 @@ describe('FloatingFocusManager', () => {
       expect(document.activeElement).toBe(child);
 
       keyDown(child, 'Escape');
-      manager.update({ disabled: true, closeInteractionType: 'keyboard', openChange: relay('escape-key', 'KeyboardEvent', 'keydown') });
+      manager.update({ disabled: true, closeInteractionType: 'keyboard', relay: relay('escape-key', 'KeyboardEvent', 'keydown') });
       floating.removeAttribute('data-open');
       await settle();
 
@@ -1832,19 +1832,19 @@ describe('FloatingFocusManager', () => {
 
       const manager = app.open({ initialFocus: false, openInteractionType: 'mouse' });
       await settle();
-      await unmount(manager, { closeInteractionType: 'mouse', openChange: relay('trigger-hover', 'MouseEvent', 'mouseleave', 'mouse') });
+      await unmount(manager, { closeInteractionType: 'mouse', relay: relay('trigger-hover', 'MouseEvent', 'mouseleave', 'mouse') });
 
       // The positive half: a press close of the same popup returns focus.
       const pressed = app.open({ initialFocus: false });
       app.one.focus();
       await settle();
-      await unmount(pressed, { openChange: relay('trigger-press', 'MouseEvent', 'click', 'mouse') });
+      await unmount(pressed, { relay: relay('trigger-press', 'MouseEvent', 'click', 'mouse') });
       expect(document.activeElement).toBe(app.reference);
 
       app.reference.blur();
       const hovered = app.open({ initialFocus: false, openInteractionType: 'mouse' });
       await settle();
-      await unmount(hovered, { openChange: relay('trigger-hover', 'MouseEvent', 'mouseleave', 'mouse') });
+      await unmount(hovered, { relay: relay('trigger-hover', 'MouseEvent', 'mouseleave', 'mouse') });
 
       expect(document.activeElement).not.toBe(app.reference);
     });
@@ -1855,7 +1855,7 @@ describe('FloatingFocusManager', () => {
       const manager = app.open({ openInteractionType: 'mouse' });
       await settle();
       keyDown(document.activeElement!, 'Escape');
-      await unmount(manager, { closeInteractionType: 'keyboard', openChange: relay('escape-key', 'KeyboardEvent', 'keydown') });
+      await unmount(manager, { closeInteractionType: 'keyboard', relay: relay('escape-key', 'KeyboardEvent', 'keydown') });
 
       expect(document.activeElement).toBe(app.reference);
     });
@@ -1867,7 +1867,7 @@ describe('FloatingFocusManager', () => {
       await settle();
       app.three.focus();
       keyDown(app.three, 'Enter');
-      await unmount(manager, { closeInteractionType: 'keyboard', openChange: relay('none', 'MouseEvent', 'click') });
+      await unmount(manager, { closeInteractionType: 'keyboard', relay: relay('none', 'MouseEvent', 'click') });
 
       expect(document.activeElement).toBe(app.reference);
     });
@@ -1880,7 +1880,7 @@ describe('FloatingFocusManager', () => {
       await settle();
       expect(document.activeElement).toBe(app.one);
 
-      await unmount(manager, { closeInteractionType: 'mouse', openChange: relay('trigger-hover', 'MouseEvent', 'mouseleave', 'mouse') });
+      await unmount(manager, { closeInteractionType: 'mouse', relay: relay('trigger-hover', 'MouseEvent', 'mouseleave', 'mouse') });
 
       expect(document.activeElement).not.toBe(app.reference);
     });
@@ -2163,20 +2163,215 @@ describe('FloatingFocusManager', () => {
       expect(document.activeElement).toBe(popup.items[0]);
     });
 
-    it('leaves focus alone once the user has interacted, and re-picks at most once', async () => {
-      const popup = renderGroupPopup();
-      popup.reference.focus();
-
-      attachManager(popup.floating);
+    it('re-picks at most once, and not after the user has interacted', async () => {
+      const first = renderGroupPopup();
+      first.reference.focus();
+      const firstManager = attachManager(first.floating);
       await settle();
-      expect(document.activeElement).toBe(popup.after);
-
-      keyDown(popup.after, 'a');
-      popup.attachGroup();
+      first.attachGroup();
       await settle();
-      expect(popup.items[0]!.getAttribute('tabindex')).toBe('0');
-      expect(document.activeElement).toBe(popup.after);
+      expect(document.activeElement).toBe(first.items[0]);
+
+      // A later tabindex write inside the popup (the composite moving its tab stop) is not a second re-pick.
+      first.items[0]!.setAttribute('tabindex', '-1');
+      first.items[1]!.setAttribute('tabindex', '0');
+      await settle();
+      expect(document.activeElement).toBe(first.items[0]);
+      firstManager.handle.dispose();
+      document.body.replaceChildren();
+
+      const second = renderGroupPopup();
+      second.reference.focus();
+      attachManager(second.floating);
+      await settle();
+      expect(document.activeElement).toBe(second.after);
+
+      keyDown(second.after, 'a');
+      second.attachGroup();
+      await settle();
+      expect(second.items[0]!.getAttribute('tabindex')).toBe('0');
+      expect(document.activeElement).toBe(second.after);
     });
+  });
+
+  // FLT-ARIA-01's hover title: the `useHover` shim becomes a hover open carried by the relay (dated note on FLT-ARIA-01).
+  it('uses aria-hidden instead of inert on outside nodes if opened with hover and modal=true', async () => {
+    const reference = element('button', 'reference', { id: 'reference' });
+    const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+    const outside = element('button');
+    outside.textContent = 'outside';
+    document.body.append(reference, floating, outside);
+
+    attachManager(floating, { openInteractionType: 'mouse', relay: relay('trigger-hover', 'MouseEvent', 'mouseenter', 'mouse') });
+    await settle();
+
+    expect(outside.hasAttribute('inert')).toBe(false);
+    expect(outside.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  // The options the families pass, each at the lowest layer that observes it.
+  describe('the element and selector options', () => {
+    it('keeps the trigger focus guards and the anchor exposed, and a focus that moves to the after-guard closes nothing', async () => {
+      const triggerBefore = insideGuard();
+      triggerBefore.setAttribute('data-type', 'trigger');
+      const reference = element('button', 'reference', { id: 'reference' });
+      const triggerAfter = insideGuard();
+      triggerAfter.setAttribute('data-type', 'trigger');
+      const outside = element('button', 'outside');
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      document.body.append(triggerBefore, reference, triggerAfter, outside, floating);
+
+      const manager = attachManager(floating, { triggerFocusGuards: true, modal: false });
+      await settle();
+      expect(document.activeElement).toBe(inside);
+
+      triggerAfter.focus();
+      await settle();
+      expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+      inside.focus();
+      outside.focus();
+      await settle();
+      expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+      manager.handle.dispose();
+
+      // Modal: the guard before the anchor is inside; the anchor and the guard after it are the focusable neighbours.
+      // The guards' own `aria-hidden` is dropped so the marking is what the assertions read.
+      triggerBefore.removeAttribute('aria-hidden');
+      triggerAfter.removeAttribute('aria-hidden');
+      floating.setAttribute('data-open', '');
+      attachManager(floating, { triggerFocusGuards: true });
+      await settle();
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+      expect(triggerBefore.hasAttribute('aria-hidden')).toBe(false);
+      expect(reference.hasAttribute('aria-hidden')).toBe(false);
+      expect(triggerAfter.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    it('takes the return focus target by element id', async () => {
+      const app = renderApp();
+      const target = element('button', 'target', { id: 'return-target' });
+      document.body.append(target);
+      app.reference.focus();
+
+      const manager = app.open({ returnFocusId: 'return-target' });
+      await settle();
+      await unmount(manager);
+
+      expect(document.activeElement).toBe(target);
+    });
+
+    it('keeps the inside elements named by id exposed', async () => {
+      const reference = element('input', 'reference', { id: 'reference' });
+      const wrapper = element('div', 'outside-wrapper');
+      wrapper.append(element('button'));
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      const dismiss = element('button', 'dismiss', { id: 'dismiss' });
+      document.body.append(reference, wrapper, floating, dismiss);
+
+      attachManager(floating, { insideElementIds: ['dismiss'] });
+      await settle();
+
+      expect(wrapper.getAttribute('aria-hidden')).toBe('true');
+      expect(dismiss.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    it('reads the open state from the selector the options name', async () => {
+      const reference = element('button', 'reference', { id: 'reference' });
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      const outside = element('div', 'outside');
+      document.body.append(reference, floating, outside);
+
+      attachManager(floating, { openSelector: '[data-state="open"]' });
+      await settle();
+      expect(outside.hasAttribute('aria-hidden')).toBe(false);
+
+      floating.setAttribute('data-state', 'open');
+      await Promise.resolve();
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      floating.setAttribute('data-state', 'closed');
+      await Promise.resolve();
+      expect(outside.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    // Menu's previousFocusableElement and nextFocusableElement (M5), by reference index (ADR 04 Amendments 2026-10-27).
+    it('keeps the previous focusable element named by reference exposed while modal', async () => {
+      const app = renderApp();
+      const previous = element('button', 'previous');
+      const outside = element('button', 'outside');
+      document.body.append(previous, outside);
+
+      app.open({ previousFocusableElement: 0 }, { references: [previous] });
+      await settle();
+
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+      expect(previous.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    it('keeps the next focusable element named by reference exposed while modal', async () => {
+      const app = renderApp();
+      const next = element('button', 'next');
+      const outside = element('button', 'outside');
+      document.body.append(next, outside);
+
+      app.open({ nextFocusableElement: 0 }, { references: [next] });
+      await settle();
+
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+      expect(next.hasAttribute('aria-hidden')).toBe(false);
+    });
+  });
+
+  // ADR 04 Amendments 2026-10-27 (the answered-requests counter): a focus-out close is a request, so after a consumer's
+  // cancel C# moves `answered` and the module asks again.
+  it('asks again for a focus-out close once the answered count moves', async () => {
+    const app = renderApp({ modal: false });
+    const elsewhere = element('button', 'elsewhere');
+    document.body.append(elsewhere);
+
+    const manager = app.open();
+    await settle();
+    elsewhere.focus();
+    await settle();
+    expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+
+    // The consumer cancelled: nothing rendered, and the module is still waiting.
+    app.one.focus();
+    elsewhere.focus();
+    await settle();
+    expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+
+    manager.update({ answered: 1 });
+    app.one.focus();
+    elsewhere.focus();
+    await settle();
+
+    expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(2);
+  });
+
+  it('returns focus in the batch that removes an ancestor of the popup', async () => {
+    const reference = element('button', 'reference', { id: 'reference' });
+    const ancestor = element('div');
+    const parent = element('div');
+    const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+    const inside = element('button');
+    floating.append(inside);
+    parent.append(floating);
+    ancestor.append(parent);
+    document.body.append(reference, ancestor);
+    reference.focus();
+
+    const manager = attachManager(floating);
+    await settle();
+    expect(document.activeElement).toBe(inside);
+
+    ancestor.remove();
+    await settle();
+
+    expect(document.activeElement).toBe(reference);
+    manager.handle.dispose();
   });
 
   // FLT-DOM-13, FLT-A11Y-07: the guards' VoiceOver role is a JavaScript write after attach, on the guards this module
