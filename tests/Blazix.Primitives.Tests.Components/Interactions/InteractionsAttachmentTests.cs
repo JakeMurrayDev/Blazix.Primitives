@@ -29,11 +29,51 @@ public sealed class InteractionsAttachmentTests
         Assert.True(JsonDocument.Parse(update).RootElement.GetProperty("session").GetProperty("open").GetBoolean());
     }
 
+    // Design point 3 of M4 track 1 (settled by the orchestrator 2026-10-27): until the portal module has moved the node it
+    // is `display: none` in place, so a portaled part's handle awaits PopupPortalContext.WhenMoved before its first attach.
+    [Fact]
+    public async Task The_floating_handle_inside_a_portal_attaches_only_once_the_portal_has_moved_its_node()
+    {
+        StallingRuntime runtime = new();
+        runtime.CompleteAttach();
+        PopupPortalContext portal = new();
+        await using InteractionsFloatingBehavior floating = new(runtime, _ => Task.CompletedTask, _ => Task.CompletedTask)
+        {
+            SessionToken = "base-ui-1",
+            PortalContext = portal,
+        };
+
+        Task first = floating.AfterRenderAsync(true, null, "base-ui-2");
+        await floating.AfterRenderAsync(true, null, "base-ui-2");
+        Assert.Equal(0, runtime.Attaches);
+        Assert.False(first.IsCompleted);
+
+        portal.CompleteMove();
+        await first;
+
+        Assert.Equal(1, runtime.Attaches);
+        Assert.Empty(runtime.Updates);
+    }
+
+    [Fact]
+    public async Task The_floating_handle_outside_any_portal_attaches_at_its_first_render()
+    {
+        StallingRuntime runtime = new();
+        runtime.CompleteAttach();
+        await using InteractionsFloatingBehavior floating = new(runtime, _ => Task.CompletedTask, _ => Task.CompletedTask) { SessionToken = "base-ui-1" };
+
+        await floating.AfterRenderAsync(true, null, "base-ui-2");
+
+        Assert.Equal(1, runtime.Attaches);
+    }
+
     private sealed class StallingRuntime : IJSRuntime, IJSObjectReference
     {
         private readonly TaskCompletionSource<IJSObjectReference> attach = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public List<string> Updates { get; } = [];
+
+        public int Attaches { get; private set; }
 
         public void CompleteAttach() => attach.SetResult(this);
 
@@ -46,6 +86,7 @@ public sealed class InteractionsAttachmentTests
                 case "import":
                     return ValueTask.FromResult((TValue)(object)this);
                 case "attach":
+                    Attaches++;
                     return new ValueTask<TValue>(attach.Task.ContinueWith(task => (TValue)task.Result, TaskScheduler.Default));
                 case "update":
                     Updates.Add((string)args![0]!);

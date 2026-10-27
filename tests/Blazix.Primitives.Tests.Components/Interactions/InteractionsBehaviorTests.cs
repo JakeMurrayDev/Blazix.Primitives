@@ -95,6 +95,34 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.Contains("\"open\":true", host.UpdateOptions[^1], StringComparison.Ordinal);
     }
 
+    // ADR 04 Amendments 2026-10-27: a popup root's session joins the token its popup store drew (PSH-STR-01), so every
+    // module of the popup shares one session, and carries the store's relay; a moved revision is an update.
+    [Fact]
+    public async Task A_session_joins_the_token_it_is_given_and_sends_the_relay_and_its_changes()
+    {
+        OpenChangeRelay relay = new(1, "trigger-press", EventKind.PointerEvent, "click", "mouse", "base-ui-5");
+        await using InteractionsSessionBehavior session = new(host.Context.JSInterop.JSRuntime, "base-ui-9", _ => Task.CompletedTask, _ => Task.CompletedTask)
+        {
+            Open = true,
+            Relay = relay,
+        };
+
+        await session.AfterRenderAsync();
+        await session.AfterRenderAsync();
+        session.Relay = relay with { Revision = 2, Reason = "escape-key", EventKind = EventKind.KeyboardEvent, EventType = "keydown", PointerType = null };
+        await session.AfterRenderAsync();
+
+        Assert.Equal("base-ui-9", session.Token);
+        JSRuntimeInvocation attach = Assert.Single(host.Attaches);
+        Assert.Null(attach.Arguments[0]);
+        JsonElement options = JsonDocument.Parse((string)attach.Arguments[1]!).RootElement;
+        Assert.Equal("base-ui-9", options.GetProperty("sessionToken").GetString());
+        Assert.Equal(1, options.GetProperty("relay").GetProperty("revision").GetInt32());
+        JsonElement update = JsonDocument.Parse(Assert.Single(host.UpdateOptions)).RootElement;
+        Assert.Equal(2, update.GetProperty("relay").GetProperty("revision").GetInt32());
+        Assert.Equal("escape-key", update.GetProperty("relay").GetProperty("reason").GetString());
+    }
+
     [Fact]
     public async Task On_WebAssembly_the_press_decider_runs_the_declined_consumer_onclick_once_then_the_request()
     {
@@ -114,7 +142,7 @@ public sealed class InteractionsBehaviorTests : IDisposable
         OpenChangeRequest request = Assert.Single(cut.Instance.Requests);
         Assert.True(request.Open);
         Assert.Equal(EventReason.TriggerPress, request.Details.Reason);
-        Assert.Equal("mouse", request.InteractionType);
+        Assert.Equal(InteractionType.Mouse, request.InteractionType);
         Assert.True(cut.Instance.Open);
     }
 
@@ -149,7 +177,7 @@ public sealed class InteractionsBehaviorTests : IDisposable
         trigger.Find("button").Click(new MouseEventArgs { Detail = 1 });
         Assert.Equal(1, consumerClicks);
         Assert.True(cut.Instance.Open);
-        Assert.Equal("touch", cut.Instance.Requests[^1].InteractionType);
+        Assert.Equal(InteractionType.Touch, cut.Instance.Requests[^1].InteractionType);
     }
 
     [Fact]

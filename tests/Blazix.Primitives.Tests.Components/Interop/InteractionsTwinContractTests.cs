@@ -79,6 +79,33 @@ public sealed class InteractionsTwinContractTests
         Assert.Single(handle.Invocations["dispose"]);
     }
 
+    // ADR 04 Amendments 2026-10-27 (the open-change relay, track 1's record; design point 11, the coalesced close).
+    [Fact]
+    [Trait("Verifies", "ADR06-3")]
+    public async Task The_session_handle_sends_the_relay_with_a_coalesced_close_and_omits_it_while_null()
+    {
+        using BunitContext context = new();
+        (BunitJSModuleInterop module, BunitJSModuleInterop handle) = Setup(context);
+        await using InteractionsTwin twin = new(context.JSInterop.JSRuntime);
+
+        TwinHandle<InteractionsOptions> attached = await twin.AttachTokenAsync("base-ui-1", new InteractionsOptions
+        {
+            SessionToken = "base-ui-1",
+            Session = new InteractionsSessionOptions(),
+        });
+        await attached.UpdateAsync(new InteractionsOptions
+        {
+            SessionToken = "base-ui-1",
+            Relay = new OpenChangeRelay(3, "trigger-press", EventKind.PointerEvent, "click", "mouse", "base-ui-2", 2, "escape-key"),
+            Session = new InteractionsSessionOptions { Open = true },
+        });
+
+        Assert.Equal("""{"sessionToken":"base-ui-1","session":{"open":false}}""", Assert.Single(module.Invocations["attach"]).Arguments[1]);
+        Assert.Equal(
+            """{"sessionToken":"base-ui-1","relay":{"revision":3,"reason":"trigger-press","eventKind":"PointerEvent","eventType":"click","pointerType":"mouse","triggerId":"base-ui-2","coalescedCloseRevision":2,"coalescedCloseReason":"escape-key"},"session":{"open":true}}""",
+            Assert.Single(handle.Invocations["update"]).Arguments[0]);
+    }
+
     [Fact]
     public async Task The_trigger_handle_sends_every_trigger_field_and_only_the_fields_that_are_set()
     {
