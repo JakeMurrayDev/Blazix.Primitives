@@ -150,6 +150,7 @@ public sealed class TwinContractTests
     [InlineData(nameof(DecisionPolicy.Stop), "stop")]
     [InlineData(nameof(DecisionPolicy.Start), "start")]
     [InlineData(nameof(DecisionPolicy.PreventAndStop), "prevent-and-stop")]
+    [InlineData(nameof(DecisionPolicy.Prevent), "prevent")]
     public void Every_decision_policy_has_the_kebab_case_literal_the_JavaScript_helper_expects(string policy, string literal)
     {
         using BunitContext context = new();

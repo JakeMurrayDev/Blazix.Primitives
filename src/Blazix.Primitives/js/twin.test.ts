@@ -2,7 +2,7 @@
 // (WebAssembly) form. Port titles: Base UI has no counterpart.
 import { describe, expect, it } from 'vitest';
 import { createFakeTwin } from './test-support/fake-twin';
-import { createTwinChannel, type DotNetTwin } from './twin';
+import { createTwinChannel, decisionPolicies, type DotNetTwin } from './twin';
 
 /** Wraps a fake twin so the test can count the synchronous invocations the channel makes. */
 function counting(twin: DotNetTwin): { twin: DotNetTwin; calls: string[] } {
@@ -38,5 +38,11 @@ describe('createTwinChannel', () => {
     expect(channel.decide('select', undefined, 'stop')).toBe('stop');
     expect(channel.lastDecisionWasSynchronous).toBe(false);
     expect(calls).toEqual(['Ping']);
+  });
+});
+
+describe('decisionPolicies', () => {
+  it('port: lists the literals of every C# DecisionPolicy member, prevent included', () => {
+    expect(decisionPolicies).toEqual(['run', 'stop', 'start', 'prevent-and-stop', 'prevent']);
   });
 });
