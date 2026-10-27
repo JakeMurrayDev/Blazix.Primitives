@@ -1,0 +1,136 @@
+<DemoFrame Slug="tabs" Note="Panels that slide in from the side of the tab you came from, a vertical list, tabs that select as the arrow keys move, a disabled tab and a value bound from outside.">
+    <Hero>
+        <TabsRoot class="w-full max-w-xs" DefaultValue="@("overview")">
+            <TabsList class="relative z-1 -mb-px flex gap-1">
+                <TabsTab class="@TabClass" Value="@("overview")">Overview</TabsTab>
+                <TabsTab class="@TabClass" Value="@("projects")">Projects</TabsTab>
+                <TabsTab class="@TabClass" Value="@("account")">Account</TabsTab>
+                <TabsIndicator class="@IndicatorClass" />
+            </TabsList>
+            <div class="grid w-full min-h-32 grid-cols-1 border border-neutral-950 dark:border-white">
+                <TabsPanel class="@PanelClass" Value="@("overview")">
+                    <p>Workspace stats and activity.</p>
+                </TabsPanel>
+                <TabsPanel class="@PanelClass" Value="@("projects")">
+                    <p>Milestones and deadlines.</p>
+                </TabsPanel>
+                <TabsPanel class="@PanelClass" Value="@("account")">
+                    <p>Profile and preferences.</p>
+                </TabsPanel>
+            </div>
+        </TabsRoot>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <TabsRoot class="w-full max-w-xs" DefaultValue="@("overview")">
+                <TabsList class="relative z-1 -mb-px flex gap-1">
+                    <TabsTab class="@TabClass" Value="@("overview")">Overview</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("projects")">Projects</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("account")">Account</TabsTab>
+                    <TabsIndicator class="@IndicatorClass" />
+                </TabsList>
+                <div class="relative grid min-h-32 w-full grid-cols-1 overflow-hidden border border-neutral-950 bg-white dark:border-white dark:bg-neutral-950">
+                    <TabsPanel class="@AnimatedPanelClass" Value="@("overview")">
+                        <p>Workspace stats and activity.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@AnimatedPanelClass" Value="@("projects")">
+                        <p>Milestones and deadlines.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@AnimatedPanelClass" Value="@("account")">
+                        <p>Profile and preferences.</p>
+                    </TabsPanel>
+                </div>
+            </TabsRoot>
+            <span class="VariantName">Animated panels: each enters from the side of the tab it replaces</span>
+        </div>
+        <div class="Variant">
+            <TabsRoot class="flex w-full max-w-sm" DefaultValue="@("overview")" Orientation="Orientation.Vertical">
+                <TabsList class="relative z-1 -mr-px flex flex-col gap-1">
+                    <TabsTab class="@TabClass" Value="@("overview")">Overview</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("projects")">Projects</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("account")">Account</TabsTab>
+                    <TabsIndicator class="@VerticalIndicatorClass" />
+                </TabsList>
+                <div class="grid min-h-32 flex-1 grid-cols-1 border border-neutral-950 dark:border-white">
+                    <TabsPanel class="@PanelClass" Value="@("overview")">
+                        <p>Workspace stats and activity.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@PanelClass" Value="@("projects")">
+                        <p>Milestones and deadlines.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@PanelClass" Value="@("account")">
+                        <p>Profile and preferences.</p>
+                    </TabsPanel>
+                </div>
+            </TabsRoot>
+            <span class="VariantName">Orientation="Orientation.Vertical": the up and down arrows move between tabs</span>
+        </div>
+        <div class="Variant">
+            <TabsRoot class="w-full max-w-xs" DefaultValue="@("overview")">
+                <TabsList class="relative z-1 -mb-px flex gap-1" ActivateOnFocus="true">
+                    <TabsTab class="@TabClass" Value="@("overview")">Overview</TabsTab>
+                    <TabsTab class="@DisabledTabClass" Value="@("projects")" Disabled="true">Projects</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("account")">Account</TabsTab>
+                    <TabsIndicator class="@IndicatorClass" />
+                </TabsList>
+                <div class="grid w-full min-h-32 grid-cols-1 border border-neutral-950 dark:border-white">
+                    <TabsPanel class="@PanelClass" Value="@("overview")">
+                        <p>Workspace stats and activity.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@PanelClass" Value="@("projects")">
+                        <p>Milestones and deadlines.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@PanelClass" Value="@("account")">
+                        <p>Profile and preferences.</p>
+                    </TabsPanel>
+                </div>
+            </TabsRoot>
+            <span class="VariantName">ActivateOnFocus="true" with Projects disabled: the arrow keys select as they move, and reach Projects without selecting it</span>
+        </div>
+        <div class="Variant">
+            <TabsRoot class="w-full max-w-xs" @bind-Value="bound">
+                <TabsList class="relative z-1 -mb-px flex gap-1">
+                    <TabsTab class="@TabClass" Value="@("overview")">Overview</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("projects")">Projects</TabsTab>
+                    <TabsTab class="@TabClass" Value="@("account")">Account</TabsTab>
+                    <TabsIndicator class="@IndicatorClass" />
+                </TabsList>
+                <div class="grid w-full min-h-32 grid-cols-1 border border-neutral-950 dark:border-white">
+                    <TabsPanel class="@PanelClass" Value="@("overview")">
+                        <p>Workspace stats and activity.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@PanelClass" Value="@("projects")">
+                        <p>Milestones and deadlines.</p>
+                    </TabsPanel>
+                    <TabsPanel class="@PanelClass" Value="@("account")">
+                        <p>Profile and preferences.</p>
+                    </TabsPanel>
+                </div>
+            </TabsRoot>
+            <button type="button" class="Control" @onclick="@(() => bound = "account")">Select Account from outside</button>
+            <button type="button" class="Control" @onclick="@(() => bound = null)">Select nothing</button>
+            <span class="VariantName">value: <strong>@(bound ?? "none")</strong></span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string TabClass = "flex h-[calc(2rem+1px)] items-center justify-center bg-transparent px-2 py-0 font-inherit text-sm font-normal leading-5 break-keep whitespace-nowrap text-neutral-600 outline-none select-none hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white data-active:text-neutral-950 dark:text-neutral-300 dark:hover:text-white dark:data-active:text-white";
+    private const string PanelClass = "col-start-1 row-start-1 flex w-full items-center justify-center bg-white p-4 text-center text-sm text-neutral-950 outline-none focus-visible:z-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:bg-neutral-950 dark:text-white [[hidden]]:hidden";
+    private const string IndicatorClass = "absolute top-0 left-0 -z-1 h-full w-(--active-tab-width) translate-x-(--active-tab-left) border-x border-t border-neutral-950 bg-white transition-[translate,width] duration-150 ease-in-out dark:border-white dark:bg-neutral-950";
+
+    // The documentation's animated-panels demo.
+    private const string AnimatedPanelClass = "col-start-1 row-start-1 flex w-full items-center justify-center p-4 text-center text-sm text-neutral-950 outline-none focus-visible:z-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:text-white "
+        + "[transition:opacity_175ms_ease,translate_350ms_cubic-bezier(0.22,1,0.36,1)] "
+        + "data-starting-style:opacity-0 data-ending-style:opacity-0 "
+        + "motion-safe:data-starting-style:data-[activation-direction=left]:translate-x-[-50%] "
+        + "motion-safe:data-starting-style:data-[activation-direction=right]:translate-x-[50%] "
+        + "motion-safe:data-ending-style:data-[activation-direction=left]:translate-x-[50%] "
+        + "motion-safe:data-ending-style:data-[activation-direction=right]:translate-x-[-50%]";
+
+    // The hero's indicator turned on its side, and a dimmed disabled tab.
+    private const string VerticalIndicatorClass = "absolute top-0 left-0 -z-1 w-full h-(--active-tab-height) translate-y-(--active-tab-top) border-y border-l border-neutral-950 bg-white transition-[translate,height] duration-150 ease-in-out dark:border-white dark:bg-neutral-950";
+    private const string DisabledTabClass = TabClass + " data-disabled:opacity-50";
+
+    private string? bound = "projects";
+}
