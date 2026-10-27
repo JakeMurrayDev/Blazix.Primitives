@@ -640,6 +640,14 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
     protected internal void WritePopup(PopupStoreState<TPayload> next)
     {
         ArgumentNullException.ThrowIfNull(next);
+
+        // ADR 16 rule 7: an equal record changes nothing, so no family record is built for it.
+        PopupStoreState<TPayload> current = State.Popup;
+        if (ReferenceEquals(current, next) || PopupStoreState<TPayload>.ShallowEquals(current, next))
+        {
+            return;
+        }
+
         Write(TState.WithPopup(State, next));
     }
 
