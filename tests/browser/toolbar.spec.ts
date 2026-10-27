@@ -884,6 +884,24 @@ test.describe('<Toolbar.Button />', () => {
         await expect(item('three')).toBeFocused();
       });
 
+      // TLB-STA-04, TLB-FOC-02, TLB-DOM-08: the toolbar's first publication waits for its substituted buttons' handles,
+      // which clear the DOM disabled property of a substituted toggle; otherwise that property, rendered by the toggle
+      // until its handle attaches, makes the module move the initial tab stop off it. The `button` module is held back
+      // so its handles attach last, the order a slow network gives (Base UI corrects the property in a layout effect,
+      // before its item map is published).
+      test('port: a disabled toggle substituted into the first toolbar button keeps the initial tab stop when the button handles attach last', async ({ page, mode }) => {
+        await page.route('**/js/button.js', (route) => {
+          setTimeout(() => void route.continue(), 1000);
+        });
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { item, before } = toolbarCase(fixture, 'first-disabled-substitute');
+        await expect(item('first')).not.toHaveAttribute('disabled');
+
+        await expect(item('first')).toHaveAttribute('tabindex', '0');
+        await tabIn(page, before);
+        await expect(item('first')).toBeFocused();
+      });
+
       // TLB-EDGE-12, TLB-STR-05 (the Toggle clause), TLB-FOC-01, CMP-STR-04 (E4): the docs' hero, two toolbar buttons
       // substituting toggles in a toggle group, then a group of two buttons and a link; the tab stop moves onto the
       // substituted toggles and each activation toggles once.

@@ -15,6 +15,8 @@
     - `direct-controlled`: "supports a controlled ToggleGroup value".
     - `direct-group-disabled`: "disables direct ToggleGroup children when Toolbar.Group is disabled".
     - `direct-runtime`: "skips a direct Toggle that becomes disabled at runtime"; `data-flip` disables the second toggle.
+    - `first-disabled-substitute`: a disabled toggle substituted into the first toolbar button, then a plain button: the
+      initial tab stop when the button handles attach after the toolbar's composite.
     - `hero`: the docs' hero without its Select (the sample page's shape).
 *@
 <FixtureContainer Name="toolbar-toggle" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
@@ -96,6 +98,13 @@
         <button type="button" data-flip @onclick="() => twoDisabled = true">Disable two</button>
     </ToolbarCaseFrame>
 
+    <ToolbarCaseFrame Name="first-disabled-substitute" Case="@cases["first-disabled-substitute"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" Render="GroupedToggle" data-item="first" />
+            <ToolbarButton @ref="Button" data-item="second">Second</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
     <ToolbarCaseFrame Name="hero" Case="@cases["hero"]">
         <ToolbarRoot @ref="Root" aria-label="Formatting" data-root>
             <ToggleGroup aria-label="Alignment" OnValueChange="@cases["hero"].GroupChange">
@@ -118,7 +127,7 @@
 
     private static readonly (string Name, bool Disabled)[] s_blocks = [("block", false), ("block-disabled", true)];
 
-    private readonly Dictionary<string, ToolbarCase> cases = new[] { "block", "block-disabled", "direct", "direct-disabled", "direct-multiple", "direct-controlled", "direct-group-disabled", "direct-runtime", "hero" }
+    private readonly Dictionary<string, ToolbarCase> cases = new[] { "block", "block-disabled", "direct", "direct-disabled", "direct-multiple", "direct-controlled", "direct-group-disabled", "direct-runtime", "first-disabled-substitute", "hero" }
         .ToDictionary(name => name, _ => new ToolbarCase());
 
     private IReadOnlyList<string> controlled = [];
