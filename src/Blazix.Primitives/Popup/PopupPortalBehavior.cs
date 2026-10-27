@@ -21,7 +21,9 @@ namespace Blazix.Primitives;
 //   RendersNode), so the module never sees it.
 // - The guards and the owner render while the context holds a non-modal, open publication and the node exists (FLT-DOM-14),
 //   never in the lite portal. The guards' focus routing is track 4's (design point 5).
-// - The move completes the context's Moved task (design point 3, settled by the orchestrator 2026-10-27).
+// - The move completes the context's Moved task (design point 3, settled by the orchestrator 2026-10-27), and only the
+//   attach that moved the node completes it: TwinBase hands a repeated attach the pending handle at once, so a render
+//   during the first attach awaits that attach instead of attaching again.
 /// <summary>Renders a portal's wrapper, guards and owner, and moves its node through the <c>portal</c> module.</summary>
 internal sealed class PopupPortalBehavior : IAsyncDisposable
 {
@@ -32,6 +34,8 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     private readonly Action requestRender;
     private readonly IDisposable publicationSubscription;
     private TwinHandle<PortalOptions>? handle;
+    private Task? attaching;
+    private int generation;
     private ElementReference? attachedNode;
     private PortalOptions? sentOptions;
     private object? sentReference;
@@ -97,13 +101,11 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
         (PortalOptions options, object? reference) = Options(container);
         if (handle is null)
         {
-            attachedNode = node;
-            handle = await twin.AttachAsync(node.Value, options, ReferencesFor(reference));
-            sentOptions = options;
-            sentReference = reference;
-            Context.CompleteMove();
+            attaching ??= AttachAsync(node.Value, options, reference);
+            await attaching;
         }
-        else if (options != sentOptions || !SameReference(reference, sentReference))
+
+        if (handle is not null && (options != sentOptions || !SameReference(reference, sentReference)))
         {
             sentOptions = options;
             sentReference = reference;
@@ -275,8 +277,29 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     }
 #pragma warning restore BLZX2005
 
+    private async Task AttachAsync(ElementReference node, PortalOptions options, object? reference)
+    {
+        int attachedGeneration = generation;
+        attachedNode = node;
+        sentOptions = options;
+        sentReference = reference;
+        TwinHandle<PortalOptions> attached = await twin.AttachAsync(node, options, ReferencesFor(reference));
+        if (attachedGeneration != generation)
+        {
+            // The node went while the module loaded: the handle is not this portal's any more.
+            await attached.DisposeAsync();
+            return;
+        }
+
+        handle = attached;
+        attaching = null;
+        Context.CompleteMove();
+    }
+
     private async Task DetachAsync()
     {
+        generation++;
+        attaching = null;
         attachedNode = null;
         sentOptions = null;
         sentReference = null;
