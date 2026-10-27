@@ -6,12 +6,13 @@ namespace Blazix.Primitives.Interop;
 // open state from the applied batch through the element matching OpenSelector, never from these options after attach;
 // InitialFocus and ReturnFocus arrive resolved (ADR 04 Amendments 2026-10-27, "Focus targets"; ADR 08 Amendments
 // 2026-10-27, "Unions"): a boolean plus an element, by the index of a reference passed with the options (the popup
-// core's references array, ADR 04 Amendments 2026-10-27; open until it is on `main`), or an element id. The names are
-// FLT §6.10's props (design point 8 of the focus-manager track, settled by the orchestrator 2026-10-27); FinalFocus maps to
-// ReturnFocus. OpenInteractionType and CloseInteractionType are the InteractionType literals until the enum is on
-// `main` (Interop/CONTEXT.md). Answered is the answered-requests counter and PreviousFocusableElement and
-// NextFocusableElement are Menu's indices beside TriggerFocusGuards (ADR 04 Amendments 2026-10-27, the verification of
-// PR 128, settled by the orchestrator). FLT-API-05, FLT-FOC-06, FOC-07, FOC-11, FOC-12, FOC-19..21, ARIA-01..03, DOM-17, KEY-06.
+// core's references array, TwinReferences, ADR 04 Amendments 2026-10-27), or an element id. The names are FLT §6.10's
+// props (design point 8 of the focus-manager track, settled by the orchestrator 2026-10-27); FinalFocus maps to
+// ReturnFocus. OpenInteractionType and CloseInteractionType carry InteractionType's literals (InteractionTypeLiterals),
+// OpenInteractionType's null being a programmatic open. Relay is the popup core's OpenChangeRelay (ADR 04 Amendments
+// 2026-10-27, the relay). Answered is the answered-requests counter and PreviousFocusableElement and NextFocusableElement
+// are Menu's indices beside TriggerFocusGuards (ADR 04 Amendments 2026-10-27, the verification of PR 128, settled by the
+// orchestrator). FLT-API-05, FLT-FOC-06, FOC-07, FOC-11, FOC-12, FOC-19..21, ARIA-01..03, DOM-17, KEY-06, FLT-EVT-02.
 /// <summary>
 /// The options of the <c>focus-manager</c> module, sent on <c>attach</c> and on every <c>update</c>: what the focus manager
 /// of a popup does when the popup opens, while it is open and when it closes.
@@ -129,6 +130,10 @@ internal sealed record FocusManagerOptions : TwinOptions
     /// <value>The ids, or <see langword="null"/>, the default, for none.</value>
     public IReadOnlyList<string>? InsideElementIds { get; init; }
 
+    /// <summary>Gets the last open change the popup committed, which the module acts on once per revision.</summary>
+    /// <value>The relay, or <see langword="null"/>, the default, before the popup's first committed change.</value>
+    public OpenChangeRelay? Relay { get; init; }
+
     /// <summary>Gets how many of the module's requests C# has answered.</summary>
     /// <value>
     /// The count, raised for every focus-out close request C# routed, canceled or not; the default is 0. The module asks
@@ -163,6 +168,7 @@ internal sealed record FocusManagerOptions : TwinOptions
             && NextFocusableElement == other.NextFocusableElement
             && SameItems(InsideElements, other.InsideElements)
             && SameItems(InsideElementIds, other.InsideElementIds)
+            && Equals(Relay, other.Relay)
             && Answered == other.Answered;
     }
 
@@ -190,6 +196,7 @@ internal sealed record FocusManagerOptions : TwinOptions
         hash.Add(TriggerFocusGuards);
         hash.Add(PreviousFocusableElement);
         hash.Add(NextFocusableElement);
+        hash.Add(Relay);
         hash.Add(Answered);
         hash.Add(InsideElements?.Count ?? -1);
         hash.Add(InsideElementIds?.Count ?? -1);
