@@ -1,0 +1,324 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Test consumers of the Accordion test files (accordion/**/*.test.tsx): each scenario is the markup of one Base UI test,
+    with its callbacks reported through the parameters. The panels' text is Base UI's PANEL_CONTENT_1/2.
+*@
+@switch (Scenario)
+{
+    case AccordionScenario.OneItem:
+        <AccordionRoot TValue="int" @attributes="RootAttributes()">
+            <AccordionItem Value="0" Disabled="ItemDisabled" OnOpenChange="OnOpenChange" data-testid="item1">
+                <AccordionHeader>
+                    @if (TriggerMounted)
+                    {
+                        <AccordionTrigger @attributes="TriggerAttributes()">Trigger 1</AccordionTrigger>
+                    }
+                </AccordionHeader>
+                @if (PanelMounted)
+                {
+                    <AccordionPanel @attributes="PanelAttributes()">@PanelContent1</AccordionPanel>
+                }
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+    case AccordionScenario.TwoItems:
+        <AccordionRoot TValue="int" @attributes="RootAttributes()">
+            <AccordionItem Value="0" Disabled="ItemDisabled" OnOpenChange="OnOpenChange" data-testid="item1">
+                <AccordionHeader>
+                    <AccordionTrigger Disabled="TriggerDisabled">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel1">@PanelContent1</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="1" OnOpenChange="OnOpenChange" data-testid="item2">
+                <AccordionHeader>
+                    <AccordionTrigger Disabled="TriggerDisabled">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel2" HiddenUntilFound="SecondPanelHiddenUntilFound" KeepMounted="SecondPanelKeepMounted">@PanelContent2</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+    case AccordionScenario.TwoStringItems:
+        <AccordionRoot TValue="string" @attributes="StringRootAttributes()">
+            <AccordionItem Value="@FirstValue" data-testid="item1">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel1">@PanelContent1</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="@SecondValue" data-testid="item2">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel2">@PanelContent2</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+    case AccordionScenario.TwoGeneratedItems:
+        <AccordionRoot TValue="string" Multiple="Multiple" OnValueChange="OnStringValueChange">
+            <AccordionItem data-testid="item1" RenderFunction="ItemRender">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel1">@PanelContent1</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem data-testid="item2">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel2">@PanelContent2</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+    case AccordionScenario.ApplyingControlled:
+        <AccordionRoot TValue="int" Value="applied" OnValueChange="ApplyIfNotCanceled">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel1">@PanelContent1</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+    case AccordionScenario.Bound:
+        <AccordionRoot TValue="int" @bind-Value="bound">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel1">@PanelContent1</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+    case AccordionScenario.ArrayItem:
+        <AccordionRoot TValue="string[]" Multiple="true" OnValueChange="OnArrayValueChange">
+            <AccordionItem Value="ArrayItemValue">
+                <AccordionHeader>
+                    <AccordionTrigger>Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel data-testid="panel1">@PanelContent1</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+        break;
+}
+
+@code {
+    public const string PanelContent1 = "Panel contents 1";
+    public const string PanelContent2 = "Panel contents 2";
+
+    private IReadOnlyList<int> applied = [];
+    private IReadOnlyList<int> bound = [];
+
+    [Parameter]
+    public AccordionScenario Scenario { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<int>? DefaultValue { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<int>? ControlledValue { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string>? DefaultStrings { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string>? ControlledStrings { get; set; }
+
+    [Parameter]
+    public string? FirstValue { get; set; } = "one";
+
+    [Parameter]
+    public string? SecondValue { get; set; } = "two";
+
+    [Parameter]
+    public string[] ArrayItemValue { get; set; } = ["section", "details"];
+
+    [Parameter]
+    public bool Multiple { get; set; }
+
+    [Parameter]
+    public bool RootDisabled { get; set; }
+
+    [Parameter]
+    public bool ItemDisabled { get; set; }
+
+    [Parameter]
+    public bool TriggerDisabled { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public bool HiddenUntilFound { get; set; }
+
+    [Parameter]
+    public bool? SecondPanelHiddenUntilFound { get; set; }
+
+    [Parameter]
+    public bool? SecondPanelKeepMounted { get; set; }
+
+    [Parameter]
+    public bool NativeButton { get; set; } = true;
+
+    [Parameter]
+    public RenderFragment? TriggerRender { get; set; }
+
+    [Parameter]
+    public RenderFragment<RenderProps<AccordionItemState<string>>>? ItemRender { get; set; }
+
+    [Parameter]
+    public string? TriggerId { get; set; }
+
+    [Parameter]
+    public bool TriggerIdSupplied { get; set; }
+
+    [Parameter]
+    public string? PanelId { get; set; }
+
+    [Parameter]
+    public bool TriggerMounted { get; set; } = true;
+
+    [Parameter]
+    public bool PanelMounted { get; set; } = true;
+
+    [Parameter]
+    public Func<AccordionPanelState<int>, string?>? PanelStyle { get; set; }
+
+    [Parameter]
+    public string? PanelInlineStyle { get; set; }
+
+    [Parameter]
+    public bool? PanelKeepMounted { get; set; }
+
+    [Parameter]
+    public bool? PanelHiddenUntilFound { get; set; }
+
+    [Parameter]
+    public Action<Microsoft.AspNetCore.Components.Web.MouseEventArgs>? TriggerMouseUp { get; set; }
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<IReadOnlyList<int>>> OnValueChange { get; set; }
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<IReadOnlyList<string>>> OnStringValueChange { get; set; }
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<IReadOnlyList<string[]>>> OnArrayValueChange { get; set; }
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<bool>> OnOpenChange { get; set; }
+
+    /// <summary>The value the <c>Bound</c> scenario's binding holds.</summary>
+    public IReadOnlyList<int> BoundValue => bound;
+
+    // "onValueChange cancel() prevents opening while controlled": the consumer applies the value only when not canceled.
+    private async Task ApplyIfNotCanceled(ValueChangeEventArgs<IReadOnlyList<int>> args)
+    {
+        await OnValueChange.InvokeAsync(args);
+        if (!args.Details.IsCanceled)
+        {
+            applied = args.Value;
+        }
+    }
+
+    // A parameter Razor passes is supplied even when null, so the optional ones travel in a dictionary (Value makes the root
+    // controlled only when present, ADR 05 Amendments 2026-10-18).
+    private Dictionary<string, object> RootAttributes()
+    {
+        Dictionary<string, object> attributes = new()
+        {
+            [nameof(AccordionRoot<int>.Multiple)] = Multiple,
+            [nameof(AccordionRoot<int>.Disabled)] = RootDisabled,
+            [nameof(AccordionRoot<int>.KeepMounted)] = KeepMounted,
+            [nameof(AccordionRoot<int>.HiddenUntilFound)] = HiddenUntilFound,
+            [nameof(AccordionRoot<int>.OnValueChange)] = OnValueChange,
+        };
+        if (DefaultValue is not null)
+        {
+            attributes[nameof(AccordionRoot<int>.DefaultValue)] = DefaultValue;
+        }
+
+        if (ControlledValue is not null)
+        {
+            attributes[nameof(AccordionRoot<int>.Value)] = ControlledValue;
+        }
+
+        return attributes;
+    }
+
+    private Dictionary<string, object> StringRootAttributes()
+    {
+        Dictionary<string, object> attributes = new()
+        {
+            [nameof(AccordionRoot<string>.Multiple)] = Multiple,
+            [nameof(AccordionRoot<string>.OnValueChange)] = OnStringValueChange,
+        };
+        if (DefaultStrings is not null)
+        {
+            attributes[nameof(AccordionRoot<string>.DefaultValue)] = DefaultStrings;
+        }
+
+        if (ControlledStrings is not null)
+        {
+            attributes[nameof(AccordionRoot<string>.Value)] = ControlledStrings;
+        }
+
+        return attributes;
+    }
+
+    private Dictionary<string, object> TriggerAttributes()
+    {
+        Dictionary<string, object> attributes = new()
+        {
+            [nameof(AccordionTrigger<int>.NativeButton)] = NativeButton,
+            [nameof(AccordionTrigger<int>.Disabled)] = TriggerDisabled,
+        };
+        if (TriggerRender is not null)
+        {
+            attributes[nameof(AccordionTrigger<int>.Render)] = TriggerRender;
+        }
+
+        // Razor's id="@triggerId": the key is passed with a null value when the id is removed.
+        if (TriggerId is not null || TriggerIdSupplied)
+        {
+            attributes["id"] = TriggerId!;
+        }
+
+        if (TriggerMouseUp is not null)
+        {
+            attributes["onmouseup"] = EventCallback.Factory.Create(this, TriggerMouseUp);
+        }
+
+        return attributes;
+    }
+
+    private Dictionary<string, object> PanelAttributes()
+    {
+        Dictionary<string, object> attributes = new() { ["data-testid"] = "panel1" };
+        if (PanelId is not null)
+        {
+            attributes["id"] = PanelId;
+        }
+
+        if (PanelStyle is not null)
+        {
+            attributes[nameof(AccordionPanel<int>.StyleValue)] = PanelStyle;
+        }
+
+        if (PanelInlineStyle is not null)
+        {
+            attributes["style"] = PanelInlineStyle;
+        }
+
+        if (PanelKeepMounted is { } keepMounted)
+        {
+            attributes[nameof(AccordionPanel<int>.KeepMounted)] = keepMounted;
+        }
+
+        if (PanelHiddenUntilFound is { } hiddenUntilFound)
+        {
+            attributes[nameof(AccordionPanel<int>.HiddenUntilFound)] = hiddenUntilFound;
+        }
+
+        return attributes;
+    }
+}

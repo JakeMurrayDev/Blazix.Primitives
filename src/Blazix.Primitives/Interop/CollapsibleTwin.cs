@@ -8,7 +8,8 @@ namespace Blazix.Primitives.Interop;
 /// <summary>
 /// The C# half of the <c>collapsible</c> module: the measurement passes and transition flips of a collapsible panel's
 /// element. The module reports what the part's state needs from the element: the forced idle of a motion-skipping
-/// open, the end of an exit, the detected animation type, and a reveal by find-in-page.
+/// open, the end of an exit, the detected animation type, a reveal by find-in-page, and, when asked, the panel's
+/// transition status.
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
@@ -26,6 +27,10 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when the detected animation type changed, or when both a transition and an animation were found.</summary>
     public event Action<PanelAnimationTypeChange>? AnimationTypeChanged;
+
+    /// <summary>Occurs when the panel's transition status changed, once per change, while <see cref="CollapsibleOptions.ReportStatus"/> is set.</summary>
+    /// <remarks>The unset status is never reported: <see cref="ExitCompleted"/> implies it.</remarks>
+    public event Action<TransitionStatus?>? StatusChanged;
 
     /// <summary>Gets or sets the C# handler chain of the reveal decision point.</summary>
     /// <value>
@@ -74,6 +79,16 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
     {
         PanelAnimationTypeChange change = Deserialize(payloadJson, BlazixJsonContext.Default.PanelAnimationTypeChange);
         AnimationTypeChanged?.Invoke(change);
+    }
+
+    /// <summary>Receives a change of the panel's transition status.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="PanelStatusChange"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnPanelStatusChange(string payloadJson)
+    {
+        PanelStatusChange change = Deserialize(payloadJson, BlazixJsonContext.Default.PanelStatusChange);
+        StatusChanged?.Invoke(change.Status);
     }
 
     /// <summary>Receives a reveal that no C# handler saw inside the dispatch and answers whether the panel is open after it.</summary>

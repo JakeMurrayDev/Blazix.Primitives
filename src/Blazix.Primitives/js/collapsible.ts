@@ -33,6 +33,7 @@ import {
   observeOpenInput,
   REVEAL_POINT,
   statusFromLiteral,
+  statusToLiteral,
   type RevealController,
   type RevealDecision,
   type TransitionState,
@@ -50,10 +51,10 @@ export interface Dimensions {
   width: number | undefined;
 }
 
-/** The variable that carries the panel's measured height. */
+/** The variable that carries a Collapsible panel's measured height (`heightVariable` names another). */
 export const PANEL_HEIGHT = '--collapsible-panel-height';
 
-/** The variable that carries the panel's measured width. */
+/** The variable that carries a Collapsible panel's measured width (`widthVariable` names another). */
 export const PANEL_WIDTH = '--collapsible-panel-width';
 
 const EMPTY_DIMENSIONS: Dimensions = { height: undefined, width: undefined };
@@ -78,6 +79,12 @@ export interface CollapsibleOptions extends TwinOptions {
   panelId: string;
   /** The selector the element matches while C# renders it open (`[data-open]`). */
   openSelector?: string | null;
+  /** The variable that carries the measured height; absent for `--collapsible-panel-height`. Read when a session starts. */
+  heightVariable?: string | null;
+  /** The variable that carries the measured width; absent for `--collapsible-panel-width`. Read when a session starts. */
+  widthVariable?: string | null;
+  /** Whether the machine's status is reported (`OnPanelStatusChange`); set by a panel whose shared state has no root twin. */
+  reportStatus?: boolean | null;
 }
 
 /**
@@ -248,11 +255,16 @@ interface SessionHost {
   reportForcedIdle(forcedIdle: boolean): void;
   /** Reports the detected type when it changes. */
   reportType(type: AnimationType, mixed: boolean): void;
+  /** Reports the machine's status, before the forced idle, when it changes and the options ask for it. */
+  reportStatus(status: TransitionStatusLiteral): void;
 }
 
 // The session of an attached element: Base UI's `useCollapsiblePanel` for one element.
 function createElementSession(element: HTMLElement, initialOptions: CollapsibleOptions, host: SessionHost): Session {
   let options = initialOptions;
+  // Accordion's panel names its own variables (ACC-DOM-17); the Collapsible ones are then never written.
+  const heightVariable = options.heightVariable ?? PANEL_HEIGHT;
+  const widthVariable = options.widthVariable ?? PANEL_WIDTH;
   let disposed = false;
   let ready = false;
   let animationType: AnimationType | null = null;
@@ -336,8 +348,8 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
       !state.open && state.mounted && animationType === 'css-animation' && dimensions.height === undefined && dimensions.width === undefined
         ? lastMeasured
         : dimensions;
-    style.setBase(PANEL_HEIGHT, rendered.height === undefined ? 'auto' : `${rendered.height}px`);
-    style.setBase(PANEL_WIDTH, rendered.width === undefined ? 'auto' : `${rendered.width}px`);
+    style.setBase(heightVariable, rendered.height === undefined ? 'auto' : `${rendered.height}px`);
+    style.setBase(widthVariable, rendered.width === undefined ? 'auto' : `${rendered.width}px`);
     style.setBase('animation-name', state.open && suppressOpenAnimation ? 'none' : null);
   };
 
@@ -489,7 +501,7 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
       heldForClose = false;
       // The ending flip lands in the next frame's callback, before that frame computes styles, where React commits it in
       // a later task. Computing the style here makes the held pixel size the value the closing transition starts from.
-      ownerWindow(element).getComputedStyle(element).getPropertyValue(PANEL_HEIGHT);
+      ownerWindow(element).getComputedStyle(element).getPropertyValue(heightVariable);
     }
     armWatchers(machine);
   };
@@ -513,6 +525,7 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
         return;
       }
       pass(state);
+      reportStatus(state, previous);
       // The end of an exit, whichever pass ended it: Base UI's setMounted(false), once per close (COL-STA-04).
       if (previous.mounted && !state.mounted && !state.open) {
         host.completeExit();
@@ -521,6 +534,22 @@ function createElementSession(element: HTMLElement, initialOptions: CollapsibleO
   );
 
   const openInput = () => (options.openSelector ? element.matches(options.openSelector) : options.open);
+
+  // ACC-STA-03/09: the status of a panel whose shared state has no root twin (an Accordion Item), what C# cannot evaluate
+  // itself. The unset status is implied by `OnTransitionComplete`, and the `starting` of a panel that was not mounted is
+  // the evaluation step's, which C# runs in the same render (TransitionStatusRules, ADR 01 Amendments 2026-10-21).
+  let knownStatus = machine.status;
+  function reportStatus(state: TransitionState, previous: TransitionState): void {
+    const status = state.status;
+    if (status === knownStatus) {
+      return;
+    }
+    knownStatus = status;
+    if (status === undefined || (status === 'starting' && !previous.mounted) || !options.reportStatus) {
+      return;
+    }
+    host.reportStatus(statusToLiteral(status));
+  }
 
   style.setConsumer(options.style);
   // The listener exists whenever the element does, whatever `hiddenUntilFound` says (§16 Q9).
@@ -661,6 +690,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
         reportedType = key;
         twin.report('OnAnimationTypeChange', { type, mixed });
       }
+    },
+    reportStatus(status) {
+      twin.report('OnPanelStatusChange', { status });
     },
   };
 

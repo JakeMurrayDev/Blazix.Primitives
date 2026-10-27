@@ -69,6 +69,16 @@ internal sealed class CollapsibleRootContext : ComponentStore<CollapsibleRootSto
     /// <value>The <c>OnOpenChange</c> callback; the latest one is always the one invoked.</value>
     public EventCallback<ValueChangeEventArgs<bool>> OnOpenChange { get; set; }
 
+    // ACC-STA-03/09, ACC-EDGE-14 (design point D5 of M3 track 6, option (a), settled by the orchestrator 2026-10-26): an
+    // Accordion item has no root element to mirror its status from, so the panel inside it reports the status, whichever panel
+    // part it is. A CollapsibleRoot never sets it.
+    /// <summary>Gets or sets a value indicating whether the panel reports its transition status into this state.</summary>
+    /// <value>
+    /// <see langword="true"/> for the state of an accordion item; the default is <see langword="false"/>, under which the
+    /// root's element mirrors the status.
+    /// </value>
+    public bool PanelReportsStatus { get; set; }
+
     /// <summary>Gets or sets the binding callback that an accepted request runs.</summary>
     /// <value>The <c>OpenChanged</c> callback.</value>
     public EventCallback<bool> OpenChanged { get; set; }

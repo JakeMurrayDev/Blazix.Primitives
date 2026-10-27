@@ -1,0 +1,45 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+@using Blazix.Primitives
+@inherits AccordionFixtureBase
+
+@*
+    The `accordion-initially-open` fixture (tests/browser/accordion.spec.ts), prerendered: AccordionPanel.test.tsx "server-side
+    rendering" (ACC-ANI-03, ACC-DOM-18) and AccordionRoot.test.tsx "preserves generated part associations during hydration"
+    (ACC-ARIA-06). The prerendered panel carries animation-name: none and the variables at auto, and its generated ids equal
+    the interactive render's.
+*@
+<FixtureContainer Name="accordion-initially-open" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        @@keyframes panel-slide-down {
+            from {
+                height: 0;
+            }
+
+            to {
+                height: var(--accordion-panel-height);
+            }
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <AccordionCaseFrame Name="inline" Case="inline">
+        <AccordionRoot TValue="int" DefaultValue="[0]">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="trigger">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel @ref="panel" data-testid="panel" data-panel style="animation-duration: 100ms; animation-name: panel-slide-down; animation-timing-function: linear">Panel contents 1</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly AccordionCase inline = new();
+    private AccordionTrigger<int>? trigger;
+    private AccordionPanel<int>? panel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts => [trigger, panel];
+}

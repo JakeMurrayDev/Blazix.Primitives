@@ -1,0 +1,91 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+@using Blazix.Primitives
+@inherits AccordionFixtureBase
+
+@*
+    The `accordion-hidden-until-found` fixture (tests/browser/accordion.spec.ts): the `hidden="until-found"` clauses of
+    ACC-DOM-15, ACC-EDGE-04 and ACC-EDGE-05 (AccordionRoot.test.tsx and AccordionPanel.test.tsx's warnings, "passes root
+    hiddenUntilFound to closed panels and allows panel overrides"), and the reveal through the item's chain (ACC-EVT-06,
+    ACC-ANI-05; settled by the orchestrator 2026-10-25): open, cancel in the item callback, cancel in OnValueChange, the
+    single-mode close of the other item, and a controlled root that ignores the request. The specs dispatch beforematch.
+*@
+<FixtureContainer Name="accordion-hidden-until-found" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>
+        .motion-panel {
+            overflow: hidden;
+            height: var(--accordion-panel-height);
+            transition: height 123ms linear;
+        }
+
+        .motion-panel[data-starting-style],
+        .motion-panel[data-ending-style] {
+            height: 0;
+        }
+    </style>
+
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <AccordionCaseFrame Name="root-warning" Case="rootWarning">
+        <AccordionRoot TValue="string" HiddenUntilFound="true" KeepMounted="false">
+            <AccordionItem>
+                <AccordionPanel @ref="rootWarningPanel" data-panel>Panel</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="panel-warning" Case="panelWarning">
+        <AccordionRoot TValue="string">
+            <AccordionItem>
+                <AccordionPanel @ref="panelWarningPanel" data-panel HiddenUntilFound="true" KeepMounted="false">This is panel content</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="overrides" Case="overrides">
+        <AccordionRoot TValue="int" HiddenUntilFound="true" KeepMounted="true">
+            <AccordionItem Value="0">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="overridesTrigger1">Trigger 1</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel @ref="overridesPanel" data-panel>This is panel content</AccordionPanel>
+            </AccordionItem>
+            <AccordionItem Value="1">
+                <AccordionHeader>
+                    <AccordionTrigger @ref="overridesTrigger2">Trigger 2</AccordionTrigger>
+                </AccordionHeader>
+                <AccordionPanel HiddenUntilFound="false" KeepMounted="false">Overridden panel</AccordionPanel>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
+
+    <AccordionRevealCase @ref="revealCase" Name="reveal" Record="reveal" />
+    <AccordionRevealCase @ref="cancelItemCase" Name="cancel-item" Record="cancelItem" />
+    <AccordionRevealCase @ref="cancelRootCase" Name="cancel-root" Record="cancelRoot" />
+    <AccordionRevealCase @ref="controlledIgnoringCase" Name="controlled-ignoring" Record="controlledIgnoring" />
+</FixtureContainer>
+
+@code {
+    private readonly AccordionCase rootWarning = new();
+    private readonly AccordionCase panelWarning = new();
+    private readonly AccordionCase overrides = new();
+    private readonly AccordionCase reveal = new();
+    private readonly AccordionCase cancelItem = new() { CancelItem = EventReason.None };
+    private readonly AccordionCase cancelRoot = new() { CancelValue = EventReason.None };
+    private readonly AccordionCase controlledIgnoring = new() { IgnoreRequests = true };
+    private AccordionRevealCase? revealCase;
+    private AccordionRevealCase? cancelItemCase;
+    private AccordionRevealCase? cancelRootCase;
+    private AccordionRevealCase? controlledIgnoringCase;
+    private AccordionPanel<string>? rootWarningPanel;
+    private AccordionPanel<string>? panelWarningPanel;
+    private AccordionTrigger<int>? overridesTrigger1;
+    private AccordionTrigger<int>? overridesTrigger2;
+    private AccordionPanel<int>? overridesPanel;
+
+    /// <inheritdoc />
+    protected override IEnumerable<object?> Parts =>
+    [
+        rootWarningPanel, panelWarningPanel, overridesTrigger1, overridesTrigger2, overridesPanel,
+        revealCase, cancelItemCase, cancelRootCase, controlledIgnoringCase,
+    ];
+}

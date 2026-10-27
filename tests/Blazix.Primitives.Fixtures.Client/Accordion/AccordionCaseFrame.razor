@@ -1,0 +1,29 @@
+@namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures
+
+@*
+    One case of an Accordion fixture (tests/browser/accordion.spec.ts): the callback records as data attributes, and a native
+    button before the case so a spec can focus it and press Tab.
+*@
+<div data-case="@Name"
+     data-item-calls="@Case.ItemCalls"
+     data-last-item-open="@Case.LastItemOpen"
+     data-last-item-reason="@Case.LastItemReason"
+     data-last-item-event="@Case.LastItemEvent"
+     data-value-calls="@Case.ValueCalls"
+     data-last-value="@Case.LastValue"
+     data-last-value-reason="@Case.LastValueReason"
+     data-last-value-event="@Case.LastValueEvent">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required AccordionCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

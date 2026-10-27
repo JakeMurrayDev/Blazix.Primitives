@@ -53,4 +53,27 @@ internal sealed record CollapsibleOptions : TwinOptions
     /// <summary>Gets the CSS selector that the element matches while the part renders it open.</summary>
     /// <value><c>[data-open]</c> for a panel; the module reads the open state from the element after every render, before paint.</value>
     public string? OpenSelector { get; init; }
+
+    // ACC-DOM-17; ADR 04 Amendments 2026-10-26 (Accordion's names, an option of the module; chosen by the user 2026-10-26).
+    /// <summary>Gets the name of the CSS variable that carries the panel's measured height.</summary>
+    /// <value>
+    /// The variable's name, such as <c>--accordion-panel-height</c>; <see langword="null"/>, the default and omitted from
+    /// the JSON, for <c>--collapsible-panel-height</c>. Read when the module starts on an element.
+    /// </value>
+    public string? HeightVariable { get; init; }
+
+    /// <summary>Gets the name of the CSS variable that carries the panel's measured width.</summary>
+    /// <value>
+    /// The variable's name, such as <c>--accordion-panel-width</c>; <see langword="null"/>, the default and omitted from
+    /// the JSON, for <c>--collapsible-panel-width</c>. Read when the module starts on an element.
+    /// </value>
+    public string? WidthVariable { get; init; }
+
+    // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), settled by the orchestrator 2026-10-26): an Accordion Item has no root twin.
+    /// <summary>Gets a value indicating whether the module reports the panel's transition status.</summary>
+    /// <value>
+    /// <see langword="true"/> for a panel whose shared state has no root element to mirror its status from;
+    /// <see langword="null"/>, the default and omitted from the JSON, reports nothing.
+    /// </value>
+    public bool? ReportStatus { get; init; }
 }

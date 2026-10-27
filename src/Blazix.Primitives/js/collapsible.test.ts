@@ -223,6 +223,94 @@ describe('<Collapsible.Panel />', () => {
     });
   });
 
+  // ACC-DOM-17 (M3 track 6, edit (c); ADR 04 Amendments 2026-10-26, the names chosen by the user): an Accordion panel's
+  // variables are `--accordion-panel-height/width`, named by the options; the Collapsible ones are never set on it.
+  describe('the variable names', () => {
+    it('writes the size variables the options name and never the collapsible ones', async () => {
+      const fake = createFakeTwin();
+      const panel = createPanel({ style: 'transition-duration: 100ms' });
+      attachTo(panel, fake, {
+        keepMounted: true,
+        style: 'transition-duration: 100ms',
+        heightVariable: '--accordion-panel-height',
+        widthVariable: '--accordion-panel-width',
+      });
+      expect(panel.style.getPropertyValue('--accordion-panel-height')).toBe('auto');
+      expect(panel.style.getPropertyValue('--accordion-panel-width')).toBe('auto');
+
+      await renderOpen(panel, true);
+      expect(panel.style.getPropertyValue('--accordion-panel-height')).toBe('120px');
+      expect(panel.style.getPropertyValue('--accordion-panel-width')).toBe('240px');
+
+      runFrame();
+      await flushTasks();
+      runFrame();
+      await flushTasks();
+      await renderOpen(panel, false);
+      // The closing pass holds the measured size in the named variable.
+      expect(panel.style.getPropertyValue('--accordion-panel-height')).toBe('120px');
+      expect(panel.style.getPropertyValue(PANEL_HEIGHT)).toBe('');
+      expect(panel.style.getPropertyValue(PANEL_WIDTH)).toBe('');
+    });
+  });
+
+  // ACC-STA-03/09 (M3 track 6, edit (d); D1 option (a), settled by the orchestrator 2026-10-26): an Accordion Item has no root twin, so its panel
+  // reports the machine's status (before the forced idle) once per change when asked. Never the unset status, which the
+  // completion implies, nor the `starting` the evaluation step gives a panel that was not mounted, which C# computes too.
+  describe.each([
+    { mode: 'Server', synchronous: false },
+    { mode: 'WebAssembly', synchronous: true },
+  ])('the status report ($mode)', ({ synchronous }) => {
+    /** Opens a kept transition panel, lets it settle, closes it through its exit and opens it again. */
+    async function openCloseOpen(panel: HTMLElement): Promise<void> {
+      await renderOpen(panel, true);
+      runFrame();
+      await flushTasks();
+      runFrame();
+      await renderOpen(panel, false);
+      runFrame();
+      await flushTasks();
+      runFrame();
+      await flushTasks();
+      await renderOpen(panel, true);
+      runFrame();
+      await flushTasks();
+    }
+
+    it('reports the panel status once per change when asked, never the unset status nor the starting of an unmounted panel', async () => {
+      const style = 'transition-duration: 100ms';
+      const quiet = createFakeTwin({ synchronous });
+      const unasked = createPanel({ style });
+      attachTo(unasked, quiet, { keepMounted: true, style });
+      await openCloseOpen(unasked);
+      handles.splice(0).forEach((handle) => handle.dispose());
+      unasked.remove();
+
+      const fake = createFakeTwin({ synchronous });
+      const panel = createPanel({ style });
+      attachTo(panel, fake, { keepMounted: true, style, reportStatus: true });
+      await openCloseOpen(panel);
+
+      expect(fake.reported('OnPanelStatusChange')).toEqual([{ status: 'idle' }, { status: 'ending' }, { status: 'idle' }]);
+      expect(fake.reported('OnTransitionComplete')).toEqual([{ open: false }]);
+      expect(quiet.reported('OnPanelStatusChange')).toEqual([]);
+      expect(quiet.reported('OnTransitionComplete')).toEqual([{ open: false }]);
+    });
+
+    it('reports the starting status of a reopen during the exit', async () => {
+      const style = 'transition-duration: 10s';
+      const fake = createFakeTwin({ synchronous });
+      const panel = createPanel({ open: true, style });
+      attachTo(panel, fake, { open: true, mounted: true, status: 'idle', keepMounted: true, style, reportStatus: true });
+
+      await renderOpen(panel, false);
+      runFrame();
+      await renderOpen(panel, true);
+
+      expect(fake.reported('OnPanelStatusChange')).toEqual([{ status: 'ending' }, { status: 'starting' }]);
+    });
+  });
+
   describe('a withheld or replaced element', () => {
     it('ends a close at once when no element is left in the ending phase, and finds a new one by the panel id', async () => {
       // With the watcher on, a no-motion open keeps its measured size until the frame after it.

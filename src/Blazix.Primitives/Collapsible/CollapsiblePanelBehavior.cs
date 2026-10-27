@@ -16,7 +16,11 @@ namespace Blazix.Primitives;
 //   so the renderer never writes them while the module owns them; the consumer's string travels as Style;
 // - the one-shot suppressions of an initially open panel and a re-attached one (COL-ANI-13/15/20);
 // - the forced idle the module reports (COL-STA-06), the end of an exit (COL-STA-04), the detected type (COL-ANI-20,
-//   COL-EDGE-03) and the reveal (COL-EVT-04/05: the decision point `reveal`, fallback run, ADR 04 Amendments 2026-10-21).
+//   COL-EDGE-03) and the reveal (COL-EVT-04/05: the decision point `reveal`, fallback run, ADR 04 Amendments 2026-10-21);
+// - Accordion's names and rules as inputs (M3 track 6, ADR 04 Amendments 2026-10-26): the size variables (ACC-DOM-17), the
+//   empty-id policy (ACC-API-18) and the KeepMounted message (ACC-EDGE-05); Collapsible's are the defaults;
+// - the status report of a panel whose shared state has no root twin (ACC-STA-03/09; design points D1 and D5 of M3 track 6,
+//   option (a), settled by the orchestrator 2026-10-26): asked for when the shared state says so, forwarded to MirrorStatus.
 /// <summary>The behavior of a collapsible panel that its part renders through.</summary>
 internal sealed class CollapsiblePanelBehavior : IDisposable
 {
@@ -24,10 +28,10 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     private const string StartingStyle = "data-starting-style";
     private const string EndingStyle = "data-ending-style";
     private const string CssAnimation = "css-animation";
-    private const string AutoSizeStyle = "--collapsible-panel-height: auto; --collapsible-panel-width: auto";
     private const string SuppressionStyle = "animation-name: none";
 
     private readonly CollapsibleRootContext root;
+    private readonly CollapsiblePanelVariables variables;
     private readonly IJSRuntime jsRuntime;
     private readonly CollapsibleDevelopmentLog developmentLog;
     private readonly ILogger logger;
@@ -63,15 +67,18 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     /// <param name="logger">The logger of the part.</param>
     /// <param name="stateChanged">Renders the part again; called when the forced idle changes.</param>
     /// <param name="dispatchException">Routes an exception of a consumer handler that ran in a reveal to the part.</param>
+    /// <param name="variables">The size variables the panel sets, or <see langword="null"/> for a collapsible panel's.</param>
     public CollapsiblePanelBehavior(
         CollapsibleRootContext root,
         IJSRuntime jsRuntime,
         CollapsibleDevelopmentLog developmentLog,
         ILogger logger,
         Action stateChanged,
-        Func<Exception, Task> dispatchException)
+        Func<Exception, Task> dispatchException,
+        CollapsiblePanelVariables? variables = null)
     {
         this.root = root;
+        this.variables = variables ?? CollapsiblePanelVariables.Collapsible;
         this.jsRuntime = jsRuntime;
         this.developmentLog = developmentLog;
         this.logger = logger;
@@ -88,6 +95,19 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     /// <summary>Gets or sets a value indicating whether the closed element is hidden with <c>hidden="until-found"</c>.</summary>
     /// <value>The panel's <c>HiddenUntilFound</c> parameter.</value>
     public bool HiddenUntilFound { get; set; }
+
+    // ACC-API-18 (§16 Q2 follows the source; settled by the orchestrator 2026-10-25): Accordion's panel renders `id=""` as
+    // written and registers nothing, where a collapsible panel treats it as no id at all (COL-API-10).
+    /// <summary>Gets or sets a value indicating whether an empty <c>id</c> is rendered as written instead of the panel's id.</summary>
+    /// <value>
+    /// <see langword="true"/> for an accordion panel; the default is <see langword="false"/>. An empty id is never
+    /// registered, so the triggers keep referencing the default panel id either way.
+    /// </value>
+    public bool RendersEmptyId { get; set; }
+
+    /// <summary>Gets or sets the development message of a <c>KeepMounted</c> that <c>HiddenUntilFound</c> overrides.</summary>
+    /// <value>One of the messages of <see cref="CollapsibleDevelopmentLog"/>; the collapsible panel's by default.</value>
+    public string KeepMountedIgnoredMessage { get; set; } = CollapsibleDevelopmentLog.KeepMountedIgnoredMessage;
 
     /// <summary>Gets a value indicating whether the panel shows itself settled while the shared status is still starting.</summary>
     /// <value><see langword="true"/> during a motion-skipping open, as the module reported it.</value>
@@ -115,6 +135,7 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
             twin.ForcedIdleChanged -= OnForcedIdleChanged;
             twin.ExitCompleted -= root.CompleteExit;
             twin.AnimationTypeChanged -= OnAnimationTypeChanged;
+            twin.StatusChanged -= root.MirrorStatus;
             twin.RevealDecider = null;
             twin.RevealRequestHandler = null;
             _ = twin.DisposeAsync().AsTask();
@@ -174,7 +195,7 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     }
 
     /// <summary>Reports the development message of a <c>KeepMounted</c> that <c>HiddenUntilFound</c> overrides.</summary>
-    public void ReportKeepMountedIgnored() => developmentLog.Report(logger, CollapsibleDevelopmentLog.KeepMountedIgnoredMessage);
+    public void ReportKeepMountedIgnored() => developmentLog.Report(logger, KeepMountedIgnoredMessage);
 
     /// <summary>Adds the attributes the part renders on the panel's element in this render.</summary>
     /// <param name="attributes">The part-supplied attributes.</param>
@@ -231,8 +252,8 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     /// <param name="open">Whether the panel is open.</param>
     public void FinishAttributes(AttributeList attributes, bool open)
     {
-        // COL-API-10: an empty id is not the panel's id.
-        if (attributes.TryGetValue("id", out AttributeValue id) && id.TryGetValue(out string text) && text.Length == 0)
+        // COL-API-10: an empty id is not the panel's id (ACC-API-18: an accordion panel renders it as written).
+        if (!RendersEmptyId && attributes.TryGetValue("id", out AttributeValue id) && id.TryGetValue(out string text) && text.Length == 0)
         {
             attributes.Set("id", PanelId);
         }
@@ -303,9 +324,9 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
     }
 
     // COL-DOM-18: the variables, then the consumer's style, then the suppression.
-    private static string ComposeStyle(string? consumer, bool suppressed)
+    private string ComposeStyle(string? consumer, bool suppressed)
     {
-        string withConsumer = MergeProps.MergeStyles(AutoSizeStyle, consumer)!;
+        string withConsumer = MergeProps.MergeStyles(variables.AutoSizeStyle, consumer)!;
         return suppressed ? MergeProps.MergeStyles(withConsumer, SuppressionStyle)! : withConsumer;
     }
 
@@ -336,6 +357,9 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
             SuppressOpenAnimation = state.Open && (preventMountAnimation || preventActivityResumeAnimation),
             PanelId = PanelId,
             OpenSelector = OpenAttributeSelector,
+            HeightVariable = variables.IsCollapsible ? null : variables.Height,
+            WidthVariable = variables.IsCollapsible ? null : variables.Width,
+            ReportStatus = root.PanelReportsStatus ? true : null,
             Style = consumerStyle,
         };
     }
@@ -391,6 +415,7 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
         created.ForcedIdleChanged += OnForcedIdleChanged;
         created.ExitCompleted += root.CompleteExit;
         created.AnimationTypeChanged += OnAnimationTypeChanged;
+        created.StatusChanged += root.MirrorStatus;
         return created;
     }
 
@@ -466,4 +491,40 @@ internal sealed class CollapsiblePanelBehavior : IDisposable
             await dispatchException(exception);
         }
     }
+}
+
+// ACC-DOM-17; ADR 04 Amendments 2026-10-26 (`--accordion-panel-height/width`, chosen by the user 2026-10-26).
+/// <summary>The names of the CSS variables a panel's measured size is written to, and the <c>auto</c> style they start from.</summary>
+internal sealed class CollapsiblePanelVariables
+{
+    private CollapsiblePanelVariables(string height, string width)
+    {
+        Height = height;
+        Width = width;
+        AutoSizeStyle = $"{height}: auto; {width}: auto";
+    }
+
+    /// <summary>Gets the variables of a collapsible panel: <c>--collapsible-panel-height</c> and <c>--collapsible-panel-width</c>.</summary>
+    /// <value>The collapsible panel's names.</value>
+    public static CollapsiblePanelVariables Collapsible { get; } = new(CollapsiblePanelCssVars.CollapsiblePanelHeight, CollapsiblePanelCssVars.CollapsiblePanelWidth);
+
+    /// <summary>Gets the variables of an accordion panel: <c>--accordion-panel-height</c> and <c>--accordion-panel-width</c>.</summary>
+    /// <value>The accordion panel's names.</value>
+    public static CollapsiblePanelVariables Accordion { get; } = new("--accordion-panel-height", "--accordion-panel-width");
+
+    /// <summary>Gets the name of the variable that carries the measured height.</summary>
+    /// <value>A CSS custom property name.</value>
+    public string Height { get; }
+
+    /// <summary>Gets the name of the variable that carries the measured width.</summary>
+    /// <value>A CSS custom property name.</value>
+    public string Width { get; }
+
+    /// <summary>Gets the style that declares both variables at <c>auto</c>, which the part renders before the module owns the style.</summary>
+    /// <value>The declarations, without a trailing semicolon.</value>
+    public string AutoSizeStyle { get; }
+
+    /// <summary>Gets a value indicating whether these are the collapsible panel's names, which the module's options leave out.</summary>
+    /// <value><see langword="true"/> for <see cref="Collapsible"/>.</value>
+    public bool IsCollapsible => ReferenceEquals(this, Collapsible);
 }
