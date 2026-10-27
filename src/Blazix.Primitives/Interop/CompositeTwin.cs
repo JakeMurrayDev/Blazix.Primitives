@@ -34,6 +34,12 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     /// </summary>
     public event Action<EventSnapshot>? KeyHandled;
 
+    /// <summary>
+    /// Occurs when a publication changed the items' order or membership, if the options ask for it, with the ids of the
+    /// items in index order.
+    /// </summary>
+    public event Action<IReadOnlyList<string>>? ItemsChanged;
+
     /// <summary>Gets or sets the C# handler chain of the navigation decision point.</summary>
     /// <value>
     /// A function that receives the <c>keydown</c> the module is about to handle and returns
@@ -80,6 +86,16 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     {
         CompositeKeyHandled handled = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeKeyHandled);
         KeyHandled?.Invoke(handled.Event);
+    }
+
+    /// <summary>Receives the items' ids in index order.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="CompositeItemsChange"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnItemsChange(string payloadJson)
+    {
+        CompositeItemsChange change = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeItemsChange);
+        ItemsChanged?.Invoke(change.Ids);
     }
 
     /// <inheritdoc />

@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-flags` fixture (tests/browser/composite.spec.ts): a runtime change of an item's flags (CMP-STA-29,
+    CMP-KEY-08; M3 track 1, E3). A root that derives its disabled indices from the items' flags holds three items; a
+    button outside it toggles the first item's `Disabled`, which the item also renders as `data-disabled`, so the flag and
+    the attribute change in one render batch. The flag travels in the root's `update` (ADR 01's row for `update`-carried
+    values on Server).
+*@
+<FixtureContainer Name="composite-flags" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-toggle @onclick="() => firstDisabled = !firstDisabled">Toggle the first item</button>
+
+    <FixtureCompositeRoot @ref="root" DeriveDisabledIndices="true" data-root>
+        <FixtureCompositeItem Disabled="firstDisabled" data-disabled="@(firstDisabled ? "" : null)" data-item="1">1</FixtureCompositeItem>
+        <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+        <FixtureCompositeItem data-item="3">3</FixtureCompositeItem>
+    </FixtureCompositeRoot>
+</FixtureContainer>
+
+@code {
+    private FixtureCompositeRoot? root;
+    private bool firstDisabled;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [root];
+}
