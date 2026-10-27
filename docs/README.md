@@ -60,7 +60,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/toast.md | TST | approved | 186 reqs |
 | components/toggle.md | TGL | implemented | 57 reqs; revised 2026-10-27, M3 tracks 2 and 4 | |
 | components/toggle-group.md | TGG | implemented | 71 reqs; revised 2026-10-27, M3 tracks 3 and 4 | |
-| components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-27, M3 track 4; TLB-KEY-15, TLB-FOC-06 and the popup clauses open to M4 and M5; the non-native Switch shape open to design point 14.7's follow-up | |
+| components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-27, M3 track 4; TLB-KEY-15, TLB-FOC-06 and the popup clauses open to M4 and M5; the non-native Switch shape open to issue 115 | |
 | components/tooltip.md | TIP | approved | 169 reqs |
 
 Out of scope for v1.9.0: `filter-dropdown`, `internals/temporal*` (not exported).

@@ -918,10 +918,11 @@ test.describe('<Toolbar.Button />', () => {
     });
 
     test.describe('Switch', () => {
-      // TLB-STR-05, TLB-ARIA-09. Deviation (design point 14.7, option (c) pending the user): the switch is native,
-      // `NativeButton="true"` over a `<button>`, because a non-native one puts the id it receives on its hidden input; so
-      // the switch element is the toolbar's item, and the declared-mode check, which Base UI's span shape trips once,
-      // reports nothing (TLB-EDGE-02 is asserted at L2).
+      // TLB-STR-05, TLB-ARIA-09. Deviation (design point 14.7, option (c), chosen by the user 2026-10-27; the
+      // non-native shape is open to issue 115): the switch is native, `NativeButton="true"` over a `<button>`, because
+      // a non-native one puts the id it receives on its hidden input; so the switch element is the toolbar's item, and
+      // the declared-mode check, which Base UI's span shape trips once, reports nothing (TLB-EDGE-02 is asserted at
+      // L2).
       test('renders a switch', async ({ page, mode }) => {
         const fixture = await gotoToolbar(page, mode, 'toolbar-switch');
         const { item } = toolbarCase(fixture, 'renders');

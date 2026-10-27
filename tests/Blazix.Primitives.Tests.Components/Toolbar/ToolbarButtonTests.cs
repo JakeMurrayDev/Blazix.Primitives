@@ -247,8 +247,9 @@ public sealed class ToolbarButtonTests : IDisposable
     public void Port_a_native_switch_root_substituted_into_a_toolbar_button_is_the_toolbars_item()
     {
         // ToolbarButton.test.tsx "renders a switch" (L2 half) over the supported shape, NativeButton="true" over a button
-        // (design point 14.7, option (c) pending the user): a native switch puts the id it receives on its root. The
-        // switch's field and form modules are not this test's subject.
+        // (design point 14.7, option (c), chosen by the user 2026-10-27; the non-native shape is open to issue 115): a
+        // native switch puts the id it receives on its root. The switch's field and form modules are not this test's
+        // subject.
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         RenderFragment button = builder =>
         {

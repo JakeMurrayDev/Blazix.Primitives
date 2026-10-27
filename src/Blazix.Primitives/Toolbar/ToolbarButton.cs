@@ -48,7 +48,7 @@ public static class ToolbarButtonDataAttributes
 //   composite's navigation keys take the item's gate (`navigate`), every other key the button's (`activate`).
 // - A checkable root (SwitchRoot, CheckboxRoot, RadioRoot) substitutes as a native one only: a non-native one applies the
 //   id it receives to its hidden input (SWT-API-11), so the item and the twins would find the input (design point 14.7,
-//   option (c), pending the user; the non-native shape is open to a follow-up).
+//   option (c), chosen by the user 2026-10-27; the non-native shape is open to issue 115).
 /// <summary>
 /// Represents a button in a toolbar: Base UI's <c>Toolbar.Button</c>, rendered as a <c>button</c> element that the
 /// toolbar's arrow keys move focus to. Substitute another part, such as a <see cref="Toggle"/>, to make it a toolbar item.
