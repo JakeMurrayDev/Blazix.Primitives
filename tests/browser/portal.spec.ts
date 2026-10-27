@@ -98,6 +98,37 @@ test.describe('FixturePortal', () => {
     await expect(page.locator('[data-testid="inner-content"]')).toBeVisible();
   });
 
+  test('port: a node a page script holds, a closed shadow root, receives the portal node as its container', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'portal-basic', { container: 'shadow' });
+
+    // The container crosses as an IJSObjectReference; a closed shadow root is reachable only through the script's handle.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+          const node = root?.querySelector('[data-base-ui-portal]');
+          return node?.parentNode === root && node?.querySelector('[data-testid="portal-content"]') !== null;
+        }),
+      )
+      .toBe(true);
+    await expect(page.locator('[data-base-ui-portal]')).toHaveCount(0);
+    expect(await page.locator('[data-shadow-host]').evaluate((host) => host.shadowRoot)).toBeNull();
+  });
+
+  test('port: the lite portal moves its node and renders no outside guards or owner, where the full portal renders them beside its wrapper', async ({ page, mode }) => {
+    const full = await gotoPopupFixture(page, mode, 'portal-basic', { publish: true });
+    await expect.poll(() => nodeParent(page, 'portal')).toBe('body');
+    const nodeId = await page.locator('[data-testid="portal"]').getAttribute('id');
+    await expect(full.locator('[data-logical-parent] > [data-base-ui-focus-guard][data-type="outside"]')).toHaveCount(2);
+    await expect(full.locator(`[data-logical-parent] > span[aria-owns="${nodeId}"]`)).toHaveCount(1);
+
+    const lite = await gotoPopupFixture(page, mode, 'portal-basic', { publish: true, lite: true });
+    await expect.poll(() => nodeParent(page, 'portal')).toBe('body');
+    await settle(lite);
+    await expect(page.locator('[data-base-ui-focus-guard], [aria-owns]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="portal-content"]')).toBeVisible();
+  });
+
   test('@verifies ADR-04/3 Moving a rendered node and restoring it before disposal never produces a Blazor insertBefore/removeChild on a foreign parent when the portal node has siblings in its logical parent', async ({ page, mode }) => {
     const errors = watchErrors(page);
     const fixture = await gotoPopupFixture(page, mode, 'portal-basic');
@@ -141,6 +172,24 @@ test.describe('FixturePortal', () => {
 });
 
 test.describe('the portal and the portaled popup', () => {
+  test("port: a prerendered defaultOpen popup's portal node renders hidden in place until the portal module moves it", async ({ page, mode }) => {
+    // The static response first, without its scripts: the node in place, in its wrapper, hidden, with the popup inside.
+    const response = await page.request.get(fixtureUrl(mode, 'portal-prerender'));
+    await page.setContent((await response.text()).replace(/<script[\s\S]*?<\/script>/g, ''));
+    const staticNode = page.locator('[data-testid="portal"]');
+    await expect(staticNode).toHaveAttribute('data-base-ui-portal', '');
+    expect(await staticNode.evaluate((node) => (node.parentElement as HTMLElement).getAttribute('style'))).toBe('display: contents');
+    expect(await staticNode.evaluate((node) => node.parentElement?.parentElement?.hasAttribute('data-logical-parent'))).toBe(true);
+    await expect(staticNode).toHaveCSS('display', 'none');
+    await expect(staticNode.locator('[data-testid="popup"]')).toHaveCount(1);
+
+    // Interactive, the module moves the node to the body and owns its style; the popup completes its open there.
+    const fixture = await gotoPopupFixture(page, mode, 'portal-prerender');
+    await expect.poll(() => nodeParent(page, 'portal')).toBe('body');
+    await expect(page.locator('[data-testid="popup"]')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true');
+  });
+
   test("port: a portaled popup's transitions handle attaches only after the portal module moved its node (portal.js stalled)", async ({ page, mode }) => {
     let release!: () => void;
     const stalled = new Promise<void>((resolve) => {

@@ -1,14 +1,19 @@
 @namespace Blazix.Primitives.Fixtures.Client.PortalFixtures
 @using Blazix.Primitives
 @using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
 @inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
 
 @*
     The `portal-basic` fixture (tests/browser/portal.spec.ts): the test-only FixturePortal (FLT-API-13, FLT-DOM-11; ADR 04
     Amendments 2026-10-27, decision 5) and issue 8's verification item (ADR-04/3). The portal's logical parent holds
     siblings Blazor inserts and removes around it, and its node holds children Blazor edits wherever the node is.
-    - `container=selector|ref|pending`: the first match of `#portal-target`, an element reference to `[data-ref-target]`,
-      or pending until `[data-set-container]` supplies one; absent, the body;
+    - `container=selector|ref|pending|shadow`: the first match of `#portal-target`, an element reference to
+      `[data-ref-target]`, pending until `[data-set-container]` supplies one, or a closed shadow root a page script
+      creates on `[data-shadow-host]` after the first render and hands C# as an IJSObjectReference; absent, the body;
+    - `publish=true`: a stand-in for the focus manager inside the portal publishes a non-modal, open state, so the full
+      portal renders its outside guards and owner; `lite=true`: the lite portal;
     - `nested=true`: a second portal inside the first, with no container;
     - buttons: `[data-add-before]`, `[data-add-after]`, `[data-remove-siblings]` (siblings of the portal),
       `[data-add-child]`, `[data-remove-child]` (children inside the node), `[data-toggle-portal]` (removes the portal or
@@ -29,6 +34,7 @@
 
     <div id="portal-target" data-target></div>
     <div data-ref-target @ref="refTarget"></div>
+    <div data-shadow-host @ref="shadowHost"></div>
 
     <section data-logical-parent>
         @for (int index = 0; index < before; index++)
@@ -38,8 +44,12 @@
 
         @if (mounted)
         {
-            <FixturePortal @ref="portal" Container="@container" class="portal-node" data-testid="portal">
+            <FixturePortal @ref="portal" Container="@container" Lite="@lite" class="portal-node" data-testid="portal">
                 <p data-testid="portal-content">Portal content</p>
+                @if (publish)
+                {
+                    <FixturePortalFocusPublisher Modal="false" Open="true" />
+                }
                 @for (int index = 0; index < children; index++)
                 {
                     <span data-child @key="index">Child @index</span>
@@ -63,6 +73,9 @@
 
 @code {
     private ElementReference refTarget;
+    private ElementReference shadowHost;
+    private bool publish;
+    private bool lite;
     private FixturePortal? portal;
     private PortalContainerValue? container;
     private bool mounted = true;
@@ -76,6 +89,8 @@
     protected override void OnInitialized()
     {
         nested = QueryFlag("nested") == true;
+        publish = QueryFlag("publish") == true;
+        lite = QueryFlag("lite") == true;
         container = Query("container") switch
         {
             "selector" => (PortalContainerValue?)"#portal-target",
@@ -84,13 +99,27 @@
         };
     }
 
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // An element reference exists only after the first render.
+        await base.OnAfterRenderAsync(firstRender);
+
+        // An element reference exists only after the first render; so does the shadow root's host.
         if (firstRender && Query("container") == "ref")
         {
             container = refTarget;
             StateHasChanged();
+        }
+        else if (firstRender && RendererInfo.IsInteractive && Query("container") == "shadow")
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
         }
     }
 
