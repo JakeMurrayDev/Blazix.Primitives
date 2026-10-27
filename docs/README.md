@@ -56,7 +56,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |
 | components/slider.md | SLD | approved | 191 reqs | |
 | components/switch.md | SWT | implemented | pilot; 117 reqs; revised 2026-10-23, M2 track 4 (SWT-API-12 withdrawn) |
-| components/tabs.md | TAB | approved | 156 reqs (7 withdrawn for the port); revised 2026-10-27, M3 track 5; the rows of track 1's E1, E2 and E5 open until it is on `main`, TAB-FOC-10's popup clause open to M4 | |
+| components/tabs.md | TAB | implemented | 156 reqs (7 withdrawn for the port); revised 2026-10-27, M3 track 5; TAB-FOC-10's popup clause open to M4 | |
 | components/toast.md | TST | approved | 186 reqs |
 | components/toggle.md | TGL | approved | 57 reqs | |
 | components/toggle-group.md | TGG | approved | 71 reqs | |
