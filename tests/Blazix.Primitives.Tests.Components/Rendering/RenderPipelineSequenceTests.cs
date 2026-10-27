@@ -10,8 +10,8 @@ namespace Blazix.Primitives.Tests.Components.Rendering;
 /// <summary>
 /// ADR 16 rule 3 at L2: the sequence numbers of the frames the pipeline emits. A frame the pipeline itself adds carries one
 /// of its documented literals (host 0, attributes 1, the part's own capture 2, the consumer's capture 3, the children
-/// region 100, a capture after the children 101, the region after the host element 102), and every frame inside the children region carries the number the
-/// consumer's own fragment gave it. The frames are read from a <see cref="Renderer"/> of the test's own because bUnit
+/// region 100, a capture after the children 101, the region after the host element 102, the region before it 103), and
+/// every frame inside the children region carries the number the consumer's own fragment gave it. The frames are read from a <see cref="Renderer"/> of the test's own because bUnit
 /// reaches them only through a protected member.
 /// </summary>
 public sealed class RenderPipelineSequenceTests : IDisposable
@@ -24,6 +24,7 @@ public sealed class RenderPipelineSequenceTests : IDisposable
     private const int ChildrenSequence = 100;
     private const int TrailingCaptureSequence = 101;
     private const int AfterElementSequence = 102;
+    private const int BeforeElementSequence = 103;
 
     private readonly ServiceProvider services = new ServiceCollection().AddBlazixPrimitives().BuildServiceProvider();
     private readonly FrameRenderer renderer;
@@ -55,12 +56,13 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             }),
         });
 
-        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[0]));
-        AssertAllAttributes(frames, 0);
+        int host = HostIndex(frames);
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[host]));
+        AssertAllAttributes(frames, host);
         Assert.Equal(
             [$"ElementReferenceCapture:{PartCaptureSequence}", $"Region:{ChildrenSequence}"],
-            Children(frames, 0));
-        Assert.Equal(["Text:40", "Markup:41"], RegionContent(frames, 0));
+            Children(frames, host));
+        Assert.Equal(["Text:40", "Markup:41"], RegionContent(frames, host));
     }
 
     [Fact(DisplayName = "a substitute element with a consumer @ref and @key carries the literal sequence numbers and its children keep their own")]
@@ -74,14 +76,15 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ["Render"] = substitute,
         });
 
-        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[0]));
-        Assert.Equal("span", frames.Array[0].ElementName);
-        Assert.Equal("k", frames.Array[0].ElementKey);
-        AssertAllAttributes(frames, 0);
+        int host = HostIndex(frames);
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[host]));
+        Assert.Equal("span", frames.Array[host].ElementName);
+        Assert.Equal("k", frames.Array[host].ElementKey);
+        AssertAllAttributes(frames, host);
         Assert.Equal(
             [$"ElementReferenceCapture:{PartCaptureSequence}", $"ElementReferenceCapture:{ConsumerCaptureSequence}", $"Region:{ChildrenSequence}"],
-            Children(frames, 0));
-        Assert.Equal(SubstituteChildren(substitute), RegionContent(frames, 0));
+            Children(frames, host));
+        Assert.Equal(SubstituteChildren(substitute), RegionContent(frames, host));
     }
 
     [Fact(DisplayName = "a substitute component with a consumer @ref and @key carries the literal sequence numbers")]
@@ -94,11 +97,12 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ["Render"] = new CaptureConsumer().ComponentSubstitute(),
         });
 
-        Assert.Equal($"Component:{HostSequence}", Shape(frames.Array[0]));
-        Assert.Equal(typeof(CaptureTarget), frames.Array[0].ComponentType);
-        Assert.Equal("k", frames.Array[0].ComponentKey);
-        AssertAllAttributes(frames, 0);
-        Assert.Equal([$"ComponentReferenceCapture:{PartCaptureSequence}"], Children(frames, 0));
+        int host = HostIndex(frames);
+        Assert.Equal($"Component:{HostSequence}", Shape(frames.Array[host]));
+        Assert.Equal(typeof(CaptureTarget), frames.Array[host].ComponentType);
+        Assert.Equal("k", frames.Array[host].ComponentKey);
+        AssertAllAttributes(frames, host);
+        Assert.Equal([$"ComponentReferenceCapture:{PartCaptureSequence}"], Children(frames, host));
     }
 
     [Fact(DisplayName = "a substitute element with several captures, a named event and children before and after keeps every number a literal")]
@@ -130,9 +134,10 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ["Render"] = substitute,
         });
 
-        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[0]));
-        AssertAllAttributes(frames, 0);
-        List<string> children = Children(frames, 0);
+        int host = HostIndex(frames);
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[host]));
+        AssertAllAttributes(frames, host);
+        List<string> children = Children(frames, host);
         Assert.Equal(
             [
                 $"ElementReferenceCapture:{PartCaptureSequence}",
@@ -145,7 +150,7 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ],
             children);
         Assert.StartsWith("NamedEvent:", children[3]);
-        Assert.Equal(SubstituteChildren(substitute), RegionContent(frames, 0));
+        Assert.Equal(SubstituteChildren(substitute), RegionContent(frames, host));
     }
 
     [Fact(DisplayName = "a substitute component with several component captures keeps every number a literal")]
@@ -165,11 +170,12 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ["Render"] = substitute,
         });
 
-        Assert.Equal($"Component:{HostSequence}", Shape(frames.Array[0]));
-        AssertAllAttributes(frames, 0);
+        int host = HostIndex(frames);
+        Assert.Equal($"Component:{HostSequence}", Shape(frames.Array[host]));
+        AssertAllAttributes(frames, host);
         Assert.Equal(
             [$"ComponentReferenceCapture:{PartCaptureSequence}", $"ComponentReferenceCapture:{PartCaptureSequence}"],
-            Children(frames, 0));
+            Children(frames, host));
     }
 
     [Fact(DisplayName = "the content after the host element sits in a region at its literal and keeps the part's own numbers")]
@@ -181,13 +187,48 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ["data-testid"] = "root",
         });
 
-        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[0]));
-        int after = SubtreeLength(in frames.Array[0]);
+        int host = HostIndex(frames);
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[host]));
+        int after = host + SubtreeLength(in frames.Array[host]);
         Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
         Assert.Equal(after + SubtreeLength(in frames.Array[after]), frames.Count);
         Assert.Equal(
             ["Element:0", "Attribute:1", "Attribute:2"],
             Flatten(frames, after + 1, after + SubtreeLength(in frames.Array[after])));
+    }
+
+    [Fact(DisplayName = "the content before the host element sits in a region at its literal and keeps the part's own numbers")]
+    [Trait("Requirement", "ADR16-3")]
+    public void The_content_before_the_host_element_sits_in_a_region_at_its_literal_and_keeps_the_parts_own_numbers()
+    {
+        ArrayRange<RenderTreeFrame> frames = renderer.Render(typeof(BeforeElementTests.GuardedPart), new Dictionary<string, object?>
+        {
+            ["data-testid"] = "root",
+        });
+
+        Assert.Equal($"Region:{BeforeElementSequence}", Shape(frames.Array[0]));
+        int host = SubtreeLength(in frames.Array[0]);
+        Assert.Equal(
+            ["Element:0", "Attribute:1", "Attribute:2"],
+            Flatten(frames, 1, host));
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[host]));
+        int after = host + SubtreeLength(in frames.Array[host]);
+        Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
+        Assert.Equal(after + SubtreeLength(in frames.Array[after]), frames.Count);
+    }
+
+    [Fact(DisplayName = "a part with nothing before its element still emits the empty region at its literal")]
+    [Trait("Requirement", "ADR16-3")]
+    public void A_part_with_nothing_before_its_element_still_emits_the_empty_region_at_its_literal()
+    {
+        ArrayRange<RenderTreeFrame> frames = renderer.RenderSampleRoot(new Dictionary<string, object?>
+        {
+            ["data-testid"] = "root",
+        });
+
+        Assert.Equal($"Region:{BeforeElementSequence}", Shape(frames.Array[0]));
+        Assert.Equal(1, SubtreeLength(in frames.Array[0]));
+        Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[1]));
     }
 
     [Fact(DisplayName = "a part with nothing after its element still emits the empty region at its literal")]
@@ -199,13 +240,22 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             ["data-testid"] = "root",
         });
 
-        int after = SubtreeLength(in frames.Array[0]);
+        int host = HostIndex(frames);
+        int after = host + SubtreeLength(in frames.Array[host]);
         Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
         Assert.Equal(1, SubtreeLength(in frames.Array[after]));
         Assert.Equal(after + 1, frames.Count);
     }
 
     private static string Shape(in RenderTreeFrame frame) => $"{frame.FrameType}:{frame.Sequence}";
+
+    // The index of the host element or component: every render starts with the region before the host element, empty for
+    // a part that renders nothing there.
+    private static int HostIndex(ArrayRange<RenderTreeFrame> frames)
+    {
+        Assert.Equal($"Region:{BeforeElementSequence}", Shape(in frames.Array[0]));
+        return SubtreeLength(in frames.Array[0]);
+    }
 
     private static int SubtreeLength(in RenderTreeFrame frame)
     {
