@@ -40,6 +40,8 @@ public static class FixtureCatalog
         ["prerender"] = new(typeof(PrerenderFixture), Prerender: true, Roots: 2),
         ["allocation"] = new(typeof(AllocationFixture)),
         ["interactions-transport"] = new(typeof(InteractionsTransportFixture)),
+        ["interactions-press"] = new(typeof(InteractionsPressFixture)),
+        ["interactions-press-late-session"] = new(typeof(InteractionsPressLateSessionFixture)),
         ["keep-alive"] = new(typeof(KeepAliveFixture)),
         ["button-behavior"] = new(typeof(ButtonBehaviorFixture)),
         ["button-native"] = new(typeof(ButtonNativeFixture)),
