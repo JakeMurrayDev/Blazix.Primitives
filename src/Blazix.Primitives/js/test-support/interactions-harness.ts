@@ -37,7 +37,7 @@ export interface HarnessOptions {
   commit?: boolean;
   /** The consumer's `OnOpenChange`, which may cancel or allow propagation. */
   onOpenChange?: ((open: boolean, details: HarnessChangeDetails) => void) | undefined;
-  /** The consumer's `onclick` on the trigger, run by the `press` decider; returning `false` vetoes (`PreventBaseUIHandler()`). */
+  /** The consumer's `onclick` on the trigger, run by the `press` decider; returning `false` vetoes (`PreventPartHandler()`). */
   onTriggerClick?: ((event: EventInfo) => boolean | void) | undefined;
 }
 

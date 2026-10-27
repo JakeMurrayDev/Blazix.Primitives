@@ -230,7 +230,7 @@ public sealed class InteractionsBehaviorTests : IDisposable
     }
 
     [Fact]
-    public async Task A_cancelled_session_request_sends_one_update_with_the_answered_counter_and_renders_nothing()
+    public async Task A_canceled_session_request_sends_one_update_with_the_answered_counter_and_renders_nothing()
     {
         int renders = 0;
         IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onOpenChange: (_, details) => details.Cancel(), classValue: () => renders++);

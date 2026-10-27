@@ -46,8 +46,9 @@ const TRIGGER_DISABLED_ATTRIBUTE = 'data-trigger-disabled';
 // The options (mirrors InteractionsOptions in C#)
 // ---------------------------------------------------------------------------------------------------------------
 
+// ADR 04 Amendments 2026-10-27
 /**
- * The last committed open change, relayed by C# in `update` (ADR 04 Amendments 2026-10-27); mirrors the popup store's
+ * The last committed open change, relayed by C# in `update`; mirrors the popup store's
  * relay record. The session emits `openchange` when `revision` moves.
  */
 export interface OpenChangeRelay {
@@ -63,20 +64,27 @@ export interface OpenChangeRelay {
   coalescedCloseReason?: string | null;
 }
 
-/** The press type an outside press is read as (FLT-API-02). */
+// FLT-API-02
+/** The press type an outside press is read as. */
 export type PressType = 'intentional' | 'sloppy';
 
-/** The options of `useDismiss` on a session (FLT §6.4); `null` turns dismissal off. */
+// FLT §6.4
+/** The options of `useDismiss` on a session; `null` turns dismissal off. */
 export interface DismissOptions {
-  /** Whether Escape closes the popup (FLT-KEY-01); `true` when absent. */
+  // FLT-KEY-01
+  /** Whether Escape closes the popup; `true` when absent. */
   escapeKey?: boolean | null;
-  /** Whether an outside press closes the popup (FLT-DIS-09); `true` when absent. */
+  // FLT-DIS-09
+  /** Whether an outside press closes the popup; `true` when absent. */
   outsidePress?: boolean | null;
-  /** The press type per pointer type (FLT-API-02); `sloppy` for both when absent. */
+  // FLT-API-02
+  /** The press type per pointer type; `sloppy` for both when absent. */
   outsidePressEvent?: { mouse?: PressType | null; touch?: PressType | null } | null;
-  /** Whether Escape bubbles through the tree (FLT-API-01); `false` when absent. */
+  // FLT-API-01
+  /** Whether Escape bubbles through the tree; `false` when absent. */
   bubblesEscapeKey?: boolean | null;
-  /** Whether an outside press bubbles through the tree (FLT-API-01); `true` when absent. */
+  // FLT-API-01
+  /** Whether an outside press bubbles through the tree; `true` when absent. */
   bubblesOutsidePress?: boolean | null;
   /** Dialog's predicate: only a primary-button press dismisses. */
   primaryButtonOnly?: boolean | null;
@@ -98,65 +106,82 @@ export interface SessionRoleOptions {
   parentToken?: string | null;
   /** The popup element's id (Base UI's `floatingId`). */
   floatingId?: string | null;
-  /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`, FLT-PTR-13). */
+  // FLT-PTR-13
+  /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`). */
   ending?: boolean | null;
-  /** The number of requests C# answered, cancelled ones included; a move re-arms a session that requested a close. */
+  /** The number of requests C# answered, canceled ones included; a move re-arms a session that requested a close. */
   answered?: number | null;
   /** Dismissal; `null` turns it off. */
   dismiss?: DismissOptions | null;
 }
 
-/** The options of `useClick` on a trigger (FLT §6.3); `null` turns it off. */
+// FLT §6.3
+/** The options of `useClick` on a trigger; `null` turns it off. */
 export interface ClickOptions {
-  /** Which pointer event toggles (FLT-PTR-02/03); `click` when absent. */
+  // FLT-PTR-02/03
+  /** Which pointer event toggles; `click` when absent. */
   event?: 'click' | 'mousedown' | 'mousedown-only' | null;
-  /** Whether a repeated press closes (FLT-PTR-05); `true` when absent. */
+  // FLT-PTR-05
+  /** Whether a repeated press closes; `true` when absent. */
   toggle?: boolean | null;
   /** Whether strictly mouse-like presses are dropped. */
   ignoreMouse?: boolean | null;
-  /** Whether a press keeps a hover- or focus-opened popup open (FLT-PTR-06); `true` when absent. */
+  // FLT-PTR-06
+  /** Whether a press keeps a hover- or focus-opened popup open; `true` when absent. */
   stickIfOpen?: boolean | null;
   /** Whether `stickIfOpen` holds only within the patient-click window after a hover open (Popover). */
   patientClick?: boolean | null;
-  /** The touch-only open deferral in milliseconds (FLT-PTR-04). */
+  // FLT-PTR-04
+  /** The touch-only open deferral in milliseconds. */
   touchOpenDelay?: number | null;
   /** The reason of the request; `trigger-press` when absent. */
   reason?: 'trigger-press' | 'input-press' | null;
 }
 
-/** The options of `useHoverReferenceInteraction` on a trigger (FLT §6.7, §6.9); `null` turns it off. */
+// FLT §6.7; §6.9
+/** The options of `useHoverReferenceInteraction` on a trigger; `null` turns it off. */
 export interface HoverOptions {
   /** The open delay in milliseconds. */
   delayOpen?: number | null;
   /** The close delay in milliseconds. */
   delayClose?: number | null;
-  /** The rest time before a hover opens (FLT-PTR-16). */
+  // FLT-PTR-16
+  /** The rest time before a hover opens. */
   restMs?: number | null;
   /** Whether the first `mousemove` also opens; `true` when absent. */
   move?: boolean | null;
-  /** Whether only mouse-like pointers hover (FLT-PTR-11). */
+  // FLT-PTR-11
+  /** Whether only mouse-like pointers hover. */
   mouseOnly?: boolean | null;
-  /** Whether leaving the trigger is judged by the safe polygon (FLT-ALG-15). */
+  // FLT-ALG-15
+  /** Whether leaving the trigger is judged by the safe polygon. */
   safePolygon?: boolean | null;
-  /** The safe polygon's `blockPointerEvents` (FLT-DOM-19). */
+  // FLT-DOM-19
+  /** The safe polygon's `blockPointerEvents`. */
   blockPointerEvents?: boolean | null;
-  /** Whether a `mouseout` cancels a pending open (FLT-PTR-18). */
+  // FLT-PTR-18
+  /** Whether a `mouseout` cancels a pending open. */
   guardStaleOpen?: boolean | null;
   /** Whether a nested tooltip trigger (`data-base-ui-tooltip-trigger`) vetoes the hover (Tooltip's `shouldOpen`). */
   nestedTooltipTriggers?: boolean | null;
-  /** The provider token whose delay group the trigger belongs to (FLT-ALG-23). */
+  // FLT-ALG-23
+  /** The provider token whose delay group the trigger belongs to. */
   delayGroupToken?: string | null;
 }
 
-/** The options of `useFocus` on a trigger (FLT §6.5); `null` turns it off. */
+// FLT §6.5
+/** The options of `useFocus` on a trigger; `null` turns it off. */
 export interface FocusOptions {
-  /** The open delay in milliseconds (FLT-FOC-01). */
+  // FLT-FOC-01
+  /** The open delay in milliseconds. */
   delay?: number | null;
 }
 
-/** The options of `useClientPoint` on a trigger (FLT §6.6); `null` turns it off. */
+// FLT §6.6
+/** The options of `useClientPoint` on a trigger; `null` turns it off. */
 export interface ClientPointOptions {
-  /** The tracked axis (FLT-API-14); `both` when absent. */
+  // FLT-API-14
+  /** The tracked axis; `both` when absent. */
   axis?: 'x' | 'y' | 'both' | null;
 }
 
@@ -165,7 +190,8 @@ export interface TriggerRoleOptions {
   /** The trigger's id in the session's trigger map; the element's `id` when absent. */
   triggerId?: string | null;
   click?: ClickOptions | null;
-  /** Whether a press on the trigger closes the open popup (FLT-PTR-30). */
+  // FLT-PTR-30
+  /** Whether a press on the trigger closes the open popup. */
   referencePress?: boolean | null;
   /** Whether a press on a closed popup's trigger cancels a pending hover open on the bus alone (Tooltip). */
   cancelPendingOpenOnPress?: boolean | null;
@@ -176,20 +202,24 @@ export interface TriggerRoleOptions {
   hoveredLine?: boolean | null;
 }
 
-/** The options of `useHoverFloatingInteraction` on a floating element (FLT §6.8); `null` turns it off. */
+// FLT §6.8
+/** The options of `useHoverFloatingInteraction` on a floating element; `null` turns it off. */
 export interface FloatingHoverOptions {
-  /** The close delay in milliseconds after the pointer leaves the floating element (FLT-PTR-24). */
+  // FLT-PTR-24
+  /** The close delay in milliseconds after the pointer leaves the floating element. */
   closeDelay?: number | null;
 }
 
 /** The options of a `floating` handle. */
 export interface FloatingRoleOptions {
-  /** Whether the session registers a tree node for this floating element (FLT-STR-07); `true` when absent. */
+  // FLT-STR-07
+  /** Whether the session registers a tree node for this floating element; `true` when absent. */
   node?: boolean | null;
   hover?: FloatingHoverOptions | null;
 }
 
-/** The options of a `provider` handle (a TooltipProvider, FLT §6.9). */
+// FLT §6.9
+/** The options of a `provider` handle (a TooltipProvider). */
 export interface ProviderRoleOptions {
   /** The provider token the group is keyed by. */
   token?: string | null;
@@ -270,8 +300,9 @@ export function isMouseLikePointerType(pointerType: string | undefined, strict?:
   return !strict && (pointerType === '' || pointerType === undefined);
 }
 
+// FLT-STA-04
 /**
- * Determines whether an event is click-like (FLT-STA-04).
+ * Determines whether an event is click-like.
  * @param event The event, or a stand-in carrying its type.
  * @returns `true` for `click`, `mousedown`, `keydown` and `keyup`.
  */
@@ -324,8 +355,9 @@ export function isEventTargetWithin(event: Event, node: Node | null | undefined)
   return target != null && node.contains(target as Node);
 }
 
+// FLT-A11Y-08
 /**
- * Determines whether an element matches `:focus-visible` (FLT-A11Y-08).
+ * Determines whether an element matches `:focus-visible`.
  * @param element The element, or `null`.
  * @returns The match, or `true` without an element, in jsdom and where the selector is unsupported.
  */
@@ -400,7 +432,8 @@ export function createEventEmitter(): SessionEvents {
 // The tree (FLT-STR-06..09, FLT-ALG-20): utils/nodes.ts over the session forest
 // ---------------------------------------------------------------------------------------------------------------
 
-/** A tree node's context (FLT-STR-08), written by the session from its floating handle. */
+// FLT-STR-08
+/** A tree node's context, written by the session from its floating handle. */
 export interface SessionFloatingContext {
   readonly open: boolean;
   readonly nodeId: string;
@@ -424,8 +457,9 @@ export interface SessionTree {
   readonly events: SessionEvents;
 }
 
+// FLT-ALG-20
 /**
- * Returns the descendants of a node, depth first (FLT-ALG-20).
+ * Returns the descendants of a node, depth first.
  * @param nodes The tree's nodes.
  * @param id The node's id.
  * @param onlyOpenChildren Whether closed or contextless descendants are left out (their own descendants are kept).
@@ -439,8 +473,9 @@ export function getNodeChildren<T extends SessionNode>(nodes: readonly T[], id: 
   ]);
 }
 
+// FLT-ALG-20
 /**
- * Returns the ancestors of a node, nearest first (FLT-ALG-20).
+ * Returns the ancestors of a node, nearest first.
  * @param nodes The tree's nodes.
  * @param id The node's id.
  * @returns The ancestors.
@@ -462,7 +497,8 @@ export function getNodeAncestors<T extends SessionNode>(nodes: readonly T[], id:
 // The session (ADR 04 Amendments 2026-10-27, decision 3): the token-keyed map
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Base UI's `dataRef.current` (FLT-STR-05). A module that adds a key owns it. */
+// FLT-STR-05
+/** Base UI's `dataRef.current`. A module that adds a key owns it. */
 export interface SessionData {
   openEvent?: Event | undefined;
   floatingContext?: SessionFloatingContext | undefined;
@@ -472,7 +508,8 @@ export interface SessionData {
   [key: string]: unknown;
 }
 
-/** The payload of the session bus's `openchange` (FLT-STA-02). */
+// FLT-STA-02
+/** The payload of the session bus's `openchange`. */
 export interface SessionOpenChangeDetails {
   open: boolean;
   reason: string;
@@ -481,7 +518,8 @@ export interface SessionOpenChangeDetails {
   triggerElement: Element | undefined;
 }
 
-/** The triggers registered in a session, by id (PSH-STA-33's map). */
+// PSH-STA-33 (the trigger map)
+/** The triggers registered in a session, by id. */
 export interface SessionTriggerMap {
   readonly size: number;
   getById(id: string): Element | undefined;
@@ -557,6 +595,8 @@ interface SessionRecord extends InteractionSession {
   positionListeners: Set<() => void>;
   /** The hook regions' private per-session state (`sessionSlot`). */
   slots: Map<string, unknown>;
+  /** The session's tree node, a live view built on first use. */
+  nodeView: SessionNode | undefined;
   /** Called after the session applied a commit, or gained or lost its floating element or a trigger (`onSessionChange`). */
   changeListeners: Set<() => void>;
   treeEvents: SessionEvents;
@@ -644,6 +684,7 @@ function createSessionRecord(token: string): SessionRecord {
     channel: null,
     positionListeners: new Set(),
     slots: new Map(),
+    nodeView: undefined,
     changeListeners: new Set(),
     treeEvents: createEventEmitter(),
     dataRef,
@@ -697,10 +738,9 @@ function createSessionRecord(token: string): SessionRecord {
   return record;
 }
 
-const nodeCache = new WeakMap<SessionRecord, SessionNode>();
-
+// The node is a live view of the session, built once and kept on the session itself.
 function nodeOf(record: SessionRecord): SessionNode {
-  const cached = nodeCache.get(record);
+  const cached = record.nodeView;
   if (cached) {
     return cached;
   }
@@ -713,7 +753,7 @@ function nodeOf(record: SessionRecord): SessionNode {
       return record.floatingElement ? record.context : undefined;
     },
   };
-  nodeCache.set(record, node);
+  record.nodeView = node;
   return node;
 }
 
@@ -843,7 +883,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   }
   record.open = open;
   record.activeTriggerId = role.activeTriggerId ?? null;
-  // Design point 10 (settled by the orchestrator 2026-10-27): a cancelled request moves no revision, so the answered
+  // Design point 10 (settled by the orchestrator 2026-10-27): a canceled request moves no revision, so the answered
   // counter is what re-arms a session that requested a close.
   const answered = role.answered ?? 0;
   if (answered !== record.answered) {
@@ -932,8 +972,9 @@ function triggerIdOf(record: SessionRecord, element: Element): string | null {
   return element.id || null;
 }
 
+// ADR 04 Amendments 2026-10-27
 /**
- * A request a handle sends (ADR 04 Amendments 2026-10-27): recorded for the relay's pairing, then reported on the
+ * A request a handle sends: recorded for the relay's pairing, then reported on the
  * handle's own twin. Nothing is emitted here: `openchange` follows the commit the relay brings.
  */
 function requestOpenChange(
@@ -1058,7 +1099,7 @@ interface DismissState {
   compositionTimeout: Timer;
 }
 
-/** Re-arms a session that requested a close: C# answered a request (cancelled ones included). */
+/** Re-arms a session that requested a close: C# answered a request (canceled ones included). */
 function rearmDismiss(record: SessionRecord): void {
   const state = record.slots.get('dismiss') as DismissState | undefined;
   if (state !== undefined) {
@@ -1560,7 +1601,7 @@ function createSessionDismissController(context: HandleContext): Controller {
 
     // FLT-PTR-28, FLT-PTR-29.
     function handlePressEndCapture(event: PointerEvent | MouseEvent) {
-      // A cancelled gesture produces no click. Not cleared on `pointerup`: the click fires after it.
+      // A canceled gesture produces no click. Not cleared on `pointerup`: the click fires after it.
       if (event.type === 'pointercancel') {
         state.sawPressWhileOpen = false;
       }
@@ -1856,9 +1897,10 @@ function patientClickState(record: SessionRecord): PatientClickState {
   });
 }
 
+// FLT-ALG-16
 /**
  * useClick on a trigger (useClick.ts) with the decision point `press`: the trigger computes the next open value from the
- * relayed state (FLT-ALG-16) and asks `press` on its own twin, fallback `run`. On WebAssembly it first hands the press
+ * relayed state and asks `press` on its own twin, fallback `run`. On WebAssembly it first hands the press
  * over (`OnPressing`) and C# runs the consumer's declined `onclick` and the request inside the dispatch; on Server it
  * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later.
  */
@@ -3723,11 +3765,12 @@ const isMacSafari = platform.os.mac && platform.engine.webkit;
 // The `data-base-ui-focus-guard` attribute and its `data-type="outside"` (portal guards), read by the blur close.
 const FOCUS_GUARD_ATTRIBUTE = 'data-base-ui-focus-guard';
 
+// FLT-FOC-01; FLT-FOC-02/03; FLT-FOC-04
 /**
- * useFocus on a trigger (useFocus.ts): a focus opens the popup after `delay` (FLT-FOC-01); a window blur while the
- * reference holds focus, and a press or Escape close, block the next focus on that reference (FLT-FOC-02/03); a blur
+ * useFocus on a trigger (useFocus.ts): a focus opens the popup after `delay`; a window blur while the
+ * reference holds focus, and a press or Escape close, block the next focus on that reference; a blur
  * closes it after 0 ms unless focus stayed in the reference, moved into the floating element, onto an outside focus
- * guard or onto another enabled trigger (FLT-FOC-04). React's `onFocus`/`onBlur` are `focusin`/`focusout`.
+ * guard or onto another enabled trigger. React's `onFocus`/`onBlur` are `focusin`/`focusout`.
  */
 function createFocusController(context: HandleContext): Controller {
   const { record, channel } = context;
@@ -4520,9 +4563,10 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
  * @param elementOrId The element, its id, or `null` for the token form.
  * @param optionsJson The JSON of an `InteractionsOptions` with exactly one role set.
  * @param twinReference The twin's `DotNetObjectReference`.
+ * @param _references The element-typed option values passed after the options; the module's options carry none.
  * @returns The handle.
  */
-export function attach(elementOrId: AttachTarget, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
+export function attach(elementOrId: AttachTarget, optionsJson: string, twinReference: DotNetTwin, _references?: readonly unknown[]): TwinHandle {
   const options = parseOptions<InteractionsOptions>(optionsJson);
   if (options.provider) {
     return attachProvider(options.provider.token ?? '', options, twinReference);

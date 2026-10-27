@@ -365,7 +365,7 @@ describe('the session', () => {
     expect(session.dataRef.current.openEvent).toBeUndefined();
   });
 
-  it('port: a cancelled request moves no revision and emits nothing, and a committed one carries its own event', () => {
+  it('port: a canceled request moves no revision and emits nothing, and a committed one carries its own event', () => {
     let cancel = true;
     const popup = harness({
       onOpenChange: (_open, details) => {
@@ -2130,13 +2130,13 @@ describe('useDismiss', () => {
   // -------------------------------------------------------------------------------------------------------------
 
   describe('the escape point', () => {
-    it('port: an accepted close is prevented and stopped, prevented only with allowPropagation(), stopped only when cancelled, and neither when cancelled with allowPropagation(); on Server every close takes the prevent-and-stop fallback and is reported', async () => {
+    it('port: an accepted close is prevented and stopped, prevented only with allowPropagation(), stopped only when canceled, and neither when canceled with allowPropagation(); on Server every close takes the prevent-and-stop fallback and is reported', async () => {
       // [name, consumer, defaultPrevented, reached a later document listener] on WebAssembly.
       const consumers: [string, (details: { cancel(): void; allowPropagation(): void }) => void, boolean, boolean][] = [
         ['accepted', () => {}, true, false],
         ['accepted with allowPropagation()', allowPropagation, true, true],
-        ['cancelled', cancel, false, false],
-        ['cancelled with allowPropagation()', cancelAndAllowPropagation, false, true],
+        ['canceled', cancel, false, false],
+        ['canceled with allowPropagation()', cancelAndAllowPropagation, false, true],
       ];
       await inBothModes((synchronous) => {
         for (const [name, consumer, prevented, propagated] of consumers) {
@@ -2165,7 +2165,7 @@ describe('useDismiss', () => {
     it('port: bubbles.escapeKey drops the stop half of the verdict, so the keydown reaches the document whatever the consumer decides', async () => {
       const consumers: [string, (details: { cancel(): void }) => void, boolean][] = [
         ['accepted', () => {}, true],
-        ['cancelled', cancel, false],
+        ['canceled', cancel, false],
       ];
       await inBothModes((synchronous) => {
         for (const [name, consumer, prevented] of consumers) {
@@ -2214,7 +2214,7 @@ describe('useDismiss', () => {
     it('port: one close per keydown: a script-dispatched Escape that the floating element lets propagate reaches the session\'s document listener, which asks nothing more', async () => {
       const consumers: [string, (details: { cancel(): void; allowPropagation(): void }) => void][] = [
         ['accepted with allowPropagation()', allowPropagation],
-        ['cancelled with allowPropagation()', cancelAndAllowPropagation],
+        ['canceled with allowPropagation()', cancelAndAllowPropagation],
       ];
       await inBothModes((synchronous) => {
         for (const [name, consumer] of consumers) {
@@ -2263,7 +2263,7 @@ describe('useDismiss', () => {
       });
     });
 
-    it('port: a cancelled Escape close leaves the session armed, by the verdict on WebAssembly and by C#\'s answer on Server, so the next Escape asks again', async () => {
+    it('port: a canceled Escape close leaves the session armed, by the verdict on WebAssembly and by C#\'s answer on Server, so the next Escape asks again', async () => {
       await inBothModes((synchronous) => {
         let cancelNext = true;
         const popup = harness({

@@ -35,7 +35,7 @@ internal sealed class InteractionsTwin(IJSRuntime jsRuntime)
     /// <value>
     /// A function that receives the click about to request the state named by <see cref="PendingPress"/>, runs the
     /// consumer's handler and then the request, and returns <see cref="DecisionPolicy.Stop"/> when the consumer called
-    /// <c>PreventBaseUIHandler()</c>; <see langword="null"/> lets every press. It runs only on WebAssembly, synchronously
+    /// <c>PreventPartHandler()</c>; <see langword="null"/> lets every press. It runs only on WebAssembly, synchronously
     /// inside the dispatch, and must not await.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? PressDecider { get; set; }
