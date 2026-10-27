@@ -26,7 +26,7 @@ public sealed class ToolbarGroupTests : IDisposable
         IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarGroup>(g => g.AddUnmatched("data-testid", "group")));
 
         IElement group = cut.Find("[data-testid=group]");
-        Assert.Same(group, cut.Find("[role=group]"));
+        Assert.Equal("group", group.GetAttribute("role"));
         Assert.Equal("DIV", group.TagName);
     }
 
