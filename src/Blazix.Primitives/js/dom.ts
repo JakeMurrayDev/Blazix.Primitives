@@ -8,7 +8,7 @@
 // internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and AvatarImage.tsx.
 // Requirements: shared-utilities.md §4.10 (UTL-DOM-18..22), §4.11 (UTL-DOM-23..31), §4.13, §4.16, UTL-ALG-11..14.
 // The Floating UI DOM predicates Base UI imports are re-implemented here with the same semantics, so this module and
-// the button module stay out of the positioning chunk (ADR 04 §4).
+// the button module stay out of `js/positioning.js`, which bundles the engine (ADR 04 §4, Amendments 2026-10-27).
 import { platform } from './platform';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
 
