@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Components;
 namespace Blazix.Primitives;
 
 // TLB §11 (the ToolbarGroupContext the buttons, inputs and toggle groups read, optionally); toolbar/group/
-// ToolbarGroupContext.ts:4-12. Design point 14.4 (a), pending the user: the listener list of ToolbarRootContext. A part
-// reads the toolbar's disabled state and the group's, so either change reaches it; the comparison keeps it to one render.
+// ToolbarGroupContext.ts:4-12. Design point 14.4 (a), settled by the orchestrator 2026-10-27: the listener list of
+// ToolbarRootContext. A part reads the toolbar's disabled state and the group's, so either change reaches it; the
+// comparison keeps it to one render.
 /// <summary>The state a toolbar group shares with the parts in its subtree.</summary>
 internal sealed class ToolbarGroupContext
 {

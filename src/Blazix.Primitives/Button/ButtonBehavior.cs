@@ -30,10 +30,11 @@ namespace Blazix.Primitives;
 // is declined too: the `activate` decision runs it on WebAssembly with a one-shot marker, and the part's own onclick
 // handler runs it otherwise (on Server after the toggle, the order of the ADR 01 row "EVD-EVT-26 against composite/button
 // key handling").
-// ToolbarInput turns InputItem on (UBT-DOM-12; design point 14.5 (a) of M3 track 4, pending the user): the module never
-// activates the input, and the part declines none of the consumer's handlers, which run after the module's prevention.
-// The attributes of UBT-ALG-03 are ButtonAttributeWriter's. Attach: by Element; by the generated id under a substitute
-// callback; by a late id drawn after the first render when a component root leaves no Element (ADR 02 decision 1).
+// ToolbarInput turns InputItem on (UBT-DOM-12; design point 14.5 (a) of M3 track 4, settled by the orchestrator
+// 2026-10-27): the module never activates the input, and the part declines none of the consumer's handlers, which run
+// after the module's prevention. The attributes of UBT-ALG-03 are ButtonAttributeWriter's. Attach: by Element; by the
+// generated id under a substitute callback; by a late id drawn after the first render when a component root leaves no
+// Element (ADR 02 decision 1).
 /// <summary>The button mechanism of one button-like part: its consumer handler gate, its attributes and its <see cref="ButtonTwin"/>.</summary>
 internal sealed class ButtonBehavior : IDisposable
 {
@@ -117,7 +118,7 @@ internal sealed class ButtonBehavior : IDisposable
     /// <value><see langword="true"/> for Checkbox and Radio; the default is <see langword="false"/>.</value>
     public bool SuppressEnter { get; set; }
 
-    // UBT-DOM-12, TLB-API-14; design point 14.5 (a) of M3 track 4, pending the user.
+    // UBT-DOM-12, TLB-API-14; design point 14.5 (a) of M3 track 4, settled by the orchestrator 2026-10-27.
     /// <summary>Gets or sets a value indicating whether the element is a toolbar input, which no key activates and whose consumer handlers are never declined.</summary>
     /// <value>
     /// <see langword="true"/> for ToolbarInput, which renders its own attributes; the default is <see langword="false"/>.

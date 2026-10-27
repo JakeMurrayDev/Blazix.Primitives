@@ -26,7 +26,7 @@ public static class ToolbarGroupDataAttributes
 // - One `div` with role="group" (TLB-ARIA-06, TLB-DOM-09); the consumer's attributes win (TLB-API-16). Structural: not an
 //   item, no handlers, no id, no tabindex (TLB-STR-03).
 // - Its effective disabled state is the toolbar's or its own (TLB-API-15), published to the parts inside it through
-//   ToolbarGroupContext (design point 14.4 (a), pending the user); links do not read it.
+//   ToolbarGroupContext (design point 14.4 (a), settled by the orchestrator 2026-10-27); links do not read it.
 /// <summary>
 /// Represents a set of related toolbar items: Base UI's <c>Toolbar.Group</c>, rendered as a <c>div</c> with
 /// <c>role="group"</c>. Disabling the group disables its buttons, inputs and toggle groups.

@@ -33,11 +33,12 @@ public static class ToolbarRootDataAttributes
 //   (TLB-KEY-04, §16 Q2, chosen by the user 2026-10-26), a handled key stopped, no modifier keys, no highlight mirror, and
 //   the disabled indices derived from the items' flags (M3 track 1's E3; TLB-STA-02). The items' tabindex is the
 //   `composite` module's from attach (ADR 04 Amendments 2026-10-22).
-// - It cascades ToolbarRootContext (design point 14.4 (a), pending the user), then the composite registry, both fixed.
+// - It cascades ToolbarRootContext (design point 14.4 (a), settled by the orchestrator 2026-10-27), then the composite
+//   registry, both fixed.
 // - The consumer's onkeydown is declined and run by the root at `navigate`, under option (i) (TLB-API-05; ADR 04
 //   Amendments 2026-10-22, chosen by the user 2026-10-23). Base UI's root onFocus only selects a native text input's value
 //   (useCompositeRoot.ts:321-327), which the module does in its focusin listener with no decision point, so a consumer
-//   onfocus is forwarded and cannot veto it (design point 14.6 (a), pending the user).
+//   onfocus is forwarded and cannot veto it (design point 14.6 (a), settled by the orchestrator 2026-10-27).
 /// <summary>
 /// Represents a container for a set of controls: Base UI's <c>Toolbar.Root</c>, rendered as a <c>div</c> with
 /// <c>role="toolbar"</c>. The toolbar is one tab stop, and the arrow keys of its orientation move focus between its

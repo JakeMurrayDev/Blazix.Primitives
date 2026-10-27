@@ -636,8 +636,9 @@ test.describe('<Toolbar.Button />', () => {
       await expect(container).toHaveAttribute('data-clicks', '0');
     });
 
-    // TLB-DOM-08, UBT-ALG-04, design point 14.1 (a), pending the user: the outer button's handle clears the DOM disabled
-    // property the inner Toggle rendered, after the first render and after each flip, so the element stays focusable.
+    // TLB-DOM-08, UBT-ALG-04, design point 14.1 (a), settled by the orchestrator 2026-10-27: the outer button's handle
+    // clears the DOM disabled property the inner Toggle rendered, after the first render and after each flip, so the
+    // element stays focusable.
     test('port: a disabled Toggle substituted into a focusable-when-disabled button has no disabled attribute and stays focusable, also after a runtime flip', async ({ page, mode }) => {
       const fixture = await gotoToolbar(page, mode, 'toolbar-button');
       const { item, flip } = toolbarCase(fixture, 'toggle-substitute');

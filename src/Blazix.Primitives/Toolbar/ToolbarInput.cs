@@ -38,14 +38,14 @@ public static class ToolbarInputDataAttributes
 // - The button mechanism in its input item mode (UBT-DOM-12; ADR 04 Amendments 2026-10-26, chosen by the user): the
 //   `button` module's inputItem option keeps a disabled, focusable input's non-Tab key prevention and its click and
 //   pointerdown prevention (TLB-KEY-13, TLB-PTR-02) and never activates it, and the part declines none of the consumer's
-//   handlers, which run after the module's (TLB-API-14; design point 14.5 (a), pending the user).
+//   handlers, which run after the module's (TLB-API-14; design point 14.5 (a), settled by the orchestrator 2026-10-27).
 // - It is a composite item of the toolbar (CompositeItemBehavior; TLB-STR-01) with the item gate for the consumer's
 //   onkeydown; the item's tabindex="-1" is rendered (CMP-STA-15) and the `composite` module owns it from attach (ADR 04
 //   Amendments 2026-10-22). The caret and select-on-focus rules are the module's (TLB-KEY-09/10/11, TLB-FOC-05).
 // - DefaultValue is rendered once, as the `value` attribute of the first render (plan of 2026-10-26, chosen by the user;
 //   ADR 04 Amendments 2026-10-22, the field half's evidence): Blazor never writes the element's value afterwards.
 // - A substituted Input (the port's) is supported for its attributes only: its own key gate and the item's would both own
-//   one onkeydown (design point 14.3 (a), pending the user).
+//   one onkeydown (design point 14.3 (a), settled by the orchestrator 2026-10-27).
 /// <summary>
 /// Represents a native text input in a toolbar: Base UI's <c>Toolbar.Input</c>, rendered as an <c>input</c> element that
 /// the toolbar's arrow keys move focus to once the caret is at either end of its text.

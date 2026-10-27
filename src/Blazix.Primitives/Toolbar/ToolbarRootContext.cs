@@ -3,9 +3,10 @@ using Microsoft.AspNetCore.Components;
 namespace Blazix.Primitives;
 
 // TLB §11 (the ToolbarRootContext every part reads); toolbar/root/ToolbarRootContext.ts:5-23. Design point 14.4 of M3 track
-// 4, option (a), pending the user: a plain listener list cascaded fixed (ADR 16 rule 9; ToggleGroupContext, design point
-// 11.1). A change of the disabled state or the orientation notifies every part, which compares what it renders and renders
-// only when that changed; the root's diff never reaches them. ToggleGroup and, from M4, the popups read it optionally.
+// 4, option (a), settled by the orchestrator 2026-10-27: a plain listener list cascaded fixed (ADR 16 rule 9;
+// ToggleGroupContext, design point 11.1). A change of the disabled state or the orientation notifies every part, which
+// compares what it renders and renders only when that changed; the root's diff never reaches them. ToggleGroup and,
+// from M4, the popups read it optionally.
 /// <summary>The state a toolbar shares with the parts in its subtree.</summary>
 internal sealed class ToolbarRootContext
 {

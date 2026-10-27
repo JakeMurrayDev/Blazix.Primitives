@@ -196,7 +196,8 @@ public sealed class ToolbarButtonTests : IDisposable
     [Trait("Requirement", "TLB-EDGE-04")]
     public void Port_disabled_reaches_a_substitute_only()
     {
-        // Design point 14.2 (a), pending the user. No substitute: no disabled attribute while focusable when disabled.
+        // Design point 14.2 (a), settled by the orchestrator 2026-10-27. No substitute: no disabled attribute while
+        // focusable when disabled.
         IRenderedComponent<ToolbarRoot> plain = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarButton>(b => b.Add(x => x.Disabled, true)));
         Assert.False(plain.Find("button").HasAttribute("disabled"));
 

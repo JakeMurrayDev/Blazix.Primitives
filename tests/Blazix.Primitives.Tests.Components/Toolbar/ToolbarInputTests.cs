@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Tests.Components;
 
 // ToolbarInput.test.tsx's titles are browser titles (tests/browser/toolbar.spec.ts) or NumberField's (M5); these are port
 // titles for the C# half: the element, the option the button twin carries, the handlers and the re-cited rows of an
-// `Input` substitute (design point 14.3 (a), pending the user: attributes only).
+// `Input` substitute (design point 14.3 (a), settled by the orchestrator 2026-10-27: attributes only).
 /// <summary>The toolbar input: a composite item over the button mechanism's input item option, disabled through ARIA only.</summary>
 public sealed class ToolbarInputTests : IDisposable
 {
@@ -135,8 +135,8 @@ public sealed class ToolbarInputTests : IDisposable
     [Trait("Requirement", "TLB-KEY-16")]
     public async Task Port_the_consumers_handlers_run_while_disabled()
     {
-        // Design point 14.5 (a), pending the user: the button mechanism in its input item mode declines no handler, and the
-        // item gate runs the consumer's onkeydown once.
+        // Design point 14.5 (a), settled by the orchestrator 2026-10-27: the button mechanism in its input item mode
+        // declines no handler, and the item gate runs the consumer's onkeydown once.
         List<string> calls = [];
         IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarInput>(i => i
             .Add(x => x.Disabled, true)
@@ -167,7 +167,8 @@ public sealed class ToolbarInputTests : IDisposable
     public void Port_a_substituted_input_receives_the_toolbar_inputs_attributes()
     {
         // ToolbarInput.test.tsx "renders NumberField.Input" re-cited over the port's Input, for its attributes only (design
-        // point 14.3 (a), pending the user). The field module Input attaches is not this test's subject.
+        // point 14.3 (a), settled by the orchestrator 2026-10-27). The field module Input attaches is not this test's
+        // subject.
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         RenderFragment substitute = builder =>
         {

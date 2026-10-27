@@ -34,15 +34,16 @@ public static class ToolbarButtonDataAttributes
 //   = FocusableWhenDisabled) in composite mode always (ADR 04 Amendments 2026-10-26, chosen by the user), so the writer gives
 //   TLB-DOM-04's rows and no tabindex (TLB-DOM-05). One ButtonTwin; TLB-EDGE-02 runs through ButtonDevelopmentLog.
 // - Its effective disabled state is the toolbar's, its group's or its own (TLB-API-06, TLB-STA-05), read from the two
-//   contexts (design point 14.4 (a), pending the user). While disabled the button mechanism declines the consumer's press
-//   and key handlers (TLB-API-10), and the item runs none either.
+//   contexts (design point 14.4 (a), settled by the orchestrator 2026-10-27). While disabled the button mechanism
+//   declines the consumer's press and key handlers (TLB-API-10), and the item runs none either.
 // - It is a composite item of the toolbar (CompositeItemBehavior; TLB-STR-01): the item's tabindex="-1" is rendered
 //   (CMP-STA-15) and the `composite` module owns it from attach (ADR 04 Amendments 2026-10-22). The button draws the id it
 //   registers (the RadioRoot precedent).
-// - `disabled` reaches a substitute only (TLB-API-09, TLB-EDGE-04; design point 14.2 (a), pending the user): while Render or
-//   RenderFunction is set the part adds the effective disabled state to its own attributes, so an element substitute
-//   receives the attribute and a component substitute (Toggle, SwitchRoot) the parameter. The default button carries
-//   `disabled` only from the writer (FocusableWhenDisabled false), and stays hoverable otherwise (TLB-PTR-01).
+// - `disabled` reaches a substitute only (TLB-API-09, TLB-EDGE-04; design point 14.2 (a), settled by the orchestrator
+//   2026-10-27): while Render or RenderFunction is set the part adds the effective disabled state to its own
+//   attributes, so an element substitute receives the attribute and a component substitute (Toggle, SwitchRoot) the
+//   parameter. The default button carries `disabled` only from the writer (FocusableWhenDisabled false), and stays
+//   hoverable otherwise (TLB-PTR-01).
 // - One keydown gate (ADR 01 and ADR 04 Amendments 2026-10-26, chosen by the user; the Radio and Toggle precedent): the
 //   composite's navigation keys take the item's gate (`navigate`), every other key the button's (`activate`).
 /// <summary>
