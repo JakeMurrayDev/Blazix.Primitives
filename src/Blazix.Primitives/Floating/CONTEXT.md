@@ -38,6 +38,7 @@ The C# half of floating positioning: the public types of the twelve shared Posit
 - It mirrors each report. The part is rendered only when side, align or anchorHidden changed, and the Arrow is notified only when side, align or uncentered changed. A part renders on a mirror change only when its state record changed, because the Positioner's render may already have rendered its Arrow.
 - It re-attaches by id when the element is replaced.
 - The element cases of `AnchorValue` and `CollisionBoundaryValue` wait for track 1's references array (`AnchorRef`, `BoundaryRefs`); until then they send nothing.
+- Under a Portal, the first attach awaits the portal's move task (the Toolbar first-attach precedent, settled by the orchestrator 2026-10-27), so the module never measures a node still `display: none` in place. The member is track 1's, and this is open until track 1 is on `main`; `FixturePositioner` has no portal.
 
 What JavaScript owns (not here): the pipeline and its middleware, the tracking, `isPositioned`, the physical side, `update()`, and every style and placement attribute from attach. `readPlacement(el)` and `update(el)` are the module's exports for the `popup` module and PreviewCard.
 
