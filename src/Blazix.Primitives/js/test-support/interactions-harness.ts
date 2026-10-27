@@ -72,6 +72,13 @@ export interface PopupHarness {
    * the type of the event C# saw (a hover open's `mouseenter`), which the session records as a stand-in open event.
    */
   setOpen(open: boolean, reason?: string, triggerId?: string | null, eventType?: string): void;
+  /**
+   * Runs `changes` as one C# batch: the commits inside it send one session `update`, whose relay carries the last
+   * change and, when a close preceded a final open, that close's revision and reason.
+   */
+  coalesce(changes: () => void): void;
+  /** Whether the harness answers every request with the session's answered-requests counter (C#'s re-arm). */
+  answering: boolean;
   /** Disposes every handle the harness attached. */
   dispose(): void;
 }
@@ -98,13 +105,20 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
   let sessionHandle: TwinHandle | null = null;
   let sessionOptions: InteractionsOptions = {};
   let stash: Record<string, unknown> | null = null;
+  let answered = 0;
+  let answering = true;
+  let batching = false;
+  let batchClose: { revision: number; reason: string } | null = null;
 
   const sendSession = () => {
+    if (batching) {
+      return;
+    }
     sessionOptions = {
       ...sessionOptions,
       sessionToken: token,
       relay,
-      session: { ...sessionOptions.session, open, activeTriggerId },
+      session: { ...sessionOptions.session, open, activeTriggerId, ...(answered > 0 ? { answered } : {}) },
     };
     sessionHandle?.update(JSON.stringify(sessionOptions));
   };
@@ -134,12 +148,24 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
     changes.push({ open: next, details: change });
     options.onOpenChange?.(next, change);
     if (change.isCanceled || options.commit === false) {
+      // C# answers the request all the same (the commit-path `update` of the answered counter), unless a test plays
+      // a commit that has not arrived yet.
+      if (answering && options.commit !== false) {
+        answered += 1;
+        sendSession();
+      }
       return change;
+    }
+    if (answering) {
+      answered += 1;
     }
     open = next;
     revision += 1;
     if (next && change.triggerId !== null) {
       activeTriggerId = change.triggerId;
+    }
+    if (batching && !next) {
+      batchClose = { revision, reason: change.reason };
     }
     relay = {
       revision,
@@ -148,6 +174,7 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
       eventType: change.event?.type ?? null,
       pointerType: change.event?.pointerType ?? null,
       triggerId: change.triggerId,
+      ...(batching && next && batchClose !== null ? { closedRevision: batchClose.revision, closedReason: batchClose.reason } : {}),
     };
     sendSession();
     return change;
@@ -269,6 +296,23 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
     setOpen(next, reason = 'none', triggerId = null, eventType) {
       const event = eventType === undefined ? null : { kind: 'MouseEvent', type: eventType, pointerType: 'mouse' };
       commit({ open: next, reason, event, triggerId });
+    },
+    coalesce(run) {
+      batching = true;
+      batchClose = null;
+      try {
+        run();
+      } finally {
+        batching = false;
+        batchClose = null;
+      }
+      sendSession();
+    },
+    get answering() {
+      return answering;
+    },
+    set answering(value: boolean) {
+      answering = value;
     },
     dispose() {
       for (const handle of handles.splice(0)) {

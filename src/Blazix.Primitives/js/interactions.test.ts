@@ -2263,7 +2263,7 @@ describe('useDismiss', () => {
       });
     });
 
-    it('port: a cancelled Escape close leaves the session armed on WebAssembly, where the verdict reports the cancel, so the next Escape asks again; on Server the session stays disarmed until the next open', async () => {
+    it('port: a cancelled Escape close leaves the session armed, by the verdict on WebAssembly and by C#\'s answer on Server, so the next Escape asks again', async () => {
       await inBothModes((synchronous) => {
         let cancelNext = true;
         const popup = harness({
@@ -2285,9 +2285,49 @@ describe('useDismiss', () => {
         cancelNext = false;
         keyDown(floating);
 
-        expect(popup.open).toBe(!synchronous);
-        expect(popup.changes).toHaveLength(synchronous ? 2 : 1);
+        expect(popup.open).toBe(false);
+        expect(popup.changes).toHaveLength(2);
       });
+    });
+
+    it('port: on Server a session that requested a close stays disarmed until C# answers, so a second Escape before the answer requests nothing', async () => {
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession({ session: { dismiss: {} } });
+      const floating = element('div');
+      popup.attachFloating(floating);
+
+      keyDown(floating);
+      keyDown(floating);
+      expect(popup.requests.filter((request) => request.method === 'OnRequest')).toHaveLength(1);
+
+      // C# answers (a cancel): the commit-path update moves the answered counter, and the next Escape asks again.
+      popup.updateSession({ session: { answered: 1 } });
+      keyDown(floating);
+      expect(popup.requests.filter((request) => request.method === 'OnRequest')).toHaveLength(2);
+    });
+
+    it('port: a close and a reopen committed in one batch are replayed, the close with its reason, so a press seen before it does not leak into the reopened session', async () => {
+      const popup = harness({ open: true });
+      popup.attachSession({ session: { dismiss: { outsidePressEvent: intentional } } });
+      popup.attachFloating(element('div'));
+      const session = getSession(popup.token)!;
+      const seen: [boolean, string][] = [];
+      session.events.on('openchange', (details: SessionOpenChangeDetails) => seen.push([details.open, details.reason]));
+
+      pointer(document.body, 'pointerdown', { pointerType: 'mouse' });
+      mouse(document.body, 'mousedown');
+      popup.coalesce(() => {
+        popup.setOpen(false, 'focus-out');
+        popup.setOpen(true, 'trigger-hover', null, 'mouseenter');
+      });
+
+      expect(seen).toEqual([
+        [false, 'focus-out'],
+        [true, 'trigger-hover'],
+      ]);
+      expect(session.dataRef.current.openEvent?.type).toBe('mouseenter');
+      mouse(document.body, 'click', { detail: 1 });
+      expect(popup.open).toBe(true);
     });
 
     it('port: an Escape on an inactive trigger of an open popup, inside another open popup, closes that popup alone', async () => {
