@@ -306,6 +306,23 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         Assert.Equal(0, allocated);
     }
 
+    // Found at L4 on a cold Server host: a popup closed before its module loaded is gone when `attach` reaches the
+    // browser, and the module's JSException would end the circuit from OnAfterRenderAsync (the CollapsiblePanelBehavior
+    // precedent).
+    [Fact(DisplayName = "port: an attach that fails because the popup left the document before it arrived is dropped, and a later render attaches again")]
+    [Trait("Requirement", "FLT-FOC-06")]
+    public async Task An_attach_that_fails_because_the_popup_left_is_dropped_and_a_later_render_attaches_again()
+    {
+        GoneElementRuntime runtime = new();
+        await using FocusManagerBehavior behavior = new(runtime, work => work(), _ => Task.CompletedTask);
+
+        await behavior.AfterRenderAsync(new ElementReference("gone"), null);
+        await behavior.AfterRenderAsync(new ElementReference("gone"), null);
+
+        Assert.False(behavior.TwinAttached.IsCompleted);
+        Assert.Equal(2, runtime.Attaches);
+    }
+
     private async Task<IRenderedComponent<TestFocusManaged>> RenderAttachedAsync(Func<EventSnapshot, Task>? onFocusOutClose = null)
     {
         IRenderedComponent<TestFocusManaged> managed = test.Context.Render<TestFocusManaged>(p => p.Add(x => x.OnFocusOutClose, onFocusOutClose));
@@ -313,6 +330,32 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         Assert.Single(module.Invocations["attach"]);
         return managed;
     }
+
+    /// <summary>A runtime whose module's <c>attach</c> fails as the module does for an element no longer in the document.</summary>
+    /// <remarks>BL0016 asks callers of JS interop to guard the call; this is the runtime itself, which only answers.</remarks>
+#pragma warning disable BL0016
+    private sealed class GoneElementRuntime : IJSRuntime, IJSObjectReference
+    {
+        public int Attaches { get; private set; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private ValueTask<TValue> Answer<TValue>(string identifier)
+        {
+            if (identifier == "import")
+            {
+                return ValueTask.FromResult((TValue)(object)this);
+            }
+
+            Attaches++;
+            return ValueTask.FromException<TValue>(new JSException("Blazix: no element for the reference"));
+        }
+    }
+#pragma warning restore BL0016
 
     private FocusManagerTwin Twin() =>
         Assert.IsType<DotNetObjectReference<FocusManagerTwin>>(Assert.Single(module.Invocations["attach"]).Arguments[2]).Value;
