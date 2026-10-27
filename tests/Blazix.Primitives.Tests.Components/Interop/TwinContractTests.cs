@@ -118,6 +118,31 @@ public sealed class TwinContractTests
         Assert.Equal(element, attach.Arguments[0]);
     }
 
+    // ADR 04 Amendments 2026-10-27 (decision 3, the token form of attach; chosen by the user 2026-10-27).
+    [Fact]
+    public async Task The_token_form_attaches_an_elementless_handle_once_per_token_and_passes_null_as_the_target()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        BunitJSModuleInterop handle = SetupHandle(module);
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+
+        TwinHandle<TestTwinOptions> first = await twin.AttachTokenAsync("base-ui-7", new TestTwinOptions { Threshold = 1 });
+        TwinHandle<TestTwinOptions> second = await twin.AttachTokenAsync("base-ui-7", new TestTwinOptions { Threshold = 2 });
+        await twin.AttachTokenAsync("base-ui-8", new TestTwinOptions());
+
+        Assert.Same(first, second);
+        Assert.Equal("base-ui-7", first.Key);
+        JSRuntimeInvocation attach = module.Invocations["attach"][0];
+        Assert.Null(attach.Arguments[0]);
+        Assert.Equal("""{"threshold":1}""", attach.Arguments[1]);
+        Assert.IsType<DotNetObjectReference<TestTwin>>(attach.Arguments[2]);
+        Assert.Equal(2, module.Invocations["attach"].Count);
+
+        await first.DisposeAsync();
+        Assert.Single(handle.Invocations["dispose"]);
+    }
+
     [Fact]
     public void Decide_deserialises_the_event_info_runs_the_chain_and_returns_the_verdict_as_its_literal()
     {
