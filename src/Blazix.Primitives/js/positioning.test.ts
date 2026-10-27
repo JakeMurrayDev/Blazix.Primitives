@@ -9,7 +9,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hide as nativeHide } from '@floating-ui/dom';
 import type { MiddlewareState, Rect, SideObject } from '@floating-ui/dom';
-import { adaptiveOrigin, arrow, attach, getLogicalSide, hide, transformOrigin, type PositioningOptions } from './positioning';
+import {
+  adaptiveOrigin,
+  arrow,
+  attach,
+  evaluateOffset,
+  getLogicalSide,
+  hide,
+  readPlacement,
+  transformOrigin,
+  update as updatePosition,
+  type OffsetData,
+  type PositioningOptions,
+} from './positioning';
+import { styleWriter } from './dom';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
@@ -655,6 +668,147 @@ describe.each([false, true])('positioning module: the report (synchronous: %s)',
     await settle();
     expect(fake.reported('OnPlacementChange')).toHaveLength(2);
     expect(fake.reported<{ anchorHidden: boolean }>('OnPlacementChange')[1]).toMatchObject({ anchorHidden: true });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// The offsets (FLT-API-12, FLT-POS-06): a number, or the declarative form of Base UI's offset function (design point 2
+// of the positioning track, settled by the orchestrator 2026-10-27)
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('positioning module: the offsets', () => {
+  const data = (side: OffsetData['side'], align: OffsetData['align']): OffsetData => ({
+    side,
+    align,
+    anchor: { width: 72, height: 36 },
+    positioner: { width: 52, height: 24 },
+  });
+
+  it('evaluates a number, or a constant plus the anchor and positioner terms', () => {
+    expect(evaluateOffset(7, data('bottom', 'center'))).toBe(7);
+    expect(evaluateOffset(undefined, data('bottom', 'center'))).toBe(0);
+    expect(evaluateOffset({ anchorWidth: 1, positionerWidth: 1 }, data('bottom', 'center'))).toBe(124);
+    expect(evaluateOffset({ constant: 2, anchorHeight: 0.5, positionerHeight: -1 }, data('top', 'start'))).toBe(2 + 18 - 24);
+  });
+
+  it('applies the first override whose side and align match the evaluated placement', () => {
+    const form = {
+      constant: 1,
+      overrides: [
+        { side: 'right' as const, align: 'end' as const, constant: 30 },
+        { side: 'right' as const, constant: 20 },
+        { align: 'end' as const, positionerWidth: 1 },
+      ],
+    };
+    expect(evaluateOffset(form, data('right', 'end'))).toBe(30);
+    expect(evaluateOffset(form, data('right', 'start'))).toBe(20);
+    expect(evaluateOffset(form, data('left', 'end'))).toBe(52);
+    expect(evaluateOffset(form, data('inline-start', 'center'))).toBe(1);
+  });
+
+  it('feeds the offset middleware the logical side and align of the placement each pass evaluates (FLT-API-12, FLT-POS-06)', async () => {
+    setup({
+      side: 'inline-start',
+      sideOffsetFunction: { overrides: [{ side: 'inline-end', constant: 9 }] },
+      alignOffsetFunction: { overrides: [{ align: 'end', constant: 4 }] },
+    });
+    await settle();
+
+    const produce = spies.offset.mock.lastCall?.[0] as (state: MiddlewareState) => { mainAxis: number; crossAxis: number; alignmentAxis: number };
+    expect(produce(middlewareState({ placement: 'right-end' }))).toEqual({ mainAxis: 9, crossAxis: 4, alignmentAxis: 4 });
+    expect(produce(middlewareState({ placement: 'left' }))).toEqual({ mainAxis: 0, crossAxis: 0, alignmentAxis: 0 });
+  });
+
+  it('rebuilds the pipeline when an offset form changes (FLT-POS-17)', async () => {
+    const { update } = setup({ sideOffsetFunction: { constant: 1 } });
+    await settle();
+    const built = spies.offset.mock.calls.length;
+
+    update({ sideOffsetFunction: { constant: 1 } });
+    await settle();
+    expect(spies.offset.mock.calls.length).toBe(built);
+
+    update({ sideOffsetFunction: { constant: 2 } });
+    await settle();
+    expect(spies.offset.mock.calls.length).toBe(built + 1);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// The writes through the element's style writer (FLT-DOM-01..05; ADR 04 Amendments 2026-10-27, Decision 2)
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('positioning module: the style writer', () => {
+  it('composes the consumer between the positioner styles and the measured variables, and clears its layers on dispose', async () => {
+    stubViewport();
+    const { positioner, handle } = setup({ style: 'opacity: 0.5; --available-height: 1px; color: red', transitionStatus: 'starting' });
+    // Another module writing the same element composes into the same writer.
+    styleWriter(positioner).layer('auto-resize').set('--positioner-width', '52px');
+    await settle();
+
+    expect(positioner.style.getPropertyValue('opacity')).toBe('0.5');
+    expect(positioner.style.getPropertyValue('color')).toBe('red');
+    expect(positioner.style.getPropertyValue('--available-height')).toMatch(/^\d+(\.\d+)?px$/);
+    expect(positioner.style.getPropertyValue('--available-height')).not.toBe('1px');
+    expect(positioner.style.getPropertyValue('--available-width')).toMatch(/px$/);
+    expect(positioner.style.getPropertyValue('--anchor-width')).toBe('72px');
+    expect(positioner.style.getPropertyValue('--transform-origin')).not.toBe('');
+    expect(positioner.style.getPropertyValue('transition')).toBe('none');
+    expect(positioner.style.getPropertyValue('--positioner-width')).toBe('52px');
+
+    handle.dispose();
+    expect(positioner.style.getPropertyValue('transform')).toBe('');
+    expect(positioner.style.getPropertyValue('--anchor-width')).toBe('');
+    expect(positioner.style.getPropertyValue('color')).toBe('red');
+    expect(positioner.style.getPropertyValue('--positioner-width')).toBe('52px');
+  });
+
+  it('writes the arrow styles and attributes under the arrow consumer style from the update that carries its id (FLT-DOM-09, FLT-DOM-10)', async () => {
+    stubViewport();
+    const arrowElement = document.createElement('div');
+    arrowElement.id = 'arrow';
+    const { positioner, update } = setup();
+    positioner.append(arrowElement);
+    await settle();
+    expect(arrowElement.style.cssText).toBe('');
+    expect(arrowElement.hasAttribute('data-side')).toBe(false);
+
+    update({ arrowId: 'arrow', arrowStyle: 'background: red; position: relative' });
+    await settle();
+    expect(arrowElement.style.getPropertyValue('background')).toBe('red');
+    expect(arrowElement.style.getPropertyValue('position')).toBe('relative');
+    expect(arrowElement.style.getPropertyValue('left')).toMatch(/px$/);
+    expect(arrowElement.getAttribute('data-side')).toBe('bottom');
+    expect(arrowElement.getAttribute('data-align')).toBe('center');
+    // jsdom's 0×0 boxes centre the arrow (centerOffset 0), so the arrow is not uncentered.
+    expect(arrowElement.hasAttribute('data-uncentered')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// The exports for the popup module and PreviewCard (design point 3, settled by the orchestrator 2026-10-27)
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('positioning module: readPlacement and update', () => {
+  it('reads the rendered placement and the positioned flag of an attached Positioner (FLT-DOM-08)', async () => {
+    stubViewport();
+    const { positioner } = setup({ side: 'inline-end', direction: 'rtl' });
+    expect(readPlacement(positioner)).toEqual({ side: 'inline-end', align: 'center', physicalSide: 'left', isPositioned: false });
+
+    await settle();
+    expect(readPlacement(positioner)).toMatchObject({ side: 'inline-end', physicalSide: 'left', isPositioned: true });
+    expect(readPlacement(document.createElement('div'))).toBeNull();
+  });
+
+  it('runs one positioning pass on demand and does nothing for an element without a handle (FLT-POS-16)', async () => {
+    const { positioner } = setup();
+    await settle();
+    const passes = spies.computePosition.mock.calls.length;
+
+    updatePosition(positioner);
+    updatePosition(document.createElement('div'));
+    await settle();
+    expect(spies.computePosition.mock.calls.length).toBe(passes + 1);
   });
 });
 
