@@ -1,4 +1,4 @@
-import { test, expect, gotoFixture, type Page } from './helpers';
+import { test, expect, delayCircuit, gotoFixture, type Page } from './helpers';
 import type { Locator } from '@playwright/test';
 
 // L4 (ADR 06 §2) of the `focus-manager` module on the test-only `focus-manager-*` fixtures (ADR 12 Amendments 2026-10-27
@@ -6,19 +6,6 @@ import type { Locator } from '@playwright/test';
 // FloatingFocusManager.test.tsx (prop: restoreFocus) and tabbable.test.ts run here; the rest of the module is L3. The
 // fixture plays the popup store (FocusManagerFixtureBase); the module reads the open state from the applied batch.
 const focusManagerModule = '/_content/Blazix.Primitives/js/focus-manager.js';
-
-/** Adds a one-way delay to the circuit's WebSocket in each direction (CDP emulation does not delay it). */
-async function delayCircuit(page: Page, oneWayMs: number): Promise<void> {
-  await page.routeWebSocket(/_blazor/, (socket) => {
-    const server = socket.connectToServer();
-    socket.onMessage((message) => {
-      setTimeout(() => server.send(message), oneWayMs);
-    });
-    server.onMessage((message) => {
-      setTimeout(() => socket.send(message), oneWayMs);
-    });
-  });
-}
 
 async function gotoFocusManager(page: Page, mode: 'server' | 'wasm', name: string, query = ''): Promise<Locator> {
   if (query) {
@@ -212,7 +199,10 @@ test.describe('focus manager', () => {
   // item renders tabindex="-1" until js/composite.js attaches, so with that module held back initial focus first finds
   // the button after the group and moves onto the group's tab stop once the composite writes it.
   test("port: initial focus lands on the composite group's tab stop when js/composite.js attaches last", async ({ page, mode }) => {
-    await page.route('**/js/composite.js', (route) => {
+    // WebAssembly requests the fingerprinted URL (`composite.<hash>.js`); the route matches both and counts its hits.
+    let stalled = 0;
+    await page.route(/\/js\/composite(\.[\w-]+)?\.js(\?.*)?$/, (route) => {
+      stalled += 1;
       setTimeout(() => void route.continue(), 1000);
     });
     const fixture = await gotoFocusManager(page, mode, 'focus-manager-composite');
@@ -221,6 +211,79 @@ test.describe('focus manager', () => {
 
     await expect(first).toHaveAttribute('tabindex', '0', { timeout: 10_000 });
     await expect(first).toBeFocused();
+    expect(stalled).toBeGreaterThan(0);
+  });
+
+  // FLT-FOC-11 (re-tagged [L4]; ADR 01's FLT-FOC-11 row, settled by the orchestrator 2026-10-27): the module decides the
+  // focus-out close in the microtask after the focusout and C# commits it, a round trip later on Server and in the same
+  // task on WebAssembly. The page records the frame of the focusout and of the batch that removes the popup.
+  test.describe('the focus-out close', () => {
+    test.beforeEach(async ({ page, mode }) => {
+      if (mode === 'server') {
+        await delayCircuit(page, 150);
+      }
+    });
+
+    test('port: the focus-out close commits a round trip after the focusout on Server and before the next frame on WebAssembly', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-non-modal');
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await page.evaluate(() => {
+        const w = window as unknown as { __fmFrame: number; __fmFocusOut: number | null; __fmRemoved: number | null };
+        w.__fmFrame = 0;
+        w.__fmFocusOut = null;
+        w.__fmRemoved = null;
+        const tick = () => {
+          w.__fmFrame += 1;
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        const popup = document.querySelector('[data-popup]')!;
+        popup.addEventListener('focusout', () => {
+          w.__fmFocusOut ??= w.__fmFrame;
+        });
+        new MutationObserver(() => {
+          if (!popup.isConnected) {
+            w.__fmRemoved ??= w.__fmFrame;
+          }
+        }).observe(document.body, { childList: true, subtree: true });
+      });
+
+      await fixture.locator('[data-last]').focus();
+      await expect(fixture.locator('[data-popup]')).toHaveCount(0);
+      await expect(fixture).toHaveAttribute('data-focus-out-closes', '1');
+
+      const frames = await page.evaluate(() => {
+        const w = window as unknown as { __fmFocusOut: number | null; __fmRemoved: number | null };
+        return { focusOut: w.__fmFocusOut, removed: w.__fmRemoved };
+      });
+      expect(frames.focusOut).not.toBeNull();
+      expect(frames.removed).not.toBeNull();
+      if (mode === 'server') {
+        expect(frames.removed!).toBeGreaterThan(frames.focusOut!);
+      } else {
+        expect(frames.removed).toBe(frames.focusOut);
+      }
+    });
+
+    // The answered-requests counter (ADR 04 Amendments 2026-10-27, settled by the orchestrator in the verification of
+    // PR 128): a consumer's cancel renders nothing, so the host's answer re-arms the module and the next focus-out asks again.
+    test('port: a cancelled focus-out close is asked again', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-non-modal');
+      await fixture.locator('[data-cancel-switch]').click();
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+
+      await fixture.locator('[data-last]').focus();
+      await expect(fixture).toHaveAttribute('data-focus-out-closes', '1');
+      await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-open', '');
+
+      await fixture.locator('[data-one]').focus();
+      await fixture.locator('[data-last]').focus();
+
+      await expect(fixture).toHaveAttribute('data-focus-out-closes', '2');
+      await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-open', '');
+    });
   });
 
   // ADR 04 Amendments 2026-10-27 (the focus manager's open input): an attached popup's marking and trap land with the
@@ -258,8 +321,10 @@ test.describe('focus manager', () => {
 
       await fixture.locator('[data-hover-open]').click();
       await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-open', '');
+      await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-handle-attached', '');
+      // The disabled open moved no focus: the button the press focused keeps it.
+      await expect(fixture.locator('[data-hover-open]')).toBeFocused();
       // The positive half: a press open of the same popup marks the page and moves focus.
-      await fixture.locator('[data-hover-open]').focus();
       await fixture.locator('[data-reference]').dispatchEvent('click');
       await expect(fixture.locator('[data-popup]')).not.toHaveAttribute('data-open');
       await fixture.locator('[data-reference]').click();
