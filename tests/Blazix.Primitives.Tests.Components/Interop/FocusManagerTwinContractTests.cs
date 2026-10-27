@@ -56,8 +56,11 @@ public sealed class FocusManagerTwinContractTests
             TreatPopupAsFloatingElement = true,
             DomReferenceId = "base-ui-4",
             TriggerFocusGuards = true,
+            PreviousFocusableElement = 3,
+            NextFocusableElement = 4,
             InsideElements = [2],
             InsideElementIds = ["base-ui-5"],
+            Answered = 2,
         });
         await attached.DisposeAsync();
         await attached.DisposeAsync();
@@ -65,14 +68,14 @@ public sealed class FocusManagerTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
         Assert.Equal(
-            """{"modal":true,"disabled":false,"initialFocus":true,"returnFocus":true,"restoreFocus":"none","closeOnFocusOut":true,"openInteractionType":"","treatPopupAsFloatingElement":false,"triggerFocusGuards":false}""",
+            """{"modal":true,"disabled":false,"initialFocus":true,"returnFocus":true,"restoreFocus":"none","closeOnFocusOut":true,"openInteractionType":"","treatPopupAsFloatingElement":false,"triggerFocusGuards":false,"answered":0}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<FocusManagerTwin>>(attach.Arguments[2]);
 
         // A programmatic open's null interaction type is sent, not omitted (FLT-FOC-20).
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"modal":false,"disabled":true,"initialFocus":false,"initialFocusElement":0,"initialFocusId":"base-ui-2","returnFocus":false,"returnFocusElement":1,"returnFocusId":"base-ui-3","explicitReturnFocus":true,"closeInteractionType":"keyboard","restoreFocus":"popup","closeOnFocusOut":false,"openInteractionType":null,"openSelector":"[data-open]","treatPopupAsFloatingElement":true,"domReferenceId":"base-ui-4","triggerFocusGuards":true,"insideElements":[2],"insideElementIds":["base-ui-5"]}""",
+            """{"modal":false,"disabled":true,"initialFocus":false,"initialFocusElement":0,"initialFocusId":"base-ui-2","returnFocus":false,"returnFocusElement":1,"returnFocusId":"base-ui-3","explicitReturnFocus":true,"closeInteractionType":"keyboard","restoreFocus":"popup","closeOnFocusOut":false,"openInteractionType":null,"openSelector":"[data-open]","treatPopupAsFloatingElement":true,"domReferenceId":"base-ui-4","triggerFocusGuards":true,"previousFocusableElement":3,"nextFocusableElement":4,"insideElements":[2],"insideElementIds":["base-ui-5"],"answered":2}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
@@ -135,6 +138,9 @@ public sealed class FocusManagerTwinContractTests
         Assert.NotEqual(first, same with { InsideElementIds = null });
         Assert.NotEqual(first, same with { OpenInteractionType = null });
         Assert.NotEqual(first, same with { Style = "color: red" });
+        Assert.NotEqual(first, same with { PreviousFocusableElement = 1 });
+        Assert.NotEqual(first, same with { NextFocusableElement = 1 });
+        Assert.NotEqual(first, same with { Answered = 1 });
     }
 
     private sealed class NoRuntime : IJSRuntime
