@@ -1,0 +1,46 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-switch` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's Switch block, a SwitchRoot
+    substituted into a toolbar button that keeps NativeButton="true", so the declared-mode check reports once per session.
+    - `renders`: "renders a switch".
+    - `interactions`: "handles interactions", the consumer's onclick and the switch's OnCheckedChange.
+    - `disabled`: "disabled state", the same on a disabled button.
+*@
+<FixtureContainer Name="toolbar-switch" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ToolbarCaseFrame Name="renders" Case="renders">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Render="RendersSwitch" data-item="button" />
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="interactions" Case="interactions">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Render="InteractionsSwitch" data-item="button" @onclick="() => interactions.Click(ButtonSource)" />
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="disabled" Case="disabled">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" Render="DisabledSwitch" data-item="button" @onclick="() => disabled.Click(ButtonSource)" />
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private const string ButtonSource = "button";
+
+    private readonly ToolbarCase renders = new();
+    private readonly ToolbarCase interactions = new();
+    private readonly ToolbarCase disabled = new();
+
+    private RenderFragment RendersSwitch => @<SwitchRoot @ref="Switch" />;
+
+    private RenderFragment InteractionsSwitch => @<SwitchRoot @ref="Switch" DefaultChecked="false" OnCheckedChange="interactions.CheckedChange" />;
+
+    private RenderFragment DisabledSwitch => @<SwitchRoot @ref="Switch" OnCheckedChange="disabled.CheckedChange" />;
+}

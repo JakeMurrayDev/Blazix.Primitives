@@ -1,0 +1,51 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-orientation` fixture (tests/browser/toolbar.spec.ts): ToolbarRoot.test.tsx's "$direction, orientation:
+    $orientation" pages, a button, a link, a group of two buttons and an empty input inside a DirectionProvider per
+    (direction, orientation), between a button before and one after it. Each toolbar also carries the opposite `dir`
+    attribute, which must not change the key mapping (TLB-EDGE-06). `no-loop` is "does not wrap focus when loopFocus is
+    false".
+*@
+<FixtureContainer Name="toolbar-orientation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    @foreach ((string name, TextDirection direction, Orientation orientation) in s_cases)
+    {
+        <ToolbarCaseFrame Name="@name" Case="@cases[name]">
+            <DirectionProvider Direction="direction">
+                <ToolbarRoot @ref="Root" Orientation="orientation" dir="@(direction == TextDirection.Ltr ? "rtl" : "ltr")" data-root>
+                    <ToolbarButton @ref="Button" data-item="button1">Button 1</ToolbarButton>
+                    <ToolbarLink href="#link" data-item="link">Link</ToolbarLink>
+                    <ToolbarGroup data-group>
+                        <ToolbarButton @ref="Button" data-item="grouped1">Grouped 1</ToolbarButton>
+                        <ToolbarButton @ref="Button" data-item="grouped2">Grouped 2</ToolbarButton>
+                    </ToolbarGroup>
+                    <ToolbarInput @ref="Input" DefaultValue="" data-item="input" />
+                </ToolbarRoot>
+            </DirectionProvider>
+        </ToolbarCaseFrame>
+    }
+
+    <ToolbarCaseFrame Name="no-loop" Case="noLoop">
+        <ToolbarRoot @ref="Root" LoopFocus="false" data-root>
+            <ToolbarButton @ref="Button" data-item="first">First</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="last">Last</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private static readonly (string Name, TextDirection Direction, Orientation Orientation)[] s_cases =
+    [
+        ("ltr-horizontal", TextDirection.Ltr, Orientation.Horizontal),
+        ("ltr-vertical", TextDirection.Ltr, Orientation.Vertical),
+        ("rtl-horizontal", TextDirection.Rtl, Orientation.Horizontal),
+        ("rtl-vertical", TextDirection.Rtl, Orientation.Vertical),
+    ];
+
+    private readonly Dictionary<string, ToolbarCase> cases = s_cases.ToDictionary(c => c.Name, _ => new ToolbarCase());
+    private readonly ToolbarCase noLoop = new();
+}

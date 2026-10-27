@@ -1,0 +1,75 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-input` fixture (tests/browser/toolbar.spec.ts): ToolbarInput.test.tsx's browser pages that need no
+    derived disabled indices.
+    - `caret-ltr`, `caret-rtl`: "respects caret and selection boundaries in horizontal %s toolbars".
+    - `orientation-horizontal`, `orientation-vertical`: "orientation: $orientation".
+    - `pointer`: "does not steal focus while disabled and becomes pointer-focusable when enabled"; `data-flip` enables
+      the input.
+    - `checkbox`: "prevents click default actions while disabled", a checkbox-type input; `data-flip` enables it.
+*@
+<FixtureContainer Name="toolbar-input" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    @foreach ((string name, TextDirection direction) in s_caretCases)
+    {
+        <ToolbarCaseFrame Name="@name" Case="@cases[name]">
+            <DirectionProvider Direction="direction">
+                <ToolbarRoot @ref="Root" Orientation="Orientation.Horizontal" data-root>
+                    <ToolbarButton @ref="Button" data-item="before">Before</ToolbarButton>
+                    <ToolbarInput @ref="Input" DefaultValue="abcd" data-item="input" />
+                    <ToolbarButton @ref="Button" data-item="after">After</ToolbarButton>
+                </ToolbarRoot>
+            </DirectionProvider>
+        </ToolbarCaseFrame>
+    }
+
+    @foreach ((string name, Orientation orientation) in s_orientationCases)
+    {
+        <ToolbarCaseFrame Name="@name" Case="@cases[name]">
+            <ToolbarRoot @ref="Root" Orientation="orientation" data-root>
+                <ToolbarButton @ref="Button" data-item="button1">Button 1</ToolbarButton>
+                <ToolbarInput @ref="Input" DefaultValue="abcd" data-item="input" />
+                <ToolbarButton @ref="Button" data-item="button2">Button 2</ToolbarButton>
+            </ToolbarRoot>
+        </ToolbarCaseFrame>
+    }
+
+    <ToolbarCaseFrame Name="pointer" Case="@cases["pointer"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="button">Button</ToolbarButton>
+            <ToolbarInput @ref="Input" Disabled="pointerDisabled" data-item="input" />
+        </ToolbarRoot>
+        <button type="button" data-flip @onclick="() => pointerDisabled = false">Enable</button>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="checkbox" Case="@cases["checkbox"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarInput @ref="Input" type="checkbox" Disabled="checkboxDisabled" data-item="input" />
+        </ToolbarRoot>
+        <button type="button" data-flip @onclick="() => checkboxDisabled = false">Enable</button>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private static readonly (string Name, TextDirection Direction)[] s_caretCases =
+    [
+        ("caret-ltr", TextDirection.Ltr),
+        ("caret-rtl", TextDirection.Rtl),
+    ];
+
+    private static readonly (string Name, Orientation Orientation)[] s_orientationCases =
+    [
+        ("orientation-horizontal", Orientation.Horizontal),
+        ("orientation-vertical", Orientation.Vertical),
+    ];
+
+    private readonly Dictionary<string, ToolbarCase> cases = new[] { "caret-ltr", "caret-rtl", "orientation-horizontal", "orientation-vertical", "pointer", "checkbox" }
+        .ToDictionary(name => name, _ => new ToolbarCase());
+
+    private bool pointerDisabled = true;
+    private bool checkboxDisabled = true;
+}
