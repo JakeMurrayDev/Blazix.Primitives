@@ -6,11 +6,13 @@
 // Requirements: floating-and-positioning.md §4.4 (FLT-DOM-15..18), §4.5 (FLT-ARIA-01..03), §4.6 (FLT-KEY-04..06,
 // FLT-KEY-09), §4.8 (FLT-FOC-05..22), FLT-A11Y-04, FLT-A11Y-07, FLT-EDGE-05..08, FLT-EDGE-14, FLT-ALG-18, 19, 21,
 // 22, 27 and FLT-API-05.
-// Page-global state (sanctioned, ADR 04 Amendments 2026-10-27; js/CONTEXT.md): the outside marking's counters and the
-// queued focus; `resetFocusManagerState` drops them for tests.
+// Page-global state (sanctioned, ADR 04 Amendments 2026-10-27; js/CONTEXT.md): the outside marking's counters, the
+// previously-focused stack and the queued focus; `resetFocusManagerState` drops all three for tests.
 import { isElementVisible } from './composite';
-import { activeElement, contains, isHTMLElement, isShadowRoot, ownerDocument } from './dom';
-import { cancelFrame, requestFrame } from './transitions';
+import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoot, ownerDocument, platform } from './dom';
+import { eventInfo, type EventInfo } from './event-info';
+import { cancelFrame, observeOpenInput, requestFrame } from './transitions';
+import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
 
 /** An element that can take focus. */
 export type FocusableElement = HTMLElement | SVGElement;
@@ -585,13 +587,943 @@ export function enqueueFocus(el: FocusableElement | null | undefined, options: E
   };
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// The previously-focused stack (FLT-FOC-09, FLT-EDGE-06): page-global, at most 20 weakly held entries
+// ---------------------------------------------------------------------------------------------------------------
+
+const LIST_LIMIT = 20;
+let previouslyFocusedElements: WeakRef<Element>[] = [];
+
+function clearDisconnectedPreviouslyFocusedElements(): void {
+  previouslyFocusedElements = previouslyFocusedElements.filter((entry) => entry.deref()?.isConnected);
+}
+
+function addPreviouslyFocusedElement(element: Element | null | undefined): void {
+  clearDisconnectedPreviouslyFocusedElements();
+  if (element && getNodeName(element) !== 'body') {
+    previouslyFocusedElements.push(new WeakRef(element));
+    if (previouslyFocusedElements.length > LIST_LIMIT) {
+      previouslyFocusedElements = previouslyFocusedElements.slice(-LIST_LIMIT);
+    }
+  }
+}
+
+function getPreviouslyFocusedElement(): Element | undefined {
+  clearDisconnectedPreviouslyFocusedElements();
+  return previouslyFocusedElements[previouslyFocusedElements.length - 1]?.deref();
+}
+
 /**
- * Drops the module's page-global state: every outside-marking lock's bookkeeping and the queued focus. For tests only,
- * like `resetFrameScheduler`: the state is shared by every handle on the page, so a lock or a pending focus one test
- * left behind would otherwise reach the next.
+ * Drops the module's page-global state: every outside-marking lock's bookkeeping, the previously-focused stack and the
+ * queued focus. For tests only, like `resetFrameScheduler`: the state is shared by every handle on the page, so a lock
+ * or a pending focus one test left behind would otherwise reach the next.
  */
 export function resetFocusManagerState(): void {
   resetOutsideMarking();
+  previouslyFocusedElements = [];
   cancelFrame(queuedFocusFrame);
   queuedFocusFrame = 0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The focus manager's handle (FloatingFocusManager.tsx)
+// ---------------------------------------------------------------------------------------------------------------
+
+const FOCUSABLE_ATTRIBUTE = 'data-base-ui-focusable';
+const FOCUS_GUARD_ATTRIBUTE = 'data-base-ui-focus-guard';
+const CLICK_TRIGGER_ATTRIBUTE = 'data-base-ui-click-trigger';
+const PORTAL_ATTRIBUTE = 'data-base-ui-portal';
+const TYPEABLE_SELECTOR =
+  "input:not([type='hidden']):not([disabled]),[contenteditable]:not([contenteditable='false']),textarea:not([disabled])";
+
+/** The interaction type literals (Base UI's `InteractionType`); `''` when none is known. */
+export type InteractionTypeLiteral = 'mouse' | 'touch' | 'pen' | 'keyboard' | '';
+
+/** Where focus goes when the focused element inside the popup is lost; Base UI's `false`, `true` and `'popup'`. */
+export type FocusRestoration = 'none' | 'tabbable' | 'popup';
+
+/**
+ * The last committed open change, as C# relays it in `update`; the record is the popup core's (ADR 04 Amendments
+ * 2026-10-27), with the fields its relay carries.
+ */
+export interface OpenChangeRelay {
+  /** Moves on every committed open change; the module acts once per value. */
+  revision: number;
+  /** The change's reason literal, such as `focus-out` or `trigger-hover`. */
+  reason: string;
+  /** The `kind` of the change's event snapshot, or `null` when no browser event caused it. */
+  eventKind?: string | null;
+  /** The `type` of the change's event, such as `mouseleave`. */
+  eventType?: string | null;
+  /** The event's pointer type. */
+  pointerType?: string | null;
+  /** The id of the trigger the change names. */
+  triggerId?: string | null;
+}
+
+/** The options of a focus manager handle; mirrors `FocusManagerOptions` in C#. */
+export interface FocusManagerOptions extends TwinOptions {
+  /** Traps focus and hides the outside with `aria-hidden`; `true` by default. */
+  modal?: boolean | undefined;
+  /** Turns every behaviour off: no initial focus, trap, marking or return focus. */
+  disabled?: boolean | undefined;
+  /** The open's resolved initial focus: `false` does nothing; `true` takes the target, else the default. */
+  initialFocus?: boolean | undefined;
+  /** The initial focus target, by the index of its reference in the references passed with the options. */
+  initialFocusElement?: number | null | undefined;
+  /** The initial focus target, by element id. */
+  initialFocusId?: string | null | undefined;
+  /** The close's resolved return focus: `false` does nothing; `true` takes the target, else the default. */
+  returnFocus?: boolean | undefined;
+  /** The return focus target, by reference index. */
+  returnFocusElement?: number | null | undefined;
+  /** The return focus target, by element id. */
+  returnFocusId?: string | null | undefined;
+  /** Whether return focus moves focus even when it already left the popup; by default, whether a target is set. */
+  explicitReturnFocus?: boolean | null | undefined;
+  /** The close's interaction type, as C# classified it; `keyboard` asks for `focusVisible`. */
+  closeInteractionType?: string | null | undefined;
+  /** Where focus goes when the focused element inside is removed or hidden; `none` by default. */
+  restoreFocus?: FocusRestoration | undefined;
+  /** Closes a non-modal popup when focus leaves it and restores focus inside; `true` by default. */
+  closeOnFocusOut?: boolean | undefined;
+  /** The open's interaction type literal; `null` for a programmatic open, which prefers the previous focus on return. */
+  openInteractionType?: string | null | undefined;
+  /** The selector the popup element matches while C# renders it open; `[data-open]` by default. */
+  openSelector?: string | null | undefined;
+  /** Whether the popup element is the floating element (Dialog); otherwise its parent is (the Positioner). */
+  treatPopupAsFloatingElement?: boolean | undefined;
+  /** The id of the anchor element, the active trigger. */
+  domReferenceId?: string | null | undefined;
+  /**
+   * Whether the anchor carries the trigger focus guards: the guard before it is an inside element, the anchor is the
+   * element before the popup in focus order and the guard after it the element after (Popover).
+   */
+  triggerFocusGuards?: boolean | undefined;
+  /** Elements outside the popup that count as inside it, by reference index (Base UI's `getInsideElements`). */
+  insideElements?: number[] | null | undefined;
+  /** Elements outside the popup that count as inside it, by element id. */
+  insideElementIds?: string[] | null | undefined;
+  /** The last committed open change; the module acts when its revision moves. */
+  openChange?: OpenChangeRelay | null | undefined;
+}
+
+/** The focus-out close request; mirrors `FocusOutCloseRequest` in C#. */
+export interface FocusOutCloseRequest {
+  /** The `focusout` event's snapshot. */
+  event: EventInfo;
+  /** The interaction type the module last recorded. */
+  interactionType: InteractionTypeLiteral;
+}
+
+/** The recorded interaction type; mirrors `InteractionTypeChange` in C#. */
+export interface InteractionTypeChange {
+  /** The literal, `''` after an open reset it. */
+  type: InteractionTypeLiteral;
+}
+
+/** The payload of the internal `openchange` listener (Base UI's `FloatingUIOpenChangeDetails`). */
+interface OpenChangeDetails {
+  reason: string;
+  nativeEvent: { type: string; pointerType: string | null } | undefined;
+  nested: boolean;
+  triggerElement: Element | undefined;
+}
+
+/** The report a focus-out close sends. */
+export const FOCUS_OUT_CLOSE_REPORT = 'OnFocusOutClose';
+/** The report the recorded interaction type sends, once per change. */
+export const INTERACTION_TYPE_REPORT = 'OnInteractionTypeChange';
+
+// A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
+const attachedHandle = Symbol('blazix.focus-manager.handle');
+
+interface AttachedElement extends HTMLElement {
+  [attachedHandle]?: TwinHandle;
+}
+
+/** One effect of the manager: set up while its key is non-null, torn down and set up again when the key changes. */
+interface Effect {
+  key: string | null;
+  deps: unknown[];
+  cleanup: (() => void) | void;
+}
+
+function sameDeps(a: unknown[], b: unknown[]): boolean {
+  return a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
+}
+
+function getFloatingFocusElement(floatingElement: HTMLElement | null): HTMLElement | null {
+  if (!floatingElement) {
+    return null;
+  }
+  return floatingElement.hasAttribute(FOCUSABLE_ATTRIBUTE)
+    ? floatingElement
+    : (floatingElement.querySelector<HTMLElement>(`[${FOCUSABLE_ATTRIBUTE}]`) ?? floatingElement);
+}
+
+function getFirstTabbableElement(container: Element | null): Element | null {
+  if (!container) {
+    return null;
+  }
+
+  if (isTabbable(container)) {
+    return container;
+  }
+
+  return tabbable(container)[0] || container;
+}
+
+// FLT-ALG-27
+function handleTabIndex(floatingFocusElement: HTMLElement): void {
+  if (floatingFocusElement.hasAttribute('tabindex') && !floatingFocusElement.hasAttribute('data-tabindex')) {
+    return;
+  }
+
+  if (!floatingFocusElement.getAttribute('role')?.includes('dialog')) {
+    return;
+  }
+
+  const focusableElements = focusable(floatingFocusElement);
+  const tabbableContent = focusableElements.filter((element) => {
+    const dataTabIndex = element.getAttribute('data-tabindex') || '';
+    return isTabbable(element) || (element.hasAttribute('data-tabindex') && !dataTabIndex.startsWith('-'));
+  });
+  const tabIndex = floatingFocusElement.getAttribute('tabindex');
+
+  if (tabbableContent.length === 0) {
+    if (tabIndex !== '0') {
+      floatingFocusElement.setAttribute('tabindex', '0');
+      // Marks the module's own write, so the consumer-managed early return above does not freeze management.
+      floatingFocusElement.setAttribute('data-tabindex', '0');
+    }
+  } else if (
+    tabIndex !== '-1' ||
+    (floatingFocusElement.hasAttribute('data-tabindex') && floatingFocusElement.getAttribute('data-tabindex') !== '-1')
+  ) {
+    floatingFocusElement.setAttribute('tabindex', '-1');
+    floatingFocusElement.setAttribute('data-tabindex', '-1');
+  }
+}
+
+function isTypeableElement(element: unknown): boolean {
+  return isHTMLElement(element) && element.matches(TYPEABLE_SELECTOR);
+}
+
+function stopEvent(event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function isInsideGuard(element: Element | null): element is HTMLElement {
+  return (
+    isHTMLElement(element) && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE) && element.getAttribute('data-type') === 'inside'
+  );
+}
+
+function isFocusGuard(element: Element | null | undefined): element is HTMLElement {
+  return isHTMLElement(element) && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE);
+}
+
+// Feature-detects `focus({ preventScroll })` by focusing a detached element with a getter (FLT-FOC-08).
+function supportsPreventScroll(doc: Document): boolean {
+  let supported = false;
+  doc.createElement('div').focus({
+    get preventScroll() {
+      supported = true;
+      return false;
+    },
+  });
+  return supported;
+}
+
+/**
+ * Attaches the focus manager to a popup element. From here on the module reads the open state from the applied
+ * batch (the element matching `openSelector`), marks the outside while open, traps Tab when modal, moves initial focus
+ * on open and returns it when the manager stops, closes a non-modal popup when focus leaves it (a request), restores
+ * focus inside, manages the floating focus element's `tabindex`, routes the inside focus guards C# renders beside the
+ * element and reports the interaction type it records.
+ * @param elementOrId The popup element, or its id when the part has no element reference.
+ * @param optionsJson The `FocusManagerOptions` JSON.
+ * @param twinReference The twin's object reference.
+ * @param references The elements the options name by index, revived by Blazor.
+ * @returns The handle with `update(optionsJson, references)` and `dispose()`; the live handle when the element is
+ * already attached.
+ */
+export function attach(
+  elementOrId: Element | string,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  references?: ReadonlyArray<Element | null> | null,
+): TwinHandle {
+  const popup = resolveElement(elementOrId) as AttachedElement;
+  const existing = popup[attachedHandle];
+  if (existing) {
+    return existing;
+  }
+
+  const twin = createTwinChannel(twinReference);
+  let options = parseOptions<FocusManagerOptions>(optionsJson);
+  let optionReferences: ReadonlyArray<Element | null> = references ?? [];
+  let disposed = false;
+  const doc = ownerDocument(popup);
+
+  const openSelectorOf = (current: FocusManagerOptions) => current.openSelector || '[data-open]';
+  let open = popup.matches(openSelectorOf(options));
+
+  // The per-handle refs of FloatingFocusManager.tsx:308-313.
+  let preventReturnFocus = false;
+  let isPointerDown = false;
+  let pointerDownOutside = false;
+  let lastFocusedTabbable: Element | null = null;
+  let lastInteractionType: InteractionTypeLiteral = '';
+  let pointerDownTimeout: ReturnType<typeof setTimeout> | undefined;
+  let blurTimeout: ReturnType<typeof setTimeout> | undefined;
+  let restoreFocusFrame = 0;
+  // Base UI's `dataRef.current.insideReactTree`; the session's once the interactions export is on `main`.
+  const dataRef: { current: { insideReactTree?: boolean } } = { current: {} };
+  // A focus-out close is a request: the module disarms after sending one until the next open (ADR 04 Amendments
+  // 2026-10-27, "a module disarms itself after requesting a close until the next open arrives").
+  let closeRequested = false;
+  let relayRevision = options.openChange?.revision ?? null;
+  let onOpenChangeLocal: ((details: OpenChangeDetails) => void) | null = null;
+  let pendingReturnFocus: { cancelled: boolean } | null = null;
+  // The inside guards whose VoiceOver role has been written.
+  const swappedGuards = new WeakSet<Element>();
+  let guardListeners: { element: HTMLElement; listener: (event: FocusEvent) => void }[] = [];
+
+  const resolveId = (id: string | null | undefined): HTMLElement | null => {
+    if (!id) {
+      return null;
+    }
+    const scope = popup.getRootNode();
+    const found =
+      'getElementById' in scope && typeof (scope as Document | ShadowRoot).getElementById === 'function'
+        ? (scope as Document | ShadowRoot).getElementById(id)
+        : null;
+    const element = found ?? doc.getElementById(id);
+    return isHTMLElement(element) ? element : null;
+  };
+
+  const resolveReference = (index: number | null | undefined): HTMLElement | null => {
+    if (index == null) {
+      return null;
+    }
+    const element = optionReferences[index];
+    return isHTMLElement(element) ? element : null;
+  };
+
+  const resolveTarget = (index: number | null | undefined, id: string | null | undefined): HTMLElement | null =>
+    resolveReference(index) ?? resolveId(id);
+
+  const hasTarget = (index: number | null | undefined, id: string | null | undefined): boolean => index != null || !!id;
+
+  const floatingElement = (): HTMLElement | null =>
+    options.treatPopupAsFloatingElement ? popup : isHTMLElement(popup.parentElement) ? popup.parentElement : popup;
+  const domReferenceElement = (): HTMLElement | null => resolveId(options.domReferenceId);
+  const beforeGuard = (): HTMLElement | null => (isInsideGuard(popup.previousElementSibling) ? popup.previousElementSibling : null);
+  const afterGuard = (): HTMLElement | null => (isInsideGuard(popup.nextElementSibling) ? popup.nextElementSibling : null);
+  // Popover's trigger focus guards (PSH-FOC-09, FLT-KEY-06), found by position around the anchor.
+  const triggerBeforeGuard = (reference: Element | null): HTMLElement | null =>
+    options.triggerFocusGuards && isFocusGuard(reference?.previousElementSibling) ? reference.previousElementSibling : null;
+  const previousFocusableElement = (reference: HTMLElement | null): HTMLElement | null =>
+    options.triggerFocusGuards ? reference : null;
+  const nextFocusableElement = (reference: Element | null): HTMLElement | null =>
+    options.triggerFocusGuards && isFocusGuard(reference?.nextElementSibling) ? reference.nextElementSibling : null;
+  const insideElements = (reference: Element | null): Element[] => [
+    ...(options.insideElements ?? []).map(resolveReference),
+    ...(options.insideElementIds ?? []).map(resolveId),
+    triggerBeforeGuard(reference),
+  ].filter((x): x is HTMLElement => x != null);
+  // The enclosing portal's node; its guards and the publication follow the portal module (track 1).
+  const portalNode = (floating: Element | null): HTMLElement | null =>
+    floating?.parentElement?.closest<HTMLElement>(`[${PORTAL_ATTRIBUTE}]`) ?? null;
+
+  const getTabbableContent = (container: Element | null): FocusableElement[] => (container ? tabbable(container) : []);
+
+  const recordInteractionType = (type: InteractionTypeLiteral): void => {
+    if (type === lastInteractionType) {
+      return;
+    }
+    lastInteractionType = type;
+    twin.report(INTERACTION_TYPE_REPORT, { type } satisfies InteractionTypeChange);
+  };
+
+  const requestClose = (snapshot: EventInfo): void => {
+    if (closeRequested || disposed) {
+      return;
+    }
+    closeRequested = true;
+    twin.report(FOCUS_OUT_CLOSE_REPORT, { event: snapshot, interactionType: lastInteractionType } satisfies FocusOutCloseRequest);
+  };
+
+  // ---- the effects, in FloatingFocusManager.tsx's order ----
+
+  // The Tab trap (FLT-KEY-04), :342-363.
+  const trapEffect = (floatingFocusElement: HTMLElement | null) => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+      // The focus guards have nothing to focus, so the event is stopped.
+      if (
+        contains(floatingFocusElement, activeElement(ownerDocument(floatingFocusElement))) &&
+        getTabbableContent(floatingFocusElement).length === 0
+      ) {
+        stopEvent(event);
+      }
+    };
+    const target = ownerDocument(floatingFocusElement);
+    target.addEventListener('keydown', onKeyDown);
+    return () => target.removeEventListener('keydown', onKeyDown);
+  };
+
+  // The interaction recording (FLT-FOC-10's JavaScript half, FLT-FOC-13), :365-421.
+  const recordingEffect = (floating: HTMLElement | null, reference: HTMLElement | null, portal: HTMLElement | null) => {
+    const clearPointerDownOutside = () => {
+      pointerDownOutside = false;
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = getTarget(event) as Element | null;
+      const pointerTargetInside =
+        contains(floating, target) ||
+        contains(reference, target) ||
+        contains(portal, target) ||
+        insideElements(reference).some((element) => element === target || contains(element, target));
+      pointerDownOutside = !pointerTargetInside;
+      recordInteractionType(((event.pointerType as InteractionTypeLiteral) || 'keyboard') as InteractionTypeLiteral);
+
+      if (closest(target, `[${CLICK_TRIGGER_ATTRIBUTE}]`)) {
+        isPointerDown = true;
+        // Reset on the next tick so one click on a click trigger does not suppress focus-out closing for good.
+        clearTimeout(pointerDownTimeout);
+        pointerDownTimeout = setTimeout(() => {
+          isPointerDown = false;
+        }, 0);
+      }
+    };
+    const onKeyDown = () => {
+      recordInteractionType('keyboard');
+    };
+    doc.addEventListener('pointerdown', onPointerDown, true);
+    doc.addEventListener('pointerup', clearPointerDownOutside, true);
+    doc.addEventListener('pointercancel', clearPointerDownOutside, true);
+    doc.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      doc.removeEventListener('pointerdown', onPointerDown, true);
+      doc.removeEventListener('pointerup', clearPointerDownOutside, true);
+      doc.removeEventListener('pointercancel', clearPointerDownOutside, true);
+      doc.removeEventListener('keydown', onKeyDown, true);
+      // A stale `true` must not leak into the next open of a kept-mounted popup (FLT-EDGE-08).
+      clearPointerDownOutside();
+    };
+  };
+
+  // The focus-out close and the restoration (FLT-FOC-11, FOC-12, FOC-13, ALG-22), :423-617.
+  const focusOutEffect = (
+    floating: HTMLElement | null,
+    floatingFocusElement: HTMLElement | null,
+    reference: HTMLElement | null,
+    portal: HTMLElement | null,
+    modal: boolean,
+    restoreFocus: FocusRestoration,
+  ) => {
+    // In Safari, buttons lose focus when pressing them.
+    const handlePointerDown = () => {
+      isPointerDown = true;
+      clearTimeout(pointerDownTimeout);
+      pointerDownTimeout = setTimeout(() => {
+        isPointerDown = false;
+      }, 0);
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = getTarget(event) as Element | null;
+      if (isTabbable(target)) {
+        lastFocusedTabbable = target;
+      }
+    };
+
+    const handleFocusOutside = (event: FocusEvent) => {
+      const relatedTarget = event.relatedTarget as HTMLElement | null;
+      const currentTarget = event.currentTarget;
+      const target = getTarget(event) as HTMLElement | null;
+      const snapshot = eventInfo(event);
+
+      // Focus lost to the body (a backdrop press): record the element that had it, so a dialog opened while the body
+      // is focused can return focus to it. Modal only, so non-modal popups do not pollute the shared stack.
+      if (modal && relatedTarget == null && target != null && contains(floating, target)) {
+        addPreviouslyFocusedElement(target);
+      }
+
+      queueMicrotask(() => {
+        const inside = insideElements(reference);
+        const isRelatedFocusGuard =
+          isFocusGuard(relatedTarget) &&
+          [beforeGuard(), afterGuard(), previousFocusableElement(reference), nextFocusableElement(reference)].includes(
+            relatedTarget,
+          );
+
+        const movedToUnrelatedNode = !(
+          contains(reference, relatedTarget) ||
+          contains(floating, relatedTarget) ||
+          contains(relatedTarget, floating) ||
+          contains(portal, relatedTarget) ||
+          inside.some((element) => element === relatedTarget || contains(element, relatedTarget)) ||
+          isRelatedFocusGuard
+        );
+
+        if (currentTarget === reference && floatingFocusElement) {
+          handleTabIndex(floatingFocusElement);
+        }
+
+        // Restore focus to the previously focused tabbable element so focus is not lost outside the floating tree.
+        if (
+          restoreFocus !== 'none' &&
+          currentTarget !== reference &&
+          !isElementVisible(target) &&
+          activeElement(doc) === doc.body
+        ) {
+          if (isHTMLElement(floatingFocusElement)) {
+            floatingFocusElement.focus();
+            // `popup` restores to the floating element itself without searching for a tabbable element.
+            if (restoreFocus === 'popup') {
+              // An element removed on pointerdown makes the browser move focus back to it right after the call above,
+              // and because it is gone focus is lost instead; re-focusing on the next frame wins that race.
+              cancelFrame(restoreFocusFrame);
+              restoreFocusFrame = requestFrame(() => {
+                floatingFocusElement.focus();
+              });
+              return;
+            }
+          }
+
+          const tabbableContent = getTabbableContent(floatingFocusElement) as Element[];
+          const prevTabbable = lastFocusedTabbable;
+          const nodeToFocus =
+            (prevTabbable && tabbableContent.includes(prevTabbable) ? prevTabbable : null) ||
+            tabbableContent[tabbableContent.length - 1] ||
+            floatingFocusElement;
+
+          if (isHTMLElement(nodeToFocus)) {
+            nodeToFocus.focus();
+          }
+        }
+
+        if (dataRef.current.insideReactTree) {
+          dataRef.current.insideReactTree = false;
+          return;
+        }
+
+        // Focus moved outside the floating tree and no portal guard handles the close.
+        if (
+          !modal &&
+          relatedTarget &&
+          movedToUnrelatedNode &&
+          !isPointerDown &&
+          relatedTarget !== getPreviouslyFocusedElement()
+        ) {
+          preventReturnFocus = true;
+          requestClose(snapshot);
+        }
+      });
+    };
+
+    const markInsideReactTree = () => {
+      if (pointerDownOutside) {
+        return;
+      }
+      dataRef.current.insideReactTree = true;
+      clearTimeout(blurTimeout);
+      blurTimeout = setTimeout(() => {
+        dataRef.current.insideReactTree = false;
+      }, 0);
+    };
+
+    reference?.addEventListener('focusout', handleFocusOutside);
+    reference?.addEventListener('pointerdown', handlePointerDown);
+    floating?.addEventListener('focusin', handleFocusIn);
+    floating?.addEventListener('focusout', handleFocusOutside);
+    if (floating && portal) {
+      floating.addEventListener('focusout', markInsideReactTree, true);
+    }
+    return () => {
+      reference?.removeEventListener('focusout', handleFocusOutside);
+      reference?.removeEventListener('pointerdown', handlePointerDown);
+      floating?.removeEventListener('focusin', handleFocusIn);
+      floating?.removeEventListener('focusout', handleFocusOutside);
+      floating?.removeEventListener('focusout', markInsideReactTree, true);
+    };
+  };
+
+  // The outside marking while open (FLT-ARIA-01..03, DOM-16), :619-677.
+  const markingEffect = (floating: HTMLElement, reference: HTMLElement | null, portal: HTMLElement | null, modal: boolean) => {
+    // Portals nested inside this portal stay exposed.
+    const portalNodes = Array.from(portal?.querySelectorAll(`[${PORTAL_ATTRIBUTE}]`) ?? []);
+    const controlInsideElements = [floating, ...portalNodes, beforeGuard(), afterGuard(), ...insideElements(reference)];
+    const inside = [...controlInsideElements, previousFocusableElement(reference), nextFocusableElement(reference)].filter(
+      (x): x is Element => x != null,
+    );
+
+    const ariaHiddenCleanup = markOthers(inside, { ariaHidden: modal, mark: false });
+    const markerCleanup = markOthers([floating, ...portalNodes]);
+
+    return () => {
+      markerCleanup();
+      ariaHiddenCleanup();
+    };
+  };
+
+  // Initial focus on open (FLT-FOC-06, A11Y-04), :679-769.
+  const initialFocusEffect = (floatingFocusElement: HTMLElement) => {
+    // FLT-EDGE-08: the recorded type starts empty in each open session.
+    recordInteractionType('');
+
+    const previouslyFocusedElement = activeElement(doc);
+
+    // Waits for the other post-batch writes, such as the managed `tabindex`, to land.
+    queueMicrotask(() => {
+      if (disposed || options.initialFocus === false) {
+        return;
+      }
+
+      if (contains(floatingFocusElement, previouslyFocusedElement)) {
+        return;
+      }
+
+      let focusableElements: FocusableElement[] | null = null;
+      const getDefaultFocusElement = () => {
+        if (focusableElements == null) {
+          focusableElements = getTabbableContent(floatingFocusElement);
+        }
+        return focusableElements[0] || floatingFocusElement;
+      };
+
+      const elToFocus: FocusableElement =
+        resolveTarget(options.initialFocusElement, options.initialFocusId) || getDefaultFocusElement();
+
+      const hadFocusInside = contains(floatingFocusElement, activeElement(doc));
+
+      // The interactions session's recorded open event decides FLT-A11Y-04's synchronous focus; until it is on
+      // `main` no open is a virtual press.
+      const openedByVirtualPress = false;
+
+      enqueueFocus(elToFocus, {
+        sync: openedByVirtualPress,
+        preventScroll: elToFocus === floatingFocusElement,
+        shouldFocus() {
+          // A popup that closed before this runs (tabbing out of a kept-mounted popup) does not pull focus back.
+          if (!open || disposed) {
+            return false;
+          }
+
+          if (hadFocusInside) {
+            return true;
+          }
+
+          const currentActiveElement = activeElement(doc);
+          const focusMovedInside =
+            currentActiveElement !== elToFocus && contains(floatingFocusElement, currentActiveElement);
+
+          return !focusMovedInside;
+        },
+      });
+    });
+  };
+
+  // Return focus, armed while enabled and released when the manager stops (FLT-FOC-07, FOC-08, FOC-20, FOC-21,
+  // ALG-21, KEY-09, EDGE-07), :771-952.
+  const returnFocusEffect = (floating: HTMLElement | null, floatingFocusElement: HTMLElement, reference: HTMLElement | null) => {
+    if (pendingReturnFocus) {
+      pendingReturnFocus.cancelled = true;
+      pendingReturnFocus = null;
+    }
+
+    const elementFocusedBeforeOpen = activeElement(doc);
+    // Only `null` is a programmatic open; an absent value is Base UI's `''`.
+    const preferPreviousFocus = options.openInteractionType === null;
+
+    addPreviouslyFocusedElement(elementFocusedBeforeOpen);
+
+    onOpenChangeLocal = (details) => {
+      // Focus guards transfer focus themselves; other close handlers may still need return focus.
+      if (
+        (details.reason === 'focus-out' && details.triggerElement?.hasAttribute(FOCUS_GUARD_ATTRIBUTE)) ||
+        (details.reason === 'trigger-hover' && details.nativeEvent?.type === 'mouseleave')
+      ) {
+        preventReturnFocus = true;
+      }
+
+      if (details.reason !== 'outside-press') {
+        return;
+      }
+
+      if (details.nested) {
+        preventReturnFocus = false;
+      } else {
+        // An outside press returns focus only where `focus({ preventScroll })` is supported; elsewhere restoring
+        // focus scrolls the page (Chrome on Android, Samsung Internet). The virtual-press branch reads the
+        // interactions session's event once it is on `main`.
+        preventReturnFocus = !supportsPreventScroll(ownerDocument(floatingFocusElement));
+      }
+    };
+
+    const getReturnElement = (): Element | null => {
+      if (options.returnFocus === false) {
+        return null;
+      }
+
+      const referenceReturnElement = reference?.isConnected ? reference : null;
+      const previousReturnElement =
+        elementFocusedBeforeOpen?.isConnected && getNodeName(elementFocusedBeforeOpen) !== 'body'
+          ? elementFocusedBeforeOpen
+          : null;
+
+      let defaultReturnElement = preferPreviousFocus
+        ? previousReturnElement || referenceReturnElement
+        : referenceReturnElement || previousReturnElement;
+
+      if (!defaultReturnElement) {
+        defaultReturnElement = getPreviouslyFocusedElement() || null;
+      }
+
+      if (!hasTarget(options.returnFocusElement, options.returnFocusId)) {
+        return defaultReturnElement;
+      }
+
+      return resolveTarget(options.returnFocusElement, options.returnFocusId) || defaultReturnElement || null;
+    };
+
+    return () => {
+      onOpenChangeLocal = null;
+
+      const activeEl = activeElement(doc);
+      const isFocusInsideFloatingTree =
+        contains(floating, activeEl) ||
+        insideElements(reference).some((element) => element === activeEl || contains(element, activeEl));
+
+      const returnFocusEnabled = options.returnFocus !== false;
+      const closeType = options.closeInteractionType ?? '';
+      const returnElement = getReturnElement();
+
+      const job = { cancelled: false };
+      pendingReturnFocus = job;
+
+      queueMicrotask(() => {
+        if (pendingReturnFocus === job) {
+          pendingReturnFocus = null;
+        }
+        // The return element if it is tabbable, otherwise its first tabbable child, otherwise the element itself.
+        const tabbableReturnElement = getFirstTabbableElement(returnElement);
+        // Read here on purpose: the latest `explicitReturnFocus` decides.
+        const hasExplicitReturnFocus =
+          options.explicitReturnFocus ?? hasTarget(options.returnFocusElement, options.returnFocusId);
+
+        if (
+          !job.cancelled &&
+          returnFocusEnabled &&
+          !preventReturnFocus &&
+          isHTMLElement(tabbableReturnElement) &&
+          // Focus that moved somewhere else after mount entered a different element, which is respected.
+          (!hasExplicitReturnFocus && tabbableReturnElement !== activeEl && activeEl !== doc.body
+            ? isFocusInsideFloatingTree
+            : true)
+        ) {
+          const focusOptions: FocusOptions & { focusVisible?: boolean } = { preventScroll: true };
+          if (closeType === 'keyboard') {
+            focusOptions.focusVisible = true;
+          }
+          tabbableReturnElement.focus(focusOptions);
+        }
+
+        // A cancelled return also clears the suppression before the next close.
+        preventReturnFocus = false;
+      });
+    };
+  };
+
+  // Safari may scroll to the bottom of the page when an input inside a popup has focus as the popup unmounts, so the
+  // input is blurred in the batch that closes it (FLT-FOC-16), :954-970.
+  const webkitBlurEffect = (floating: HTMLElement) => {
+    const activeEl = activeElement(ownerDocument(floating));
+    if (isHTMLElement(activeEl) && isTypeableElement(activeEl) && contains(floating, activeEl)) {
+      activeEl.blur();
+    }
+  };
+
+  // The managed `tabindex` (FLT-DOM-17), :992-1001.
+  const tabIndexEffect = (floatingFocusElement: HTMLElement) => {
+    handleTabIndex(floatingFocusElement);
+    return () => {
+      queueMicrotask(clearDisconnectedPreviouslyFocusedElements);
+    };
+  };
+
+  const effects: Record<string, Effect> = {};
+  const runEffect = (name: string, active: boolean, deps: unknown[], setup: () => (() => void) | void): void => {
+    const current = effects[name];
+    const key = active ? name : null;
+    if (current && current.key === key && (key === null || sameDeps(current.deps, deps))) {
+      return;
+    }
+    current?.cleanup?.();
+    effects[name] = { key, deps, cleanup: key ? setup() : undefined };
+  };
+
+  // Reconciles every effect with the current inputs: the open state of the last batch and the latest options. The
+  // layout effects run before the others, as React commits them.
+  const sync = (): void => {
+    const disabled = disposed || options.disabled === true;
+    const modal = options.modal !== false;
+    const closeOnFocusOut = options.closeOnFocusOut !== false;
+    const restoreFocus = options.restoreFocus ?? 'none';
+    const floating = floatingElement();
+    const floatingFocusElement = getFloatingFocusElement(floating);
+    const reference = domReferenceElement();
+    const portal = portalNode(floating);
+    const nextFocusable = nextFocusableElement(reference);
+    const triggerGuard = triggerBeforeGuard(reference);
+
+    // Cleanups first, in declaration order, then setups: a teardown and re-arm in one sync is one commit.
+    runEffect('initialFocus', open && !disabled && isHTMLElement(floatingFocusElement), [floatingFocusElement], () =>
+      initialFocusEffect(floatingFocusElement!),
+    );
+    runEffect('returnFocus', !disabled && !!floatingFocusElement, [floating, floatingFocusElement, reference], () =>
+      returnFocusEffect(floating, floatingFocusElement!, reference),
+    );
+    runEffect('webkitBlur', !disposed && platform.engine.webkit && !open && !!floating, [floating], () => webkitBlurEffect(floating!));
+    runEffect('tabIndex', !disabled && !!floatingFocusElement, [floatingFocusElement], () =>
+      tabIndexEffect(floatingFocusElement!),
+    );
+    runEffect('trap', !disabled && modal, [floatingFocusElement], () => trapEffect(floatingFocusElement));
+    runEffect('recording', !disabled && open, [floating, reference, floatingFocusElement, portal], () =>
+      recordingEffect(floating, reference, portal),
+    );
+    runEffect(
+      'focusOut',
+      !disabled && closeOnFocusOut && (!!floating || !!reference),
+      [floating, floatingFocusElement, reference, portal, modal, restoreFocus, nextFocusable, triggerGuard],
+      () => focusOutEffect(floating, floatingFocusElement, reference, portal, modal, restoreFocus),
+    );
+    runEffect(
+      'marking',
+      !disabled && !!floating && open,
+      [floating, reference, portal, modal, nextFocusable, triggerGuard, beforeGuard(), afterGuard()],
+      () => markingEffect(floating!, reference, portal, modal),
+    );
+    syncGuards(disabled);
+  };
+
+  // The inside focus guards (FLT-DOM-15, KEY-05, KEY-06), :1003-1054. C# renders them; the module listens on them and
+  // writes the VoiceOver role once (FLT-DOM-13).
+  const syncGuards = (disabled: boolean): void => {
+    const guards = disabled ? [] : [beforeGuard(), afterGuard()].filter((x): x is HTMLElement => x != null);
+    if (guards.length === guardListeners.length && guards.every((guard, index) => guardListeners[index]?.element === guard)) {
+      return;
+    }
+    for (const { element, listener } of guardListeners) {
+      element.removeEventListener('focus', listener);
+    }
+    guardListeners = guards.map((element) => {
+      const before = element === beforeGuard();
+      const listener = (event: FocusEvent) => onGuardFocus(before, event);
+      element.addEventListener('focus', listener);
+      if (!swappedGuards.has(element) && platform.screenReader.voiceOver && platform.engine.webkit) {
+        swappedGuards.add(element);
+        element.setAttribute('role', 'button');
+        element.removeAttribute('aria-hidden');
+      }
+      return { element, listener };
+    });
+  };
+
+  const onGuardFocus = (before: boolean, event: FocusEvent): void => {
+    const floatingFocusElement = getFloatingFocusElement(floatingElement());
+    if (options.modal !== false) {
+      const els = getTabbableContent(floatingFocusElement);
+      enqueueFocus(before ? els[els.length - 1] : els[0]);
+      return;
+    }
+    const portal = portalNode(floatingElement());
+    if (!portal) {
+      return;
+    }
+    const reference = domReferenceElement();
+    if (before) {
+      preventReturnFocus = false;
+      if (isOutsideEvent(event, portal)) {
+        getNextTabbable(reference)?.focus();
+      } else {
+        previousFocusableElement(reference)?.focus();
+      }
+    } else {
+      if (options.closeOnFocusOut !== false) {
+        preventReturnFocus = true;
+      }
+      if (isOutsideEvent(event, portal)) {
+        getPreviousTabbable(reference)?.focus();
+      } else {
+        nextFocusableElement(reference)?.focus();
+      }
+    }
+  };
+
+  // The relay (ADR 04 Amendments 2026-10-27): the internal `openchange` runs once per committed change.
+  const applyRelay = (): void => {
+    const relay = options.openChange;
+    if (!relay || relay.revision === relayRevision) {
+      return;
+    }
+    relayRevision = relay.revision;
+    onOpenChangeLocal?.({
+      reason: relay.reason,
+      nativeEvent: relay.eventType ? { type: relay.eventType, pointerType: relay.pointerType ?? null } : undefined,
+      nested: false,
+      triggerElement: resolveId(relay.triggerId) ?? undefined,
+    });
+  };
+
+  const stopObserving = observeOpenInput(popup, openSelectorOf(options), (matches) => {
+    if (disposed || matches === open) {
+      return;
+    }
+    open = matches;
+    if (open) {
+      closeRequested = false;
+    }
+    sync();
+  });
+
+  sync();
+
+  const handle: TwinHandle & { update(optionsJson: string, references?: ReadonlyArray<Element | null> | null): void } = {
+    update(nextOptionsJson: string, nextReferences?: ReadonlyArray<Element | null> | null) {
+      if (disposed) {
+        return;
+      }
+      options = parseOptions<FocusManagerOptions>(nextOptionsJson);
+      optionReferences = nextReferences ?? [];
+      applyRelay();
+      // The batch decides open and closed after attach; `update` never changes it.
+      sync();
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      stopObserving();
+      sync();
+      for (const { element, listener } of guardListeners) {
+        element.removeEventListener('focus', listener);
+      }
+      guardListeners = [];
+      clearTimeout(pointerDownTimeout);
+      clearTimeout(blurTimeout);
+      cancelFrame(restoreFocusFrame);
+      delete popup[attachedHandle];
+    },
+  };
+  popup[attachedHandle] = handle;
+  return handle;
 }
