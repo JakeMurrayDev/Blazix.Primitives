@@ -16,9 +16,9 @@ namespace Blazix.Primitives;
 // - The handle attaches at the Root's first OnAfterRender, before any descendant's (Blazor calls a batch's OnAfterRender
 //   in render order, parent first: PSH-STR-04), and follows a change of the Handle parameter (PSH-STR-03).
 // - The render-batch boundary (ADR 01 decision 3's amendment) runs the store's reconciliation and a pending unmount
-//   action. Which renders reach it is design point 8 of M4 track 1 (pending the user): the Root renders when the store asks
-//   for a boundary no part's render brings (BoundaryRequested), and RendersOnReconciliationInputs makes it render on every
-//   write that changes the reconciliation's inputs, the brief's wiring.
+//   action. The Root renders when the store asks for a boundary no part's render brings (BoundaryRequested): a registered
+//   trigger disposed while registered, and every write that changes the reconciliation's inputs while no popup part that
+//   selects the open or mounted state is registered (ADR 16 Amendments 2026-10-27, design point 8).
 /// <summary>Owns a popup root's store, its handle attachment and its render-batch boundary.</summary>
 /// <typeparam name="TStore">The type of the family's store.</typeparam>
 /// <typeparam name="TState">The type of the family's store record.</typeparam>
@@ -39,7 +39,6 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
     private RenderFragment? childContent;
     private RenderFragment<TPayload?>? payloadContent;
     private bool overlapCheckScheduled;
-    private bool inputsSelected;
 
     /// <summary>Initializes a new instance of the <see cref="PopupRootBehavior{TStore, TState, TPayload}"/> class.</summary>
     /// <param name="createStore">Creates the family's store from the popup id, the session token and the root's logger.</param>
@@ -57,9 +56,6 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
     /// <summary>Gets the root's store; available from the first parameter set.</summary>
     /// <exception cref="InvalidOperationException">The store is read before the root's first parameter set.</exception>
     public TStore Store => store ?? throw new InvalidOperationException("Blazix: the popup root's store is created at its first parameter set.");
-
-    /// <summary>Gets or sets a value indicating whether the root renders on every write that changes the reconciliation's inputs.</summary>
-    public bool RendersOnReconciliationInputs { get; set; }
 
     /// <summary>Renders the store's fixed cascade around the root's child content and payload template.</summary>
     /// <param name="builder">The root's render tree builder.</param>
@@ -162,15 +158,6 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
             }
 
             payloadContent = parameters.PayloadContent;
-        }
-
-        if (RendersOnReconciliationInputs && subscription is not null && !inputsSelected)
-        {
-            inputsSelected = true;
-            subscription.Select(PopupSelectors<TState, TPayload>.Open);
-            subscription.Select(PopupSelectors<TState, TPayload>.TriggerCount);
-            subscription.Select(PopupSelectors<TState, TPayload>.ActiveTriggerId);
-            subscription.Select(static state => state.Popup.ActiveTriggerElement);
         }
     }
 

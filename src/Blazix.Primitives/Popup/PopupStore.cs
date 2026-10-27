@@ -12,7 +12,10 @@ namespace Blazix.Primitives;
 // - The open-change sequence (PSH-ALG-01 = EVD-ALG-04, ADR 05 §2): the consumer's OnOpenChange first, a cancel honoured,
 //   the family's pre-dispatch step, the relay (ADR 04 Amendments 2026-10-27), one write (PSH-ALG-02 = EVD-ALG-05).
 // - Registration (PSH-ALG-04/05) by id at parameter set (settled by the orchestrator 2026-10-27 under ADR 01 Amendments
-//   2026-10-22); the reconciliation (PSH-ALG-03) at the render-batch boundary (ADR 01 decision 3's amendment).
+//   2026-10-22); the reconciliation (PSH-ALG-03) at the render-batch boundary (ADR 01 decision 3's amendment), brought by
+//   the first popup part to render in the batch (ADR 16 Amendments 2026-10-27, design point 8): a part that selects the
+//   open or mounted state registers as a boundary part, and while none is registered the store asks the root to render on
+//   the reconciliation's inputs (BoundaryRequested).
 // - The transitions plumbing (TRN-ALG-05, PSH-STA-44/45, TRN-ANI-19..27): mounted and the status evaluated at the write
 //   that changes the effective open state, as useTransitionStatus does at render; the status mirrored from the popup's
 //   `transitions` handle; the unmount cleanup in Base UI's order.
@@ -30,9 +33,13 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
     private TPayload? payload;
     private bool hasPayload;
     private int openChangeRevision;
+    private int boundaryRevision;
+    private bool lastChangeClosed;
     private string? resolvedActiveTriggerId;
     private bool reconciliationPending;
     private bool unmountPending;
+    private int boundaryParts;
+    private bool reconciling;
     private bool rootApplied;
 
     /// <summary>Occurs when the store needs a render-batch boundary that no part's render will bring: the root renders.</summary>
@@ -107,6 +114,9 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
 
     /// <summary>Gets a value indicating whether a write changed the reconciliation's inputs since it last ran.</summary>
     public bool ReconciliationPending => reconciliationPending;
+
+    /// <summary>Gets a value indicating whether a popup part that brings the render-batch boundary is registered.</summary>
+    public bool HasBoundaryPart => boundaryParts > 0;
 
     /// <summary>Gets the revision of the last committed open change.</summary>
     public int OpenChangeRevision => openChangeRevision;
@@ -243,6 +253,14 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         PopupTriggerElement? trigger = ResolveTrigger(details.Trigger);
         string? requestTriggerId = details.Trigger?.Id;
         OpenChangeRelay relay = OpenChangeRelay.From(++openChangeRevision, details.Reason, details.Event, requestTriggerId);
+        if (open && lastChangeClosed && State.Popup.OpenChange is { } close && close.Revision > boundaryRevision)
+        {
+            // ADR 04 Amendments 2026-10-27 (the relay's Server semantics, item 2): a close the batch committed before this
+            // open travels with it, so the modules see the session end before the reopen.
+            relay = relay with { CoalescedCloseRevision = close.Revision, CoalescedCloseReason = close.Reason };
+        }
+
+        lastChangeClosed = !open;
         OnOpenChangeDispatched(relay);
 
         TState state = State;
@@ -473,12 +491,24 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         return RunUnmountAsync();
     }
 
+    // Design point 8 (ADR 16 Amendments 2026-10-27): a part that selects the open or mounted state renders on every write
+    // that changes the reconciliation's inputs and runs AtBatchBoundaryAsync after it; from its subscription on, the root
+    // stops rendering on those inputs.
+    /// <summary>Registers a popup part that selects the open or mounted state and runs the render-batch boundary after its renders.</summary>
+    /// <returns>The registration; disposing it unregisters the part.</returns>
+    public IDisposable RegisterBoundaryPart()
+    {
+        boundaryParts++;
+        return new BoundaryPartRegistration(this);
+    }
+
     // The render-batch boundary (ADR 01 decision 3's amendment): the reconciliation of PSH-ALG-03 when its inputs changed,
     // then a pending unmount action. Called from the OnAfterRender of the popup parts' behaviors.
     /// <summary>Runs the work that waits for the end of a render batch: the reconciliation and a pending unmount action.</summary>
     /// <returns>A task that completes when a close the reconciliation requested has run.</returns>
     public Task AtBatchBoundaryAsync()
     {
+        boundaryRevision = openChangeRevision;
         Task reconciled = reconciliationPending ? ReconcileAsync() : Task.CompletedTask;
         if (!unmountPending)
         {
@@ -506,8 +536,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
             resolvedActiveTriggerId = null;
             if (state.TriggerCount != 0 || state.OpenedWithoutTrigger || state.OpenMethod is not null)
             {
-                WritePopup(state with { TriggerCount = 0, OpenedWithoutTrigger = false, OpenMethod = null });
-                reconciliationPending = false;
+                WriteReconciled(state with { TriggerCount = 0, OpenedWithoutTrigger = false, OpenMethod = null });
             }
 
             return Task.CompletedTask;
@@ -568,8 +597,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
 
         if (!ReferenceEquals(next, state))
         {
-            WritePopup(next);
-            reconciliationPending = false;
+            WriteReconciled(next);
         }
 
         return lostId is not null && CloseOnActiveTriggerUnmount ? CloseForLostTriggerAsync(lostId) : Task.CompletedTask;
@@ -646,9 +674,13 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
                 return;
             }
         }
-        else
+        else if (TrackReconciliationInputs(current.Popup, next.Popup) && boundaryParts == 0 && !reconciling)
         {
-            TrackReconciliationInputs(current.Popup, next.Popup);
+            // Design point 8's fallback (ADR 16 Amendments 2026-10-27): with no popup part to bring the boundary, the root
+            // renders on the reconciliation's inputs, once the new state is published.
+            SetState(next);
+            RequestBoundary();
+            return;
         }
 
         SetState(next);
@@ -687,7 +719,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         }
     }
 
-    private void TrackReconciliationInputs(PopupStoreState<TPayload> current, PopupStoreState<TPayload> next)
+    private bool TrackReconciliationInputs(PopupStoreState<TPayload> current, PopupStoreState<TPayload> next)
     {
         if (current.EffectiveOpen != next.EffectiveOpen
             || current.TriggerCount != next.TriggerCount
@@ -695,7 +727,10 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
             || current.ActiveTriggerElement != next.ActiveTriggerElement)
         {
             reconciliationPending = true;
+            return true;
         }
+
+        return false;
     }
 
     private void ForwardPayload(bool payloadSupplied, TPayload? triggerPayload)
@@ -723,6 +758,21 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
     }
 
     private void RequestBoundary() => BoundaryRequested?.Invoke();
+
+    // The reconciliation's own result needs no further boundary: running it again on that state changes nothing.
+    private void WriteReconciled(PopupStoreState<TPayload> next)
+    {
+        reconciling = true;
+        try
+        {
+            WritePopup(next);
+        }
+        finally
+        {
+            reconciling = false;
+            reconciliationPending = false;
+        }
+    }
 
     // PSH-STA-23/25, PSH-DIS-05: a close with reason none and no event; a declined close keeps the ownership.
     private async Task CloseForLostTriggerAsync(string lostId)
@@ -761,5 +811,20 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         });
         OnUnmount();
         await OnOpenChangeComplete.InvokeAsync(false);
+    }
+
+    private sealed class BoundaryPartRegistration(PopupStore<TState, TPayload> store) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                store.boundaryParts--;
+            }
+        }
     }
 }

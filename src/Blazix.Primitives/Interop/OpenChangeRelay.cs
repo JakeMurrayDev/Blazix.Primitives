@@ -7,6 +7,9 @@ namespace Blazix.Primitives.Interop;
 // revision counter lives in the store's non-reactive context; `nested` is the module's own (its session tree), and the open
 // state travels in each module's own options (the shared names settled with the interactions track, ADR 04 Amendments
 // 2026-10-27, issue 119). The `interactions` and `focus-manager` options carry it as a nullable member (tracks 3 and 4).
+// The coalesced close (ADR 04 Amendments 2026-10-27, the relay's Server semantics, item 2; named by track 1): when a close
+// and a reopen commit before one render-batch boundary, the open's relay also carries the close's revision and reason, and
+// the module emits that close's `openchange` first, then the open.
 /// <summary>Describes the last open change a popup committed, as its browser-side behaviors receive it.</summary>
 /// <param name="Revision">The commit's number, which moves by one on every committed open change of the popup.</param>
 /// <param name="Reason">The change's reason as its kebab-case literal, such as <c>trigger-press</c>.</param>
@@ -14,13 +17,19 @@ namespace Blazix.Primitives.Interop;
 /// <param name="EventType">The type of the event that caused the change, such as <c>click</c>; <c>base-ui</c> for none.</param>
 /// <param name="PointerType">The pointer type of the event, or <see langword="null"/> for an event that is not a pointer event.</param>
 /// <param name="TriggerId">The id of the trigger the change is associated with, or <see langword="null"/> for none.</param>
+/// <param name="CoalescedCloseRevision">
+/// The revision of a close committed in the same render batch before this open, or <see langword="null"/> for none.
+/// </param>
+/// <param name="CoalescedCloseReason">The reason of that close as its kebab-case literal, or <see langword="null"/> for none.</param>
 internal sealed record OpenChangeRelay(
     int Revision,
     string Reason,
     EventKind EventKind,
     string EventType,
     string? PointerType,
-    string? TriggerId)
+    string? TriggerId,
+    int? CoalescedCloseRevision = null,
+    string? CoalescedCloseReason = null)
 {
     /// <summary>Creates the relay of a committed open change.</summary>
     /// <param name="revision">The commit's number.</param>
