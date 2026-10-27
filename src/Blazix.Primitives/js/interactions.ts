@@ -1004,6 +1004,39 @@ function createClickController(_context: HandleContext): Controller {
 // #region hover: the hover pair, the shared hover state and safePolygon (FLT-PTR-11..25, FLT-ALG-15, FLT-ALG-24)
 // ---------------------------------------------------------------------------------------------------------------
 
+/** The options a close strategy was created with. */
+export interface SafePolygonOptions {
+  /** Whether pointer events outside the trigger and the floating element are blocked while the popup is hover-open. */
+  blockPointerEvents?: boolean | undefined;
+}
+
+/** What a close strategy is invoked with when the pointer leaves a trigger. */
+export interface HandleCloseContext {
+  x: number | null;
+  y: number | null;
+  placement: string | null | undefined;
+  elements: { readonly domReference: Element | null; readonly floating: HTMLElement | null };
+  onClose: () => void;
+  nodeId?: string | undefined;
+  tree?: SessionTree | null | undefined;
+  leave?: boolean | undefined;
+}
+
+/** A close strategy: invoked with the close context, it returns the `mousemove` handler that decides the close. */
+export interface HandleClose {
+  (context: HandleCloseContext): (event: MouseEvent) => void;
+  __options?: SafePolygonOptions | undefined;
+}
+
+/**
+ * Creates the safe-polygon close strategy.
+ * @param _options The strategy's options.
+ * @returns The strategy.
+ */
+export function safePolygon(_options: SafePolygonOptions = {}): HandleClose {
+  return () => () => {};
+}
+
 function createHoverReferenceController(_context: HandleContext): Controller {
   return { dispose() {} };
 }
