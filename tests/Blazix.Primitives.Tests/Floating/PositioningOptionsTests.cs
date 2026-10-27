@@ -42,6 +42,18 @@ public sealed class PositioningOptionsTests
         Assert.NotEqual(Build(), Build() with { AnchorRef = null });
     }
 
+    [Fact(DisplayName = "the boundary indexes record exposes exactly its start and count, and lists the consecutive indexes from the start")]
+    public void The_boundary_indexes_record_exposes_its_start_and_count()
+    {
+        var indexes = new PositioningIndexes(2, 3);
+
+        Assert.Equal("PositioningIndexes { Start = 2, Count = 3 }", indexes.ToString());
+        Assert.Equal([2, 3, 4], indexes);
+        Assert.Equal(4, indexes[2]);
+        (int start, int count) = indexes;
+        Assert.Equal((2, 3), (start, count));
+    }
+
     [Fact(DisplayName = "comparing two options records allocates nothing")]
     [Trait("Requirement", "ADR16-7")]
     public void Comparing_two_options_records_allocates_nothing()

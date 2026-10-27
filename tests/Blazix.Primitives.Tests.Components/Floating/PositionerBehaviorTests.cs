@@ -265,6 +265,23 @@ public sealed class PositionerBehaviorTests : IDisposable
         Assert.Equal(3, host.Attaches[^1].Arguments.Count);
     }
 
+    [Fact(DisplayName = "falls back to the clipping ancestors for a boundary element or a list of boundary elements not rendered yet")]
+    [Trait("Requirement", "FLT-API-09")]
+    public void Falls_back_to_the_clipping_ancestors_for_unrendered_boundary_elements()
+    {
+        // An uncaptured reference never narrows the boundary (settled by the orchestrator 2026-10-28).
+        host.Context.Render<TestPositioner>(p => p.Add(x => x.CollisionBoundary, new CollisionBoundaryValue([default(ElementReference), default(ElementReference)])));
+        JsonElement list = PositioningTestContext.Parse(host.AttachOptions);
+        Assert.Equal("clipping-ancestors", list.GetProperty("collisionBoundary").GetString());
+        Assert.False(list.TryGetProperty("boundaryRefs", out _));
+        Assert.Equal(3, host.Attaches[^1].Arguments.Count);
+
+        host.Context.Render<TestPositioner>(p => p.Add(x => x.CollisionBoundary, new CollisionBoundaryValue(default(ElementReference))));
+        JsonElement single = PositioningTestContext.Parse(host.AttachOptions);
+        Assert.Equal("clipping-ancestors", single.GetProperty("collisionBoundary").GetString());
+        Assert.False(single.TryGetProperty("boundaryRefs", out _));
+    }
+
     [Fact(DisplayName = "attaches a positioner under a portal only once the portal has moved its node")]
     [Trait("Requirement", "FLT-DOM-02")]
     [Trait("Requirement", "FLT-STA-09")]
