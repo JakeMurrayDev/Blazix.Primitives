@@ -572,6 +572,18 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return keysA.every((key) => deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
 }
 
+// Writes an attribute only when it changes: every write queues a mutation record for each observer of the element.
+function writeAttribute(element: Element, name: string, value: string | null): void {
+  if (element.getAttribute(name) === value) {
+    return;
+  }
+  if (value === null) {
+    element.removeAttribute(name);
+  } else {
+    element.setAttribute(name, value);
+  }
+}
+
 function roundByDpr(element: Element, value: number): number {
   const dpr = ownerWindow(element).devicePixelRatio || 1;
   return Math.round(value * dpr) / dpr;
@@ -923,9 +935,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     const placementNow = data?.placement ?? placement;
     const sideAttribute = getLogicalSide(sideParam(), getSide(placementNow), isRtl());
     const alignAttribute = getAlignment(placementNow) || 'center';
-    element.setAttribute('data-side', sideAttribute);
-    element.setAttribute('data-align', alignAttribute);
-    element.toggleAttribute('data-anchor-hidden', Boolean(data?.middlewareData.hide?.referenceHidden));
+    writeAttribute(element, 'data-side', sideAttribute);
+    writeAttribute(element, 'data-align', alignAttribute);
+    writeAttribute(element, 'data-anchor-hidden', data?.middlewareData.hide?.referenceHidden ? '' : null);
 
     if (arrowElement && arrowLayer) {
       const arrowData = data?.middlewareData.arrow;
@@ -938,9 +950,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       }
       writeLayer(arrowLayer, arrowDeclarations, next);
       arrowDeclarations = next;
-      arrowElement.setAttribute('data-side', sideAttribute);
-      arrowElement.setAttribute('data-align', alignAttribute);
-      arrowElement.toggleAttribute('data-uncentered', arrowData?.centerOffset !== 0);
+      writeAttribute(arrowElement, 'data-side', sideAttribute);
+      writeAttribute(arrowElement, 'data-align', alignAttribute);
+      writeAttribute(arrowElement, 'data-uncentered', arrowData?.centerOffset !== 0 ? '' : null);
     }
   };
 
