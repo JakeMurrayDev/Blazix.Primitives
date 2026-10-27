@@ -45,6 +45,11 @@ internal static class OwnershipRegistry
         // ToggleGroup (M3 track 3): toggle-group.md §5.1 gives the standalone group's composite keydown and focus listeners
         // the Writer `JS` (TGG-DOM-06); the composite module attaches them and C# renders no handler for them.
         new("toggle-group", "Group", "handlers", Writer.Js),
+        // Toolbar (M3 track 4; the toggle-group row's shape): toolbar.md §5.1 gives the root's composite keydown and focus
+        // listeners the Writer `JS` (TLB-DOM-02), and §5.4 the input's click and pointerdown guards, keydown suppression and
+        // composite focus and mousemove listeners (TLB-PTR-02, TLB-KEY-13); the modules attach them and C# renders none.
+        new("toolbar", "Root", "handlers", Writer.Js),
+        new("toolbar", "Input", "handlers", Writer.Js),
         // Radio (M2 tracks 7-8; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden radio input's checked
         // property from attach, C# rendering the initial value once (the Switch shape); the transitions module writes the
         // Indicator's transition attributes, mirrored in its state's TransitionStatus.
