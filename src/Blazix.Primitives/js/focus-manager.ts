@@ -9,7 +9,7 @@
 // Page-global state (sanctioned, ADR 04 Amendments 2026-10-27; js/CONTEXT.md): the outside marking's counters, the
 // previously-focused stack and the queued focus; `resetFocusManagerState` drops all three for tests.
 import { isElementVisible } from './composite';
-import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoot, ownerDocument, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoot, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import { cancelFrame, observeOpenInput, requestFrame } from './transitions';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
@@ -888,6 +888,11 @@ export function attach(
   let relayRevision = options.openChange?.revision ?? null;
   let onOpenChangeLocal: ((details: OpenChangeDetails) => void) | null = null;
   let pendingReturnFocus: { cancelled: boolean } | null = null;
+  // Whether the batch removed the popup element: the manager stops as it does on dispose (design point 1, chosen by
+  // the user 2026-10-27: return focus also runs when the element leaves the document).
+  let removed = false;
+  // Stops the one re-pick of the default initial focus (the attach-order rule); a recorded interaction calls it.
+  let stopRepick: (() => void) | null = null;
   // The inside guards whose VoiceOver role has been written.
   const swappedGuards = new WeakSet<Element>();
   let guardListeners: { element: HTMLElement; listener: (event: FocusEvent) => void }[] = [];
@@ -991,6 +996,7 @@ export function attach(
         contains(portal, target) ||
         insideElements(reference).some((element) => element === target || contains(element, target));
       pointerDownOutside = !pointerTargetInside;
+      stopRepick?.();
       recordInteractionType(((event.pointerType as InteractionTypeLiteral) || 'keyboard') as InteractionTypeLiteral);
 
       if (closest(target, `[${CLICK_TRIGGER_ATTRIBUTE}]`)) {
@@ -1003,6 +1009,7 @@ export function attach(
       }
     };
     const onKeyDown = () => {
+      stopRepick?.();
       recordInteractionType('keyboard');
     };
     doc.addEventListener('pointerdown', onPointerDown, true);
@@ -1199,10 +1206,14 @@ export function attach(
         return focusableElements[0] || floatingFocusElement;
       };
 
-      const elToFocus: FocusableElement =
-        resolveTarget(options.initialFocusElement, options.initialFocusId) || getDefaultFocusElement();
+      const target = resolveTarget(options.initialFocusElement, options.initialFocusId);
+      const elToFocus: FocusableElement = target || getDefaultFocusElement();
 
       const hadFocusInside = contains(floatingFocusElement, activeElement(doc));
+
+      if (!target) {
+        watchLateTabStop(floatingFocusElement, elToFocus, previouslyFocusedElement);
+      }
 
       // The interactions session's recorded open event decides FLT-A11Y-04's synchronous focus; until it is on
       // `main` no open is a virtual press.
@@ -1229,6 +1240,41 @@ export function attach(
         },
       });
     });
+
+    return () => {
+      stopRepick?.();
+    };
+  };
+
+  // The attach-order rule (design point 1's composite clause): a composite item renders `tabindex="-1"` until the
+  // `composite` module attaches, so while initial focus holds the default it chose and nothing has been interacted with,
+  // a `tabindex` written inside the floating focus element re-picks the default once.
+  const watchLateTabStop = (floatingFocusElement: HTMLElement, chosen: Element, previouslyFocused: Element | null): void => {
+    stopRepick?.();
+    const observer = new (ownerWindow(floatingFocusElement).MutationObserver)((records) => {
+      if (!records.some((record) => record.target !== floatingFocusElement)) {
+        return;
+      }
+      const active = activeElement(doc);
+      const untouched = active === chosen || active === previouslyFocused || active === doc.body;
+      const next = getTabbableContent(floatingFocusElement)[0] || floatingFocusElement;
+      if (!untouched || !open || disposed) {
+        stop();
+        return;
+      }
+      if (next !== chosen) {
+        stop();
+        enqueueFocus(next, { preventScroll: next === floatingFocusElement, shouldFocus: () => open && !disposed });
+      }
+    });
+    const stop = () => {
+      observer.disconnect();
+      if (stopRepick === stop) {
+        stopRepick = null;
+      }
+    };
+    observer.observe(floatingFocusElement, { subtree: true, attributes: true, attributeFilter: ['tabindex'] });
+    stopRepick = stop;
   };
 
   // Return focus, armed while enabled and released when the manager stops (FLT-FOC-07, FOC-08, FOC-20, FOC-21,
@@ -1244,6 +1290,15 @@ export function attach(
     const preferPreviousFocus = options.openInteractionType === null;
 
     addPreviouslyFocusedElement(elementFocusedBeforeOpen);
+
+    // The batch that removes the popup releases return focus pre-paint, before C# disposes the handle.
+    const removal = new (ownerWindow(popup).MutationObserver)(() => {
+      if (!popup.isConnected && !removed) {
+        removed = true;
+        sync();
+      }
+    });
+    removal.observe(doc, { childList: true, subtree: true });
 
     onOpenChangeLocal = (details) => {
       // Focus guards transfer focus themselves; other close handlers may still need return focus.
@@ -1295,6 +1350,7 @@ export function attach(
     };
 
     return () => {
+      removal.disconnect();
       onOpenChangeLocal = null;
 
       const activeEl = activeElement(doc);
@@ -1373,7 +1429,7 @@ export function attach(
   // Reconciles every effect with the current inputs: the open state of the last batch and the latest options. The
   // layout effects run before the others, as React commits them.
   const sync = (): void => {
-    const disabled = disposed || options.disabled === true;
+    const disabled = disposed || removed || options.disabled === true;
     const modal = options.modal !== false;
     const closeOnFocusOut = options.closeOnFocusOut !== false;
     const restoreFocus = options.restoreFocus ?? 'none';
@@ -1391,7 +1447,7 @@ export function attach(
     runEffect('returnFocus', !disabled && !!floatingFocusElement, [floating, floatingFocusElement, reference], () =>
       returnFocusEffect(floating, floatingFocusElement!, reference),
     );
-    runEffect('webkitBlur', !disposed && platform.engine.webkit && !open && !!floating, [floating], () => webkitBlurEffect(floating!));
+    runEffect('webkitBlur', !disposed && !removed && platform.engine.webkit && !open && !!floating, [floating], () => webkitBlurEffect(floating!));
     runEffect('tabIndex', !disabled && !!floatingFocusElement, [floatingFocusElement], () =>
       tabIndexEffect(floatingFocusElement!),
     );
