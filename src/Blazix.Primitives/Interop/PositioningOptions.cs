@@ -12,7 +12,7 @@ internal sealed record PositioningOptions : TwinOptions
 {
     /// <summary>Gets the popup's session token, which the module looks the popup's session up by.</summary>
     /// <value>The token the popup root drew, or <see langword="null"/>, the default, for none.</value>
-    public string? Session { get; init; }
+    public string? SessionToken { get; init; }
 
     /// <summary>Gets the selector the positioner matches while it is rendered open.</summary>
     /// <value>A CSS selector, or <see langword="null"/>, the default, for <c>[data-open]</c>.</value>
@@ -54,9 +54,17 @@ internal sealed record PositioningOptions : TwinOptions
     /// <value>The distance in CSS pixels; the default is 0.</value>
     public double SideOffset { get; init; }
 
+    /// <summary>Gets the side offset computed on every positioning pass, which replaces <see cref="SideOffset"/> when given.</summary>
+    /// <value>The terms and overrides, or <see langword="null"/>, the default, for none.</value>
+    public PositioningOffset? SideOffsetFunction { get; init; }
+
     /// <summary>Gets the distance along the alignment axis.</summary>
     /// <value>The distance in CSS pixels; the default is 0.</value>
     public double AlignOffset { get; init; }
+
+    /// <summary>Gets the align offset computed on every positioning pass, which replaces <see cref="AlignOffset"/> when given.</summary>
+    /// <value>The terms and overrides, or <see langword="null"/>, the default, for none.</value>
+    public PositioningOffset? AlignOffsetFunction { get; init; }
 
     /// <summary>Gets the literal boundary the popup avoids overflowing.</summary>
     /// <value><c>clipping-ancestors</c>, or <see langword="null"/>, the default, when another boundary or none is given.</value>
@@ -121,6 +129,102 @@ internal sealed record PositioningOptions : TwinOptions
 /// <param name="Width">The width.</param>
 /// <param name="Height">The height.</param>
 internal sealed record PositioningRect(double X, double Y, double Width, double Height);
+
+// The declarative form of Base UI's OffsetFunction (design point 2 of the positioning track, settled by the orchestrator
+// 2026-10-27), as the module reads it; the overrides are a list, so equality is written by hand (ADR 16 Amendments
+// 2026-10-27).
+/// <summary>An offset computed on every positioning pass from the measured anchor and positioner sizes.</summary>
+/// <param name="Constant">The constant term, in CSS pixels.</param>
+/// <param name="AnchorWidth">The multiple of the anchor's width.</param>
+/// <param name="AnchorHeight">The multiple of the anchor's height.</param>
+/// <param name="PositionerWidth">The multiple of the positioner's width.</param>
+/// <param name="PositionerHeight">The multiple of the positioner's height.</param>
+/// <param name="Overrides">The terms used instead for a matching side and alignment, the first match winning; <see langword="null"/> for none.</param>
+internal sealed record PositioningOffset(
+    double Constant,
+    double AnchorWidth,
+    double AnchorHeight,
+    double PositionerWidth,
+    double PositionerHeight,
+    IReadOnlyList<PositioningOffsetOverride>? Overrides)
+{
+    /// <inheritdoc />
+    public bool Equals(PositioningOffset? other)
+    {
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        if (other is null
+            || !Constant.Equals(other.Constant)
+            || !AnchorWidth.Equals(other.AnchorWidth)
+            || !AnchorHeight.Equals(other.AnchorHeight)
+            || !PositionerWidth.Equals(other.PositionerWidth)
+            || !PositionerHeight.Equals(other.PositionerHeight))
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(Overrides, other.Overrides))
+        {
+            return true;
+        }
+
+        if (Overrides is null || other.Overrides is null || Overrides.Count != other.Overrides.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < Overrides.Count; i++)
+        {
+            if (!Overrides[i].Equals(other.Overrides[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Constant);
+        hash.Add(AnchorWidth);
+        hash.Add(AnchorHeight);
+        hash.Add(PositionerWidth);
+        hash.Add(PositionerHeight);
+        if (Overrides is { } overrides)
+        {
+            // An indexed loop: a foreach over the interface would allocate its enumerator.
+            for (int i = 0; i < overrides.Count; i++)
+            {
+                hash.Add(overrides[i].GetHashCode());
+            }
+        }
+
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>The terms an offset uses instead of its own when the evaluated placement has this side and alignment.</summary>
+/// <param name="Side">The side literal the placement must have, logical when the requested side was, or <see langword="null"/> for any.</param>
+/// <param name="Align">The alignment literal the placement must have, or <see langword="null"/> for any.</param>
+/// <param name="Constant">The constant term, in CSS pixels.</param>
+/// <param name="AnchorWidth">The multiple of the anchor's width.</param>
+/// <param name="AnchorHeight">The multiple of the anchor's height.</param>
+/// <param name="PositionerWidth">The multiple of the positioner's width.</param>
+/// <param name="PositionerHeight">The multiple of the positioner's height.</param>
+internal sealed record PositioningOffsetOverride(
+    string? Side,
+    string? Align,
+    double Constant,
+    double AnchorWidth,
+    double AnchorHeight,
+    double PositionerWidth,
+    double PositionerHeight);
 
 /// <summary>A padding per side, in CSS pixels.</summary>
 /// <param name="Top">The padding from the top edge.</param>
