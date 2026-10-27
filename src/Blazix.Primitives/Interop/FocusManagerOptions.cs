@@ -7,7 +7,7 @@ namespace Blazix.Primitives.Interop;
 // InitialFocus and ReturnFocus arrive resolved (ADR 04 Amendments 2026-10-27, "Focus targets"; ADR 08 Amendments
 // 2026-10-27, "Unions"): a boolean plus an element, by the index of a reference passed with the options (the popup
 // core's references array, ADR 04 Amendments 2026-10-27; open until it is on `main`), or an element id. The names are
-// FLT §6.10's props (design point 8 of the focus-manager track, pending the user); the parts' FinalFocus maps to
+// FLT §6.10's props (design point 8 of the focus-manager track, settled by the orchestrator 2026-10-27); FinalFocus maps to
 // ReturnFocus. OpenInteractionType and CloseInteractionType are the InteractionType literals until the enum is on
 // `main` (Interop/CONTEXT.md). FLT-API-05, FLT-FOC-06, FOC-07, FOC-11, FOC-12, FOC-19..21, ARIA-01..03, DOM-17, KEY-06.
 /// <summary>

@@ -888,7 +888,7 @@ describe('enqueueFocus', () => {
 // ---------------------------------------------------------------------------------------------------------------
 // The manager. The test plays C#: it renders the popup and the inside guards, renders `data-open` (the applied batch),
 // sends `update` with the resolved targets, the close type and the relay before the batch that applies them (design
-// point 1 (d), pending the user), and disposes the handle when it unmounts the popup. A Base UI popup rendered under
+// point 1 (d), chosen by the user 2026-10-27), and disposes the handle when it unmounts the popup. A Base UI popup rendered under
 // `{open && …}` is attached with `data-open` already rendered (the handover at attach) and disposed on close. A
 // popup Base UI's tests focus carries `tabindex="-1"`, which every port popup renders (PSH-DOM-15).
 // ---------------------------------------------------------------------------------------------------------------
