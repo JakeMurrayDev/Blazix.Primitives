@@ -25,6 +25,10 @@ internal interface IPartHost : IHandleEvent
     /// <summary>Renders the content that follows the host element, inside the pipeline's region.</summary>
     /// <param name="builder">The render tree builder of the owning component.</param>
     void BuildAfterElement(RenderTreeBuilder builder);
+
+    /// <summary>Renders the content that precedes the host element, inside the pipeline's region.</summary>
+    /// <param name="builder">The render tree builder of the owning component.</param>
+    void BuildBeforeElement(RenderTreeBuilder builder);
 }
 
 // ADR 16 rules 2, 3, 5, 7; ADR 02 decision 3

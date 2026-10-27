@@ -175,6 +175,11 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     {
     }
 
+    /// <inheritdoc />
+    void IPartHost.BuildBeforeElement(RenderTreeBuilder builder)
+    {
+    }
+
     private async Task AwaitAndDispatchAsync(Task task)
     {
         try

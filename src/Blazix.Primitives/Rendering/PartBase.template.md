@@ -120,8 +120,10 @@ What the base provides: `AdditionalAttributes` (the bag), `ChildContent`, `Rende
 before the first render; a part that reads a store overrides it, calls `SubscribeTo(store)` once and adds its
 selections with `Select(selector)` / `Select(selector, arg)`; the part then re-renders only when a selection changed, and
 the subscription is disposed with the part, ADR 05 §1), `IHandleEvent` and `IDisposable`. What a part supplies: `DefaultTagName`, `State`, optionally
-`StateAttributesMapping`, `UsesGeneratedId`, `AddPartAttributes` and `BuildAfterElement`. Internal elements are
-rendered inline by the part, never as a nested library component (ADR 16 rule 10): inside the element through
-`ChildContent` (an indicator), or after it as its siblings through `BuildAfterElement` (the hidden inputs of Switch,
-Checkbox and Radio, which label activation needs outside the root; ADR 02 Amendments 2026-10-22). `BuildAfterElement`
-numbers its frames from 0: the pipeline wraps the call in a region of its own and skips it while `Enabled` is false.
+`StateAttributesMapping`, `UsesGeneratedId`, `AddPartAttributes`, `BuildBeforeElement` and `BuildAfterElement`.
+Internal elements are rendered inline by the part, never as a nested library component (ADR 16 rule 10): inside the
+element through `ChildContent` (an indicator), after it as its siblings through `BuildAfterElement` (the hidden inputs
+of Switch, Checkbox and Radio, which label activation needs outside the root; ADR 02 Amendments 2026-10-22), or before
+it as its siblings through `BuildBeforeElement` (a popup's leading focus guards; ADR 02 Amendments 2026-10-27). Both
+number their frames from 0: the pipeline wraps each call in a region of its own and skips it while `Enabled` is false.
+`src/Blazix.Primitives/Rendering/CONTEXT.md`'s human check says which siblings belong there.

@@ -239,6 +239,9 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <inheritdoc />
     void IPartHost.BuildAfterElement(RenderTreeBuilder builder) => BuildAfterElement(builder);
 
+    /// <inheritdoc />
+    void IPartHost.BuildBeforeElement(RenderTreeBuilder builder) => BuildBeforeElement(builder);
+
     // ADR 02 Amendments 2026-10-21; UBT-EVT-01/03: a button-like part gates the consumer's handlers while disabled.
     /// <summary>Determines whether the consumer's handler for an event is rendered on the host element this render.</summary>
     /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>, whatever casing the consumer used.</param>
@@ -284,6 +287,20 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// pipeline's. The base implementation renders nothing.
     /// </remarks>
     protected virtual void BuildAfterElement(RenderTreeBuilder builder)
+    {
+    }
+
+    // ADR 02 Amendments 2026-10-27 (M4 track 1): the focus guards a popup renders before an element, such as the portal's
+    // leading outside guard (FLT-DOM-14), the mirror of BuildAfterElement.
+    /// <summary>Renders the content that precedes the host element, as its siblings.</summary>
+    /// <param name="builder">The render tree builder of the part.</param>
+    /// <remarks>
+    /// The pipeline calls this method once per render, before the default element, the substitute element, the substitute
+    /// component or the substitute callback, and not at all while <see cref="Enabled"/> is <see langword="false"/>. It
+    /// opens a region of its own around the call, so the sequence numbers a part uses here start at 0 and never meet the
+    /// pipeline's. The base implementation renders nothing.
+    /// </remarks>
+    protected virtual void BuildBeforeElement(RenderTreeBuilder builder)
     {
     }
 
