@@ -1,0 +1,78 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-disabled` fixture (tests/browser/toolbar.spec.ts): ToolbarRoot.test.tsx's "prop: focusableWhenDisabled"
+    pages, over the disabled indices the composite module derives from the items' flags (M3 track 1's E3).
+    - `default`: "toolbar items can be focused when disabled by default".
+    - `individual`: "toolbar items can individually disable focusableWhenDisabled".
+    - `first-non-focusable`: "moves the initial tab stop off a disabled, non-focusable first item".
+    - `enabled-non-focusable`: "keeps an enabled item with focusableWhenDisabled={false} navigable".
+    - `input-non-focusable`: "skips a disabled Toolbar.Input with focusableWhenDisabled={false}".
+    - `runtime`: a first button, not focusable when disabled, that `data-flip` disables while it holds the tab stop (TLB-STA-06).
+*@
+<FixtureContainer Name="toolbar-disabled" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ToolbarCaseFrame Name="default" Case="@cases["default"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarGroup>
+                <ToolbarButton @ref="Button" Disabled="true" data-item="grouped1">Grouped 1</ToolbarButton>
+                <ToolbarButton @ref="Button" Disabled="true" data-item="grouped2">Grouped 2</ToolbarButton>
+            </ToolbarGroup>
+            <ToolbarInput @ref="Input" DefaultValue="" Disabled="true" data-item="input" />
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="individual" Case="@cases["individual"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarGroup>
+                <ToolbarButton @ref="Button" Disabled="true" data-item="grouped1">Grouped 1</ToolbarButton>
+                <ToolbarButton @ref="Button" Disabled="true" FocusableWhenDisabled="false" data-item="grouped2">Grouped 2</ToolbarButton>
+            </ToolbarGroup>
+            <ToolbarInput @ref="Input" DefaultValue="" Disabled="true" data-item="input" />
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="first-non-focusable" Case="@cases["first-non-focusable"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" FocusableWhenDisabled="false" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="button2">Button 2</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="button3">Button 3</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="enabled-non-focusable" Case="@cases["enabled-non-focusable"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarButton @ref="Button" FocusableWhenDisabled="false" data-item="button2">Button 2</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="button3">Button 3</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="input-non-focusable" Case="@cases["input-non-focusable"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarInput @ref="Input" DefaultValue="" Disabled="true" FocusableWhenDisabled="false" data-item="input" />
+            <ToolbarButton @ref="Button" data-item="button2">Button 2</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="runtime" Case="@cases["runtime"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="runtimeDisabled" FocusableWhenDisabled="false" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="button2">Button 2</ToolbarButton>
+        </ToolbarRoot>
+        <button type="button" data-flip @onclick="() => runtimeDisabled = !runtimeDisabled">Flip</button>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, ToolbarCase> cases = new[] { "default", "individual", "first-non-focusable", "enabled-non-focusable", "input-non-focusable", "runtime" }
+        .ToDictionary(name => name, _ => new ToolbarCase());
+
+    private bool runtimeDisabled;
+}

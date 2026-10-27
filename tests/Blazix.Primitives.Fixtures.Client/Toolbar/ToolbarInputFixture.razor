@@ -3,10 +3,11 @@
 @inherits ToolbarFixtureBase
 
 @*
-    The `toolbar-input` fixture (tests/browser/toolbar.spec.ts): ToolbarInput.test.tsx's browser pages that need no
-    derived disabled indices.
+    The `toolbar-input` fixture (tests/browser/toolbar.spec.ts): ToolbarInput.test.tsx's browser pages.
     - `caret-ltr`, `caret-rtl`: "respects caret and selection boundaries in horizontal %s toolbars".
     - `orientation-horizontal`, `orientation-vertical`: "orientation: $orientation".
+    - `disabled-trap`: "does not trap keyboard focus when disabled"; `disabled-vertical`: "does not block vertical roving
+      focus when disabled" (both over the derived disabled indices, M3 track 1's E3).
     - `pointer`: "does not steal focus while disabled and becomes pointer-focusable when enabled"; `data-flip` enables
       the input.
     - `checkbox`: "prevents click default actions while disabled", a checkbox-type input; `data-flip` enables it.
@@ -38,6 +39,21 @@
         </ToolbarCaseFrame>
     }
 
+    <ToolbarCaseFrame Name="disabled-trap" Case="@cases["disabled-trap"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="button">Button</ToolbarButton>
+            <ToolbarInput @ref="Input" DefaultValue="abcd" Disabled="true" data-item="input" />
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="disabled-vertical" Case="@cases["disabled-vertical"]">
+        <ToolbarRoot @ref="Root" Orientation="Orientation.Vertical" data-root>
+            <ToolbarButton @ref="Button" data-item="button1">Button 1</ToolbarButton>
+            <ToolbarInput @ref="Input" DefaultValue="abcd" Disabled="true" data-item="input" />
+            <ToolbarButton @ref="Button" data-item="button2">Button 2</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
     <ToolbarCaseFrame Name="pointer" Case="@cases["pointer"]">
         <ToolbarRoot @ref="Root" data-root>
             <ToolbarButton @ref="Button" data-item="button">Button</ToolbarButton>
@@ -67,7 +83,7 @@
         ("orientation-vertical", Orientation.Vertical),
     ];
 
-    private readonly Dictionary<string, ToolbarCase> cases = new[] { "caret-ltr", "caret-rtl", "orientation-horizontal", "orientation-vertical", "pointer", "checkbox" }
+    private readonly Dictionary<string, ToolbarCase> cases = new[] { "caret-ltr", "caret-rtl", "orientation-horizontal", "orientation-vertical", "disabled-trap", "disabled-vertical", "pointer", "checkbox" }
         .ToDictionary(name => name, _ => new ToolbarCase());
 
     private bool pointerDisabled = true;

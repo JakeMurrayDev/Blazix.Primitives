@@ -1,0 +1,131 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-toggle` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's Toggle and ToggleGroup block and
+    the direct ToggleGroup > Toggle pages, over M3 track 1's E3 (the flags) and E4 (the outer registration). A substituted
+    toggle's typed OnPressedChange waits on design point 14.8, so the substituted toggles' presses are counted by their
+    PressedChanged (standalone) and their group's OnValueChange.
+    - `block`: "renders toggle and toggle group", "handles interactions": a standalone substituted toggle, then two in a
+      group.
+    - `block-disabled`: "disabled state", the same three buttons disabled.
+    - `direct`: "navigates and selects direct ToggleGroup > Toggle children".
+    - `direct-disabled`: "skips disabled direct ToggleGroup > Toggle children".
+    - `direct-multiple`: "supports multiple selection for direct ToggleGroup > Toggle children".
+    - `direct-controlled`: "supports a controlled ToggleGroup value".
+    - `direct-group-disabled`: "disables direct ToggleGroup children when Toolbar.Group is disabled".
+    - `direct-runtime`: "skips a direct Toggle that becomes disabled at runtime"; `data-flip` disables the second toggle.
+    - `hero`: the docs' hero without its Select (the sample page's shape).
+*@
+<FixtureContainer Name="toolbar-toggle" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    @foreach ((string name, bool disabled) in s_blocks)
+    {
+        ToolbarCase blockCase = cases[name];
+        <ToolbarCaseFrame Name="@name" Case="blockCase">
+            <ToolbarRoot @ref="Root" data-root>
+                <ToolbarButton @ref="Button" Disabled="disabled" Render="StandaloneToggle(blockCase)" value="apple" data-item="apple" />
+                <ToggleGroup OnValueChange="blockCase.GroupChange">
+                    <ToolbarButton @ref="Button" Disabled="disabled" Render="GroupedToggle" value="one" data-item="one" />
+                    <ToolbarButton @ref="Button" Disabled="disabled" Render="GroupedToggle" value="two" data-item="two" />
+                </ToggleGroup>
+            </ToolbarRoot>
+        </ToolbarCaseFrame>
+    }
+
+    <ToolbarCaseFrame Name="direct" Case="@cases["direct"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToggleGroup DefaultValue="s_one" OnValueChange="@cases["direct"].GroupChange">
+                <Toggle @ref="Toggle" Value="one" data-item="one">One</Toggle>
+                <Toggle @ref="Toggle" Value="two" data-item="two">Two</Toggle>
+                <Toggle @ref="Toggle" Value="three" data-item="three">Three</Toggle>
+            </ToggleGroup>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="direct-disabled" Case="@cases["direct-disabled"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToggleGroup>
+                <Toggle @ref="Toggle" Value="one" data-item="one">One</Toggle>
+                <Toggle @ref="Toggle" Value="two" Disabled="true" data-item="two">Two</Toggle>
+                <Toggle @ref="Toggle" Value="three" data-item="three">Three</Toggle>
+            </ToggleGroup>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="direct-multiple" Case="@cases["direct-multiple"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToggleGroup Multiple="true" DefaultValue="s_one" OnValueChange="@cases["direct-multiple"].GroupChange">
+                <Toggle @ref="Toggle" Value="one" data-item="one">One</Toggle>
+                <Toggle @ref="Toggle" Value="two" data-item="two">Two</Toggle>
+            </ToggleGroup>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="direct-controlled" Case="@cases["direct-controlled"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToggleGroup @bind-Value="controlled">
+                <Toggle @ref="Toggle" Value="one" data-item="one">One</Toggle>
+                <Toggle @ref="Toggle" Value="two" data-item="two">Two</Toggle>
+            </ToggleGroup>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="direct-group-disabled" Case="@cases["direct-group-disabled"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="before">Before</ToolbarButton>
+            <ToolbarGroup Disabled="true">
+                <ToggleGroup>
+                    <Toggle @ref="Toggle" Value="one" data-item="one">One</Toggle>
+                    <Toggle @ref="Toggle" Value="two" data-item="two">Two</Toggle>
+                </ToggleGroup>
+            </ToolbarGroup>
+            <ToolbarButton @ref="Button" data-item="after">After</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="direct-runtime" Case="@cases["direct-runtime"]">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToggleGroup>
+                <Toggle @ref="Toggle" Value="one" data-item="one">One</Toggle>
+                <Toggle @ref="Toggle" Value="two" Disabled="twoDisabled" data-item="two">Two</Toggle>
+                <Toggle @ref="Toggle" Value="three" data-item="three">Three</Toggle>
+            </ToggleGroup>
+        </ToolbarRoot>
+        <button type="button" data-flip @onclick="() => twoDisabled = true">Disable two</button>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="hero" Case="@cases["hero"]">
+        <ToolbarRoot @ref="Root" aria-label="Formatting" data-root>
+            <ToggleGroup aria-label="Alignment" OnValueChange="@cases["hero"].GroupChange">
+                <ToolbarButton @ref="Button" Render="GroupedToggle" aria-label="Align left" value="align-left" data-item="align-left">Align Left</ToolbarButton>
+                <ToolbarButton @ref="Button" Render="GroupedToggle" aria-label="Align right" value="align-right" data-item="align-right">Align Right</ToolbarButton>
+            </ToggleGroup>
+            <ToolbarSeparator />
+            <ToolbarGroup aria-label="Numerical format">
+                <ToolbarButton @ref="Button" aria-label="Format as currency" data-item="currency">$</ToolbarButton>
+                <ToolbarButton @ref="Button" aria-label="Format as percent" data-item="percent">%</ToolbarButton>
+            </ToolbarGroup>
+            <ToolbarSeparator />
+            <ToolbarLink href="#" data-item="link">Edited 51m ago</ToolbarLink>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> s_one = ["one"];
+
+    private static readonly (string Name, bool Disabled)[] s_blocks = [("block", false), ("block-disabled", true)];
+
+    private readonly Dictionary<string, ToolbarCase> cases = new[] { "block", "block-disabled", "direct", "direct-disabled", "direct-multiple", "direct-controlled", "direct-group-disabled", "direct-runtime", "hero" }
+        .ToDictionary(name => name, _ => new ToolbarCase());
+
+    private IReadOnlyList<string> controlled = [];
+    private bool twoDisabled;
+
+    private RenderFragment StandaloneToggle(ToolbarCase blockCase) => @<Toggle @ref="Toggle" PressedChanged="blockCase.PressedChange" />;
+
+    private RenderFragment GroupedToggle => @<Toggle @ref="Toggle" />;
+}
