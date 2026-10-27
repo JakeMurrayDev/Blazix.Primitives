@@ -48,8 +48,9 @@ public static class TabsTabDataAttributes
 //   runs them from the List: inside the decision on WebAssembly, from the module's report on Server, and from the
 //   module's report for a gesture that activates nothing (design point 5 of the Tabs track, settled by the orchestrator
 //   2026-10-26). A Tab that is active or disabled requests nothing (TAB-PTR-02/03).
-// - Not here yet (open until track 1's E2 and E5 are on `main`): the Tab's place in the Root's tab registry and the
-//   tab stop following the active Tab.
+// - The Tab's value and disabled reach the Root's registry through its entry, in the order the List's composite module
+//   reports (track 1's E2, TAB-STA-04); a change of either re-validates the Root after the Tab renders. The tab stop
+//   follows the active Tab through the composite module (track 1's E5, TAB-FOC-04..07).
 /// <summary>
 /// Represents one tab of a tab list: Base UI's <c>Tabs.Tab</c>, rendered as a <c>button</c> with <c>role="tab"</c>.
 /// Clicking the tab, or pressing Enter or Space on it, makes it the active tab.
