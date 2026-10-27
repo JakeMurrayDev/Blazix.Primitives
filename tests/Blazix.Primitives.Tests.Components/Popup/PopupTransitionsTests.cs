@@ -31,12 +31,17 @@ public sealed class PopupTransitionsTests : IDisposable
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "TRN-EVT-03")]
-    public void Is_not_called_on_mount_when_closed(bool keepMounted)
+    public async Task Is_not_called_on_mount_when_closed(bool keepMounted)
     {
         List<bool> calls = [];
-        RenderTree(new() { ["onOpenChangeComplete"] = (Action<bool>)calls.Add, ["keepMounted"] = keepMounted });
+        IRenderedComponent<PopupTestHost> cut = RenderTree(new() { ["open"] = false, ["onOpenChangeComplete"] = (Action<bool>)calls.Add, ["keepMounted"] = keepMounted });
 
         Assert.Empty(calls);
+
+        // The callback is wired: the first completion it receives is the open's, once the popup opens.
+        await cut.Instance.SetAsync("open", true);
+        await ReportCompletionAsync(cut, open: true);
+        Assert.Equal([true], calls);
     }
 
     [Fact(DisplayName = "is called on close when there is no exit animation")]

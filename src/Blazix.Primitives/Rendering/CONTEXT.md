@@ -33,6 +33,7 @@ Known limits, stated once: a consumer handler is invoked the way Blazor invokes 
 
 ## Human check
 
+- The pipeline reads `State` before `AddPartAttributes`, so a part updates its state record in its `State` getter: a part that updates it in `AddPartAttributes` renders the previous record's data attributes until it renders again (found by M4 track 1 on a detached popup trigger that rendered once; settled by the orchestrator 2026-10-27).
 - A part's `FinishAttributes` changes only an attribute its document names as part-owned or gives a documented fallback (a style handed over to a module, COL-API-10's empty `id`); every other attribute keeps the consumer-wins rule of ADR 02 decision 2 (ADR 02 Amendments 2026-10-21). The analyzers cannot see it, and `FinishAttributesTests` shows that such a change would win over the consumer.
 
 - A part's `BuildAfterElement` renders only the siblings its document places after the element (the hidden inputs of SWT-STR-01, CHK-STR-01, RAD-STR-01), numbers them with literals from 0, and renders nothing that belongs inside the element; `AfterElementTests` and `RenderPipelineSequenceTests` pin the region and its literal.
