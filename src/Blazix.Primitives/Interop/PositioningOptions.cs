@@ -1,9 +1,10 @@
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (the `positioning` mechanism module), ADR 03 and ADR 04 Amendments 2026-10-27 (chosen by the user
-// 2026-10-27): the options of one Positioner's handle. Values never cross as elements: the anchor and the Arrow are
-// found by id; the element cases of AnchorValue and CollisionBoundaryValue travel through track 1's references array once
-// it is on main. Value equality (ADR 04 and ADR 16 Amendments 2026-10-27): a re-render that builds equal options sends no
+// 2026-10-27): the options of one Positioner's handle. Values never cross as elements inside the JSON: the Arrow and an
+// anchor given by id are found by id, and the element cases of AnchorValue and CollisionBoundaryValue cross beside the
+// options as references, which `AnchorRef` and `BoundaryRefs` name by index (ADR 04 Amendments 2026-10-27, element-typed
+// option values, settled by the orchestrator 2026-10-27). Value equality (ADR 04 and ADR 16 Amendments 2026-10-27): a re-render that builds equal options sends no
 // update. The open and mounted inputs are read from the applied batch (design point 7, settled by the orchestrator
 // 2026-10-27), so they are not fields here. The session token (design point 4) is inert until the `interactions` export
 // exists (track 3).
@@ -33,6 +34,10 @@ internal sealed record PositioningOptions : TwinOptions
     /// <summary>Gets the id of the element the popup is positioned against.</summary>
     /// <value>The anchor element's id, or <see langword="null"/>, the default, for none.</value>
     public string? AnchorId { get; init; }
+
+    /// <summary>Gets the index of the anchor element in the references sent after the options.</summary>
+    /// <value>The index, or <see langword="null"/>, the default, when the anchor is not an element.</value>
+    public int? AnchorRef { get; init; }
 
     /// <summary>Gets the rectangle the popup is positioned against instead of an element.</summary>
     /// <value>The rectangle in viewport coordinates, or <see langword="null"/>, the default, for none.</value>
@@ -73,6 +78,10 @@ internal sealed record PositioningOptions : TwinOptions
     /// <summary>Gets the boundary rectangle the popup avoids overflowing.</summary>
     /// <value>The rectangle in viewport coordinates, or <see langword="null"/>, the default, for none.</value>
     public PositioningRect? BoundaryRect { get; init; }
+
+    /// <summary>Gets the indexes of the boundary elements in the references sent after the options.</summary>
+    /// <value>The indexes, or <see langword="null"/>, the default, when the boundary is neither an element nor a list of elements.</value>
+    public PositioningIndexes? BoundaryRefs { get; init; }
 
     /// <summary>Gets the space the popup keeps from every edge of its boundary.</summary>
     /// <value>The padding in CSS pixels, or <see langword="null"/>, the default, for 5 unless <see cref="CollisionPaddingSides"/> is given.</value>
@@ -129,6 +138,37 @@ internal sealed record PositioningOptions : TwinOptions
 /// <param name="Width">The width.</param>
 /// <param name="Height">The height.</param>
 internal sealed record PositioningRect(double X, double Y, double Width, double Height);
+
+// The boundary elements are added to the references in one run, so their indexes are consecutive: a record of the first
+// index and the count compares by value without a list (ADR 16 Amendments 2026-10-27), and serializes as the JSON array
+// of the indexes the module reads, because it is a list.
+/// <summary>Consecutive indexes into the references sent after the options.</summary>
+/// <param name="start">The first index.</param>
+/// <param name="count">The number of indexes.</param>
+internal sealed record PositioningIndexes(int start, int count) : IReadOnlyList<int>
+{
+    /// <summary>Gets the first index.</summary>
+    /// <value>The index of the first reference.</value>
+    public int Start { get; } = start;
+
+    /// <inheritdoc />
+    public int Count { get; } = count;
+
+    /// <inheritdoc />
+    public int this[int index] => (uint)index < (uint)Count ? Start + index : throw new ArgumentOutOfRangeException(nameof(index));
+
+    /// <inheritdoc />
+    public IEnumerator<int> GetEnumerator()
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            yield return Start + i;
+        }
+    }
+
+    /// <inheritdoc />
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+}
 
 // The declarative form of Base UI's OffsetFunction (design point 2 of the positioning track, settled by the orchestrator
 // 2026-10-27), as the module reads it; the overrides are a list, so equality is written by hand (ADR 16 Amendments

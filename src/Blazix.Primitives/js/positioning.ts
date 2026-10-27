@@ -31,6 +31,7 @@ import {
   shift as floatingShift,
   size,
   type AutoUpdateOptions,
+  type Boundary,
   type Derivable,
   type Middleware,
   type MiddlewareData,
@@ -45,7 +46,16 @@ import {
 } from './floating-ui';
 import { ownerDocument, ownerWindow, styleWriter, type StyleLayer } from './dom';
 import { observeOpenInput } from './transitions';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  resolveReference,
+  type DotNetTwin,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinReferences,
+} from './twin';
 
 /** A side of the anchor, physical or logical; Base UI's `Side`. */
 export type Side = 'top' | 'bottom' | 'left' | 'right' | 'inline-end' | 'inline-start';
@@ -76,7 +86,8 @@ export interface PositioningRect {
 }
 
 // Traceability of the fields: sessionToken ADR 04 Amendments 2026-10-27 (the session, track 3); transitionStatus FLT-ANI-05;
-// triggerId FLT-POS-13, PSH; anchorId and virtualAnchor FLT-API-11, FLT-STA-07; the offsets and their function forms
+// triggerId FLT-POS-13, PSH; anchorId, anchorRef and virtualAnchor FLT-API-11, FLT-STA-07; boundaryRefs FLT-API-09 (the
+// element cases as references, ADR 04 Amendments 2026-10-27); the offsets and their function forms
 // FLT-API-12 (design point 2); sticky FLT-POS-14; disableAnchorTracking FLT-POS-11; collisionAvoidance FLT-API-10; shift
 // FLT-API-17; lazyFlip FLT-ANI-04; adaptiveOrigin FLT-DOM-04, PSH-POS-02; direction FLT-I18N-01; arrowId and arrowStyle
 // FLT-DOM-09/10 (design point 6).
@@ -94,6 +105,8 @@ export interface PositioningOptions extends TwinOptions {
   triggerId?: string | null;
   /** The id of a custom anchor element. */
   anchorId?: string | null;
+  /** The index of a custom anchor element in the references that follow the options. */
+  anchorRef?: number | null;
   /** A virtual anchor in viewport coordinates, re-sent on change. */
   virtualAnchor?: PositioningRect | null;
   /** `absolute`, the default, or `fixed`. */
@@ -114,6 +127,8 @@ export interface PositioningOptions extends TwinOptions {
   collisionBoundary?: 'clipping-ancestors' | null;
   /** A boundary rectangle in viewport coordinates. */
   boundaryRect?: PositioningRect | null;
+  /** The indexes of the boundary elements in the references that follow the options. */
+  boundaryRefs?: readonly number[] | null;
   /** One padding for every side; 5 when neither padding is given. */
   collisionPadding?: number | null;
   /** A padding per side, a missing side being 0. */
@@ -619,9 +634,10 @@ function normalizePadding(options: PositioningOptions): SideObject {
  * @param elementOrId The Positioner element, or its id.
  * @param optionsJson The `PositioningOptions` JSON.
  * @param twinReference The twin's object reference.
- * @returns The handle with `update(optionsJson)` and `dispose()`; the live handle when the element is already attached.
+ * @param initialReferences The anchor and boundary elements the options name by index, or nothing when they name none.
+ * @returns The handle with `update(optionsJson, references)` and `dispose()`; the live handle when the element is already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
+export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin, initialReferences?: TwinReferences): TwinHandle {
   const element = resolveElement(elementOrId) as AttachedElement;
   const existing = element[attachedHandle];
   if (existing) {
@@ -630,6 +646,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<PositioningOptions>(optionsJson);
+  let references = initialReferences;
   let disposed = false;
 
   const writer = styleWriter(element);
@@ -668,9 +685,10 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   const alignOffsetOf = (state: MiddlewareState): number =>
     evaluateOffset(options.alignOffsetFunction ?? options.alignOffset, getOffsetData(state, sideParam(), isRtl()));
 
-  // The position reference (FLT-STA-07, FLT-POS-13, FLT-API-11): a virtual anchor as given, a custom anchor element
-  // wrapped so its own rect is measured, else the active trigger itself (the root store's reference element).
-  const resolveReference = (): { key: unknown; value: ReferenceElement | null } => {
+  // The position reference (FLT-STA-07, FLT-POS-13, FLT-API-11): a virtual anchor as given, a custom anchor element (from
+  // the references, or by id) wrapped so its own rect is measured, else the active trigger itself (the root store's
+  // reference element).
+  const resolvePositionReference = (): { key: unknown; value: ReferenceElement | null } => {
     const doc = ownerDocument(element);
     const virtual = options.virtualAnchor;
     if (virtual) {
@@ -682,8 +700,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       const rect = { x, y, width, height, top: y, left: x, right: x + width, bottom: y + height };
       return { key, value: { getBoundingClientRect: () => ({ ...rect, toJSON: () => rect }) as DOMRect } satisfies VirtualElement };
     }
-    if (options.anchorId) {
-      const anchor = doc.getElementById(options.anchorId);
+    const anchor =
+      options.anchorRef != null
+        ? resolveReference<Element>(references, options.anchorRef)
+        : options.anchorId
+          ? doc.getElementById(options.anchorId)
+          : undefined;
+    if (anchor !== undefined) {
       if (anchor === null) {
         return { key: null, value: null };
       }
@@ -719,6 +742,26 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   };
 
+  // FLT-API-09: the boundary elements the references carry, passed to the engine as a list (the engine reads one element
+  // and a list of it alike), else the rect, else the clipping ancestors. The pipeline key names an element by a number
+  // the handle gives it, so a different element at the same index rebuilds the pipeline.
+  const elementKeys = new WeakMap<Element, number>();
+  let nextElementKey = 0;
+  const keyOf = (target: Element): number => {
+    let key = elementKeys.get(target);
+    if (key === undefined) {
+      key = nextElementKey++;
+      elementKeys.set(target, key);
+    }
+    return key;
+  };
+  const resolveBoundary = (): Boundary => {
+    if (options.boundaryRefs) {
+      return options.boundaryRefs.map((index) => resolveReference<Element>(references, index)).filter((entry): entry is Element => entry !== null);
+    }
+    return options.boundaryRect ?? 'clippingAncestors';
+  };
+
   // FLT-ALG-14: the pipeline, rebuilt only when one of its inputs changes.
   const assemble = () => {
     const isRtlValue = isRtl();
@@ -738,7 +781,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     const placementAlign = mountAlign || align;
     const nextPlacement = placementAlign === 'center' ? side : (`${side}-${placementAlign}` as Placement);
     const collisionPadding = normalizePadding(options);
-    const boundary = options.boundaryRect ?? 'clippingAncestors';
+    const boundary = resolveBoundary();
 
     const key = JSON.stringify([
       sideParam(),
@@ -752,7 +795,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       sticky,
       arrowPadding,
       collisionPadding,
-      boundary,
+      Array.isArray(boundary) ? boundary.map(keyOf) : boundary,
       isRtlValue,
       options.adaptiveOrigin ?? false,
       options.sideOffsetFunction ?? options.sideOffset ?? 0,
@@ -1054,7 +1097,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
     assemble();
     if (mounted) {
-      const resolved = resolveReference();
+      const resolved = resolvePositionReference();
       if (resolved.key !== referenceKey || resolved.value !== reference) {
         referenceKey = resolved.key;
         reference = resolved.value;
@@ -1094,11 +1137,12 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   const handle: PositioningHandle = {
-    update(nextJson: string) {
+    update(nextJson: string, nextReferences?: TwinReferences) {
       if (disposed) {
         return;
       }
       options = parseOptions<PositioningOptions>(nextJson);
+      references = nextReferences;
       writer.setConsumer(options.style);
       observe();
       refresh();

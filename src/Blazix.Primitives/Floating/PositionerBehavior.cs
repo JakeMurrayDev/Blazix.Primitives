@@ -20,8 +20,10 @@ namespace Blazix.Primitives;
 // One `update` per change of the options (value equality, ADR 04 and ADR 16 Amendments 2026-10-27). The module's report
 // is mirrored once per change: the Positioner renders again only when its side, align or anchorHidden changed, the Arrow
 // only when its side, align or uncentered changed (the render-count lesson of issue 110). The element cases of AnchorValue
-// and CollisionBoundaryValue travel through track 1's references array, which is not on main yet: until then they send
-// nothing and the popup positions against the trigger and the clipping ancestors (the rows are listed open by ID).
+// and CollisionBoundaryValue cross beside the options as references (ADR 04 Amendments 2026-10-27, element-typed option
+// values): the options carry their indexes, so an update is also sent when only an element changed. Under a Portal the
+// first attach awaits the portal's move (settled by the orchestrator 2026-10-27, the Toolbar first-attach precedent):
+// until the portal module has moved its node, the node is `display: none` in place and a pass would measure nothing.
 /// <summary>
 /// The positioning mechanism of one positioner part: its <see cref="PositioningTwin"/>, the attributes and style rendered
 /// before the first positioning pass and frozen at attach, the reading direction, the arrow's registration through
@@ -38,6 +40,7 @@ internal sealed class PositionerBehavior : IDisposable
     private PositionerInputs inputs = new();
     private PositionerMirror? mirror;
     private DirectionProviderContext? directionContext;
+    private PopupPortalContext? portal;
     private string? consumerStyle;
     private string? renderedStyle;
     private string? renderedSide;
@@ -49,6 +52,10 @@ internal sealed class PositionerBehavior : IDisposable
     private PositioningTwin? twin;
     private TwinHandle<PositioningOptions>? handle;
     private PositioningOptions? sentOptions;
+    private AnchorValue? sentAnchor;
+    private CollisionBoundaryValue? sentBoundary;
+    private ElementReference? target;
+    private string? targetId;
     private bool attaching;
     private bool dirty;
     private bool disposed;
@@ -120,6 +127,10 @@ internal sealed class PositionerBehavior : IDisposable
         directionContext?.AddListener(directionChanged);
     }
 
+    /// <summary>Sets the enclosing portal's context, whose move the first attach awaits.</summary>
+    /// <param name="context">The cascaded context, or <see langword="null"/> outside any portal.</param>
+    public void SetPortalContext(PopupPortalContext? context) => portal = context;
+
     /// <summary>Sets the inputs of this parameter set; the part's after-render sends them when they changed the options.</summary>
     /// <param name="next">The inputs.</param>
     public void SetInputs(PositionerInputs next)
@@ -181,6 +192,8 @@ internal sealed class PositionerBehavior : IDisposable
             return;
         }
 
+        target = element;
+        targetId = id;
         string? key = element?.Id ?? id;
         if (key is null || (handle is not null && !string.Equals(handle.Key, key, StringComparison.Ordinal)))
         {
@@ -203,6 +216,28 @@ internal sealed class PositionerBehavior : IDisposable
             return;
         }
 
+        Task moved = PopupPortalContext.WhenMoved(portal);
+        if (!moved.IsCompleted)
+        {
+            // A render while the move is pending only records its element; the attach below takes the latest.
+            attaching = true;
+            try
+            {
+                await moved;
+            }
+            finally
+            {
+                attaching = false;
+            }
+
+            element = target;
+            id = targetId;
+            if (disposed || handle is not null || (element?.Id ?? id) is null)
+            {
+                return;
+            }
+        }
+
         if (twin is null)
         {
             twin = new PositioningTwin(jsRuntime);
@@ -210,8 +245,8 @@ internal sealed class PositionerBehavior : IDisposable
         }
 
         dirty = false;
-        PositioningOptions options = BuildOptions();
-        sentOptions = options;
+        (PositioningOptions options, TwinReferences? references) = BuildOptions();
+        Sent(options);
 
         // Frozen from the attach call on: a render that lands before the module answers keeps the values it attached with.
         frozen = true;
@@ -221,7 +256,7 @@ internal sealed class PositionerBehavior : IDisposable
         attaching = true;
         try
         {
-            handle = element is { } attached ? await twin.AttachAsync(attached, options) : await twin.AttachAsync(id!, options);
+            handle = element is { } attached ? await twin.AttachAsync(attached, options, references) : await twin.AttachAsync(id!, options, references);
         }
         finally
         {
@@ -247,14 +282,14 @@ internal sealed class PositionerBehavior : IDisposable
         }
 
         dirty = false;
-        PositioningOptions options = BuildOptions();
-        if (options.Equals(sentOptions))
+        (PositioningOptions options, TwinReferences? references) = BuildOptions();
+        if (options.Equals(sentOptions) && Nullable.Equals(inputs.Anchor, sentAnchor) && Nullable.Equals(inputs.CollisionBoundary, sentBoundary))
         {
             return;
         }
 
-        sentOptions = options;
-        await handle.UpdateAsync(options);
+        Sent(options);
+        await handle.UpdateAsync(options, references);
         HandOverArrow(options);
     }
 
@@ -281,6 +316,10 @@ internal sealed class PositionerBehavior : IDisposable
         builder.Append(declaration);
     }
 
+    // An element reference not captured yet has no id to send: the popup positions against the trigger and the clipping
+    // ancestors, as Base UI does for an empty handle.
+    private static bool IsRendered(ElementReference element) => !string.IsNullOrEmpty(element.Id);
+
     private PositionerMirror InitialMirror() => new(inputs.Side ?? Side.Bottom, inputs.Align ?? Align.Center, false, true);
 
     private string BuildInitialStyle()
@@ -304,7 +343,8 @@ internal sealed class PositionerBehavior : IDisposable
         return builder.ToString();
     }
 
-    private PositioningOptions BuildOptions()
+    // The anchor element is the first reference and the boundary elements follow it, so their indexes are consecutive.
+    private (PositioningOptions Options, TwinReferences? References) BuildOptions()
     {
         PositionerArrowBehavior? arrow = Context.Arrow;
         AnchorValue anchor = inputs.Anchor ?? default;
@@ -312,13 +352,46 @@ internal sealed class PositionerBehavior : IDisposable
         CollisionPaddingValue padding = inputs.CollisionPadding ?? default;
         OffsetValue sideOffset = inputs.SideOffset ?? default;
         OffsetValue alignOffset = inputs.AlignOffset ?? default;
-        return new PositioningOptions
+        TwinReferences? references = null;
+        int? anchorRef = null;
+        if (anchor.TryGetValue(out ElementReference anchorElement) && IsRendered(anchorElement))
+        {
+            references = new();
+            anchorRef = references.Add(anchorElement);
+        }
+
+        PositioningIndexes? boundaryRefs = null;
+        if (boundary.TryGetValue(out ElementReference boundaryElement))
+        {
+            if (IsRendered(boundaryElement))
+            {
+                references ??= new();
+                boundaryRefs = new PositioningIndexes(references.Add(boundaryElement), 1);
+            }
+        }
+        else if (boundary.TryGetValue(out IReadOnlyList<ElementReference>? boundaryElements))
+        {
+            references ??= new();
+            int start = references.Count;
+            for (int i = 0; i < boundaryElements.Count; i++)
+            {
+                if (IsRendered(boundaryElements[i]))
+                {
+                    references.Add(boundaryElements[i]);
+                }
+            }
+
+            boundaryRefs = new PositioningIndexes(start, references.Count - start);
+        }
+
+        PositioningOptions options = new()
         {
             SessionToken = inputs.SessionToken,
             KeepMounted = inputs.KeepMounted,
             TransitionStatus = FloatingLiterals.ToLiteral(inputs.TransitionStatus),
             TriggerId = inputs.TriggerId,
             AnchorId = anchor.TryGetValue(out string? anchorId) ? anchorId : null,
+            AnchorRef = anchorRef,
             VirtualAnchor = anchor.TryGetValue(out VirtualAnchor? virtualAnchor) ? new PositioningRect(virtualAnchor.X, virtualAnchor.Y, virtualAnchor.Width, virtualAnchor.Height) : null,
             PositionMethod = FloatingLiterals.ToLiteral(inputs.PositionMethod ?? PositionMethod.Absolute),
             Side = FloatingLiterals.ToLiteral(inputs.Side ?? Side.Bottom),
@@ -329,6 +402,7 @@ internal sealed class PositionerBehavior : IDisposable
             AlignOffsetFunction = alignOffset.TryGetValue(out Offset? alignForm) ? ToOptions(alignForm) : null,
             CollisionBoundary = boundary.IsClippingAncestors ? "clipping-ancestors" : null,
             BoundaryRect = boundary.TryGetValue(out Rect? rect) ? new PositioningRect(rect.X, rect.Y, rect.Width, rect.Height) : null,
+            BoundaryRefs = boundaryRefs,
             CollisionPadding = padding.TryGetValue(out double all) ? all : null,
             CollisionPaddingSides = padding.TryGetValue(out PaddingSides? sides) ? new PositioningPadding(sides.Top, sides.Right, sides.Bottom, sides.Left) : null,
             Sticky = inputs.Sticky,
@@ -346,6 +420,16 @@ internal sealed class PositionerBehavior : IDisposable
             ArrowStyle = arrow?.ConsumerStyle,
             Style = consumerStyle,
         };
+        return (options, references);
+    }
+
+    // The anchor and boundary inputs the sent options were built from: an element that changed at the same index changes
+    // the references, not the options.
+    private void Sent(PositioningOptions options)
+    {
+        sentOptions = options;
+        sentAnchor = inputs.Anchor;
+        sentBoundary = inputs.CollisionBoundary;
     }
 
     private static PositioningOffset ToOptions(Offset offset)
@@ -390,6 +474,8 @@ internal sealed class PositionerBehavior : IDisposable
 
         handle = null;
         sentOptions = null;
+        sentAnchor = null;
+        sentBoundary = null;
         dirty = true;
         frozen = false;
         frozenStyle = null;
