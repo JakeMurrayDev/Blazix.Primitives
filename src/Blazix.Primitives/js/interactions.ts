@@ -2400,14 +2400,19 @@ function createHoverFloatingController(context: HandleContext): Controller {
     }
   };
 
-  // The relay runs before the session applies the commit, so `record.open` and the anchor are still the previous ones
-  // here: the effects re-run when the commit changes either. An emission that changes neither (the press cancel on a
-  // closed popup) runs nothing, as it re-renders nothing in Base UI.
-  const onOpenChange = (details: SessionOpenChangeDetails) => {
-    const domReference = details.open && details.triggerElement ? details.triggerElement : record.domReferenceElement;
-    const openChanged = details.open !== record.open;
-    if (openChanged || domReference !== record.domReferenceElement) {
-      runLayoutEffects(details.open, domReference, openChanged);
+  // The effects re-run once the session applied a change of `open` or of the anchor (the commit the relay brought, or an
+  // anchor that attached later), as React re-runs them after the render that changed their dependencies. A change of
+  // neither (the press cancel on a closed popup) runs nothing, as it re-renders nothing in Base UI.
+  let lastOpen = record.open;
+  let lastReference = record.domReferenceElement;
+  const onSessionApplied = () => {
+    const open = record.open;
+    const domReference = record.domReferenceElement;
+    const openChanged = open !== lastOpen;
+    if (openChanged || domReference !== lastReference) {
+      lastOpen = open;
+      lastReference = domReference;
+      runLayoutEffects(open, domReference, openChanged);
     }
   };
 
@@ -2531,7 +2536,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
     cleanup = null;
   };
 
-  record.events.on('openchange', onOpenChange);
+  const stopListening = onSessionChange(record, onSessionApplied);
   runLayoutEffects(record.open, record.domReferenceElement, true);
   install();
   return {
@@ -2547,7 +2552,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
       }
     },
     dispose() {
-      record.events.off('openchange', onOpenChange);
+      stopListening();
       uninstall();
       pointerEventsCleanup = null;
       clearPointerEvents();
