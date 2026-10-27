@@ -8,8 +8,8 @@ namespace Blazix.Primitives;
 // registers with a root, so a Toggle inside a TabsPanel does not infer composite mode (design point 6, option (a),
 // settled by the orchestrator 2026-10-26). Base UI registers with the nearest CompositeList, and a CompositeRoot is one
 // too, so a composite item inside a list inside a root registers with the list, and a list item inside a root inside a
-// list with the root's list; neither untested quirk is replicated here (design point 6b, pending the user under ADR 04
-// Amendments 2026-10-18). Cascaded fixed inside the list's element (ADR 16 rule 9, BLZX2001).
+// list with the root's list; neither untested quirk is replicated here (design point 6b, chosen by the user 2026-10-27
+// under ADR 04 Amendments 2026-10-18). Cascaded fixed inside the list's element (ADR 16 rule 9, BLZX2001).
 /// <summary>The registry a registration-only list shares with the items rendered inside it.</summary>
 internal sealed class CompositeListContext
 {
