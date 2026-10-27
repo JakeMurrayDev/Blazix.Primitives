@@ -55,7 +55,8 @@ public sealed class InteractionsTwinContractTests
                     EscapeKey = false,
                     OutsidePress = true,
                     OutsidePressEvent = new InteractionsPressEvents("intentional", "sloppy"),
-                    Bubbles = new InteractionsBubbles(true, false),
+                    BubblesEscapeKey = true,
+                    BubblesOutsidePress = false,
                     PrimaryButtonOnly = true,
                     SingleTouch = true,
                     OwnBackdropIds = ["base-ui-4", "base-ui-5"],
@@ -72,7 +73,7 @@ public sealed class InteractionsTwinContractTests
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"sessionToken":"base-ui-1","session":{"open":true,"activeTriggerId":"base-ui-2","parentToken":"base-ui-0","floatingId":"base-ui-3","ending":true,"dismiss":{"escapeKey":false,"outsidePress":true,"outsidePressEvent":{"mouse":"intentional","touch":"sloppy"},"bubbles":{"escapeKey":true,"outsidePress":false},"primaryButtonOnly":true,"singleTouch":true,"ownBackdropIds":["base-ui-4","base-ui-5"],"topmost":true}}}""",
+            """{"sessionToken":"base-ui-1","session":{"open":true,"activeTriggerId":"base-ui-2","parentToken":"base-ui-0","floatingId":"base-ui-3","ending":true,"dismiss":{"escapeKey":false,"outsidePress":true,"outsidePressEvent":{"mouse":"intentional","touch":"sloppy"},"bubblesEscapeKey":true,"bubblesOutsidePress":false,"primaryButtonOnly":true,"singleTouch":true,"ownBackdropIds":["base-ui-4","base-ui-5"],"topmost":true}}}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
@@ -171,7 +172,7 @@ public sealed class InteractionsTwinContractTests
             Session = new InteractionsSessionOptions
             {
                 Open = true,
-                Dismiss = new InteractionsDismissOptions { OwnBackdropIds = ["base-ui-4"], Bubbles = new InteractionsBubbles(null, true) },
+                Dismiss = new InteractionsDismissOptions { OwnBackdropIds = ["base-ui-4"], BubblesOutsidePress = true },
             },
         };
         InteractionsOptions second = new()
@@ -180,7 +181,7 @@ public sealed class InteractionsTwinContractTests
             Session = new InteractionsSessionOptions
             {
                 Open = true,
-                Dismiss = new InteractionsDismissOptions { OwnBackdropIds = ["base-ui-4"], Bubbles = new InteractionsBubbles(null, true) },
+                Dismiss = new InteractionsDismissOptions { OwnBackdropIds = ["base-ui-4"], BubblesOutsidePress = true },
             },
         };
 

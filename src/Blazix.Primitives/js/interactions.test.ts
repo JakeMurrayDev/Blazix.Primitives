@@ -1457,7 +1457,7 @@ describe('useDismiss', () => {
       });
 
       it('when false', () => {
-        const { outer, inner } = renderNestedDialogs({ bubbles: { outsidePress: false } }, { bubbles: { outsidePress: false } });
+        const { outer, inner } = renderNestedDialogs({ bubblesOutsidePress: false }, { bubblesOutsidePress: false });
 
         expect(outer.popup.open).toBe(true);
         expect(inner.popup.open).toBe(true);
@@ -1474,7 +1474,7 @@ describe('useDismiss', () => {
       });
 
       it('mixed', () => {
-        const { outer, inner } = renderNestedDialogs({ bubbles: { outsidePress: true } }, { bubbles: { outsidePress: false } });
+        const { outer, inner } = renderNestedDialogs({ bubblesOutsidePress: true }, { bubblesOutsidePress: false });
 
         expect(outer.popup.open).toBe(true);
         expect(inner.popup.open).toBe(true);
@@ -1527,8 +1527,8 @@ describe('useDismiss', () => {
 
       it('when true', async () => {
         await inBothModes((synchronous) => {
-          const bubbles = { escapeKey: true, outsidePress: true };
-          const { outer, inner, testButton } = renderNestedDialogs({ bubbles }, { bubbles }, synchronous);
+          const bubbles = { bubblesEscapeKey: true, bubblesOutsidePress: true };
+          const { outer, inner, testButton } = renderNestedDialogs(bubbles, bubbles, synchronous);
 
           expect(outer.popup.open).toBe(true);
           expect(inner.popup.open).toBe(true);
@@ -1545,8 +1545,8 @@ describe('useDismiss', () => {
       it('when false', async () => {
         await inBothModes((synchronous) => {
           const { outer, inner, testButton } = renderNestedDialogs(
-            { bubbles: { escapeKey: false } },
-            { bubbles: { escapeKey: false } },
+            { bubblesEscapeKey: false },
+            { bubblesEscapeKey: false },
             synchronous,
           );
 
@@ -1571,8 +1571,8 @@ describe('useDismiss', () => {
       it('mixed', async () => {
         await inBothModes((synchronous) => {
           const { outer, inner, testButton } = renderNestedDialogs(
-            { bubbles: { escapeKey: true } },
-            { bubbles: { escapeKey: false } },
+            { bubblesEscapeKey: true },
+            { bubblesEscapeKey: false },
             synchronous,
           );
 
@@ -2170,7 +2170,7 @@ describe('useDismiss', () => {
       await inBothModes((synchronous) => {
         for (const [name, consumer, prevented] of consumers) {
           const popup = harness({ open: true, synchronous, onOpenChange: (_open, details) => consumer(details) });
-          popup.attachSession({ session: { dismiss: { bubbles: { escapeKey: true } } } });
+          popup.attachSession({ session: { dismiss: { bubblesEscapeKey: true } } });
           const floating = element('div');
           popup.attachFloating(floating);
           const reachedDocument = vi.fn();
@@ -2463,7 +2463,7 @@ describe('useDismiss', () => {
 
     it('port: the session publishes its bubbles flags into the shared data while open and dismissal is on', () => {
       const popup = harness();
-      popup.attachSession({ session: { dismiss: { bubbles: { escapeKey: true, outsidePress: false } } } });
+      popup.attachSession({ session: { dismiss: { bubblesEscapeKey: true, bubblesOutsidePress: false } } });
       const data = getSession(popup.token)!.dataRef.current;
       expect(data.__escapeKeyBubbles).toBeUndefined();
 

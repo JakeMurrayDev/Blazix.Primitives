@@ -17,11 +17,12 @@
 // FloatingTreeStore.ts, FloatingTree.tsx, FloatingDelayGroup.tsx; hooks/useClick.ts, useDismiss.ts, useFocus.ts,
 // useClientPoint.ts, useHoverReferenceInteraction.ts, useHoverFloatingInteraction.ts, useHoverShared.ts,
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
+import { classifyClick, type InteractionType } from './button';
 import { decide } from './decide';
 import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
-import { attachTarget, createTwinChannel, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
+import { attachTarget, createTwinChannel, type AttachTarget, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constants
@@ -69,8 +70,10 @@ export interface DismissOptions {
   outsidePress?: boolean | null;
   /** The press type per pointer type (FLT-API-02); `sloppy` for both when absent. */
   outsidePressEvent?: { mouse?: PressType | null; touch?: PressType | null } | null;
-  /** Whether Escape and outside presses bubble through the tree (FLT-API-01); `{ escapeKey: false, outsidePress: true }` when absent. */
-  bubbles?: { escapeKey?: boolean | null; outsidePress?: boolean | null } | null;
+  /** Whether Escape bubbles through the tree (FLT-API-01); `false` when absent. */
+  bubblesEscapeKey?: boolean | null;
+  /** Whether an outside press bubbles through the tree (FLT-API-01); `true` when absent. */
+  bubblesOutsidePress?: boolean | null;
   /** Dialog's predicate: only a primary-button press dismisses. */
   primaryButtonOnly?: boolean | null;
   /** Dialog's predicate: only a single-touch press dismisses. */
@@ -1125,7 +1128,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   }
   // The innermost open popup takes the key (FLT-KEY-02): with Escape not bubbling, an open descendant in the session
   // forest that does not bubble it blocks this popup.
-  const escapeKeyBubbles = normalizeBubbles(options.bubbles).escapeKey;
+  const escapeKeyBubbles = normalizeBubbles({ escapeKey: options.bubblesEscapeKey, outsidePress: options.bubblesOutsidePress }).escapeKey;
   if (!escapeKeyBubbles && hasBlockingChild(record, '__escapeKeyBubbles')) {
     return;
   }
@@ -1273,7 +1276,7 @@ function createSessionDismissController(context: HandleContext): Controller {
     }
 
     // FLT-DIS-15.
-    const bubbles = normalizeBubbles(options.bubbles);
+    const bubbles = normalizeBubbles({ escapeKey: options.bubblesEscapeKey, outsidePress: options.bubblesOutsidePress });
     record.dataRef.current.__escapeKeyBubbles = bubbles.escapeKey;
     record.dataRef.current.__outsidePressBubbles = bubbles.outsidePress;
 
@@ -1615,7 +1618,7 @@ function createSessionDismissController(context: HandleContext): Controller {
     const options = context.options.session?.dismiss ?? null;
     state.options = options;
     state.owner = context;
-    const bubbles = normalizeBubbles(options?.bubbles);
+    const bubbles = normalizeBubbles({ escapeKey: options?.bubblesEscapeKey, outsidePress: options?.bubblesOutsidePress });
     // The effect's inputs that can change here (useDismiss.ts:754-773); the stable callbacks read `state.options`.
     const key = [record.open, options !== null, options?.escapeKey !== false, options?.outsidePress !== false, bubbles.escapeKey, bubbles.outsidePress].join();
     if (key === effectKey) {
@@ -1771,7 +1774,7 @@ function createFrameRequest(): FrameRequest {
 const PATIENT_CLICK_THRESHOLD = 500;
 
 /** How a click happened (Base UI's `InteractionType`); `''` when unknown. */
-export type PressInteractionType = 'mouse' | 'touch' | 'pen' | 'keyboard' | '';
+export type PressInteractionType = InteractionType;
 
 // Popover's patient-click window (FLT-API-06), per session: a hover open or close keeps `stickIfOpen` on for 500 ms, then
 // off; read at press time and never sent to C#. It starts when the relay brings the hover change, as the store applies it.
@@ -1820,19 +1823,9 @@ function createClickController(context: HandleContext): Controller {
 
   const clickOptions = (): ClickOptions | null => context.options.trigger?.click ?? null;
 
-  // PSH-ALG-19 (utils/useEnhancedClickHandler.ts, utils/useOpenInteractionType.ts:18-27): a click without a click count
-  // is the keyboard's, else the click's pointer type, else the last pointerdown's; iOS's empty type is touch.
-  const classify = (event: MouseEvent): PressInteractionType => {
-    let type: PressInteractionType;
-    if (event.detail === 0) {
-      type = 'keyboard';
-    } else if ('pointerType' in event && typeof (event as PointerEvent).pointerType === 'string') {
-      type = (event as PointerEvent).pointerType as PressInteractionType;
-    } else {
-      type = lastPressPointerType;
-    }
-    return type || (platform.os.ios ? 'touch' : '');
-  };
+  // PSH-ALG-19 (utils/useOpenInteractionType.ts:18-27): `button.ts`'s classification (design point 5, settled by the
+  // orchestrator 2026-10-27); iOS's empty type is touch.
+  const classify = (event: MouseEvent): PressInteractionType => classifyClick(event, lastPressPointerType) || (platform.os.ios ? 'touch' : '');
 
   const press = (nextOpen: boolean, event: MouseEvent, target: HTMLElement) => {
     const options = clickOptions();
@@ -4477,7 +4470,7 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
  * @param twinReference The twin's `DotNetObjectReference`.
  * @returns The handle.
  */
-export function attach(elementOrId: Element | string | null, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
+export function attach(elementOrId: AttachTarget, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
   const options = parseOptions<InteractionsOptions>(optionsJson);
   if (options.provider) {
     return attachProvider(options.provider.token ?? '', options, twinReference);

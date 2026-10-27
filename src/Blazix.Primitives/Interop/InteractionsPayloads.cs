@@ -1,7 +1,7 @@
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 Amendments 2026-10-27 (decision 3: every request a handle makes; the decision point press; chosen by the user
-// 2026-10-27); the payload names are design point 6 of M4 track 3 (pending the user).
+// 2026-10-27); the payload names are design point 6 of M4 track 3 (accepted by the orchestrator 2026-10-27).
 /// <summary>The payload of an open-change request the module made: a hover, focus, outside press, reference press, Escape or group close.</summary>
 /// <param name="Open">The open state requested.</param>
 /// <param name="Reason">The reason's literal, for example <c>trigger-hover</c> or <c>outside-press</c>.</param>

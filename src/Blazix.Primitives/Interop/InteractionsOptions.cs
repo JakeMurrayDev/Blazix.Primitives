@@ -4,9 +4,9 @@ namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (the interactions row) and Amendments 2026-10-27 (decision 3: the token form and the session; the relay;
 // press; Prevent; the hover timers and the delay group; Dialog's outsidePress predicates; chosen by the user
-// 2026-10-27). FLT §6.3-§6.9 name the options; design point 6 of M4 track 3 (the naming table, pending the user) maps them.
-// One record per twin with one sub-record per attaching role (the FormOptions precedent, design point 2, pending the
-// user). Every option is sent only when set; a role's hook sub-record left null turns that hook off. Records compare by
+// 2026-10-27). FLT §6.3-§6.9 name the options; design point 6 of M4 track 3 (the naming table, accepted by the
+// orchestrator 2026-10-27) maps them. One record per twin with one sub-record per attaching role (the FormOptions
+// precedent; design point 2, settled by the orchestrator 2026-10-27). Every option is sent only when set; a role's hook sub-record left null turns that hook off. Records compare by
 // value, so an unchanged render sends nothing (ADR 16 rule 7). The relay member arrives with track 1's record.
 /// <summary>
 /// The options of the <c>interactions</c> module, sent on <c>attach</c> and on every <c>update</c>. Exactly one role is set
@@ -80,9 +80,13 @@ internal sealed record InteractionsDismissOptions
     /// <value>The press types, or <see langword="null"/> for <c>sloppy</c> on both.</value>
     public InteractionsPressEvents? OutsidePressEvent { get; init; }
 
-    /// <summary>Gets whether Escape and outside presses also reach the enclosing popups.</summary>
-    /// <value>The flags, or <see langword="null"/> for Escape not bubbling and outside presses bubbling.</value>
-    public InteractionsBubbles? Bubbles { get; init; }
+    /// <summary>Gets a value indicating whether Escape also reaches the enclosing popups.</summary>
+    /// <value><see langword="true"/> to let it bubble; <see langword="null"/>, the default, does not.</value>
+    public bool? BubblesEscapeKey { get; init; }
+
+    /// <summary>Gets a value indicating whether an outside press also reaches the enclosing popups.</summary>
+    /// <value><see langword="false"/> to keep it; <see langword="null"/>, the default, lets it bubble.</value>
+    public bool? BubblesOutsidePress { get; init; }
 
     /// <summary>Gets a value indicating whether only a primary-button press outside dismisses.</summary>
     /// <value><see langword="true"/> for a dialog; the default <see langword="false"/> is not sent.</value>
@@ -109,25 +113,21 @@ internal sealed record InteractionsDismissOptions
         && EscapeKey == other.EscapeKey
         && OutsidePress == other.OutsidePress
         && Equals(OutsidePressEvent, other.OutsidePressEvent)
-        && Equals(Bubbles, other.Bubbles)
+        && BubblesEscapeKey == other.BubblesEscapeKey
+        && BubblesOutsidePress == other.BubblesOutsidePress
         && PrimaryButtonOnly == other.PrimaryButtonOnly
         && SingleTouch == other.SingleTouch
         && Topmost == other.Topmost
         && (ReferenceEquals(OwnBackdropIds, other.OwnBackdropIds) || (OwnBackdropIds is not null && other.OwnBackdropIds is not null && OwnBackdropIds.SequenceEqual(other.OwnBackdropIds, StringComparer.Ordinal)));
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(EscapeKey, OutsidePress, OutsidePressEvent, Bubbles, PrimaryButtonOnly, SingleTouch, Topmost);
+    public override int GetHashCode() => HashCode.Combine(EscapeKey, OutsidePress, OutsidePressEvent, BubblesEscapeKey, BubblesOutsidePress, PrimaryButtonOnly, SingleTouch, Topmost);
 }
 
 /// <summary>The press type an outside press is read as: <c>intentional</c> (a click whose press began inside the open popup's lifetime) or <c>sloppy</c> (the press itself).</summary>
 /// <param name="Mouse">The press type for mouse and pen presses, or <see langword="null"/> for <c>sloppy</c>.</param>
 /// <param name="Touch">The press type for touch presses, or <see langword="null"/> for <c>sloppy</c>.</param>
 internal sealed record InteractionsPressEvents(string? Mouse, string? Touch);
-
-/// <summary>Whether a dismissal also reaches the enclosing popups.</summary>
-/// <param name="EscapeKey">Whether Escape bubbles, or <see langword="null"/> for not.</param>
-/// <param name="OutsidePress">Whether an outside press bubbles, or <see langword="null"/> for yes.</param>
-internal sealed record InteractionsBubbles(bool? EscapeKey, bool? OutsidePress);
 
 /// <summary>The options of a trigger: its id and the hooks that run on it.</summary>
 internal sealed record InteractionsTriggerOptions

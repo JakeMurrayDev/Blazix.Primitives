@@ -8,7 +8,7 @@ The C# half of FLT (`docs/architecture/floating-and-positioning.md`): the behavi
 
 - FLT §4.1–§4.10, §5.3 and §6.3–§6.9 (the options); PSH-STA-33 (the trigger map), PSH-PTR-01/02 and PSH-ALG-19 (the open interaction type).
 - ADR 04 Amendments 2026-10-27 (chosen by the user 2026-10-27): the token form of `attach` and the per-popup session, the relay, `press`, the verdict `Prevent` at `escape`, the hover timers and the delay group, Dialog's `outsidePress` predicates. ADR 01 relaxation rows "C#-origin consumer vetoes", "EVD-EVT-11, EVD-DIS-01, FLT-KEY-01", "EVD-EVT-18, PSH-ANI-03". ADR 02 Amendments 2026-10-21 (`ForwardsConsumerHandler`, the decline-and-run gate with the one-shot marker). ADR 05 §2 (the open-change sequence the family's store runs). ADR 16 rules 6 and 7.
-- Design points of M4 track 3: 1 (the token form), 2 (the roles), 5 (the press payload), 6 (the names) pending the user; 8 settled.
+- Design points of M4 track 3: 1 (the token form), 2 (the roles), 5 (the press payload), 8 (`Floating/`) and 9 settled by the orchestrator 2026-10-27, and 6 (the names) accepted the same day, each as recommended (ADR 04 Amendments 2026-10-27).
 
 ### Job
 
