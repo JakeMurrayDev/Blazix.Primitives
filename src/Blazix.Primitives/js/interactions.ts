@@ -17,8 +17,8 @@
 // FloatingTreeStore.ts, FloatingTree.tsx, FloatingDelayGroup.tsx; hooks/useClick.ts, useDismiss.ts, useFocus.ts,
 // useClientPoint.ts, useHoverReferenceInteraction.ts, useHoverFloatingInteraction.ts, useHoverShared.ts,
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
-import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
 import { decide } from './decide';
+import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
 import { attachTarget, createTwinChannel, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
@@ -966,21 +966,772 @@ interface Controller {
 // ---------------------------------------------------------------------------------------------------------------
 // #region dismiss: useDismiss (FLT-DIS-01..16, FLT-KEY-01..03, FLT-PTR-26..30, FLT-ALG-17) and the `escape` point
 // ---------------------------------------------------------------------------------------------------------------
+// Transcribed from hooks/useDismiss.ts. The hook's refs live in the session's `dismiss` slot, shared by its three
+// halves: the session handle (the document listeners, the options, the published bubbling flags), the floating handle
+// (the floating prop bag) and each trigger handle (the reference prop bag). The options are the session's; a `null`
+// `dismiss` is Base UI's `enabled: false`. Escape asks `escape` on the session's twin before it acts (ADR 04
+// Amendments 2026-10-27, the verdict `Prevent`); Dialog's `outsidePress` function is the four data predicates.
 
-/** The session's half: the document listeners for Escape and outside presses. */
-function createSessionDismissController(_context: HandleContext): Controller {
-  void sessionSlot;
-  return { dispose() {} };
+// FLT-DIS-06: `createAttribute('inert')`, the marker the focus manager's outside marking writes (useDismiss.ts:405).
+const INERT_MARKER_SELECTOR = '[data-base-ui-inert]';
+// The portal node's attribute, read by Dialog's backdrop predicate (dialog/root/useDialogRoot.ts:72-76).
+const PORTAL_ATTRIBUTE = 'data-base-ui-portal';
+
+// One close per keydown (FLT §10 Q11, POP §16 Q7; the js/button.ts precedent): the tokens of the sessions that asked
+// `escape` for a keydown, so a session's document listener skips a keydown its floating or reference listener handled.
+const escapeHandled = Symbol('blazix.interactions.escapeHandled');
+
+interface EscapeMarkedEvent extends KeyboardEvent {
+  [escapeHandled]?: Set<string>;
 }
 
-/** The floating element's half: the inside-press marks and the floating `keydown`. */
-function createFloatingDismissController(_context: HandleContext): Controller {
-  return { dispose() {} };
+// useDismiss.ts:151-157.
+/** The touch an outside `touchstart` records. */
+interface DismissTouchState {
+  startTime: number;
+  startX: number;
+  startY: number;
+  dismissOnTouchEnd: boolean;
+  dismissOnMouseDown: boolean;
 }
 
-/** The trigger's half: the reference press and the reference `keydown`. */
-function createReferenceDismissController(_context: HandleContext): Controller {
-  return { dispose() {} };
+/** What `useDismiss` keeps in refs for one popup, shared by the session's three dismissal halves. */
+interface DismissState {
+  /** The options the session handle last received; `null` while dismissal is off or no session handle is attached. */
+  options: DismissOptions | null;
+  /** The session handle's context that stored `options`. */
+  owner: HandleContext | null;
+  pressStartedInside: boolean;
+  pressStartPrevented: boolean;
+  /** Ignore only the very next outside click after dragging from inside to outside. */
+  suppressNextOutsideClick: boolean;
+  /** A click whose press began before the popup opened is the tail of that gesture, not an outside press. */
+  sawPressWhileOpen: boolean;
+  isComposing: boolean;
+  currentPointerType: string;
+  touchState: DismissTouchState | null;
+  /** Whether a close was requested and the relay has not brought the next open since. */
+  disarmed: boolean;
+  cancelDismissOnEndTimeout: Timer;
+  clearInsideReactTreeTimeout: Timer;
+  /** Outlives the listeners' re-installs, so a pending reset cannot leave `isComposing` stuck. */
+  compositionTimeout: Timer;
+}
+
+function dismissState(record: SessionRecord): DismissState {
+  return sessionSlot(record, 'dismiss', () => ({
+    options: null,
+    owner: null,
+    pressStartedInside: false,
+    pressStartPrevented: false,
+    suppressNextOutsideClick: false,
+    sawPressWhileOpen: false,
+    isComposing: false,
+    currentPointerType: '',
+    touchState: null,
+    disarmed: false,
+    cancelDismissOnEndTimeout: createTimer(),
+    clearInsideReactTreeTimeout: createTimer(),
+    compositionTimeout: createTimer(),
+  }));
+}
+
+/**
+ * Normalizes the bubbling flags of a dismissal: a boolean applies to both keys; otherwise Escape does not bubble and
+ * outside presses do, unless a key says otherwise.
+ * @param bubbles The option.
+ * @returns The two flags.
+ */
+export function normalizeBubbles(
+  bubbles?: boolean | { escapeKey?: boolean | null | undefined; outsidePress?: boolean | null | undefined } | null,
+): { escapeKey: boolean; outsidePress: boolean } {
+  return {
+    escapeKey: typeof bubbles === 'boolean' ? bubbles : (bubbles?.escapeKey ?? false),
+    outsidePress: typeof bubbles === 'boolean' ? bubbles : (bubbles?.outsidePress ?? true),
+  };
+}
+
+// useDismiss.ts:164-167.
+function clearInsideReactTree(record: SessionRecord): void {
+  dismissState(record).clearInsideReactTreeTimeout.clear();
+  record.dataRef.current.insideReactTree = false;
+}
+
+// useDismiss.ts:234-237 (FLT-DIS-12).
+function markInsideReactTree(record: SessionRecord): void {
+  record.dataRef.current.insideReactTree = true;
+  dismissState(record).clearInsideReactTreeTimeout.start(0, () => clearInsideReactTree(record));
+}
+
+// useDismiss.ts:239-258 (FLT-DIS-12).
+function markPressStartedInsideReactTree(record: SessionRecord, event: MouseEvent): void {
+  const state = dismissState(record);
+  if (!record.open || event.button !== 0) {
+    return;
+  }
+  // Only presses that start within the floating DOM subtree are inside, so nested portals do not suppress the parent.
+  if (!contains(record.floatingElement, getTarget(event) as Element | null)) {
+    return;
+  }
+  if (!state.pressStartedInside) {
+    state.pressStartedInside = true;
+    state.pressStartPrevented = false;
+  }
+}
+
+// useDismiss.ts:260-274 (FLT-DIS-13).
+function markInsidePressStartPrevented(record: SessionRecord, event: MouseEvent): void {
+  const state = dismissState(record);
+  if (!record.open || !event.defaultPrevented) {
+    return;
+  }
+  if (state.pressStartedInside) {
+    state.pressStartPrevented = true;
+  }
+}
+
+// useDismiss.ts:169-178 (FLT-KEY-02, FLT-DIS-10): an open descendant in the session forest that does not bubble.
+function hasBlockingChild(record: SessionRecord, bubbleKey: '__escapeKeyBubbles' | '__outsidePressBubbles'): boolean {
+  const nodeId = record.dataRef.current.floatingContext?.nodeId;
+  const children = getNodeChildren(record.tree.nodesRef.current, nodeId);
+  return children.some((child) => child.context?.open && !child.context.dataRef?.current[bubbleKey]);
+}
+
+// useDismiss.ts:180-185.
+function isEventWithinOwnElements(record: SessionRecord, event: Event): boolean {
+  return isEventTargetWithin(event, record.floatingElement) || isEventTargetWithin(event, record.domReferenceElement);
+}
+
+/**
+ * Closes the popup on Escape: an open, enabled, not composing popup with no open descendant that keeps Escape asks
+ * `escape` on its session's twin, then prevents and stops the keydown as the verdict says (never stopping it when
+ * Escape bubbles), and on Server reports the close itself. A keydown this session already handled, or a second Escape
+ * before the next open arrives, is left alone.
+ */
+function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
+  const state = dismissState(record);
+  const options = state.options;
+  if (!record.open || options === null || options.escapeKey === false || event.key !== 'Escape') {
+    return;
+  }
+  const handled = (event as EscapeMarkedEvent)[escapeHandled];
+  if (handled?.has(record.token)) {
+    return;
+  }
+  // Wait until IME is settled: Escape while composing closes the compose menu, not the popup. The flag covers Safari,
+  // which fires `compositionend` before `keydown`; `isComposing` covers compositions that began while closed.
+  if (state.isComposing || event.isComposing) {
+    return;
+  }
+  // The innermost open popup takes the key (FLT-KEY-02): with Escape not bubbling, an open descendant in the session
+  // forest that does not bubble it blocks this popup.
+  const escapeKeyBubbles = normalizeBubbles(options.bubbles).escapeKey;
+  if (!escapeKeyBubbles && hasBlockingChild(record, '__escapeKeyBubbles')) {
+    return;
+  }
+  const channel = record.channel;
+  if (channel === null || state.disarmed) {
+    return;
+  }
+  if (handled) {
+    handled.add(record.token);
+  } else {
+    (event as EscapeMarkedEvent)[escapeHandled] = new Set([record.token]);
+  }
+  // On WebAssembly C# requests the close inside the decider; the pending request pairs the relay with this keydown.
+  if (channel.synchronous) {
+    record.pending = { open: false, reason: 'escape-key', event };
+  }
+  const verdict = decide(channel, ESCAPE_POINT, event, 'prevent-and-stop');
+  if (!channel.lastDecisionWasSynchronous) {
+    requestOpenChange(record, channel, false, 'escape-key', event);
+  }
+  const accepted = verdict === 'prevent-and-stop' || verdict === 'prevent';
+  if (accepted) {
+    event.preventDefault();
+  }
+  if (!escapeKeyBubbles && (verdict === 'prevent-and-stop' || verdict === 'stop')) {
+    event.stopPropagation();
+  }
+  // A close is pending until the relay brings it; a cancel the verdict reports leaves the session armed.
+  if (accepted) {
+    state.disarmed = true;
+  }
+}
+
+// Dialog's `outsidePress` function (dialog/root/useDialogRoot.ts:43-80) as data: each predicate set narrows the presses
+// that dismiss; with none set every press passes, as without a function.
+function passesOutsidePressGuard(record: SessionRecord, event: MouseEvent | PointerEvent | TouchEvent): boolean {
+  const options = dismissState(record).options;
+  if (options === null) {
+    return true;
+  }
+  // For mouse events, only the left button.
+  if (options.primaryButtonOnly === true && 'button' in event && event.button !== 0) {
+    return false;
+  }
+  // A single touch is the left button; on `touchend`, exactly one touch ended and no other finger is still down.
+  if (options.singleTouch === true && 'touches' in event) {
+    if (event.type === 'touchend') {
+      if (event.changedTouches.length !== 1 || event.touches.length !== 0) {
+        return false;
+      }
+    } else if (event.touches.length !== 1) {
+      return false;
+    }
+  }
+  if (options.topmost === true && !isTopmostOpenSession(record)) {
+    return false;
+  }
+  // Only a press on one of the popup's own backdrops, or on an ancestor of the popup other than a portal node.
+  const backdropIds = options.ownBackdropIds;
+  if (backdropIds != null && backdropIds.length > 0) {
+    const target = getTarget(event);
+    if (!isElement(target)) {
+      return false;
+    }
+    return (target.id !== '' && backdropIds.includes(target.id)) || (contains(target, record.floatingElement) && !target.hasAttribute(PORTAL_ATTRIBUTE));
+  }
+  return true;
+}
+
+function nodeNameOf(node: Node): string {
+  return (node.nodeName || '').toLowerCase();
+}
+
+function isShadowRootNode(value: unknown): value is ShadowRoot {
+  return typeof ShadowRoot !== 'undefined' && value instanceof ownerWindow(value as Node).ShadowRoot;
+}
+
+// @floating-ui/utils/dom's isLastTraversableNode and getParentNode.
+function isLastTraversableNode(node: Node): boolean {
+  return /^(html|body|#document)$/.test(nodeNameOf(node));
+}
+
+function getParentNodeOf(node: Node): Node {
+  if (nodeNameOf(node) === 'html') {
+    return node;
+  }
+  const result: Node =
+    (node as Element).assignedSlot || node.parentNode || (isShadowRootNode(node) ? node.host : null) || ownerDocument(node).documentElement;
+  return isShadowRootNode(result) ? result.host : result;
+}
+
+function addTargetEventListenerOnce<E extends Event>(event: E, listener: (event: E) => void): void {
+  const target = getTarget(event);
+  if (!target) {
+    return;
+  }
+  const unsubscribe = listen(target, event.type, () => {
+    listener(event);
+    unsubscribe();
+  });
+}
+
+/**
+ * The session's half: while the popup is open and dismissal is on, listens on the document for Escape, compositions
+ * and outside presses, and publishes the bubbling flags for the enclosing popups to read.
+ */
+function createSessionDismissController(context: HandleContext): Controller {
+  const { record } = context;
+  const state = dismissState(record);
+  let effectKey: string | null = null;
+  let effectCleanup: Cleanup | null = null;
+
+  // A new hook instance starts with fresh refs.
+  state.pressStartedInside = false;
+  state.pressStartPrevented = false;
+  state.suppressNextOutsideClick = false;
+  state.sawPressWhileOpen = false;
+  state.isComposing = false;
+  state.currentPointerType = '';
+  state.touchState = null;
+  state.disarmed = false;
+
+  // FLT-DIS-14: a same-batch close and reopen never renders closed, so only `openchange` observes that boundary; only
+  // the closing half ends it, since a redundant open (hovering an inactive trigger) must not drop a press mid-gesture.
+  const onOpenChange = (details: SessionOpenChangeDetails) => {
+    if (!details.open) {
+      state.sawPressWhileOpen = false;
+    } else {
+      // The relay brought the next open: the session may request a close again.
+      state.disarmed = false;
+    }
+  };
+
+  // useDismiss.ts:297-753: Base UI's effect, re-run when one of its inputs changes.
+  const install = (options: DismissOptions | null): Cleanup => {
+    if (!record.open || options === null) {
+      // Reset in the effect body, not the cleanup, which also runs when a dependency changes mid-gesture.
+      if (!record.open) {
+        state.sawPressWhileOpen = false;
+        state.isComposing = false;
+        state.currentPointerType = '';
+        state.touchState = null;
+      }
+      return () => clearInsideReactTree(record);
+    }
+
+    // FLT-DIS-15.
+    const bubbles = normalizeBubbles(options.bubbles);
+    record.dataRef.current.__escapeKeyBubbles = bubbles.escapeKey;
+    record.dataRef.current.__outsidePressBubbles = bubbles.outsidePress;
+
+    const preventedPressSuppressionTimeout = createTimer();
+    const doc = ownerDocument(record.floatingElement);
+
+    function handleCompositionStart() {
+      state.compositionTimeout.clear();
+      state.isComposing = true;
+    }
+
+    function handleCompositionEnd() {
+      // Safari fires `compositionend` before `keydown`, so `isComposing` clears on the next tick (5 ms on WebKit, where
+      // 0 or 1 ms do not work). Set here too: closing resets it while a composition can continue into the next open.
+      state.isComposing = true;
+      state.compositionTimeout.start(platform.engine.webkit ? 5 : 0, () => {
+        state.isComposing = false;
+      });
+    }
+
+    function suppressImmediateOutsideClickAfterPreventedStart() {
+      state.suppressNextOutsideClick = true;
+      // Firefox can emit the synthetic outside click in a later task after pointer lock exit.
+      preventedPressSuppressionTimeout.start(0, () => {
+        state.suppressNextOutsideClick = false;
+      });
+    }
+
+    function resetPressStartState() {
+      state.pressStartedInside = false;
+      state.pressStartPrevented = false;
+    }
+
+    // FLT-API-02: resolved at each event; `touch` selects the touch type, any other pointer type the mouse type.
+    function getOutsidePressEvent(): PressType {
+      const type = state.currentPointerType;
+      const computedType = type === 'pen' || !type ? 'mouse' : type;
+      const value = state.options?.outsidePressEvent;
+      return (computedType === 'touch' ? value?.touch : value?.mouse) ?? 'sloppy';
+    }
+
+    // FLT-DIS-03.
+    function shouldIgnoreEvent(event: Event) {
+      const computedOutsidePressEvent = getOutsidePressEvent();
+      return (computedOutsidePressEvent === 'intentional' && event.type !== 'click') || (computedOutsidePressEvent === 'sloppy' && event.type === 'click');
+    }
+
+    // FLT-DIS-08.
+    function isEventWithinFloatingTree(event: Event) {
+      const nodeId = record.dataRef.current.floatingContext?.nodeId;
+      const targetIsInsideChildren = getNodeChildren(record.tree.nodesRef.current, nodeId).some((node) =>
+        isEventTargetWithin(event, node.context?.elements?.floating),
+      );
+      return isEventWithinOwnElements(record, event) || targetIsInsideChildren;
+    }
+
+    // FLT-ALG-17.
+    function closeOnPressOutside(event: MouseEvent | PointerEvent | TouchEvent) {
+      if (shouldIgnoreEvent(event)) {
+        // A new press began outside the floating element and its trigger: clear any leftover drag-out suppression so
+        // this press's eventual click can dismiss.
+        if (event.type !== 'click' && !isEventWithinOwnElements(record, event)) {
+          preventedPressSuppressionTimeout.clear();
+          state.suppressNextOutsideClick = false;
+        }
+        clearInsideReactTree(record);
+        return;
+      }
+
+      // FLT-DIS-04.
+      if (record.dataRef.current.insideReactTree) {
+        clearInsideReactTree(record);
+        return;
+      }
+
+      const target = getTarget(event);
+      const targetRoot = isElement(target) ? target.getRootNode() : null;
+      const markers = Array.from(
+        (isShadowRootNode(targetRoot) ? targetRoot : ownerDocument(record.floatingElement)).querySelectorAll(INERT_MARKER_SELECTOR),
+      );
+
+      // FLT-DIS-05: a press on another trigger does not close the popup.
+      const triggers = record.triggerElements;
+      if (isElement(target) && (triggers.hasElement(target) || triggers.hasMatchingElement((trigger) => contains(trigger, target)))) {
+        return;
+      }
+
+      let targetRootAncestor = isElement(target) ? target : null;
+      while (targetRootAncestor && !isLastTraversableNode(targetRootAncestor)) {
+        const nextParent = getParentNodeOf(targetRootAncestor);
+        if (isLastTraversableNode(nextParent) || !isElement(nextParent)) {
+          break;
+        }
+        targetRootAncestor = nextParent;
+      }
+
+      // FLT-DIS-06: a press on a third-party element injected after the floating element rendered.
+      if (
+        markers.length &&
+        isElement(target) &&
+        !isRootElement(target) &&
+        // A press on a direct ancestor (an overlay) is not one.
+        !contains(target, record.floatingElement) &&
+        // The target's top-level ancestor contains none of the markers: it was injected after the popup opened.
+        markers.every((marker) => !contains(targetRootAncestor, marker))
+      ) {
+        return;
+      }
+
+      // FLT-DIS-07, FLT-I18N-04: a press on the target's scrollbar. Touch is skipped: scrollbars get no touch events on
+      // most platforms.
+      if (isHTMLElement(target) && !('touches' in event)) {
+        const lastTraversableNode = isLastTraversableNode(target);
+        const style = ownerWindow(target).getComputedStyle(target);
+        const scrollRe = /auto|scroll/;
+        const isScrollableX = lastTraversableNode || scrollRe.test(style.overflowX);
+        const isScrollableY = lastTraversableNode || scrollRe.test(style.overflowY);
+        const canScrollX = isScrollableX && target.clientWidth > 0 && target.scrollWidth > target.clientWidth;
+        const canScrollY = isScrollableY && target.clientHeight > 0 && target.scrollHeight > target.clientHeight;
+        const isRTL = style.direction === 'rtl';
+        // A body or window scrollbar on the left side is rare and not checked; a backdrop matters more.
+        const pressedVerticalScrollbar =
+          canScrollY && (isRTL ? event.offsetX <= target.offsetWidth - target.clientWidth : event.offsetX > target.clientWidth);
+        const pressedHorizontalScrollbar = canScrollX && event.offsetY > target.clientHeight;
+        if (pressedVerticalScrollbar || pressedHorizontalScrollbar) {
+          return;
+        }
+      }
+
+      if (isEventWithinFloatingTree(event)) {
+        return;
+      }
+
+      // Only `click` events reach this point in intentional mode (FLT-PTR-28, FLT-A11Y-05).
+      if (getOutsidePressEvent() === 'intentional') {
+        // Press-less clicks (keyboard, assistive technology, `element.click()`) report no click count; `isVirtualClick`
+        // also catches the ones that do.
+        if ((event as MouseEvent).detail !== 0 && !isVirtualClick(event as MouseEvent) && !state.sawPressWhileOpen) {
+          return;
+        }
+        // A press that starts inside and ends outside gets one suppressed outside click (FLT-PTR-29). Checked after the
+        // inside-target checks so inside clicks do not consume it.
+        if (state.suppressNextOutsideClick) {
+          preventedPressSuppressionTimeout.clear();
+          state.suppressNextOutsideClick = false;
+          return;
+        }
+      }
+
+      // FLT-DIS-09.
+      if (!passesOutsidePressGuard(record, event)) {
+        return;
+      }
+
+      // FLT-DIS-10.
+      if (hasBlockingChild(record, '__outsidePressBubbles')) {
+        return;
+      }
+
+      // FLT-DIS-11. The disarm (ADR 04 Amendments 2026-10-27): one close request until the relay brings the next open,
+      // so a press's compatibility `mousedown` does not request again before the commit arrives.
+      if (!state.disarmed) {
+        requestOpenChange(record, context.channel, false, 'outside-press', event);
+        state.disarmed = true;
+      }
+      clearInsideReactTree(record);
+    }
+
+    // FLT-PTR-26.
+    function handlePointerDown(event: PointerEvent) {
+      if (getOutsidePressEvent() !== 'sloppy' || event.pointerType === 'touch' || !record.open || isEventWithinOwnElements(record, event)) {
+        return;
+      }
+      closeOnPressOutside(event);
+    }
+
+    // FLT-PTR-27.
+    function handleTouchStart(event: TouchEvent) {
+      if (getOutsidePressEvent() !== 'sloppy' || !record.open || isEventWithinOwnElements(record, event)) {
+        return;
+      }
+      const touch = event.touches[0];
+      if (touch) {
+        state.touchState = {
+          startTime: Date.now(),
+          startX: touch.clientX,
+          startY: touch.clientY,
+          dismissOnTouchEnd: false,
+          dismissOnMouseDown: true,
+        };
+        state.cancelDismissOnEndTimeout.start(1000, () => {
+          if (state.touchState) {
+            state.touchState.dismissOnTouchEnd = false;
+            state.touchState.dismissOnMouseDown = false;
+          }
+        });
+      }
+    }
+
+    function handleTouchStartCapture(event: TouchEvent) {
+      state.currentPointerType = 'touch';
+      addTargetEventListenerOnce(event, handleTouchStart);
+    }
+
+    // FLT-DIS-02: the capture listener only records; the decision runs on the target, after its own handlers and the
+    // floating element's capture handlers.
+    function closeOnPressOutsideCapture(event: PointerEvent | MouseEvent) {
+      state.cancelDismissOnEndTimeout.clear();
+      // Only `pointerdown` marks a press; `mousedown` is its compatibility event, and counting it would misattribute a
+      // gesture that started before open.
+      if (event.type === 'pointerdown') {
+        // Only a primary press can produce a `click`.
+        if (event.button === 0) {
+          state.sawPressWhileOpen = true;
+        }
+        state.currentPointerType = (event as PointerEvent).pointerType;
+      }
+      if (event.type === 'mousedown' && state.touchState && !state.touchState.dismissOnMouseDown) {
+        return;
+      }
+      addTargetEventListenerOnce(event, (targetEvent) => {
+        if (targetEvent.type === 'pointerdown') {
+          handlePointerDown(targetEvent as PointerEvent);
+        } else {
+          closeOnPressOutside(targetEvent as MouseEvent);
+        }
+      });
+    }
+
+    // FLT-PTR-28, FLT-PTR-29.
+    function handlePressEndCapture(event: PointerEvent | MouseEvent) {
+      // A cancelled gesture produces no click. Not cleared on `pointerup`: the click fires after it.
+      if (event.type === 'pointercancel') {
+        state.sawPressWhileOpen = false;
+      }
+      if (!state.pressStartedInside) {
+        return;
+      }
+      const pressStartedInsideDefaultPrevented = state.pressStartPrevented;
+      resetPressStartState();
+      if (getOutsidePressEvent() !== 'intentional') {
+        return;
+      }
+      if (event.type === 'pointercancel') {
+        if (pressStartedInsideDefaultPrevented) {
+          suppressImmediateOutsideClickAfterPreventedStart();
+        }
+        return;
+      }
+      if (isEventWithinFloatingTree(event)) {
+        return;
+      }
+      // A prevented pointerdown may generate no click, but Firefox may still emit one right after pointerup (a scrub
+      // with pointer lock): suppress for one tick to absorb that synthetic click only.
+      if (pressStartedInsideDefaultPrevented) {
+        suppressImmediateOutsideClickAfterPreventedStart();
+        return;
+      }
+      // Avoid suppressing when the guard ignores this target.
+      if (!passesOutsidePressGuard(record, event)) {
+        return;
+      }
+      preventedPressSuppressionTimeout.clear();
+      state.suppressNextOutsideClick = true;
+      clearInsideReactTree(record);
+    }
+
+    function handleTouchMove(event: TouchEvent) {
+      if (getOutsidePressEvent() !== 'sloppy' || !state.touchState || isEventWithinOwnElements(record, event)) {
+        return;
+      }
+      const touch = event.touches[0];
+      if (!touch) {
+        return;
+      }
+      const deltaX = Math.abs(touch.clientX - state.touchState.startX);
+      const deltaY = Math.abs(touch.clientY - state.touchState.startY);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      if (distance > 5) {
+        state.touchState.dismissOnTouchEnd = true;
+      }
+      if (distance > 10) {
+        closeOnPressOutside(event);
+        state.cancelDismissOnEndTimeout.clear();
+        state.touchState = null;
+      }
+    }
+
+    function handleTouchMoveCapture(event: TouchEvent) {
+      addTargetEventListenerOnce(event, handleTouchMove);
+    }
+
+    function handleTouchEnd(event: TouchEvent) {
+      if (getOutsidePressEvent() !== 'sloppy' || !state.touchState || isEventWithinOwnElements(record, event)) {
+        return;
+      }
+      if (state.touchState.dismissOnTouchEnd) {
+        closeOnPressOutside(event);
+      }
+      state.cancelDismissOnEndTimeout.clear();
+      state.touchState = null;
+    }
+
+    function handleTouchEndCapture(event: TouchEvent) {
+      addTargetEventListenerOnce(event, handleTouchEnd);
+    }
+
+    // FLT-DIS-01, FLT-DIS-16.
+    const unsubscribe = mergeCleanups(
+      options.escapeKey !== false &&
+        mergeCleanups(
+          listen(doc, 'keydown', (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event)),
+          listen(doc, 'compositionstart', handleCompositionStart),
+          listen(doc, 'compositionend', handleCompositionEnd),
+        ),
+      options.outsidePress !== false &&
+        mergeCleanups(
+          listen(doc, 'click', closeOnPressOutsideCapture, true),
+          listen(doc, 'pointerdown', closeOnPressOutsideCapture, true),
+          listen(doc, 'pointerup', handlePressEndCapture, true),
+          listen(doc, 'pointercancel', handlePressEndCapture, true),
+          listen(doc, 'mousedown', closeOnPressOutsideCapture, true),
+          listen(doc, 'mouseup', handlePressEndCapture, true),
+          listen(doc, 'touchstart', handleTouchStartCapture, { capture: true, passive: true }),
+          listen(doc, 'touchmove', handleTouchMoveCapture, { capture: true, passive: true }),
+          listen(doc, 'touchend', handleTouchEndCapture, { capture: true, passive: true }),
+        ),
+    );
+
+    return () => {
+      unsubscribe();
+      preventedPressSuppressionTimeout.clear();
+      resetPressStartState();
+      state.suppressNextOutsideClick = false;
+    };
+  };
+
+  const sync = () => {
+    const options = context.options.session?.dismiss ?? null;
+    state.options = options;
+    state.owner = context;
+    const bubbles = normalizeBubbles(options?.bubbles);
+    // The effect's inputs that can change here (useDismiss.ts:754-773); the stable callbacks read `state.options`.
+    const key = [record.open, options !== null, options?.escapeKey !== false, options?.outsidePress !== false, bubbles.escapeKey, bubbles.outsidePress].join();
+    if (key === effectKey) {
+      return;
+    }
+    effectKey = key;
+    effectCleanup?.();
+    effectCleanup = install(options);
+  };
+
+  record.events.on('openchange', onOpenChange);
+  sync();
+
+  return {
+    update: sync,
+    dispose() {
+      record.events.off('openchange', onOpenChange);
+      effectCleanup?.();
+      effectCleanup = null;
+      effectKey = null;
+      // Not cleared by the listeners' cleanup, which can run mid-press; in a closed shadow root the marker is the only
+      // inside-press signal (useDismiss.ts:293-295).
+      clearInsideReactTree(record);
+      state.cancelDismissOnEndTimeout.clear();
+      state.compositionTimeout.clear();
+      if (state.owner === context) {
+        state.options = null;
+        state.owner = null;
+      }
+    },
+  };
+}
+
+/**
+ * The floating element's half: Escape on the floating element, and the inside-press marks of its capture and bubble
+ * handlers, run for its session and for every enclosing session.
+ */
+function createFloatingDismissController(context: HandleContext): Controller {
+  const { record } = context;
+  const element = context.element as HTMLElement;
+
+  // React's synthetic events bubble through the React tree across portals, so a press inside a nested popup's floating
+  // element also runs the floating handlers of every enclosing popup (each Popover Root has its own FloatingTree in
+  // Base UI). The forest stands in: the handlers run for this session and its ancestors by `parentToken`, each one
+  // whose dismissal is on (Base UI's prop bag is empty while disabled).
+  const enabledSessionsUp = (): SessionRecord[] => {
+    const chain: SessionRecord[] = [];
+    let current: SessionRecord | undefined = record;
+    while (current && !chain.includes(current)) {
+      chain.push(current);
+      current = current.parentToken === null ? undefined : sessions.get(current.parentToken);
+    }
+    return chain.filter((session) => dismissState(session).options !== null);
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event);
+
+  // `onPointerDown`/`onMouseDown`: the latter may be blocked when `preventDefault()` is called in the former (a
+  // NumberField scrub area).
+  const onPressStart = (event: MouseEvent) => {
+    for (const session of enabledSessionsUp()) {
+      markInsidePressStartPrevented(session, event);
+    }
+  };
+
+  const onInsideCapture = () => {
+    for (const session of enabledSessionsUp()) {
+      markInsideReactTree(session);
+    }
+  };
+
+  const onPressStartCapture = (event: MouseEvent) => {
+    for (const session of enabledSessionsUp()) {
+      markInsideReactTree(session);
+      markPressStartedInsideReactTree(session, event);
+    }
+  };
+
+  const cleanup = mergeCleanups(
+    listen(element, 'keydown', onKeyDown),
+    listen(element, 'pointerdown', onPressStart),
+    listen(element, 'mousedown', onPressStart),
+    listen(element, 'click', onInsideCapture, true),
+    listen(element, 'mousedown', onPressStartCapture, true),
+    listen(element, 'pointerdown', onPressStartCapture, true),
+    listen(element, 'mouseup', onInsideCapture, true),
+    listen(element, 'touchend', onInsideCapture, true),
+    listen(element, 'touchmove', onInsideCapture, true),
+  );
+  return { dispose: cleanup };
+}
+
+/**
+ * The trigger's half: Escape on the trigger, and the reference press, which requests a close with reason
+ * `trigger-press` on each `pointerdown` and `click` while the trigger's `referencePress` is set.
+ */
+function createReferenceDismissController(context: HandleContext): Controller {
+  const { record, channel } = context;
+  const element = context.element as HTMLElement;
+
+  // useDismiss.ts:187-199 (FLT-PTR-30, FLT-API-07): the getter is read at each press; closes carry no trigger.
+  const closeOnReferencePress = (event: Event) => {
+    if (dismissState(record).options === null || context.options.trigger?.referencePress !== true) {
+      return;
+    }
+    requestOpenChange(record, channel, false, 'trigger-press', event);
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event);
+
+  const cleanup = mergeCleanups(
+    listen(element, 'keydown', onKeyDown),
+    listen(element, 'pointerdown', closeOnReferencePress),
+    listen(element, 'click', closeOnReferencePress),
+  );
+  return { dispose: cleanup };
 }
 
 // #endregion dismiss
