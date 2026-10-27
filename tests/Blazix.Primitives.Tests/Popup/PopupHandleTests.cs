@@ -336,4 +336,18 @@ public sealed class PopupHandleTests
         Assert.Equal(EventReason.ImperativeAction, details.Reason);
         Assert.Null(details.Trigger);
     }
+
+    // PSH-STR-02: a handle of another popup family cannot serve a trigger; the message names the part as written, with no
+    // type-parameter suffix.
+    [Fact(DisplayName = "port: a trigger given another popup family's handle throws, naming the part")]
+    [Trait("Requirement", "PSH-STR-02")]
+    public void A_trigger_given_another_popup_familys_handle_throws_naming_the_part()
+    {
+        FakeStoreHandle<NoPayload> handle = new();
+        using PopupTriggerBehavior<TestFamilyStore<NoPayload>, TestFamilyStoreState<NoPayload>, NoPayload> behavior = new(new object(), "TestTrigger", () => { });
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => behavior.Apply(null, handle, "trigger", null, false, default, "missing root"));
+
+        Assert.Equal("Blazix: the `Handle` of `TestTrigger` belongs to another popup family.", error.Message);
+    }
 }
