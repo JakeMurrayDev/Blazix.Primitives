@@ -43,7 +43,7 @@ import {
   type Strategy,
   type VirtualElement,
 } from './floating-ui';
-import { ownerDocument, ownerWindow } from './dom';
+import { ownerDocument, ownerWindow, styleWriter, type StyleLayer } from './dom';
 import { observeOpenInput } from './transitions';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
 
@@ -78,7 +78,7 @@ export interface PositioningRect {
 /** The options of a `positioning` handle; mirrors `PositioningOptions` in C#. */
 export interface PositioningOptions extends TwinOptions {
   /** The popup's session token (ADR 04 Amendments 2026-10-27); looked up through the `interactions` export once it exists. */
-  session?: string | null;
+  sessionToken?: string | null;
   /** The selector the Positioner matches while C# renders it open; `[data-open]` when absent. Mounted is `:not([hidden])`. */
   openSelector?: string | null;
   /** Whether the popup stays in the document while closed: tracking runs only while mounted and `isPositioned` resets on unmount. */
@@ -99,8 +99,12 @@ export interface PositioningOptions extends TwinOptions {
   align?: Align;
   /** The distance from the anchor in pixels; 0 when absent. */
   sideOffset?: number;
+  /** The declarative form of Base UI's side-offset function; when set, it is evaluated on every pass instead of `sideOffset`. */
+  sideOffsetFunction?: OffsetFunction | null;
   /** The distance along the alignment axis in pixels; 0 when absent. */
   alignOffset?: number;
+  /** The declarative form of Base UI's align-offset function; when set, it is evaluated on every pass instead of `alignOffset`. */
+  alignOffsetFunction?: OffsetFunction | null;
   /** `clipping-ancestors`, the default when no other boundary is given. */
   collisionBoundary?: 'clipping-ancestors' | null;
   /** A boundary rectangle in viewport coordinates. */
@@ -428,6 +432,59 @@ export function getOffsetData(state: MiddlewareState, sideParam: Side, isRtl: bo
   };
 }
 
+/** The terms of an offset: a constant plus multiples of the measured anchor and positioner sizes. */
+export interface OffsetTerms {
+  constant?: number;
+  anchorWidth?: number;
+  anchorHeight?: number;
+  positionerWidth?: number;
+  positionerHeight?: number;
+}
+
+/** Terms that replace the base terms when the evaluated placement has this side and alignment (a `null` key matches any). */
+export interface OffsetOverride extends OffsetTerms {
+  side?: Side | null;
+  align?: Align | null;
+}
+
+/** The declarative form of Base UI's offset function (design point 2, settled by the orchestrator 2026-10-27); mirrors `PositioningOffset` in C#. */
+export interface OffsetFunction extends OffsetTerms {
+  overrides?: OffsetOverride[] | null;
+}
+
+/**
+ * Evaluates an offset for the placement a pass evaluates (FLT-API-12): a number as given, or the terms of the first
+ * override whose side and align match (else the base terms) applied to the measured sizes.
+ * @param value A number, the declarative function, or nothing for 0.
+ * @param data The offset data of the pass.
+ * @returns The offset in pixels.
+ */
+export function evaluateOffset(value: number | OffsetFunction | null | undefined, data: OffsetData): number {
+  if (value == null) {
+    return 0;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  const terms =
+    value.overrides?.find((entry) => (entry.side == null || entry.side === data.side) && (entry.align == null || entry.align === data.align)) ?? value;
+  return (
+    (terms.constant ?? 0) +
+    (terms.anchorWidth ?? 0) * data.anchor.width +
+    (terms.anchorHeight ?? 0) * data.anchor.height +
+    (terms.positionerWidth ?? 0) * data.positioner.width +
+    (terms.positionerHeight ?? 0) * data.positioner.height
+  );
+}
+
+/** What `readPlacement` returns: the rendered placement and whether the current mount has been positioned. */
+export interface RenderedPlacement {
+  side: Side;
+  align: Align;
+  physicalSide: PhysicalSide;
+  isPositioned: boolean;
+}
+
 const physicalSides: Record<Side, (isRtl: boolean) => PhysicalSide> = {
   top: () => 'top',
   right: () => 'right',
@@ -438,96 +495,55 @@ const physicalSides: Record<Side, (isRtl: boolean) => PhysicalSide> = {
 };
 
 // ---------------------------------------------------------------------------------------------------------------
-// The element's style: the consumer's string and the module's layers
-// ---------------------------------------------------------------------------------------------------------------
-
-type Declarations = Map<string, string>;
-
-/**
- * One element's `style`, composed from the consumer's string and two layers of the module's declarations: the under
- * layer loses to the consumer (Base UI's positioner styles and `transition: none`, merged before the consumer's props),
- * the over layer wins (the CSS variables Base UI writes imperatively after render, FLT-DOM-05). Each write touches only
- * the properties whose winning value changed.
- */
-interface ComposedStyle {
-  setConsumer(cssText: string | null | undefined): void;
-  setUnder(declarations: Declarations): void;
-  setOver(property: string, value: string): void;
-  dispose(): void;
-}
-
-function parseDeclarations(element: HTMLElement, cssText: string | null | undefined): Declarations {
-  const parsed: Declarations = new Map();
-  if (!cssText) {
-    return parsed;
-  }
-  const scratch = ownerDocument(element).createElement('div').style;
-  scratch.cssText = cssText;
-  for (let i = 0; i < scratch.length; i++) {
-    const name = scratch[i]!;
-    const priority = scratch.getPropertyPriority(name);
-    parsed.set(name, priority ? `${scratch.getPropertyValue(name)} !${priority}` : scratch.getPropertyValue(name));
-  }
-  return parsed;
-}
-
-function composeStyle(element: HTMLElement): ComposedStyle {
-  let consumer: Declarations = new Map();
-  let under: Declarations = new Map();
-  const over: Declarations = new Map();
-  const applied: Declarations = new Map();
-
-  const winner = (property: string): string | undefined => over.get(property) ?? consumer.get(property) ?? under.get(property);
-
-  const apply = (properties: Iterable<string>) => {
-    for (const property of properties) {
-      const value = winner(property);
-      if (value === applied.get(property)) {
-        continue;
-      }
-      if (value === undefined) {
-        applied.delete(property);
-        element.style.removeProperty(property);
-      } else {
-        applied.set(property, value);
-        const important = value.endsWith(' !important');
-        element.style.setProperty(property, important ? value.slice(0, -' !important'.length) : value, important ? 'important' : '');
-      }
-    }
-  };
-
-  return {
-    setConsumer(cssText) {
-      const previous = consumer;
-      consumer = parseDeclarations(element, cssText);
-      apply(new Set([...previous.keys(), ...consumer.keys()]));
-    },
-    setUnder(declarations) {
-      const previous = under;
-      under = declarations;
-      apply(new Set([...previous.keys(), ...declarations.keys()]));
-    },
-    setOver(property, value) {
-      over.set(property, value);
-      apply([property]);
-    },
-    dispose() {
-      under = new Map();
-      over.clear();
-      apply([...applied.keys()]);
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------------------------------------------
 // The twin-facing entry
 // ---------------------------------------------------------------------------------------------------------------
 
-// A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
+// A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle, and
+// the exports below find it.
 const attachedHandle = Symbol('blazix.positioning.handle');
 
+interface PositioningHandle extends TwinHandle {
+  placement(): RenderedPlacement;
+  position(): void;
+}
+
 interface AttachedElement extends HTMLElement {
-  [attachedHandle]?: TwinHandle;
+  [attachedHandle]?: PositioningHandle;
+}
+
+type Declarations = Map<string, string>;
+
+// Writes a layer's next declarations, touching only the properties that changed since the previous write.
+function writeLayer(layer: StyleLayer, previous: Declarations, next: Declarations): void {
+  for (const property of previous.keys()) {
+    if (!next.has(property)) {
+      layer.remove(property);
+    }
+  }
+  for (const [property, value] of next) {
+    if (previous.get(property) !== value) {
+      layer.set(property, value);
+    }
+  }
+}
+
+/**
+ * Reads the placement an attached Positioner rendered last, for the `popup` module's anchoring styles (design point 3,
+ * settled by the orchestrator 2026-10-27): before the first pass, the requested placement.
+ * @param element The Positioner element.
+ * @returns The rendered placement and whether the current mount has been positioned, or `null` when no handle is attached.
+ */
+export function readPlacement(element: Element): RenderedPlacement | null {
+  return (element as AttachedElement)[attachedHandle]?.placement() ?? null;
+}
+
+/**
+ * Runs one positioning pass of an attached Positioner now (FLT-POS-16), as Base UI's `positioning.update()`: PreviewCard
+ * calls it when its hovered line changes.
+ * @param element The Positioner element.
+ */
+export function update(element: Element): void {
+  (element as AttachedElement)[attachedHandle]?.position();
 }
 
 interface PassData {
@@ -588,10 +604,15 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   let options = parseOptions<PositioningOptions>(optionsJson);
   let disposed = false;
 
-  const style = composeStyle(element);
-  style.setConsumer(options.style);
+  const writer = styleWriter(element);
+  writer.setConsumer(options.style);
+  const positionerLayer = writer.layer('positioning');
+  const transitionLayer = writer.layer('transitions');
+  const measuredLayer = writer.layer('positioning-measured');
+  let positionerDeclarations: Declarations = new Map();
   let arrowElement: HTMLElement | null = null;
-  let arrowStyle: ComposedStyle | null = null;
+  let arrowLayer: StyleLayer | null = null;
+  let arrowDeclarations: Declarations = new Map();
 
   let open = element.matches(options.openSelector || '[data-open]');
   let mounted = !element.hidden;
@@ -614,14 +635,10 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   const isRtl = (): boolean => options.direction === 'rtl';
   let reported: PlacementReport = { side: sideParam(), align: options.align ?? 'center', anchorHidden: false, uncentered: true };
 
-  const sideOffsetOf = (state: MiddlewareState): number => {
-    void state;
-    return options.sideOffset ?? 0;
-  };
-  const alignOffsetOf = (state: MiddlewareState): number => {
-    void state;
-    return options.alignOffset ?? 0;
-  };
+  const sideOffsetOf = (state: MiddlewareState): number =>
+    evaluateOffset(options.sideOffsetFunction ?? options.sideOffset, getOffsetData(state, sideParam(), isRtl()));
+  const alignOffsetOf = (state: MiddlewareState): number =>
+    evaluateOffset(options.alignOffsetFunction ?? options.alignOffset, getOffsetData(state, sideParam(), isRtl()));
 
   // The position reference (FLT-STA-07, FLT-POS-13, FLT-API-11): a virtual anchor as given, a custom anchor element
   // wrapped so its own rect is measured, else the active trigger itself (the root store's reference element).
@@ -658,14 +675,20 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     return { key: trigger, value: trigger };
   };
 
+  // The Arrow has no handle (design point 6, settled by the orchestrator 2026-10-27): its id and style travel here, and
+  // it is re-resolved by id on every update; the stand-in of FLT-DOM-10 serves while it does not resolve.
   const resolveArrow = () => {
-    const next = options.arrowId ? (ownerDocument(element).getElementById(options.arrowId) as HTMLElement | null) : null;
+    const found = options.arrowId ? ownerDocument(element).getElementById(options.arrowId) : null;
+    const next = found instanceof HTMLElement ? found : null;
     if (next !== arrowElement) {
-      arrowStyle?.dispose();
+      arrowLayer?.clear();
       arrowElement = next;
-      arrowStyle = next ? composeStyle(next) : null;
+      arrowLayer = next ? styleWriter(next).layer('positioning') : null;
+      arrowDeclarations = new Map();
     }
-    arrowStyle?.setConsumer(options.arrowStyle);
+    if (arrowElement) {
+      styleWriter(arrowElement).setConsumer(options.arrowStyle);
+    }
   };
 
   // FLT-ALG-14: the pipeline, rebuilt only when one of its inputs changes.
@@ -704,8 +727,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       boundary,
       isRtlValue,
       options.adaptiveOrigin ?? false,
-      options.sideOffset ?? 0,
-      options.alignOffset ?? 0,
+      options.sideOffsetFunction ?? options.sideOffset ?? 0,
+      options.alignOffsetFunction ?? options.alignOffset ?? 0,
     ]);
     if (key === pipelineKey) {
       return;
@@ -730,8 +753,6 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
     middleware.push(
       offset((state) => {
-        const offsetData = getOffsetData(state, sideParam(), isRtlValue);
-        void offsetData;
         const sideAxis = sideOffsetOf(state);
         const alignAxis = alignOffsetOf(state);
         return {
@@ -805,8 +826,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
             return;
           }
 
-          style.setOver('--available-width', `${availableWidth}px`);
-          style.setOver('--available-height', `${availableHeight}px`);
+          measuredLayer.set('--available-width', `${availableWidth}px`);
+          measuredLayer.set('--available-height', `${availableHeight}px`);
 
           // Snap anchor dimensions to device pixels to ensure the popup's visual width matches the anchor's one.
           const dpr = ownerWindow(element).devicePixelRatio || 1;
@@ -814,8 +835,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
           const anchorWidth = (Math.round((x + width) * dpr) - Math.round(x * dpr)) / dpr;
           const anchorHeight = (Math.round((y + height) * dpr) - Math.round(y * dpr)) / dpr;
 
-          style.setOver('--anchor-width', `${anchorWidth}px`);
-          style.setOver('--anchor-height', `${anchorHeight}px`);
+          measuredLayer.set('--anchor-width', `${anchorWidth}px`);
+          measuredLayer.set('--anchor-height', `${anchorHeight}px`);
         },
       }),
       arrow((state) => ({
@@ -829,7 +850,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
         arrow: () => arrowElement,
         sideOffset: sideOffsetOf,
         crossAxisShiftEnabled,
-        write: (value) => style.setOver('--transform-origin', value),
+        write: (value) => measuredLayer.set('--transform-origin', value),
       }),
       hide,
       options.adaptiveOrigin ? adaptiveOrigin : null,
@@ -890,10 +911,14 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     if (!open) {
       declarations.set('pointer-events', 'none');
     }
+    writeLayer(positionerLayer, positionerDeclarations, declarations);
+    positionerDeclarations = declarations;
+    // TRN's disabled-mount transition, merged after the positioner styles and before the consumer's (FLT-ANI-05).
     if (options.transitionStatus === 'starting') {
-      declarations.set('transition', 'none');
+      transitionLayer.set('transition', 'none');
+    } else {
+      transitionLayer.clear();
     }
-    style.setUnder(declarations);
 
     const placementNow = data?.placement ?? placement;
     const sideAttribute = getLogicalSide(sideParam(), getSide(placementNow), isRtl());
@@ -902,16 +927,17 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     element.setAttribute('data-align', alignAttribute);
     element.toggleAttribute('data-anchor-hidden', Boolean(data?.middlewareData.hide?.referenceHidden));
 
-    if (arrowElement && arrowStyle) {
+    if (arrowElement && arrowLayer) {
       const arrowData = data?.middlewareData.arrow;
-      const arrowDeclarations: Declarations = new Map([['position', 'absolute']]);
+      const next: Declarations = new Map([['position', 'absolute']]);
       if (arrowData?.y != null) {
-        arrowDeclarations.set('top', `${arrowData.y}px`);
+        next.set('top', `${arrowData.y}px`);
       }
       if (arrowData?.x != null) {
-        arrowDeclarations.set('left', `${arrowData.x}px`);
+        next.set('left', `${arrowData.x}px`);
       }
-      arrowStyle.setUnder(arrowDeclarations);
+      writeLayer(arrowLayer, arrowDeclarations, next);
+      arrowDeclarations = next;
       arrowElement.setAttribute('data-side', sideAttribute);
       arrowElement.setAttribute('data-align', alignAttribute);
       arrowElement.toggleAttribute('data-uncentered', arrowData?.centerOffset !== 0);
@@ -1026,19 +1052,26 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     });
   };
 
-  const handle: TwinHandle = {
+  const handle: PositioningHandle = {
     update(nextJson: string) {
       if (disposed) {
         return;
       }
-      const next = parseOptions<PositioningOptions>(nextJson);
-      if (next.style !== options.style) {
-        style.setConsumer(next.style);
-      }
-      options = next;
+      options = parseOptions<PositioningOptions>(nextJson);
+      writer.setConsumer(options.style);
       observe();
       refresh();
     },
+    placement() {
+      const placementNow = data?.placement ?? placement;
+      return {
+        side: getLogicalSide(sideParam(), getSide(placementNow), isRtl()),
+        align: getAlignment(placementNow) || 'center',
+        physicalSide: getSide(placementNow),
+        isPositioned,
+      };
+    },
+    position,
     dispose() {
       if (disposed) {
         return;
@@ -1048,8 +1081,10 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       stopTracking = null;
       stopObserving?.();
       stopObserving = null;
-      arrowStyle?.dispose();
-      style.dispose();
+      arrowLayer?.clear();
+      positionerLayer.clear();
+      transitionLayer.clear();
+      measuredLayer.clear();
       delete element[attachedHandle];
     },
   };
