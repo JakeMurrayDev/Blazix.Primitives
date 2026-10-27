@@ -891,6 +891,34 @@ describe('positioning module: the pre-position style (FLT-DOM-02, FLT-ANI-02)', 
   });
 });
 
+describe('positioning module: the attribute writes', () => {
+  it('writes data-side, data-align and data-anchor-hidden only when they change', async () => {
+    stubViewport();
+    const { positioner, update } = setup();
+    const records: string[] = [];
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName?.startsWith('data-side') || mutation.attributeName?.startsWith('data-align') || mutation.attributeName === 'data-anchor-hidden') {
+          records.push(mutation.attributeName);
+        }
+      }
+    }).observe(positioner, { attributes: true });
+    await settle();
+    window.dispatchEvent(new Event('resize'));
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+
+    // Attach wrote the requested placement; passes that render the same placement write nothing.
+    expect(positioner.getAttribute('data-side')).toBe('bottom');
+    expect(records).toEqual([]);
+
+    update({ side: 'top' });
+    await settle();
+    expect(positioner.getAttribute('data-side')).toBe('top');
+    expect(records).toEqual(['data-side']);
+  });
+});
+
 describe('positioning module: the handle', () => {
   it('returns the live handle on a repeated attach and disposes idempotently, stopping the tracking', async () => {
     const { positioner, handle, fake } = setup();
