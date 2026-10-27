@@ -57,6 +57,10 @@ export interface OpenChangeRelay {
   eventType?: string | null;
   pointerType?: string | null;
   triggerId?: string | null;
+  /** The revision of a close C# committed before the open this relay carries, in the same batch; else absent. */
+  closedRevision?: number | null;
+  /** The reason of that close. */
+  closedReason?: string | null;
 }
 
 /** The press type an outside press is read as (FLT-API-02). */
@@ -96,6 +100,8 @@ export interface SessionRoleOptions {
   floatingId?: string | null;
   /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`, FLT-PTR-13). */
   ending?: boolean | null;
+  /** The number of requests C# answered, cancelled ones included; a move re-arms a session that requested a close. */
+  answered?: number | null;
   /** Dismissal; `null` turns it off. */
   dismiss?: DismissOptions | null;
 }
@@ -542,6 +548,8 @@ interface SessionRecord extends InteractionSession {
   placement: string | undefined;
   positionReference: SessionVirtualElement | null;
   lastRevision: number | undefined;
+  /** The answered-requests counter last applied. */
+  answered: number;
   pending: PendingRequest | null;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
@@ -630,6 +638,7 @@ function createSessionRecord(token: string): SessionRecord {
     placement: undefined,
     positionReference: null,
     lastRevision: undefined,
+    answered: 0,
     pending: null,
     triggers,
     channel: null,
@@ -805,7 +814,13 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   record.ending = role.ending === true;
   if (relay !== null && relay.revision !== record.lastRevision) {
     const first = record.lastRevision === undefined;
+    const previousRevision = record.lastRevision ?? 0;
     record.lastRevision = relay.revision;
+    // ADR 04 Amendments 2026-10-27 (design point 11, settled by the orchestrator 2026-10-27): a close C# committed before
+    // this open in the same batch is replayed first with its own reason, and its state applied, as Base UI dispatches it.
+    if (open && relay.closedRevision != null && relay.closedRevision > previousRevision && record.open) {
+      replayClose(record, relay.closedReason ?? 'none');
+    }
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
       record.pending = null;
@@ -828,7 +843,29 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   }
   record.open = open;
   record.activeTriggerId = role.activeTriggerId ?? null;
+  // Design point 10 (settled by the orchestrator 2026-10-27): a cancelled request moves no revision, so the answered
+  // counter is what re-arms a session that requested a close.
+  const answered = role.answered ?? 0;
+  if (answered !== record.answered) {
+    record.answered = answered;
+    rearmDismiss(record);
+  }
   notifySessionChange(record);
+}
+
+// The coalesced close's dispatch: its `openchange` (with the session's own request event when it was that close), then
+// its state, without the post-commit notification (Base UI never renders the transient close).
+function replayClose(record: SessionRecord, reason: string): void {
+  const pending = record.pending;
+  const event = pending !== null && !pending.open && pending.reason === reason ? pending.event : undefined;
+  if (event !== undefined) {
+    record.pending = null;
+  }
+  syncOpenEvent(record, false, event);
+  const details: SessionOpenChangeDetails = { open: false, reason, nativeEvent: event, nested: record.nested, triggerElement: undefined };
+  record.events.emit('openchange', details);
+  record.open = false;
+  record.openOrder = 0;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1021,6 +1058,14 @@ interface DismissState {
   compositionTimeout: Timer;
 }
 
+/** Re-arms a session that requested a close: C# answered a request (cancelled ones included). */
+function rearmDismiss(record: SessionRecord): void {
+  const state = record.slots.get('dismiss') as DismissState | undefined;
+  if (state !== undefined) {
+    state.disarmed = false;
+  }
+}
+
 function dismissState(record: SessionRecord): DismissState {
   return sessionSlot(record, 'dismiss', () => ({
     options: null,
@@ -1145,6 +1190,9 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   if (channel.synchronous) {
     record.pending = { open: false, reason: 'escape-key', event };
   }
+  // An answer C# sends while the request is being made (a commit-path `update` inside the dispatch) already re-armed
+  // the session, so the disarm below applies only when none arrived (design point 10).
+  const answeredBefore = record.answered;
   const verdict = decide(channel, ESCAPE_POINT, event, 'prevent-and-stop');
   if (!channel.lastDecisionWasSynchronous) {
     requestOpenChange(record, channel, false, 'escape-key', event);
@@ -1156,8 +1204,9 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   if (!escapeKeyBubbles && (verdict === 'prevent-and-stop' || verdict === 'stop')) {
     event.stopPropagation();
   }
-  // A close is pending until the relay brings it; a cancel the verdict reports leaves the session armed.
-  if (accepted) {
+  // A close is pending until the relay brings the next open or C# answers the request; a cancel the verdict reports
+  // leaves the session armed.
+  if (accepted && record.answered === answeredBefore) {
     state.disarmed = true;
   }
 }
@@ -1439,8 +1488,11 @@ function createSessionDismissController(context: HandleContext): Controller {
       // FLT-DIS-11. The disarm (ADR 04 Amendments 2026-10-27): one close request until the relay brings the next open,
       // so a press's compatibility `mousedown` does not request again before the commit arrives.
       if (!state.disarmed) {
+        const answeredBefore = record.answered;
         requestOpenChange(record, context.channel, false, 'outside-press', event);
-        state.disarmed = true;
+        if (record.answered === answeredBefore) {
+          state.disarmed = true;
+        }
       }
       clearInsideReactTree(record);
     }
