@@ -19,6 +19,7 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
     private FocusManagerTwin? twin;
     private TwinHandle<FocusManagerOptions>? handle;
     private FocusManagerOptions? sent;
+    private int answered;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -61,6 +62,18 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
 
     [Parameter]
     public string? DomReferenceId { get; set; }
+
+    [Parameter]
+    public string? OpenSelector { get; set; }
+
+    [Parameter]
+    public bool TreatPopupAsFloatingElement { get; set; } = true;
+
+    [Parameter]
+    public bool TriggerFocusGuards { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string>? InsideElementIds { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the popup renders <c>tabindex="-1"</c>, as every Popup part does.</summary>
     [Parameter]
@@ -114,7 +127,7 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
         if (twin is null)
         {
             twin = new FocusManagerTwin(JSRuntime);
-            twin.FocusOutCloseRequested += request => _ = InvokeAsync(() => OnFocusOutClose.InvokeAsync(request.Event));
+            twin.FocusOutCloseRequested += request => _ = InvokeAsync(() => RouteFocusOutCloseAsync(request));
             twin.InteractionTypeChanged += type => _ = InvokeAsync(() => OnInteractionTypeChange.InvokeAsync(type));
             sent = BuildOptions();
             handle = Element is { } element
@@ -169,6 +182,15 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
         }
     }
 
+    // The behaviour's answered-requests counter: raised for every request it routed, closed or canceled, and sent from the
+    // commit path outside a render, so a canceled close re-arms the module with nothing rendered.
+    private async Task RouteFocusOutCloseAsync(FocusOutCloseRequest request)
+    {
+        answered++;
+        await OnFocusOutClose.InvokeAsync(request.Event);
+        await PushAsync();
+    }
+
     private async Task PushAsync()
     {
         FocusManagerOptions next = BuildOptions();
@@ -194,8 +216,12 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
         RestoreFocus = RestoreFocus,
         CloseOnFocusOut = CloseOnFocusOut,
         OpenInteractionType = OpenInteractionType,
-        TreatPopupAsFloatingElement = true,
+        OpenSelector = OpenSelector,
+        TreatPopupAsFloatingElement = TreatPopupAsFloatingElement,
         DomReferenceId = DomReferenceId,
+        TriggerFocusGuards = TriggerFocusGuards,
+        InsideElementIds = InsideElementIds,
+        Answered = answered,
     };
 }
 

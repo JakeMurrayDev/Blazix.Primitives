@@ -27,6 +27,9 @@ public abstract class FocusManagerFixtureBase : ComponentBase
 
     protected bool Attached { get; private set; }
 
+    /// <summary>Gets or sets a value indicating whether a focus-out close request is refused, as a consumer's cancel would.</summary>
+    protected bool CancelFocusOutCloses { get; set; }
+
     protected void Toggle(MouseEventArgs e)
     {
         if (IsOpen)
@@ -57,7 +60,10 @@ public abstract class FocusManagerFixtureBase : ComponentBase
     protected void OnFocusOutClose(EventSnapshot snapshot)
     {
         FocusOutCloses++;
-        Close(InteractionType);
+        if (!CancelFocusOutCloses)
+        {
+            Close(InteractionType);
+        }
     }
 
     protected void OnInteractionTypeChange(string type)

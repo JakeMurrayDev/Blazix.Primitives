@@ -5,11 +5,14 @@
     The `focus-manager-non-modal` fixture (tests/browser/focus-manager.spec.ts): a non-modal popup the opening render
     creates, with no inside guards (C# renders them only for a modal or portaled manager, FLT-DOM-15). Focus leaving it
     asks C# to close it (FLT-FOC-11, a request); the switch turns `closeOnFocusOut` off. The outside is marked with the
-    inert marker only (FLT-ARIA-02, DOM-16).
+    inert marker only (FLT-ARIA-02, DOM-16). The cancel switch makes the page refuse the close, as a consumer's
+    `Cancel()` would; the host still answers the request, so the module asks again (the answered counter, ADR 04
+    Amendments 2026-10-27).
 *@
 <FixtureContainer Name="focus-manager-non-modal" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" data-interaction-type="@InteractionType" @onkeydown="OnKeyDown">
     <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
     <button type="button" data-focus-out-switch @onclick="() => closeOnFocusOut = !closeOnFocusOut">Toggle close on focus out</button>
+    <button type="button" data-cancel-switch @onclick="() => CancelFocusOutCloses = !CancelFocusOutCloses">Toggle cancel</button>
     <div data-outside><button type="button" data-outside-button>Outside</button></div>
     @if (IsOpen)
     {
