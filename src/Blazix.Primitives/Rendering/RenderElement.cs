@@ -93,6 +93,9 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
     public ElementReference? Element { get; private set; }
 
     /// <inheritdoc />
+    string? IPartHost.HostWrapperTagName => null;
+
+    /// <inheritdoc />
     /// <exception cref="InvalidOperationException">
     /// <see cref="State"/> is <see langword="null"/> and <typeparamref name="TState"/> is not <see cref="EmptyState"/>.
     /// </exception>
@@ -177,6 +180,11 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
 
     /// <inheritdoc />
     void IPartHost.BuildBeforeElement(RenderTreeBuilder builder)
+    {
+    }
+
+    /// <inheritdoc />
+    void IPartHost.AddHostWrapperAttributes(AttributeList attributes)
     {
     }
 

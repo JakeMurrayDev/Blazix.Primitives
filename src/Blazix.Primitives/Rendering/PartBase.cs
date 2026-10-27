@@ -112,6 +112,24 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <value>The mapping, or <see langword="null"/> for the default projection only. The default is <see langword="null"/>.</value>
     protected virtual StateAttributesMapping<TState>? StateAttributesMapping => null;
 
+    // ADR 02 Amendments 2026-10-27 (the host wrapper, settled by the orchestrator 2026-10-27): the portal opts in with a
+    // `display: contents` element, so its node is the wrapper's only child and its focus guards and owner, rendered by
+    // BuildBeforeElement and BuildAfterElement, are the wrapper's siblings (ADR 04 Amendments 2026-10-27, decision 5). No
+    // other part opts in.
+    /// <summary>Gets the tag of the element the pipeline wraps around the host element.</summary>
+    /// <value>
+    /// The wrapper's tag name, or <see langword="null"/> to render the host element without a wrapper. The default is
+    /// <see langword="null"/>.
+    /// </value>
+    /// <remarks>
+    /// When a part returns a tag, the pipeline renders one element of that tag around the default element, the substitute
+    /// element or component, or the output of the substitute callback, with the attributes
+    /// <see cref="AddHostWrapperAttributes"/> adds. The content of <see cref="BuildBeforeElement"/> and
+    /// <see cref="BuildAfterElement"/> renders outside the wrapper, <see cref="Element"/> captures the host element, and
+    /// <see cref="FinishAttributes"/> and the consumer's attributes concern the host element alone.
+    /// </remarks>
+    protected virtual string? HostWrapperTagName => null;
+
     // RND-DOM-27
     /// <summary>Gets a value indicating whether this part draws a generated id at first render.</summary>
     /// <value>
@@ -135,6 +153,9 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <see langword="null"/> when the part draws no generated id.
     /// </value>
     protected string? Id => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) && supplied is string text ? text : generatedId;
+
+    /// <inheritdoc />
+    string? IPartHost.HostWrapperTagName => HostWrapperTagName;
 
     // RND-DOM-27
     /// <inheritdoc />
@@ -242,6 +263,9 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <inheritdoc />
     void IPartHost.BuildBeforeElement(RenderTreeBuilder builder) => BuildBeforeElement(builder);
 
+    /// <inheritdoc />
+    void IPartHost.AddHostWrapperAttributes(AttributeList attributes) => AddHostWrapperAttributes(attributes);
+
     // ADR 02 Amendments 2026-10-21; UBT-EVT-01/03: a button-like part gates the consumer's handlers while disabled.
     /// <summary>Determines whether the consumer's handler for an event is rendered on the host element this render.</summary>
     /// <param name="eventName">The event's attribute name in lowercase, such as <c>onclick</c>, whatever casing the consumer used.</param>
@@ -301,6 +325,17 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// pipeline's. The base implementation renders nothing.
     /// </remarks>
     protected virtual void BuildBeforeElement(RenderTreeBuilder builder)
+    {
+    }
+
+    /// <summary>Adds the attributes of the element the pipeline wraps around the host element.</summary>
+    /// <param name="attributes">The list to add to, cleared before each call.</param>
+    /// <remarks>
+    /// The pipeline calls this method once per render, and only while <see cref="HostWrapperTagName"/> returns a tag and
+    /// <see cref="Enabled"/> is <see langword="true"/>. Nothing is merged into these attributes. The base implementation
+    /// adds nothing.
+    /// </remarks>
+    protected virtual void AddHostWrapperAttributes(AttributeList attributes)
     {
     }
 
