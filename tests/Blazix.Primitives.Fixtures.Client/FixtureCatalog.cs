@@ -21,6 +21,7 @@ using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -115,5 +116,10 @@ public static class FixtureCatalog
         ["toggle-composite-root"] = new(typeof(ToggleCompositeRootFixture)),
         ["toggle-group-orientation"] = new(typeof(ToggleGroupOrientationFixture)),
         ["toggle-group-basic"] = new(typeof(ToggleGroupBasicFixture)),
+        ["toolbar-orientation"] = new(typeof(ToolbarOrientationFixture)),
+        ["toolbar-keys"] = new(typeof(ToolbarKeysFixture)),
+        ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
+        ["toolbar-button"] = new(typeof(ToolbarButtonFixture)),
+        ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
     };
 }
