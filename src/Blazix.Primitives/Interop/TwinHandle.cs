@@ -19,7 +19,7 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="TwinHandle{TOptions}"/> class.</summary>
-    /// <param name="key">The element reference id or element id the handle is attached to.</param>
+    /// <param name="key">The element reference id, element id or token the handle is attached to.</param>
     /// <param name="reference">The pending JavaScript handle; <see langword="null"/> when the circuit disconnected before <c>attach</c> completed.</param>
     /// <param name="optionsTypeInfo">The source-generated type information of <typeparamref name="TOptions"/>.</param>
     /// <param name="released">Called once when the handle is disposed, so the twin forgets it.</param>
@@ -31,8 +31,8 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
         this.released = released;
     }
 
-    /// <summary>Gets the element reference id or element id this handle is attached to.</summary>
-    /// <value>The key the twin uses to make a repeated attach of the same element a no-op.</value>
+    /// <summary>Gets the element reference id, element id or token this handle is attached to.</summary>
+    /// <value>The key the twin uses to make a repeated attach of the same element or token a no-op.</value>
     public string Key { get; }
 
     /// <summary>Gets a value indicating whether <see cref="DisposeAsync"/> has run.</summary>

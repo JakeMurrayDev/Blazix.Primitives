@@ -7,21 +7,15 @@ import { popupConformanceTests } from './suites/popupConformanceTests';
 // test-only popup host (FixturePopupRoot, Trigger, Portal, Popup and Close; settled by the orchestrator 2026-10-27, plan
 // §Settled "Test-only hosts and the shared suites"). The shared suites run here with the host's values: a trigger pressed
 // by click from a C# onclick (design point 4), role and aria-haspopup `dialog`, an exit animation. Every test runs on both
-// render modes. Titles that press Escape are DIS-01's, proven by track 3's `interactions` module.
+// render modes. Titles that press Escape are DIS-01's: the host's root composes track 3's `interactions` session with
+// Escape dismissal (M4 track 3, issue 119), so they run here.
 
 // No title here asserts the `interactions` module's press semantics (a press's pointer type, open on press, the mixed
 // toggle): each presses by click through the C# onclick, so none is listed open to track 3 for press semantics.
-const escape = 'PSH-DIS-01 (Escape): open to M4 track 3, the interactions module; the popup host has no dismissal';
-
 popupConformanceTests({
   fixture: 'popup-conformance',
   triggerMouseAction: 'click',
   expectedPopupRole: 'dialog',
-  open: {
-    'opens initially and remains uncontrolled': escape,
-    'is ignored when `open={true}` is passed, so Escape cannot close': escape,
-    'is called with the new open state and the change details': escape,
-  },
 });
 
 detachedTriggersConformanceTests({

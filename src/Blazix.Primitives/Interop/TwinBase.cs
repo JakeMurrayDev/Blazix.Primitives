@@ -107,6 +107,26 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         return AttachAsync(elementId, elementId, options, references);
     }
 
+    // ADR 04 Amendments 2026-10-27 (decision 3, the token form; chosen by the user 2026-10-27): a popup Root, a tooltip
+    // provider or a floating tree renders no element, so its handle is keyed by a token C# draws and never renders.
+    /// <summary>
+    /// Attaches the module without an element, by a token the part draws and never renders: the handle of a part that
+    /// renders no element of its own. JavaScript receives <see langword="null"/> as the element and reads the token from
+    /// the options. Attaching is idempotent per token.
+    /// </summary>
+    /// <param name="token">The token, for example one drawn with <c>PartIdGenerator.Next()</c>.</param>
+    /// <param name="options">The options sent with <c>attach</c>, which carry the token.</param>
+    /// <param name="references">
+    /// The elements and script-held objects the options name by index, sent after the twin's reference; or
+    /// <see langword="null"/>, or an empty instance, to send none.
+    /// </param>
+    /// <returns>The handle for the token.</returns>
+    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
+    public ValueTask<TwinHandle<TOptions>> AttachTokenAsync(string token, TOptions options, TwinReferences? references = null)
+    {
+        return AttachAsync<string?>(token, null, options, references);
+    }
+
     /// <summary>
     /// Answers the probe with which JavaScript detects, per handle and at run time, whether the runtime supports a
     /// synchronous call from JavaScript into .NET. Only WebAssembly ever completes this call; Blazor Server rejects
@@ -122,7 +142,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// </summary>
     /// <param name="point">The name of the decision point, for example <c>activate</c> or <c>escape</c>.</param>
     /// <param name="eventJson">The JSON of the <see cref="EventSnapshot"/> JavaScript took inside the dispatch.</param>
-    /// <returns>The verdict as <c>run</c>, <c>stop</c>, <c>start</c> or <c>prevent-and-stop</c>.</returns>
+    /// <returns>The verdict as <c>run</c>, <c>stop</c>, <c>start</c>, <c>prevent-and-stop</c> or <c>prevent</c>.</returns>
     [JSInvokable]
     public string Decide(string point, string eventJson)
     {

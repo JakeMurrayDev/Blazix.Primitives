@@ -27,7 +27,7 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 
 * Caching the scratch-rendered frames of a substitute between renders: decided by ADR 02's M5 measurement.
 * Distinct literal sequence numbers for the part-owned attributes (`id`, `class`, `style`, the generated data attributes), keeping the one shared number for the consumer's attribute bag (the pattern of Blazor's `@attributes` splatting): decided by the same M5 measurement.
-* `[JSImport]` transport inside twins on WebAssembly: only if M4–M6 measurements show interop cost on WebAssembly, and then as an ADR 01/04 amendment, since twins would become the one mode-dependent place.
+* `[JSImport]` transport inside twins on WebAssembly: measured in M4 and not adopted (the finding of 2026-10-27 below: about 0.6 ms of main thread per hover-and-flip cycle); adopted only by an ADR 01/04 amendment if the M5 list-part measurement shows interop dominating, since twins would become the one mode-dependent place.
 
 ### C. Rejected
 
@@ -42,7 +42,7 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 
 ## Verification items
 
-* The two items of §B, tracked in ADR 14 ([issue 25](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/25), [issue 26](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/26)).
+* The two items of §B, tracked in ADR 14 ([issue 25](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/25), [issue 26](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/26)). **Verified 2026-10-27 for issue 26 by `tests/browser/harness.spec.ts` "@verifies ADR-16/2 …" (M4 track 3): no material cost, the twins keep their transport**; the dated finding with its figures is in Amendments below. Issue 25 (frame caching) stays M5's.
 * Added by Amendments 2026-10-20: Blazor's known-immutable set in `ChangeDetection` covers enums and nullable enums ([issue 27](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/27)). **Verified 2026-10-20 by reading `ChangeDetection.cs` in aspnetcore `release/11.0`: covered**; the dated finding is in Amendments below. The generator-emitted `SetParametersAsync` and per-item bag cost ([issue 28](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/28), M5) and Combobox `virtualized` with `Virtualize` ([issue 29](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/29), M5) stay open.
 
 ## Considered options
@@ -83,3 +83,15 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 - *A new budget's first figure* is therefore taken as the envelope of full runs before it lands: 6352 for the Positioner (25 of 25 full runs green). This figure was settled by the orchestrator 2026-10-27: a fresh budget pins the full-run envelope, because rule 7 exists to catch a regression, and the 6208 the orchestrator had first asked to keep is the test's figure alone.
 - *2026-10-28, the Positioner's figure before it lands (M4 track 2, after M4 track 1's PR 126; the rule above applied, the orchestrator told).* Merging `main` adds 24 B to the measured re-render, and the part's `[CascadingParameter] PopupPortalContext` another 24 B, which every portaled Positioner part carries (the portal's move, ADR 04 Amendments 2026-10-27): the test alone measures 6256. Over 25 full runs the floor is 6256 (20 runs), 6336, 6368 (3 runs) and 6400, the same +144 spread, so 6352 would fail 4 runs in 25 and the fresh budget is again the envelope: 6400.
 - *A landed budget still only tightens.* A landed budget that fails a full run is re-measured over full runs under issue 112 before any change.
+
+**2026-10-27, finding for §B's `[JSImport]` item (M4 track 3, [issue 119](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/119); [issue 26](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/26); the probe of the M4 note above).** Measured by `tests/browser/harness.spec.ts` "@verifies ADR-16/2 the twin base transport against [JSImport]/[JSExport] on WebAssembly, per message and per hover-and-flip cycle" on the `interactions-transport` fixture (WebAssembly only): a Release host, Chromium under Playwright, macOS arm64; five runs of 30 batches of 500 messages per kind (the interpreter's clock ticks in whole milliseconds), the same JSON both ways and the same work at each end (the module parses an update; C# deserializes a report and a `Decide`'s snapshot through `BlazixJsonContext`). Per message, median (95th percentile) in microseconds, the range across the five runs:
+
+| Message | Twin base | `[JSImport]` / `[JSExport]` |
+|---|---|---|
+| `update` (as `TwinHandle.UpdateAsync` serializes the record) | 138–146 (142–152) | 0–2 (2) |
+| `update` (the same string) | 102 (102–104) | 0–2 (2) |
+| report (`invokeMethodAsync`; its un-awaited dispatch share is the same) | 264–274 (266–292) | 126–138 (128–140) |
+| `Decide` (synchronous) | 230–244 (232–256) | 98–104 (100–116) |
+| hover-and-flip cycle (see below) | 996–1026 | 378–418 |
+
+A hover-and-flip cycle (a hover open and close, two request reports and two session updates, plus one positioning mirror report per flip) costs 996–1026 µs over the twin base against 378–418 µs native: about 0.6 ms of main thread per cycle, and about 0.13 ms per Escape or press `Decide`. No material cost at M4's traffic (settled by the orchestrator 2026-10-27 under the user's plan decision 16): the twins keep the `IJSObjectReference`/`DotNetObjectReference` transport, the issue closes with this finding, and `[JSImport]` is adopted only by an ADR 01/04 amendment if the M5 list-part measurement shows interop dominating (§B as reworded).

@@ -7,7 +7,8 @@
     test-only popup host, a contained trigger, portal, popup and close. The query sets the root's props:
     - `open=true|false`: a controlled root (the `[data-set-open]` buttons change it, as the suite's rerender does);
       absent, the root is uncontrolled;
-    - `defaultOpen`, `cancelOpen` (the root's OnOpenChange cancels an open), `popupId`, `keepMounted`;
+    - `defaultOpen`, `cancelOpen` (the root's OnOpenChange cancels an open), `cancelClose` (it cancels a close),
+      `allowPropagation` (a close lets its keydown propagate), `popupId`, `keepMounted`;
     - `animated`: the popup takes the `popup-animated` class, 200 ms keyframes on `[data-open]` and `[data-ending-style]`
       (open the page with `?animations=1`).
 *@
@@ -25,13 +26,13 @@
 
     @if (controlled)
     {
-        <FixturePopupRoot TPayload="NoPayload" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <FixturePopupRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
             @Content
         </FixturePopupRoot>
     }
     else
     {
-        <FixturePopupRoot TPayload="NoPayload" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <FixturePopupRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
             @Content
         </FixturePopupRoot>
     }
@@ -44,8 +45,10 @@
     private bool keepMounted;
     private Dictionary<string, object> popupAttributes = [];
     private FixturePopupPopup<NoPayload>? popup;
+    private FixturePopupRoot<NoPayload>? root;
 
-    protected override IEnumerable<Task> Attachments => popup is null ? [] : [popup.TwinAttached];
+    protected override IEnumerable<Task> Attachments =>
+        [.. popup is null ? [] : new[] { popup.TwinAttached }, root?.SessionAttached ?? Task.CompletedTask];
 
     protected override void OnInitialized()
     {
