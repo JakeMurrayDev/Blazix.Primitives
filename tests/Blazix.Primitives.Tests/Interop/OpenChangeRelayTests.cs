@@ -33,4 +33,15 @@ public sealed class OpenChangeRelayTests
             """{"revision":4,"reason":"imperative-action","eventKind":"Event","eventType":"base-ui"}""",
             JsonSerializer.Serialize(relay, BlazixJsonContext.Default.OpenChangeRelay));
     }
+
+    [Fact]
+    public void A_relay_that_carries_a_coalesced_close_serializes_its_revision_and_reason_after_the_open()
+    {
+        OpenChangeRelay relay = OpenChangeRelay.From(6, EventReason.TriggerPress, EventSnapshot.CreatePlaceholder(), "base-ui-5")
+            with { CoalescedCloseRevision = 5, CoalescedCloseReason = "escape-key" };
+
+        Assert.Equal(
+            """{"revision":6,"reason":"trigger-press","eventKind":"Event","eventType":"base-ui","triggerId":"base-ui-5","coalescedCloseRevision":5,"coalescedCloseReason":"escape-key"}""",
+            JsonSerializer.Serialize(relay, BlazixJsonContext.Default.OpenChangeRelay));
+    }
 }

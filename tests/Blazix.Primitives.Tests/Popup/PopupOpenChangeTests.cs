@@ -145,6 +145,32 @@ public sealed class PopupOpenChangeTests
         Assert.Equal(PopupInstantChange.Unchanged, TestFamilyStore<NoPayload>.InstantChange(true, EventReason.None));
     }
 
+    // ADR 04 Amendments 2026-10-27 (the relay's Server semantics, item 2): the relay carries the last committed change, so a
+    // close the batch committed before a reopen travels with the open; a render-batch boundary in between ends the batch.
+    [Fact(DisplayName = "port: an open committed after a close in the same render batch carries the close's revision and reason, and after a boundary carries none")]
+    [Trait("Requirement", "ADR04-relay-coalesced-close")]
+    public async Task An_open_committed_after_a_close_in_the_same_batch_carries_the_close_revision_and_reason()
+    {
+        TestFamilyStore<NoPayload> store = new();
+        store.ApplyRootParameters(defaultOpen: true, defaultTriggerId: null);
+
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.EscapeKey));
+        await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerPress));
+
+        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(2, "trigger-press", EventKind.Event, "base-ui", null, null, 1, "escape-key"), store.Popup.OpenChange);
+
+        await store.AtBatchBoundaryAsync();
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.OutsidePress));
+        await store.AtBatchBoundaryAsync();
+        await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerHover));
+
+        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(4, "trigger-hover", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
+
+        // A close that follows an open in one batch is relayed alone: the module sees the open's session end with it.
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerPress));
+        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(5, "trigger-press", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
+    }
+
     // ADR 05 §4, ADR 16 Amendments 2026-10-27: the payload lives in the store's context, so the record's comparison never
     // touches it; writing a value-type payload allocates the new record and nothing for the payload itself.
     [Fact(DisplayName = "port: a value-type payload is written without boxing and moves the payload version")]

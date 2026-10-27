@@ -10,7 +10,8 @@ internal sealed partial record TestPopupPopupState(bool Open);
 
 /// <summary>
 /// A test-only popup: a <c>div</c> with <c>role="dialog"</c>, rendered while mounted, that registers its element and the id
-/// it renders (the popup's generated id unless the consumer gives one) with its store (PSH-STA-04, PSH-ARIA-03/08).
+/// it renders (the popup's generated id unless the consumer gives one) with its store (PSH-STA-04, PSH-ARIA-03/08), and
+/// registers as the store's boundary part, since it selects the open and mounted state (design point 8).
 /// </summary>
 [CascadingTypeParameter(nameof(TPayload))]
 internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
@@ -19,6 +20,7 @@ internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
 
     private StoreSelection<TestPopupStoreState<TPayload>, bool>? open;
     private StoreSelection<TestPopupStoreState<TPayload>, bool>? mounted;
+    private IDisposable? boundaryPart;
     private TestPopupPopupState state = new(false);
 
     [CascadingParameter]
@@ -40,6 +42,7 @@ internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
         SelectorSubscription<TestPopupStoreState<TPayload>> subscription = SubscribeTo(Store!);
         open = subscription.Select(PopupSelectors<TestPopupStoreState<TPayload>, TPayload>.Open);
         mounted = subscription.Select(PopupSelectors<TestPopupStoreState<TPayload>, TPayload>.Mounted);
+        boundaryPart = Store!.RegisterBoundaryPart();
     }
 
     // Base UI's Portal renders nothing while unmounted; the test popup decides on each render, its store's selection included.
@@ -49,7 +52,7 @@ internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
         base.BuildRenderTree(builder);
     }
 
-    // The popup part runs the store's render-batch boundary after each of its renders (design point 8, option b).
+    // The popup part runs the store's render-batch boundary after each of its renders (design point 8).
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (Element is { } element)
@@ -81,6 +84,12 @@ internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
         if (disposing && Store is not null && Store.Popup.PopupElementKnown)
         {
             Store.ClearPopupElement();
+        }
+
+        if (disposing)
+        {
+            boundaryPart?.Dispose();
+            boundaryPart = null;
         }
 
         base.Dispose(disposing);

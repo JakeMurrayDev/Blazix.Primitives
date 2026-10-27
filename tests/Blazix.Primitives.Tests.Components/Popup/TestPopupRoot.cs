@@ -54,9 +54,6 @@ internal sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
     public bool CloseOnActiveTriggerUnmount { get; set; }
 
     [Parameter]
-    public bool RendersOnReconciliationInputs { get; set; }
-
-    [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
     [Parameter]
@@ -80,7 +77,6 @@ internal sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
 
     protected override void OnParametersSet()
     {
-        behavior.RendersOnReconciliationInputs = RendersOnReconciliationInputs;
         behavior.ApplyParameters(new PopupRootParameters<TPayload>(
             DefaultOpen,
             DefaultTriggerId,

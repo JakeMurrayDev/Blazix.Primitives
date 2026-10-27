@@ -9,9 +9,10 @@ namespace Blazix.Primitives.Tests.Components;
 /// titles verbatim; PSH-STA-15..29, PSH-ALG-03..05, PSH-DIS-05), over the test-only hosts. Where Base UI writes the store
 /// from the test, these tests write it on the renderer's context. Registration happens at the trigger's parameter set
 /// (settled by the orchestrator 2026-10-27 under ADR 01 Amendments 2026-10-22) and the reconciliation at the render-batch
-/// boundary (ADR 01 decision 3's amendment); each reconciliation title runs under both wirings of design point 8 (pending
-/// the user): the root renders on the reconciliation's inputs, or the first popup part to render runs it. Each tree holds a
-/// test popup, as every family's markup holds a part that renders on open and close.
+/// boundary (ADR 01 decision 3's amendment); each reconciliation title runs under both wirings of design point 8 (ADR 16
+/// Amendments 2026-10-27): with a test popup, which selects the open and mounted state as every family's Portal and Popup
+/// do and runs the boundary after its renders, and without one, where the store renders the root on the reconciliation's
+/// inputs (the shape of Base UI's bare-store tests). The other titles render the family shape, with a test popup.
 /// </summary>
 public sealed class PopupStoreUtilsTests : IDisposable
 {
@@ -138,9 +139,9 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-18")]
     [Trait("Requirement", "PSH-ALG-03")]
-    public async Task Claims_the_only_registered_trigger_when_a_closed_popup_opens(bool rootRendersOnInputs)
+    public async Task Claims_the_only_registered_trigger_when_a_closed_popup_opens(bool withPopupPart)
     {
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], rootRendersOnInputs: rootRendersOnInputs);
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], withPopupPart: withPopupPart);
         PopupTriggerElement? element = Store.Triggers.GetById("trigger");
 
         Assert.Equal(0, Store.Popup.TriggerCount);
@@ -158,9 +159,9 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-19")]
-    public async Task Does_not_claim_the_only_registered_trigger_when_the_popup_opened_without_a_trigger(bool rootRendersOnInputs)
+    public async Task Does_not_claim_the_only_registered_trigger_when_the_popup_opened_without_a_trigger(bool withPopupPart)
     {
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], rootRendersOnInputs: rootRendersOnInputs);
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], withPopupPart: withPopupPart);
 
         await cut.InvokeAsync(() => Store.WritePopup(TestPopupStore<string>.CreateOpenState(Store.Popup, open: true, trigger: null, triggerId: null, preventUnmountOnClose: false)));
 
@@ -174,9 +175,9 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-16")]
-    public async Task Claims_the_only_registered_trigger_again_after_a_trigger_less_open_is_closed_by_a_controlled_prop(bool rootRendersOnInputs)
+    public async Task Claims_the_only_registered_trigger_again_after_a_trigger_less_open_is_closed_by_a_controlled_prop(bool withPopupPart)
     {
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], rootRendersOnInputs: rootRendersOnInputs);
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], withPopupPart: withPopupPart);
         PopupTriggerElement? element = Store.Triggers.GetById("trigger");
 
         await cut.InvokeAsync(() => Store.WritePopup(TestPopupStore<string>.CreateOpenState(Store.Popup, open: true, trigger: null, triggerId: null, preventUnmountOnClose: false)));
@@ -234,10 +235,10 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-25")]
     [Trait("Requirement", "PSH-DIS-05")]
-    public async Task Closes_when_the_active_trigger_unregisters_while_open(bool rootRendersOnInputs)
+    public async Task Closes_when_the_active_trigger_unregisters_while_open(bool withPopupPart)
     {
         List<(bool Open, EventReason Reason)> requests = [];
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first", "second"], closeOnActiveTriggerUnmount: true, rootRendersOnInputs: rootRendersOnInputs, onOpenChange: args => requests.Add((args.Value, args.Details.Reason)));
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first", "second"], closeOnActiveTriggerUnmount: true, withPopupPart: withPopupPart, onOpenChange: args => requests.Add((args.Value, args.Details.Reason)));
         await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "first", ActiveTriggerElement = Store.Triggers.GetById("first") }));
 
         Assert.Equal(2, Store.Popup.TriggerCount);
@@ -260,11 +261,11 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData("no active trigger", false)]
     [InlineData("no active trigger", true)]
     [Trait("Requirement", "PSH-STA-24")]
-    public async Task Keeps_the_popup_open_when_ownership_returns_to_a_pending_trigger_after(string description, bool rootRendersOnInputs)
+    public async Task Keeps_the_popup_open_when_ownership_returns_to_a_pending_trigger_after(string description, bool withPopupPart)
     {
         string? pendingTriggerId = description == "a different unresolved id" ? "second" : null;
         List<bool> requests = [];
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first"], closeOnActiveTriggerUnmount: true, rootRendersOnInputs: rootRendersOnInputs, onOpenChange: args => requests.Add(args.Value));
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first"], closeOnActiveTriggerUnmount: true, withPopupPart: withPopupPart, onOpenChange: args => requests.Add(args.Value));
         await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "first", ActiveTriggerElement = Store.Triggers.GetById("first") }));
 
         await cut.InvokeAsync(() =>
@@ -290,10 +291,10 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-21")]
-    public async Task Keeps_the_popup_open_when_the_active_trigger_is_replaced_with_the_same_id(bool rootRendersOnInputs)
+    public async Task Keeps_the_popup_open_when_the_active_trigger_is_replaced_with_the_same_id(bool withPopupPart)
     {
         List<bool> requests = [];
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first", "second"], closeOnActiveTriggerUnmount: true, rootRendersOnInputs: rootRendersOnInputs, onOpenChange: args => requests.Add(args.Value));
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first", "second"], closeOnActiveTriggerUnmount: true, withPopupPart: withPopupPart, onOpenChange: args => requests.Add(args.Value));
         PopupTriggerElement? first = Store.Triggers.GetById("first");
         await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "first", ActiveTriggerElement = first }));
 
@@ -316,10 +317,10 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-20")]
-    public async Task Keeps_the_popup_open_when_the_active_trigger_element_is_registered_with_another_id(bool rootRendersOnInputs)
+    public async Task Keeps_the_popup_open_when_the_active_trigger_element_is_registered_with_another_id(bool withPopupPart)
     {
         List<bool> requests = [];
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["registered-id"], closeOnActiveTriggerUnmount: true, rootRendersOnInputs: rootRendersOnInputs, onOpenChange: args => requests.Add(args.Value));
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["registered-id"], closeOnActiveTriggerUnmount: true, withPopupPart: withPopupPart, onOpenChange: args => requests.Add(args.Value));
         PopupTriggerElement? element = Store.Triggers.GetById("registered-id");
 
         await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "dom-id", ActiveTriggerElement = element }));
@@ -336,10 +337,10 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-20")]
-    public async Task Reassociates_the_active_trigger_when_ownership_moves_to_another_rendered_id_trigger_while_open(bool rootRendersOnInputs)
+    public async Task Reassociates_the_active_trigger_when_ownership_moves_to_another_rendered_id_trigger_while_open(bool withPopupPart)
     {
         List<bool> requests = [];
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["registered-1", "registered-2"], closeOnActiveTriggerUnmount: true, rootRendersOnInputs: rootRendersOnInputs, onOpenChange: args => requests.Add(args.Value));
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["registered-1", "registered-2"], closeOnActiveTriggerUnmount: true, withPopupPart: withPopupPart, onOpenChange: args => requests.Add(args.Value));
         await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "registered-1", ActiveTriggerElement = Store.Triggers.GetById("registered-1") }));
         await cut.InvokeAsync(() => Store.AtBatchBoundaryAsync());
 
@@ -360,10 +361,10 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-22")]
     [Trait("Requirement", "PSH-ALG-03")]
-    public async Task Preserves_active_trigger_ownership_without_closing_by_default(bool rootRendersOnInputs)
+    public async Task Preserves_active_trigger_ownership_without_closing_by_default(bool withPopupPart)
     {
         List<bool> requests = [];
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first", "second"], rootRendersOnInputs: rootRendersOnInputs, onOpenChange: args => requests.Add(args.Value));
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first", "second"], withPopupPart: withPopupPart, onOpenChange: args => requests.Add(args.Value));
         PopupTriggerElement? first = Store.Triggers.GetById("first");
         await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "first", ActiveTriggerElement = first }));
 
@@ -385,9 +386,9 @@ public sealed class PopupStoreUtilsTests : IDisposable
     [InlineData(true)]
     [Trait("Requirement", "PSH-STA-16")]
     [Trait("Requirement", "PSH-ALG-03")]
-    public async Task Resets_triggerCount_when_the_popup_closes(bool rootRendersOnInputs)
+    public async Task Resets_triggerCount_when_the_popup_closes(bool withPopupPart)
     {
-        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], defaultOpen: true, rootRendersOnInputs: rootRendersOnInputs);
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["trigger"], defaultOpen: true, withPopupPart: withPopupPart);
 
         Assert.Equal(1, Store.Popup.TriggerCount);
 
@@ -396,43 +397,84 @@ public sealed class PopupStoreUtilsTests : IDisposable
         Assert.Equal(0, Store.Popup.TriggerCount);
     }
 
+    // ADR 16 Amendments 2026-10-27 (design point 8): the claim that a family never re-renders its content for an open or a
+    // close, measured; and the fallback's cost when no popup part is registered.
+    [Fact(DisplayName = "port: with a popup part registered, an open and a close render neither the root nor an inactive trigger, and without one the store renders the root on the reconciliation's inputs")]
+    [Trait("Requirement", "PSH-STA-16")]
+    [Trait("Requirement", "PSH-STA-18")]
+    [Trait("Requirement", "ADR16-reconciliation-boundary")]
+    public async Task With_a_popup_part_an_open_and_a_close_render_neither_the_root_nor_an_inactive_trigger()
+    {
+        Dictionary<string, int> renders = [];
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["a", "b"], renders: renders);
+        TestPopupRoot<string> familyRoot = root!;
+        int rootRenders = familyRoot.Renders;
+        int inactiveRenders = renders["b"];
+        Assert.True(Store.HasBoundaryPart);
+
+        await cut.Find("#a").ClickAsync(new());
+        Assert.True(Store.IsOpen);
+        Assert.Equal("a", Store.Popup.ActiveTriggerId);
+        await cut.Find("#a").ClickAsync(new());
+        Assert.False(Store.IsOpen);
+
+        Assert.Equal(rootRenders, familyRoot.Renders);
+        Assert.Equal(inactiveRenders, renders["b"]);
+
+        Dictionary<string, int> bareRenders = [];
+        IRenderedComponent<PopupTestHost> bare = RenderTree(triggers: ["c", "d"], withPopupPart: false, renders: bareRenders);
+        rootRenders = root!.Renders;
+        inactiveRenders = bareRenders["d"];
+        Assert.False(Store.HasBoundaryPart);
+
+        await bare.Find("#c").ClickAsync(new());
+
+        Assert.Equal("c", Store.Popup.ActiveTriggerId);
+        Assert.Equal(rootRenders + 1, root.Renders);
+        Assert.Equal(inactiveRenders + 1, bareRenders["d"]);
+    }
+
     // Renders a root of string payloads around the triggers the host's "triggers" value names (null for a trigger without an
     // id); "ids" renames a trigger's id, "keys" gives one a new instance under the same id, "payloads" gives one a payload.
     private IRenderedComponent<PopupTestHost> RenderTree(
         string?[] triggers,
         bool defaultOpen = false,
         bool closeOnActiveTriggerUnmount = false,
-        bool rootRendersOnInputs = false,
-        Action<ValueChangeEventArgs<bool>>? onOpenChange = null)
+        bool withPopupPart = true,
+        Action<ValueChangeEventArgs<bool>>? onOpenChange = null,
+        Dictionary<string, int>? renders = null)
     {
         IRenderedComponent<PopupTestHost> cut = test.Render((builder, host) =>
         {
             builder.OpenComponent<TestPopupRoot<string>>(0);
             builder.AddComponentParameter(1, nameof(TestPopupRoot<string>.DefaultOpen), defaultOpen);
             builder.AddComponentParameter(2, nameof(TestPopupRoot<string>.CloseOnActiveTriggerUnmount), closeOnActiveTriggerUnmount);
-            builder.AddComponentParameter(3, nameof(TestPopupRoot<string>.RendersOnReconciliationInputs), rootRendersOnInputs);
             if (onOpenChange is not null)
             {
                 builder.AddComponentParameter(4, nameof(TestPopupRoot<string>.OnOpenChange), EventCallback.Factory.Create(this, onOpenChange));
             }
 
-            builder.AddComponentParameter(5, nameof(TestPopupRoot<string>.ChildContent), (RenderFragment)(content => RenderTriggers(content, host)));
+            builder.AddComponentParameter(5, nameof(TestPopupRoot<string>.ChildContent), (RenderFragment)(content => RenderTriggers(content, host, withPopupPart, renders)));
             builder.AddComponentReferenceCapture(6, reference => root = (TestPopupRoot<string>)reference);
             builder.CloseComponent();
         }, new() { ["triggers"] = triggers });
         return cut;
     }
 
-    private static void RenderTriggers(RenderTreeBuilder builder, PopupTestHost host)
+    private static void RenderTriggers(RenderTreeBuilder builder, PopupTestHost host, bool withPopupPart, Dictionary<string, int>? renders)
     {
         string?[] triggers = host.Get<string?[]>("triggers") ?? [];
         Dictionary<string, string> ids = host.Get<Dictionary<string, string>>("ids") ?? [];
         Dictionary<string, string> keys = host.Get<Dictionary<string, string>>("keys") ?? [];
         Dictionary<string, string> payloads = host.Get<Dictionary<string, string>>("payloads") ?? [];
-        // Every family renders a popup part that selects the open and mounted state (its Portal and Popup), which is what
-        // brings a render-batch boundary after an open that no trigger's state shows (design point 8, option b).
-        builder.OpenComponent<TestPopupPopup<string>>(4);
-        builder.CloseComponent();
+        // Every family renders a popup part that selects the open and mounted state (its Portal and Popup), which brings the
+        // render-batch boundary after an open that no trigger's state shows; without one, the store renders the root on the
+        // reconciliation's inputs (design point 8, ADR 16 Amendments 2026-10-27).
+        if (withPopupPart)
+        {
+            builder.OpenComponent<TestPopupPopup<string>>(4);
+            builder.CloseComponent();
+        }
         foreach (string? name in triggers)
         {
             builder.OpenComponent<TestPopupTrigger<string>>(0);
@@ -447,6 +489,16 @@ public sealed class PopupStoreUtilsTests : IDisposable
             }
 
             builder.AddComponentParameter(3, nameof(TestPopupTrigger<string>.ChildContent), (RenderFragment)(text => text.AddContent(0, name)));
+            if (renders is not null && name is not null)
+            {
+                // Render counts are measured through ClassValue, which the pipeline calls once per render of the part.
+                builder.AddComponentParameter(5, nameof(TestPopupTrigger<string>.ClassValue), (Func<TestPopupTriggerState, string?>)(_ =>
+                {
+                    renders[name] = renders.GetValueOrDefault(name) + 1;
+                    return null;
+                }));
+            }
+
             builder.CloseComponent();
         }
     }
