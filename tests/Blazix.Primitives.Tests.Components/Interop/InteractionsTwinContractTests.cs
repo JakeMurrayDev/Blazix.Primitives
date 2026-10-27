@@ -50,6 +50,7 @@ public sealed class InteractionsTwinContractTests
                 ParentToken = "base-ui-0",
                 FloatingId = "base-ui-3",
                 Ending = true,
+                Answered = 2,
                 Dismiss = new InteractionsDismissOptions
                 {
                     EscapeKey = false,
@@ -73,7 +74,7 @@ public sealed class InteractionsTwinContractTests
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"sessionToken":"base-ui-1","session":{"open":true,"activeTriggerId":"base-ui-2","parentToken":"base-ui-0","floatingId":"base-ui-3","ending":true,"dismiss":{"escapeKey":false,"outsidePress":true,"outsidePressEvent":{"mouse":"intentional","touch":"sloppy"},"bubblesEscapeKey":true,"bubblesOutsidePress":false,"primaryButtonOnly":true,"singleTouch":true,"ownBackdropIds":["base-ui-4","base-ui-5"],"topmost":true}}}""",
+            """{"sessionToken":"base-ui-1","session":{"open":true,"activeTriggerId":"base-ui-2","parentToken":"base-ui-0","floatingId":"base-ui-3","ending":true,"answered":2,"dismiss":{"escapeKey":false,"outsidePress":true,"outsidePressEvent":{"mouse":"intentional","touch":"sloppy"},"bubblesEscapeKey":true,"bubblesOutsidePress":false,"primaryButtonOnly":true,"singleTouch":true,"ownBackdropIds":["base-ui-4","base-ui-5"],"topmost":true}}}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }

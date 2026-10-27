@@ -106,6 +106,9 @@ internal sealed class TestInteractionsRoot : ComponentBase, IAsyncDisposable
             ActiveTriggerId = triggerId;
         }
 
+        // The commit path sets the session's inputs before the render, so the behaviour's answer carries them.
+        session!.Open = Open;
+        session.ActiveTriggerId = ActiveTriggerId;
         return InvokeAsync(StateHasChanged);
     }
 

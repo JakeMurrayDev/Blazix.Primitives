@@ -207,6 +207,35 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.Equal(before + 1, renders);
     }
 
+    [Fact]
+    public async Task A_cancelled_session_request_sends_one_update_with_the_answered_counter_and_renders_nothing()
+    {
+        int renders = 0;
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onOpenChange: (_, details) => details.Cancel(), classValue: () => renders++);
+        int before = renders;
+
+        await cut.InvokeAsync(() => host.SessionTwin.OnRequest($$"""{"open":true,"reason":"outside-press","event":{{ClickJson}},"triggerId":null}"""));
+
+        string update = Assert.Single(host.UpdateOptions);
+        Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
+        Assert.Contains("\"open\":false", update, StringComparison.Ordinal);
+        Assert.Equal(before, renders);
+        Assert.False(cut.Instance.Open);
+    }
+
+    [Fact]
+    public async Task An_accepted_session_request_sends_one_update_with_the_committed_state_and_the_answered_counter()
+    {
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup();
+
+        await cut.InvokeAsync(() => host.SessionTwin.OnRequest($$"""{"open":true,"reason":"trigger-hover","event":{{ClickJson}},"triggerId":"t"}"""));
+
+        string update = Assert.Single(host.UpdateOptions);
+        Assert.Contains("\"open\":true", update, StringComparison.Ordinal);
+        Assert.Contains("\"activeTriggerId\":\"t\"", update, StringComparison.Ordinal);
+        Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
+    }
+
     private IRenderedComponent<TestInteractionsRoot> RenderPopup(
         Action<bool, OpenChangeEventDetails>? onOpenChange = null,
         Action<MouseEventArgs>? onClick = null,
