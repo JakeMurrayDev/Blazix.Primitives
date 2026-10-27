@@ -7,7 +7,7 @@
 | Tests | `internals/use-button/useButton.test.tsx`, `button/Button.test.tsx`, `toolbar/button/ToolbarButton.test.tsx`, `number-field/increment/NumberFieldIncrement.test.tsx`, plus the `nativeButton` / `focusableWhenDisabled` cases in component test files cited inline |
 | Prefix | `UBT` |
 | Status | approved |
-| Revised | 2026-10-26 |
+| Revised | 2026-10-27 |
 | Used by | `components/button.md`, `components/checkbox.md`, `components/switch.md`, `components/radio.md`, `components/toggle.md`, `components/toggle-group.md`, `components/tabs.md`, `components/accordion.md`, `components/collapsible.md`, `components/dialog.md`, `components/alert-dialog.md`, `components/drawer.md`, `components/popover.md`, `components/menu.md`, `components/menubar.md`, `components/context-menu.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/navigation-menu.md`, `components/toast.md`, `components/toolbar.md`, `components/number-field.md`, `components/slider.md` (touch-like pointer predicate only); `architecture/popup-store-and-handles.md` (interaction-type detection) |
 
 ## 1. Purpose
@@ -126,6 +126,7 @@ The complete attribute resolution is given as UBT-ALG-03; the requirements below
   Source: `utils/useFocusableWhenDisabled.ts:20-58` (pure computation). Test: [L2] `useButton.test.tsx` "should server-side render", "adds disabled attribute".
 - **UBT-DOM-12** — MUST. `Toolbar.Input` applies the same attribute resolution with `composite: true` and `isNativeButton: false` (yielding `aria-disabled="true"` only, no `tabindex`, no `disabled`) so a disabled toolbar input stays navigable; the input's own `click` and `pointerdown` are default-prevented while disabled.
   Source: `toolbar/input/ToolbarInput.tsx:40-45,53-62`. Test: [L2] `ToolbarRoot.test.tsx` "toolbar items can be focused when disabled by default", "skips a disabled Toolbar.Input with focusableWhenDisabled={false}" (L3 for the default-prevented clause, L4 for the keyboard-navigation citations).
+  Port note 2026-10-27 (ADR 04 Amendments 2026-10-26 and 2026-10-27, the `button` row; chosen by the user 2026-10-26): the resolution is `ButtonAttributeWriter.WriteInputItem` and the behaviour the `button` module's `inputItem` option, which keeps UBT-KEY-20's key prevention and the disabled press suppression and skips every key activation, so a space is typed (`ButtonAttributeWriterTests` "port: the input item variant renders only aria-disabled=\"true\", and only while disabled"; `js/button.test.ts` "button module: input item", both forms; `ToolbarInputTests` "port: the input attaches one button twin with the input item option, not native, in composite mode").
 
 ### ARIA
 
