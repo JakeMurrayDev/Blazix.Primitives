@@ -105,6 +105,9 @@ export function resolveElement(elementOrId: Element | string): HTMLElement {
   return element;
 }
 
+/** `attach`'s first argument: the element, its id, or `null` for the token form (a handle without an element). */
+export type AttachTarget = Element | string | null;
+
 /**
  * Resolves `attach`'s first argument, the token form included: `null` attaches a handle that has no element (a part that
  * renders none, keyed by a token in its options), otherwise the element itself or the id of the element in the document.
@@ -112,7 +115,7 @@ export function resolveElement(elementOrId: Element | string): HTMLElement {
  * @returns The HTML element, or `null` for the token form.
  * @throws When an id names no element or the reference is not an HTML element.
  */
-export function attachTarget(elementOrId: Element | string | null): HTMLElement | null {
+export function attachTarget(elementOrId: AttachTarget): HTMLElement | null {
   return elementOrId === null ? null : resolveElement(elementOrId);
 }
 
