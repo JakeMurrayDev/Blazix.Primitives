@@ -9,6 +9,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// answer, measured on the renderer's dispatcher. It includes the report's deserialization, the state applied to the one
 /// field, its validation and the answer's serialization. The budget was taken from the first measurement and only tightens.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class FormAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 2248 bytes, most of it the report's deserialization, the

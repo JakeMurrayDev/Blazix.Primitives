@@ -9,7 +9,8 @@
 // emitted files (relative to root, one per line) for MSBuild to register as static web assets without globbing.
 //
 // One ESM entry per module into the output directory, shared code as chunks under js/chunks/, legal comments
-// kept inline so the Floating UI licence banner survives, sourcemaps and no minification in Debug.
+// kept inline so the `/*! … */` banner of js/floating-ui.ts survives in js/positioning.js (the vendored engine has none of
+// its own; ADR 07 Amendments 2026-10-27), sourcemaps and no minification in Debug.
 import * as esbuild from 'esbuild';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';

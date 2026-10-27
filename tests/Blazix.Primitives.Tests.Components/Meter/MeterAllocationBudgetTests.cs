@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// memoised), measured the way <c>AllocationBudgetTests</c> measures <c>SampleRoot</c>. The budget is the first measurement
 /// and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class MeterAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 344 bytes, all of it Blazor's own per-render work on this

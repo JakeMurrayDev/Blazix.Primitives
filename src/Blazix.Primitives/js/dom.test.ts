@@ -29,6 +29,7 @@ import {
   observeIntersection,
   observeResize,
   ownerDocument,
+  styleWriter,
   ownerWindow,
   platform,
   probeImage,
@@ -1302,5 +1303,128 @@ describe('SwitchRoot hidden input checked after a form reset', () => {
     form.reset();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(input.checked).toBe(false);
+  });
+});
+
+// ADR 04 Amendments 2026-10-27 (Decision 2, chosen by the user; the bands settled by the orchestrator 2026-10-27 as
+// design point 1 of the positioning track): one writer per element composes its whole `style` from the consumer's string
+// and the modules' named layers. Under the consumer: `positioning`, then `transitions` (Base UI merges the positioner
+// styles, then `transition: none`, then the consumer's props); over it: `positioning-measured`, then `auto-resize` (the
+// variables Base UI writes with `setProperty` after render win, FLT-DOM-05).
+describe('styleWriter', () => {
+  function spiedElement(): { element: HTMLElement; writes: string[] } {
+    const element = document.createElement('div');
+    document.body.appendChild(element);
+    const writes: string[] = [];
+    const setProperty = element.style.setProperty.bind(element.style);
+    const removeProperty = element.style.removeProperty.bind(element.style);
+    vi.spyOn(element.style, 'setProperty').mockImplementation((name, value, priority) => {
+      writes.push(`set ${name}`);
+      setProperty(name, value, priority);
+    });
+    vi.spyOn(element.style, 'removeProperty').mockImplementation((name) => {
+      writes.push(`remove ${name}`);
+      return removeProperty(name);
+    });
+    return { element, writes };
+  }
+
+  it('composes the consumer between the layers under it and the layers over it', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('positioning').set('opacity', '0');
+    writer.layer('positioning').set('position', 'fixed');
+    writer.layer('positioning-measured').set('--available-height', '300px');
+    writer.setConsumer('opacity: 0.5; --available-height: 10px; color: red');
+
+    expect(element.style.getPropertyValue('opacity')).toBe('0.5');
+    expect(element.style.getPropertyValue('position')).toBe('fixed');
+    expect(element.style.getPropertyValue('--available-height')).toBe('300px');
+    expect(element.style.getPropertyValue('color')).toBe('red');
+  });
+
+  it('orders the layers of a band: transitions over positioning, auto-resize over positioning-measured', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('transitions').set('transition', 'none');
+    writer.layer('positioning').set('transition', 'opacity 1s');
+    writer.layer('auto-resize').set('--positioner-width', '120px');
+    writer.layer('positioning-measured').set('--positioner-width', '80px');
+
+    expect(element.style.getPropertyValue('transition')).toBe('none');
+    expect(element.style.getPropertyValue('--positioner-width')).toBe('120px');
+
+    // TRN-DOM-05: a consumer inline `transition` wins over `transition: none`.
+    writer.setConsumer('transition: transform 2s');
+    expect(element.style.getPropertyValue('transition')).toBe('transform 2s');
+  });
+
+  it('writes only the properties whose winning value changed', () => {
+    const { element, writes } = spiedElement();
+    const writer = styleWriter(element);
+    const positioning = writer.layer('positioning');
+
+    positioning.set('transform', 'translate(1px, 2px)');
+    positioning.set('transform', 'translate(1px, 2px)');
+    writer.setConsumer('color: red');
+    writer.setConsumer('color: red');
+    expect(writes).toEqual(['set transform', 'set color']);
+
+    // A layer under the consumer changing a property the consumer holds writes nothing.
+    writer.setConsumer('color: red; opacity: 1');
+    writes.length = 0;
+    positioning.set('opacity', '0');
+    positioning.set('transform', 'translate(3px, 2px)');
+    expect(writes).toEqual(['set transform']);
+  });
+
+  it('hands a property back to the next writer when a layer removes it or is cleared, and removes it when no writer holds it', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+    const positioning = writer.layer('positioning');
+    const measured = writer.layer('positioning-measured');
+
+    positioning.set('top', '0px');
+    positioning.set('left', '0px');
+    measured.set('--transform-origin', '10px 0px');
+    writer.setConsumer('--transform-origin: center');
+
+    measured.clear();
+    expect(element.style.getPropertyValue('--transform-origin')).toBe('center');
+
+    positioning.remove('top');
+    expect(element.style.getPropertyValue('top')).toBe('');
+    expect(element.style.getPropertyValue('left')).toBe('0px');
+
+    positioning.clear();
+    writer.setConsumer(null);
+    expect(element.style.cssText).toBe('');
+  });
+
+  it('keeps one writer per element, so every module composes into the same style', () => {
+    const element = document.createElement('div');
+
+    styleWriter(element).layer('positioning').set('position', 'absolute');
+    styleWriter(element).layer('transitions').set('transition', 'none');
+    styleWriter(element).setConsumer('color: blue');
+
+    expect(styleWriter(element)).toBe(styleWriter(element));
+    expect(element.style.getPropertyValue('position')).toBe('absolute');
+    expect(element.style.getPropertyValue('transition')).toBe('none');
+    expect(element.style.getPropertyValue('color')).toBe('blue');
+  });
+
+  it('keeps the priority of an important consumer declaration', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('positioning-measured').set('--anchor-width', '72px');
+    writer.setConsumer('--anchor-width: 10px !important; opacity: 0.5 !important');
+
+    // An over layer still wins: Base UI's setProperty writes no priority and replaces the declaration.
+    expect(element.style.getPropertyValue('--anchor-width')).toBe('72px');
+    expect(element.style.getPropertyPriority('opacity')).toBe('important');
   });
 });

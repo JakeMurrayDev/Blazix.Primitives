@@ -13,6 +13,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// cost and the twins' comparison of their options, which sends nothing. The budgets were taken from the first
 /// measurement and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class TabsAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-27 (arm64, .NET 11 RC2, Release). 2592 bytes for the re-render: the root, its cascade and

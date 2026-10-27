@@ -7,6 +7,7 @@ namespace Blazix.Primitives.Tests.Collapsible;
 /// with no receivers allocates the new shared-state record and nothing of the request path. Measured on the shared state a
 /// part subscribes to, with a subscription that has a selection, as a trigger or a panel holds one.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class CollapsibleAllocationBudgetTests
 {
     // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 0 bytes.

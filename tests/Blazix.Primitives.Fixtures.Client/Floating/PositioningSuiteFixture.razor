@@ -1,0 +1,105 @@
+@namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures
+@using Blazix.Primitives
+@inherits PositioningFixtureBase
+
+@*
+    The `positioning-suite` fixture: the positioner conformance suite's cases (tests/browser/suites/positioner-conformance.ts,
+    Base UI's test/positionerConformanceTests.tsx) on the test-only positioner. One case per page, named by `?case=`: a
+    72×36 trigger at the viewport origin (the host keeps the browser's 8px body margin, so it is fixed there) and a 52×24
+    popup in the positioner, which is a sibling of the trigger as a portaled positioner is.
+    - `default`; `sideOffset-number`, `alignOffset-number` (7); `sideOffset-function` (anchor width plus positioner
+      width), `alignOffset-function` (positioner width);
+    - `<prop>-override-<n>`: the four callback-data cases, the offset applying 5 pixels only through the override keyed
+      by the side or align the pass evaluates (1: side left, keyed right; 2: right/start, keyed end; 3: inline-start,
+      keyed inline-end; 4: inline-start under an rtl DirectionProvider, keyed inline-start);
+    - `collision-padding`: the trigger fixed at bottom 8px, left 16px, a 200×1000 popup capped by --available-height,
+      side bottom, sideOffset 8, collisionPadding 12, fallbackAxisSide none, opened after mount;
+    - `viewport` and `viewport-toggle`: AdaptiveOrigin on, or toggled by a button rendered after the trigger, standing in
+      for the Viewport part (design point 8 of the positioning track, settled by the orchestrator 2026-10-27).
+*@
+<FixtureContainer Name="positioning-suite" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++">Sync</button>
+
+    @if (Case == "collision-padding")
+    {
+        <div style="position: fixed; bottom: 8px; left: 16px">
+            <div id="trigger" data-testid="trigger" style="width: 72px; height: 36px; box-sizing: border-box">Trigger</div>
+        </div>
+        <button type="button" data-open-button style="position: fixed; right: 0; top: 0" @onclick="() => open = true">Open</button>
+        @if (open)
+        {
+            <FixturePositioner data-testid="positioner" Side="Side.Bottom" SideOffset="8" CollisionPadding="12" CollisionAvoidance="s_noFallback">
+                <div data-popup style="width: 200px; height: 1000px; max-height: var(--available-height)">Popup</div>
+            </FixturePositioner>
+        }
+    }
+    else
+    {
+        <div id="trigger" data-testid="trigger" style="position: fixed; top: 0; left: 0; width: 72px; height: 36px; box-sizing: border-box">Trigger</div>
+        @if (Case.StartsWith("sideOffset-override-", StringComparison.Ordinal) || Case.StartsWith("alignOffset-override-", StringComparison.Ordinal))
+        {
+            OverrideCase overrideCase = OverrideCase.For(Case);
+            <DirectionProvider Direction="overrideCase.Direction">
+                <FixturePositioner @ref="Positioner" data-testid="positioner" Side="overrideCase.Side" Align="overrideCase.Align" SideOffset="overrideCase.SideOffset" AlignOffset="overrideCase.AlignOffset">
+                    <div data-popup style="width: 52px; height: 24px">Popup</div>
+                </FixturePositioner>
+            </DirectionProvider>
+        }
+        else
+        {
+            <FixturePositioner @ref="Positioner" data-testid="positioner" SideOffset="SideOffsetFor(Case)" AlignOffset="AlignOffsetFor(Case)" AdaptiveOrigin="@(adaptiveOrigin || Case == "viewport")">
+                <div data-popup style="width: 52px; height: 24px">Popup</div>
+            </FixturePositioner>
+        }
+        @if (Case == "viewport-toggle")
+        {
+            <button type="button" data-viewport-toggle style="position: fixed; right: 0; top: 0" @onclick="() => adaptiveOrigin = !adaptiveOrigin">Toggle Viewport</button>
+        }
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly CollisionAvoidance s_noFallback = new(FallbackAxisSide: FallbackAxisSide.None);
+
+    private bool open;
+    private bool adaptiveOrigin;
+
+    private static OffsetValue? SideOffsetFor(string name) => name switch
+    {
+        "sideOffset-number" => 7,
+        "sideOffset-function" => new Offset(AnchorWidth: 1, PositionerWidth: 1),
+        _ => null,
+    };
+
+    private static OffsetValue? AlignOffsetFor(string name) => name switch
+    {
+        "alignOffset-number" => 7,
+        "alignOffset-function" => new Offset(PositionerWidth: 1),
+        _ => null,
+    };
+
+    private sealed record OverrideCase(Side Side, Align? Align, TextDirection Direction, OffsetValue? SideOffset, OffsetValue? AlignOffset)
+    {
+        public static OverrideCase For(string name)
+        {
+            bool side = name.StartsWith("sideOffset-", StringComparison.Ordinal);
+            int number = name[^1] - '0';
+            OffsetOverride keyed = number switch
+            {
+                1 => new OffsetOverride(Primitives.Side.Right, null, Constant: 5),
+                2 => new OffsetOverride(null, Primitives.Align.End, Constant: 5),
+                3 => new OffsetOverride(Primitives.Side.InlineEnd, null, Constant: 5),
+                _ => new OffsetOverride(Primitives.Side.InlineStart, null, Constant: 5),
+            };
+            OffsetValue offset = new Offset { Overrides = [keyed] };
+            (Primitives.Side requested, Primitives.Align? align, TextDirection direction) = number switch
+            {
+                1 => (Primitives.Side.Left, (Primitives.Align?)null, TextDirection.Ltr),
+                2 => (Primitives.Side.Right, Primitives.Align.Start, TextDirection.Ltr),
+                3 => (Primitives.Side.InlineStart, null, TextDirection.Ltr),
+                _ => (Primitives.Side.InlineStart, null, TextDirection.Rtl),
+            };
+            return new OverrideCase(requested, align, direction, side ? offset : null, side ? null : offset);
+        }
+    }
+}

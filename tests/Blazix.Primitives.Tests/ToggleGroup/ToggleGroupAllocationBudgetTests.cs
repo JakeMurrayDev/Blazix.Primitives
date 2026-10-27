@@ -5,6 +5,7 @@ namespace Blazix.Primitives.Tests;
 /// produces (toggle-group §4, TGG-EVT-05). Measured on the test thread; the budgets were taken from the first measurement
 /// and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class ToggleGroupAllocationBudgetTests
 {
     // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): the new array and nothing else.
