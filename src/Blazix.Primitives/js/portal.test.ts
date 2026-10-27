@@ -291,3 +291,138 @@ describe('the published state and the outside guards', () => {
     handle.dispose();
   });
 });
+
+// FloatingPortal.tsx:196-234 and :252-292: the outside guards' routing and the focus inside a non-modal portal, read
+// from the focus manager's publication (design point 3 of the focus-manager track, settled by the orchestrator
+// 2026-10-27). The cases publish what the focus manager would.
+describe('the outside guards and the focus inside a non-modal portal', () => {
+  function renderRouted({ guards = true } = {}) {
+    const prev = document.createElement('button');
+    prev.setAttribute('data-testid', 'prev');
+    const reference = document.createElement('button');
+    reference.setAttribute('data-testid', 'reference');
+    document.body.append(prev, reference);
+    const rendered = renderPortal({ guards });
+    const next = document.createElement('button');
+    next.setAttribute('data-testid', 'next');
+    document.body.append(next);
+    const beforeInside = createGuard();
+    beforeInside.setAttribute('data-type', 'inside');
+    const content = document.createElement('button');
+    content.setAttribute('data-testid', 'content');
+    rendered.floating.append(content);
+    const afterInside = createGuard();
+    afterInside.setAttribute('data-type', 'inside');
+    rendered.floating.before(beforeInside);
+    rendered.floating.after(afterInside);
+    attach(rendered.node, '{}', createFakeTwin().twin);
+    const close = vi.fn();
+    const publish = (modal: boolean, open = true) => {
+      getPortalState(rendered.node)!.focusManager = {
+        modal,
+        closeOnFocusOut: true,
+        open,
+        domReference: reference,
+        insideGuards: { before: beforeInside, after: afterInside },
+        close,
+      };
+    };
+    return { ...rendered, prev, reference, next, beforeInside, afterInside, content, close, publish };
+  }
+
+  it('port: the before-outside guard focuses the before-inside guard when focus arrives from outside the node, else the previous tabbable before the anchor', () => {
+    const app = renderRouted();
+    app.publish(false);
+    const [beforeOutside] = app.guards;
+
+    app.prev.focus();
+    beforeOutside!.focus();
+    expect(document.activeElement).toBe(app.beforeInside);
+
+    app.content.focus();
+    beforeOutside!.focus();
+    expect(document.activeElement).toBe(app.reference);
+    expect(app.close).not.toHaveBeenCalled();
+  });
+
+  it('port: the after-outside guard focuses the after-inside guard when focus arrives from outside the node, else the next tabbable after the anchor, and asks for the focus-out close while closeOnFocusOut', () => {
+    const app = renderRouted();
+    app.publish(false);
+    const [, afterOutside] = app.guards;
+
+    app.next.focus();
+    afterOutside!.focus();
+    expect(document.activeElement).toBe(app.afterInside);
+    expect(app.close).not.toHaveBeenCalled();
+
+    app.content.focus();
+    afterOutside!.focus();
+    expect(document.activeElement).toBe(app.next);
+    expect(app.close).toHaveBeenCalledTimes(1);
+    expect(app.close.mock.calls[0]![0]).toMatchObject({ type: 'focusin' });
+
+    getPortalState(app.node)!.focusManager!.closeOnFocusOut = false;
+    app.content.focus();
+    afterOutside!.focus();
+    expect(document.activeElement).toBe(app.next);
+    expect(app.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('port: guards C# renders after attach route too', () => {
+    const app = renderRouted({ guards: false });
+    app.publish(false);
+    const before = createGuard();
+    const after = createGuard();
+    app.wrapper.before(before);
+    app.wrapper.after(after);
+
+    app.content.focus();
+    after.focus();
+
+    expect(document.activeElement).toBe(app.next);
+    expect(app.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('port: focus leaving a non-modal node for the outside makes its tabbables untabbable, and focus coming back from the outside restores them', () => {
+    const app = renderRouted({ guards: false });
+    app.publish(false);
+
+    app.content.focus();
+    app.next.focus();
+
+    expect(app.content.getAttribute('tabindex')).toBe('-1');
+    expect(app.content.getAttribute('data-tabindex')).toBe('');
+    expect(app.beforeInside.getAttribute('data-tabindex')).toBe('0');
+
+    app.content.focus();
+
+    expect(app.content.hasAttribute('tabindex')).toBe(false);
+    expect(app.content.hasAttribute('data-tabindex')).toBe(false);
+    expect(app.beforeInside.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('port: a modal publication leaves the tabbables alone when focus leaves the node', () => {
+    const app = renderRouted({ guards: false });
+    app.publish(true);
+
+    app.content.focus();
+    app.next.focus();
+
+    expect(app.content.hasAttribute('tabindex')).toBe(false);
+    expect(app.content.hasAttribute('data-tabindex')).toBe(false);
+  });
+
+  it('port: an open publication restores the tabbables a focus-out made untabbable, before the focus manager focuses inside', () => {
+    const app = renderRouted({ guards: false });
+    app.publish(false);
+    app.content.focus();
+    app.next.focus();
+    app.publish(false, false);
+    expect(app.content.getAttribute('tabindex')).toBe('-1');
+
+    app.publish(false, true);
+
+    expect(app.content.hasAttribute('tabindex')).toBe(false);
+    expect(app.content.hasAttribute('data-tabindex')).toBe(false);
+  });
+});
