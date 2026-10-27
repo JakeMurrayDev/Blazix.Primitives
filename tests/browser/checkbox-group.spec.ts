@@ -623,3 +623,72 @@ test.describe('<CheckboxGroup />', () => {
     });
   });
 });
+
+// The five portal titles left open to M4 on 2026-10-23 (CKG-STR-02, CKG-FRM-03, CKG-FRM-06, CKG-FOC-02; ADR 12 Amendments
+// 2026-10-27 item 4), on the test-only FixturePortal of M4 track 1: each case's checkboxes are moved into a container
+// outside its Form, as ReactDOM.createPortal renders them.
+test.describe('<CheckboxGroup /> with portaled checkboxes', () => {
+  async function gotoPortals(page: Page, mode: RenderMode, name: string): Promise<Locator> {
+    const fixture = await gotoFixture(page, mode, 'checkbox-group-portal');
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture.locator(`[data-case="${name}"]`);
+  }
+
+  test('includes a context-portaled checkbox without native form association', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'context');
+    // The checkbox and its hidden input sit outside the form, in the portal's container.
+    await expect(container.locator('#ckg-target-context [data-base-ui-portal] input')).toHaveCount(1);
+    expect(await container.locator('#ckg-target-context input').evaluate((input) => (input as HTMLInputElement).form)).toBeNull();
+
+    await container.locator('[data-submit]').click();
+
+    // Field registration is context-driven, so a portaled checkbox with no explicit `form` association still projects
+    // its value into `onFormSubmit`, like other field controls.
+    await expect(container).toHaveAttribute('data-submits', '1');
+    await expect(container).toHaveAttribute('data-submitted', 'fruits=apple');
+  });
+
+  test('includes a group fully portaled outside the form element', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'fully-portaled');
+    await expect(container.locator('#ckg-target-full [data-checkbox]')).toHaveCount(2);
+
+    await container.locator('[data-submit]').click();
+
+    await expect(container).toHaveAttribute('data-submits', '1');
+    await expect(container).toHaveAttribute('data-submitted', 'fruits=apple');
+  });
+
+  test('includes a portaled checkbox explicitly associated with the Form', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'explicit-form');
+    expect(await container.locator('#ckg-target-explicit input').evaluate((input) => (input as HTMLInputElement).form?.id)).toBe('ckg-current-form');
+
+    await container.locator('[data-submit]').click();
+
+    await expect(container).toHaveAttribute('data-submits', '1');
+    await expect(container).toHaveAttribute('data-submitted', 'fruits=apple');
+  });
+
+  test('validates and focuses required portaled checkboxes within the form', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'required');
+    const portaled = container.getByTestId('portaled');
+
+    await container.locator('[data-submit]').click();
+
+    await expect(portaled).toBeFocused();
+    await expect(container).toHaveAttribute('data-submits', '0');
+
+    await portaled.click();
+    await container.locator('[data-submit]').click();
+
+    await expect(container).toHaveAttribute('data-submits', '1');
+  });
+
+  test('ignores a checkbox portaled into another form without a form attribute', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'external-form');
+    expect(await container.locator('#ckg-external-form input').evaluate((input) => (input as HTMLInputElement).form?.id)).toBe('ckg-external-form');
+
+    await container.locator('[data-submit]').click();
+
+    await expect(container).toHaveAttribute('data-submits', '1');
+  });
+});

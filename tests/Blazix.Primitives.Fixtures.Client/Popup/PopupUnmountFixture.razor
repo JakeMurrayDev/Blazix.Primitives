@@ -1,0 +1,34 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Blazix.Primitives
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popup-unmount` fixture (tests/browser/popup.spec.ts): PSH-STA-23 per render mode (ADR 01's row for it: the check
+    runs at the render-batch boundary, on Server after paint plus a round trip). A root with CloseOnActiveTriggerUnmount
+    (Tooltip's and PreviewCard's setting) and triggers `trigger-1` and `trigger-2`; `[data-remove-trigger]` unmounts one,
+    `[data-replace-trigger]` renders a new instance under the same id.
+*@
+<FixtureContainer Name="popup-unmount" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-remove-trigger="trigger-1" @onclick='() => removed.Add("trigger-1")'>Remove trigger 1</button>
+    <button type="button" data-replace-trigger="trigger-1" @onclick='() => generation["trigger-1"]++'>Replace trigger 1</button>
+
+    <FixturePopupRoot TPayload="NoPayload" CloseOnActiveTriggerUnmount="true" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        @foreach (string id in new[] { "trigger-1", "trigger-2" })
+        {
+            @if (!removed.Contains(id))
+            {
+                <FixturePopupTrigger @key="@($"{id}-{generation[id]}")" id="@id" data-testid="@id" data-generation="@generation[id]">@id</FixturePopupTrigger>
+            }
+        }
+        <FixturePopupPortal>
+            <FixturePopupPopup data-testid="popup">Popup content</FixturePopupPopup>
+        </FixturePopupPortal>
+    </FixturePopupRoot>
+</FixtureContainer>
+
+@code {
+    private readonly HashSet<string> removed = [];
+    private readonly Dictionary<string, int> generation = new() { ["trigger-1"] = 0, ["trigger-2"] = 0 };
+}

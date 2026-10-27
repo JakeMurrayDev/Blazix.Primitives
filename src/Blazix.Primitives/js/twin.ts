@@ -12,9 +12,17 @@ export interface DotNetTwin {
 /** The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously. */
 export type DecisionPolicy = 'run' | 'stop' | 'start' | 'prevent-and-stop';
 
-/** What `attach` returns to C#: the per-element handle with `update(optionsJson)` and `dispose()`. */
+// ADR 04 Amendments 2026-10-27 (element-typed option values cross as interop arguments): mirrors `TwinReferences` in C#.
+/**
+ * The references `attach(elementOrId, options, self, references)` and `update(options, references)` receive after the
+ * options string: the elements and script-held objects (a closed shadow root, say) that the options' element-typed
+ * values name by index, revived by Blazor. Absent when the twin sent none.
+ */
+export type TwinReferences = readonly unknown[] | null | undefined;
+
+/** What `attach` returns to C#: the per-element handle with `update(optionsJson, references)` and `dispose()`. */
 export interface TwinHandle {
-  update(optionsJson: string): void;
+  update(optionsJson: string, references?: TwinReferences): void;
   dispose(): void;
 }
 
@@ -97,6 +105,20 @@ export function resolveElement(elementOrId: Element | string): HTMLElement {
     throw new Error(`Blazix: no element for ${typeof elementOrId === 'string' ? `id '${elementOrId}'` : 'the reference'}`);
   }
   return element;
+}
+
+/**
+ * Resolves an element-typed option: the option holds the index of its reference in the array `attach` or `update`
+ * received after the options string, in an `int?` field the module names (`containerRef` on the portal's options).
+ * @param references The references received with the options; `null` or `undefined` when the twin sent none.
+ * @param index The option's value: the index, or `null` or `undefined` when the option is absent.
+ * @returns The revived reference (an element, or the object a script holds), or `null` when there is none at the index.
+ */
+export function resolveReference<T = unknown>(references: TwinReferences, index: number | null | undefined): T | null {
+  if (references == null || index == null || index < 0 || index >= references.length) {
+    return null;
+  }
+  return (references[index] as T | undefined) ?? null;
 }
 
 /**

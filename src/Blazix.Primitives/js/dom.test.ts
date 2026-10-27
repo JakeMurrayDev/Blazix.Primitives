@@ -18,6 +18,7 @@ import {
   getElementTransform,
   getMaxScrollOffset,
   getPseudoElementBounds,
+  isOverflowElement,
   getTarget,
   isMouseWithinBounds,
   isScrollable,
@@ -489,6 +490,30 @@ describe('scrollable', () => {
 
     expect(findScrollableTouchTarget(child, root)).toBe(root);
     expect(findScrollableTouchTarget(child, root, 'horizontal')).toBeNull();
+  });
+});
+
+// ADR 04 Amendments 2026-10-27 (the Floating UI predicates the M4 modules need, re-implemented here): `@floating-ui/utils`'
+// isOverflowElement, which the scroll lock's viewport scroller reads (UTL-DOM-04). Port title: Floating UI's own test is
+// not vendored.
+describe('isOverflowElement', () => {
+  it('port: an element whose overflow scrolls or clips is an overflow element, unless it is inline or display: contents', () => {
+    const element = (style: Partial<CSSStyleDeclaration>) => {
+      const node = document.createElement('div');
+      Object.assign(node.style, style);
+      document.body.appendChild(node);
+      return node;
+    };
+
+    for (const overflow of ['auto', 'scroll', 'overlay', 'hidden', 'clip']) {
+      expect(isOverflowElement(element({ overflowY: overflow }))).toBe(true);
+    }
+    expect(isOverflowElement(element({ overflowX: 'hidden' }))).toBe(true);
+    expect(isOverflowElement(element({ overflow: 'auto', display: 'block' }))).toBe(true);
+    expect(isOverflowElement(element({}))).toBe(false);
+    expect(isOverflowElement(element({ overflow: 'visible' }))).toBe(false);
+    expect(isOverflowElement(element({ overflow: 'hidden', display: 'inline' }))).toBe(false);
+    expect(isOverflowElement(element({ overflow: 'auto', display: 'contents' }))).toBe(false);
   });
 });
 

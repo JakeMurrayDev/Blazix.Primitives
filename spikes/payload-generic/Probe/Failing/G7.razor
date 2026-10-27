@@ -1,0 +1,3 @@
+@* The generic Root's child content reads the payload through the implicit context. *@
+<PopRoot Handle="@handle"><span>@context</span></PopRoot>
+@code { private readonly PopHandle<int> handle = new(); }

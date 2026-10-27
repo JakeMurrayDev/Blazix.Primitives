@@ -1,0 +1,27 @@
+@namespace Blazix.Primitives.Fixtures.Client.PortalFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `portal-prerender` fixture (tests/browser/portal.spec.ts), prerendered: a `defaultOpen` popup on the test-only
+    popup host (ADR 04 §5). The static response holds the portal node in place, inside its `display: contents` wrapper and
+    `display: none`, with the popup inside it; once interactive the `portal` module moves the node to the body.
+*@
+<FixtureContainer Name="portal-prerender" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <section data-logical-parent>
+        <FixturePopupRoot TPayload="NoPayload" DefaultOpen="true" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <FixturePopupPortal data-testid="portal">
+                <FixturePopupPopup @ref="popup" data-testid="popup">Popup content</FixturePopupPopup>
+            </FixturePopupPortal>
+        </FixturePopupRoot>
+    </section>
+</FixtureContainer>
+
+@code {
+    private FixturePopupPopup<NoPayload>? popup;
+
+    protected override IEnumerable<Task> Attachments => popup is null ? [] : [popup.TwinAttached];
+}

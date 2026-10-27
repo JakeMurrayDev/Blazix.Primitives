@@ -11,6 +11,17 @@ function session(token) {
   return reference;
 }
 
+// A node a consumer's script holds and C# receives as an IJSObjectReference (the portal's `container`; Dialog's titles):
+// a closed shadow root, which no selector or element reference reaches. The last one is kept for the tests to read.
+globalThis.blazixFixtureDom = {
+  createClosedShadowRoot(host) {
+    const root = host.attachShadow({ mode: 'closed' });
+    globalThis.blazixFixtureDom.lastClosedShadowRoot = root;
+    return root;
+  },
+  lastClosedShadowRoot: null,
+};
+
 globalThis.blazixFixture = {
   /** Called by FixtureContainer on its first interactive render with the session's DotNetObjectReference. */
   register(token, reference) {
