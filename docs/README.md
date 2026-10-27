@@ -18,19 +18,19 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | architecture/rendering-and-composition.md | RND | approved | 123 reqs; conformance obligations in §4.9 |
 | architecture/event-details-and-reasons.md | EVD | approved | 83 reqs; reason matrix in §4.3.7 | |
 | architecture/composite-and-list-navigation.md | CMP | approved | 225 reqs; keyboard matrices §4.5-4.6, algorithms §5; revised 2026-10-27 (M2 track 3, M3 tracks 1, 5 and 6; the M5 rows listed in §10 items 12 to 15) | |
-| architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5; revised 2026-10-27 (M4 track 4: the focus manager; the rows open to tracks 1 and 3 and to M5 listed in §10 item 15) | |
-| architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3 | |
-| architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1 | |
+| architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5; revised 2026-10-27 (M4 track 1: the portal rows; M4 track 4: the focus manager; the rows open to tracks 1 and 3 and to M5 listed in §10 item 15) | |
+| architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3; revised 2026-10-27 (M4 track 1: the popup store, handles and suites; §10 item 12) | |
+| architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1; revised 2026-10-27 (M4 track 1: the popup host; §10 item 11) | |
 | architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-23 (M2 track 1, PRs 1a and 1c) | |
 | architecture/button-behavior.md | UBT | approved | 100 reqs; revised 2026-10-27 (M3 tracks 2 and 4: composite mode, the input item option) |
-| architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store |
+| architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store; revised 2026-10-27 (M4 track 1: the scroll lock, §4.8) |
 | components/accordion.md | ACC | implemented | 101 reqs (opus) | builds on collapsible |
 | components/alert-dialog.md | ADL | approved | 30 reqs + adoption (opus) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
 | components/avatar.md | AVA | implemented | 58 reqs (opus) | |
 | components/button.md | BTN | implemented | 29 reqs (opus) | |
 | components/checkbox.md | CHK | implemented | 151 reqs; revised 2026-10-23, M2 tracks 5–6 |
-| components/checkbox-group.md | CKG | implemented | 83 reqs; revised 2026-10-23, M2 track 6; the five portal titles of CKG-STR-02, CKG-FRM-03/06 and CKG-FOC-02 open to M4 |
+| components/checkbox-group.md | CKG | implemented | 83 reqs; revised 2026-10-27, M4 track 1 (proposed): the five portal titles of CKG-STR-02, CKG-FRM-03/06 and CKG-FOC-02 green at L4 on the test-only portal |
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
@@ -50,7 +50,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/preview-card.md | PRV | approved | 158 reqs |
 | components/progress.md | PRG | implemented | 55 reqs (opus) | |
 | components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7 |
-| components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-23, M2 track 8; RDG-FRM-04 and RDG-STR-02's portal clause open to M4 |
+| components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-27, M4 track 1 (proposed): RDG-FRM-04 and RDG-STR-02's portal clause green at L4 on the test-only portal |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
 | components/select.md | SEL | approved | 332 reqs | |
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |

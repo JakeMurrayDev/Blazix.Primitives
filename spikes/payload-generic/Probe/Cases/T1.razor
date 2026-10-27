@@ -1,0 +1,11 @@
+@* Second shape: plain RenderFragment child content plus a payload template used with Context; nested Roots. *@
+<TplRoot Handle="@outer" Seed="5">
+    <ChildContent>
+        <TplRoot Handle="@inner"><span>nested</span></TplRoot>
+    </ChildContent>
+    <PayloadContent Context="payload"><b>@payload</b></PayloadContent>
+</TplRoot>
+@code {
+    private readonly PopHandle<int> outer = new();
+    private readonly PopHandle<string> inner = new();
+}

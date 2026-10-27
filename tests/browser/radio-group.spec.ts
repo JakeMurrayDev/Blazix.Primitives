@@ -1142,3 +1142,37 @@ test.describe('<RadioGroup />', () => {
     });
   });
 });
+
+// The two portal titles left open to M4 on 2026-10-23 (RDG-STR-02's portal clause, RDG-FRM-04; ADR 12 Amendments
+// 2026-10-27 item 4), on the test-only FixturePortal of M4 track 1: each case's radios are moved into a container outside
+// its Form, as ReactDOM.createPortal renders them.
+test.describe('<RadioGroup /> with portaled radios', () => {
+  async function gotoPortals(page: Page, mode: RenderMode, name: string): Promise<Locator> {
+    const fixture = await gotoFixture(page, mode, 'radio-group-portal');
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture.locator(`[data-case="${name}"]`);
+  }
+
+  test('includes a context-portaled radio without native form association in onFormSubmit', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'context');
+    await expect(container.locator('#rdg-target-context [data-radio]')).toHaveCount(1);
+
+    // Native submission omits the portaled radio since it has no DOM form association.
+    expect(await container.getByTestId('form').evaluate((form) => new FormData(form as HTMLFormElement).getAll('choice'))).toEqual([]);
+
+    await container.locator('[data-submit]').click();
+
+    // Field registration is context-driven, so the portaled radio still projects its value into `onFormSubmit`, like
+    // other field controls.
+    await expect(container).toHaveAttribute('data-values', 'choice=a');
+  });
+
+  test('includes a group fully portaled outside the form element in onFormSubmit', async ({ page, mode }) => {
+    const container = await gotoPortals(page, mode, 'fully-portaled');
+    await expect(container.locator('#rdg-target-full [data-radio]')).toHaveCount(2);
+
+    await container.locator('[data-submit]').click();
+
+    await expect(container).toHaveAttribute('data-values', 'choice=a');
+  });
+});

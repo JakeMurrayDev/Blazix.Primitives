@@ -111,7 +111,7 @@ public sealed class ToggleGroupToolbarTests : IDisposable
     [Trait("Requirement", "TLB-EDGE-12")]
     [Trait("Requirement", "TLB-ARIA-09")]
     [Trait("Requirement", "CMP-STR-04")]
-    public void Port_a_toggle_substituted_into_a_toolbar_button_registers_once()
+    public async Task Port_a_toggle_substituted_into_a_toolbar_button_registers_once()
     {
         // Each substituted toggle's typed OnPressedChange survives the substitution (design point 14.8, settled by the
         // orchestrator 2026-10-27), and the group's OnValueChange follows it.
@@ -158,12 +158,13 @@ public sealed class ToggleGroupToolbarTests : IDisposable
         Assert.Equal(elements.Select(element => element.GetAttribute("id")!), ToolbarTestContext.ItemIds(test.LastCompositeOptions));
         Assert.All(ToolbarTestContext.Items(test.LastCompositeOptions), item => Assert.Contains("\"focusableWhenDisabled\":true", item, StringComparison.Ordinal));
 
-        // "handles interactions", the click half: each toggle presses once, the grouped ones through their group.
-        cut.FindAll("button")[0].Click();
-        cut.FindAll("button")[1].Click();
+        // "handles interactions", the click half: each toggle presses once, the grouped ones through their group. Each click
+        // is awaited: a synchronous Click() once returned before the first press rendered (CI run 40510427031).
+        await cut.FindAll("button")[0].ClickAsync(new());
+        await cut.FindAll("button")[1].ClickAsync(new());
         Assert.Equal("true", cut.FindAll("button")[0].GetAttribute("aria-pressed"));
         Assert.Equal("true", cut.FindAll("button")[1].GetAttribute("aria-pressed"));
-        cut.FindAll("button")[2].Click();
+        await cut.FindAll("button")[2].ClickAsync(new());
         Assert.Equal("false", cut.FindAll("button")[1].GetAttribute("aria-pressed"));
         Assert.Equal("true", cut.FindAll("button")[2].GetAttribute("aria-pressed"));
         Assert.Equal(["one", "two"], changes);
@@ -182,7 +183,7 @@ public sealed class ToggleGroupToolbarTests : IDisposable
         changes.Clear();
         foreach (IElement element in disabled.FindAll("button"))
         {
-            element.Click();
+            await element.ClickAsync(new());
         }
 
         Assert.Empty(presses);

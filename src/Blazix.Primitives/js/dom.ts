@@ -73,6 +73,19 @@ export function isShadowRoot(value: unknown): value is ShadowRoot {
   );
 }
 
+// ADR 04 Amendments 2026-10-27: `@floating-ui/utils/dom`'s isOverflowElement, re-implemented with its semantics so the
+// scroll lock stays out of the positioning chunk (UTL-DOM-04; floating-ui.utils.dom.mjs:45-53).
+/**
+ * Determines whether an element establishes an overflow context: its computed `overflow`, `overflow-x` or `overflow-y`
+ * is `auto`, `scroll`, `overlay`, `hidden` or `clip`, and its `display` is neither `inline` nor `contents`.
+ * @param element The element.
+ * @returns `true` for an overflow element.
+ */
+export function isOverflowElement(element: Element): boolean {
+  const { overflow, overflowX, overflowY, display } = ownerWindow(element).getComputedStyle(element);
+  return /auto|scroll|overlay|hidden|clip/.test(overflow + overflowY + overflowX) && display !== 'inline' && display !== 'contents';
+}
+
 /**
  * Returns the focused element, descending into open shadow roots.
  * @param doc The document to start from.
