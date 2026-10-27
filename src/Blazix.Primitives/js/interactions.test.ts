@@ -1349,6 +1349,21 @@ describe('useHoverReferenceInteraction', () => {
       expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['', '', '']);
     });
 
+    it('port: a trigger that attaches after the hover open was relayed gets the blockPointerEvents mutation once it is the anchor', () => {
+      const popup = harness();
+      popup.attachSession();
+      const tooltip = element('div');
+      popup.attachFloating(tooltip, { floating: { hover: {} } });
+      // A detached trigger whose open C# committed before its handle attached (on Server, a round trip earlier).
+      popup.setOpen(true, 'trigger-hover', 'late', 'mouseenter');
+      expect(document.body.style.pointerEvents).toBe('');
+
+      const button = element('button', 'late');
+      popup.attachTrigger(button, { trigger: { hover: { safePolygon: true, blockPointerEvents: true } } });
+
+      expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+    });
+
     it("port: a newer owner of the scope element takes the mutation over, and the older owner's clear leaves it intact", () => {
       const first = render({ safePolygon: true, blockPointerEvents: true });
       const second = render({ safePolygon: true, blockPointerEvents: true });
