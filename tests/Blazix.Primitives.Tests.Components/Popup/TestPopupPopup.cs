@@ -6,7 +6,7 @@ namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>The state of the test-only popup: whether it is open.</summary>
 [PartState]
-internal sealed partial record TestPopupPopupState(bool Open);
+public sealed partial record TestPopupPopupState(bool Open);
 
 /// <summary>
 /// A test-only popup: a <c>div</c> with <c>role="dialog"</c>, rendered while mounted, that registers its element and the id
@@ -14,7 +14,7 @@ internal sealed partial record TestPopupPopupState(bool Open);
 /// registers as the store's boundary part, since it selects the open and mounted state (design point 8).
 /// </summary>
 [CascadingTypeParameter(nameof(TPayload))]
-internal sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
+public sealed class TestPopupPopup<TPayload> : PartBase<TestPopupPopupState>
 {
     private static readonly StateAttributesMapping<TestPopupPopupState> s_mapping = PopupStateMapping.CreateOpen<TestPopupPopupState>();
 

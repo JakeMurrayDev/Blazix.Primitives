@@ -19,7 +19,7 @@ internal sealed class TestPopupStore<TPayload>(string? floatingId, string? sessi
     : PopupStore<TestPopupStoreState<TPayload>, TPayload>(new TestPopupStoreState<TPayload>(PopupStoreState<TPayload>.Initial(floatingId)), "Test", sessionToken, inert, logger);
 
 /// <summary>The test-only family's handle, created with <see langword="new"/>; its fallback store is an inert test store.</summary>
-internal sealed class TestPopupHandle<TPayload>(bool throwOnMissingTrigger = true) : PopupHandle<TPayload>("Test", throwOnMissingTrigger)
+public sealed class TestPopupHandle<TPayload>(bool throwOnMissingTrigger = true) : PopupHandle<TPayload>("Test", throwOnMissingTrigger)
 {
     private protected override IPopupStore<TPayload> CreateFallbackStore() => new TestPopupStore<TPayload>(floatingId: null, sessionToken: null, inert: true);
 }

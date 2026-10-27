@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The payload probe's permanent evidence (issue 116; ADR 08 Amendments 2026-10-27, the probe's finding): the popup parts
+    are generic only. A plain popup names TPayload="NoPayload" on its Root and the Triggers inherit it through
+    [CascadingTypeParameter]; a payload popup's Root infers TPayload from its Handle, its Trigger infers from the cascade,
+    and PayloadContent reads the payload as @context beside a plain ChildContent.
+*@
+
+<TestPopupRoot TPayload="NoPayload" DefaultOpen="true" @ref="PlainRoot">
+    <TestPopupTrigger id="plain-trigger">Plain</TestPopupTrigger>
+</TestPopupRoot>
+
+<TestPopupRoot Handle="handle" @ref="PayloadRoot">
+    <ChildContent>
+        <TestPopupTrigger id="payload-trigger" Payload="@("first")">Payload</TestPopupTrigger>
+    </ChildContent>
+    <PayloadContent>
+        <span data-testid="payload">@(context ?? "No payload")</span>
+    </PayloadContent>
+</TestPopupRoot>
+
+@code {
+    private readonly TestPopupHandle<string> handle = new();
+
+    internal TestPopupRoot<NoPayload>? PlainRoot { get; private set; }
+
+    internal TestPopupRoot<string>? PayloadRoot { get; private set; }
+}

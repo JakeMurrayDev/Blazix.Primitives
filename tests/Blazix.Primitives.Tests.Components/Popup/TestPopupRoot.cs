@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// will.
 /// </summary>
 [CascadingTypeParameter(nameof(TPayload))]
-internal sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
+public sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
 {
     private readonly PopupRootBehavior<TestPopupStore<TPayload>, TestPopupStoreState<TPayload>, TPayload> behavior;
 
@@ -59,7 +59,7 @@ internal sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
     [Parameter]
     public RenderFragment<TPayload?>? PayloadContent { get; set; }
 
-    public TestPopupStore<TPayload> Store => behavior.Store;
+    internal TestPopupStore<TPayload> Store => behavior.Store;
 
     public int Renders { get; private set; }
 

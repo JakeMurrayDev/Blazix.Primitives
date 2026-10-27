@@ -6,7 +6,7 @@ namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>The state of the test-only trigger: whether the popup is open and owned by it.</summary>
 [PartState]
-internal sealed partial record TestPopupTriggerState(bool Open);
+public sealed partial record TestPopupTriggerState(bool Open);
 
 /// <summary>
 /// A test-only popup trigger: a <c>button</c> that composes <see cref="PopupTriggerBehavior{TStore, TState, TPayload}"/>.
@@ -14,7 +14,7 @@ internal sealed partial record TestPopupTriggerState(bool Open);
 /// test-only code, never a part's; the families press through the <c>interactions</c> module's <c>press</c>).
 /// </summary>
 [CascadingTypeParameter(nameof(TPayload))]
-internal sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerState>
+public sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerState>
 {
     private static readonly StateAttributesMapping<TestPopupTriggerState> s_mapping = PopupStateMapping.CreateTrigger<TestPopupTriggerState>();
 
@@ -38,7 +38,7 @@ internal sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerStat
     [Parameter]
     public TPayload? Payload { get; set; }
 
-    public PopupTriggerBehavior<TestPopupStore<TPayload>, TestPopupStoreState<TPayload>, TPayload> Behavior => behavior;
+    internal PopupTriggerBehavior<TestPopupStore<TPayload>, TestPopupStoreState<TPayload>, TPayload> Behavior => behavior;
 
     public string? TriggerId => Id;
 
