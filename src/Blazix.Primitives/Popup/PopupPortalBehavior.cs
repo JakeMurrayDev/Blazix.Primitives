@@ -24,6 +24,9 @@ namespace Blazix.Primitives;
 // - The move completes the context's Moved task (design point 3, settled by the orchestrator 2026-10-27), and only the
 //   attach that moved the node completes it: TwinBase hands a repeated attach the pending handle at once, so a render
 //   during the first attach awaits that attach instead of attaching again.
+// - The options are built only for an attach or when their inputs changed (the container, the enclosing node it resolves
+//   to, the lite flag, the consumer's style; ADR 16 rule 7, the Collapsible precedent), so a render that changes nothing
+//   builds nothing and sends nothing, and the container crosses through TwinReferences, its one boxing site.
 /// <summary>Renders a portal's wrapper, guards and owner, and moves its node through the <c>portal</c> module.</summary>
 internal sealed class PopupPortalBehavior : IAsyncDisposable
 {
@@ -37,8 +40,11 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     private Task? attaching;
     private int generation;
     private ElementReference? attachedNode;
-    private PortalOptions? sentOptions;
-    private object? sentReference;
+    private bool built;
+    private PortalContainerValue? builtContainer;
+    private ElementReference? builtEnclosing;
+    private bool builtLite;
+    private string? builtStyle;
     private string? consumerStyle;
     private string? frozenStyle;
     private RenderFragment? cascade;
@@ -78,45 +84,23 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     /// <param name="container">The part's <c>Container</c>.</param>
     /// <returns>A task that completes when the module has moved the node or has the new container.</returns>
     /// <remarks>Call it from the part's <c>OnAfterRenderAsync</c>.</remarks>
-    public async Task OnAfterRenderAsync(ElementReference? node, PortalContainerValue? container)
+    public Task OnAfterRenderAsync(ElementReference? node, PortalContainerValue? container)
     {
         Context.NodeId = NodeId;
         if (node is null || !RendersNode(container))
         {
-            Context.Node = null;
-            frozenStyle = null;
-            Context.ResetMove();
-            await DetachAsync();
-            return;
+            return DetachNodeAsync();
         }
 
-        if (attachedNode is { } attached && !SameElement(attached, node.Value))
+        // FLT-API-13: not supplied resolves to the enclosing portal's node.
+        ElementReference? enclosing = container is null ? Enclosing?.Node : null;
+        if (handle is not null && attachedNode is { } attached && SameElement(attached, node.Value) && SameInputs(container, enclosing))
         {
-            await DetachAsync();
-            Context.ResetMove();
+            // ADR 16 rule 7: nothing the module reads changed, so nothing is built or sent, and no async work starts.
+            return Task.CompletedTask;
         }
 
-        bool guardsBefore = RendersGuards;
-        Context.Node = node;
-        (PortalOptions options, object? reference) = Options(container);
-        if (handle is null)
-        {
-            attaching ??= AttachAsync(node.Value, options, reference);
-            await attaching;
-        }
-
-        if (handle is not null && (options != sentOptions || !SameReference(reference, sentReference)))
-        {
-            sentOptions = options;
-            sentReference = reference;
-            await handle.UpdateAsync(options, ReferencesFor(reference));
-        }
-
-        if (!guardsBefore && RendersGuards)
-        {
-            // The node exists only from this render on, so a publication made before it shows its guards now.
-            requestRender();
-        }
+        return SyncNodeAsync(node.Value, container, enclosing);
     }
 
     /// <inheritdoc />
@@ -219,71 +203,119 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     private static bool SameElement(ElementReference left, ElementReference right) =>
         string.Equals(left.Id, right.Id, StringComparison.Ordinal) && ReferenceEquals(left.Context, right.Context);
 
-    private static bool SameReference(object? left, object? right) => left switch
+    private static bool SameElement(ElementReference? left, ElementReference? right) =>
+        left is { } l ? right is { } r && SameElement(l, r) : right is null;
+
+    private static bool SameContainer(PortalContainerValue? left, PortalContainerValue? right)
     {
-        null => right is null,
-        ElementReference l => right is ElementReference r && SameElement(l, r),
-        _ => ReferenceEquals(left, right),
-    };
-
-    // BLZX2005: the reference is boxed once per attach or update that names it, the interop argument's contract.
-#pragma warning disable BLZX2005
-    private static TwinReferences? ReferencesFor(object? reference)
-    {
-        if (reference is null)
+        if (left is not { } l || right is not { } r)
         {
-            return null;
+            return left is null && right is null;
         }
 
-        TwinReferences references = new();
-        if (reference is ElementReference element)
+        if (l.TryGetValue(out ElementReference leftElement))
         {
-            references.Add(element);
-        }
-        else
-        {
-            references.Add((IJSObjectReference)reference);
+            return r.TryGetValue(out ElementReference rightElement) && SameElement(leftElement, rightElement);
         }
 
-        return references;
+        if (l.TryGetValue(out IJSObjectReference? leftNode))
+        {
+            return r.TryGetValue(out IJSObjectReference? rightNode) && ReferenceEquals(leftNode, rightNode);
+        }
+
+        return l.TryGetValue(out string? leftSelector) && r.TryGetValue(out string? rightSelector) && string.Equals(leftSelector, rightSelector, StringComparison.Ordinal);
     }
 
-    private (PortalOptions Options, object? Reference) Options(PortalContainerValue? container)
+    private bool SameInputs(PortalContainerValue? container, ElementReference? enclosing) =>
+        built
+        && builtLite == Lite
+        && string.Equals(builtStyle, consumerStyle, StringComparison.Ordinal)
+        && SameContainer(builtContainer, container)
+        && SameElement(builtEnclosing, enclosing);
+
+    // The options of an attach or an update, and the inputs they were built from.
+    private (PortalOptions Options, TwinReferences? References) Build(PortalContainerValue? container, ElementReference? enclosing)
     {
-        object? reference = null;
+        built = true;
+        builtContainer = container;
+        builtEnclosing = enclosing;
+        builtLite = Lite;
+        builtStyle = consumerStyle;
+        TwinReferences? references = null;
         string? selector = null;
         if (container is { } value)
         {
             if (value.TryGetValue(out ElementReference element))
             {
-                reference = element;
+                references = new();
+                references.Add(element);
             }
             else if (value.TryGetValue(out IJSObjectReference? node))
             {
-                reference = node;
+                references = new();
+                references.Add(node);
             }
             else if (value.TryGetValue(out string? css))
             {
                 selector = css;
             }
         }
-        else if (Enclosing?.Node is { } enclosingNode)
+        else if (enclosing is { } enclosingNode)
         {
-            // FLT-API-13: not supplied resolves to the enclosing portal's node.
-            reference = enclosingNode;
+            references = new();
+            references.Add(enclosingNode);
         }
 
-        return (new PortalOptions { ContainerRef = reference is null ? null : 0, ContainerSelector = selector, Lite = Lite, Style = consumerStyle }, reference);
+        return (new PortalOptions { ContainerRef = references is null ? null : 0, ContainerSelector = selector, Lite = Lite, Style = consumerStyle }, references);
     }
-#pragma warning restore BLZX2005
 
-    private async Task AttachAsync(ElementReference node, PortalOptions options, object? reference)
+    private async Task DetachNodeAsync()
+    {
+        Context.Node = null;
+        frozenStyle = null;
+        Context.ResetMove();
+        await DetachAsync();
+    }
+
+    private async Task SyncNodeAsync(ElementReference node, PortalContainerValue? container, ElementReference? enclosing)
+    {
+        if (attachedNode is { } attached && !SameElement(attached, node))
+        {
+            await DetachAsync();
+            Context.ResetMove();
+        }
+
+        bool guardsBefore = RendersGuards;
+        Context.Node = node;
+        if (handle is null)
+        {
+            if (attaching is null)
+            {
+                (PortalOptions options, TwinReferences? references) = Build(container, enclosing);
+                attaching = AttachAsync(node, options, references);
+            }
+
+            await attaching;
+        }
+
+        if (handle is not null && !SameInputs(container, enclosing))
+        {
+            (PortalOptions options, TwinReferences? references) = Build(container, enclosing);
+            await handle.UpdateAsync(options, references);
+        }
+
+        if (!guardsBefore && RendersGuards)
+        {
+            // The node exists only from this render on, so a publication made before it shows its guards now.
+            requestRender();
+        }
+    }
+
+    private async Task AttachAsync(ElementReference node, PortalOptions options, TwinReferences? references)
     {
         int attachedGeneration = generation;
         attachedNode = node;
-        sentOptions = options;
-        sentReference = reference;
-        TwinHandle<PortalOptions> attached = await twin.AttachAsync(node, options, ReferencesFor(reference));
+        TwinHandle<PortalOptions> attached = await twin.AttachAsync(node, options, references);
         if (attachedGeneration != generation)
         {
             // The node went while the module loaded: the handle is not this portal's any more.
@@ -301,8 +333,7 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
         generation++;
         attaching = null;
         attachedNode = null;
-        sentOptions = null;
-        sentReference = null;
+        built = false;
         if (handle is not null)
         {
             TwinHandle<PortalOptions> previous = handle;
