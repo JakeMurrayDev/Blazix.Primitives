@@ -40,6 +40,12 @@ internal abstract class TabsRootContext
     /// <value><see langword="true"/> while some value is selected, whether or not a tab has it.</value>
     public abstract bool HasValue { get; }
 
+    // TAB-STA-04: the List reads the non-generic root, so its report reaches the generic registry through this.
+    /// <summary>Takes the tabs of the root's list in document order, notifies the parts and runs the root's re-validation.</summary>
+    /// <param name="ordered">The tabs, in document order.</param>
+    /// <returns>A task that completes when the root has re-validated its value.</returns>
+    public abstract Task PublishTabsAsync(IReadOnlyList<TabsTabEntry> ordered);
+
     /// <summary>Throws the error of a tabs part rendered outside a tabs root.</summary>
     /// <param name="context">The cascaded context, or <see langword="null"/>.</param>
     /// <returns>The context.</returns>
@@ -139,15 +145,30 @@ internal abstract class TabsRootContext
 internal sealed class TabsRootContext<TValue> : TabsRootContext
 {
     private readonly List<PanelRegistration> panels = [];
+    private readonly Func<Task> tabsChanged;
+    private IReadOnlyList<TabsTabEntry<TValue>> tabs = [];
 
     /// <summary>Initializes a new instance of the <see cref="TabsRootContext{TValue}"/> class.</summary>
     /// <param name="controlled">Whether the consumer owns the root's value.</param>
     /// <param name="request">Runs a user activation's request: the change callback, then the commit.</param>
-    public TabsRootContext(bool controlled, Func<TValue, TabsChangeEventDetails, Task<bool>> request)
+    /// <param name="tabsChanged">Runs after the tab registry or a registered tab's metadata changed.</param>
+    public TabsRootContext(bool controlled, Func<TValue, TabsChangeEventDetails, Task<bool>> request, Func<Task> tabsChanged)
         : base(controlled)
     {
         Request = request;
+        this.tabsChanged = tabsChanged;
     }
+
+    // TAB-DOM-17 (track 1's E1): the Root's registration-only list of Panels, read here rather than through a second
+    // cascade, which would render again with every render of the Root (ADR 16 rules 7 and 9).
+    /// <summary>Gets the registry of the root's registration-only list of panels.</summary>
+    /// <value>The list's context, set once by the root.</value>
+    public CompositeListContext? PanelList { get; init; }
+
+    // TAB-STA-04: the List's Tabs in document order, as the composite module last reported them.
+    /// <summary>Gets the tabs of the root's list, in document order.</summary>
+    /// <value>Empty until the list's first report.</value>
+    public IReadOnlyList<TabsTabEntry<TValue>> Tabs => tabs;
 
     /// <summary>Gets the root's value.</summary>
     /// <value>The value; meaningful only while <see cref="HasSelection"/> is <see langword="true"/> and the implicit default is not in force.</value>
@@ -199,6 +220,51 @@ internal sealed class TabsRootContext<TValue> : TabsRootContext
         HasSelection = hasSelection;
         ImplicitDefault = implicitDefault;
         Notify();
+    }
+
+    // TAB-STA-04: a list publishes its tabs in the order the composite module reported, whenever that order changed.
+    /// <inheritdoc />
+    public override Task PublishTabsAsync(IReadOnlyList<TabsTabEntry> ordered)
+    {
+        List<TabsTabEntry<TValue>> next = new(ordered.Count);
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            if (ordered[i] is TabsTabEntry<TValue> tab)
+            {
+                next.Add(tab);
+            }
+        }
+
+        tabs = next;
+        Notify();
+        return tabsChanged();
+    }
+
+    // TAB-STA-04: a registered tab's value or `disabled` changed, which its list's report does not carry.
+    /// <summary>Notifies the parts that a registered tab's metadata changed and runs the root's re-validation.</summary>
+    /// <returns>A task that completes when the root has re-validated its value.</returns>
+    public Task TabChangedAsync()
+    {
+        Notify();
+        return tabsChanged();
+    }
+
+    // TAB-STA-05 (c), TAB-ARIA-08: the first registered tab with the panel's value, compared as `===`.
+    /// <summary>Gets the element id of the first tab, in document order, whose value is a panel's.</summary>
+    /// <param name="value">The panel's value.</param>
+    /// <returns>The tab's element id, or <see langword="null"/> when no registered tab has the value.</returns>
+    public string? TabIdFor(TValue value)
+    {
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            if (Equality.StrictEquals(tabs[i].Value, value))
+            {
+                string id = tabs[i].ElementId;
+                return id.Length == 0 ? null : id;
+            }
+        }
+
+        return null;
     }
 
     // TAB-STA-21: a later registration for the same value replaces the earlier; an unregistration removes the entry only if

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
@@ -61,8 +62,9 @@ public static class TabsPanelDataAttributes
 // - The Root's mounted-panel registry holds the generated id for every render that renders the element (TAB-STA-21,
 //   TAB-ANI-05). The id is published in the render that creates the element (ADR 01 Amendments 2026-10-22), so the Tab's
 //   aria-controls lands in the same batch.
-// - Not here yet (open until track 1's E1 and E2 are on `main`): data-index (rendered "-1", the value before the first
-//   publication, TAB-DOM-17) and aria-labelledby (TAB-ARIA-08).
+// - aria-labelledby is the id of the first Tab in the Root's registry with the panel's value (TAB-ARIA-08, track 1's E2).
+// - data-index is the Panel's index among the Root's rendered Panels (TAB-DOM-17, §16 Q5 as transcribed; track 1's E1):
+//   an item of the Root's registration-only list while it renders an element, "-1" before the first report.
 /// <summary>
 /// Represents the content shown while its tab is active: Base UI's <c>Tabs.Panel</c>, rendered as a <c>div</c> with
 /// <c>role="tabpanel"</c> while its tab is active and through its exit transition, or always with <see cref="KeepMounted"/>.
@@ -93,6 +95,8 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
     private TransitionStatus? transitionStatus;
     private TransitionStatus? renderedTransition;
     private string? renderedDirection;
+    private string? labelledBy;
+    private CompositeListItemBehavior? listItem;
     private bool registered;
     private TValue registeredValue = default!;
     private TransitionsTwin? transitionsTwin;
@@ -118,6 +122,7 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
 
     [CascadingParameter]
     private TabsRootContext<TValue>? RootContext { get; set; }
+
 
     // TAB-API-12
     /// <summary>Gets or sets the value of the tab whose activation shows the panel.</summary>
@@ -178,6 +183,7 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
     {
         ApplyOpenState();
         SyncRegistration();
+        labelledBy = root!.TabIdFor(Value);
         UpdateState();
     }
 
@@ -204,6 +210,10 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
         }
 
         await SyncTransitionAsync();
+        if (listItem is not null)
+        {
+            await listItem.AfterRenderAsync(Element);
+        }
     }
 
     /// <inheritdoc />
@@ -213,6 +223,8 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
         {
             disposed = true;
             root?.RemoveListener(rootChanged);
+            listItem?.Dispose();
+            listItem = null;
             if (registered)
             {
                 registered = false;
@@ -249,7 +261,14 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
         }
 
         attributes.Set("tabindex", open ? "0" : "-1");
-        attributes.Set(TabsPanelDataAttributes.Index, UnpublishedIndex);
+
+        // TAB-ARIA-08: the first registered Tab with the panel's value; absent when none is registered.
+        if (labelledBy is not null)
+        {
+            attributes.Set("aria-labelledby", labelledBy);
+        }
+
+        attributes.Set(TabsPanelDataAttributes.Index, listItem is { Index: >= 0 } item ? item.Index.ToString(CultureInfo.InvariantCulture) : UnpublishedIndex);
 
         // ADR 04 Amendments 2026-10-18 and 2026-10-26 (the handover): the direction the element is created with, and the
         // starting style of an element C# creates open (TAB-ANI-01).
@@ -271,6 +290,9 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
 
         bool changed = ApplyOpenState();
         SyncRegistration();
+        string? nextLabel = root!.TabIdFor(Value);
+        changed |= !string.Equals(nextLabel, labelledBy, StringComparison.Ordinal);
+        labelledBy = nextLabel;
         if (UpdateState() || changed)
         {
             StateHasChanged();
@@ -322,6 +344,18 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
             registered = true;
             registeredValue = Value;
             root!.RegisterPanel(Value, GeneratedId!);
+        }
+
+        // TAB-DOM-17: only a Panel with an element is in the Root's list, so an unrendered one does not count.
+        if (shouldRegister && listItem is null)
+        {
+            listItem = new CompositeListItemBehavior(root!.PanelList, StateHasChanged);
+            listItem.SetRegistration(GeneratedId);
+        }
+        else if (!shouldRegister && listItem is not null)
+        {
+            listItem.Dispose();
+            listItem = null;
         }
     }
 

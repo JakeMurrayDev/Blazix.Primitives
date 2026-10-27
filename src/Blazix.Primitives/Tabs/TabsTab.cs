@@ -1,5 +1,6 @@
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
+using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
@@ -75,6 +76,9 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
     private string? renderedPanelId;
     private string? renderedDirection;
     private bool registered;
+    private TValue publishedValue = default!;
+    private bool publishedDisabled;
+    private bool metadataChanged;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="TabsTab{TValue}"/> class.</summary>
@@ -204,11 +208,19 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
             registered = true;
             list!.Register(entry);
         }
-        else if (hadClick != consumerClick.IsHandler || hadFocus != consumerFocus.IsHandler)
+        else
         {
-            list!.HandlersChanged();
+            if (hadClick != consumerClick.IsHandler || hadFocus != consumerFocus.IsHandler)
+            {
+                list!.HandlersChanged();
+            }
+
+            // TAB-STA-04: the metadata is re-published when the value or `disabled` changes; the order is the List's report.
+            metadataChanged |= publishedDisabled != Disabled || !Equality.Is(publishedValue, Value);
         }
 
+        publishedValue = Value;
+        publishedDisabled = Disabled;
         UpdateState();
     }
 
@@ -222,6 +234,14 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
 
         await behavior!.AfterRenderAsync(Enabled, Element, Id, composite: true);
         await item!.AfterRenderAsync(Element);
+
+        // TAB-STA-06..12: post-commit C# state work, as Base UI's layout effect on the registry (ADR 01's "EVD-STA-07,
+        // CMP-STA-10, FFI registration" row).
+        if (metadataChanged)
+        {
+            metadataChanged = false;
+            await root!.TabChangedAsync();
+        }
     }
 
     /// <inheritdoc />
@@ -473,10 +493,16 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
     }
 
     /// <summary>The tab as its list's registry sees it.</summary>
-    private sealed class Entry(TabsTab<TValue> tab) : TabsTabEntry
+    private sealed class Entry(TabsTab<TValue> tab) : TabsTabEntry<TValue>
     {
         /// <inheritdoc />
         public override string ElementId => tab.Id ?? string.Empty;
+
+        /// <inheritdoc />
+        public override TValue Value => tab.Value;
+
+        /// <inheritdoc />
+        public override bool Disabled => tab.Disabled;
 
         /// <inheritdoc />
         public override bool HasConsumerClick => tab.consumerClick.IsHandler;

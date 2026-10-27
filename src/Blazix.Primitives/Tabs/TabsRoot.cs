@@ -1,6 +1,8 @@
 using Blazix.Primitives.Rendering;
+using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -36,8 +38,15 @@ public static class TabsRootDataAttributes
 // - The parts read the Root through TabsRootContext<TValue> (the value, IsActive, the mounted-panel registry of TAB-STA-21,
 //   the request), cascaded fixed; a selection renders the two Tabs and the two Panels whose state flipped, never the
 //   Root's subtree (ADR 16 rules 8 and 9).
-// - Not here yet (open until track 1's E2 is on `main`): the Tab registry's order (TAB-STA-04/05), the automatic selection
-//   and its notification (TAB-STA-05..12, TAB-EVT-04).
+// - The Tab registry is the List's Tabs in the order the `composite` module reports (track 1's E2; TAB-STA-04). On each
+//   report, and after a registered Tab's value or `disabled` changed, an uncontrolled Root re-validates its value as Base
+//   UI's layout effect does (TAB-STA-06..12; tabs/root/TabsRoot.tsx:240-330): post-commit C# state work, after paint plus
+//   a round trip on Server (ADR 01's "EVD-STA-07, CMP-STA-10, FFI registration" row). An automatic change commits before
+//   it notifies, so it is not cancelable (TAB-EVT-04); a change to nothing is "nothing selected" (ADR 08 Amendments
+//   2026-10-26), `default(TValue)` in the callback.
+// - The Root is also the registration-only list of its Panels (track 1's E1, CompositeListBehavior; TabsRoot.tsx:343-346),
+//   whose report gives each rendered Panel its data-index (TAB-DOM-17). It renders no id of its own: a late id only under a
+//   substitute callback, for the module to find the element.
 /// <summary>
 /// Represents a set of tabs and the panels they show: Base UI's <c>Tabs.Root</c>, rendered as a <c>div</c>. The root
 /// owns the active value, and every <see cref="TabsTab{TValue}"/> and <see cref="TabsPanel{TValue}"/> inside it compares
@@ -60,7 +69,16 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     private bool valueSupplied;
     private bool implicitDefault;
     private bool selectedOnce;
+    private bool cleared;
+    private bool explicitDefault;
+    private TValue initialDefault = default!;
+    private bool notifyInitialPending;
+    private bool honorDisabledDefault;
+    private bool tabsRegistered;
+    private bool validating;
+    private bool validateAgain;
     private TabsRootContext<TValue>? context;
+    private CompositeListBehavior? panelList;
     private TabsRootState? state;
     private string? renderedDirection;
     private RenderFragment? cascade;
@@ -76,9 +94,15 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     [Inject]
     private ILogger<TabsRoot<TValue>> Logger { get; set; } = null!;
 
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
+
     // TAB-API-01/02: a controlled root has a value only while Value is supplied; an uncontrolled one from its default, or
     // from its first commit when it started with the implicit default.
-    private bool HasSelection => valueState!.IsControlled ? valueSupplied : !implicitDefault || selectedOnce;
+    private bool HasSelection => valueState!.IsControlled ? valueSupplied : (!implicitDefault || selectedOnce) && !cleared;
 
     // TAB-API-01, TAB-STA-01; ADR 05 §2, ADR 08 Amendments 2026-10-26
     /// <summary>Gets or sets the value of the active tab, when the consumer owns the value.</summary>
@@ -130,6 +154,10 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     /// <inheritdoc />
     protected override string DefaultTagName => DefaultTag;
 
+    // ADR 02 decision 1: under a substitute callback the panel list's twin finds the element by id (the TabsList precedent).
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => RenderFunction is not null;
+
     /// <inheritdoc />
     protected override TabsRootState State => state!;
 
@@ -141,7 +169,12 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
         if (valueState is null)
         {
             valueState = new Controlled<TValue>("Tabs", "value", Logger);
-            implicitDefault = !parameters.TryGetValue<TValue>(nameof(Value), out _) && !parameters.TryGetValue<TValue>(nameof(DefaultValue), out _);
+            explicitDefault = parameters.TryGetValue(nameof(DefaultValue), out initialDefault!);
+            implicitDefault = !parameters.TryGetValue<TValue>(nameof(Value), out _) && !explicitDefault;
+
+            // TAB-STA-07/08: only an implicit default notifies `initial`, and only an explicit one may keep a disabled Tab.
+            notifyInitialPending = !explicitDefault;
+            honorDisabledDefault = explicitDefault;
         }
 
         valueSupplied = parameters.TryGetValue<TValue>(nameof(Value), out _);
@@ -153,7 +186,8 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        context = new TabsRootContext<TValue>(valueState!.IsControlled, RequestAsync);
+        panelList = new CompositeListBehavior(JSRuntime, IdGenerator, StateHasChanged);
+        context = new TabsRootContext<TValue>(valueState!.IsControlled, RequestAsync, ValidateAsync) { PanelList = panelList.Context };
         context.AddListener(contextChanged);
     }
 
@@ -176,12 +210,24 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     }
 
     /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        await panelList!.AfterRenderAsync(Enabled, Element, Id);
+    }
+
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing && !disposed)
         {
             disposed = true;
             context?.RemoveListener(contextChanged);
+            panelList?.Dispose();
         }
 
         base.Dispose(disposing);
@@ -192,6 +238,7 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
+        panelList!.AddAttributes(attributes, Id);
         renderedDirection ??= TabsLiterals.ToLiteral(context!.Direction);
         attributes.Set(TabsRootDataAttributes.ActivationDirection, renderedDirection);
     }
@@ -211,6 +258,7 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
             // ADR 08 Amendments 2026-10-26: the first commit clears the implicit default.
             selectedOnce = true;
             implicitDefault = false;
+            cleared = false;
         }
 
         PublishValue();
@@ -218,6 +266,146 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     }
 
     private void PublishValue() => context!.SetValue(valueState!.Value, HasSelection, implicitDefault && !selectedOnce);
+
+    // TAB-STA-06..12. A report or a Tab change that arrives while a consumer callback of this pass runs is not lost: the
+    // pass runs again on the registry it left.
+    private async Task ValidateAsync()
+    {
+        if (disposed || valueState!.IsControlled)
+        {
+            return;
+        }
+
+        if (validating)
+        {
+            validateAgain = true;
+            return;
+        }
+
+        validating = true;
+        try
+        {
+            do
+            {
+                validateAgain = false;
+                await ValidateOnceAsync();
+            }
+            while (validateAgain && !disposed);
+        }
+        finally
+        {
+            validating = false;
+        }
+    }
+
+    // tabs/root/TabsRoot.tsx:240-330, step for step.
+    private async Task ValidateOnceAsync()
+    {
+        IReadOnlyList<TabsTabEntry<TValue>> tabs = context!.Tabs;
+        if (tabs.Count == 0)
+        {
+            // TAB-STA-11, TAB-EDGE-10: the port has no suspension, so an empty registry after registration is a removal.
+            if (tabsRegistered && context.HasValue)
+            {
+                await CommitAutomaticAsync(null, EventReason.Missing);
+            }
+
+            return;
+        }
+
+        tabsRegistered = true;
+
+        // TAB-STA-05 (a): the first Tab with the value; (b): the first enabled Tab.
+        TabsTabEntry<TValue>? selected = null;
+        TabsTabEntry<TValue>? firstEnabled = null;
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            selected ??= context.IsActive(tabs[i].Value) ? tabs[i] : null;
+            firstEnabled ??= tabs[i].Disabled ? null : tabs[i];
+        }
+
+        bool selectionIsDisabled = selected is { Disabled: true };
+        bool selectionIsMissing = selected is null && context.HasValue;
+        bool atInitialDefault = AtInitialDefault();
+
+        // TAB-STA-07: an explicit default that points at a disabled Tab is kept until the selection is first valid.
+        if (!selectionIsDisabled && atInitialDefault)
+        {
+            honorDisabledDefault = false;
+        }
+
+        if (honorDisabledDefault && selectionIsDisabled && atInitialDefault)
+        {
+            return;
+        }
+
+        bool notifyInitial = notifyInitialPending;
+        if (selectionIsDisabled || selectionIsMissing)
+        {
+            // TAB-STA-10: a fallback to the current value changes nothing, but the initial transition has resolved.
+            if (firstEnabled is null ? !context.HasValue : context.IsActive(firstEnabled.Value))
+            {
+                notifyInitialPending = false;
+                return;
+            }
+
+            // TAB-STA-09.
+            EventReason reason = notifyInitial ? EventReason.Initial : selectionIsDisabled ? EventReason.Disabled : EventReason.Missing;
+            await CommitAutomaticAsync(firstEnabled, reason);
+            return;
+        }
+
+        // TAB-STA-08: the implicit default matches an enabled Tab, which is reported without a commit.
+        if (notifyInitial && selected is not null)
+        {
+            await NotifyAutomaticAsync(selected.Value, EventReason.Initial);
+            notifyInitialPending = false;
+        }
+    }
+
+    // Base UI's `value === initialDefaultValueRef.current`, with the implicit default standing for its number 0.
+    private bool AtInitialDefault()
+    {
+        if (context!.ImplicitDefault)
+        {
+            return true;
+        }
+
+        if (!context.HasSelection || RadioValues.IsNull(context.Value))
+        {
+            return explicitDefault && RadioValues.IsNull(initialDefault);
+        }
+
+        return explicitDefault ? Equality.StrictEquals(context.Value, initialDefault) : TabsImplicitDefault.Matches(context.Value);
+    }
+
+    // TAB-STA-06, TAB-EVT-04: the fallback is committed first, so the callback cannot cancel it, and the parts render it
+    // after the callback returns, as Base UI's batched commit, even when the callback throws.
+    private async Task CommitAutomaticAsync(TabsTabEntry<TValue>? fallback, EventReason reason)
+    {
+        TValue value = fallback is null ? default! : fallback.Value;
+        selectedOnce = true;
+        implicitDefault = false;
+        cleared = fallback is null;
+        valueState!.SetValueIfUncontrolled(value);
+        try
+        {
+            await NotifyAutomaticAsync(value, reason);
+        }
+        finally
+        {
+            PublishValue();
+        }
+
+        notifyInitialPending = false;
+
+        // Base UI's effect runs again on the committed value; a duplicate disabled Tab then resolves to it (TAB-STA-10).
+        validateAgain = true;
+    }
+
+    // TAB-EVT-04: a fresh placeholder event, no trigger, direction none.
+    private Task NotifyAutomaticAsync(TValue value, EventReason reason) =>
+        OnValueChange.InvokeAsync(new ValueChangeEventArgs<TValue>(value, new TabsChangeEventDetails(reason, TabsActivationDirection.None, EventSnapshot.CreatePlaceholder())));
 
     // A change of the mirrored direction or of the orientation renders the root; a change of the value does not.
     private void OnContextChanged()

@@ -133,6 +133,11 @@ internal abstract class TabsTabEntry
     /// <value>The consumer's id or the generated one.</value>
     public abstract string ElementId { get; }
 
+    // TAB-STA-04, TAB-API-08: the registry's metadata (value, disabled, id) the Root reads in the List's order.
+    /// <summary>Gets a value indicating whether the tab cannot be activated.</summary>
+    /// <value>The tab's <c>Disabled</c> parameter.</value>
+    public abstract bool Disabled { get; }
+
     /// <summary>Gets a value indicating whether the consumer gave the tab an <c>onclick</c>.</summary>
     /// <value><see langword="true"/> while the tab has one.</value>
     public abstract bool HasConsumerClick { get; }
@@ -157,4 +162,13 @@ internal abstract class TabsTabEntry
     /// <param name="snapshot">The <c>click</c> or <c>focusin</c>.</param>
     /// <returns>The consumer handler's task.</returns>
     public abstract Task RunConsumerHandlerAsync(EventSnapshot snapshot);
+}
+
+/// <summary>A tab as its root's registry sees it, with the value of the root's type.</summary>
+/// <typeparam name="TValue">The type of the root's value.</typeparam>
+internal abstract class TabsTabEntry<TValue> : TabsTabEntry
+{
+    /// <summary>Gets the tab's value.</summary>
+    /// <value>The tab's <c>Value</c> parameter.</value>
+    public abstract TValue Value { get; }
 }

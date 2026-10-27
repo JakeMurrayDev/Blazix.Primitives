@@ -35,8 +35,10 @@ public static class TabsListDataAttributes
 //   the Tabs' click and focus, the `select` decision point, the pressing state, data-activation-direction on the five
 //   parts and the ResizeObserver its Indicators re-measure on. The activation reaches the Tab by its element id
 //   (TabsListContext), in the `select` decider on WebAssembly and from the module's report on Server.
-// - Not here yet (open until track 1's E2 and E5 are on `main`): the ordered-ids report that feeds the Root's tab
-//   registry, and the highlight that follows the active Tab (TAB-STA-19, TAB-FOC-04..07).
+// - Track 1's E2 and E5 (ADR 04 Amendments 2026-10-26): the composite module reports the Tabs' order, which the List joins
+//   to its Tabs by element id and publishes to the Root's registry (TAB-STA-04), and moves the tab stop to the active Tab
+//   while focus is outside the List, unless that Tab renders aria-disabled="true" (TAB-STA-19, TAB-FOC-04..07). With the
+//   follow on, DisabledIndices stays empty and nothing is derived (TAB-KEY-07).
 /// <summary>
 /// Represents the group of tabs: Base UI's <c>Tabs.List</c>, rendered as a <c>div</c> with <c>role="tablist"</c>. The
 /// list is one tab stop, and the arrow keys, Home and End move focus between its tabs.
@@ -53,6 +55,7 @@ public sealed class TabsList : PartBase<TabsListState>
     private readonly Action<TabsSelection> onSelection;
     private readonly Action<TabsTabEvent> onTabEvent;
     private readonly Action<TabsActivationDirection> onDirection;
+    private readonly Action onItems;
     private readonly TaskCompletionSource tabsAttachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TabsRootContext? root;
     private CompositeRootBehavior? composite;
@@ -74,6 +77,7 @@ public sealed class TabsList : PartBase<TabsListState>
         onSelection = selection => _ = InvokeAsync(() => ActivateFromReportAsync(selection));
         onTabEvent = tabEvent => _ = InvokeAsync(() => RunTabEventAsync(tabEvent));
         onDirection = direction => _ = InvokeAsync(() => root!.MirrorDirection(direction));
+        onItems = () => _ = InvokeAsync(PublishTabsAsync);
     }
 
     [Inject]
@@ -134,7 +138,10 @@ public sealed class TabsList : PartBase<TabsListState>
         {
             EnableHomeAndEndKeys = true,
             DisabledIndices = s_noDisabledIndices,
+            ReportItems = true,
+            FollowActiveItem = true,
         };
+        composite.ItemsChanged += onItems;
     }
 
     /// <inheritdoc />
@@ -176,7 +183,12 @@ public sealed class TabsList : PartBase<TabsListState>
         {
             disposed = true;
             root?.RemoveListener(rootChanged);
-            composite?.Dispose();
+            if (composite is not null)
+            {
+                composite.ItemsChanged -= onItems;
+                composite.Dispose();
+            }
+
             if (twin is not null)
             {
                 twin.SelectionReported -= onSelection;
@@ -210,6 +222,34 @@ public sealed class TabsList : PartBase<TabsListState>
 
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName) => composite!.ForwardsConsumerHandler(eventName);
+
+    // TAB-STA-04 (track 1's E2): the composite module's report of the Tabs' order, joined to the Tabs by element id.
+    private async Task PublishTabsAsync()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        IReadOnlyList<CompositeItemBehavior> items = composite!.OrderedItems;
+        List<TabsTabEntry> ordered = new(items.Count);
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (listContext!.Find(items[i].Registration.Id) is { } tab)
+            {
+                ordered.Add(tab);
+            }
+        }
+
+        try
+        {
+            await root!.PublishTabsAsync(ordered);
+        }
+        catch (Exception exception)
+        {
+            await DispatchExceptionAsync(exception);
+        }
+    }
 
     private void OnRootChanged()
     {
