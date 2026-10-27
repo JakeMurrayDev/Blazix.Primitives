@@ -7,6 +7,7 @@
 | Tests | `packages/react/test/popupConformanceTests.tsx`, `test/detachedTriggersConformanceTests.tsx`, `test/viewportConformanceTests.tsx`, `test/popupFocusPropsTests.tsx`; `utils/popups/{store,popupTriggerMap,popupHandle,inlineRect}.test.ts`, `utils/popups/{popupStoreUtils,useTriggerFocusGuards}.test.tsx`, `utils/popups/popupStoreUtils.spec.ts` (type-level only), `utils/{useSwipeDismiss,usePopupViewport}.test.tsx`, `utils/popupStateMapping.test.ts` |
 | Prefix | `PSH` |
 | Status | approved |
+| Revised | 2026-10-27 |
 | Used by | `dialog.md` (DLG), `alert-dialog.md` (ADL), `drawer.md` (DRW), `popover.md` (POP), `menu.md` (MNU), `context-menu.md` (CTX), `menubar.md` (MBR), `tooltip.md` (TIP), `preview-card.md` (PRV), `select.md` (SEL), `combobox.md` (CMB), `autocomplete.md` (AUT), `navigation-menu.md` (NAV), `toast.md` (TST). See §6 for which pieces each uses. |
 
 ## 1. Purpose
@@ -460,8 +461,10 @@ Keys handled by this mechanism (all others pass through to FLT/UBT/the component
 
 - **PSH-PTR-08** — MUST. A trigger using inline-rect tracking records the pointer's client coordinates, the index of the line box under the pointer (±2px tolerance) and the trigger element on `mouseenter` and `mousemove` while the popup is **not** open by this trigger; it records `undefined` instead when the trigger renders fewer than two line boxes; it ignores those events while open; and it clears the record on `focus`.
   Source: `utils/popups/inlineRect.ts:96-129,203-235`, `preview-card/trigger/PreviewCardTrigger.tsx:85-88`. Test: [L3] `inlineRect.test.ts` "clears stored coords on focus", "stores undefined when the trigger does not wrap", "updates stored coords on mouse move while closed", "does not update stored coords on mouse move while open", "does not update stored coords on mouse enter while open".
+  Port note (2026-10-27, M4 track 3, [issue 119](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/119); ADR 04 Amendments 2026-10-18 and 2026-10-27, chosen by the user): the record lives in the `interactions` session (the trigger option `HoveredLine`), captured on `mouseenter` and `mousemove` while the popup is not open by that trigger and cleared on focus; track 7's inline middleware reads it through `readHoveredLine(session)`. L3: the five titles in `interactions.test.ts`.
 - **PSH-PTR-29** — MUST. When a non-canceled `trigger-hover` open request carries a trigger element and an event with client coordinates, and the stored inline-rect record does not belong to that trigger, the record is recomputed from that trigger and the event's coordinates (PSH-PTR-08's line-box rules) before the open is dispatched, so the card anchors to the hovered point even though the trigger's own handlers ignore moves while it is open.
   Source: `preview-card/store/PreviewCardStore.ts:78-96`, `utils/popups/inlineRect.ts:226-235`, `utils/popups/popupStoreUtils.ts:279`. Test: [L3] `inlineRect.test.ts` "updates stored coords from a native mouse event while open".
+  Port note (2026-10-27, M4 track 3, [issue 119](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/119); ADR 04 Amendments 2026-10-18 and 2026-10-27, chosen by the user): the hover region recomputes the record just before it reports a hover open (`recordHoveredLineBeforeOpen`), in the module, so the request C# commits already finds it. L3: "updates stored coords from a native mouse event while open".
 
 #### 4.7.5 Swipe tracker
 
