@@ -28,6 +28,7 @@ public static class DemoCatalog
         new("toggle", "Toggle", "A two-state button that is pressed or not.", typeof(ToggleDemo)),
         new("toggle-group", "Toggle Group", "A set of toggles that share one value, here the text alignment.", typeof(ToggleGroupDemo)),
         new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
+        new("toolbar", "Toolbar", "A set of buttons, toggles, an input and a link that the arrow keys move between.", typeof(ToolbarDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

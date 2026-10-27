@@ -5,9 +5,9 @@ import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers
 // titles prove (toggle.md §13: TGL-KEY-02, TGL-KEY-03, TGL-DOM-05, TGL-FOC-02), on ToggleGroup over the `composite`
 // module and Toggle over the `button` module. Titles are Base UI's (toggle-group/ToggleGroup.test.tsx); "port:" titles
 // assert the per-mode rows of ADR 01's relaxation table, the Test: none rows a browser observes and the design points of
-// M3 tracks 2-3. The rows that need a Toolbar (TGG-KEY-10, TGG-FOC-05, the "nested in Toolbar.Group" variant) are M3
-// track 4's. The fixtures record the callbacks as data attributes; every page waits for `data-attached` (every twin
-// attached) and uses the sync button as a barrier.
+// M3 tracks 2-3. The "nested in Toolbar.Group" variant (TGG-KEY-10, TGG-FOC-05) is M3 track 4's; the Toolbar's own Toggle
+// and ToggleGroup titles run in toolbar.spec.ts. The fixtures record the callbacks as data attributes; every page waits for
+// `data-attached` (every twin attached) and uses the sync button as a barrier.
 
 type FixtureName = 'toggle-group-orientation' | 'toggle-group-basic';
 
@@ -116,46 +116,51 @@ async function recordKeys(group: Locator): Promise<void> {
 
 test.describe('<ToggleGroup />', () => {
   test.describe('prop: multiple transitions', () => {
-    // TGG-STR-02, TGG-STA-05, TGG-DOM-04, TGG-DOM-06, TGG-PTR-01, TGG-FOC-03, TGL-FOC-02. The "nested in Toolbar.Group"
-    // variant is M3 track 4's.
-    test('preserves selection and roving focus when standalone', async ({ page, mode }) => {
-      const fixture = await gotoToggles(page, mode, 'toggle-group-basic');
-      const { group, toggle, before, flip } = toggleCase(fixture, 'multiple');
+    // TGG-STR-02, TGG-STA-05, TGG-DOM-04, TGG-DOM-06, TGG-PTR-01, TGG-FOC-03, TGL-FOC-02; nested, TGG-KEY-10, TGG-FOC-05 and
+    // TLB-STR-04 (M3 track 4): the toolbar's root navigates the group's toggles.
+    for (const [label, name] of [
+      ['standalone', 'multiple'],
+      ['nested in Toolbar.Group', 'multiple-toolbar'],
+    ] as const) {
+      test(`preserves selection and roving focus when ${label}`, async ({ page, mode }) => {
+        const fixture = await gotoToggles(page, mode, 'toggle-group-basic');
+        const { group, toggle, before, flip } = toggleCase(fixture, name);
 
-      await expect(group).not.toHaveAttribute('data-multiple');
-      await expect(toggle('one')).toHaveAttribute('aria-pressed', 'true');
-      await expect(toggle('two')).toHaveAttribute('aria-pressed', 'false');
+        await expect(group).not.toHaveAttribute('data-multiple');
+        await expect(toggle('one')).toHaveAttribute('aria-pressed', 'true');
+        await expect(toggle('two')).toHaveAttribute('aria-pressed', 'false');
 
-      await focus(before);
-      await page.keyboard.press('Tab');
-      await page.keyboard.press('ArrowRight');
-      await expect(toggle('two')).toBeFocused();
+        await focus(before);
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('ArrowRight');
+        await expect(toggle('two')).toBeFocused();
 
-      await toggle('two').click();
-      await expect(toggle('one')).toHaveAttribute('aria-pressed', 'false');
-      await expect(toggle('two')).toHaveAttribute('aria-pressed', 'true');
+        await toggle('two').click();
+        await expect(toggle('one')).toHaveAttribute('aria-pressed', 'false');
+        await expect(toggle('two')).toHaveAttribute('aria-pressed', 'true');
 
-      await flip.click();
-      await expect(group).toHaveAttribute('data-multiple', '');
+        await flip.click();
+        await expect(group).toHaveAttribute('data-multiple', '');
 
-      await toggle('one').click();
-      await expect(toggle('one')).toHaveAttribute('aria-pressed', 'true');
-      await expect(toggle('two')).toHaveAttribute('aria-pressed', 'true');
+        await toggle('one').click();
+        await expect(toggle('one')).toHaveAttribute('aria-pressed', 'true');
+        await expect(toggle('two')).toHaveAttribute('aria-pressed', 'true');
 
-      await toggle('two').click();
-      await expect(toggle('one')).toHaveAttribute('aria-pressed', 'true');
-      await expect(toggle('two')).toHaveAttribute('aria-pressed', 'false');
+        await toggle('two').click();
+        await expect(toggle('one')).toHaveAttribute('aria-pressed', 'true');
+        await expect(toggle('two')).toHaveAttribute('aria-pressed', 'false');
 
-      await flip.click();
-      await expect(group).not.toHaveAttribute('data-multiple');
+        await flip.click();
+        await expect(group).not.toHaveAttribute('data-multiple');
 
-      await toggle('two').click();
-      await expect(toggle('one')).toHaveAttribute('aria-pressed', 'false');
-      await expect(toggle('two')).toHaveAttribute('aria-pressed', 'true');
+        await toggle('two').click();
+        await expect(toggle('one')).toHaveAttribute('aria-pressed', 'false');
+        await expect(toggle('two')).toHaveAttribute('aria-pressed', 'true');
 
-      await page.keyboard.press('ArrowLeft');
-      await expect(toggle('one')).toBeFocused();
-    });
+        await page.keyboard.press('ArrowLeft');
+        await expect(toggle('one')).toBeFocused();
+      });
+    }
   });
 
   test.describe('keyboard interactions', () => {

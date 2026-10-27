@@ -6,7 +6,8 @@ namespace Blazix.Primitives;
 // UBT-ALG-03 (button-behavior.md §5), with UBT-DOM-01..08 and UBT-ARIA-01..05 as its observable rows; ADR 04 §1: the
 // `button` module writes no attribute, so every button-like part renders these from C#, also in prerender (UBT-DOM-11).
 // Callers: Button (F explicit, composite false, T 0); CollapsibleTrigger (M1 track 6) and Toggle (M3) call it with F
-// unspecified (null) and composite as they resolve it; composite items (M2) pass composite true. The consumer's own
+// unspecified (null) and composite as they resolve it; composite items (M2) and ToolbarButton pass composite true;
+// ToolbarInput (M3) calls the input item variant. The consumer's own
 // `type`, `role`, `tabindex`, `disabled` and `aria-disabled` override these because the pipeline merges the consumer's
 // attributes after the part's (UBT-DOM-09).
 /// <summary>Writes the attributes of the button mechanism: <c>type</c>, <c>role</c>, <c>tabindex</c>, <c>disabled</c> and <c>aria-disabled</c>.</summary>
@@ -60,6 +61,20 @@ internal static class ButtonAttributeWriter
         if (native && (focusableWhenDisabled != true || nonFocusableComposite) && disabled)
         {
             attributes.Set("disabled", true);
+        }
+    }
+
+    // UBT-DOM-12, TLB-DOM-07, TLB-ARIA-04, TLB-DOM-11: Toolbar.Input runs UBT-ALG-03 with composite true and isNativeButton
+    // false (toolbar/input/ToolbarInput.tsx:40-45), which leaves aria-disabled alone; it merges those props after the
+    // consumer's, so the part calls this on the merged attributes and a consumer's aria-disabled loses while disabled.
+    /// <summary>Adds the attributes of a toolbar input: <c>aria-disabled="true"</c> while disabled, and nothing else.</summary>
+    /// <param name="attributes">The attribute list of the render; the part's merged attributes, so the value wins.</param>
+    /// <param name="disabled"><see langword="true"/> when the input ignores user interaction.</param>
+    public static void WriteInputItem(AttributeList attributes, bool disabled)
+    {
+        if (disabled)
+        {
+            attributes.Set("aria-disabled", "true");
         }
     }
 

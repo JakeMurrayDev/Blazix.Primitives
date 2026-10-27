@@ -4,7 +4,7 @@ namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 and §3; UBT-API-01, UBT-ALG-01..07, UBT-EDGE-01..03 (button-behavior.md §6.1 and §6.3); the hidden-input
 // bridge and the Enter suppression, UBT-EVT-09 and UBT-KEY-06 (ADR 12 Amendments 2026-10-22 item 4; ADR 04 Amendments
-// 2026-10-18 item 4)
+// 2026-10-18 item 4); the input item of Toolbar.Input, UBT-DOM-12 (ADR 04 Amendments 2026-10-26)
 /// <summary>
 /// The options of the <c>button</c> module: the mechanism's configuration, sent on <c>attach</c> and on every
 /// <c>update</c>. The part renders the button attributes itself; the module owns keyboard activation, press
@@ -60,6 +60,16 @@ internal sealed record ButtonOptions : TwinOptions
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool SuppressEnter { get; init; }
+
+    // UBT-DOM-12, TLB-KEY-13, TLB-PTR-02; ADR 04 Amendments 2026-10-26 (the button row, chosen by the user 2026-10-26)
+    /// <summary>Gets a value indicating whether the element is a toolbar input, which no key activates.</summary>
+    /// <value>
+    /// <see langword="true"/> for a toolbar input: Enter and Space never click it and its Space is typed, while a disabled,
+    /// focusable input still has every key but Tab and its clicks and pointer presses prevented; the default is
+    /// <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool InputItem { get; init; }
 
     /// <summary>Gets the press-and-hold repeater's timing, which turns the repeater on.</summary>
     /// <value>The timing, or <see langword="null"/>, the default, for no repeater.</value>

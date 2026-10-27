@@ -1,0 +1,48 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-keys` fixture (tests/browser/toolbar.spec.ts): the port titles of the root's key handling and its per-mode
+    rows.
+    - `keys`: three buttons in a horizontal toolbar, for the handled, cross-axis, modified, Home and End keys (TLB-KEY-03,
+      KEY-04, KEY-06, KEY-07), the hover and pointer rows (TLB-PTR-03, PTR-04) and the single tab stop (TLB-FOC-01).
+    - `root-keydown`: the root's C# onkeydown, which calls PreventPartHandler() for ArrowRight (TLB-API-05, option (i)).
+    - `group-keydown`: a ToolbarGroup's C# onkeydown around two buttons (TLB-API-16, ADR 01 Amendments 2026-10-26).
+*@
+<FixtureContainer Name="toolbar-keys" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ToolbarCaseFrame Name="keys" Case="keys">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="one">One</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="two">Two</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="three">Three</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="root-keydown" Case="rootKeys">
+        <ToolbarRoot @ref="Root" data-root @onkeydown="e => rootKeys.KeyDown(RootSource, e)">
+            <ToolbarButton @ref="Button" data-item="one">One</ToolbarButton>
+            <ToolbarButton @ref="Button" data-item="two">Two</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="group-keydown" Case="groupKeys">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarGroup data-group @onkeydown="e => groupKeys.KeyDown(GroupSource, e)">
+                <ToolbarButton @ref="Button" data-item="one">One</ToolbarButton>
+                <ToolbarButton @ref="Button" data-item="two">Two</ToolbarButton>
+            </ToolbarGroup>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private const string RootSource = "root";
+    private const string GroupSource = "group";
+
+    private readonly ToolbarCase keys = new();
+    private readonly ToolbarCase rootKeys = new() { VetoKeys = ["ArrowRight"] };
+    private readonly ToolbarCase groupKeys = new();
+}

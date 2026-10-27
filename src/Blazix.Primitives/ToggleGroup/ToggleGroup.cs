@@ -38,12 +38,17 @@ public static class ToggleGroupDataAttributes
 // - The toggles in the subtree read the group through ToggleGroupContext and hand each activation to it with their own
 //   details (TGL-EVT-05, TGG-EVT-02): the next list (ToggleGroupValue, with Multiple read at call time, TGG §14), then
 //   OnValueChange, then, unless canceled, ValueChanged and the commit (TGG-EVT-01..05).
-// - It is the composite root of its toggles (CompositeRootBehavior; TGG §11): the two-valued Orientation, LoopFocus, Home
+// - Standalone, it is the composite root of its toggles (CompositeRootBehavior; TGG §11): the two-valued Orientation, LoopFocus, Home
 //   and End on, a handled key stopped, no modifier keys, the toggles' disabled state read from the document (toggle-group §16
 //   Q3, settled by the orchestrator 2026-10-26), no highlight mirror and no report; the first toggle holds the initial tab stop (TGG-STA-08,
 //   §16 Q2, chosen by the user 2026-10-26). The direction comes from the nearest DirectionProvider only (TGG-EDGE-08). Every
 //   toggle's tabindex is the `composite` module's from attach (ADR 04 Amendments 2026-10-22).
-// - The consumer's onkeydown is declined and run by the root at `navigate`, under option (i) (TGG-API-09; ADR 04 Amendments
+// - Inside a ToolbarRoot, read at the first parameter set, it is no composite root (TGG-STR-02, TLB-STR-04; M3 track 4):
+//   it creates no CompositeRootBehavior and cascades no registry, so its toggles are items of the toolbar's root and the
+//   toolbar's keys, orientation and direction apply; its Orientation and LoopFocus send nothing, while data-orientation
+//   stays its own (TGG-EDGE-06, TGG-KEY-10). The toolbar's and the toolbar group's disabled states join its own
+//   (TGG-API-04), read from their listener-list contexts, and a consumer onkeydown is forwarded (TGG-DOM-06).
+// - Standalone, the consumer's onkeydown is declined and run by the root at `navigate`, under option (i) (TGG-API-09; ADR 04 Amendments
 //   2026-10-22, chosen by the user 2026-10-23). Base UI's root onFocus only selects a native text input's value
 //   (useCompositeRoot.ts:321-327), which no toggle is, so a consumer onfocus has nothing to veto and is forwarded.
 /// <summary>
@@ -63,9 +68,12 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     private static readonly IReadOnlyList<string> s_empty = [];
 
     private readonly EventCallback onKeyDown;
+    private readonly Action toolbarChanged;
     private Controlled<IReadOnlyList<string>>? valueState;
     private bool valueInitialized;
     private CompositeRootBehavior? composite;
+    private ToolbarRootContext? toolbar;
+    private ToolbarGroupContext? toolbarGroup;
     private ToggleGroupContext? context;
     private ToggleGroupState? state;
     private RenderFragment? cascade;
@@ -74,7 +82,9 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     /// <summary>Initializes a new instance of the <see cref="ToggleGroup"/> class.</summary>
     public ToggleGroup()
     {
-        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => composite!.HandleKeyDownAsync(e));
+        // Inside a toolbar the consumer's onkeydown is forwarded, and the chain's last step, this handler, does nothing.
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => composite?.HandleKeyDownAsync(e) ?? Task.CompletedTask);
+        toolbarChanged = OnToolbarChanged;
     }
 
     [Inject]
@@ -89,8 +99,8 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     // TGG-API-01/02, TGG-STA-02: a null default, or a controlled value removed later, reads as an empty list.
     private IReadOnlyList<string> CurrentValue => valueState!.Value ?? s_empty;
 
-    // TGG-API-04: the toolbar's and the toolbar group's disabled states join this in a toolbar (M3 track 4).
-    private bool EffectiveDisabled => Disabled;
+    // TGG-API-04
+    private bool EffectiveDisabled => Disabled || (toolbar?.Disabled ?? false) || (toolbarGroup?.Disabled ?? false);
 
     private string? IdParameter => AdditionalAttributes is not null
         && AdditionalAttributes.TryGetValue("id", out object? value)
@@ -98,6 +108,12 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
 
     [CascadingParameter]
     private DirectionProviderContext? DirectionContext { get; set; }
+
+    [CascadingParameter]
+    private ToolbarRootContext? ToolbarContext { get; set; }
+
+    [CascadingParameter]
+    private ToolbarGroupContext? ToolbarGroupContext { get; set; }
 
     // TGG-API-01, TGG-STA-06; ADR 05 §2, ADR 08 Amendments 2026-10-22
     /// <summary>Gets or sets the identities of the pressed toggles, when the consumer owns the value.</summary>
@@ -176,8 +192,8 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the composite behavior is attached, so a
     // browser test can wait for its listeners before it presses a key.
     /// <summary>Gets a task that completes when the group's composite behavior is attached to its element.</summary>
-    /// <value>A task that completes after the first interactive render has attached it.</value>
-    internal Task TwinAttached => composite!.TwinAttached;
+    /// <value>A task that completes after the first interactive render has attached it; completed inside a toolbar, which owns the composite behavior.</value>
+    internal Task TwinAttached => composite?.TwinAttached ?? Task.CompletedTask;
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
@@ -196,29 +212,44 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        composite = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown)
+        toolbar = ToolbarContext;
+        toolbarGroup = ToolbarGroupContext;
+        if (toolbar is null)
         {
-            EnableHomeAndEndKeys = true,
-        };
+            composite = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown)
+            {
+                EnableHomeAndEndKeys = true,
+            };
+        }
+        else
+        {
+            toolbar.AddListener(toolbarChanged);
+            toolbarGroup?.AddListener(toolbarChanged);
+        }
+
         context = new ToggleGroupContext(CurrentValue, RequestAsync);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        composite!.Orientation = CompositeLiterals.ToLiteral(Orientation);
-        composite.LoopFocus = LoopFocus;
-        composite.SetDirectionContext(DirectionContext);
-        composite.SetConsumerAttributes(AdditionalAttributes);
+        if (composite is not null)
+        {
+            composite.Orientation = CompositeLiterals.ToLiteral(Orientation);
+            composite.LoopFocus = LoopFocus;
+            composite.SetDirectionContext(DirectionContext);
+            composite.SetConsumerAttributes(AdditionalAttributes);
+        }
+
         UpdateState();
         context!.SetState(CurrentValue, EffectiveDisabled, valueInitialized);
 
         // The cascade wraps the consumer's content inside the group's element: the group's context, then the composite
-        // registry; it is rebuilt only when the consumer supplied other content (the Meter precedent).
+        // registry when the group is a root; it is rebuilt only when the consumer supplied other content (the Meter precedent).
         if (cascade is null || (!ReferenceEquals(ChildContent, cascade) && !ReferenceEquals(cascadedContent, ChildContent)))
         {
             cascadedContent = ChildContent;
-            cascade = context.Cascade(composite.Context.Cascade(cascadedContent));
+            cascade = context.Cascade(composite is null ? cascadedContent : composite.Context.Cascade(cascadedContent));
         }
 
         ChildContent = cascade;
@@ -227,7 +258,7 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        return composite!.AfterRenderAsync(Enabled, Element, IdParameter ?? GeneratedId);
+        return composite?.AfterRenderAsync(Enabled, Element, IdParameter ?? GeneratedId) ?? Task.CompletedTask;
     }
 
     /// <inheritdoc />
@@ -236,6 +267,8 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
         if (disposing)
         {
             composite?.Dispose();
+            toolbar?.RemoveListener(toolbarChanged);
+            toolbarGroup?.RemoveListener(toolbarChanged);
         }
 
         base.Dispose(disposing);
@@ -245,12 +278,12 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
-        composite!.AddAttributes(attributes, IdParameter ?? GeneratedId);
+        composite?.AddAttributes(attributes, IdParameter ?? GeneratedId);
         attributes.Set("role", "group");
     }
 
     /// <inheritdoc />
-    protected override bool ForwardsConsumerHandler(string eventName) => composite!.ForwardsConsumerHandler(eventName);
+    protected override bool ForwardsConsumerHandler(string eventName) => composite?.ForwardsConsumerHandler(eventName) ?? true;
 
     // TGG §7, TGG-EVT-01..05: the group's half of a toggle's request, with the toggle's details. OnValueChange runs before the
     // commit, and a cancel stops it; the toggles whose state changed render as they are notified, and the group does not.
@@ -264,6 +297,16 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
 
         await valueState.CommitAsync(next, ValueChanged);
         context!.SetState(CurrentValue, EffectiveDisabled, valueInitialized);
+    }
+
+    // A change of the toolbar's or the toolbar group's state: tell the toggles, and render only when the group's state changed.
+    private void OnToolbarChanged()
+    {
+        context!.SetState(CurrentValue, EffectiveDisabled, valueInitialized);
+        if (UpdateState())
+        {
+            StateHasChanged();
+        }
     }
 
     // Returns whether the state changed; a new record is made only then (ADR 16 rule 7).

@@ -25,8 +25,6 @@ public sealed class Separator : PartBase<SeparatorState>
 {
     // 1. constants
     private const string DefaultTag = "div";
-    private const string HorizontalLiteral = "horizontal";
-    private const string VerticalLiteral = "vertical";
 
     // 2. fields: the state record is reused while the orientation is unchanged (ADR 16 rule 5 memoises on its identity)
     private SeparatorState? state;
@@ -56,13 +54,8 @@ public sealed class Separator : PartBase<SeparatorState>
     }
 
     // 9. public methods (protected ones too)
-    // SEP-ARIA-01/02: the role and aria-orientation are part-supplied, merged before the consumer's attributes (SEP-DOM-02).
-    // aria-orientation is written for horizontal too (SEP-ARIA-02). A value outside the two members (SEP-EDGE-01 has no
-    // reachable case in a typed port) reads as horizontal here, and the projection writes no data-orientation for it.
+    // SEP-ARIA-01/02: the role and aria-orientation are part-supplied, merged before the consumer's attributes (SEP-DOM-02);
+    // the helper ToolbarSeparator shares writes them.
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes)
-    {
-        attributes.Set("role", "separator");
-        attributes.Set("aria-orientation", Orientation == Orientation.Vertical ? VerticalLiteral : HorizontalLiteral);
-    }
+    protected override void AddPartAttributes(AttributeList attributes) => SeparatorAttributes.Write(attributes, Orientation);
 }

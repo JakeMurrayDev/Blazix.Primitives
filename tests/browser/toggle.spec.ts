@@ -6,7 +6,8 @@ import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers
 // point 12.2), Home and End through the item's gate (design point 12.3), the bare toggle under a composite root
 // (TGL-EDGE-09) and TGL-DOM-05 as re-tagged ("should pass composite props" on the DOM attribute). The grouped titles of
 // ToggleGroup.test.tsx that toggle.md cites (TGL-KEY-02, TGL-KEY-03, TGL-FOC-02) run in toggle-group.spec.ts, where Base
-// UI has them; the toolbar rows (TGL-KEY-05, TGL-FOC-03 and the toolbar clauses) are M3 track 4's. "port:" titles assert
+// UI has them; the toolbar rows (TGL-KEY-05, TGL-FOC-03 and the toolbar clauses) run in toolbar.spec.ts, where Base UI
+// has them in ToolbarButton.test.tsx. "port:" titles assert
 // the per-mode rows of ADR 01's relaxation table and the Test: none rows a browser observes.
 
 type FixtureName = 'toggle-standalone' | 'toggle-composite-root' | 'toggle-group-basic';

@@ -11,7 +11,8 @@
       whose DefaultValue holds it.
     - `home-end`, `no-loop` (LoopFocus="false"): three toggles.
     - `multiple`: DefaultValue ["one"], with a button that flips Multiple, for "preserves selection and roving focus when
-      standalone".
+      standalone"; `multiple-toolbar`: the same inside a ToolbarGroup of a ToolbarRoot, for "… when nested in
+      Toolbar.Group" (M3 track 4).
     - `disabled-first`, `disabled-middle`: three toggles, the first or the middle one disabled (TGG-FOC-02, TGG-KEY-08).
     - `reorder`: three toggles and a button that reverses their order (TGG-FOC-04).
     - `toggle-keydown`: the toggles' C# onkeydown, which calls PreventPartHandler() for Home (design point 12.3).
@@ -61,6 +62,18 @@
             <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">Two</Toggle>
         </ToggleGroup>
         <button type="button" data-flip @onclick="() => multiple = !multiple">Flip</button>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="multiple-toolbar" Case="multipleToolbarCase">
+        <ToolbarRoot @ref="Toolbar">
+            <ToolbarGroup>
+                <ToggleGroup @ref="Group" DefaultValue="s_one" Multiple="multipleToolbar" OnValueChange="multipleToolbarCase.Change" data-group>
+                    <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">One</Toggle>
+                    <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">Two</Toggle>
+                </ToggleGroup>
+            </ToolbarGroup>
+        </ToolbarRoot>
+        <button type="button" data-flip @onclick="() => multipleToolbar = !multipleToolbar">Flip</button>
     </ToggleCaseFrame>
 
     <ToggleCaseFrame Name="disabled-first" Case="disabledFirst">
@@ -127,6 +140,7 @@
     private readonly ToggleCase homeEnd = new();
     private readonly ToggleCase noLoop = new();
     private readonly ToggleCase multipleCase = new();
+    private readonly ToggleCase multipleToolbarCase = new();
     private readonly ToggleCase disabledFirst = new();
     private readonly ToggleCase disabledMiddle = new();
     private readonly ToggleCase reorder = new();
@@ -135,4 +149,5 @@
     private readonly ToggleCase wrapperKeys = new();
     private readonly List<string> order = ["one", "two", "three"];
     private bool multiple;
+    private bool multipleToolbar;
 }

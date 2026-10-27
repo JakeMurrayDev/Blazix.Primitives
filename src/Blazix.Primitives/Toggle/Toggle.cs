@@ -242,7 +242,9 @@ public sealed class Toggle : PartBase<ToggleState>
         behavior.SetConsumerAttributes(AdditionalAttributes);
         if (item is not null)
         {
-            item.SetRegistration(Id, AdditionalAttributes);
+            // TLB §4, M3 track 1's E3: a toggle's flags are its effective disabled state and never focusable when disabled; a
+            // toolbar's root derives its disabled indices from them, and a standalone group's root reads the document.
+            item.SetRegistration(Id, AdditionalAttributes, EffectiveDisabled, focusableWhenDisabled: false);
             // TGL-KEY-05: a disabled toggle's key handlers are not invoked, so the root's key handling runs none either.
             item.SetConsumerAttributes(EffectiveDisabled ? null : AdditionalAttributes);
         }
@@ -362,6 +364,7 @@ public sealed class Toggle : PartBase<ToggleState>
         behavior.Disabled = EffectiveDisabled;
         if (item is not null && wasDisabled != behavior.Disabled)
         {
+            item.SetRegistration(Id, AdditionalAttributes, EffectiveDisabled, focusableWhenDisabled: false);
             item.SetConsumerAttributes(EffectiveDisabled ? null : AdditionalAttributes);
         }
 

@@ -1,0 +1,69 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures
+@using Blazix.Primitives
+@inherits ToolbarFixtureBase
+
+@*
+    The `toolbar-button` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's browser pages that need no
+    derived disabled indices, and design point 14.1's page.
+    - `custom`: "custom element: dispatches real clicks from Space/Enter keyboard activation", a non-native button whose
+      substitute is a span with its own onclick, inside an ancestor with one; the consumer's onclick too.
+    - `disabled`: "disables the button", the consumer's onclick, onmousedown, onpointerdown and onkeydown on a disabled
+      button.
+    - `hover`: "allows hover handlers while blocking activation", the consumer's onclick and onmousemove on a disabled
+      button.
+    - `toggle-substitute`: a Toggle substituted into a focusable-when-disabled button, disabled through the button;
+      `data-flip` flips the button's Disabled (TLB-DOM-08, design point 14.1).
+*@
+<FixtureContainer Name="toolbar-button" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <ToolbarCaseFrame Name="custom" Case="custom">
+        <div data-ancestor @onclick="() => custom.Click(AncestorSource)">
+            <ToolbarRoot @ref="Root" data-root>
+                <ToolbarButton @ref="Button" NativeButton="false" Render="CustomSpan" data-item="save" @onclick="() => custom.Click(ButtonSource)">Save</ToolbarButton>
+            </ToolbarRoot>
+        </div>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="disabled" Case="disabled">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" data-item="button"
+                           @onclick="() => disabled.Click(ButtonSource)"
+                           @onmousedown="() => disabled.MouseDown(ButtonSource)"
+                           @onpointerdown="() => disabled.PointerDown(ButtonSource)"
+                           @onkeydown="e => disabled.KeyDown(ButtonSource, e)">Button</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="hover" Case="hover">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" Disabled="true" data-item="button"
+                           @onclick="() => hover.Click(ButtonSource)"
+                           @onmousemove="hover.MouseMove">Button</ToolbarButton>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="toggle-substitute" Case="toggleSubstitute">
+        <ToolbarRoot @ref="Root" data-root>
+            <ToolbarButton @ref="Button" data-item="first">First</ToolbarButton>
+            <ToolbarButton @ref="Button" Disabled="toggleDisabled" Render="ToggleSubstitute" data-item="toggle">Bold</ToolbarButton>
+        </ToolbarRoot>
+        <button type="button" data-flip @onclick="() => toggleDisabled = !toggleDisabled">Flip</button>
+    </ToolbarCaseFrame>
+</FixtureContainer>
+
+@code {
+    private const string AncestorSource = "ancestor";
+    private const string RenderSource = "render";
+    private const string ButtonSource = "button";
+
+    private readonly ToolbarCase custom = new();
+    private readonly ToolbarCase disabled = new();
+    private readonly ToolbarCase hover = new();
+    private readonly ToolbarCase toggleSubstitute = new();
+    private bool toggleDisabled = true;
+
+    private RenderFragment CustomSpan => @<span @onclick="() => custom.Click(RenderSource)"></span>;
+
+    private RenderFragment ToggleSubstitute => @<Toggle @ref="Toggle" />;
+}

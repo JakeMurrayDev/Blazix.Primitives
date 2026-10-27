@@ -23,6 +23,7 @@ using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 using Blazix.Primitives.Fixtures.Client.TabsFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -133,5 +134,12 @@ public static class FixtureCatalog
         ["tabs-panels"] = new(typeof(TabsPanelsFixture)),
         ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
         ["tabs-focus"] = new(typeof(TabsFocusFixture)),
+        ["toolbar-orientation"] = new(typeof(ToolbarOrientationFixture)),
+        ["toolbar-keys"] = new(typeof(ToolbarKeysFixture)),
+        ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
+        ["toolbar-button"] = new(typeof(ToolbarButtonFixture)),
+        ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
+        ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
+        ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
     };
 }
