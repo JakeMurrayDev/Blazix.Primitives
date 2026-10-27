@@ -10,6 +10,7 @@ import {
   isElementDisabled,
   isTouchLikePointerType,
   type ButtonOptions,
+  classifyClick,
 } from './button';
 import type { EventInfo } from './event-info';
 import type { TwinHandle } from './twin';
@@ -1498,5 +1499,16 @@ describe('button module: Enter suppression', () => {
 
     const disabled = mount('span', { native: false, disabled: true, suppressEnter: true });
     expect(keyDown(disabled.element, 'Enter').defaultPrevented).toBe(true);
+  });
+});
+
+// The enhanced click handler's classification (utils/useEnhancedClickHandler.ts:20-34), exported for the `interactions`
+// module's press (design point 5 of M4 track 3, settled by the orchestrator 2026-10-27).
+describe('classifyClick (port)', () => {
+  it('port: a click without a click count is the keyboard\'s, else its own pointer type, else the last pointerdown\'s', () => {
+    expect(classifyClick(new MouseEvent('click', { detail: 0 }), 'mouse')).toBe('keyboard');
+    expect(classifyClick(new PointerEvent('click', { detail: 1, pointerType: 'pen' }), 'mouse')).toBe('pen');
+    expect(classifyClick(new MouseEvent('click', { detail: 1 }), 'touch')).toBe('touch');
+    expect(classifyClick(new MouseEvent('click', { detail: 1 }), '')).toBe('');
   });
 });
