@@ -9,7 +9,9 @@ namespace Blazix.Primitives.Interop;
 // core's references array, ADR 04 Amendments 2026-10-27; open until it is on `main`), or an element id. The names are
 // FLT §6.10's props (design point 8 of the focus-manager track, settled by the orchestrator 2026-10-27); FinalFocus maps to
 // ReturnFocus. OpenInteractionType and CloseInteractionType are the InteractionType literals until the enum is on
-// `main` (Interop/CONTEXT.md). FLT-API-05, FLT-FOC-06, FOC-07, FOC-11, FOC-12, FOC-19..21, ARIA-01..03, DOM-17, KEY-06.
+// `main` (Interop/CONTEXT.md). Answered is the answered-requests counter and PreviousFocusableElement and
+// NextFocusableElement are Menu's indices beside TriggerFocusGuards (ADR 04 Amendments 2026-10-27, the verification of
+// PR 128, settled by the orchestrator). FLT-API-05, FLT-FOC-06, FOC-07, FOC-11, FOC-12, FOC-19..21, ARIA-01..03, DOM-17, KEY-06.
 /// <summary>
 /// The options of the <c>focus-manager</c> module, sent on <c>attach</c> and on every <c>update</c>: what the focus manager
 /// of a popup does when the popup opens, while it is open and when it closes.
@@ -111,6 +113,14 @@ internal sealed record FocusManagerOptions : TwinOptions
     /// </value>
     public bool TriggerFocusGuards { get; init; }
 
+    /// <summary>Gets the element focused when Tab leaves the popup backward, as the index of its reference among the references sent with the options.</summary>
+    /// <value>The index, or <see langword="null"/>, the default, for none; <see cref="TriggerFocusGuards"/> supplies the anchor instead.</value>
+    public int? PreviousFocusableElement { get; init; }
+
+    /// <summary>Gets the element focused when Tab leaves the popup forward, as the index of its reference among the references sent with the options.</summary>
+    /// <value>The index, or <see langword="null"/>, the default, for none; <see cref="TriggerFocusGuards"/> supplies the guard after the anchor instead.</value>
+    public int? NextFocusableElement { get; init; }
+
     /// <summary>Gets elements outside the popup that count as inside it, as indices of their references among the references sent with the options.</summary>
     /// <value>The indices, or <see langword="null"/>, the default, for none.</value>
     public IReadOnlyList<int>? InsideElements { get; init; }
@@ -118,6 +128,13 @@ internal sealed record FocusManagerOptions : TwinOptions
     /// <summary>Gets the ids of elements outside the popup that count as inside it.</summary>
     /// <value>The ids, or <see langword="null"/>, the default, for none.</value>
     public IReadOnlyList<string>? InsideElementIds { get; init; }
+
+    /// <summary>Gets how many of the module's requests C# has answered.</summary>
+    /// <value>
+    /// The count, raised for every focus-out close request C# routed, canceled or not; the default is 0. The module asks
+    /// again for a focus-out close once the count moves.
+    /// </value>
+    public int Answered { get; init; }
 
     /// <inheritdoc />
     /// <remarks>The lists are compared by their items, so an unchanged render compares equal and sends no <c>update</c>.</remarks>
@@ -142,8 +159,11 @@ internal sealed record FocusManagerOptions : TwinOptions
             && TreatPopupAsFloatingElement == other.TreatPopupAsFloatingElement
             && string.Equals(DomReferenceId, other.DomReferenceId, StringComparison.Ordinal)
             && TriggerFocusGuards == other.TriggerFocusGuards
+            && PreviousFocusableElement == other.PreviousFocusableElement
+            && NextFocusableElement == other.NextFocusableElement
             && SameItems(InsideElements, other.InsideElements)
-            && SameItems(InsideElementIds, other.InsideElementIds);
+            && SameItems(InsideElementIds, other.InsideElementIds)
+            && Answered == other.Answered;
     }
 
     /// <inheritdoc />
@@ -168,6 +188,9 @@ internal sealed record FocusManagerOptions : TwinOptions
         hash.Add(TreatPopupAsFloatingElement);
         hash.Add(DomReferenceId, StringComparer.Ordinal);
         hash.Add(TriggerFocusGuards);
+        hash.Add(PreviousFocusableElement);
+        hash.Add(NextFocusableElement);
+        hash.Add(Answered);
         hash.Add(InsideElements?.Count ?? -1);
         hash.Add(InsideElementIds?.Count ?? -1);
         return hash.ToHashCode();
