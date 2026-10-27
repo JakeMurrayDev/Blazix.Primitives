@@ -240,18 +240,27 @@ public sealed class ToolbarButtonTests : IDisposable
         Assert.Equal(true, attributes!["disabled"]);
     }
 
-    [Fact(DisplayName = "port: a substituted SwitchRoot keeps its role and ARIA under the toolbar button's")]
+    [Fact(DisplayName = "port: a native SwitchRoot substituted into a toolbar button keeps its role and ARIA and is the toolbar's item")]
     [Trait("Requirement", "TLB-ARIA-09")]
     [Trait("Requirement", "TLB-STR-05")]
     [Trait("Requirement", "TLB-DOM-08")]
-    public void Port_a_substituted_switch_root_keeps_its_role_and_aria()
+    public void Port_a_native_switch_root_substituted_into_a_toolbar_button_is_the_toolbars_item()
     {
-        // ToolbarButton.test.tsx "renders a switch" (L2 half): the switch's field and form modules are not this test's subject.
+        // ToolbarButton.test.tsx "renders a switch" (L2 half) over the supported shape, NativeButton="true" over a button
+        // (design point 14.7, option (c) pending the user): a native switch puts the id it receives on its root. The
+        // switch's field and form modules are not this test's subject.
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
+        RenderFragment button = builder =>
+        {
+            builder.OpenElement(0, "button");
+            builder.CloseElement();
+        };
         RenderFragment substitute = builder =>
         {
             builder.OpenComponent<SwitchRoot>(0);
-            builder.AddComponentParameter(1, nameof(SwitchRoot.DefaultChecked), true);
+            builder.AddComponentParameter(1, nameof(SwitchRoot.NativeButton), true);
+            builder.AddComponentParameter(2, nameof(SwitchRoot.DefaultChecked), true);
+            builder.AddComponentParameter(3, nameof(SwitchRoot.Render), button);
             builder.CloseComponent();
         };
         IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarButton>(b => b
@@ -260,15 +269,13 @@ public sealed class ToolbarButtonTests : IDisposable
             .AddUnmatched("data-testid", "button")));
 
         IElement element = cut.Find("[data-testid=button]");
+        Assert.Equal("BUTTON", element.TagName);
         Assert.Equal("switch", element.GetAttribute("role"));
         Assert.Equal("true", element.GetAttribute("aria-checked"));
         Assert.Equal("true", element.GetAttribute("aria-disabled"));
-        Assert.False(element.HasAttribute("disabled"));
         Assert.Equal("-1", element.GetAttribute("tabindex"));
         Assert.True(cut.FindComponent<SwitchRoot>().Instance.Disabled);
-
-        // Design point 14.7, pending: a non-native switch puts the id it receives on its hidden input (SWT-API-11), so the
-        // registered item is the input; the item clause waits on the answer.
+        Assert.Equal([element.GetAttribute("id")!], ToolbarTestContext.ItemIds(test.LastCompositeOptions));
     }
 
     [Fact(DisplayName = "port: the consumer's onkeydown runs once, the arrows from navigate and other keys from activate or the button's handler")]

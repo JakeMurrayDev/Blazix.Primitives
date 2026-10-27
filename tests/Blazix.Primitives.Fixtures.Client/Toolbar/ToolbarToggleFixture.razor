@@ -4,9 +4,8 @@
 
 @*
     The `toolbar-toggle` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's Toggle and ToggleGroup block and
-    the direct ToggleGroup > Toggle pages, over M3 track 1's E3 (the flags) and E4 (the outer registration). A substituted
-    toggle's typed OnPressedChange waits on design point 14.8, so the substituted toggles' presses are counted by their
-    PressedChanged (standalone) and their group's OnValueChange.
+    the direct ToggleGroup > Toggle pages, over M3 track 1's E3 (the flags) and E4 (the outer registration). Each
+    substituted toggle records its OnPressedChange, as Base UI's block does.
     - `block`: "renders toggle and toggle group", "handles interactions": a standalone substituted toggle, then two in a
       group.
     - `block-disabled`: "disabled state", the same three buttons disabled.
@@ -26,10 +25,10 @@
         ToolbarCase blockCase = cases[name];
         <ToolbarCaseFrame Name="@name" Case="blockCase">
             <ToolbarRoot @ref="Root" data-root>
-                <ToolbarButton @ref="Button" Disabled="disabled" Render="StandaloneToggle(blockCase)" value="apple" data-item="apple" />
-                <ToggleGroup OnValueChange="blockCase.GroupChange">
-                    <ToolbarButton @ref="Button" Disabled="disabled" Render="GroupedToggle" value="one" data-item="one" />
-                    <ToolbarButton @ref="Button" Disabled="disabled" Render="GroupedToggle" value="two" data-item="two" />
+                <ToolbarButton @ref="Button" Disabled="disabled" Render="RecordedToggle(blockCase)" value="apple" data-item="apple" />
+                <ToggleGroup>
+                    <ToolbarButton @ref="Button" Disabled="disabled" Render="RecordedToggle(blockCase)" value="one" data-item="one" />
+                    <ToolbarButton @ref="Button" Disabled="disabled" Render="RecordedToggle(blockCase)" value="two" data-item="two" />
                 </ToggleGroup>
             </ToolbarRoot>
         </ToolbarCaseFrame>
@@ -125,7 +124,7 @@
     private IReadOnlyList<string> controlled = [];
     private bool twoDisabled;
 
-    private RenderFragment StandaloneToggle(ToolbarCase blockCase) => @<Toggle @ref="Toggle" PressedChanged="blockCase.PressedChange" />;
+    private RenderFragment RecordedToggle(ToolbarCase blockCase) => @<Toggle @ref="Toggle" OnPressedChange="blockCase.Press" />;
 
     private RenderFragment GroupedToggle => @<Toggle @ref="Toggle" />;
 }

@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers';
+import { test, expect, gotoFixture, readDiagnostics, type Page, type RenderMode } from './helpers';
 
 // The [L4] rows of docs/components/toolbar.md and the L4 clauses of its [L2] rows, on ToolbarRoot over the `composite`
 // module and ToolbarButton and ToolbarInput over the `button` module. Titles are Base UI's (toolbar/*/*.test.tsx);
@@ -8,6 +8,9 @@ import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers
 // a substituted toggle's registration is the toolbar button's (M3 track 1's E3 and E4). The fixtures record the consumer's
 // callbacks as data attributes; every page waits for `data-attached` (every twin attached) and uses the sync button as a
 // barrier.
+
+const MISMATCH_MESSAGE =
+  'Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.';
 
 type FixtureName = 'toolbar-orientation' | 'toolbar-keys' | 'toolbar-disabled' | 'toolbar-input' | 'toolbar-button' | 'toolbar-switch' | 'toolbar-toggle';
 
@@ -663,8 +666,8 @@ test.describe('<Toolbar.Button />', () => {
   });
 
   test.describe('rendering other Base UI components', () => {
-    // A substituted toggle's typed OnPressedChange waits on design point 14.8, so the fixture counts the presses by the
-    // standalone toggle's PressedChanged and the group's OnValueChange: one entry per activation (TGL-EVT-06).
+    // Each substituted toggle records its OnPressedChange (design point 14.8, settled by the orchestrator 2026-10-27: the
+    // pipeline keeps a substitute's typed callback typed): one entry per activation (TGL-EVT-06).
     test.describe('Toggle and ToggleGroup', () => {
       // TLB-STR-05, TLB-ARIA-09, TLB-EDGE-12.
       test('renders toggle and toggle group', async ({ page, mode }) => {
@@ -708,7 +711,7 @@ test.describe('<Toolbar.Button />', () => {
         await settle(fixture);
         await expect(container).toHaveAttribute('data-changes', '3');
         await expect(item('two')).toHaveAttribute('aria-pressed', 'true');
-        await expect(container).toHaveAttribute('data-log', 'pressed:true value:one value:two');
+        await expect(container).toHaveAttribute('data-log', 'press:true press:true press:true');
       });
 
       // TLB-STA-03, TLB-DOM-08, TLB-KEY-13, TLB-KEY-17, TLB-EDGE-12, TGL-KEY-05: the outer registration is focusable when
@@ -878,9 +881,78 @@ test.describe('<Toolbar.Button />', () => {
         await expect(container.locator('[data-item][tabindex="0"]')).toHaveCount(1);
       });
     });
-  });
 
-  // ToolbarButton.test.tsx's Switch block ("renders a switch", "handles interactions", "disabled state") waits on design
-  // point 14.7 of M3 track 4: a non-native SwitchRoot puts the id it receives on its hidden input (SWT-API-11), so the
-  // toolbar registers and attaches to the input. The `toolbar-switch` fixture is kept for it.
+    test.describe('Switch', () => {
+      // TLB-STR-05, TLB-ARIA-09. Deviation (design point 14.7, option (c) pending the user): the switch is native,
+      // `NativeButton="true"` over a `<button>`, because a non-native one puts the id it receives on its hidden input; so
+      // the switch element is the toolbar's item, and the declared-mode check, which Base UI's span shape trips once,
+      // reports nothing (TLB-EDGE-02 is asserted at L2).
+      test('renders a switch', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-switch');
+        const { item } = toolbarCase(fixture, 'renders');
+
+        await expect(item('button')).toHaveAttribute('role', 'switch');
+        await expect(item('button')).toHaveAttribute('tabindex', '0');
+        await settle(fixture);
+        const mismatches = (await readDiagnostics(page, mode, fixture)).filter((d) => d.message.startsWith(MISMATCH_MESSAGE));
+        expect(mismatches).toHaveLength(0);
+      });
+
+      // TLB-KEY-12, TLB-PTR-01, TLB-DOM-05. Over the native switch, Enter is the browser's activation and Space the toolbar
+      // button's keydown click (composite mode); the switch's own handle (composite: false on main, issue 107) leaves
+      // both to them, so one click per press.
+      test('handles interactions', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-switch');
+        const { container, item, before } = toolbarCase(fixture, 'interactions');
+        const switchElement = item('button');
+        await expect(switchElement).toHaveAttribute('data-unchecked');
+
+        await tabIn(page, before);
+        await expect(switchElement).toBeFocused();
+        await expect(switchElement).toHaveAttribute('tabindex', '0');
+
+        await switchElement.click();
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '1');
+        await expect(container).toHaveAttribute('data-clicks', '1');
+        await expect(switchElement).toHaveAttribute('data-checked');
+
+        await page.keyboard.press('Enter');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '2');
+        await expect(container).toHaveAttribute('data-clicks', '2');
+        await expect(switchElement).toHaveAttribute('data-unchecked');
+
+        await page.keyboard.press('Space');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '3');
+        await expect(container).toHaveAttribute('data-clicks', '3');
+        await expect(switchElement).toHaveAttribute('data-checked');
+      });
+
+      // TLB-DOM-08, TLB-KEY-13, TLB-PTR-01, TLB-FOC-03: the native switch renders `disabled`, which the toolbar button's
+      // handle clears while it is focusable when disabled (design point 14.1).
+      test('disabled state', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-switch');
+        const { container, item, before } = toolbarCase(fixture, 'disabled');
+        const switchElement = item('button');
+
+        await expect(switchElement).not.toHaveAttribute('disabled');
+        await expect(switchElement).toHaveAttribute('data-disabled');
+        await expect(switchElement).toHaveAttribute('aria-disabled', 'true');
+
+        await tabIn(page, before);
+        await expect(switchElement).toBeFocused();
+        await expect(switchElement).toHaveAttribute('tabindex', '0');
+
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Space');
+        await switchElement.click({ force: true });
+        await settle(fixture);
+
+        await expect(container).toHaveAttribute('data-changes', '0');
+        await expect(container).toHaveAttribute('data-clicks', '0');
+      });
+    });
+  });
 });

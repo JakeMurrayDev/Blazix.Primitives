@@ -46,14 +46,24 @@ public static class ToolbarButtonDataAttributes
 //   hoverable otherwise (TLB-PTR-01).
 // - One keydown gate (ADR 01 and ADR 04 Amendments 2026-10-26, chosen by the user; the Radio and Toggle precedent): the
 //   composite's navigation keys take the item's gate (`navigate`), every other key the button's (`activate`).
+// - A checkable root (SwitchRoot, CheckboxRoot, RadioRoot) substitutes as a native one only: a non-native one applies the
+//   id it receives to its hidden input (SWT-API-11), so the item and the twins would find the input (design point 14.7,
+//   option (c), pending the user; the non-native shape is open to a follow-up).
 /// <summary>
 /// Represents a button in a toolbar: Base UI's <c>Toolbar.Button</c>, rendered as a <c>button</c> element that the
 /// toolbar's arrow keys move focus to. Substitute another part, such as a <see cref="Toggle"/>, to make it a toolbar item.
 /// </summary>
 /// <remarks>
+/// <para>
 /// A disabled button stays focusable by default, with <c>aria-disabled="true"</c>, so it can still show a tooltip; set
 /// <see cref="FocusableWhenDisabled"/> to <see langword="false"/> to disable it natively and remove it from the toolbar's
 /// arrow-key order.
+/// </para>
+/// <para>
+/// A <see cref="SwitchRoot"/>, <see cref="CheckboxRoot"/> or <see cref="RadioRoot{TValue}"/> substituted into the button must be
+/// a native one, <c>NativeButton="true"</c> with a <c>button</c> element as its own substitute: a non-native one renders
+/// the id the toolbar finds it by on its hidden input instead of its root.
+/// </para>
 /// </remarks>
 public sealed class ToolbarButton : PartBase<ToolbarButtonState>
 {

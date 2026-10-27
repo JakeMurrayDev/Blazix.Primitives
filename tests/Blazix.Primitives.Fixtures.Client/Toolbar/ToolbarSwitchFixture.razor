@@ -3,10 +3,11 @@
 @inherits ToolbarFixtureBase
 
 @*
-    The `toolbar-switch` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's Switch block, a SwitchRoot
-    substituted into a toolbar button that keeps NativeButton="true", so the declared-mode check reports once per session.
+    The `toolbar-switch` fixture (tests/browser/toolbar.spec.ts): ToolbarButton.test.tsx's Switch block over a native
+    SwitchRoot, `NativeButton="true"` over a `<button>`, the shape a checkable root supports inside a toolbar button
+    (design point 14.7, option (c) pending the user: a non-native switch puts the id it receives on its hidden input).
     - `renders`: "renders a switch".
-    - `interactions`: "handles interactions", the consumer's onclick and the switch's CheckedChanged.
+    - `interactions`: "handles interactions", the consumer's onclick and the switch's OnCheckedChange.
     - `disabled`: "disabled state", the same on a disabled button.
 *@
 <FixtureContainer Name="toolbar-switch" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
@@ -38,9 +39,9 @@
     private readonly ToolbarCase interactions = new();
     private readonly ToolbarCase disabled = new();
 
-    private RenderFragment RendersSwitch => @<SwitchRoot @ref="Switch" />;
+    private RenderFragment RendersSwitch => @<SwitchRoot @ref="Switch" NativeButton="true"><Render><button></button></Render></SwitchRoot>;
 
-    private RenderFragment InteractionsSwitch => @<SwitchRoot @ref="Switch" DefaultChecked="false" CheckedChanged="interactions.CheckedChange" />;
+    private RenderFragment InteractionsSwitch => @<SwitchRoot @ref="Switch" NativeButton="true" DefaultChecked="false" OnCheckedChange="interactions.CheckedChange"><Render><button></button></Render></SwitchRoot>;
 
-    private RenderFragment DisabledSwitch => @<SwitchRoot @ref="Switch" CheckedChanged="disabled.CheckedChange" />;
+    private RenderFragment DisabledSwitch => @<SwitchRoot @ref="Switch" NativeButton="true" OnCheckedChange="disabled.CheckedChange"><Render><button></button></Render></SwitchRoot>;
 }

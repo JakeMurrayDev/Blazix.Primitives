@@ -4,7 +4,7 @@ namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
 
 /// <summary>
 /// The record of one case of the Toolbar fixtures, as the specs read it: the consumer's clicks, key presses, pointer and
-/// mouse presses and mouse moves Blazor invoked, a substituted switch's <c>CheckedChanged</c>, a substituted toggle's <c>PressedChanged</c> and a toggle group's <c>OnValueChange</c>, and the order of them; and
+/// mouse presses and mouse moves Blazor invoked, a substituted switch's <c>OnCheckedChange</c>, a substituted toggle's <c>OnPressedChange</c> and a toggle group's <c>OnValueChange</c>, and the order of them; and
 /// the keys for which a consumer's <c>onkeydown</c> calls <c>PreventPartHandler()</c>.
 /// </summary>
 public sealed class ToolbarCase
@@ -63,11 +63,11 @@ public sealed class ToolbarCase
     // Not logged: a hover dispatches many.
     public void MouseMove() => MouseMoves++;
 
-    /// <summary>Records a substituted standalone toggle's <c>PressedChanged</c>.</summary>
-    public void PressedChange(bool value)
+    /// <summary>Records a substituted toggle's <c>OnPressedChange</c>.</summary>
+    public void Press(ValueChangeEventArgs<bool> e)
     {
         Changes++;
-        log.Add($"pressed:{(value ? "true" : "false")}");
+        log.Add($"press:{(e.Value ? "true" : "false")}");
     }
 
     /// <summary>Records a toggle group's <c>OnValueChange</c>, with the proposed value.</summary>
@@ -77,10 +77,10 @@ public sealed class ToolbarCase
         log.Add($"value:{string.Join(',', e.Value)}");
     }
 
-    public void CheckedChange(bool value)
+    public void CheckedChange(ValueChangeEventArgs<bool> e)
     {
         Changes++;
-        Checked = value ? "true" : "false";
+        Checked = e.Value ? "true" : "false";
         log.Add($"checked:{Checked}");
     }
 }
