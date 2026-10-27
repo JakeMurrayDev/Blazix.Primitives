@@ -85,6 +85,27 @@ test.describe('twin base', () => {
   });
 });
 
+test.describe('twin transport', () => {
+  // Issue 26 (ADR 16 §B and Amendments 2026-10-27; M4 track 3): the twin base's three messages against [JSImport] and
+  // [JSExport] with the same JSON, as per-message medians and 95th percentiles, and the hover-and-flip cycle both ways.
+  // The figures are attached to the report; the finding is the dated line of ADR 16 and of ADR 14 §2.
+  test('@verifies ADR-16/2 the twin base transport against [JSImport]/[JSExport] on WebAssembly, per message and per hover-and-flip cycle', async ({ page, mode }) => {
+    test.skip(mode !== 'wasm', 'the item is about the WebAssembly runtime; Server has no [JSImport]');
+    test.setTimeout(180_000);
+    const probe = await gotoFixture(page, mode, 'interactions-transport');
+
+    await probe.locator('[data-measure]').click();
+
+    await expect(probe).toHaveAttribute('data-state', 'done', { timeout: 150_000 });
+    const results = (await probe.getAttribute('data-results')) ?? '';
+    test.info().annotations.push({ type: 'issue 26', description: results });
+    for (const kind of ['update-twin', 'update-twin-raw', 'update-import', 'report-twin', 'report-twin-dispatch', 'report-export', 'decide-twin', 'decide-export']) {
+      expect(results).toMatch(new RegExp(`(^|;)${kind}=\\d+\\.\\d/\\d+\\.\\d(;|$)`));
+    }
+    expect(results).toMatch(/;cycle-twin=\d+\.\d;cycle-native=\d+\.\d$/);
+  });
+});
+
 test.describe('store', () => {
   // Finding 2026-10-20 (issue 11), .NET 11 RC2 WebAssembly interpreter, Debug: EqualityComparer<T>.Default.Equals
   // allocates per comparison for int/long/double/bool (32 B), Guid (48 B) and a record struct (96 B), whether reached
