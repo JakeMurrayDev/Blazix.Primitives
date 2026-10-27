@@ -360,6 +360,9 @@ internal sealed class PositionerBehavior : IDisposable
             anchorRef = references.Add(anchorElement);
         }
 
+        // An uncaptured reference never narrows the boundary (settled by the orchestrator 2026-10-28): an element, or a list
+        // whose elements are all uncaptured, falls back to the clipping ancestors.
+        bool clippingAncestors = boundary.IsClippingAncestors;
         PositioningIndexes? boundaryRefs = null;
         if (boundary.TryGetValue(out ElementReference boundaryElement))
         {
@@ -368,20 +371,32 @@ internal sealed class PositionerBehavior : IDisposable
                 references ??= new();
                 boundaryRefs = new PositioningIndexes(references.Add(boundaryElement), 1);
             }
+            else
+            {
+                clippingAncestors = true;
+            }
         }
         else if (boundary.TryGetValue(out IReadOnlyList<ElementReference>? boundaryElements))
         {
-            references ??= new();
-            int start = references.Count;
+            int start = references?.Count ?? 0;
             for (int i = 0; i < boundaryElements.Count; i++)
             {
                 if (IsRendered(boundaryElements[i]))
                 {
+                    references ??= new();
                     references.Add(boundaryElements[i]);
                 }
             }
 
-            boundaryRefs = new PositioningIndexes(start, references.Count - start);
+            int count = (references?.Count ?? 0) - start;
+            if (count > 0)
+            {
+                boundaryRefs = new PositioningIndexes(start, count);
+            }
+            else
+            {
+                clippingAncestors = true;
+            }
         }
 
         PositioningOptions options = new()
@@ -400,7 +415,7 @@ internal sealed class PositionerBehavior : IDisposable
             SideOffsetFunction = sideOffset.TryGetValue(out Offset? sideForm) ? ToOptions(sideForm) : null,
             AlignOffset = alignOffset.TryGetValue(out double alignPixels) ? alignPixels : 0,
             AlignOffsetFunction = alignOffset.TryGetValue(out Offset? alignForm) ? ToOptions(alignForm) : null,
-            CollisionBoundary = boundary.IsClippingAncestors ? "clipping-ancestors" : null,
+            CollisionBoundary = clippingAncestors ? "clipping-ancestors" : null,
             BoundaryRect = boundary.TryGetValue(out Rect? rect) ? new PositioningRect(rect.X, rect.Y, rect.Width, rect.Height) : null,
             BoundaryRefs = boundaryRefs,
             CollisionPadding = padding.TryGetValue(out double all) ? all : null,

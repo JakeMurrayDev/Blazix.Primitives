@@ -141,18 +141,15 @@ internal sealed record PositioningRect(double X, double Y, double Width, double 
 
 // The boundary elements are added to the references in one run, so their indexes are consecutive: a record of the first
 // index and the count compares by value without a list (ADR 16 Amendments 2026-10-27), and serializes as the JSON array
-// of the indexes the module reads, because it is a list.
+// of the indexes the module reads, because it is a list. `Count` is declared, initialized from its parameter, only because
+// it implements IReadOnlyCollection<int>.Count and so carries <inheritdoc /> (ADR 08 §5).
 /// <summary>Consecutive indexes into the references sent after the options.</summary>
-/// <param name="start">The first index.</param>
-/// <param name="count">The number of indexes.</param>
-internal sealed record PositioningIndexes(int start, int count) : IReadOnlyList<int>
+/// <param name="Start">The first index.</param>
+/// <param name="Count">The number of indexes.</param>
+internal sealed record PositioningIndexes(int Start, int Count) : IReadOnlyList<int>
 {
-    /// <summary>Gets the first index.</summary>
-    /// <value>The index of the first reference.</value>
-    public int Start { get; } = start;
-
     /// <inheritdoc />
-    public int Count { get; } = count;
+    public int Count { get; init; } = Count;
 
     /// <inheritdoc />
     public int this[int index] => (uint)index < (uint)Count ? Start + index : throw new ArgumentOutOfRangeException(nameof(index));
