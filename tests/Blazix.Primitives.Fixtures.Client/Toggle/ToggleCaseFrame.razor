@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToggleFixtures
+
+@*
+    One case of a Toggle or ToggleGroup fixture (tests/browser/toggle.spec.ts, toggle-group.spec.ts): the record of
+    ToggleCase as data attributes, around the case's content, with native buttons before and after it so a spec can focus
+    them and press Tab.
+*@
+<div data-case="@Name"
+     data-presses="@Case.Presses"
+     data-changes="@Case.Changes"
+     data-clicks="@Case.Clicks"
+     data-keydowns="@Case.KeyDowns"
+     data-pointerdowns="@Case.PointerDowns"
+     data-last-press="@Case.LastPress"
+     data-last-change="@Case.LastChange"
+     data-log="@Case.Log">
+    <button type="button" data-before>Before</button>
+    @ChildContent
+    <button type="button" data-after>After</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Name { get; set; }
+
+    [Parameter, EditorRequired]
+    public required ToggleCase Case { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
