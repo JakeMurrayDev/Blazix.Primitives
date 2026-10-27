@@ -1,0 +1,154 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Blazix.Primitives
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popup-triggers` fixture (tests/browser/popup.spec.ts): detachedTriggersConformanceTests (tests/browser/suites/) on
+    the test-only popup host, the suite's Fixture as a page. Triggers `trigger-1`.. carry their number as payload; the
+    root's payload template renders `root-payload` and the portaled popup with its `content` and a close.
+    - `mode=contained|detached`, `triggerCount` (2), `rootFirst`, `nesting` (wrappers around the triggers);
+    - `open` and `triggerId` (a controlled root), `defaultOpen`, `defaultTriggerId`;
+    - `case=controlled`: the suite's programmatic case, a controlled root whose OnOpenChange follows the request, and the
+      buttons "Open Trigger 1", "Open Trigger 2" and "Close externally";
+    - buttons: `[data-toggle-root]` (mounts or unmounts the root), `[data-set-nesting]`, `[data-recreate-handle]`,
+      `[data-handle-open]` (the handle's OpenAsync with that id; a thrown message renders as `data-handle-error`),
+      `[data-handle-close]`; the container renders the handle's `IsOpen` as `data-handle-open-state`.
+*@
+<FixtureContainer Name="popup-triggers" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-handle-open-state="@(handle?.IsOpen == true ? "true" : "false")" data-handle-error="@handleError">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-toggle-root @onclick="() => rootMounted = !rootMounted">Toggle root</button>
+    <button type="button" data-recreate-handle @onclick="RecreateHandle">Recreate handle</button>
+    @for (int level = 0; level <= 3; level++)
+    {
+        int value = level;
+        <button type="button" data-set-nesting="@value" @onclick="() => nesting = value">Nesting @value</button>
+    }
+    <button type="button" data-handle-open="trigger-1" @onclick='() => HandleOpenAsync("trigger-1")'>Handle open 1</button>
+    <button type="button" data-handle-open="trigger-2" @onclick='() => HandleOpenAsync("trigger-2")'>Handle open 2</button>
+    <button type="button" data-handle-open="missing" @onclick='() => HandleOpenAsync("missing")'>Handle open missing</button>
+    <button type="button" data-handle-close @onclick="HandleCloseAsync">Handle close</button>
+
+    <div style="margin: 50px">
+        @if (detached && !rootFirst)
+        {
+            @Nest(nesting)
+        }
+
+        @if (rootMounted)
+        {
+            @if (controlled)
+            {
+                <FixturePopupRoot TPayload="string" Handle="@(detached ? handle : null)" Open="@open" TriggerId="@triggerId"
+                                  OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
+                    @if (!detached)
+                    {
+                        @Nest(nesting)
+                    }
+                </FixturePopupRoot>
+            }
+            else
+            {
+                <FixturePopupRoot TPayload="string" Handle="@(detached ? handle : null)" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId"
+                                  OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
+                    @if (!detached)
+                    {
+                        @Nest(nesting)
+                    }
+                </FixturePopupRoot>
+            }
+        }
+
+        @if (detached && rootFirst)
+        {
+            @Nest(nesting)
+        }
+
+        @if (Case == "controlled")
+        {
+            <button type="button" @onclick='() => SetControlled(true, "trigger-1")'>Open Trigger 1</button>
+            <button type="button" @onclick='() => SetControlled(true, "trigger-2")'>Open Trigger 2</button>
+            <button type="button" @onclick="() => open = false">Close externally</button>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private FixturePopupHandle<string>? handle = new();
+    private bool detached;
+    private bool controlled;
+    private bool open;
+    private string? triggerId;
+    private bool defaultOpen;
+    private string? defaultTriggerId;
+    private int triggerCount = 2;
+    private bool rootFirst;
+    private bool rootMounted = true;
+    private int nesting;
+    private string? handleError;
+
+    protected override void OnInitialized()
+    {
+        detached = Query("mode") == "detached";
+        controlled = Case == "controlled" || QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        triggerId = Query("triggerId");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        defaultTriggerId = Query("defaultTriggerId");
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
+        rootFirst = QueryFlag("rootFirst") == true;
+        nesting = int.TryParse(Query("nesting"), out int level) ? level : 0;
+    }
+
+    private RenderFragment Nest(int level) => level == 0 ? Triggers : @<div>@Nest(level - 1)</div>;
+
+    private RenderFragment Triggers => @<text>
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            string id = $"trigger-{number}";
+            string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            <FixturePopupTrigger TPayload="string" @key="number" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</FixturePopupTrigger>
+        }
+    </text>;
+
+    private RenderFragment<string?> Popup => payload => @<text>
+        <span data-testid="root-payload">@(payload ?? "No payload")</span>
+        <FixturePopupPortal TPayload="string">
+            <FixturePopupPopup TPayload="string" data-testid="popup">
+                <span data-testid="content">@payload</span>
+                <FixturePopupClose TPayload="string">Close popup</FixturePopupClose>
+            </FixturePopupPopup>
+        </FixturePopupPortal>
+    </text>;
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        triggerId = args.Details.Trigger?.Id;
+        open = args.Value;
+    }
+
+    private void SetControlled(bool value, string? id)
+    {
+        open = value;
+        triggerId = id;
+    }
+
+    private void RecreateHandle() => handle = new FixturePopupHandle<string>();
+
+    private async Task HandleOpenAsync(string id)
+    {
+        handleError = null;
+        try
+        {
+            await handle!.OpenAsync(id);
+        }
+        catch (InvalidOperationException error)
+        {
+            handleError = error.Message;
+        }
+    }
+
+    private Task HandleCloseAsync() => handle!.CloseAsync();
+}

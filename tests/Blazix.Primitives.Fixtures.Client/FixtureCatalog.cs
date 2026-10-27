@@ -13,11 +13,14 @@ using Blazix.Primitives.Fixtures.Client.FormFixtures;
 using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ScrollLockFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
 using Blazix.Primitives.Fixtures.Client.TabsFixtures;
@@ -141,5 +144,7 @@ public static class FixtureCatalog
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
+        ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
+        ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
     };
 }
