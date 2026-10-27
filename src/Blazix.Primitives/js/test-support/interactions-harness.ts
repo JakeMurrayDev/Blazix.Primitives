@@ -36,9 +36,9 @@ export interface HarnessOptions {
   /** Whether a request is committed (an uncontrolled store); `false` records it only (a controlled store that ignores it). */
   commit?: boolean;
   /** The consumer's `OnOpenChange`, which may cancel or allow propagation. */
-  onOpenChange?: (open: boolean, details: HarnessChangeDetails) => void;
+  onOpenChange?: ((open: boolean, details: HarnessChangeDetails) => void) | undefined;
   /** The consumer's `onclick` on the trigger, run by the `press` decider; returning `false` vetoes (`PreventBaseUIHandler()`). */
-  onTriggerClick?: (event: EventInfo) => boolean | void;
+  onTriggerClick?: ((event: EventInfo) => boolean | void) | undefined;
 }
 
 export interface PopupHarness {
@@ -67,8 +67,11 @@ export interface PopupHarness {
    * hook tests rely on while the popup is closed); sends a session `update`.
    */
   setReference(element: HTMLElement): void;
-  /** Commits a change C# started (a controlled flip, a handle's `OpenAsync`), relayed like any commit. */
-  setOpen(open: boolean, reason?: string, triggerId?: string | null): void;
+  /**
+   * Commits a change C# started (a controlled flip, a handle's `OpenAsync`), relayed like any commit; `eventType` relays
+   * the type of the event C# saw (a hover open's `mouseenter`), which the session records as a stand-in open event.
+   */
+  setOpen(open: boolean, reason?: string, triggerId?: string | null, eventType?: string): void;
   /** Disposes every handle the harness attached. */
   dispose(): void;
 }
@@ -263,8 +266,9 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
       activeTriggerId = element.id;
       sendSession();
     },
-    setOpen(next, reason = 'none', triggerId = null) {
-      commit({ open: next, reason, event: null, triggerId });
+    setOpen(next, reason = 'none', triggerId = null, eventType) {
+      const event = eventType === undefined ? null : { kind: 'MouseEvent', type: eventType, pointerType: 'mouse' };
+      commit({ open: next, reason, event, triggerId });
     },
     dispose() {
       for (const handle of handles.splice(0)) {

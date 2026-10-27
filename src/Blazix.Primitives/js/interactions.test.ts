@@ -548,6 +548,262 @@ describe('useFocus', () => {
 });
 
 // #region click tests
+
+// ---------------------------------------------------------------------------------------------------------------
+// useClick (useClick.test.tsx; FLT-PTR-01..06, FLT-ALG-16, FLT-STA-01, FLT-STA-03, FLT-STA-04, FLT-API-06, FLT-EVT-04)
+// and the decision point `press` (ADR 04 Amendments 2026-10-27). Every title runs in both modes: Server (the press is
+// reported and committed by the harness as C# would, a round trip later) and WebAssembly (handed over, then `press`).
+// ---------------------------------------------------------------------------------------------------------------
+
+describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
+  let frames: FrameRequestCallback[] = [];
+
+  beforeEach(() => {
+    frames = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+  });
+
+  function runFrames(): void {
+    const pending = frames;
+    frames = [];
+    pending.forEach((callback) => callback(0));
+  }
+
+  function createMouseEvent(type: string, options: MouseEventInit = {}) {
+    return new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...options });
+  }
+
+  function createPointerEvent(type: string, pointerType: string) {
+    const event = createMouseEvent(type) as PointerEvent;
+    Object.defineProperty(event, 'pointerType', { value: pointerType });
+    return event;
+  }
+
+  function click(target: Element) {
+    target.dispatchEvent(createMouseEvent('click'));
+  }
+
+  function pressMouse(target: Element) {
+    target.dispatchEvent(createPointerEvent('pointerdown', 'mouse'));
+    target.dispatchEvent(createMouseEvent('mousedown'));
+    target.dispatchEvent(createMouseEvent('click'));
+    runFrames();
+  }
+
+  function App(props: { initialOpen?: boolean; typeable?: boolean; click?: Record<string, unknown>; onTriggerClick?: () => boolean | void } = {}) {
+    const popup = harness({ synchronous, open: props.initialOpen ?? false, onTriggerClick: props.onTriggerClick });
+    popup.attachSession();
+    const reference = props.typeable ? element('input') : element('button');
+    popup.attachTrigger(reference, { trigger: { click: props.click ?? {} } });
+    popup.setReference(reference);
+    return { popup, reference };
+  }
+
+  it('opens and closes on repeated clicks', () => {
+    const { popup, reference } = App();
+    expect(popup.open).toBe(false);
+
+    click(reference);
+    expect(popup.open).toBe(true);
+
+    click(reference);
+    expect(popup.open).toBe(false);
+  });
+
+  it('keeps open on repeated clicks when toggle is false', () => {
+    const { popup, reference } = App({ click: { toggle: false } });
+
+    click(reference);
+    click(reference);
+
+    expect(popup.open).toBe(true);
+  });
+
+  it('opens from the mousedown event path', () => {
+    const { popup, reference } = App({ click: { event: 'mousedown' } });
+
+    pressMouse(reference);
+    expect(popup.open).toBe(true);
+  });
+
+  it('closes from the mousedown event path', () => {
+    const { popup, reference } = App({ click: { event: 'mousedown' }, initialOpen: true });
+
+    pressMouse(reference);
+    expect(popup.changes.at(-1)?.open).toBe(false);
+    expect(popup.open).toBe(false);
+  });
+
+  it('ignores the click event after mousedown when event is mousedown-only', () => {
+    const { popup, reference } = App({ click: { event: 'mousedown-only' } });
+
+    pressMouse(reference);
+    expect(popup.open).toBe(true);
+
+    click(reference);
+    expect(popup.open).toBe(true);
+  });
+
+  it('ignores mouse input when ignoreMouse is true', () => {
+    const { popup, reference } = App({ click: { ignoreMouse: true } });
+
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    click(reference);
+    expect(popup.open).toBe(false);
+
+    // Port: a touch press still toggles.
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    click(reference);
+    expect(popup.open).toBe(true);
+  });
+
+  it('delays touch opening when touchOpenDelay is set', async () => {
+    vi.useFakeTimers();
+    const { popup, reference } = App({ click: { touchOpenDelay: 100 } });
+
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    click(reference);
+
+    expect(popup.open).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(popup.open).toBe(true);
+  });
+
+  it('delays touch opening from the deferred mousedown event path', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const { popup, reference } = App({ click: { event: 'mousedown', touchOpenDelay: 100 } });
+
+    reference.dispatchEvent(createPointerEvent('pointerdown', 'touch'));
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    reference.dispatchEvent(createMouseEvent('click'));
+
+    expect(popup.open).toBe(false);
+
+    runFrames();
+
+    expect(popup.open).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(popup.open).toBe(true);
+  });
+
+  it('does not delay touch closing', () => {
+    vi.useFakeTimers();
+    const { popup, reference } = App({ initialOpen: true, click: { touchOpenDelay: 100 } });
+
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    click(reference);
+
+    expect(popup.changes.at(-1)?.open).toBe(false);
+    expect(popup.open).toBe(false);
+  });
+
+  it('uses the configured reason', () => {
+    const { popup, reference } = App({ click: { reason: 'input-press' }, typeable: true });
+
+    click(reference);
+
+    expect(popup.changes[0]?.open).toBe(true);
+    expect(popup.changes[0]?.details.reason).toBe('input-press');
+  });
+
+  it('stickIfOpen true keeps a hover-opened popup open on first click', () => {
+    const { popup, reference } = App({ click: { stickIfOpen: true } });
+
+    // The hover open, committed by C# with its `mouseenter` (the hover region's request is proven in its own block).
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    click(reference);
+
+    expect(popup.open).toBe(true);
+    expect(getSession(popup.token)?.dataRef.current.openEvent?.type).toBe('click');
+  });
+
+  it('stickIfOpen false closes a hover-opened popup on first click', () => {
+    const { popup, reference } = App({ click: { stickIfOpen: false } });
+
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    expect(popup.open).toBe(true);
+    click(reference);
+
+    expect(popup.open).toBe(false);
+  });
+
+  it('port: the press is handed over and asked through press inside the dispatch on WebAssembly, and reported with its interaction type on Server', () => {
+    const { popup, reference } = App();
+
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'pen' }));
+    reference.dispatchEvent(createMouseEvent('click', { detail: 1 }));
+    click(reference);
+
+    if (synchronous) {
+      expect(popup.pressings).toEqual([
+        { open: true, reason: 'trigger-press', triggerId: reference.id, interactionType: 'pen' },
+        { open: false, reason: 'trigger-press', triggerId: reference.id, interactionType: 'keyboard' },
+      ]);
+      expect(popup.decisions.map((decision) => decision.point)).toEqual(['press', 'press']);
+      expect(popup.requests.filter((request) => request.method === 'OnPress')).toEqual([]);
+    } else {
+      const presses = popup.requests.filter((request) => request.method === 'OnPress').map((request) => request.payload);
+      expect(presses.map(({ open, interactionType, triggerId }) => ({ open, interactionType, triggerId }))).toEqual([
+        { open: true, interactionType: 'pen', triggerId: reference.id },
+        { open: false, interactionType: 'keyboard', triggerId: reference.id },
+      ]);
+      expect((presses[0]?.event as { type: string }).type).toBe('click');
+      expect(popup.pressings).toEqual([]);
+    }
+    expect(popup.open).toBe(false);
+  });
+
+  it('port: a consumer veto of the press holds on both modes', () => {
+    let veto = true;
+    const { popup, reference } = App({ onTriggerClick: () => (veto ? false : undefined) });
+
+    click(reference);
+    expect(popup.open).toBe(false);
+    expect(popup.changes).toEqual([]);
+
+    veto = false;
+    click(reference);
+    expect(popup.open).toBe(true);
+  });
+
+  it('port: with patientClick a hover open sticks for 500 ms after its commit, then a press closes it', async () => {
+    vi.useFakeTimers();
+    const { popup, reference } = App({ click: { patientClick: true } });
+
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    click(reference);
+    expect(popup.open).toBe(true);
+
+    popup.setOpen(false, 'trigger-hover', null, 'mouseleave');
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    await vi.advanceTimersByTimeAsync(500);
+    click(reference);
+    expect(popup.open).toBe(false);
+  });
+
+  it('port: a press on another registered trigger of an open popup keeps it open and moves the anchor', () => {
+    const { popup, reference } = App();
+    const other = element('button');
+    popup.attachTrigger(other, { trigger: { click: {} } });
+
+    click(reference);
+    click(other);
+
+    expect(popup.open).toBe(true);
+    expect(popup.activeTriggerId).toBe(other.id);
+  });
+});
 // #endregion click tests
 
 // #region dismiss tests
