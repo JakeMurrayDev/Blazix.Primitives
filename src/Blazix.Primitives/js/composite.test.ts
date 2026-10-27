@@ -29,6 +29,7 @@ import {
   isListIndexDisabled,
   isModifierKeySet,
   scrollIntoViewIfNeeded,
+  type CompositeItemRegistration,
   type CompositeMetadata,
   type CompositeOptions,
   type CompositeRegistry,
@@ -1956,5 +1957,367 @@ describe('composite handled-key report (port)', () => {
 
     expect(document.activeElement).toBe(byTestId('2'));
     expect(group.fake.reported('OnKeyHandled')).toEqual([]);
+  });
+});
+
+// --- port titles: the items' flags and the derived disabled indices (M3 track 1, E3) --------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): each registration carries the item's `disabled` and
+// `focusableWhenDisabled`, and the module derives the indices navigation skips from them, as ToolbarRoot.tsx:32-46 does
+// from its item map, in the same pass as each publication and on each `update` that changes a flag (TLB §14).
+
+describe('composite item flags (port)', () => {
+  type Flags = Pick<CompositeItemRegistration, 'disabled' | 'focusableWhenDisabled'>;
+
+  /** The registrations C# sends with each item's flags, by test id. */
+  function flagged(elements: HTMLElement[], flags: Record<string, Flags> = {}): CompositeOptions['items'] {
+    return elements.map((element) => ({ id: element.id, tabIndex: null, ...flags[element.getAttribute('data-testid')!] }));
+  }
+
+  // CMP-STA-24 over the derived indices.
+  it('moves the initial tab stop off a first item that its flags disable, in the first publication (CMP-STA-24)', () => {
+    const elements = [item('1'), item('2'), item('3')];
+    mountGroup(elements, { deriveDisabledIndices: true, items: flagged(elements, { '1': { disabled: true } }) });
+
+    expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
+    expect(byTestId('2').getAttribute('tabindex')).toBe('0');
+    expect(byTestId('3').getAttribute('tabindex')).toBe('-1');
+  });
+
+  // CMP-KEY-08 over the derived indices.
+  it('skips an item that its flags disable when an arrow key moves the highlight (CMP-KEY-08)', async () => {
+    const elements = [item('1'), item('2'), item('3')];
+    mountGroup(elements, { deriveDisabledIndices: true, items: flagged(elements, { '2': { disabled: true } }) });
+    const item1 = byTestId('1');
+    const item3 = byTestId('3');
+    item1.focus();
+
+    keyDown(item1, 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item3);
+    expect(item3.getAttribute('tabindex')).toBe('0');
+
+    keyDown(item3, 'ArrowUp');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item1);
+  });
+
+  // CMP-STA-29 over the derived indices: Toolbar's case, a flag that changes after the first publication.
+  it('moves the tab stop off the highlighted item when a flag change disables it after the first publication (CMP-STA-29)', () => {
+    const elements = [item('1'), item('2'), item('3')];
+    const group = mountGroup(elements, { deriveDisabledIndices: true, items: flagged(elements) });
+    expect(byTestId('1').getAttribute('tabindex')).toBe('0');
+
+    group.update({ items: flagged(elements, { '1': { disabled: true } }) });
+
+    expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
+    expect(byTestId('2').getAttribute('tabindex')).toBe('0');
+  });
+
+  // TLB-STA-04's shape: a disabled item that stays focusable is not derived, so its aria-disabled does not skip it.
+  it('keeps an aria-disabled item navigable when its flags make it focusable when disabled', async () => {
+    const elements = [item('1'), item('2', { 'aria-disabled': 'true' }), item('3')];
+    mountGroup(elements, {
+      deriveDisabledIndices: true,
+      items: flagged(elements, { '2': { disabled: true, focusableWhenDisabled: true } }),
+    });
+    const item1 = byTestId('1');
+    const item2 = byTestId('2');
+    item1.focus();
+
+    keyDown(item1, 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item2);
+    expect(item2.getAttribute('tabindex')).toBe('0');
+  });
+
+  // TabsList's case (TAB-KEY-07): its Tabs send `disabled`, but it keeps `disabledIndices={[]}` and derives nothing.
+  it('derives the indices only when asked: with deriveDisabledIndices a flagged item is skipped, under an explicit [] it is not', async () => {
+    const derived = [item('a1'), item('a2'), item('a3')];
+    mountGroup(derived, { deriveDisabledIndices: true, items: flagged(derived, { a2: { disabled: true } }) });
+    byTestId('a1').focus();
+    keyDown(byTestId('a1'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('a3'));
+
+    const explicit = [item('b1'), item('b2', { 'aria-disabled': 'true' }), item('b3')];
+    mountGroup(explicit, { disabledIndices: [], items: flagged(explicit, { b2: { disabled: true } }) });
+    byTestId('b1').focus();
+    keyDown(byTestId('b1'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('b2'));
+  });
+});
+
+// --- port titles: the items report (M3 track 1, E2) --------------------------------------------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): on every publication whose id sequence changed, the module reports the
+// items' ids in index order, before the root's own adjustment of the same publication (CMP-EVT-03, `CompositeRoot.tsx:88-91`
+// calls `onMapChange` first); C# joins them to its registrations, so no value crosses. One self-contained sequence per
+// report (design points 1 and 3, option (a); settled by the orchestrator 2026-10-26).
+
+describe('composite items report (port)', () => {
+  type ItemsChange = { ids: string[] };
+
+  it('reports the ids in index order on the first publication, an addition and a removal, only with reportItems', () => {
+    const quiet = mountItems(['x', 'y']);
+    quiet.update();
+    expect(quiet.fake.reported('OnItemsChange')).toEqual([]);
+    document.body.replaceChildren();
+
+    const group = mountItems(['a', 'b', 'c'], { reportItems: true });
+    const [a, b, c] = ['a', 'b', 'c'].map(byTestId);
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [a!.id, b!.id, c!.id] }]);
+
+    const d = item('d');
+    group.root.insertBefore(d, b!);
+    group.update();
+    c!.remove();
+    group.update();
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([
+      { ids: [a!.id, b!.id, c!.id] },
+      { ids: [a!.id, d.id, b!.id, c!.id] },
+      { ids: [a!.id, d.id, b!.id] },
+    ]);
+  });
+
+  it('reports an observed move, and nothing for a publication that keeps the id sequence', async () => {
+    const sections = ['a', 'b'].map((label) => {
+      const section = document.createElement('section');
+      section.appendChild(item(label));
+      return section;
+    });
+    const group = mountGroup(sections, { reportItems: true });
+    const [a, b] = ['a', 'b'].map(byTestId);
+
+    group.root.insertBefore(sections[1]!, sections[0]!);
+    await nextTask();
+
+    // A replaced element under the same id is a publication (CMP-STA-09) whose ids do not change.
+    const replacement = item('b');
+    replacement.id = b!.id;
+    b!.replaceWith(replacement);
+    group.update();
+    group.update();
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [a!.id, b!.id] }, { ids: [b!.id, a!.id] }]);
+  });
+
+  it("reports the ids before the root's own adjustment of the same publication", () => {
+    const elements = [item('1'), item('2', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('3')];
+    const group = mountGroup(elements, { reportItems: true, reportHighlight: true });
+
+    expect(group.fake.reports.map((report) => report.method)).toEqual(['OnItemsChange', 'OnHighlightChange']);
+    expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
+  });
+});
+
+// --- port titles: the registration-only list (M3 track 1, E1) ----------------------------------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): a root-less `CompositeList` (TabsRoot's panels, AccordionRoot's
+// items; CMP-STR-03) attaches in a registration-only mode that installs no listeners, writes no `tabindex`, keeps no
+// highlight, reads no marker and asks no decision point, and keeps the registry (move detection, CMP-STA-11/12; shadow-root
+// items, CMP-STA-13) with the items report (design points 1 and 2, option (a); settled by the orchestrator 2026-10-26).
+
+describe('composite registration-only list (port)', () => {
+  type ItemsChange = { ids: string[] };
+
+  /** An item element as a list item part renders it: an id and no `tabindex`. */
+  function listEntry(testId: string): HTMLElement {
+    const element = item(testId);
+    element.removeAttribute('tabindex');
+    return element;
+  }
+
+  describe.each([false, true])('synchronous: %s', (synchronous) => {
+    it('reports the order and leaves keys, focus and tabindex to the page', async () => {
+      const group = mountGroup([listEntry('1'), listEntry('2'), listEntry('3')], { registrationOnly: true, reportHighlight: true }, { synchronous });
+      const [one, two, three] = ['1', '2', '3'].map(byTestId);
+
+      expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [one!.id, two!.id, three!.id] }]);
+
+      one!.setAttribute('tabindex', '0');
+      one!.focus();
+      const event = keyDown(one!, 'ArrowDown');
+      await flushMicrotasks();
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(one);
+      expect([two, three].map((element) => element!.hasAttribute('tabindex'))).toEqual([false, false]);
+      expect(group.fake.reported('OnHighlightChange')).toEqual([]);
+      expect(group.fake.decisions).toEqual([]);
+    });
+  });
+
+  it('reports a move and an update, and resolves items inside a shadow root', async () => {
+    const host = document.body.appendChild(document.createElement('div'));
+    const shadow = host.attachShadow({ mode: 'open' });
+    const sections = ['a', 'b'].map((label) => {
+      const section = document.createElement('section');
+      section.appendChild(listEntry(label));
+      return section;
+    });
+    const group = mountGroup(sections, { registrationOnly: true }, {}, shadow);
+    const [a, b] = ['a', 'b'].map((label) => shadow.querySelector<HTMLElement>(`[data-testid="${label}"]`)!);
+
+    group.root.insertBefore(sections[1]!, sections[0]!);
+    await nextTask();
+
+    const c = listEntry('c');
+    group.root.appendChild(c);
+    group.handle.update(JSON.stringify({ ...group.options, items: registrations([b!, a!, c]) }));
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([
+      { ids: [a!.id, b!.id] },
+      { ids: [b!.id, a!.id] },
+      { ids: [b!.id, a!.id, c.id] },
+    ]);
+  });
+});
+
+// --- port titles: the highlight that follows the active item (M3 track 1, E5) ------------------------------------------
+// ADR 04 Amendments 2026-10-26 (chosen by the user): TabsList's consumer-owned highlight (CMP-STA-22, TAB-STA-19) becomes
+// an option of the module. Each item is evaluated as `TabsTab.tsx:83-109`'s effect is, when one of its dependencies changes
+// (the marker, its index, the highlight, its `aria-disabled`): a keydown on the item since its last evaluation only clears
+// that mark; otherwise a marked item whose index differs from the highlight takes it, without scrolling, when focus is
+// outside the root and it is not `aria-disabled="true"`. A marker change is seen by a `MutationObserver` on the root
+// (design point 4, option (a)); `aria-disabled` is read from the applied batch (design point 5, option (a)); both settled
+// by the orchestrator 2026-10-26.
+
+describe('composite active-item follow (port)', () => {
+  function outside(): HTMLElement {
+    const button = document.body.appendChild(document.createElement('button'));
+    button.setAttribute('data-testid', 'outside');
+    return button;
+  }
+
+  function mark(testId: string): void {
+    document.querySelector(`[${ACTIVE_COMPOSITE_ITEM}]`)?.removeAttribute(ACTIVE_COMPOSITE_ITEM);
+    byTestId(testId).setAttribute(ACTIVE_COMPOSITE_ITEM, '');
+  }
+
+  // Restated (dated 2026-10-26, M3 track 1): the consumer-owned highlight of Base UI's title is TabsList's, which the port
+  // builds as the follow; the keys move the highlight as they do in a root-owned group, and a marker moved while focus is
+  // outside the root moves the tab stop.
+  it('controlled mode', async () => {
+    const button = outside();
+    mountItems(['1', '2', '3'], { followActiveItem: true });
+    const [item1, item2, item3] = ['1', '2', '3'].map(byTestId);
+
+    item1!.focus();
+    expect(item1!.getAttribute('tabindex')).toBe('0');
+
+    keyDown(item1!, 'ArrowDown');
+    await flushMicrotasks();
+    expect(item2!.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(item2);
+
+    keyDown(item2!, 'ArrowDown');
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(item3);
+
+    keyDown(item3!, 'ArrowUp');
+    await flushMicrotasks();
+    expect(item2!.getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(item2);
+
+    button.focus();
+    mark('1');
+    await flushMicrotasks();
+    expect(item1!.getAttribute('tabindex')).toBe('0');
+    expect(item2!.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('moves the highlight to the marked item while focus is outside the root, and keeps it while focus is inside', async () => {
+    const button = outside();
+    const group = mountGroup([item('1', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('2'), item('3')], { followActiveItem: true, reportHighlight: true });
+    const [item1, item3] = ['1', '3'].map(byTestId);
+    button.focus();
+
+    mark('3');
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 2 }]);
+
+    item3!.focus();
+    mark('1');
+    await flushMicrotasks();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    expect(item1!.getAttribute('tabindex')).toBe('-1');
+
+    keyDown(item3!, 'ArrowRight');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(item1);
+  });
+
+  // A disabled Tab renders `aria-disabled="true"` and never DOM `disabled` (TAB-DOM-10); the follow reads it from the
+  // applied batch, and a change of it runs the item again.
+  it('does not follow a marked item that is aria-disabled, and follows it once aria-disabled is removed', async () => {
+    const button = outside();
+    mountGroup([item('1'), item('2', { 'aria-disabled': 'true' }), item('3')], { followActiveItem: true, disabledIndices: [] });
+    button.focus();
+
+    mark('2');
+    await flushMicrotasks();
+    expect(byTestId('1')!.getAttribute('tabindex')).toBe('0');
+
+    byTestId('2').removeAttribute('aria-disabled');
+    await flushMicrotasks();
+    expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('skips the follow once after a keydown on the marked item', async () => {
+    const button = outside();
+    const group = mountGroup([item('1', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('2'), item('3')], { followActiveItem: true });
+    const [item1, item2, item3] = ['1', '2', '3'].map(byTestId);
+    item2!.focus();
+    button.focus();
+
+    // A keydown that reaches the marked item while focus is elsewhere: the highlight moves from 2 to 3, and the marked
+    // item's evaluation that follows only clears its mark.
+    keyDown(item1!, 'ArrowRight');
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+    // The module focuses the item a microtask later; focus leaves the root again.
+    await flushMicrotasks();
+    button.focus();
+    expect(item3!.getAttribute('tabindex')).toBe('0');
+
+    item1!.removeAttribute(ACTIVE_COMPOSITE_ITEM);
+    await flushMicrotasks();
+    item1!.setAttribute(ACTIVE_COMPOSITE_ITEM, '');
+    await flushMicrotasks();
+    expect(item1!.getAttribute('tabindex')).toBe('0');
+    expect(group.root.contains(document.activeElement)).toBe(false);
+  });
+
+  // On Server the batch that adds a marked item is observed before the `update` that registers it arrives.
+  it('follows a marked item that registers after the marker is observed', async () => {
+    const button = outside();
+    const group = mountGroup([item('1', { [ACTIVE_COMPOSITE_ITEM]: '' }), item('2')], { followActiveItem: true });
+    button.focus();
+
+    byTestId('1').removeAttribute(ACTIVE_COMPOSITE_ITEM);
+    group.root.appendChild(item('3', { [ACTIVE_COMPOSITE_ITEM]: '' }));
+    await flushMicrotasks();
+    expect(byTestId('1')!.getAttribute('tabindex')).toBe('0');
+
+    group.update();
+    expect(byTestId('3')!.getAttribute('tabindex')).toBe('0');
+  });
+
+  // CMP-EDGE-09: the consumer-owned highlight is not re-validated against disabledIndices.
+  it('leaves the followed highlight on an item that a changed disabledIndices disables (CMP-EDGE-09)', async () => {
+    const button = outside();
+    const group = mountItems(['1', '2', '3'], { followActiveItem: true, disabledIndices: [] });
+    button.focus();
+
+    mark('2');
+    await flushMicrotasks();
+    expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
+
+    group.update({ disabledIndices: [1] });
+    expect(byTestId('2')!.getAttribute('tabindex')).toBe('0');
   });
 });

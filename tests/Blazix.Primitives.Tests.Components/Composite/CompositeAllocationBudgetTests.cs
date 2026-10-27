@@ -18,7 +18,14 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
     // enumerator of the root's pass over the unmatched bag (as Button's); the comparison of the options allocates nothing.
     // 4032 the same day with option (i) of ADR 04's note of 2026-10-22 (chosen by the user 2026-10-23): each item creates its own
     // onkeydown handler, and the pipeline renders a part's created handler on every render, 32 bytes per item.
-    private const long RerenderBudgetBytes = 4032;
+    // 4040 on 2026-10-26 (M3 track 1, E3): the library's share is unchanged; the harness's grew. The parameters lambda
+    // rebuilds the expression `x => x.ModifierKeys` on every render, and `Expression.Property` copies the host's array of
+    // public properties to find the getter's property, 8 bytes per property: TestCompositeRoot gained
+    // `DeriveDisabledIndices`. A probe property that is not a parameter costs the same 8 bytes, and the options'
+    // comparison of the new field allocates nothing.
+    // 4048 the same day (M3 track 1, E2): TestCompositeRoot gained `ReportItems`, the same 8 bytes of the harness.
+    // 4056 the same day (M3 track 1, E5): TestCompositeRoot gained `FollowActiveItem`, the same 8 bytes again.
+    private const long RerenderBudgetBytes = 4056;
 
     private readonly CompositeTestContext host = new();
 

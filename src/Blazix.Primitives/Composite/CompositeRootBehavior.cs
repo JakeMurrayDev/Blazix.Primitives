@@ -13,11 +13,20 @@ namespace Blazix.Primitives;
 //
 // JavaScript owns the registry's order, the highlighted index and, from attach, every item's tabindex (ADR 01 decision 2,
 // ADR 04 Amendments 2026-10-22). C# keeps the items by id (each item registers in the batch that creates it), sends one
-// `update` per render batch that changed the id set, an item's consumer tabindex, an item's element or the options
-// (CMP-STA-10; Server: after paint plus a round trip, ADR 01's row "EVD-STA-07, CMP-STA-10, FFI registration"), and
-// mirrors the module's reports: the highlighted index (CMP-EVT-01) and focus leaving the root (RDG-FOC-04/05). A batch
+// `update` per render batch that changed the id set, an item's consumer tabindex or flags, an item's element or the
+// options (CMP-STA-10; Server: after paint plus a round trip, ADR 01's row "EVD-STA-07, CMP-STA-10, FFI registration"),
+// and mirrors the module's reports: the highlighted index (CMP-EVT-01), focus leaving the root (RDG-FOC-04/05) and, when
+// asked, the items' order as ids, joined to its registrations (CMP-EVT-03; M3 track 1, ADR 04 Amendments 2026-10-26). A batch
 // that only removes items runs no item's after-render, so an item's removal makes the root render, unless it already
 // rendered in that batch, and the root's after-render sends the change.
+//
+// Two items on one element (CMP-STR-04; ADR 04 Amendments 2026-10-26, chosen by the user): an outer item whose element is
+// an inner item, as a Toolbar.Button substituting a Toggle. Base UI's outer item attaches its ref last and the last
+// registration wins (CompositeItem.tsx:28-31). Blazor sets parameters parent before child, so the outer item registers
+// first and the root sends the first registration per id: the inner item's registration, its flags and the tabindex
+// the outer item put in its bag are never sent for that id, and a change to the inner item alone changes nothing sent.
+// When the outer item is removed, the inner item's registration becomes the first. FindItem returns the first item too,
+// so the key path runs the outer item's consumer onkeydown.
 //
 // The consumer's onkeydown (CMP-EVT-12): Base UI merges it before the root's handler, so a PreventPartHandler() there
 // vetoes the key handling (EVD-EVT-26). The part declines it (ForwardsConsumerHandler, ADR 02 Amendments 2026-10-21) and
@@ -45,6 +54,7 @@ internal sealed class CompositeRootBehavior : IDisposable
     private readonly EventCallback onKeyDown;
     private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly List<CompositeItemBehavior> items = [];
+    private readonly List<CompositeItemBehavior> orderedItems = [];
     private AttributeValue consumerKeyDown;
     private DecidedKey? decidedKeyDown;
     private DirectionProviderContext? directionContext;
@@ -64,6 +74,9 @@ internal sealed class CompositeRootBehavior : IDisposable
 
     /// <summary>Occurs when the module reports that focus left the root, with the <c>focusout</c> event.</summary>
     public event Action<EventSnapshot>? FocusLeft;
+
+    /// <summary>Occurs once per report of the items' order, after <see cref="OrderedItems"/> holds it.</summary>
+    public event Action? ItemsChanged;
 
     /// <summary>Initializes a new instance of the <see cref="CompositeRootBehavior"/> class.</summary>
     /// <param name="jsRuntime">The runtime the twin imports its module through.</param>
@@ -114,6 +127,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <value>The indices, or <see langword="null"/>, the default, to read each item's disabled state from the document.</value>
     public IReadOnlyList<int>? DisabledIndices { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the indices navigation skips are derived from the items' flags.</summary>
+    /// <value>
+    /// <see langword="true"/> to skip the items that are disabled and not focusable when disabled, in place of
+    /// <see cref="DisabledIndices"/>; the default is <see langword="false"/>.
+    /// </value>
+    public bool DeriveDisabledIndices { get; set; }
+
     /// <summary>Gets or sets a value indicating whether an item that an arrow key focuses is selected by clicking the input that follows it.</summary>
     /// <value><see langword="true"/> to select on keyboard navigation; the default is <see langword="false"/>.</value>
     public bool SelectOnNavigation { get; set; }
@@ -125,6 +145,18 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <summary>Gets or sets a value indicating whether the module reports each change of the highlighted index.</summary>
     /// <value><see langword="true"/> to raise <see cref="HighlightChanged"/>; the default is <see langword="false"/>.</value>
     public bool ReportHighlight { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the module reports the items' order, which <see cref="OrderedItems"/> exposes.</summary>
+    /// <value><see langword="true"/> to raise <see cref="ItemsChanged"/>; the default is <see langword="false"/>.</value>
+    public bool ReportItems { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the highlight follows the item marked active.</summary>
+    /// <value>
+    /// <see langword="true"/> to move the highlight to the item that carries <see cref="CompositeAttributes.ActiveItem"/>
+    /// whenever it changes while focus is outside the root and the item is not <c>aria-disabled="true"</c>; the default is
+    /// <see langword="false"/>.
+    /// </value>
+    public bool FollowActiveItem { get; set; }
 
     /// <summary>Gets or sets the part's own chain of the navigation decision point, run before the consumer's <c>onkeydown</c>.</summary>
     /// <value>
@@ -148,6 +180,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <summary>Gets the reading direction the root sends.</summary>
     /// <value>The direction of the nearest <see cref="DirectionProvider"/>, or <see cref="TextDirection.Ltr"/> without one.</value>
     public TextDirection Direction => DirectionProviderContext.Read(directionContext);
+
+    /// <summary>Gets the registered items in the order the module last reported.</summary>
+    /// <value>
+    /// The items whose ids the last report named, in index order, without an item removed since; empty until the first
+    /// report, and always empty without <see cref="ReportItems"/>.
+    /// </value>
+    public IReadOnlyList<CompositeItemBehavior> OrderedItems => orderedItems;
 
     /// <summary>Gets the highlighted index the module last reported.</summary>
     /// <value>The index of the item that holds the tab stop; 0 until a report arrives.</value>
@@ -177,6 +216,7 @@ internal sealed class CompositeRootBehavior : IDisposable
             twin.HighlightChanged -= OnHighlightChange;
             twin.FocusLeft -= OnFocusLeave;
             twin.KeyHandled -= OnKeyHandled;
+            twin.ItemsChanged -= OnItemsChange;
             twin.NavigationDecider = null;
             twin.SelectionDecider = null;
             _ = twin.DisposeAsync().AsTask();
@@ -339,14 +379,25 @@ internal sealed class CompositeRootBehavior : IDisposable
     internal void Register(CompositeItemBehavior item)
     {
         items.Add(item);
-        itemsVersion++;
+        if (IsFirstWithId(item, item.Registration.Id))
+        {
+            itemsVersion++;
+        }
     }
 
     /// <summary>Removes an item from the registry; the root renders unless it already rendered in this batch.</summary>
     /// <param name="item">The item.</param>
     internal void Unregister(CompositeItemBehavior item)
     {
+        // An item behind another registration of its id was never sent, so its removal changes nothing sent.
+        bool sent = IsFirstWithId(item, item.Registration.Id);
         if (!items.Remove(item))
+        {
+            return;
+        }
+
+        orderedItems.Remove(item);
+        if (!sent)
         {
             return;
         }
@@ -359,8 +410,16 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
     }
 
-    /// <summary>Records that a registered item changed its id or its consumer <c>tabindex</c>.</summary>
-    internal void RegistrationChanged() => itemsVersion++;
+    /// <summary>Records that a registered item changed its id, its consumer <c>tabindex</c> or its flags.</summary>
+    /// <param name="item">The item, whose registration is already the new one.</param>
+    /// <param name="previousId">The id of the item's previous registration.</param>
+    internal void RegistrationChanged(CompositeItemBehavior item, string previousId)
+    {
+        if (IsFirstWithId(item, previousId) || IsFirstWithId(item, item.Registration.Id))
+        {
+            itemsVersion++;
+        }
+    }
 
     /// <summary>Records that a registered item rendered a new element under the same id, which the module must resolve again.</summary>
     internal void ElementReplaced() => elementReplaced = true;
@@ -441,6 +500,25 @@ internal sealed class CompositeRootBehavior : IDisposable
         return false;
     }
 
+    // Whether no item registered before this one carries the id, so the root sends this item's registration for it.
+    private bool IsFirstWithId(CompositeItemBehavior item, string id)
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (ReferenceEquals(items[i], item))
+            {
+                return true;
+            }
+
+            if (string.Equals(items[i].Registration.Id, id, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private CompositeItemBehavior? FindItem(string? id)
     {
         if (string.IsNullOrEmpty(id))
@@ -469,16 +547,31 @@ internal sealed class CompositeRootBehavior : IDisposable
         created.HighlightChanged += OnHighlightChange;
         created.FocusLeft += OnFocusLeave;
         created.KeyHandled += OnKeyHandled;
+        created.ItemsChanged += OnItemsChange;
         return created;
     }
 
-    // The lists are copied, so a part that mutates its list in place still sends the change.
+    // The lists are copied, so a part that mutates its list in place still sends the change. One registration per id, the
+    // first (the outer item's).
     private CompositeOptions BuildOptions()
     {
-        CompositeItemRegistration[] registrations = new CompositeItemRegistration[items.Count];
+        int count = 0;
         for (int i = 0; i < items.Count; i++)
         {
-            registrations[i] = items[i].Registration;
+            if (IsFirstWithId(items[i], items[i].Registration.Id))
+            {
+                count++;
+            }
+        }
+
+        CompositeItemRegistration[] registrations = new CompositeItemRegistration[count];
+        int next = 0;
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (IsFirstWithId(items[i], items[i].Registration.Id))
+            {
+                registrations[next++] = items[i].Registration;
+            }
         }
 
         CompositeOptions options = new()
@@ -490,12 +583,15 @@ internal sealed class CompositeRootBehavior : IDisposable
             HighlightItemOnHover = HighlightItemOnHover,
             ModifierKeys = ModifierKeys.Count == 0 ? s_noModifierKeys : [.. ModifierKeys],
             DisabledIndices = DisabledIndices is null ? null : [.. DisabledIndices],
+            DeriveDisabledIndices = DeriveDisabledIndices,
             Direction = CompositeLiterals.ToLiteral(Direction),
             Items = registrations,
             SelectOnNavigation = SelectOnNavigation,
             ReportFocusLeave = ReportFocusLeave,
             ReportHighlight = ReportHighlight,
             ReportHandledKeys = ReportHandledKeys(),
+            ReportItems = ReportItems,
+            FollowActiveItem = FollowActiveItem,
         };
         sentOptions = options;
         sentItemsVersion = itemsVersion;
@@ -516,11 +612,14 @@ internal sealed class CompositeRootBehavior : IDisposable
             && sent.HighlightItemOnHover == HighlightItemOnHover
             && SameStrings(sent.ModifierKeys, ModifierKeys)
             && SameIndices(sent.DisabledIndices, DisabledIndices)
+            && sent.DeriveDisabledIndices == DeriveDisabledIndices
             && string.Equals(sent.Direction, CompositeLiterals.ToLiteral(Direction), StringComparison.Ordinal)
             && sent.SelectOnNavigation == SelectOnNavigation
             && sent.ReportFocusLeave == ReportFocusLeave
             && sent.ReportHighlight == ReportHighlight
-            && sent.ReportHandledKeys == ReportHandledKeys())
+            && sent.ReportHandledKeys == ReportHandledKeys()
+            && sent.ReportItems == ReportItems
+            && sent.FollowActiveItem == FollowActiveItem)
         {
             return null;
         }
@@ -541,6 +640,23 @@ internal sealed class CompositeRootBehavior : IDisposable
     }
 
     private void OnFocusLeave(EventSnapshot snapshot) => FocusLeft?.Invoke(snapshot);
+
+    // CMP-EVT-03 (M3 track 1, E2; design points 1 and 3, option (a), settled by the orchestrator 2026-10-26): each report is the whole sequence,
+    // joined when it arrives, before or after the handle exists. An id no registration carries is ignored (an item C# has
+    // already removed, on Server); the first registration of an id is the one joined, as the one sent.
+    private void OnItemsChange(IReadOnlyList<string> ids)
+    {
+        orderedItems.Clear();
+        for (int i = 0; i < ids.Count; i++)
+        {
+            if (FindItem(ids[i]) is { } item)
+            {
+                orderedItems.Add(item);
+            }
+        }
+
+        ItemsChanged?.Invoke();
+    }
 
     // The decision point `navigate`, on WebAssembly only: the part's chain, then the focused item's and the root's consumer
     // key handlers on one event, run inside the dispatch, so a PreventPartHandler() in either stops the key handling

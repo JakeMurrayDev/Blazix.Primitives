@@ -68,26 +68,38 @@ internal sealed class CompositeItemBehavior : IDisposable
         root.Unregister(this);
     }
 
-    /// <summary>Registers the item, or records a change of its id or consumer <c>tabindex</c>; called on every parameter set.</summary>
+    /// <summary>
+    /// Registers the item, or records a change of its id, its consumer <c>tabindex</c> or its flags; called on every
+    /// parameter set.
+    /// </summary>
     /// <param name="id">The id the part renders on its element.</param>
     /// <param name="additionalAttributes">The part's unmatched attributes, which may hold the consumer's <c>tabindex</c>.</param>
-    public void SetRegistration(string? id, IReadOnlyDictionary<string, object>? additionalAttributes)
+    /// <param name="disabled">Whether the item is disabled.</param>
+    /// <param name="focusableWhenDisabled">Whether the item stays navigable and can hold the tab stop while disabled.</param>
+    public void SetRegistration(
+        string? id,
+        IReadOnlyDictionary<string, object>? additionalAttributes,
+        bool disabled = false,
+        bool focusableWhenDisabled = false)
     {
         string elementIdValue = id ?? string.Empty;
         string? tabIndex = ConsumerTabIndex(additionalAttributes);
         if (!registered)
         {
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex);
+            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
             registered = true;
             root.Register(this);
             return;
         }
 
         if (!string.Equals(Registration.Id, elementIdValue, StringComparison.Ordinal)
-            || !string.Equals(Registration.TabIndex, tabIndex, StringComparison.Ordinal))
+            || !string.Equals(Registration.TabIndex, tabIndex, StringComparison.Ordinal)
+            || Registration.Disabled != disabled
+            || Registration.FocusableWhenDisabled != focusableWhenDisabled)
         {
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex);
-            root.RegistrationChanged();
+            string previousId = Registration.Id;
+            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
+            root.RegistrationChanged(this, previousId);
         }
     }
 
@@ -108,7 +120,7 @@ internal sealed class CompositeItemBehavior : IDisposable
 
         if (registered && had != HasKeyHandler)
         {
-            root.RegistrationChanged();
+            root.RegistrationChanged(this, Registration.Id);
         }
     }
 
