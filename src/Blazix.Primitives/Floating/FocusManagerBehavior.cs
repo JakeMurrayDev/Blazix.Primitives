@@ -214,9 +214,21 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
 
         twin ??= CreateTwin();
         (FocusManagerOptions options, TwinReferences? references, ElementReference[] elements) = Build();
-        TwinHandle<FocusManagerOptions> attached = element is { } reference
-            ? await twin.AttachAsync(reference, options, references)
-            : await twin.AttachAsync(id!, options, references);
+        TwinHandle<FocusManagerOptions> attached;
+        try
+        {
+            attached = element is { } reference
+                ? await twin.AttachAsync(reference, options, references)
+                : await twin.AttachAsync(id!, options, references);
+        }
+        catch (JSException)
+        {
+            // The popup left the document before the attach arrived (closed while the module loaded): nothing to manage;
+            // a later render that shows it attaches again (the CollapsiblePanelBehavior precedent).
+            attaching = false;
+            return;
+        }
+
         attaching = false;
         if (disposed)
         {
