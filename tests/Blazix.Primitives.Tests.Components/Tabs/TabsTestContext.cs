@@ -151,8 +151,12 @@ public sealed class TabsTestContext : IDisposable
     /// <summary>Reports a list's tabs in document order, as the composite module does after the batch that changed them.</summary>
     internal Task ReportTabsAsync<TComponent>(IRenderedComponent<TComponent> cut, IElement? list = null)
         where TComponent : IComponent
+        => ReportTabsAsync(cut, list is null ? CompositeTwin() : CompositeTwinOf(list), list);
+
+    /// <summary>Reports the tabs of a list, whose twin the test looked up while bUnit's markup still names its element.</summary>
+    internal Task ReportTabsAsync<TComponent>(IRenderedComponent<TComponent> cut, CompositeTwin twin, IElement? list)
+        where TComponent : IComponent
     {
-        CompositeTwin twin = list is null ? CompositeTwin() : CompositeTwinOf(list);
         IEnumerable<IElement> tabs = list is null ? cut.FindAll("[role=tab]") : list.QuerySelectorAll("[role=tab]");
         return cut.InvokeAsync(() => twin.OnItemsChange(IdsJson(tabs)));
     }
@@ -187,6 +191,14 @@ public sealed class TabsTestContext : IDisposable
     {
         TabsTwin twin = list is null ? ListTwin() : TabsTwinOf(list);
         string json = $$"""{"tabId":"{{tabId}}","direction":"{{direction}}","event":{{eventJson ?? ClickJson(tabId)}}}""";
+        return cut.InvokeAsync(() => twin.OnSelect(json));
+    }
+
+    /// <summary>Reports an activating click through a list's twin the test looked up while bUnit's markup still named its element.</summary>
+    internal Task SelectAsync<TComponent>(IRenderedComponent<TComponent> cut, TabsTwin twin, string tabId, string direction)
+        where TComponent : IComponent
+    {
+        string json = $$"""{"tabId":"{{tabId}}","direction":"{{direction}}","event":{{ClickJson(tabId)}}}""";
         return cut.InvokeAsync(() => twin.OnSelect(json));
     }
 

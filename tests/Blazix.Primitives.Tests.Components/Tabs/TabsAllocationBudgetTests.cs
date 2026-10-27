@@ -22,7 +22,12 @@ public sealed class TabsAllocationBudgetTests : IDisposable
     // state changed; the root and the list do not render. A report arrives outside an event dispatch, so each tab's render
     // is its own batch, and bUnit rebuilds the root's markup after each one: sampled with the runtime's allocation ticks,
     // strings, char arrays and string builders from that markup are almost all of it.
-    private const long RerenderBudgetBytes = 2592;
+    // 2026-10-27, track 1's E1 and E2 wired in: 2608 bytes. The library's share is unchanged (a probe of the parts' class
+    // functions puts all 16 bytes before the root renders): bUnit's parameters lambda builds `x => x.DefaultValue` on every
+    // render, and Expression.Property copies the host's array of properties, 8 bytes each, and TabsRoot gained two, the
+    // injected IJSRuntime and PartIdGenerator of its list of panels (CompositeAllocationBudgetTests, 4032 to 4056, is the
+    // precedent).
+    private const long RerenderBudgetBytes = 2608;
     private const long ActivationBudgetBytes = 48184;
 
     private readonly TabsTestContext test = new();

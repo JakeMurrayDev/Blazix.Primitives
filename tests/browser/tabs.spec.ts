@@ -442,8 +442,8 @@ test.describe('<Tabs.List />', () => {
 test.describe('<Tabs.Root /> (tab order)', () => {
   // TAB-DOM-09, TAB-FOC-01, TAB-FOC-02 and TAB-DOM-08's clause, re-tagged to L4: the composite module writes the roving
   // `tabindex` from attach (ADR 04 Amendments 2026-10-22). The tab stop following a programmatic selection is TAB-STA-19's
-  // follow clause: open until track 1's E5 (issue 100) is on main.
-  test.fixme('puts the selected child in tab order', async ({ page, mode }) => {
+  // follow clause (track 1's E5).
+  test('puts the selected child in tab order', async ({ page, mode }) => {
     const fixture = await gotoTabs(page, mode, 'tabs-list');
     const { tabs, button } = tabsCase(fixture, 'tab-order');
 

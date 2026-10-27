@@ -1,3 +1,4 @@
+using Blazix.Primitives.Interop;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using Bunit;
@@ -362,18 +363,23 @@ public sealed class TabsRootTests : IDisposable
         IElement innerTab1 = cut.Find("[data-testid=tab-inner-1]");
         Assert.Equal(cut.Find("[data-testid=panel-outer-1]").Id, outerTab1.GetAttribute("aria-controls"));
         Assert.Equal(cut.Find("[data-testid=panel-inner-1]").Id, innerTab1.GetAttribute("aria-controls"));
-        await test.ReportTabsAsync(cut, cut.Find("[data-testid=outer-list]"));
-        await test.ReportTabsAsync(cut, cut.Find("[data-testid=inner-list]"));
+        // bUnit's markup of content a parent renders again loses its element references, so both twins are looked up first.
+        CompositeTwin outerList = test.CompositeTwinOf(cut.Find("[data-testid=outer-list]"));
+        CompositeTwin innerList = test.CompositeTwinOf(cut.Find("[data-testid=inner-list]"));
+        TabsTwin outerTabs = test.TabsTwinOf(cut.Find("[data-testid=outer-list]"));
+        TabsTwin innerTabs = test.TabsTwinOf(cut.Find("[data-testid=inner-list]"));
+        await test.ReportTabsAsync(cut, outerList, cut.Find("[data-testid=outer-list]"));
+        await test.ReportTabsAsync(cut, innerList, cut.Find("[data-testid=inner-list]"));
         Assert.Equal(innerTab1.Id, cut.Find("[data-testid=panel-inner-1]").GetAttribute("aria-labelledby"));
         Assert.Equal(outerTab1.Id, cut.Find("[data-testid=panel-outer-1]").GetAttribute("aria-labelledby"));
 
         // The inner list's activation leaves the outer selection.
-        await test.SelectAsync(cut, cut.Find("[data-testid=tab-inner-2]").Id!, "right", list: cut.Find("[data-testid=inner-list]"));
+        await test.SelectAsync(cut, innerTabs, cut.Find("[data-testid=tab-inner-2]").Id!, "right");
         Assert.Equal("true", cut.Find("[data-testid=tab-inner-2]").GetAttribute("aria-selected"));
         Assert.Equal("true", cut.Find("[data-testid=tab-outer-1]").GetAttribute("aria-selected"));
         Assert.Equal("false", cut.Find("[data-testid=tab-outer-2]").GetAttribute("aria-selected"));
 
-        await test.SelectAsync(cut, cut.Find("[data-testid=tab-outer-2]").Id!, "right", list: cut.Find("[data-testid=outer-list]"));
+        await test.SelectAsync(cut, outerTabs, cut.Find("[data-testid=tab-outer-2]").Id!, "right");
         await test.CompleteExitsAsync(cut);
         Assert.Empty(cut.FindAll("[data-testid=inner-list]"));
         Assert.False(cut.Find("[data-testid=panel-outer-2]").HasAttribute("hidden"));
