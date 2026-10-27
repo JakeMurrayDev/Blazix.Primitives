@@ -21,7 +21,7 @@ import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, 
 import { decide } from './decide';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
+import { attachTarget, createTwinChannel, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constants
@@ -1609,10 +1609,10 @@ export function attach(elementOrId: Element | string | null, optionsJson: string
     return attachProvider(options.provider.token ?? '', options, twinReference);
   }
   const token = options.sessionToken ?? '';
-  if (elementOrId === null) {
+  const element = attachTarget(elementOrId);
+  if (element === null) {
     return attachSession(token, options, twinReference);
   }
-  const element = resolveElement(elementOrId);
   if (options.floating) {
     return attachFloating(element, token, options, twinReference);
   }
