@@ -491,6 +491,127 @@ test.describe('<Tabs.Root /> (tab order)', () => {
   });
 });
 
+// Group E: the tab stop follows the active Tab while focus is outside the List (track 1's E5, the `composite` module's
+// follow of the active marker) and stays with focus inside it; a keyboard step is never pulled back.
+test.describe('<Tabs.Root /> (highlight synchronization on external value change relative to focus)', () => {
+  for (const activateOnFocus of [true, false]) {
+    test(`keeps controlled async activation and focus aligned with activateOnFocus=${activateOnFocus}`, async ({ page, mode }) => {
+      const fixture = await gotoTabs(page, mode, 'tabs-focus');
+      const { container, tab } = tabsCase(fixture, activateOnFocus ? 'async-focus' : 'async-click');
+
+      await focus(tab(0));
+      await page.keyboard.press('ArrowRight');
+      await expect(tab(1)).toBeFocused();
+      await expect(tab(0)).toHaveAttribute('aria-selected', 'true');
+
+      await page.keyboard.press('ArrowRight');
+      await expect(tab(2)).toBeFocused();
+
+      // Without activateOnFocus, focusing the tab must not select it until Enter is pressed.
+      await settle(fixture);
+      await expect(container).toHaveAttribute('data-changes', activateOnFocus ? '1' : '0');
+      if (!activateOnFocus) {
+        await page.keyboard.press('Enter');
+      }
+
+      await expect(tab(2)).toHaveAttribute('aria-selected', 'true');
+      await expect(tab(2)).toBeFocused();
+      await expect(tab(2)).toHaveAttribute('tabindex', '0');
+      await expect(container).toHaveAttribute('data-last-change', /^value=2 /);
+    });
+  }
+
+  test('when focus is outside the tablist, highlight follows the new active tab (tabIndex=0 moves)', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-focus');
+    const { tabs, button } = tabsCase(fixture, 'outside');
+    await expect.poll(() => tabIndexes(tabs)).toEqual(['0', '-1', '-1']);
+
+    await button('select-2').click();
+
+    await expect.poll(() => tabIndexes(tabs)).toEqual(['-1', '-1', '0']);
+
+    await button('select-1').click();
+
+    await expect.poll(() => tabIndexes(tabs)).toEqual(['-1', '0', '-1']);
+  });
+
+  test('when focus is inside the tablist, highlight stays put on external change and arrow keys continue from the focused tab', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-focus');
+    const { tab, tabs, button } = tabsCase(fixture, 'inside');
+    await focus(tab(0));
+    await expect(tab(0)).toHaveAttribute('tabindex', '0');
+
+    // From script, so focus stays on the Tab, as the test's setProps does.
+    await button('select-2').evaluate((element) => (element as HTMLElement).click());
+    await expect(tab(2)).toHaveAttribute('aria-selected', 'true');
+    await settle(fixture);
+
+    // Highlight should not change (still on first tab), but selection did
+    expect(await tabIndexes(tabs)).toEqual(['0', '-1', '-1']);
+    await expect(tab(0)).toHaveAttribute('aria-selected', 'false');
+
+    // Arrow navigation should continue from the highlighted tab
+    await page.keyboard.press('ArrowRight');
+    await expect(tab(1)).toBeFocused();
+    // Selection remains the externally-set tab since activateOnFocus=false
+    await expect(tab(2)).toHaveAttribute('aria-selected', 'true');
+    await expect(tab(1)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  test('keeps the tab stop on the selected tab when focus is inside the list', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-focus');
+    const { tab, button } = tabsCase(fixture, 'list-inside');
+    await focus(tab(2));
+
+    await button('remove-first').evaluate((element) => (element as HTMLElement).click());
+
+    await expect(tab(0)).toHaveCount(0);
+    await settle(fixture);
+    await expect(tab(1)).toHaveAttribute('tabindex', '-1');
+    await expect(tab(2)).toHaveAttribute('tabindex', '0');
+  });
+});
+
+// The automatic selection of an uncontrolled Root (track 1's E2, the `composite` module's report of the Tabs' order):
+// TAB-STA-04's registry follows a Tab's `disabled` and its removal.
+test.describe('<Tabs.Root /> (automatic selection)', () => {
+  test('calls onValueChange when the selected tab becomes disabled', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-focus');
+    const { container, tab, button } = tabsCase(fixture, 'becomes-disabled');
+
+    await button('disable-first').click();
+
+    await expect(container).toHaveAttribute('data-changes', '1');
+    await expect(container).toHaveAttribute('data-last-change', /^value=1 reason=disabled direction=none /);
+    await expect(tab(0)).toHaveAttribute('aria-selected', 'false');
+    await expect(tab(1)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('keeps activation direction none after automatic disabled fallback', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-focus');
+    const { root, tab, button } = tabsCase(fixture, 'becomes-disabled');
+
+    await button('disable-first').click();
+
+    await expect(tab(1)).toHaveAttribute('aria-selected', 'true');
+    await settle(fixture);
+    await expect(root).toHaveAttribute('data-activation-direction', 'none');
+  });
+
+  test('calls onValueChange when the selected tab is removed', async ({ page, mode }) => {
+    const fixture = await gotoTabs(page, mode, 'tabs-focus');
+    const { container, tab, tabs, button } = tabsCase(fixture, 'removed');
+
+    await button('remove-first').click();
+
+    await expect(container).toHaveAttribute('data-changes', '1');
+    await expect(container).toHaveAttribute('data-last-change', /^value=1 reason=missing /);
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.first()).toHaveText('Tab 1');
+    await expect(tab(1)).toHaveAttribute('tabindex', '0');
+  });
+});
+
 test.describe('<Tabs.Root /> (roving focus)', () => {
   test('keeps a roving focus entry point when a controlled selected tab is removed', async ({ page, mode }) => {
     const fixture = await gotoTabs(page, mode, 'tabs-list');
