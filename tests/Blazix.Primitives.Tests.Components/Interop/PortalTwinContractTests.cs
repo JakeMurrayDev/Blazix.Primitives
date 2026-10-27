@@ -111,6 +111,32 @@ public sealed class PortalTwinContractTests
         Assert.Equal(outerNode, Assert.Single(Assert.IsType<object[]>(attach.Arguments[3])));
     }
 
+    // ADR 16 rule 7: a render whose container, enclosing node, lite flag and style are unchanged builds no options, boxes
+    // no reference and sends nothing; the options are built, and the container boxed once, per attach or update.
+    [Fact]
+    [Trait("Requirement", "ADR16-7")]
+    public async Task A_render_with_unchanged_inputs_builds_no_options_and_allocates_nothing()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        BunitJSModuleInterop handle = SetupHandle(module);
+        await using PopupPortalBehavior behavior = new(context.JSInterop.JSRuntime, () => { });
+        ElementReference node = new("portal-4");
+        PortalContainerValue container = new ElementReference("container-4");
+        await behavior.OnAfterRenderAsync(node, container);
+        await behavior.OnAfterRenderAsync(node, container);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        Task render = behavior.OnAfterRenderAsync(node, container);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        await render;
+
+        Assert.True(render.IsCompletedSuccessfully);
+        Assert.Equal(0, allocated);
+        Assert.Single(module.Invocations["attach"]);
+        Assert.Empty(handle.Invocations["update"]);
+    }
+
     // Design point 3 (ADR 04 Amendments 2026-10-27): the move completes only once the module ran. A render during the
     // pending first attach reaches TwinBase.AttachAsync, which hands back the pending handle at once.
     [Fact]
