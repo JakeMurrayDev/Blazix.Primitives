@@ -116,5 +116,6 @@ public static class FixtureCatalog
         ["tabs-direction"] = new(typeof(TabsDirectionFixture)),
         ["tabs-panels"] = new(typeof(TabsPanelsFixture)),
         ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
+        ["tabs-focus"] = new(typeof(TabsFocusFixture)),
     };
 }
