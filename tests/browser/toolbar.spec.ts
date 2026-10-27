@@ -4,12 +4,12 @@ import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers
 // The [L4] rows of docs/components/toolbar.md and the L4 clauses of its [L2] rows, on ToolbarRoot over the `composite`
 // module and ToolbarButton and ToolbarInput over the `button` module. Titles are Base UI's (toolbar/*/*.test.tsx);
 // "port:" titles assert the per-mode rows of ADR 01's relaxation table, the Test: none rows a browser observes and the
-// design points of M3 track 4. The rows that need the derived disabled indices or the outer registration (track 1's E3
-// and E4: the focusableWhenDisabled layouts, the Toggle and ToggleGroup block, the hero shape) follow once PR 108 is on
-// main. The fixtures record the consumer's callbacks as data attributes; every page waits for `data-attached` (every twin
-// attached) and uses the sync button as a barrier.
+// design points of M3 track 4. The disabled indices are the ones the `composite` module derives from the items' flags and
+// a substituted toggle's registration is the toolbar button's (M3 track 1's E3 and E4). The fixtures record the consumer's
+// callbacks as data attributes; every page waits for `data-attached` (every twin attached) and uses the sync button as a
+// barrier.
 
-type FixtureName = 'toolbar-orientation' | 'toolbar-keys' | 'toolbar-input' | 'toolbar-button' | 'toolbar-switch';
+type FixtureName = 'toolbar-orientation' | 'toolbar-keys' | 'toolbar-disabled' | 'toolbar-input' | 'toolbar-button' | 'toolbar-switch' | 'toolbar-toggle';
 
 /** Opens a Toolbar fixture and waits until every toolbar and item has its behaviors attached. */
 async function gotoToolbar(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
@@ -73,6 +73,26 @@ async function recordKeys(root: Locator): Promise<void> {
   });
 }
 
+/** Adds latency to the Server circuit in both directions (CDP network emulation does not delay the WebSocket). */
+async function delayCircuit(page: Page, delay: number): Promise<void> {
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    socket.onMessage((message) => {
+      setTimeout(() => server.send(message), delay);
+    });
+    server.onMessage((message) => {
+      setTimeout(() => socket.send(message), delay);
+    });
+  });
+}
+
+/** A disabled item that holds focus: `data-disabled`, `aria-disabled="true"` and focused. */
+async function expectFocusedWhenDisabled(element: Locator): Promise<void> {
+  await expect(element).toHaveAttribute('data-disabled');
+  await expect(element).toHaveAttribute('aria-disabled', 'true');
+  await expect(element).toBeFocused();
+}
+
 /** The count of each entry of a case's `data-log`. */
 async function logCounts(container: Locator): Promise<Record<string, number>> {
   const log = (await container.getAttribute('data-log')) ?? '';
@@ -131,6 +151,164 @@ test.describe('<Toolbar.Root />', () => {
 
       await page.keyboard.press('ArrowRight');
       await expect(item('last')).toBeFocused();
+    });
+  });
+
+  test.describe('prop: focusableWhenDisabled', () => {
+    // TLB-API-07, TLB-API-13, TLB-DOM-04, TLB-DOM-05, TLB-DOM-07, TLB-KEY-06, TLB-KEY-08, TLB-KEY-13, TLB-FOC-03.
+    test('toolbar items can be focused when disabled by default', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { container, item, before } = toolbarCase(fixture, 'default');
+      for (const label of ['button1', 'grouped1', 'grouped2', 'input']) {
+        await expect(item(label)).not.toHaveAttribute('disabled');
+      }
+      await expect(container.locator('[data-item][tabindex="0"]')).toHaveCount(1);
+
+      await tabIn(page, before);
+      await expect(item('button1')).toBeFocused();
+
+      for (const label of ['grouped1', 'grouped2', 'input']) {
+        await page.keyboard.press('ArrowRight');
+        await expectFocusedWhenDisabled(item(label));
+      }
+
+      // loop to the beginning
+      await page.keyboard.press('ArrowRight');
+      await expect(item('button1')).toHaveAttribute('tabindex', '0');
+
+      await page.keyboard.press('ArrowLeft');
+      await expectFocusedWhenDisabled(item('input'));
+
+      await page.keyboard.press('ArrowLeft');
+      await expectFocusedWhenDisabled(item('grouped2'));
+    });
+
+    // TLB-API-07, TLB-STA-02, TLB-DOM-03, TLB-DOM-04, TLB-KEY-08, TLB-FOC-04.
+    test('toolbar items can individually disable focusableWhenDisabled', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { container, item, before } = toolbarCase(fixture, 'individual');
+      for (const element of await container.locator('[data-focusable]').all()) {
+        await expect(element).not.toHaveAttribute('disabled');
+      }
+      await expect(item('input')).not.toHaveAttribute('disabled');
+      await expect(item('grouped2')).toHaveAttribute('disabled');
+
+      await tabIn(page, before);
+      await expect(item('button1')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expectFocusedWhenDisabled(item('grouped1'));
+
+      await page.keyboard.press('ArrowRight');
+      await expectFocusedWhenDisabled(item('input'));
+
+      // loop to the beginning
+      await page.keyboard.press('ArrowRight');
+      await expect(item('button1')).toHaveAttribute('tabindex', '0');
+
+      await page.keyboard.press('ArrowLeft');
+      await expectFocusedWhenDisabled(item('input'));
+
+      await page.keyboard.press('ArrowLeft');
+      await expectFocusedWhenDisabled(item('grouped1'));
+    });
+
+    // TLB-STA-04, TLB-FOC-02, TLB-DOM-05, TLB-KEY-01.
+    test('moves the initial tab stop off a disabled, non-focusable first item', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { item, before } = toolbarCase(fixture, 'first-non-focusable');
+
+      // a natively disabled first item cannot hold the single roving tab stop
+      await expect(item('button1')).toHaveAttribute('disabled');
+      await expect(item('button2')).toHaveAttribute('tabindex', '0');
+      await expect(item('button1')).not.toHaveAttribute('tabindex', '0');
+
+      await tabIn(page, before);
+      await expect(item('button2')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(item('button3')).toBeFocused();
+
+      // looping back skips the disabled first item
+      await page.keyboard.press('ArrowRight');
+      await expect(item('button2')).toBeFocused();
+    });
+
+    // TLB-KEY-08, TLB-FOC-04.
+    test('keeps an enabled item with focusableWhenDisabled={false} navigable', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { item, before } = toolbarCase(fixture, 'enabled-non-focusable');
+      await expect(item('button2')).not.toHaveAttribute('disabled');
+
+      await tabIn(page, before);
+      await expect(item('button1')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(item('button2')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(item('button3')).toBeFocused();
+    });
+
+    // TLB-API-13, TLB-STA-02, TLB-FOC-04.
+    test('skips a disabled Toolbar.Input with focusableWhenDisabled={false}', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { item, before } = toolbarCase(fixture, 'input-non-focusable');
+
+      await tabIn(page, before);
+      await expect(item('button1')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(item('input')).not.toBeFocused();
+      await expect(item('button2')).toBeFocused();
+    });
+
+    // TLB-STA-06, TLB-STA-04: an item that becomes disabled and not focusable while it holds the tab stop sends its new
+    // flags, and the derived indices move the tab stop to the next navigable item.
+    test('port: an item that becomes disabled and not focusable while it holds the tab stop gives it to the next item', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { container, item, flip } = toolbarCase(fixture, 'runtime');
+      await expect(item('button1')).toHaveAttribute('tabindex', '0');
+
+      await flip.evaluate((element) => (element as HTMLElement).click());
+      await expect(item('button1')).toHaveAttribute('disabled');
+
+      await expect(item('button2')).toHaveAttribute('tabindex', '0');
+      await expect(container.locator('[data-item][tabindex="0"]')).toHaveCount(1);
+    });
+
+    // TLB-STA-04, TLB-FOC-02, TLB-EDGE-07 (the CMP-STA-10 row of ADR 01's relaxation table): C# renders tabindex="-1" on
+    // every item, and the first publication, which carries the flags, puts the tab stop on the first navigable item; on
+    // Server that lands a round trip after the render, so at least one frame is painted without a tab stop. The disabled,
+    // non-focusable first item never holds it. Recorded per animation frame.
+    test('port: the first publication puts the tab stop on the first navigable item, a round trip later on Server', async ({ page, mode }) => {
+      if (mode === 'server') {
+        await delayCircuit(page, 150);
+      }
+      await page.addInitScript(() => {
+        const frames: (string | null)[][] = [];
+        (window as unknown as { toolbarFrames: (string | null)[][] }).toolbarFrames = frames;
+        const tick = () => {
+          const items = [...document.querySelectorAll('[data-case="first-non-focusable"] [data-item]')];
+          if (items.length === 3) {
+            frames.push(items.map((element) => element.getAttribute('tabindex')));
+          }
+          if (frames.at(-1)?.[1] !== '0' && frames.length < 5000) {
+            requestAnimationFrame(tick);
+          }
+        };
+        requestAnimationFrame(tick);
+      });
+      const fixture = await gotoToolbar(page, mode, 'toolbar-disabled');
+      const { item } = toolbarCase(fixture, 'first-non-focusable');
+      await expect(item('button2')).toHaveAttribute('tabindex', '0');
+
+      const frames = await page.evaluate(() => (window as unknown as { toolbarFrames: (string | null)[][] }).toolbarFrames);
+      expect(frames.at(-1)).toEqual(['-1', '0', '-1']);
+      expect(frames.slice(0, -1).every((tabIndexes) => tabIndexes.every((value) => value === '-1'))).toBe(true);
+      if (mode === 'server') {
+        expect(frames.length).toBeGreaterThan(1);
+      }
     });
   });
 
@@ -275,6 +453,49 @@ test.describe('<Toolbar.Input />', () => {
       await settle(fixture);
       await input.click();
       await expect(input).toBeChecked();
+    });
+  });
+
+  test.describe('disabled', () => {
+    // TLB-KEY-14, TLB-FOC-03, TLB-FOC-08.
+    test('does not trap keyboard focus when disabled', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-input');
+      const { item, before, after } = toolbarCase(fixture, 'disabled-trap');
+
+      await tabIn(page, before);
+      await expect(item('button')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(item('input')).toBeFocused();
+
+      // Tab must leave the toolbar instead of being trapped on the disabled input
+      await page.keyboard.press('Tab');
+      await expect(after).toBeFocused();
+
+      await page.keyboard.press('Shift+Tab');
+      await expect(item('input')).toBeFocused();
+    });
+
+    // TLB-KEY-11, TLB-KEY-08.
+    test('does not block vertical roving focus when disabled', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-input');
+      const { item, before } = toolbarCase(fixture, 'disabled-vertical');
+
+      await tabIn(page, before);
+      await expect(item('button1')).toBeFocused();
+
+      await page.keyboard.press('ArrowDown');
+      await expect(item('input')).toBeFocused();
+
+      // ArrowDown must move roving focus past the disabled input
+      await page.keyboard.press('ArrowDown');
+      await expect(item('button2')).toBeFocused();
+
+      await page.keyboard.press('ArrowUp');
+      await expect(item('input')).toBeFocused();
+
+      await page.keyboard.press('ArrowUp');
+      await expect(item('button1')).toBeFocused();
     });
   });
 
@@ -437,6 +658,224 @@ test.describe('<Toolbar.Button />', () => {
       await expect(toggle).not.toHaveAttribute('disabled');
       await focus(toggle);
       await expect(toggle).toBeFocused();
+    });
+  });
+
+  test.describe('rendering other Base UI components', () => {
+    // A substituted toggle's typed OnPressedChange waits on design point 14.8, so the fixture counts the presses by the
+    // standalone toggle's PressedChanged and the group's OnValueChange: one entry per activation (TGL-EVT-06).
+    test.describe('Toggle and ToggleGroup', () => {
+      // TLB-STR-05, TLB-ARIA-09, TLB-EDGE-12.
+      test('renders toggle and toggle group', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { root } = toolbarCase(fixture, 'block');
+
+        await expect(root.getByRole('button')).toHaveCount(3);
+        for (const button of await root.getByRole('button').all()) {
+          await expect(button).toHaveAttribute('aria-pressed');
+        }
+      });
+
+      // TLB-KEY-12, TLB-KEY-17, TLB-FOC-01, TLB-EDGE-12, TGL-KEY-02, TGL-EVT-06.
+      test('handles interactions', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { container, item, before } = toolbarCase(fixture, 'block');
+        for (const label of ['apple', 'one', 'two']) {
+          await expect(item(label)).toHaveAttribute('aria-pressed', 'false');
+        }
+
+        await tabIn(page, before);
+        await expect(item('apple')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '1');
+        await expect(item('apple')).toHaveAttribute('aria-pressed', 'true');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('one')).toBeFocused();
+
+        await page.keyboard.press('Space');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '2');
+        await expect(item('one')).toHaveAttribute('aria-pressed', 'true');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('two')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '3');
+        await expect(item('two')).toHaveAttribute('aria-pressed', 'true');
+        await expect(container).toHaveAttribute('data-log', 'pressed:true value:one value:two');
+      });
+
+      // TLB-STA-03, TLB-DOM-08, TLB-KEY-13, TLB-KEY-17, TLB-EDGE-12, TGL-KEY-05: the outer registration is focusable when
+      // disabled (E4), and the `button` module clears the DOM disabled property each substituted toggle rendered (14.1).
+      test('disabled state', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { container, item, before } = toolbarCase(fixture, 'block-disabled');
+        for (const label of ['apple', 'one', 'two']) {
+          await expect(item(label)).toHaveAttribute('aria-pressed', 'false');
+          await expect(item(label)).not.toHaveAttribute('disabled');
+          await expect(item(label)).toHaveAttribute('data-disabled');
+          await expect(item(label)).toHaveAttribute('aria-disabled', 'true');
+        }
+
+        await tabIn(page, before);
+        await expect(item('apple')).toBeFocused();
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Space');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('one')).toBeFocused();
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Space');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('two')).toBeFocused();
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Space');
+        await settle(fixture);
+
+        await expect(container).toHaveAttribute('data-changes', '0');
+      });
+
+      // TLB-STR-01, TLB-STR-04, TLB-KEY-17, TLB-FOC-01, TGG-KEY-10, TGG-FOC-05.
+      test('navigates and selects direct ToggleGroup > Toggle children', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { container, item, before } = toolbarCase(fixture, 'direct');
+        await expect(item('one')).toHaveAttribute('aria-pressed', 'true');
+
+        await tabIn(page, before);
+        await expect(item('one')).toBeFocused();
+
+        // toggles past the first must be reachable (previously treated as disabled)
+        await page.keyboard.press('ArrowRight');
+        await expect(item('two')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('three')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await settle(fixture);
+        // exclusive selection replaces the previous value
+        await expect(container).toHaveAttribute('data-log', 'value:three');
+        await expect(item('one')).toHaveAttribute('aria-pressed', 'false');
+        await expect(item('three')).toHaveAttribute('aria-pressed', 'true');
+      });
+
+      // TLB-STA-02, TLB-STA-03, TLB-KEY-08, TLB-KEY-17, TLB-EDGE-12, TGL-FOC-03.
+      test('skips disabled direct ToggleGroup > Toggle children', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { item, before } = toolbarCase(fixture, 'direct-disabled');
+        await expect(item('two')).toBeDisabled();
+
+        await tabIn(page, before);
+        await expect(item('one')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('three')).toBeFocused();
+        await expect(item('two')).not.toHaveAttribute('tabindex', '0');
+      });
+
+      // TLB-STR-04, TLB-KEY-17.
+      test('supports multiple selection for direct ToggleGroup > Toggle children', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { container, item, before } = toolbarCase(fixture, 'direct-multiple');
+
+        await tabIn(page, before);
+        await expect(item('one')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('two')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-log', 'value:one,two');
+        await expect(item('one')).toHaveAttribute('aria-pressed', 'true');
+        await expect(item('two')).toHaveAttribute('aria-pressed', 'true');
+      });
+
+      // TLB-STR-04, TGG-API-01.
+      test('supports a controlled ToggleGroup value', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { item, before } = toolbarCase(fixture, 'direct-controlled');
+        await expect(item('one')).toHaveAttribute('aria-pressed', 'false');
+
+        await tabIn(page, before);
+        await expect(item('one')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await expect(item('one')).toHaveAttribute('aria-pressed', 'true');
+      });
+
+      // TLB-API-15, TLB-STA-05, TLB-STA-02, TGG-EDGE-07.
+      test('disables direct ToggleGroup children when Toolbar.Group is disabled', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { item, before } = toolbarCase(fixture, 'direct-group-disabled');
+        for (const label of ['one', 'two']) {
+          await expect(item(label)).toBeDisabled();
+          await expect(item(label)).toHaveAttribute('data-disabled');
+        }
+
+        await tabIn(page, before);
+        await expect(item('before')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('after')).toBeFocused();
+        await expect(item('one')).not.toHaveAttribute('tabindex', '0');
+        await expect(item('two')).not.toHaveAttribute('tabindex', '0');
+      });
+
+      // TLB-STA-06, TLB-STA-02, TGL-FOC-03.
+      test('skips a direct Toggle that becomes disabled at runtime', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { item, before, flip } = toolbarCase(fixture, 'direct-runtime');
+
+        await tabIn(page, before);
+        await expect(item('one')).toBeFocused();
+
+        // A script click, so focus stays on the first toggle.
+        await flip.evaluate((element) => (element as HTMLElement).click());
+        await expect(item('two')).toBeDisabled();
+        await settle(fixture);
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('three')).toBeFocused();
+      });
+
+      // TLB-EDGE-12, TLB-STR-05 (the Toggle clause), TLB-FOC-01, CMP-STR-04 (E4): the docs' hero, two toolbar buttons
+      // substituting toggles in a toggle group, then a group of two buttons and a link; the tab stop moves onto the
+      // substituted toggles and each activation toggles once.
+      test("port: in the docs' hero shape the substituted toggles are toolbar items, each toggles once, and the arrows reach every item", async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
+        const { container, item, before } = toolbarCase(fixture, 'hero');
+        await expect(container.locator('[data-item][tabindex="0"]')).toHaveCount(1);
+
+        await tabIn(page, before);
+        await expect(item('align-left')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await settle(fixture);
+        await expect(item('align-left')).toHaveAttribute('aria-pressed', 'true');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(item('align-right')).toBeFocused();
+        await expect(item('align-right')).toHaveAttribute('tabindex', '0');
+
+        await page.keyboard.press('Space');
+        await settle(fixture);
+        await expect(item('align-right')).toHaveAttribute('aria-pressed', 'true');
+        await expect(item('align-left')).toHaveAttribute('aria-pressed', 'false');
+        await expect(container).toHaveAttribute('data-log', 'value:align-left value:align-right');
+
+        for (const label of ['currency', 'percent', 'link', 'align-left']) {
+          await page.keyboard.press('ArrowRight');
+          await expect(item(label)).toBeFocused();
+        }
+        await expect(container.locator('[data-item][tabindex="0"]')).toHaveCount(1);
+      });
     });
   });
 
