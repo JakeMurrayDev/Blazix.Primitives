@@ -99,6 +99,22 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         return AttachAsync(elementId, elementId, options);
     }
 
+    // ADR 04 Amendments 2026-10-27 (decision 3, the token form; chosen by the user 2026-10-27): a popup Root, a tooltip
+    // provider or a floating tree renders no element, so its handle is keyed by a token C# draws and never renders.
+    /// <summary>
+    /// Attaches the module without an element, by a token the part draws and never renders: the handle of a part that
+    /// renders no element of its own. JavaScript receives <see langword="null"/> as the element and reads the token from
+    /// the options. Attaching is idempotent per token.
+    /// </summary>
+    /// <param name="token">The token, for example one drawn with <c>PartIdGenerator.Next()</c>.</param>
+    /// <param name="options">The options sent with <c>attach</c>, which carry the token.</param>
+    /// <returns>The handle for the token.</returns>
+    /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
+    public ValueTask<TwinHandle<TOptions>> AttachTokenAsync(string token, TOptions options)
+    {
+        return AttachAsync<string?>(token, null, options);
+    }
+
     /// <summary>
     /// Answers the probe with which JavaScript detects, per handle and at run time, whether the runtime supports a
     /// synchronous call from JavaScript into .NET. Only WebAssembly ever completes this call; Blazor Server rejects

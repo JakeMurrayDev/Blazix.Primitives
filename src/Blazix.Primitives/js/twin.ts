@@ -106,6 +106,17 @@ export function resolveElement(elementOrId: Element | string): HTMLElement {
 }
 
 /**
+ * Resolves `attach`'s first argument, the token form included: `null` attaches a handle that has no element (a part that
+ * renders none, keyed by a token in its options), otherwise the element itself or the id of the element in the document.
+ * @param elementOrId The element, its `id` attribute, or `null` for the token form.
+ * @returns The HTML element, or `null` for the token form.
+ * @throws When an id names no element or the reference is not an HTML element.
+ */
+export function attachTarget(elementOrId: Element | string | null): HTMLElement | null {
+  return elementOrId === null ? null : resolveElement(elementOrId);
+}
+
+/**
  * Parses the options JSON received with `attach` or `update`.
  * @param optionsJson The JSON string the twin serialised.
  * @returns The options record.
