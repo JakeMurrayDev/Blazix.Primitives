@@ -174,7 +174,7 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
       eventType: change.event?.type ?? null,
       pointerType: change.event?.pointerType ?? null,
       triggerId: change.triggerId,
-      ...(batching && next && batchClose !== null ? { closedRevision: batchClose.revision, closedReason: batchClose.reason } : {}),
+      ...(batching && next && batchClose !== null ? { coalescedCloseRevision: batchClose.revision, coalescedCloseReason: batchClose.reason } : {}),
     };
     sendSession();
     return change;

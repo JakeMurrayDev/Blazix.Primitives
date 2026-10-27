@@ -58,9 +58,9 @@ export interface OpenChangeRelay {
   pointerType?: string | null;
   triggerId?: string | null;
   /** The revision of a close C# committed before the open this relay carries, in the same batch; else absent. */
-  closedRevision?: number | null;
+  coalescedCloseRevision?: number | null;
   /** The reason of that close. */
-  closedReason?: string | null;
+  coalescedCloseReason?: string | null;
 }
 
 /** The press type an outside press is read as (FLT-API-02). */
@@ -818,8 +818,8 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.lastRevision = relay.revision;
     // ADR 04 Amendments 2026-10-27 (design point 11, settled by the orchestrator 2026-10-27): a close C# committed before
     // this open in the same batch is replayed first with its own reason, and its state applied, as Base UI dispatches it.
-    if (open && relay.closedRevision != null && relay.closedRevision > previousRevision && record.open) {
-      replayClose(record, relay.closedReason ?? 'none');
+    if (open && relay.coalescedCloseRevision != null && relay.coalescedCloseRevision > previousRevision && record.open) {
+      replayClose(record, relay.coalescedCloseReason ?? 'none');
     }
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
