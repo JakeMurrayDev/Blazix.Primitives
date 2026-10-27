@@ -14,6 +14,7 @@ public sealed class PositioningOptionsTests
         VirtualAnchor = new PositioningRect(1, 2, 3, 4),
         Side = "top",
         SideOffset = sideOffset,
+        SideOffsetFunction = new PositioningOffset(0, 1, 0, 1, 0, [new PositioningOffsetOverride("right", "end", 3, 0, 0, 0, 0)]),
         BoundaryRect = new PositioningRect(0, 0, 300, 200),
         CollisionPaddingSides = new PositioningPadding(1, 2, 3, 4),
         CollisionAvoidance = new PositioningCollisionAvoidance(null, "shift", "none"),
@@ -29,6 +30,10 @@ public sealed class PositioningOptionsTests
         Assert.NotEqual(Build(), Build(sideOffset: 9));
         Assert.NotEqual(Build(), Build() with { Style = "color: blue" });
         Assert.NotEqual(Build(), Build() with { CollisionAvoidance = new PositioningCollisionAvoidance(null, "flip", "none") });
+
+        // The overrides are a list: compared item by item, not by reference.
+        Assert.Equal(Build(), Build() with { SideOffsetFunction = new PositioningOffset(0, 1, 0, 1, 0, new List<PositioningOffsetOverride> { new("right", "end", 3, 0, 0, 0, 0) }) });
+        Assert.NotEqual(Build(), Build() with { SideOffsetFunction = new PositioningOffset(0, 1, 0, 1, 0, [new PositioningOffsetOverride("left", "end", 3, 0, 0, 0, 0)]) });
     }
 
     [Fact(DisplayName = "comparing two options records allocates nothing")]
