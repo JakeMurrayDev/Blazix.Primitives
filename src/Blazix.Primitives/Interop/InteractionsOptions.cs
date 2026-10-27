@@ -60,6 +60,11 @@ internal sealed record InteractionsSessionOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Ending { get; init; }
 
+    /// <summary>Gets the number of requests the popup answered, canceled ones included.</summary>
+    /// <value>A counter that moves once per request the session routed; the default 0 is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int Answered { get; init; }
+
     /// <summary>Gets the dismissal configuration.</summary>
     /// <value>The configuration, or <see langword="null"/> when nothing dismisses the popup.</value>
     public InteractionsDismissOptions? Dismiss { get; init; }

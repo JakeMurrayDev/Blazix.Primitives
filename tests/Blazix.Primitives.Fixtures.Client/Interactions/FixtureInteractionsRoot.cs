@@ -67,6 +67,9 @@ public sealed class FixtureInteractionsRoot : ComponentBase, IAsyncDisposable
             activeTriggerId = triggerId;
         }
 
+        // The commit path sets the session's inputs before the render, so the behaviour's answer carries them.
+        session!.Open = Open;
+        session.ActiveTriggerId = activeTriggerId;
         StateHasChanged();
         await OnChanged.InvokeAsync();
     }

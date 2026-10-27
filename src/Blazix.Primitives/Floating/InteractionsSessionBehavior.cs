@@ -15,11 +15,17 @@ namespace Blazix.Primitives;
 /// The session of one popup: the token its parts join, the root's handle on the <c>interactions</c> module, the
 /// dismissal configuration and the routing of the module's requests into the popup's store.
 /// </summary>
+/// <remarks>
+/// Every request the session routes is answered with an update that moves <see cref="InteractionsSessionOptions.Answered"/>,
+/// sent once the store's sequence ran, so a root sets <see cref="Open"/> and <see cref="ActiveTriggerId"/> in its commit
+/// path, before its render.
+/// </remarks>
 internal sealed class InteractionsSessionBehavior : IAsyncDisposable
 {
     private readonly Func<OpenChangeRequest, Task> requestOpenChange;
     private readonly Func<Exception, Task> dispatchException;
     private readonly InteractionsAttachment attachment;
+    private int answered;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="InteractionsSessionBehavior"/> class.</summary>
@@ -112,6 +118,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         && string.Equals(session.ActiveTriggerId, ActiveTriggerId, StringComparison.Ordinal)
         && string.Equals(session.ParentToken, ParentToken, StringComparison.Ordinal)
         && string.Equals(session.FloatingId, FloatingId, StringComparison.Ordinal)
+        && session.Answered == answered
         && Equals(session.Dismiss, Dismiss);
 
     private InteractionsOptions BuildOptions() => new()
@@ -124,13 +131,25 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
             ParentToken = ParentToken,
             FloatingId = FloatingId,
             Ending = Ending,
+            Answered = answered,
             Dismiss = Dismiss,
         },
     };
 
     private void OnRequest(InteractionsRequest request)
     {
-        _ = Observe(requestOpenChange(InteractionsRequests.From(request)));
+        answered++;
+        _ = AnswerAsync(requestOpenChange(InteractionsRequests.From(request)));
+    }
+
+    // Design point 10 of M4 track 3 (settled by the orchestrator 2026-10-27; ADR 01 Amendments 2026-10-27's commit-path
+    // update): every routed request is answered, a canceled one too, so the module re-arms a session that requested a
+    // close. The counter moves before the store's sequence runs, so a commit's render sends it with the committed state;
+    // a canceled request renders nothing, and this send carries it alone.
+    private async Task AnswerAsync(Task request)
+    {
+        await Observe(request);
+        await attachment.SyncAsync(new InteractionsTarget(null, null, Token), Unchanged, BuildOptions);
     }
 
     // WebAssembly only, synchronously inside the keydown: only a consumer callback that completes synchronously can cancel
@@ -138,6 +157,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     private DecisionPolicy DecideEscape(EventSnapshot snapshot)
     {
         OpenChangeEventDetails details = new(EventReason.EscapeKey, snapshot);
+        answered++;
         Task request;
         try
         {
@@ -149,7 +169,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
             return DecisionPolicy.PreventAndStop;
         }
 
-        _ = Observe(request);
+        _ = AnswerAsync(request);
         return Verdict(details);
     }
 
