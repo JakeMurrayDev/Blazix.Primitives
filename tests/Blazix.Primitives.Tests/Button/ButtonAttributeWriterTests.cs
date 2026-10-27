@@ -102,6 +102,40 @@ public sealed class ButtonAttributeWriterTests
         Assert.All(attributes, entry => Assert.Contains(entry.Name, new[] { "type", "role", "tabindex", "disabled", "aria-disabled" }));
     }
 
+    [Theory(DisplayName = "port: the input item variant renders only aria-disabled=\"true\", and only while disabled")]
+    [Trait("Requirement", "UBT-DOM-12")]
+    [Trait("Requirement", "TLB-DOM-07")]
+    [Trait("Requirement", "TLB-ARIA-04")]
+    [InlineData(false, null)]
+    [InlineData(true, "true")]
+    public void Port_the_input_item_variant_renders_only_aria_disabled_while_disabled(bool disabled, string? ariaDisabled)
+    {
+        AttributeList attributes = new();
+
+        ButtonAttributeWriter.WriteInputItem(attributes, disabled);
+
+        // No type, role, tabindex or disabled: the composite, non-native resolution of a toolbar input.
+        Assert.Equal(ariaDisabled, Text(attributes, "aria-disabled"));
+        Assert.Equal(disabled ? 1 : 0, attributes.Count);
+    }
+
+    [Fact(DisplayName = "port: the input item variant writes over an aria-disabled already in the list while disabled")]
+    [Trait("Requirement", "TLB-DOM-11")]
+    public void Port_the_input_item_variant_writes_over_an_aria_disabled_already_in_the_list()
+    {
+        // The part calls it on the merged attributes, so a consumer's aria-disabled loses while the input is disabled.
+        AttributeList disabled = new();
+        disabled.Set("aria-disabled", "false");
+        AttributeList enabled = new();
+        enabled.Set("aria-disabled", "false");
+
+        ButtonAttributeWriter.WriteInputItem(disabled, disabled: true);
+        ButtonAttributeWriter.WriteInputItem(enabled, disabled: false);
+
+        Assert.Equal("true", Text(disabled, "aria-disabled"));
+        Assert.Equal("false", Text(enabled, "aria-disabled"));
+    }
+
     private static void AssertRow(bool native, bool composite, bool? focusableWhenDisabled, bool disabled, string? tabIndex, bool disabledAttribute, string? ariaDisabled)
     {
         AttributeList attributes = Write(native, disabled, focusableWhenDisabled, composite);
