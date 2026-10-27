@@ -259,6 +259,53 @@ public sealed class ToolbarRootTests : IDisposable
         Assert.Equal("horizontal", cut.Find("[role=separator]").GetAttribute("aria-orientation"));
     }
 
+    [Fact(DisplayName = "port: the toolbar names nothing itself, and a consumer aria-label is forwarded")]
+    [Trait("Requirement", "TLB-ARIA-08")]
+    public void Port_the_toolbar_names_nothing_itself()
+    {
+        IRenderedComponent<ToolbarRoot> unnamed = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarGroup>());
+        IRenderedComponent<ToolbarRoot> named = Context.Render<ToolbarRoot>(p => p.AddUnmatched("aria-label", "Formatting"));
+
+        foreach (IElement element in new[] { ToolbarTestContext.Root(unnamed), unnamed.Find("[role=group]") })
+        {
+            Assert.False(element.HasAttribute("aria-label"));
+            Assert.False(element.HasAttribute("aria-labelledby"));
+        }
+
+        Assert.Equal("Formatting", ToolbarTestContext.Root(named).GetAttribute("aria-label"));
+    }
+
+    [Fact(DisplayName = "port: an element that is not a toolbar part is not an item, and every item renders tabindex -1 before the module publishes")]
+    [Trait("Requirement", "TLB-EDGE-09")]
+    [Trait("Requirement", "TLB-EDGE-07")]
+    [Trait("Requirement", "TLB-STR-01")]
+    public void Port_an_element_that_is_not_a_toolbar_part_is_not_an_item()
+    {
+        IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent(builder =>
+        {
+            builder.OpenElement(0, "button");
+            builder.AddAttribute(1, "type", "button");
+            builder.AddAttribute(2, "data-testid", "plain");
+            builder.CloseElement();
+            builder.OpenComponent<ToolbarButton>(3);
+            builder.CloseComponent();
+            builder.OpenComponent<ToolbarLink>(4);
+            builder.AddAttribute(5, "href", "#");
+            builder.CloseComponent();
+            builder.OpenComponent<ToolbarInput>(6);
+            builder.CloseComponent();
+        }));
+
+        IElement plain = cut.Find("[data-testid=plain]");
+        IElement[] items = [cut.Find("[role=toolbar] > button:not([data-testid])"), cut.Find("a"), cut.Find("input")];
+        Assert.Equal(items.Select(item => item.GetAttribute("id")!), ToolbarTestContext.ItemIds(test.LastCompositeOptions));
+        Assert.False(plain.HasAttribute("tabindex"));
+        Assert.False(plain.HasAttribute("id"));
+
+        // The C# markup, also in prerender: the tab stop is the module's, written from its first publication.
+        Assert.All(items, item => Assert.Equal("-1", item.GetAttribute("tabindex")));
+    }
+
     [Theory(DisplayName = "port: a toolbar part outside ToolbarRoot throws the missing-context error")]
     [Trait("Requirement", "TLB-STR-02")]
     [Trait("Requirement", "TLB-EDGE-01")]
