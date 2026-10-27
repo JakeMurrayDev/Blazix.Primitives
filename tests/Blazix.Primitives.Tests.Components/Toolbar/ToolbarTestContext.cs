@@ -68,6 +68,10 @@ public sealed class ToolbarTestContext : IDisposable
     public static string[] ItemIds(string optionsJson) =>
         [.. JsonDocument.Parse(optionsJson).RootElement.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetString()!)];
 
+    /// <summary>Gets the items an options JSON carries, each as its JSON text, in the order sent.</summary>
+    public static string[] Items(string optionsJson) =>
+        [.. JsonDocument.Parse(optionsJson).RootElement.GetProperty("items").EnumerateArray().Select(item => item.GetRawText())];
+
     /// <summary>The snapshot JSON of a keydown, as the modules take it for their decisions.</summary>
     public static string KeyDownJson(string key, string? targetId, string tagName = "BUTTON")
     {

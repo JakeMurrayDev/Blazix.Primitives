@@ -78,6 +78,106 @@ public sealed class ToggleGroupToolbarTests : IDisposable
         Assert.True(ToggleTestContext.Toggles(own)[0].HasAttribute("data-disabled"));
     }
 
+    [Fact(DisplayName = "port: the direct toggles of a toolbar's group send their disabled state and are not focusable when disabled, also after a change")]
+    [Trait("Requirement", "TLB-STA-03")]
+    [Trait("Requirement", "TLB-STA-06")]
+    [Trait("Requirement", "TGL-STR-02")]
+    [Trait("Requirement", "TGG-EDGE-07")]
+    public void Port_the_direct_toggles_of_a_toolbars_group_send_their_flags()
+    {
+        IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarGroup>(tg => tg
+            .AddChildContent<ToggleGroup>(g => g.AddChildContent(builder =>
+            {
+                builder.OpenComponent<Toggle>(0);
+                builder.AddComponentParameter(1, nameof(Toggle.Value), "one");
+                builder.CloseComponent();
+                builder.OpenComponent<Toggle>(2);
+                builder.AddComponentParameter(3, nameof(Toggle.Value), "two");
+                builder.AddComponentParameter(4, nameof(Toggle.Disabled), true);
+                builder.CloseComponent();
+            }))));
+        string[] ids = [.. ToggleTestContext.Toggles(cut).Select(toggle => toggle.GetAttribute("id")!)];
+        Assert.Equal([$$"""{"id":"{{ids[0]}}"}""", $$"""{"id":"{{ids[1]}}","disabled":true}"""], ToolbarTestContext.Items(test.LastCompositeOptions));
+
+        // "disables direct ToggleGroup children when Toolbar.Group is disabled": both toggles are natively disabled and sent so.
+        cut.FindComponent<ToolbarGroup>().Render(p => p.Add(x => x.Disabled, true));
+        Assert.Equal([$$"""{"id":"{{ids[0]}}","disabled":true}""", $$"""{"id":"{{ids[1]}}","disabled":true}"""], ToolbarTestContext.Items(test.LastCompositeOptions));
+        Assert.All(ToggleTestContext.Toggles(cut), toggle => Assert.True(toggle.HasAttribute("disabled")));
+    }
+
+    [Fact(DisplayName = "port: a toggle substituted into a toolbar button registers once, with the button's flags, and changes its group's value")]
+    [Trait("Requirement", "TLB-STA-03")]
+    [Trait("Requirement", "TLB-STR-05")]
+    [Trait("Requirement", "TLB-EDGE-12")]
+    [Trait("Requirement", "TLB-ARIA-09")]
+    [Trait("Requirement", "CMP-STR-04")]
+    public void Port_a_toggle_substituted_into_a_toolbar_button_registers_once()
+    {
+        List<string> presses = [];
+        RenderFragment toggle = builder =>
+        {
+            builder.OpenComponent<Toggle>(0);
+            builder.AddComponentParameter(1, nameof(Toggle.OnPressedChange), EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, e => presses.Add(e.Value ? "true" : "false")));
+            builder.CloseComponent();
+        };
+        RenderFragment buttons(bool disabled) => builder =>
+        {
+            builder.OpenComponent<ToolbarButton>(0);
+            builder.AddComponentParameter(1, nameof(ToolbarButton.Render), toggle);
+            builder.AddComponentParameter(2, nameof(ToolbarButton.Disabled), disabled);
+            builder.AddAttribute(3, "value", "apple");
+            builder.CloseComponent();
+            builder.OpenComponent<ToggleGroup>(4);
+            builder.AddComponentParameter(5, nameof(ToggleGroup.ChildContent), (RenderFragment)(group =>
+            {
+                foreach (string value in new[] { "one", "two" })
+                {
+                    group.OpenComponent<ToolbarButton>(0);
+                    group.SetKey(value);
+                    group.AddComponentParameter(1, nameof(ToolbarButton.Render), toggle);
+                    group.AddComponentParameter(2, nameof(ToolbarButton.Disabled), disabled);
+                    group.AddAttribute(3, "value", value);
+                    group.CloseComponent();
+                }
+            }));
+            builder.CloseComponent();
+        };
+
+        // "renders toggle and toggle group": three buttons with aria-pressed, three registrations, the outer ones.
+        IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent(buttons(disabled: false)));
+        IReadOnlyList<IElement> elements = cut.FindAll("button");
+        Assert.Equal(3, elements.Count);
+        Assert.All(elements, element => Assert.Equal("false", element.GetAttribute("aria-pressed")));
+        Assert.Equal(elements.Select(element => element.GetAttribute("id")!), ToolbarTestContext.ItemIds(test.LastCompositeOptions));
+        Assert.All(ToolbarTestContext.Items(test.LastCompositeOptions), item => Assert.Contains("\"focusableWhenDisabled\":true", item, StringComparison.Ordinal));
+
+        // "handles interactions", the click half: each toggle presses once, the grouped ones through their group.
+        cut.FindAll("button")[0].Click();
+        cut.FindAll("button")[1].Click();
+        Assert.Equal(["true", "true"], presses);
+        Assert.Equal("true", cut.FindAll("button")[0].GetAttribute("aria-pressed"));
+        Assert.Equal("true", cut.FindAll("button")[1].GetAttribute("aria-pressed"));
+        cut.FindAll("button")[2].Click();
+        Assert.Equal("false", cut.FindAll("button")[1].GetAttribute("aria-pressed"));
+        Assert.Equal("true", cut.FindAll("button")[2].GetAttribute("aria-pressed"));
+
+        // "disabled state": the outer registration is focusable when disabled, the toggles are aria-disabled and ignore clicks.
+        IRenderedComponent<ToolbarRoot> disabled = Context.Render<ToolbarRoot>(p => p.AddChildContent(buttons(disabled: true)));
+        Assert.All(ToolbarTestContext.Items(test.LastCompositeOptions), item => Assert.Contains("\"disabled\":true,\"focusableWhenDisabled\":true", item, StringComparison.Ordinal));
+        Assert.All(disabled.FindAll("button"), element =>
+        {
+            Assert.Equal("true", element.GetAttribute("aria-disabled"));
+            Assert.True(element.HasAttribute("data-disabled"));
+        });
+        presses.Clear();
+        foreach (IElement element in disabled.FindAll("button"))
+        {
+            element.Click();
+        }
+
+        Assert.Empty(presses);
+    }
+
     [Fact(DisplayName = "port: inside a toolbar the group's Orientation and LoopFocus send nothing, and data-orientation is its own")]
     [Trait("Requirement", "TGG-EDGE-06")]
     [Trait("Requirement", "TGG-KEY-10")]
