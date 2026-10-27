@@ -203,6 +203,20 @@ public sealed class ButtonTwinContractTests
     }
 
     [Fact]
+    [Trait("Requirement", "UBT-DOM-12")]
+    [Trait("Requirement", "TLB-KEY-13")]
+    public void The_input_item_option_is_sent_only_when_turned_on()
+    {
+        // ADR 04 Amendments 2026-10-26 (the button row): Toolbar.Input's option of the button module.
+        Assert.Equal(
+            """{"disabled":true,"focusableWhenDisabled":true,"native":false,"composite":true,"inputItem":true,"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(
+                new ButtonOptions { Disabled = true, FocusableWhenDisabled = true, Native = false, Composite = true, InputItem = true, DevelopmentChecks = false },
+                BlazixJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("inputItem", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+    }
+
+    [Fact]
     [Trait("Requirement", "UBT-EVT-09")]
     [Trait("Requirement", "SWT-EVT-03")]
     public void OnToggle_raises_Toggled_with_the_new_checked_value_and_the_input_click()

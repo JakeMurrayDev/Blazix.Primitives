@@ -664,6 +664,55 @@ describe('button module: focusable when disabled', () => {
   });
 });
 
+// UBT-DOM-12, TLB-KEY-13, TLB-PTR-02, UBT-EVT-02: the `inputItem` option of Toolbar.Input (ADR 04 Amendments 2026-10-26,
+// the `button` row). An input never activates and its Space is typed; while disabled and focusable it keeps the key
+// prevention and the press suppression.
+describe.each([
+  ['Server', false],
+  ['WebAssembly', true],
+])('button module: input item (%s)', (_mode, synchronous) => {
+  const inputItem: Partial<ButtonOptions> = { native: false, composite: true, focusableWhenDisabled: true, inputItem: true };
+
+  it('an input item never clicks on Enter or Space and leaves both keys to the browser', () => {
+    const { element, onClick, fake } = mount('input', inputItem, { twin: { synchronous } });
+
+    expect(keyDown(element, 'Enter').defaultPrevented).toBe(false);
+    expect(keyDown(element, SPACE).defaultPrevented).toBe(false);
+    expect(keyUp(element, SPACE).defaultPrevented).toBe(false);
+    expect(keyUp(element, 'Enter').defaultPrevented).toBe(false);
+    expect(onClick).toHaveBeenCalledTimes(0);
+    expect(fake.decisions).toEqual([]);
+  });
+
+  it('a disabled, focusable input item prevents every key but Tab before later listeners and keeps them propagating, prevents click and pointerdown, and prevents nothing once enabled', () => {
+    const ancestor = document.createElement('div');
+    document.body.appendChild(ancestor);
+    const seenByAncestor = vi.fn();
+    ancestor.addEventListener('keydown', seenByAncestor);
+    const { element, handle, onClick } = mount('input', { ...inputItem, disabled: true }, { parent: ancestor, twin: { synchronous } });
+    const preventedBeforeLaterListener: boolean[] = [];
+    element.addEventListener('keydown', (event) => preventedBeforeLaterListener.push(event.defaultPrevented));
+
+    expect(keyDown(element, 'ArrowRight').defaultPrevented).toBe(true);
+    expect(keyDown(element, SPACE).defaultPrevented).toBe(true);
+    expect(keyDown(element, 'Enter').defaultPrevented).toBe(true);
+    expect(keyDown(element, 'Tab', { shiftKey: true }).defaultPrevented).toBe(false);
+    expect(preventedBeforeLaterListener).toEqual([true, true, true, false]);
+    expect(seenByAncestor).toHaveBeenCalledTimes(4);
+    expect(click(element).defaultPrevented).toBe(true);
+    expect(pointer(element, 'pointerdown', { pointerType: 'mouse' }).defaultPrevented).toBe(true);
+
+    handle.update(optionsJson(inputItem));
+
+    expect(keyDown(element, SPACE).defaultPrevented).toBe(false);
+    expect(keyDown(element, 'Enter').defaultPrevented).toBe(false);
+    expect(click(element).defaultPrevented).toBe(false);
+    expect(pointer(element, 'pointerdown', { pointerType: 'mouse' }).defaultPrevented).toBe(false);
+    // The two clicks this test dispatched, and no synthetic one.
+    expect(onClick).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('button module: development checks', () => {
   it('reports a native-mode element that is not a button once per check', () => {
     const { fake } = mount('span', { native: true, developmentChecks: true });
