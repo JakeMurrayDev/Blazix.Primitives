@@ -26,11 +26,11 @@ internal sealed class PopupScrollLockBehavior : IAsyncDisposable
     {
         if (handle is not null)
         {
-            await handle.DisposeAsync().ConfigureAwait(false);
+            await handle.DisposeAsync();
             handle = null;
         }
 
-        await twin.DisposeAsync().ConfigureAwait(false);
+        await twin.DisposeAsync();
     }
 
     /// <summary>Attaches to the reference element once the lock is enabled, and sends a change of <paramref name="enabled"/>.</summary>
@@ -47,7 +47,7 @@ internal sealed class PopupScrollLockBehavior : IAsyncDisposable
                 return;
             }
 
-            handle = await twin.AttachAsync(element, new ScrollLockOptions { Enabled = true }).ConfigureAwait(false);
+            handle = await twin.AttachAsync(element, new ScrollLockOptions { Enabled = true });
             sentEnabled = true;
             return;
         }
@@ -55,7 +55,7 @@ internal sealed class PopupScrollLockBehavior : IAsyncDisposable
         if (sentEnabled != enabled)
         {
             sentEnabled = enabled;
-            await handle.UpdateAsync(new ScrollLockOptions { Enabled = enabled }).ConfigureAwait(false);
+            await handle.UpdateAsync(new ScrollLockOptions { Enabled = enabled });
         }
     }
 }
