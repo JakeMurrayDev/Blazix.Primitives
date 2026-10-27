@@ -569,7 +569,13 @@ public sealed class FieldValidationTests
         harness.Mount();
 
         harness.Change("abc");
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        // The fault reaches the boundary through three posts to the test's synchronization context (the validator's yield,
+        // the observer's continuation, the dispatch); a busy runner can take longer than any fixed delay, so the test waits
+        // for it, up to a deadline that a fault which never arrives still fails.
+        for (int waited = 0; harness.Exceptions.Count == 0 && waited < 5_000; waited += 10)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
 
         Exception exception = Assert.Single(harness.Exceptions);
         Assert.Equal("network", exception.Message);
