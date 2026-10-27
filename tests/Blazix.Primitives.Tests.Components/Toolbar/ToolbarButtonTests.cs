@@ -95,8 +95,9 @@ public sealed class ToolbarButtonTests : IDisposable
             .Add(x => x.FocusableWhenDisabled, focusableWhenDisabled)
             .Add(x => x.Disabled, disabled)));
 
+        // A non-native row on the default element still gets the default element's type="button" (RND-STR-05).
         IElement button = cut.Find("button");
-        Assert.Equal(native ? "button" : null, button.GetAttribute("type"));
+        Assert.Equal("button", button.GetAttribute("type"));
         Assert.Equal(native ? null : "button", button.GetAttribute("role"));
         Assert.Equal(disabledAttribute, button.HasAttribute("disabled"));
         Assert.Equal(ariaDisabled, button.GetAttribute("aria-disabled"));

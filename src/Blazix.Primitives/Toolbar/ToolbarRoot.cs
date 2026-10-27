@@ -43,7 +43,7 @@ public static class ToolbarRootDataAttributes
 /// buttons, links, inputs and the toggles of a toggle group.
 /// </summary>
 /// <remarks>
-/// <see cref="Disabled"/> disables every <c>ToolbarButton</c> and <c>ToolbarInput</c> in the toolbar, and
+/// <see cref="Disabled"/> disables every <see cref="ToolbarButton"/> and <c>ToolbarInput</c> in the toolbar, and
 /// every toggle of a <see cref="ToggleGroup"/> in it; a <see cref="ToolbarLink"/> is never disabled. Give the toolbar an
 /// accessible name with an <c>aria-label</c> or <c>aria-labelledby</c> attribute.
 /// </remarks>
