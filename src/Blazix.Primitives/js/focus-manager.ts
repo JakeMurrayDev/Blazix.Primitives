@@ -659,9 +659,9 @@ export interface OpenChangeRelay {
   /** The id of the trigger the change names. */
   triggerId?: string | null;
   /** The revision of a close the same batch committed before this open, or `null` when there was none. */
-  closedRevision?: number | null;
+  coalescedCloseRevision?: number | null;
   /** The reason of that close. */
-  closedReason?: string | null;
+  coalescedCloseReason?: string | null;
 }
 
 /** The options of a focus manager handle; mirrors `FocusManagerOptions` in C#. */
