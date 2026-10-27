@@ -1,0 +1,35 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-nested` fixture (tests/browser/composite.spec.ts): Base UI's NestedItemsRoot (CompositeRoot.test.tsx),
+    for "keeps outer metadata and focus navigation when items share a DOM node" (CMP-STR-04, CMP-STA-29; M3 track 1, E3
+    and E4). A horizontal root that derives its disabled indices from the items' flags holds a first item focusable when
+    disabled, then two outer items focusable when disabled whose element is an inner item that is not. The outer
+    registration wins, so the shared elements stay navigable.
+*@
+<FixtureContainer Name="composite-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-before>Before</button>
+
+    <FixtureCompositeRoot @ref="root" Orientation="Orientation.Horizontal" DeriveDisabledIndices="true" data-root>
+        <FixtureCompositeItem Tag="button" type="button" Disabled="true" FocusableWhenDisabled="true" data-item="first">first</FixtureCompositeItem>
+        <FixtureCompositeItem Tag="button" type="button" Disabled="true" FocusableWhenDisabled="true" data-item="second">
+            <Render>
+                <FixtureCompositeItem Tag="button" Disabled="true">second</FixtureCompositeItem>
+            </Render>
+        </FixtureCompositeItem>
+        <FixtureCompositeItem Tag="button" type="button" Disabled="true" FocusableWhenDisabled="true" data-item="third">
+            <Render>
+                <FixtureCompositeItem Tag="button" Disabled="true">third</FixtureCompositeItem>
+            </Render>
+        </FixtureCompositeItem>
+    </FixtureCompositeRoot>
+</FixtureContainer>
+
+@code {
+    private FixtureCompositeRoot? root;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [root];
+}

@@ -1,0 +1,138 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.ToggleFixtures
+@inherits ToggleFixtureBase
+
+@*
+    The `toggle-group-basic` fixture (tests/browser/toggle-group.spec.ts, toggle.spec.ts): standalone groups, each case
+    recording the toggles' OnPressedChange, the group's OnValueChange and the consumer's key presses.
+    - `keys`: two toggles, for "key: $key toggles the pressed state" and "fires when the $key is pressed".
+    - `render`: Toggle.test.tsx's "should pass composite props" page, one toggle rendered by a render function in a group
+      whose DefaultValue holds it.
+    - `home-end`, `no-loop` (LoopFocus="false"): three toggles.
+    - `multiple`: DefaultValue ["one"], with a button that flips Multiple, for "preserves selection and roving focus when
+      standalone".
+    - `disabled-first`, `disabled-middle`: three toggles, the first or the middle one disabled (TGG-FOC-02, TGG-KEY-08).
+    - `reorder`: three toggles and a button that reverses their order (TGG-FOC-04).
+    - `toggle-keydown`: the toggles' C# onkeydown, which calls PreventPartHandler() for Home (design point 12.3).
+    - `group-keydown`: the group's C# onkeydown, which calls PreventPartHandler() for ArrowRight (TGG-API-09).
+    - `wrapper-keydown`: a C# onkeydown on an element between the toggles and the group (TGG-DOM-06).
+*@
+<FixtureContainer Name="toggle-group-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-toggle] { display: inline-block; min-width: 2rem; min-height: 1rem; }</style>
+
+    <ToggleCaseFrame Name="keys" Case="keys">
+        <ToggleGroup @ref="Group" OnValueChange="keys.Change" data-group>
+            <Toggle @ref="Toggle" Value="one" OnPressedChange="keys.Press" data-toggle data-value="one">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" OnPressedChange="keys.Press" data-toggle data-value="two">2</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="render" Case="render">
+        <ToggleGroup @ref="Group" DefaultValue="s_left" data-group>
+            <Toggle @ref="Toggle" Value="left">
+                <RenderFunction Context="props">
+                    <button type="button" @attributes="props.Attributes" data-toggle data-value="left" data-pressed-state="@(props.State.Pressed ? "true" : "false")">Left</button>
+                </RenderFunction>
+            </Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="home-end" Case="homeEnd">
+        <ToggleGroup @ref="Group" data-group>
+            <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">2</Toggle>
+            <Toggle @ref="Toggle" Value="three" data-toggle data-value="three">3</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="no-loop" Case="noLoop">
+        <ToggleGroup @ref="Group" LoopFocus="false" data-group>
+            <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">2</Toggle>
+            <Toggle @ref="Toggle" Value="three" data-toggle data-value="three">3</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="multiple" Case="multipleCase">
+        <ToggleGroup @ref="Group" DefaultValue="s_one" Multiple="multiple" OnValueChange="multipleCase.Change" data-group>
+            <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">One</Toggle>
+            <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">Two</Toggle>
+        </ToggleGroup>
+        <button type="button" data-flip @onclick="() => multiple = !multiple">Flip</button>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="disabled-first" Case="disabledFirst">
+        <ToggleGroup @ref="Group" data-group>
+            <Toggle @ref="Toggle" Value="one" Disabled="true" data-toggle data-value="one">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">2</Toggle>
+            <Toggle @ref="Toggle" Value="three" data-toggle data-value="three">3</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="disabled-middle" Case="disabledMiddle">
+        <ToggleGroup @ref="Group" data-group>
+            <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" Disabled="true" data-toggle data-value="two">2</Toggle>
+            <Toggle @ref="Toggle" Value="three" data-toggle data-value="three">3</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="reorder" Case="reorder">
+        <ToggleGroup @ref="Group" data-group>
+            @foreach (string value in order)
+            {
+                <Toggle @key="value" @ref="Toggle" Value="@value" data-toggle data-value="@value">@value</Toggle>
+            }
+        </ToggleGroup>
+        <button type="button" data-reorder @onclick="() => order.Reverse()">Reverse</button>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="toggle-keydown" Case="toggleKeys">
+        <ToggleGroup @ref="Group" data-group>
+            <Toggle @ref="Toggle" Value="one" data-toggle data-value="one" @onkeydown="e => toggleKeys.KeyDown(ToggleSource, e)">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" data-toggle data-value="two" @onkeydown="e => toggleKeys.KeyDown(ToggleSource, e)">2</Toggle>
+            <Toggle @ref="Toggle" Value="three" data-toggle data-value="three" @onkeydown="e => toggleKeys.KeyDown(ToggleSource, e)">3</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="group-keydown" Case="groupKeys">
+        <ToggleGroup @ref="Group" data-group @onkeydown="e => groupKeys.KeyDown(GroupSource, e)">
+            <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">1</Toggle>
+            <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">2</Toggle>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="wrapper-keydown" Case="wrapperKeys">
+        <ToggleGroup @ref="Group" data-group>
+            <div data-wrapper @onkeydown="e => wrapperKeys.KeyDown(WrapperSource, e)">
+                <Toggle @ref="Toggle" Value="one" data-toggle data-value="one">1</Toggle>
+                <Toggle @ref="Toggle" Value="two" data-toggle data-value="two">2</Toggle>
+            </div>
+        </ToggleGroup>
+    </ToggleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private const string ToggleSource = "toggle";
+    private const string GroupSource = "group";
+    private const string WrapperSource = "wrapper";
+
+    private static readonly IReadOnlyList<string> s_one = ["one"];
+    private static readonly IReadOnlyList<string> s_left = ["left"];
+
+    private readonly ToggleCase keys = new();
+    private readonly ToggleCase render = new();
+    private readonly ToggleCase homeEnd = new();
+    private readonly ToggleCase noLoop = new();
+    private readonly ToggleCase multipleCase = new();
+    private readonly ToggleCase disabledFirst = new();
+    private readonly ToggleCase disabledMiddle = new();
+    private readonly ToggleCase reorder = new();
+    private readonly ToggleCase toggleKeys = new() { VetoKeys = ["Home"] };
+    private readonly ToggleCase groupKeys = new() { VetoKeys = ["ArrowRight"] };
+    private readonly ToggleCase wrapperKeys = new();
+    private readonly List<string> order = ["one", "two", "three"];
+    private bool multiple;
+}

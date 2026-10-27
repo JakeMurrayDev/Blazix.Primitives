@@ -1,0 +1,38 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-registration` fixture (tests/browser/composite.spec.ts): a registration-only list (CMP-STR-03; M3
+    track 1, E1), as TabsRoot's panels and AccordionRoot's items will use it. Keyed sections, each holding one list item
+    that renders its index as `data-index`: a button adds an item at the front (CMP-STA-15, -1 until the report; CMP-STA-10's
+    row on Server), another reorders the sections from a, b, c to b, a, c, which Blazor does by moving the keyed elements,
+    so only the module's move detection sees it (CMP-STA-11).
+*@
+<FixtureContainer Name="composite-registration" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-add @onclick="Add">Add an item at the front</button>
+    <button type="button" data-reorder @onclick="Reorder">Reorder</button>
+
+    <FixtureCompositeList @ref="list" data-list>
+        @foreach (string entry in entries)
+        {
+            <section @key="entry">
+                <FixtureCompositeListItem data-entry="@entry">@entry</FixtureCompositeListItem>
+            </section>
+        }
+    </FixtureCompositeList>
+</FixtureContainer>
+
+@code {
+    private List<string> entries = ["a", "b", "c"];
+    private FixtureCompositeList? list;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [];
+
+    protected override IEnumerable<FixtureCompositeList?> Lists => [list];
+
+    private void Add() => entries = ["new", .. entries];
+
+    private void Reorder() => entries = ["b", "a", .. entries.Where(entry => entry is not "a" and not "b")];
+}

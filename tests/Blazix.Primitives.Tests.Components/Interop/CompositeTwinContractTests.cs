@@ -72,6 +72,80 @@ public sealed class CompositeTwinContractTests
         Assert.Single(handle.Invocations["dispose"]);
     }
 
+    // M3 track 1, E3 (ADR 04 Amendments 2026-10-26, chosen by the user): sent only when set, so a group that uses none
+    // of them sends what it sent before.
+    [Fact]
+    [Trait("Requirement", "CMP-STA-08")]
+    [Trait("Requirement", "CMP-KEY-08")]
+    public void The_items_flags_and_deriveDisabledIndices_are_sent_only_when_set()
+    {
+        CompositeOptions options = new()
+        {
+            DeriveDisabledIndices = true,
+            Items =
+            [
+                new CompositeItemRegistration("a", null, Disabled: true, FocusableWhenDisabled: true),
+                new CompositeItemRegistration("b", "0", Disabled: true),
+                new CompositeItemRegistration("c", null),
+            ],
+        };
+
+        string json = JsonSerializer.Serialize(options, BlazixJsonContext.Default.CompositeOptions);
+
+        Assert.Contains("\"deriveDisabledIndices\":true", json, StringComparison.Ordinal);
+        Assert.Contains(
+            """
+            "items":[{"id":"a","disabled":true,"focusableWhenDisabled":true},{"id":"b","tabIndex":"0","disabled":true},{"id":"c"}]
+            """,
+            json,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("deriveDisabledIndices", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
+    // M3 track 1, E2 (ADR 04 Amendments 2026-10-26, chosen by the user): the items report, asked for only when set.
+    [Fact]
+    [Trait("Requirement", "CMP-EVT-03")]
+    public void ReportItems_is_sent_only_when_set_and_OnItemsChange_raises_ItemsChanged_with_the_ids_in_order()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        List<IReadOnlyList<string>> changes = [];
+        twin.ItemsChanged += changes.Add;
+
+        twin.OnItemsChange("""{"ids":["base-ui-3","base-ui-1"]}""");
+        twin.OnItemsChange("""{"ids":[]}""");
+
+        Assert.Equal(2, changes.Count);
+        Assert.Equal(["base-ui-3", "base-ui-1"], changes[0]);
+        Assert.Empty(changes[1]);
+        Assert.Contains("\"reportItems\":true", JsonSerializer.Serialize(new CompositeOptions { ReportItems = true }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("reportItems", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
+    // M3 track 1, E1 (ADR 04 Amendments 2026-10-26, chosen by the user): the registration-only mode, sent only when set.
+    [Fact]
+    [Trait("Requirement", "CMP-STR-03")]
+    public void RegistrationOnly_is_sent_only_when_set()
+    {
+        string json = JsonSerializer.Serialize(
+            new CompositeOptions { RegistrationOnly = true, Items = [new CompositeItemRegistration("base-ui-1", null)] },
+            BlazixJsonContext.Default.CompositeOptions);
+
+        Assert.Contains("\"registrationOnly\":true", json, StringComparison.Ordinal);
+        Assert.Contains("\"items\":[{\"id\":\"base-ui-1\"}]", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("registrationOnly", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
+    // M3 track 1, E5 (ADR 04 Amendments 2026-10-26, chosen by the user): the active-item follow, sent only when set.
+    [Fact]
+    [Trait("Requirement", "CMP-STA-22")]
+    [Trait("Requirement", "CMP-EDGE-09")]
+    public void FollowActiveItem_is_sent_only_when_set()
+    {
+        Assert.Contains("\"followActiveItem\":true", JsonSerializer.Serialize(new CompositeOptions { FollowActiveItem = true }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("followActiveItem", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-API-01")]
     [Trait("Requirement", "CMP-API-02")]

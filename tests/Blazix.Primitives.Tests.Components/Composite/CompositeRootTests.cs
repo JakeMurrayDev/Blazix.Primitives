@@ -375,6 +375,25 @@ public sealed class CompositeRootTests : IDisposable
 
     // --- CMP-STR-02, CMP-EDGE-01 (internal guards) --------------------------------------------------------------------
 
+    // M3 track 1, E5 (ADR 04 Amendments 2026-10-26, chosen by the user): TabsList's option; the follow is the module's.
+    [Fact(DisplayName = "sends followActiveItem with the options, and one update when it changes")]
+    [Trait("Requirement", "CMP-STA-22")]
+    [Trait("Requirement", "CMP-STA-10")]
+    public void Sends_followActiveItem_and_one_update_when_it_changes()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
+            .Add(x => x.FollowActiveItem, true)
+            .AddChildContent(CompositeItems.Of("a", "b")));
+        JsonAssert(Assert.Single(host.Attaches), "followActiveItem", true);
+
+        cut.Render(p => p.Add(x => x.FollowActiveItem, false).AddChildContent(CompositeItems.Of("a", "b")));
+        string update = Assert.Single(host.UpdateOptions);
+        Assert.False(CompositeTestContext.Parse(update).TryGetProperty("followActiveItem", out _));
+
+        cut.Render(p => p.Add(x => x.FollowActiveItem, false).AddChildContent(CompositeItems.Of("a", "b")));
+        Assert.Single(host.UpdateOptions);
+    }
+
     [Fact(DisplayName = "an item rendered outside a composite root throws")]
     [Trait("Requirement", "CMP-STR-02")]
     [Trait("Requirement", "CMP-EDGE-01")]

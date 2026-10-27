@@ -1,0 +1,58 @@
+<DemoFrame Slug="toggle" Note="A toggle bound from outside, a disabled toggle and a toggle rendered as a span.">
+    <Hero>
+        <Toggle aria-label="Favorite" class="@ToggleClass">
+            <RenderFunction Context="props">
+                @if (props.State.Pressed)
+                {
+                    <button type="button" @attributes="props.Attributes">
+                        <HeartFilledIcon />
+                    </button>
+                }
+                else
+                {
+                    <button type="button" @attributes="props.Attributes">
+                        <HeartOutlineIcon />
+                    </button>
+                }
+            </RenderFunction>
+        </Toggle>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <Toggle aria-label="Bookmark" class="@ToggleClass" @bind-Pressed="bound">
+                @if (bound)
+                {
+                    <HeartFilledIcon />
+                }
+                else
+                {
+                    <HeartOutlineIcon />
+                }
+            </Toggle>
+            <button type="button" class="Control" @onclick="() => bound = !bound">Toggle from outside</button>
+            <span class="VariantName">pressed: <strong>@(bound ? "true" : "false")</strong></span>
+        </div>
+        <div class="Variant">
+            <Toggle aria-label="Favorite" Disabled="true" class="@DisabledClass">
+                <HeartOutlineIcon />
+            </Toggle>
+            <span class="VariantName">Disabled</span>
+        </div>
+        <div class="Variant">
+            <Toggle aria-label="Favorite" NativeButton="false" class="@ToggleClass">
+                <Render><span></span></Render>
+                <ChildContent><HeartOutlineIcon /></ChildContent>
+            </Toggle>
+            <span class="VariantName">NativeButton="false" (a span with role="button", Enter and Space)</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string ToggleClass = "flex size-8 items-center justify-center border-none rounded-none bg-transparent text-neutral-950 dark:text-white select-none hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:bg-neutral-200 dark:active:not-data-disabled:bg-neutral-700 data-pressed:text-neutral-950 dark:data-pressed:text-white focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+
+    // The hero's classes, plus a dimmed disabled toggle.
+    private const string DisabledClass = ToggleClass + " data-disabled:opacity-50";
+
+    private bool bound;
+}
