@@ -111,11 +111,75 @@ public sealed class PortalTwinContractTests
         Assert.Equal(outerNode, Assert.Single(Assert.IsType<object[]>(attach.Arguments[3])));
     }
 
+    // Design point 3 (ADR 04 Amendments 2026-10-27): the move completes only once the module ran. A render during the
+    // pending first attach reaches TwinBase.AttachAsync, which hands back the pending handle at once.
+    [Fact]
+    [Trait("Requirement", "FLT-API-13")]
+    public async Task A_render_during_the_pending_first_attach_neither_attaches_again_nor_completes_the_move_early()
+    {
+        PendingModuleRuntime runtime = new();
+        PopupPortalBehavior behavior = new(runtime, () => { });
+        ElementReference node = new("portal-3");
+        try
+        {
+            Task first = behavior.OnAfterRenderAsync(node, container: null);
+            Task second = behavior.OnAfterRenderAsync(node, container: "#root");
+
+            Assert.False(behavior.Context.Moved.IsCompleted);
+            Assert.False(second.IsCompleted);
+
+            runtime.Module.SetResult(new RecordingModule());
+            await Task.WhenAll(first, second);
+
+            Assert.True(behavior.Context.Moved.IsCompletedSuccessfully);
+            RecordingModule module = (RecordingModule)await runtime.Module.Task;
+            Assert.Equal(["attach", "update"], module.Calls);
+        }
+        finally
+        {
+            // A failed assertion must not leave the dispose waiting on the held import.
+            runtime.Module.TrySetResult(new RecordingModule());
+            await behavior.DisposeAsync();
+        }
+    }
+
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();
         return handle;
+    }
+
+    // A runtime whose module import completes when the test says, so an attach stays pending.
+    private sealed class PendingModuleRuntime : IJSRuntime
+    {
+        public TaskCompletionSource<IJSObjectReference> Module { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
+            new((Task<TValue>)(object)Module.Task);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            new((Task<TValue>)(object)Module.Task);
+    }
+
+    // The imported module and the handle in one: records attach and update, the calls the behavior makes.
+    private sealed class RecordingModule : IJSObjectReference
+    {
+        public List<string> Calls { get; } = [];
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args)
+        {
+            Calls.Add(identifier);
+            return new(this is TValue reference ? reference : default!);
+        }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            Calls.Add(identifier);
+            return new(this is TValue reference ? reference : default!);
+        }
     }
 }
