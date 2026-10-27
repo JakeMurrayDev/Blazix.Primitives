@@ -10,8 +10,9 @@ namespace Blazix.Primitives.Tests.Components.Rendering;
 /// <summary>
 /// ADR 16 rule 3 at L2: the sequence numbers of the frames the pipeline emits. A frame the pipeline itself adds carries one
 /// of its documented literals (host 0, attributes 1, the part's own capture 2, the consumer's capture 3, the children
-/// region 100, a capture after the children 101, the region after the host element 102, the region before it 103), and
-/// every frame inside the children region carries the number the consumer's own fragment gave it. The frames are read from a <see cref="Renderer"/> of the test's own because bUnit
+/// region 100, a capture after the children 101, the region after the host element 102, the region before it 103, the
+/// opt-in host wrapper 104 and its attributes 105), and every frame inside the children region carries the number the
+/// consumer's own fragment gave it. The frames are read from a <see cref="Renderer"/> of the test's own because bUnit
 /// reaches them only through a protected member.
 /// </summary>
 public sealed class RenderPipelineSequenceTests : IDisposable
@@ -25,6 +26,8 @@ public sealed class RenderPipelineSequenceTests : IDisposable
     private const int TrailingCaptureSequence = 101;
     private const int AfterElementSequence = 102;
     private const int BeforeElementSequence = 103;
+    private const int HostWrapperSequence = 104;
+    private const int HostWrapperAttributeSequence = 105;
 
     private readonly ServiceProvider services = new ServiceCollection().AddBlazixPrimitives().BuildServiceProvider();
     private readonly FrameRenderer renderer;
@@ -213,6 +216,30 @@ public sealed class RenderPipelineSequenceTests : IDisposable
             Flatten(frames, 1, host));
         Assert.Equal($"Element:{HostSequence}", Shape(frames.Array[host]));
         int after = host + SubtreeLength(in frames.Array[host]);
+        Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
+        Assert.Equal(after + SubtreeLength(in frames.Array[after]), frames.Count);
+    }
+
+    [Fact(DisplayName = "the host wrapper sits at its literals around the host element and the regions before and after it stay outside")]
+    [Trait("Requirement", "ADR16-3")]
+    public void The_host_wrapper_sits_at_its_literals_around_the_host_element_and_the_regions_before_and_after_it_stay_outside()
+    {
+        ArrayRange<RenderTreeFrame> frames = renderer.Render(typeof(HostWrapperTests.WrappedPart), new Dictionary<string, object?>
+        {
+            ["data-testid"] = "root",
+        });
+
+        Assert.Equal($"Region:{BeforeElementSequence}", Shape(frames.Array[0]));
+        int wrapper = SubtreeLength(in frames.Array[0]);
+        Assert.Equal($"Element:{HostWrapperSequence}", Shape(frames.Array[wrapper]));
+        Assert.Equal("div", frames.Array[wrapper].ElementName);
+        Assert.Equal(
+            [$"Attribute:{HostWrapperAttributeSequence}", $"Attribute:{HostWrapperAttributeSequence}", $"Element:{HostSequence}"],
+            Flatten(frames, wrapper + 1, wrapper + 4));
+        int host = wrapper + 3;
+        Assert.Equal(wrapper + SubtreeLength(in frames.Array[wrapper]), host + SubtreeLength(in frames.Array[host]));
+        AssertAllAttributes(frames, host);
+        int after = wrapper + SubtreeLength(in frames.Array[wrapper]);
         Assert.Equal($"Region:{AfterElementSequence}", Shape(frames.Array[after]));
         Assert.Equal(after + SubtreeLength(in frames.Array[after]), frames.Count);
     }
