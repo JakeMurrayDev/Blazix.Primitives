@@ -212,6 +212,7 @@ The machine has two variables, the **mounted flag** and the **transition status*
 
 - **TRN-STA-14** — MUST. Popup roots that keep their status in the popup store expose a derived status that reads `'starting'` whenever `open && !mounted` (the window between the open commit and the store synchronisation), and the stored value otherwise. Consumers reading the status through the store therefore never observe "open but unset" during opening.
   Source: `utils/popups/store.ts:180-183`; store seeding at `utils/popups/popupStoreUtils.ts:598-605`. Test: none. (The store itself is specified in PSH.)
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green through PSH-STA-05's L1 titles on the popup store (the status evaluated at the write that flips the effective open state, `PopupStoreSelectorTests`).
 
 ### 4.2 DOM — attributes and styles
 
@@ -272,6 +273,7 @@ The machine has two variables, the **mounted flag** and the **transition status*
 
 - **TRN-ANI-03** — MUST. Closing a mounted part keeps it mounted (and therefore in the DOM, carrying `data-ending-style`) until on animations finished (TRN-ALG-03); the mounted flag then becomes `false` in a synchronous commit before the next paint. A closed part with no running animations is unmounted on the next frame after the completion wait was armed, plus one microtask. Server: see ADR 01 relaxation table.
   Source: `internals/useOpenChangeComplete.tsx:15-27`, `internals/useUnmountAfterClose.ts:118-127`, `internals/useAnimationsFinished.ts:75-82,101-110,161`. Test: [L4] `test/popupConformanceTests.tsx` "removes the popup when there is no exit animation defined"; `dialog/root/DialogRoot.test.tsx` "waits for the exit transition to finish before unmounting"; `checkbox/indicator/CheckboxIndicator.test.tsx` "should remove the indicator when the animation finishes".
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green on the test-only popup host through `popupConformanceTests` in `tests/browser/popup.spec.ts`, both modes: "is called on open once the enter animation finishes", "is called on close once the exit animation finishes" (the popup clause; the running animation witnessed by a recorded `animationstart`).
 
 **Animation detection**
 
@@ -301,6 +303,7 @@ The machine has two variables, the **mounted flag** and the **transition status*
 
 - **TRN-ANI-12** — MUST. When waiting for the starting attribute (the *open* completion): if the element carries `data-starting-style` when the wait is armed, the first inspection happens in the microtask that delivers the attribute's removal (attribute mutation observation, which reports changes as a microtask after the mutation; the removal itself is next frame per TRN-STA-04); otherwise the first inspection happens on the next frame.
   Source: `internals/useAnimationsFinished.ts:134-159`, `internals/useOpenChangeComplete.tsx:13` (passes `open` as the flag). Test: [L4] `popover/popup/PopoverPopupTransitionState.test.tsx` "starts each opening once when the popup is kept mounted" (completion `true` only after the enter transition that starts when `starting` clears); `test/popupConformanceTests.tsx` "is called on open once the enter animation finishes". Docs: CHANGELOG.md v1.1.0 "Fix `onOpenChangeComplete(true)` timing (#3558)".
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green on the test-only popup host through `popupConformanceTests` in `tests/browser/popup.spec.ts`, both modes: "removes the popup when there is no exit animation defined", "hides the kept-mounted popup once the exit animation finishes" (the popup clauses); the Popover title stays open to M4 track 5.
 
 - **TRN-ANI-13** — MUST. Arming a new wait on the same watcher cancels a previously armed but not yet started (frame-deferred) inspection. An inspection already in progress, and a pending attribute observation (TRN-ANI-12), are not cancelled by a new request; only their abort signal stops them.
   Source: `internals/useAnimationsFinished.ts:66,145-157`, `packages/utils/src/useAnimationFrame.ts:127-140`. Test: none.
@@ -318,6 +321,7 @@ The machine has two variables, the **mounted flag** and the **transition status*
 
 - **TRN-ANI-17** — MUST. An open-change completion watcher, while enabled, arms a wait (TRN-ALG-03) on every change of the open state and when it first becomes enabled, including on initial mount; the previously armed wait is aborted first. Arming happens after paint (or post-commit for discrete user events; only the relative ordering is normative). The wait passes the open state as the "wait for starting attribute" flag, so an open completion waits for `data-starting-style` to clear (TRN-ANI-12) and a close completion inspects on the next frame (TRN-ANI-11).
   Source: `internals/useOpenChangeComplete.tsx:9-27`. Test: [L4] `test/popupConformanceTests.tsx` "is called on open once the enter animation finishes".
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green on the test-only popup host through `popupConformanceTests` in `tests/browser/popup.spec.ts`, both modes: "hides the kept-mounted popup once the exit animation finishes" (`hidden` written by the module as the exit ends, `HiddenWhenUnmounted`, and by the part's next render).
 
 - **TRN-ANI-18** — MUST. Automatic unmount-after-close is enabled only while `mounted && !open && !preventUnmountingOnClose`; on completion, if the open state is still `false`, the part is unmounted (TRN-ALG-05). A completion that arrives after a reopen (open state `true`) is ignored.
   Source: `internals/useUnmountAfterClose.ts:118-127`. Test: [L2] `test/popupConformanceTests.tsx` "is called on close once the exit animation finishes"; `collapsible/panel/CollapsiblePanel.test.tsx` "does not restart the entrance transition when a close animation finishes after reopening".
@@ -394,9 +398,11 @@ Not applicable — this mechanism emits no ARIA attributes, handles no keyboard 
 
 - **TRN-EVT-01** — MUST. `onOpenChangeComplete(true)` fires once per open phase, from the popup element's completion watcher, on animations finished for the popup element where the inspection begins when `data-starting-style` is removed (next frame after the opening commit) or, if the attribute was already absent when the watcher was armed, next frame after arming; with no animations this resolves in the following microtask. It is guarded by the current open state (`if (open)`), so a wait that completes after a close fires nothing.
   Source: `popover/popup/PopoverPopup.tsx:56-64`, `tooltip/popup/TooltipPopup.tsx:38-46`, `preview-card/popup/PreviewCardPopup.tsx:37-45`, `dialog/popup/DialogPopup.tsx:47-56`, `drawer/popup/DrawerPopup.tsx:296-304`, `menu/popup/MenuPopup.tsx:98-106`, `combobox/popup/ComboboxPopup.tsx:64-72`, `select/popup/SelectPopup.tsx:178-186`. Test: [L4] `test/popupConformanceTests.tsx` "is called on open when there is no enter animation" (calls equal `[[true]]`); "is called on open once the enter animation finishes".
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green on the test-only popup host through `popupConformanceTests` in `tests/browser/popup.spec.ts`, both modes: "is called on open when there is no enter animation", "is called on open once the enter animation finishes".
 
 - **TRN-EVT-02** — MUST. `onOpenChangeComplete(false)` fires once per close phase, from the unmount cleanup (TRN-ANI-27), on animations finished for the popup element or when the unmount action runs. With no exit animation it fires on the next frame after the closing commit plus one microtask.
   Source: `utils/popups/popupStoreUtils.ts:594`, `select/root/SelectRoot.tsx:213`, `combobox/root/AriaCombobox.tsx:953`, `navigation-menu/root/NavigationMenuRoot.tsx:151`. Test: [L4] `test/popupConformanceTests.tsx` "is called on close when there is no exit animation" (calls equal `[[true],[false]]`); "is called on close once the exit animation finishes" (calls equal `[[false]]` after clearing).
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green on the test-only popup host through `popupConformanceTests` in `tests/browser/popup.spec.ts`, both modes: "is called on close when there is no exit animation", "is called on close once the exit animation finishes".
 
 - **TRN-EVT-03** — MUST NOT. The completion callback is not called when the component mounts closed.
   Source: popups are not rendered while unmounted (TRN-ANI-01); with `keepMounted` the popup's watcher runs with `open=false` and the `if (open)` guard suppresses the call (`popover/popup/PopoverPopup.tsx:60`). Test: [L2] `test/popupConformanceTests.tsx` "is not called on mount when closed".
@@ -540,6 +546,7 @@ openChangeComplete(enabled = true, open, elementRef, batch = false, onComplete):
 
   The consumer's `onComplete` always re-reads the live open state (`if (open)` / `if (!open)`) because a completion can land after a flip but before the abort (TRN-EDGE-05).
   Source: `internals/useOpenChangeComplete.tsx:9-28`. Test: [L4] `test/popupConformanceTests.tsx` "prop: onOpenChangeComplete" block (five tests).
+  Port note 2026-10-27 (M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): green on the test-only popup host through `popupConformanceTests` in `tests/browser/popup.spec.ts`, both modes: the completion titles above, the store applying the reported completion (`PopupStore.CompleteTransitionAsync`).
 
 - **TRN-ALG-05** — MUST. The implementation reproduces the following procedure exactly (unmount after close and the unmount action):
 

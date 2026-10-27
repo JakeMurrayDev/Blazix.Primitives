@@ -18,12 +18,12 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | architecture/rendering-and-composition.md | RND | approved | 123 reqs; conformance obligations in §4.9 |
 | architecture/event-details-and-reasons.md | EVD | approved | 83 reqs; reason matrix in §4.3.7 | |
 | architecture/composite-and-list-navigation.md | CMP | approved | 225 reqs; keyboard matrices §4.5-4.6, algorithms §5; revised 2026-10-27 (M2 track 3, M3 tracks 1, 5 and 6; the M5 rows listed in §10 items 12 to 15) | |
-| architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5 | |
-| architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3 | |
-| architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1 | |
+| architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5; revised 2026-10-27 (M4 track 1: the portal rows) | |
+| architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3; revised 2026-10-27 (M4 track 1: the popup store, handles and suites; §10 item 12) | |
+| architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1; revised 2026-10-27 (M4 track 1: the popup host; §10 item 11) | |
 | architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-23 (M2 track 1, PRs 1a and 1c) | |
 | architecture/button-behavior.md | UBT | approved | 100 reqs; revised 2026-10-27 (M3 tracks 2 and 4: composite mode, the input item option) |
-| architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store |
+| architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store; revised 2026-10-27 (M4 track 1: the scroll lock, §4.8) |
 | components/accordion.md | ACC | implemented | 101 reqs (opus) | builds on collapsible |
 | components/alert-dialog.md | ADL | approved | 30 reqs + adoption (opus) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |

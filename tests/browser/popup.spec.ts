@@ -9,6 +9,8 @@ import { popupConformanceTests } from './suites/popupConformanceTests';
 // by click from a C# onclick (design point 4), role and aria-haspopup `dialog`, an exit animation. Every test runs on both
 // render modes. Titles that press Escape are DIS-01's, proven by track 3's `interactions` module.
 
+// No title here asserts the `interactions` module's press semantics (a press's pointer type, open on press, the mixed
+// toggle): each presses by click through the C# onclick, so none is listed open to track 3 for press semantics.
 const escape = 'PSH-DIS-01 (Escape): open to M4 track 3, the interactions module; the popup host has no dismissal';
 
 popupConformanceTests({

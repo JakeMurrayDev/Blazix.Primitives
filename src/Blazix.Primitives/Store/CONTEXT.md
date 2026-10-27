@@ -45,7 +45,7 @@ The public surface, with what each member does (requirement IDs follow for trace
   - A notification in which no selection changed allocates nothing (UTL-STA-25..27).
 
   A part cascades its store with `IsFixed = true`, which BLZX2001 checks.
-- Not ported: `createSelector` and `createSelectorMemoized` (UTL-STA-29..33, UTL-ALG-04), which nothing in Base UI 1.9.0 uses, and `StoreInspector` (UTL-STA-28). `NullStore` and the popup store come in M4 (PSH).
+- Not ported: `createSelector` and `createSelectorMemoized` (UTL-STA-29..33, UTL-ALG-04), which nothing in Base UI 1.9.0 uses, and `StoreInspector` (UTL-STA-28). The popup store came with M4 track 1 (`../Popup/`); `NullStore` became the popup store's inert flag (`PopupStore(..., inert: true)`, a handle's fallback store; ADR 05 Amendments 2026-10-27), not a separate type.
 
 ## Outputs
 
