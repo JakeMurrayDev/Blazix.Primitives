@@ -1018,64 +1018,352 @@ function createHoverFloatingController(_context: HandleContext): Controller {
 // #region delay-group: FloatingDelayGroup and useDelayGroup (FLT-ALG-23, FLT-EVT-07, FLT-ANI-01)
 // ---------------------------------------------------------------------------------------------------------------
 
-/** One group per provider token: the sanctioned page-global state of the module beside the session map. */
+// A delay as a provider gives it (Base UI's `Delay` in its object form; FloatingDelayGroup's `delay`).
+interface GroupDelay {
+  open: number | undefined;
+  close: number | undefined;
+}
+
+// The member that opened last (Base UI's `currentContextRef.current`): its session, whose Root twin closes it when
+// another member opens. Base UI also keeps the member's `setIsInstantPhase`; the port carries the phase on the requests
+// instead (`delayGroupInstantPhase` on the open, `instant: true` on the previous member's close), and C# holds it.
+interface DelayGroupContext {
+  record: SessionRecord;
+}
+
+// One group per provider token: the sanctioned page-global state of the module beside the session map (FLT-ALG-23's
+// `G`). The refs of FloatingDelayGroup.tsx:64-105 are its fields.
 interface DelayGroup {
   token: string;
+  /** The provider handles that hold the group; the last dispose deletes it. */
+  references: number;
+  /** Base UI's `delayRef.current`: what a member reads. */
+  delay: GroupDelay;
+  /** Base UI's `initialDelayRef.current`: the provider's delay, restored on reset. */
+  initialDelay: GroupDelay;
+  /** How long the group stays warm after its last member closed. */
+  timeoutMs: number;
+  timer: Timer;
+  /** The session token of the member keeping the group active (Base UI's `currentIdRef.current`, the `floatingId`). */
+  currentId: string | null;
+  currentContext: DelayGroupContext | null;
 }
 
 const delayGroups = new Map<string, DelayGroup>();
 
-function attachProvider(token: string, _initialOptions: InteractionsOptions, _twinReference: DotNetTwin): TwinHandle {
+// useHoverShared.ts:46-57 (`getDelay`) over the object form.
+function resolveGroupDelay(value: GroupDelay, prop: 'open' | 'close'): number | undefined {
+  return value[prop];
+}
+
+function providerDelayOf(options: InteractionsOptions): GroupDelay {
+  return { open: options.provider?.delayOpen ?? undefined, close: options.provider?.delayClose ?? undefined };
+}
+
+/**
+ * Defers a hook's effects to a microtask, once however often it is asked before then: React runs a hook's effects after
+ * the commit of the render an event or a store change caused, and the session emits `openchange` before it applies the
+ * committed state, so the effects re-read the session a microtask later, still before the next paint.
+ * @param run The effects.
+ * @returns The scheduler.
+ */
+function createDeferredRun(run: () => void): () => void {
+  let scheduled = false;
+  return () => {
+    if (scheduled) {
+      return;
+    }
+    scheduled = true;
+    queueMicrotask(() => {
+      scheduled = false;
+      run();
+    });
+  };
+}
+
+/**
+ * Attaches a TooltipProvider's group (FloatingDelayGroup): the group of the token is created by the first handle and
+ * deleted with the last; an `update` that changes the delay replaces the provider's delay, keeping the open delay at 0
+ * while a member is current.
+ * @param token The provider token.
+ * @param initialOptions The options of the `attach`.
+ * @param _twinReference The twin, which the group never reports to.
+ * @returns The handle.
+ */
+function attachProvider(token: string, initialOptions: InteractionsOptions, _twinReference: DotNetTwin): TwinHandle {
   let group = delayGroups.get(token);
   if (!group) {
-    group = { token };
+    const initialDelay = providerDelayOf(initialOptions);
+    group = {
+      token,
+      references: 0,
+      delay: initialDelay,
+      initialDelay,
+      timeoutMs: 0,
+      timer: createTimer(),
+      currentId: null,
+      currentContext: null,
+    };
     delayGroups.set(token, group);
   }
+  group.references += 1;
   const owned = group;
+  let delay = providerDelayOf(initialOptions);
   let disposed = false;
+
+  // FLT-EDGE-12: FloatingDelayGroup.tsx:73-85, run at mount and when the provider's `delay` changes.
+  const applyDelay = () => {
+    owned.initialDelay = delay;
+
+    if (!owned.currentId) {
+      owned.delay = delay;
+      return;
+    }
+
+    owned.delay = {
+      open: resolveGroupDelay(owned.delay, 'open'),
+      close: resolveGroupDelay(delay, 'close'),
+    };
+  };
+
+  // FloatingDelayGroup's `timeoutMs = 0` default; the members read it from the group, as from Base UI's context.
+  owned.timeoutMs = initialOptions.provider?.timeout ?? 0;
+  applyDelay();
+
   return {
-    update() {},
+    update(optionsJson) {
+      if (disposed) {
+        return;
+      }
+      const options = parseOptions<InteractionsOptions>(optionsJson);
+      owned.timeoutMs = options.provider?.timeout ?? 0;
+      const next = providerDelayOf(options);
+      if (next.open !== delay.open || next.close !== delay.close) {
+        delay = next;
+        applyDelay();
+      }
+    },
     dispose() {
       if (disposed) {
         return;
       }
       disposed = true;
-      if (delayGroups.get(token) === owned) {
+      owned.references -= 1;
+      if (owned.references <= 0 && delayGroups.get(token) === owned) {
+        // useTimeout clears the group's timer when the provider unmounts.
+        owned.timer.clear();
         delayGroups.delete(token);
       }
     },
   };
 }
 
-/** What a member trigger's hover reads from its group at `mouseenter` (FLT-API-16). */
+/** What a member trigger's hover reads from its group at `mouseenter`. */
 interface DelayGroupReading {
-  /** The group's open delay now: 0 while another member is open (or the group is warm), else the provider's. */
+  /** The group's open delay now: 0 while a member is current (open, or closed and still warm), else the provider's. */
   delayOpen: number | undefined;
-  /** The provider's close delay. */
+  /** The group's close delay: the provider's. */
   delayClose: number | undefined;
 }
 
 /**
- * Reads the group a trigger's hover belongs to.
+ * Reads the group a trigger's hover belongs to: its current delay.
+ * @param token The provider token the trigger names.
  * @returns The reading, or `null` without a provider of that token.
  */
-export function readDelayGroup(_token: string | null | undefined): DelayGroupReading | null {
-  return null;
+export function readDelayGroup(token: string | null | undefined): DelayGroupReading | null {
+  const group = token ? delayGroups.get(token) : undefined;
+  if (!group) {
+    return null;
+  }
+  return { delayOpen: resolveGroupDelay(group.delay, 'open'), delayClose: resolveGroupDelay(group.delay, 'close') };
 }
 
 /**
- * The instant phase an open request of this session carries (FLT-ALG-23): whether another member of the group is the
- * current one, so C# renders `data-instant="delay"` in the batch of `data-open`.
+ * The instant phase an open request of this session carries: whether another member of the group is the current one,
+ * so C# renders `data-instant="delay"` in the batch of `data-open`.
+ * @param record The session that requests the open.
+ * @param token The provider token its trigger names.
+ * @returns `true` when the group has a current member and it is another session.
  */
-export function delayGroupInstantPhase(_record: SessionRecord, _token: string | null | undefined): boolean {
-  return false;
+export function delayGroupInstantPhase(record: SessionRecord, token: string | null | undefined): boolean {
+  const group = token ? delayGroups.get(token) : undefined;
+  // FloatingDelayGroup.tsx:234: `prevId !== null && prevId !== floatingId`, read when the open is requested.
+  return group !== undefined && group.currentId !== null && group.currentId !== record.token;
 }
 
-/** A trigger's membership in its provider's group. */
-function createDelayGroupController(_context: HandleContext): Controller {
-  void readDelayGroup;
-  void delayGroupInstantPhase;
-  return { dispose() {} };
+/**
+ * A trigger's membership in its provider's group (useDelayGroup): the trigger is a member while its hover names a
+ * provider token whose group exists, and its `open` is whether the popup is open and anchored to it. When that changes
+ * (on the relay, a microtask later), an open member becomes the group's current one and closes the previous member
+ * through that popup's Root twin with reason `none`; a member that closes keeps the group warm for the provider's
+ * timeout, then resets it.
+ */
+function createDelayGroupController(context: HandleContext): Controller {
+  const { record } = context;
+  const element = context.element as HTMLElement;
+  // Base UI's `floatingId`: the popup's identity in the group, shared by every trigger of one popup.
+  const floatingId = record.token;
+  let group: DelayGroup | null = null;
+  let open = false;
+  // Base UI's `openRef.current`.
+  let openRef = false;
+  let timeoutMs = 0;
+  let closeEffectCleanup: Cleanup | null = null;
+  let disposed = false;
+
+  const tokenOf = () => context.options.trigger?.hover?.delayGroupToken ?? null;
+  const isOpenedByThisTrigger = () => record.open && record.domReferenceElement === element;
+
+  // FloatingDelayGroup.tsx:165-214: a member that closes while it is the current one.
+  const runCloseEffect = (current: DelayGroup, isOpen: boolean): Cleanup | null => {
+    function unset() {
+      // `currentContextRef.current?.setIsInstantPhase(false)`: that member is closed, and its last request carried the
+      // phase C# holds.
+      current.currentId = null;
+      current.currentContext = null;
+      current.delay = current.initialDelay;
+      current.timer.clear();
+    }
+
+    if (!current.currentId) {
+      return null;
+    }
+
+    if (!isOpen && current.currentId === floatingId) {
+      // `setIsInstantPhase(false)`: the close request carries no instant phase.
+      if (current.timeoutMs) {
+        const closingId = floatingId;
+        current.timer.start(current.timeoutMs, () => {
+          // If another tooltip has taken over the group, skip resetting.
+          if (record.open || (current.currentId && current.currentId !== closingId)) {
+            return;
+          }
+          unset();
+        });
+        return () => {
+          if (openRef || current.currentId !== closingId) {
+            current.timer.clear();
+          }
+        };
+      }
+
+      unset();
+    }
+
+    return null;
+  };
+
+  // FloatingDelayGroup.tsx:216-251 (FLT-ALG-23, FLT-EVT-07, FLT-ANI-01): a member that opens becomes the current one.
+  const runOpenEffect = (current: DelayGroup, isOpen: boolean) => {
+    if (!isOpen) {
+      return;
+    }
+
+    const prevContext = current.currentContext;
+    const prevId = current.currentId;
+
+    // A new tooltip is opening, so cancel any pending timeout that would reset
+    // the group's delay back to the initial value.
+    current.timer.clear();
+    current.currentContext = { record };
+    current.currentId = floatingId;
+    current.delay = {
+      open: 0,
+      close: resolveGroupDelay(current.initialDelay, 'close'),
+    };
+
+    if (prevId !== null && prevId !== floatingId) {
+      // `setIsInstantPhase(true)` on both: this member's open request carried it (`delayGroupInstantPhase`) and the
+      // previous member's close carries it. `prevContext?.onOpenChange(false, details('none'))` is that popup's
+      // `setOpen`: a request through its Root's twin, as it is when the close is sent.
+      const previous = prevContext?.record;
+      const channel = previous?.channel;
+      if (previous && channel) {
+        requestOpenChange(previous, channel, false, 'none', undefined, null, { instant: true });
+      }
+    }
+    // Else `setIsInstantPhase(false)` on both: the open request carried no instant phase.
+  };
+
+  // FloatingDelayGroup.tsx:253-267 (FLT-EDGE-11), after the close effect's own cleanup, as React unmounts in order.
+  const leave = (current: DelayGroup) => {
+    closeEffectCleanup?.();
+    closeEffectCleanup = null;
+    if (current.currentId === floatingId) {
+      current.currentContext = null;
+
+      if (!openRef) {
+        return;
+      }
+
+      current.currentId = null;
+      current.delay = current.initialDelay;
+      current.timer.clear();
+    }
+  };
+
+  // The effects run when their inputs change, as React re-runs them on commit: all of them when the member joins a
+  // group, the close effect when `open` or the timeout changes, the open effect when `open` changes. The cleanup runs
+  // first, with `openRef` still the previous value, then `openRef` is written, then the effects run in order.
+  const sync = () => {
+    if (disposed) {
+      return;
+    }
+    const token = tokenOf();
+    const next = token !== null ? (delayGroups.get(token) ?? null) : null;
+    const isOpen = isOpenedByThisTrigger();
+    if (next !== group) {
+      if (group) {
+        leave(group);
+      }
+      group = next;
+      if (!group) {
+        return;
+      }
+      openRef = isOpen;
+      open = isOpen;
+      timeoutMs = group.timeoutMs;
+      closeEffectCleanup = runCloseEffect(group, isOpen);
+      runOpenEffect(group, isOpen);
+      return;
+    }
+    if (!group) {
+      return;
+    }
+    const openChanged = isOpen !== open;
+    if (!openChanged && group.timeoutMs === timeoutMs) {
+      return;
+    }
+    closeEffectCleanup?.();
+    closeEffectCleanup = null;
+    openRef = isOpen;
+    open = isOpen;
+    timeoutMs = group.timeoutMs;
+    closeEffectCleanup = runCloseEffect(group, isOpen);
+    if (openChanged) {
+      runOpenEffect(group, isOpen);
+    }
+  };
+
+  const schedule = createDeferredRun(sync);
+  record.events.on('openchange', schedule);
+  sync();
+
+  return {
+    update: sync,
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      record.events.off('openchange', schedule);
+      if (group) {
+        leave(group);
+        group = null;
+      }
+    },
+  };
 }
 
 // #endregion delay-group
@@ -1236,38 +1524,491 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
   }
 }
 
-function createClientPointController(_context: HandleContext): Controller {
-  void setPositionReference;
-  return { dispose() {} };
+// The cursor point a virtual reference is built around, and what its later measurements read (useClientPoint.ts:12-18).
+interface ClientPointData {
+  axis: 'x' | 'y' | 'both';
+  dataRef: { readonly current: SessionData };
+  pointerType: string | undefined;
+  x: number | null;
+  y: number | null;
 }
 
 /**
- * Recomputes the hovered line just before the hover region reports an open (PSH-PTR-08/29); a no-op unless the
- * trigger records it.
+ * Creates the virtual reference of cursor anchoring: its first measurement is at the cursor; later ones follow the DOM
+ * element by the first offset, or keep the cursor when a mouse hover opened the popup. On the untracked axis it takes
+ * the element's coordinate and extent.
+ * @param domElement The element measured, or none.
+ * @param data The cursor point, the axis, the pointer type and the session data.
+ * @returns The virtual reference.
  */
-function recordHoveredLineBeforeOpen(_context: HandleContext, _event: MouseEvent): void {}
+function createVirtualElement(domElement: Element | null | undefined, data: ClientPointData): SessionVirtualElement {
+  // FLT-ALG-25: useClientPoint.ts:10-75.
+  let offsetX: number | null = null;
+  let offsetY: number | null = null;
+  let isAutoUpdateEvent = false;
 
-/** The hovered line of a trigger that renders more than one line box. */
+  return {
+    contextElement: domElement || undefined,
+    getBoundingClientRect() {
+      const domRect = domElement?.getBoundingClientRect() || {
+        width: 0,
+        height: 0,
+        x: 0,
+        y: 0,
+      };
+
+      const isXAxis = data.axis === 'x' || data.axis === 'both';
+      const isYAxis = data.axis === 'y' || data.axis === 'both';
+      const canTrackCursorOnAutoUpdate =
+        ['mouseenter', 'mousemove'].includes(data.dataRef.current.openEvent?.type || '') && data.pointerType !== 'touch';
+
+      const width = data.axis === 'y' ? domRect.width : 0;
+      const height = data.axis === 'x' ? domRect.height : 0;
+      let x = domRect.x;
+      let y = domRect.y;
+
+      if (offsetX == null && data.x && isXAxis) {
+        offsetX = domRect.x - data.x;
+      }
+
+      if (offsetY == null && data.y && isYAxis) {
+        offsetY = domRect.y - data.y;
+      }
+
+      x -= offsetX || 0;
+      y -= offsetY || 0;
+
+      if (!isAutoUpdateEvent || canTrackCursorOnAutoUpdate) {
+        x = isXAxis && data.x != null ? data.x : x;
+        y = isYAxis && data.y != null ? data.y : y;
+      }
+
+      isAutoUpdateEvent = true;
+
+      return {
+        width,
+        height,
+        x,
+        y,
+        top: y,
+        right: x + width,
+        bottom: y + height,
+        left: x,
+      };
+    },
+  };
+}
+
+function isMouseBasedEvent(event: Event | undefined): event is MouseEvent {
+  return event != null && (event as MouseEvent).clientX != null;
+}
+
+// The inputs of useClientPoint's main effect as of its last run (useClientPoint.ts:202-212), and of the two `initialRef`
+// effects.
+interface ClientPointDeps {
+  enabled: boolean;
+  open: boolean;
+  floating: HTMLElement | null;
+  domReference: Element | null;
+  openCheck: HTMLElement | boolean | null;
+  reactive: number;
+}
+
+/**
+ * useClientPoint on a trigger: while closed, a pointer move or entry on the trigger anchors the popup at the cursor (a
+ * virtual reference in the session's `positionReference`); while open, a window `mousemove` listener keeps following
+ * the cursor until it lands on the floating element, and a move back on the trigger re-attaches it. A popup opened by a
+ * non-mouse event is anchored to the DOM reference instead. Turning the option off anchors to the DOM reference and
+ * ignores cursor updates while the popup stays open; disposing clears the position reference. A trigger whose option
+ * has never been on leaves the position reference alone.
+ */
+function createClientPointController(context: HandleContext): Controller {
+  const { record } = context;
+  const element = context.element as HTMLElement;
+  const dataRef = record.dataRef;
+  // Whether the hook runs at all: from the first time the option is on, as Base UI calls it only where it is used.
+  let mounted = false;
+  // Base UI's `initialRef.current`.
+  let initial = false;
+  // Base UI's `cleanupListenerRef.current`.
+  let cleanupListener: Cleanup | null = null;
+  let pointerType: string | undefined;
+  // Base UI's `reactive` state: a change re-runs the main effect.
+  let reactive = 0;
+  let effectCleanup: Cleanup | null = null;
+  let deps: ClientPointDeps | null = null;
+  let referenceListeners: Cleanup | null = null;
+  let disposed = false;
+
+  const clientPointOptions = (): ClientPointOptions | null => context.options.trigger?.clientPoint ?? null;
+
+  // `store.set('positionReference', reference)`.
+  const resetReference = (reference: Element | null) => {
+    setPositionReference(record, reference);
+  };
+
+  const setReference = (newX: number | null, newY: number | null, referenceElement?: Element | null) => {
+    if (initial) {
+      return;
+    }
+
+    // FLT-PTR-09: prevent setting if the open event was not a mouse-like one
+    // (e.g. focus to open, then hover over the reference element).
+    // Only apply if the event exists.
+    if (dataRef.current.openEvent && !isMouseBasedEvent(dataRef.current.openEvent)) {
+      return;
+    }
+
+    setPositionReference(
+      record,
+      createVirtualElement(referenceElement ?? record.domReferenceElement, {
+        x: newX,
+        y: newY,
+        axis: clientPointOptions()?.axis ?? 'both',
+        dataRef,
+        pointerType,
+      }),
+    );
+  };
+
+  // The main effect and the `initialRef` effects re-run after the event that changed their inputs (Base UI's re-render).
+  const schedule = createDeferredRun(() => sync());
+
+  // FLT-PTR-07: useClientPoint.ts:150-160.
+  const handleReferenceEnterOrMove = (event: MouseEvent) => {
+    if (!record.open) {
+      setReference(event.clientX, event.clientY, event.currentTarget as Element);
+    } else if (!cleanupListener) {
+      // If there's no cleanup, there's no listener, but we want to ensure
+      // we add the listener if the cursor landed on the floating element and
+      // then back on the reference (i.e. it's interactive).
+      setReference(event.clientX, event.clientY, event.currentTarget as Element);
+      reactive += 1;
+      schedule();
+    }
+  };
+
+  const setPointerTypeRef = (event: PointerEvent) => {
+    pointerType = event.pointerType;
+    schedule();
+  };
+
+  // FLT-PTR-08, FLT-PTR-10: useClientPoint.ts:168-212.
+  const runEffect = (
+    enabled: boolean,
+    openCheck: HTMLElement | boolean | null,
+    floating: HTMLElement | null,
+    domReference: Element | null,
+  ): Cleanup | null => {
+    if (!enabled) {
+      resetReference(domReference);
+      return null;
+    }
+
+    if (!openCheck) {
+      return null;
+    }
+
+    function cleanup() {
+      cleanupListener?.();
+      cleanupListener = null;
+    }
+
+    const win = ownerWindow(floating);
+
+    function handleMouseMove(event: MouseEvent) {
+      const target = getTarget(event) as Element | null;
+
+      if (!contains(floating, target)) {
+        setReference(event.clientX, event.clientY);
+      } else {
+        cleanup();
+      }
+    }
+
+    if (!dataRef.current.openEvent || isMouseBasedEvent(dataRef.current.openEvent)) {
+      cleanupListener = listen(win, 'mousemove', handleMouseMove);
+    } else {
+      resetReference(domReference);
+    }
+
+    return cleanup;
+  };
+
+  const sync = () => {
+    if (disposed) {
+      return;
+    }
+    const enabled = clientPointOptions() !== null;
+    if (!mounted) {
+      if (!enabled) {
+        return;
+      }
+      mounted = true;
+    }
+
+    // The prop bag, only while enabled (useClientPoint.ts:234-250).
+    if (enabled && referenceListeners === null) {
+      referenceListeners = mergeCleanups(
+        listen(element, 'pointerdown', setPointerTypeRef),
+        listen(element, 'pointerenter', setPointerTypeRef),
+        listen(element, 'mousemove', handleReferenceEnterOrMove),
+        listen(element, 'mouseenter', handleReferenceEnterOrMove),
+      );
+    } else if (!enabled && referenceListeners !== null) {
+      referenceListeners();
+      referenceListeners = null;
+    }
+
+    const open = record.open;
+    const floating = record.floatingElement;
+    const domReference = record.domReferenceElement;
+    // If the pointer is a mouse-like pointer, we want to continue following the
+    // mouse even if the floating element is transitioning out. On touch
+    // devices, this is undesirable because the floating element will move to
+    // the dismissal touch point.
+    const openCheck = isMouseLikePointerType(pointerType) ? floating : open;
+    const previous = deps;
+    deps = { enabled, open, floating, domReference, openCheck, reactive };
+
+    if (
+      previous === null ||
+      previous.openCheck !== openCheck ||
+      previous.enabled !== enabled ||
+      previous.floating !== floating ||
+      previous.domReference !== domReference ||
+      previous.reactive !== reactive
+    ) {
+      effectCleanup?.();
+      effectCleanup = runEffect(enabled, openCheck, floating, domReference);
+    }
+
+    // useClientPoint.ts:222-232.
+    if (previous === null || previous.enabled !== enabled || previous.floating !== floating) {
+      if (enabled && !floating) {
+        initial = false;
+      }
+    }
+
+    if (previous === null || previous.enabled !== enabled || previous.open !== open) {
+      if (!enabled && open) {
+        initial = true;
+      }
+    }
+  };
+
+  record.events.on('openchange', schedule);
+  sync();
+
+  return {
+    update: sync,
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      record.events.off('openchange', schedule);
+      referenceListeners?.();
+      referenceListeners = null;
+      effectCleanup?.();
+      effectCleanup = null;
+      // Clear virtual cursor references when the hook unmounts (FLT-PTR-10).
+      if (mounted) {
+        setPositionReference(record, null);
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The hovered line: the recording half of utils/popups/inlineRect.ts and preview-card/store/PreviewCardStore.ts:75-98.
+// The record is the session's (Base UI's `inlineRectCoordsRef`, one per PreviewCard store); the inline middleware that
+// reads it through `readHoveredLine` is positioning's.
+// ---------------------------------------------------------------------------------------------------------------
+
+/** The hovered point of a trigger that renders more than one line box, and the index of the line box under it. */
 export interface HoveredLine {
+  /** The x position in viewport coordinates. */
   x: number;
+  /** The y position in viewport coordinates. */
   y: number;
+  /** The line index under the pointer when the coordinates were captured. */
   lineIndex?: number | undefined;
+  /** The trigger element whose rects produced these coordinates. */
   element: Element;
 }
 
-/** Reads the session's hovered line. */
-export function readHoveredLine(_session: InteractionSession): HoveredLine | undefined {
-  return undefined;
+const HOVERED_LINE_SLOT = 'client-point.hovered-line';
+
+interface HoveredLineRef {
+  current: HoveredLine | undefined;
 }
 
-/** Records the hovered line of a trigger at a client point. */
-export function updateHoveredLine(_session: InteractionSession, _element: Element, _clientX: number, _clientY: number): HoveredLine | undefined {
-  return undefined;
+interface LineRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
 }
 
-function createHoveredLineController(_context: HandleContext): Controller {
+function hoveredLineRef(record: SessionRecord): HoveredLineRef {
+  return sessionSlot<HoveredLineRef>(record, HOVERED_LINE_SLOT, () => ({ current: undefined }));
+}
+
+// inlineRect.ts:62-94: the line boxes of a trigger's client rects, those whose tops are within half a line merged.
+function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
+  const lines: LineRect[] = [];
+  let previousRect: LineRect | undefined;
+
+  for (const rect of Array.from(rects).sort((a, b) => a.top - b.top)) {
+    if (!previousRect || rect.top - previousRect.top > previousRect.height / 2) {
+      lines.push({
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      });
+    } else {
+      const line = lines[lines.length - 1]!;
+      line.left = Math.min(line.left, rect.left);
+      line.right = Math.max(line.right, rect.right);
+      line.bottom = Math.max(line.bottom, rect.bottom);
+      line.width = line.right - line.left;
+      line.height = line.bottom - line.top;
+    }
+
+    previousRect = rect;
+  }
+
+  return lines;
+}
+
+// inlineRect.ts:96-104: the line box under a point, with a 2px tolerance.
+function findLineIndex(lines: LineRect[], x: number, y: number): number {
+  return lines.findIndex(
+    (lineRect) => x > lineRect.left - 2 && x < lineRect.right + 2 && y > lineRect.top - 2 && y < lineRect.bottom + 2,
+  );
+}
+
+// inlineRect.ts:110-129.
+function getInlineRectCoords(element: Element, clientX: number, clientY: number): HoveredLine | undefined {
+  const lines = getLineRects(element.getClientRects());
+
+  if (lines.length < 2) {
+    return undefined;
+  }
+
+  const lineIndex = findLineIndex(lines, clientX, clientY);
+
+  return {
+    x: clientX,
+    y: clientY,
+    lineIndex: lineIndex === -1 ? undefined : lineIndex,
+    element,
+  };
+}
+
+/**
+ * Reads the session's hovered line, for the inline middleware.
+ * @param session The session.
+ * @returns The record, or `undefined` when none was taken or the trigger did not wrap.
+ */
+export function readHoveredLine(session: InteractionSession): HoveredLine | undefined {
+  return ((session as SessionRecord).slots.get(HOVERED_LINE_SLOT) as HoveredLineRef | undefined)?.current;
+}
+
+/**
+ * Records the hovered line of a trigger at a client point, replacing the session's record.
+ * @param session The session.
+ * @param element The trigger.
+ * @param clientX The point's x in viewport coordinates.
+ * @param clientY The point's y in viewport coordinates.
+ * @returns The new record: `undefined` when the trigger renders fewer than two line boxes.
+ */
+export function updateHoveredLine(
+  session: InteractionSession,
+  element: Element,
+  clientX: number,
+  clientY: number,
+): HoveredLine | undefined {
+  // inlineRect.ts:226-235 (`updateInlineRectCoords`).
+  const nextCoords = getInlineRectCoords(element, clientX, clientY);
+  hoveredLineRef(session as SessionRecord).current = nextCoords;
+  return nextCoords;
+}
+
+/**
+ * Recomputes the hovered line just before the hover region reports a hover open, unless the record already belongs to
+ * this trigger: the trigger's own listeners ignore moves while the popup is open by it. A no-op unless the trigger
+ * records the hovered line.
+ */
+function recordHoveredLineBeforeOpen(context: HandleContext, event: MouseEvent): void {
+  // PSH-PTR-29: PreviewCardStore.ts:78-96; the hover region calls this for a `trigger-hover` open of this trigger.
+  const trigger = context.element;
+  if (context.options.trigger?.hoveredLine !== true || trigger === null) {
+    return;
+  }
+  if ('clientX' in event && 'clientY' in event && hoveredLineRef(context.record).current?.element !== trigger) {
+    updateHoveredLine(context.record, trigger, event.clientX, event.clientY);
+  }
+}
+
+/**
+ * The hovered line on a trigger (`getInlineRectTriggerProps`): `mouseenter` and `mousemove` record it while the popup is
+ * not open by this trigger, and a focus clears it.
+ */
+function createHoveredLineController(context: HandleContext): Controller {
+  const { record } = context;
+  const element = context.element as HTMLElement;
+  let cleanup: Cleanup | null = null;
+
+  const isOpenedByThisTrigger = () => record.open && record.domReferenceElement === element;
+
+  // PSH-PTR-08: inlineRect.ts:203-224.
+  function updateCoordsIfClosed(event: MouseEvent) {
+    if (!isOpenedByThisTrigger()) {
+      updateHoveredLine(record, event.currentTarget as Element, event.clientX, event.clientY);
+    }
+  }
+
+  function onFocus() {
+    hoveredLineRef(record).current = undefined;
+  }
+
+  const install = () => {
+    if (cleanup !== null || context.options.trigger?.hoveredLine !== true) {
+      return;
+    }
+    cleanup = mergeCleanups(
+      listen(element, 'focusin', onFocus),
+      listen(element, 'mouseenter', updateCoordsIfClosed),
+      listen(element, 'mousemove', updateCoordsIfClosed),
+    );
+  };
+
+  const uninstall = () => {
+    cleanup?.();
+    cleanup = null;
+  };
+
+  // Called by the hover region before it reports a hover open.
   void recordHoveredLineBeforeOpen;
-  return { dispose() {} };
+
+  install();
+  return {
+    update() {
+      if (context.options.trigger?.hoveredLine === true) {
+        install();
+      } else {
+        uninstall();
+      }
+    },
+    dispose: uninstall,
+  };
 }
 
 // #endregion client-point
