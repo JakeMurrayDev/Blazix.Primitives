@@ -171,6 +171,33 @@ public sealed class PopupOpenChangeTests
         Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(5, "trigger-press", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
     }
 
+    // ADR 16 rule 7 (UTL-STA-11): a write that changes nothing is a no-op and allocates nothing, the equal shared record
+    // included, and so is a mirrored status that did not change.
+    [Fact(DisplayName = "port: a write that changes nothing allocates nothing")]
+    [Trait("Requirement", "ADR16-7")]
+    public void A_write_that_changes_nothing_allocates_nothing()
+    {
+        TestFamilyStore<NoPayload> store = new();
+        store.ApplyRootParameters(defaultOpen: true, defaultTriggerId: null);
+        store.MirrorStatus(TransitionStatus.Idle);
+        PopupStoreState<NoPayload> equal = store.Popup with { };
+        TestFamilyStoreState<NoPayload> state = store.State;
+        int notifications = 0;
+        store.Subscribe(_ => notifications++);
+        store.WritePopup(equal);
+        store.MirrorStatus(TransitionStatus.Idle);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        store.WritePopup(equal);
+        store.WritePopup(store.Popup);
+        store.MirrorStatus(TransitionStatus.Idle);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
+        Assert.Same(state, store.State);
+        Assert.Equal(0, notifications);
+    }
+
     // ADR 05 §4, ADR 16 Amendments 2026-10-27: the payload lives in the store's context, so the record's comparison never
     // touches it; writing a value-type payload allocates the new record and nothing for the payload itself.
     [Fact(DisplayName = "port: a value-type payload is written without boxing and moves the payload version")]
