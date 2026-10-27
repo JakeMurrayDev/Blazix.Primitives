@@ -16,8 +16,9 @@
 //   node hidden in place until an update resolves one.
 // - When Blazor removes the wrapper (the Portal left the render tree), the node goes with it at once: a `childList`
 //   observer on the wrapper's parent sees the wrapper disconnected, so no node is left behind before `dispose` arrives.
-// - The handle is published on the node under `Symbol.for('blazix.portal')`: the node, the wrapper, the outside guards
-//   found by position, and the slot the focus manager publishes its state in (track 4; FLT-FOC-18).
+// - The handle is published on the node under `Symbol.for('blazix.portal')` (settled by the orchestrator 2026-10-27 with
+//   track 4's design point 3, so the two modules import nothing from each other): the node, the wrapper, the outside
+//   guards found by position, and the slot the focus manager publishes its state in (track 4; FLT-FOC-18).
 // - Under VoiceOver on WebKit each outside guard becomes `role="button"` without `aria-hidden` (FLT-DOM-13, FLT-ARIA-05),
 //   a JavaScript write after attach, applied to the guards C# renders later too.
 import { ownerDocument } from './dom';
