@@ -60,7 +60,12 @@ export function isHTMLElement(value: unknown): value is HTMLElement {
   return isNode(value) && (value instanceof HTMLElement || value instanceof ownerWindow(value).HTMLElement);
 }
 
-function isShadowRoot(value: unknown): value is ShadowRoot {
+/**
+ * Determines whether a value is a shadow root of any window.
+ * @param value The value to test.
+ * @returns `true` for a `ShadowRoot` of this window or of the node's own window.
+ */
+export function isShadowRoot(value: unknown): value is ShadowRoot {
   return (
     isNode(value) &&
     typeof ShadowRoot !== 'undefined' &&
