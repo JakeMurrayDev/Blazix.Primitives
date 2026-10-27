@@ -944,6 +944,17 @@ interface Controller {
 // #region dismiss: useDismiss (FLT-DIS-01..16, FLT-KEY-01..03, FLT-PTR-26..30, FLT-ALG-17) and the `escape` point
 // ---------------------------------------------------------------------------------------------------------------
 
+/**
+ * Normalizes the bubbling flags of a dismissal.
+ * @param _bubbles The option.
+ * @returns The two flags.
+ */
+export function normalizeBubbles(
+  _bubbles?: boolean | { escapeKey?: boolean | null | undefined; outsidePress?: boolean | null | undefined } | null,
+): { escapeKey: boolean; outsidePress: boolean } {
+  throw new Error('not implemented');
+}
+
 /** The session's half: the document listeners for Escape and outside presses. */
 function createSessionDismissController(_context: HandleContext): Controller {
   void sessionSlot;
