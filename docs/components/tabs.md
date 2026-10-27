@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/tabs/**/*.test.tsx` (5 files) |
 | Docs page | `docs/src/app/(docs)/react/components/tabs/page.mdx` |
 | Prefix | `TAB` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-27 |
 | Builds on | none |
 | Derived by | none |
