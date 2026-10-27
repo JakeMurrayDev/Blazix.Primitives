@@ -363,6 +363,29 @@ describe('positioning module: the pipeline', () => {
     expect(spies.flip.mock.lastCall?.[0].boundary).toEqual({ x: 1, y: 2, width: 300, height: 200 });
   });
 
+  it('configures the arrow middleware with the Arrow and its padding, or a detached stand-in with none (FLT-POS-08, FLT-DOM-10)', async () => {
+    const arrowElement = document.createElement('div');
+    arrowElement.id = 'arrow';
+    const { positioner, update } = setup({ arrowPadding: 12 });
+    positioner.append(arrowElement);
+    await settle();
+
+    const arrowOptions = () => {
+      const config = spies.computePosition.mock.lastCall?.[2] as { middleware: Array<{ name: string; options?: unknown } | null> };
+      const middleware = config.middleware.find((entry) => entry?.name === 'arrow')!;
+      return (middleware.options as (state: MiddlewareState) => { element: Element; padding: number })(middlewareState({ elements: { reference: document.body, floating: positioner } }));
+    };
+    const standIn = arrowOptions();
+    expect(standIn.element).not.toBe(arrowElement);
+    expect(standIn.element.isConnected).toBe(false);
+    expect(standIn.element.ownerDocument).toBe(positioner.ownerDocument);
+    expect(standIn.padding).toBe(0);
+
+    update({ arrowId: 'arrow' });
+    await settle();
+    expect(arrowOptions()).toEqual({ element: arrowElement, padding: 12 });
+  });
+
   it('rebuilds the pipeline only when one of its inputs changes (FLT-ALG-14, FLT-POS-17)', async () => {
     const { update } = setup({ side: 'bottom' });
     await settle();
