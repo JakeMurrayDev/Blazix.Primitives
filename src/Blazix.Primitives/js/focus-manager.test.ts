@@ -22,6 +22,7 @@ import {
   type OpenChangeRelay,
 } from './focus-manager';
 import { attach as attachComposite, type CompositeOptions } from './composite';
+import { attach as attachPortal, getPortalState } from './portal';
 import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
@@ -1014,12 +1015,12 @@ async function unmount(manager: Manager, next: Partial<FocusManagerOptions> = {}
 }
 
 /** userEvent.tab(): a cancelable Tab keydown on the focused element, then the browser's sequential focus move. */
-async function tab({ shift = false } = {}): Promise<void> {
-  const active = (document.activeElement ?? document.body) as HTMLElement;
+async function tab({ shift = false, doc = document } = {}): Promise<void> {
+  const active = (doc.activeElement ?? doc.body) as HTMLElement;
   const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: shift, bubbles: true, cancelable: true });
   active.dispatchEvent(event);
   if (!event.defaultPrevented) {
-    const list = tabbable(document.body);
+    const list = tabbable(doc.body);
     const index = list.indexOf(active);
     const next = shift ? (index <= 0 ? list[list.length - 1] : list[index - 1]) : index === -1 || index === list.length - 1 ? list[0] : list[index + 1];
     next?.focus();
@@ -1036,6 +1037,79 @@ function pointerDown(target: Element, pointerType = 'mouse'): void {
   const event = new MouseEvent('pointerdown', { bubbles: true, cancelable: true, composed: true });
   Object.defineProperty(event, 'pointerType', { value: pointerType });
   target.dispatchEvent(event);
+}
+
+/** An outside focus guard as C# renders it beside the portal's wrapper (FLT-DOM-13, DOM-14). */
+function outsideGuard(): HTMLSpanElement {
+  const guard = element('span', undefined, { tabindex: '0', 'data-base-ui-focus-guard': '', 'data-type': 'outside', 'aria-hidden': 'true' });
+  Object.assign(guard.style, visuallyHidden);
+  return guard;
+}
+
+interface RenderedPortal {
+  wrapper: HTMLElement;
+  node: HTMLElement;
+  /** Renders the popup and its inside guards in the node with `data-open`, and attaches the manager. */
+  open(floating: HTMLElement, options?: FocusManagerOptions): Manager;
+  /** The Portal's render after the manager's publication changed: the outside guards and the owner (FLT-DOM-14). */
+  syncOutsideGuards(): void;
+  /** C# closes the popup rendered under `{open && …}` inside the portal, then the Portal renders again. */
+  close(manager: Manager, next?: Partial<FocusManagerOptions>): Promise<void>;
+}
+
+/**
+ * Base UI's `<FloatingPortal>` as C# renders it (FLT-DOM-11, DOM-14): the in-place wrapper (`display: contents`) holding
+ * the hidden portal node, which the `portal` module moves into its container (the end of the body by default). The
+ * popup and its inside guards render inside the node; the outside guards and the owner render beside the wrapper while
+ * the manager's publication is non-modal and open.
+ */
+function renderPortal(place: (wrapper: HTMLElement) => void, { container }: { container?: Element } = {}): RenderedPortal {
+  // C# renders in the top document, whatever the container.
+  const doc = document;
+  const wrapper = doc.createElement('div');
+  wrapper.setAttribute('style', 'display: contents');
+  const node = doc.createElement('div');
+  node.id = 'base-ui-portal-1';
+  node.setAttribute('data-base-ui-portal', '');
+  node.setAttribute('style', 'display: none');
+  wrapper.append(node);
+  place(wrapper);
+  const portal = attachPortal(node, JSON.stringify(container ? { containerRef: 0 } : {}), createFakeTwin().twin, container ? [container] : undefined);
+  handles.push(portal);
+  let rendered: HTMLElement[] = [];
+  const syncOutsideGuards = () => {
+    const publication = getPortalState(node)?.focusManager;
+    const renders = publication != null && !publication.modal && publication.open;
+    if (renders && rendered.length === 0) {
+      const before = outsideGuard();
+      const owner = element('span', undefined, { 'aria-owns': node.id });
+      const after = outsideGuard();
+      wrapper.before(before, owner);
+      wrapper.after(after);
+      rendered = [before, owner, after];
+    } else if (!renders && rendered.length > 0) {
+      for (const each of rendered) {
+        each.remove();
+      }
+      rendered = [];
+    }
+  };
+  return {
+    wrapper,
+    node,
+    open(floating, options = {}) {
+      floating.setAttribute('data-open', '');
+      node.append(insideGuard(), floating, insideGuard());
+      const manager = attachManager(floating, { modal: false, ...options });
+      syncOutsideGuards();
+      return manager;
+    },
+    syncOutsideGuards,
+    async close(manager, next = {}) {
+      await unmount(manager, next);
+      syncOutsideGuards();
+    },
+  };
 }
 
 describe('FloatingFocusManager', () => {
@@ -2492,6 +2566,277 @@ describe('FloatingFocusManager', () => {
         expect.objectContaining({ interactionType: 'keyboard', event: expect.objectContaining({ type: 'focusout' }) }),
       ]);
       expect(manager.fake.decisions).toEqual([]);
+    });
+  });
+
+  // FloatingFocusManager.test.tsx's titles that render `FloatingPortal`: the `portal` module moves the node and routes
+  // its outside guards (FLT-KEY-07, FOC-17), the test renders what C# renders around both handles, and the manager
+  // publishes its state on the portal node (FLT-FOC-18, design point 3 of the focus-manager track, settled by the
+  // orchestrator 2026-10-27).
+  describe('FloatingPortal', () => {
+    describe('the publication', () => {
+      it('port: publishes modal, closeOnFocusOut, open, the anchor and the inside guards on the enclosing portal node while enabled, and withdraws them when disabled or disposed', async () => {
+        const reference = element('button', 'reference', { id: 'reference' });
+        document.body.append(reference);
+        const portal = renderPortal((wrapper) => reference.after(wrapper));
+        const floating = element('div', 'floating');
+        floating.append(element('button', 'inside'));
+
+        const manager = portal.open(floating);
+        await settle();
+
+        const [before, after] = Array.from(portal.node.querySelectorAll<HTMLElement>('[data-type="inside"]'));
+        expect(getPortalState(portal.node)?.focusManager).toMatchObject({
+          modal: false,
+          closeOnFocusOut: true,
+          open: true,
+          domReference: reference,
+          insideGuards: { before, after },
+        });
+
+        manager.update({ disabled: true });
+        expect(getPortalState(portal.node)?.focusManager).toBeNull();
+
+        manager.update({ disabled: false, modal: true, closeOnFocusOut: false });
+        expect(getPortalState(portal.node)?.focusManager).toMatchObject({ modal: true, closeOnFocusOut: false, open: true });
+
+        floating.removeAttribute('data-open');
+        await settle();
+        expect(getPortalState(portal.node)?.focusManager).toMatchObject({ open: false });
+
+        manager.handle.dispose();
+        expect(getPortalState(portal.node)?.focusManager).toBeNull();
+      });
+
+      it("port: the publication's close asks C# for a focus-out close", async () => {
+        const reference = element('button', 'reference', { id: 'reference' });
+        document.body.append(reference);
+        const portal = renderPortal((wrapper) => reference.after(wrapper));
+        const floating = element('div', 'floating');
+        floating.append(element('button', 'inside'));
+
+        const manager = portal.open(floating);
+        await settle();
+        getPortalState(portal.node)?.focusManager?.close?.(new FocusEvent('focusin'));
+
+        expect(manager.fake.reported<FocusOutCloseRequest>(FOCUS_OUT_CLOSE_REPORT)).toEqual([
+          expect.objectContaining({ event: expect.objectContaining({ kind: 'FocusEvent', type: 'focusin' }) }),
+        ]);
+      });
+    });
+
+    describe('prop: returnFocus', () => {
+      // `{isOpen && <FloatingPortal>…}`: the reference and the whole portal leave in the batch that closes it.
+      it.each([true, false])('preserves tabbable context next to reference element if removed (modal=%s)', async (modal) => {
+        const reference = element('button', 'reference', { id: 'reference' });
+        const fallback = element('button', 'fallback');
+        document.body.append(reference, fallback);
+        const portal = renderPortal((wrapper) => fallback.before(wrapper));
+        const floating = element('div', 'floating');
+        const remove = element('button', 'remove');
+        floating.append(remove);
+
+        reference.focus();
+        const manager = portal.open(floating, { modal });
+        await settle();
+        expect(document.activeElement).toBe(remove);
+
+        remove.click();
+        reference.remove();
+        await portal.close(manager);
+        portal.wrapper.remove();
+        await settle();
+
+        await tab();
+
+        expect(document.activeElement).toBe(fallback);
+      });
+
+      it('does not insert fallback element when return element is falsy', async () => {
+        const reference = element('button', 'reference', { id: 'reference' });
+        document.body.append(reference);
+        // `<FloatingPortal>{isOpen && …}</FloatingPortal>`: the port's in-place wrapper (FLT-DOM-11's note) is the
+        // reference's sibling; the focus manager inserts nothing beside it.
+        const portal = renderPortal((wrapper) => reference.after(wrapper));
+        const floating = element('div', 'floating');
+        const close = element('button', 'close');
+        floating.append(close);
+
+        reference.focus();
+        reference.click();
+        const manager = portal.open(floating, { modal: true, returnFocus: false });
+        await settle();
+
+        expect(reference.nextElementSibling).toBe(portal.wrapper);
+
+        close.click();
+        await portal.close(manager, { returnFocus: false });
+
+        expect(document.querySelector('[data-testid="close"]')).toBeNull();
+        expect(reference.nextElementSibling).toBe(portal.wrapper);
+      });
+    });
+
+    describe('prop: disabled', () => {
+      it('clears outside pointer state between keep-mounted open sessions', async () => {
+        const before = element('button', 'before');
+        const reference = element('button', 'reference', { id: 'reference' });
+        const after = element('button', 'after');
+        document.body.append(before, reference, after);
+        const portal = renderPortal((wrapper) => after.before(wrapper));
+        const floating = element('div', 'floating');
+        const child = element('button', 'child');
+        floating.append(child);
+
+        // Kept mounted: `disabled={!isOpen}`, the open state from the batch.
+        reference.click();
+        const manager = portal.open(floating);
+        await settle();
+        expect(document.activeElement).toBe(child);
+
+        // The outside press: the dismiss closes it (C#'s commit: the close's options, then the batch).
+        pointerDown(after);
+        manager.update({ disabled: true });
+        floating.removeAttribute('data-open');
+        await settle();
+
+        reference.click();
+        manager.update({ disabled: false });
+        floating.setAttribute('data-open', '');
+        await settle();
+        expect(document.activeElement).toBe(child);
+
+        // Base UI reads `dataRef.current.insideReactTree`; the marker is observed through the focus-out close it
+        // suppresses: a press state leaked from the previous session would leave it unset and the close requested.
+        child.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: after }));
+        await settle();
+
+        expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+      });
+    });
+
+    describe('non-modal + FloatingPortal', () => {
+      function renderTabbingApp() {
+        const first = element('span', 'first', { tabindex: '0' });
+        const reference = element('button', 'reference', { id: 'reference' });
+        const last = element('span', 'last', { tabindex: '0' });
+        document.body.append(first, reference, last);
+        const portal = renderPortal((wrapper) => last.before(wrapper));
+        const floating = element('div', 'floating');
+        floating.append(element('span', 'inside', { tabindex: '0' }));
+        return { first, reference, last, portal, floating };
+      }
+
+      it('focuses inside element, tabbing out focuses last document element', async () => {
+        const app = renderTabbingApp();
+
+        app.reference.click();
+        const manager = app.portal.open(app.floating);
+        await settle();
+
+        expect(document.activeElement).toBe(byTestId('inside'));
+
+        await tab();
+        // The after-outside guard asked C# to close it (reason focus-out); C# closes.
+        expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+        await app.portal.close(manager);
+
+        expect(document.querySelector('[data-testid="floating"]')).toBeNull();
+        expect(document.activeElement).toBe(app.last);
+      });
+
+      it('shift+tab', async () => {
+        const app = renderTabbingApp();
+
+        app.reference.click();
+        const manager = app.portal.open(app.floating);
+        await settle();
+
+        await tab({ shift: true });
+
+        expect(document.querySelector('[data-testid="floating"]')).not.toBeNull();
+        expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+
+        await tab({ shift: true });
+        expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+        await app.portal.close(manager);
+
+        expect(document.querySelector('[data-testid="floating"]')).toBeNull();
+      });
+
+      it('standard tabbing back and forth of a non-modal floating element', async () => {
+        const reference = element('button', 'reference', { id: 'reference' });
+        document.body.append(reference);
+        const portal = renderPortal((wrapper) => reference.after(wrapper));
+        const floating = element('div', 'floating', { role: 'dialog', tabindex: '-1' });
+        const inner = element('button', 'inner');
+        floating.append(inner);
+
+        reference.click();
+        portal.open(floating);
+        await settle();
+
+        expect(floating.getAttribute('tabindex')).toBe('-1');
+        expect(document.activeElement).toBe(inner);
+        await tab({ shift: true });
+        expect(document.activeElement).toBe(reference);
+        await tab();
+        expect(document.activeElement).toBe(inner);
+      });
+    });
+
+    describe('iframe focus navigation', () => {
+      // The port renders in the top document and the portal moves its node into a container inside the iframe; here
+      // the whole app is moved there, as Base UI renders it, so every tabbable query runs in the iframe's document.
+      function renderIframeApp() {
+        const iframe = element('iframe', 'iframe');
+        document.body.append(element('a', undefined, { href: '#' }), iframe, element('a', undefined, { href: '#' }));
+        const iframeDoc = iframe.contentDocument!;
+        iframeDoc.open();
+        iframeDoc.write('<div id="rootIframe"></div>');
+        iframeDoc.close();
+        const root = iframeDoc.getElementById('rootIframe')!;
+        const app = element('div');
+        const prev = element('a', 'prev', { href: '#' });
+        const reference = element('button', 'reference', { id: 'reference' });
+        const next = element('a', 'next', { href: '#' });
+        app.append(prev, reference, next);
+        root.append(app);
+        const portal = renderPortal((wrapper) => next.before(wrapper), { container: root });
+        const floating = element('div', 'floating');
+        const popover = element('div', 'popover');
+        popover.append(element('a', 'link-1', { href: '#' }), element('a', 'link-2', { href: '#' }));
+        floating.append(popover);
+        return { iframeDoc, prev, reference, next, portal, floating };
+      }
+
+      it('tabs from the popover to the next element in the iframe', async () => {
+        const app = renderIframeApp();
+
+        app.reference.focus();
+        app.reference.click();
+        app.portal.open(app.floating);
+        await settle();
+        expect(app.floating.ownerDocument).toBe(app.iframeDoc);
+
+        await tab({ doc: app.iframeDoc });
+        await tab({ doc: app.iframeDoc });
+
+        expect(app.iframeDoc.activeElement).toBe(app.next);
+      });
+
+      it('shift+tab from the popover to the previous element in the iframe', async () => {
+        const app = renderIframeApp();
+
+        app.reference.focus();
+        app.reference.click();
+        app.portal.open(app.floating);
+        await settle();
+
+        await tab({ shift: true, doc: app.iframeDoc });
+
+        expect(app.iframeDoc.activeElement).toBe(app.reference);
+      });
     });
   });
 });
