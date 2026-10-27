@@ -286,6 +286,76 @@ test.describe('focus manager', () => {
     });
   });
 
+  // FloatingFocusManager.test.tsx's "non-modal + FloatingPortal" App on `focus-manager-portal`: the popup is rendered
+  // inside the test-only portal, so the `portal` module moves it to the end of the body, the manager publishes its state
+  // (FLT-FOC-18, both halves) and the portal renders and routes its outside guards (FLT-DOM-14, KEY-07, FOC-17).
+  test.describe('non-modal + FloatingPortal', () => {
+    test('does not mark reference siblings due to outside focus guards', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-portal');
+      await fixture.locator('[data-reference]').click();
+
+      await expect(page.locator('[data-popup]')).toBeVisible();
+      await expect(page.locator('[data-base-ui-focus-guard][data-type="outside"]')).toHaveCount(2);
+      await expect(fixture.locator('[data-reference]')).not.toHaveAttribute('data-base-ui-inert');
+      await expect(fixture.locator('[data-reference-sibling="1"]')).not.toHaveAttribute('data-base-ui-inert');
+      await expect(fixture.locator('[data-reference-sibling="2"]')).not.toHaveAttribute('data-base-ui-inert');
+    });
+
+    test('port: the popup moves into the portal node at the end of the body with its inside guards, and Tab leaves through the outside guards to the last element and asks for the close', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-portal');
+      await fixture.locator('[data-reference]').click();
+      await expect(page.locator('[data-inside]')).toBeFocused();
+      expect(await page.locator('[data-popup]').evaluate((popup) => popup.closest('[data-base-ui-portal]')?.parentElement === document.body)).toBe(true);
+      await expect(page.locator('[data-base-ui-portal] [data-base-ui-focus-guard][data-type="inside"]')).toHaveCount(2);
+
+      await page.keyboard.press('Tab');
+
+      await expect(fixture.locator('[data-last]')).toBeFocused();
+      await expect(fixture).toHaveAttribute('data-focus-out-closes', '1');
+      await expect(page.locator('[data-popup]')).toHaveCount(0);
+      await expect(page.locator('[data-base-ui-focus-guard]')).toHaveCount(0);
+    });
+
+    test('port: Shift+Tab from the popup reaches the reference through the outside guards and keeps it open; Tab returns into it', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-portal');
+      await fixture.locator('[data-reference]').click();
+      await expect(page.locator('[data-inside]')).toBeFocused();
+
+      await page.keyboard.press('Shift+Tab');
+      await expect(fixture.locator('[data-reference]')).toBeFocused();
+      await expect(page.locator('[data-popup]')).toHaveAttribute('data-open', '');
+      // FLT-FOC-17, DOM-18: the portal's tabbables left the tab order when focus left it.
+      await expect(page.locator('[data-inside]')).toHaveAttribute('tabindex', '-1');
+
+      await page.keyboard.press('Tab');
+      await expect(page.locator('[data-inside]')).toBeFocused();
+      await expect(page.locator('[data-inside]')).toHaveAttribute('tabindex', '0');
+      await expect(fixture).toHaveAttribute('data-focus-out-closes', '0');
+    });
+
+    // FLT-DOM-18 with design point 4 (the composite writes its roving value into the stash): a group's one tab stop
+    // survives the portal taking its items out of the tab order and putting them back.
+    test('port: a composite group in a non-modal portal leaves the tab order with the portal and comes back with one tab stop', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-portal', 'composite=true');
+      await fixture.locator('[data-reference]').click();
+      const items = page.locator('[data-item]');
+      await expect(items.nth(0)).toBeFocused();
+      await page.keyboard.press('ArrowRight');
+      await expect(items.nth(1)).toBeFocused();
+
+      await page.keyboard.press('Shift+Tab');
+      await expect(fixture.locator('[data-reference]')).toBeFocused();
+      await expect(items.nth(0)).toHaveAttribute('tabindex', '-1');
+      await expect(items.nth(1)).toHaveAttribute('tabindex', '-1');
+      await expect(items.nth(1)).toHaveAttribute('data-tabindex', '0');
+
+      await page.keyboard.press('Tab');
+      await expect(items.nth(1)).toBeFocused();
+      await expect(page.locator('[data-item][tabindex="0"]')).toHaveCount(1);
+      await expect(page.locator('[data-item][data-tabindex]')).toHaveCount(0);
+    });
+  });
+
   // ADR 04 Amendments 2026-10-27 (the focus manager's open input): an attached popup's marking and trap land with the
   // batch that opens or closes it, before paint, on both modes; on Server under a 150 ms one-way delay.
   test.describe('the open input under latency', () => {
