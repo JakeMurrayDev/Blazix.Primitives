@@ -10,7 +10,7 @@ internal sealed record TestTwinOptions : TwinOptions
     public int Threshold { get; init; }
 
     /// <summary>An element-typed option: the index of its element in the references sent with the options.</summary>
-    public int? TargetReferenceIndex { get; init; }
+    public int? TargetRef { get; init; }
 }
 
 /// <summary>The payload of the test twin's one callback.</summary>

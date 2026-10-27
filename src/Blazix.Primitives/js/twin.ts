@@ -109,7 +109,7 @@ export function resolveElement(elementOrId: Element | string): HTMLElement {
 
 /**
  * Resolves an element-typed option: the option holds the index of its reference in the array `attach` or `update`
- * received after the options string (the C# field `<Name>ReferenceIndex`).
+ * received after the options string, in an `int?` field the module names (`containerRef` on the portal's options).
  * @param references The references received with the options; `null` or `undefined` when the twin sent none.
  * @param index The option's value: the index, or `null` or `undefined` when the option is absent.
  * @returns The revived reference (an element, or the object a script holds), or `null` when there is none at the index.

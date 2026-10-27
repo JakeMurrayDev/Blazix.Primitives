@@ -6,8 +6,9 @@ namespace Blazix.Primitives.Interop;
 // ADR 04 Amendments 2026-10-27 (element-typed option values cross as interop arguments; settled by the orchestrator
 // 2026-10-27, M4 track 1). The options record crosses as one JSON string, so an element inside it would never reach the
 // module as an element; the references cross beside it as one interop argument, which Blazor revives, and the options
-// carry each reference's index in a `<Name>ReferenceIndex : int?` field (null when the option is absent). The module reads
-// them with `resolveReference(references, options.<name>ReferenceIndex)` from `js/twin.ts`.
+// carry each reference's index in an `int?` field the module names (null when the option is absent): `ContainerRef` on the
+// portal's options, `AnchorRef` and `BoundaryRefs` on positioning's (track 2), the focus manager's element options (track 4).
+// The module reads one with `resolveReference(references, options.containerRef)` from `js/twin.ts`.
 /// <summary>
 /// Collects the elements and script-held objects that one <c>attach</c> or <c>update</c> sends to a module after its
 /// options; each option that names one of them carries the index <see cref="Add(ElementReference)"/> or

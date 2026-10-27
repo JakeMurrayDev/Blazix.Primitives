@@ -135,16 +135,16 @@ public sealed class TwinContractTests
         TwinReferences first = new();
         int targetIndex = first.Add(target);
         int scriptHeldIndex = first.Add(scriptHeld);
-        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { TargetReferenceIndex = targetIndex }, first);
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { TargetRef = targetIndex }, first);
         TwinReferences second = new();
-        await attached.UpdateAsync(new TestTwinOptions { TargetReferenceIndex = second.Add(scriptHeld) }, second);
+        await attached.UpdateAsync(new TestTwinOptions { TargetRef = second.Add(scriptHeld) }, second);
         await twin.AttachAsync("base-ui-2", new TestTwinOptions(), new TwinReferences());
 
         Assert.Equal(0, targetIndex);
         Assert.Equal(1, scriptHeldIndex);
         JSRuntimeInvocation attach = module.Invocations["attach"][0];
         Assert.Equal(4, attach.Arguments.Count);
-        Assert.Equal("""{"threshold":0,"targetReferenceIndex":0}""", attach.Arguments[1]);
+        Assert.Equal("""{"threshold":0,"targetRef":0}""", attach.Arguments[1]);
         object[] sent = Assert.IsType<object[]>(attach.Arguments[3]);
         Assert.Equal(2, sent.Length);
         Assert.Equal(target, sent[0]);
@@ -152,7 +152,7 @@ public sealed class TwinContractTests
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(2, update.Arguments.Count);
-        Assert.Equal("""{"threshold":0,"targetReferenceIndex":0}""", update.Arguments[0]);
+        Assert.Equal("""{"threshold":0,"targetRef":0}""", update.Arguments[0]);
         Assert.Same(scriptHeld, Assert.Single(Assert.IsType<object[]>(update.Arguments[1])));
 
         // An empty list sends no array: the module's references argument is then absent.
@@ -168,7 +168,7 @@ public sealed class TwinContractTests
         BunitJSModuleInterop handle = SetupHandle(module);
         await using TestTwin twin = new(context.JSInterop.JSRuntime);
         TwinReferences references = new();
-        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { TargetReferenceIndex = references.Add(new Microsoft.AspNetCore.Components.ElementReference("element-7")) }, references);
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions { TargetRef = references.Add(new Microsoft.AspNetCore.Components.ElementReference("element-7")) }, references);
 
         await attached.UpdateAsync(new TestTwinOptions { Threshold = 2 });
 
