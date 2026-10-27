@@ -2970,6 +2970,15 @@ function createFocusController(context: HandleContext): Controller {
 
   const onFocus = (event: FocusEvent) => {
     const delay = focusOptions()?.delay ?? 0;
+    // Tooltip's nested triggers (tooltip/trigger/TooltipTrigger.tsx:234-238): a focus inside an enabled nested tooltip
+    // trigger is that trigger's, so the outer trigger's focus handling is skipped (its preventBaseUIHandler()).
+    if (context.options.trigger?.hover?.nestedTooltipTriggers) {
+      const target = getTarget(event);
+      const nested = isElement(target) ? closest(target, `[${TOOLTIP_TRIGGER_IDENTIFIER}]`) : null;
+      if (nested !== null && nested !== element && contains(element, nested)) {
+        return;
+      }
+    }
     if (blockFocus) {
       if (blockedReference === element) {
         return;
