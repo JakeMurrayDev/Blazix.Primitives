@@ -62,6 +62,11 @@ export interface PopupHarness {
   attachFloating(element: HTMLElement, options?: Partial<InteractionsOptions>): TwinHandle;
   /** Sends a new session `update`, merging `options` into the last one sent (a re-render of the Root). */
   updateSession(options: Partial<InteractionsOptions>): void;
+  /**
+   * Makes an attached trigger the popup's anchor without a commit (the test shim's `refs.setReference`, which Base UI's
+   * hook tests rely on while the popup is closed); sends a session `update`.
+   */
+  setReference(element: HTMLElement): void;
   /** Commits a change C# started (a controlled flip, a handle's `OpenAsync`), relayed like any commit. */
   setOpen(open: boolean, reason?: string, triggerId?: string | null): void;
   /** Disposes every handle the harness attached. */
@@ -251,6 +256,11 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
     },
     updateSession(extra) {
       sessionOptions = { ...sessionOptions, ...extra, session: { ...sessionOptions.session, ...extra.session } };
+      sendSession();
+    },
+    setReference(element) {
+      ensureId(element);
+      activeTriggerId = element.id;
       sendSession();
     },
     setOpen(next, reason = 'none', triggerId = null) {

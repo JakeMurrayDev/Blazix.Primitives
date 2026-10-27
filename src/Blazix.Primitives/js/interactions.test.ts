@@ -425,3 +425,124 @@ describe('the session', () => {
     expect(isTopmostOpenSession(outerSession)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// useFocus (useFocus.test.tsx; FLT-FOC-01..04, FLT-API-15, FLT-STA-02)
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('useFocus', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  function setup(delay?: number) {
+    const popup = harness();
+    popup.attachSession();
+    const button = element('button');
+    popup.attachTrigger(button, { trigger: { focus: delay === undefined ? {} : { delay } } });
+    popup.setReference(button);
+    const floating = element('div');
+    popup.attachFloating(floating);
+    return { popup, button, floating };
+  }
+
+  it('does not reopen when focus is restored after leaving the tab', async () => {
+    const { popup, button } = setup(100);
+
+    button.focus();
+
+    window.dispatchEvent(new Event('blur'));
+    button.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(popup.open).toBe(false);
+
+    // Port: the block lasts until the pointer leaves the reference; the next focus then opens after the delay.
+    button.blur();
+    button.dispatchEvent(new MouseEvent('mouseleave'));
+    button.focus();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(popup.open).toBe(true);
+  });
+
+  it('port: a focus opens with reason trigger-focus at once without a delay, and after the delay with one', async () => {
+    const immediate = setup();
+    immediate.button.focus();
+    expect(immediate.popup.open).toBe(true);
+    expect(immediate.popup.changes[0]?.details.reason).toBe('trigger-focus');
+    expect(immediate.popup.changes[0]?.details.triggerId).toBe(immediate.button.id);
+    immediate.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+
+    const delayed = setup(100);
+    delayed.button.focus();
+    expect(delayed.popup.open).toBe(false);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(delayed.popup.open).toBe(true);
+  });
+
+  it('port: a press or Escape close relayed to the session blocks the next focus on that reference until the pointer leaves it', () => {
+    const { popup, button } = setup();
+    popup.setOpen(true, 'trigger-press', button.id);
+    popup.setOpen(false, 'escape-key');
+
+    button.focus();
+    expect(popup.open).toBe(false);
+
+    button.blur();
+    button.dispatchEvent(new MouseEvent('mouseleave'));
+    button.focus();
+    expect(popup.open).toBe(true);
+  });
+
+  it('port: a blur closes after 0 ms unless focus moved into the floating element, onto an outside focus guard or onto another enabled trigger', async () => {
+    const { popup, button, floating } = setup();
+    const inside = document.createElement('button');
+    floating.append(inside);
+    const guard = element('span');
+    guard.tabIndex = 0;
+    guard.setAttribute('data-base-ui-focus-guard', '');
+    guard.setAttribute('data-type', 'outside');
+    const other = element('button');
+    popup.attachTrigger(other);
+    const outside = element('button');
+
+    button.focus();
+    expect(popup.open).toBe(true);
+
+    inside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(popup.open).toBe(true);
+
+    button.focus();
+    guard.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(popup.open).toBe(true);
+
+    button.focus();
+    other.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(popup.open).toBe(true);
+
+    button.focus();
+    outside.focus();
+    expect(popup.open).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(popup.open).toBe(false);
+    expect(popup.changes.at(-1)?.details.reason).toBe('trigger-focus');
+  });
+
+  it('port: a focus moving between two enabled triggers of an open popup opens at once despite the delay', () => {
+    const { popup, button } = setup(100);
+    const other = element('button');
+    popup.attachTrigger(other, { trigger: { focus: { delay: 100 } } });
+    popup.setOpen(true, 'trigger-hover', button.id);
+
+    button.focus();
+    other.focus();
+
+    expect(popup.changes.at(-1)?.details.triggerId).toBe(other.id);
+    expect(popup.activeTriggerId).toBe(other.id);
+  });
+});
