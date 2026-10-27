@@ -84,6 +84,23 @@ test.describe('attach order', () => {
     await expect(fixture).toHaveAttribute('data-consumer-clicks', '1');
   });
 
+  test('port: an option changed while js/interactions.js is stalled reaches the module once it loads', async ({ page, mode }) => {
+    const release = await stall(page, 'interactions');
+    const fixture = await gotoFixture(page, mode, 'interactions-press');
+    // The trigger's re-render sends `Click.Toggle = false` while its attach is still in flight.
+    await fixture.locator('[data-keep-open]').check();
+
+    await release();
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    const trigger = fixture.locator('[data-trigger]');
+    await trigger.click();
+    await expect(fixture).toHaveAttribute('data-open', 'true');
+    await trigger.click();
+
+    await expect(fixture).toHaveAttribute('data-requests', '2');
+    await expect(fixture).toHaveAttribute('data-open', 'true');
+  });
+
   test('port: a trigger attached before its session still toggles once the session attaches', async ({ page, mode }) => {
     const fixture = await gotoFixture(page, mode, 'interactions-press-late-session');
     const trigger = fixture.locator('[data-trigger]');

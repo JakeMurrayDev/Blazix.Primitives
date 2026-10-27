@@ -138,23 +138,45 @@ public sealed class InteractionsBehaviorTests : IDisposable
     }
 
     [Fact]
-    public async Task On_Server_the_press_report_runs_the_consumer_onclick_once_then_the_request_whichever_message_arrives_first()
+    public async Task On_Server_the_press_report_runs_the_consumer_onclick_once_then_the_request()
     {
         int consumerClicks = 0;
         IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onClick: _ => consumerClicks++);
         IRenderedComponent<TestInteractionsTrigger> trigger = cut.FindComponent<TestInteractionsTrigger>();
 
-        // The module's report precedes Blazor's dispatch of the same click.
+        // The module's report precedes Blazor's dispatch of the same click on one circuit (ADR-04/1).
         await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"touch","event":{{ClickJson}}}"""));
         trigger.Find("button").Click(new MouseEventArgs { Detail = 1 });
         Assert.Equal(1, consumerClicks);
         Assert.True(cut.Instance.Open);
         Assert.Equal("touch", cut.Instance.Requests[^1].InteractionType);
+    }
 
-        // Blazor's dispatch first: the report reads the verdict and does not run the handler again.
+    [Fact]
+    public async Task A_click_that_is_not_a_press_leaves_no_verdict_behind_so_the_next_press_runs_the_consumer_and_its_veto_holds()
+    {
+        bool veto = false;
+        int consumerClicks = 0;
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onClick: e =>
+        {
+            consumerClicks++;
+            if (veto)
+            {
+                e.PreventPartHandler();
+            }
+        });
+        IRenderedComponent<TestInteractionsTrigger> trigger = cut.FindComponent<TestInteractionsTrigger>();
+
+        // A click the module did not turn into a press (for example the click after a mousedown press) reaches only Blazor.
         trigger.Find("button").Click(new MouseEventArgs { Detail = 1 });
-        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":false,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{ClickJson}}}"""));
+        Assert.Equal(1, consumerClicks);
+
+        veto = true;
+        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{ClickJson}}}"""));
+        trigger.Find("button").Click(new MouseEventArgs { Detail = 1 });
+
         Assert.Equal(2, consumerClicks);
+        Assert.Empty(cut.Instance.Requests);
         Assert.False(cut.Instance.Open);
     }
 
