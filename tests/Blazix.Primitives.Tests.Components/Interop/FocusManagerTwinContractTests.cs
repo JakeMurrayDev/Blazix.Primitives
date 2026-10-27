@@ -1,5 +1,6 @@
 using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components.Interop;
@@ -24,6 +25,7 @@ public sealed class FocusManagerTwinContractTests
     [Trait("Requirement", "FLT-API-05")]
     [Trait("Requirement", "FLT-FOC-19")]
     [Trait("Requirement", "FLT-FOC-20")]
+    [Trait("Requirement", "FLT-EVT-02")]
     public async Task Attach_imports_the_focus_manager_module_and_sends_every_field_on_attach_and_update()
     {
         using BunitContext context = new();
@@ -34,6 +36,11 @@ public sealed class FocusManagerTwinContractTests
         await using FocusManagerTwin twin = new(context.JSInterop.JSRuntime);
 
         TwinHandle<FocusManagerOptions> attached = await twin.AttachAsync("base-ui-1", new FocusManagerOptions());
+        ElementReference initial = new("initial-target");
+        ElementReference final = new("final-target");
+        TwinReferences references = new();
+        references.Add(initial);
+        references.Add(final);
 
         // A repeated attach of the same element is a no-op (ADR 06 Amendments 2026-10-18 rule 2).
         Assert.Same(attached, await twin.AttachAsync("base-ui-1", new FocusManagerOptions { Modal = false }));
@@ -60,8 +67,9 @@ public sealed class FocusManagerTwinContractTests
             NextFocusableElement = 4,
             InsideElements = [2],
             InsideElementIds = ["base-ui-5"],
+            Relay = new OpenChangeRelay(3, "trigger-press", EventKind.PointerEvent, "click", "mouse", "base-ui-6", 2, "escape-key"),
             Answered = 2,
-        });
+        }, references);
         await attached.DisposeAsync();
         await attached.DisposeAsync();
 
@@ -75,8 +83,12 @@ public sealed class FocusManagerTwinContractTests
         // A programmatic open's null interaction type is sent, not omitted (FLT-FOC-20).
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"modal":false,"disabled":true,"initialFocus":false,"initialFocusElement":0,"initialFocusId":"base-ui-2","returnFocus":false,"returnFocusElement":1,"returnFocusId":"base-ui-3","explicitReturnFocus":true,"closeInteractionType":"keyboard","restoreFocus":"popup","closeOnFocusOut":false,"openInteractionType":null,"openSelector":"[data-open]","treatPopupAsFloatingElement":true,"domReferenceId":"base-ui-4","triggerFocusGuards":true,"previousFocusableElement":3,"nextFocusableElement":4,"insideElements":[2],"insideElementIds":["base-ui-5"],"answered":2}""",
+            """{"modal":false,"disabled":true,"initialFocus":false,"initialFocusElement":0,"initialFocusId":"base-ui-2","returnFocus":false,"returnFocusElement":1,"returnFocusId":"base-ui-3","explicitReturnFocus":true,"closeInteractionType":"keyboard","restoreFocus":"popup","closeOnFocusOut":false,"openInteractionType":null,"openSelector":"[data-open]","treatPopupAsFloatingElement":true,"domReferenceId":"base-ui-4","triggerFocusGuards":true,"previousFocusableElement":3,"nextFocusableElement":4,"insideElements":[2],"insideElementIds":["base-ui-5"],"relay":{"revision":3,"reason":"trigger-press","eventKind":"PointerEvent","eventType":"click","pointerType":"mouse","triggerId":"base-ui-6","coalescedCloseRevision":2,"coalescedCloseReason":"escape-key"},"answered":2}""",
             update.Arguments[0]);
+
+        // Element targets cross beside the options, revived by Blazor; the options carry their indices (ADR 04
+        // Amendments 2026-10-27, element-typed option values).
+        Assert.Equal([initial, final], Assert.IsType<object[]>(update.Arguments[1]));
         Assert.Single(handle.Invocations["dispose"]);
     }
 
@@ -141,6 +153,10 @@ public sealed class FocusManagerTwinContractTests
         Assert.NotEqual(first, same with { PreviousFocusableElement = 1 });
         Assert.NotEqual(first, same with { NextFocusableElement = 1 });
         Assert.NotEqual(first, same with { Answered = 1 });
+        Assert.NotEqual(first, same with { Relay = new OpenChangeRelay(1, "trigger-press", EventKind.MouseEvent, "click", null, null) });
+        Assert.Equal(
+            first with { Relay = new OpenChangeRelay(1, "trigger-press", EventKind.MouseEvent, "click", null, null) },
+            same with { Relay = new OpenChangeRelay(1, "trigger-press", EventKind.MouseEvent, "click", null, null) });
     }
 
     private sealed class NoRuntime : IJSRuntime
