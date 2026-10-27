@@ -114,7 +114,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// </summary>
     /// <param name="point">The name of the decision point, for example <c>activate</c> or <c>escape</c>.</param>
     /// <param name="eventJson">The JSON of the <see cref="EventSnapshot"/> JavaScript took inside the dispatch.</param>
-    /// <returns>The verdict as <c>run</c>, <c>stop</c>, <c>start</c> or <c>prevent-and-stop</c>.</returns>
+    /// <returns>The verdict as <c>run</c>, <c>stop</c>, <c>start</c>, <c>prevent-and-stop</c> or <c>prevent</c>.</returns>
     [JSInvokable]
     public string Decide(string point, string eventJson)
     {

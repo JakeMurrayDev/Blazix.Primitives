@@ -8,9 +8,15 @@ export interface DotNetTwin {
   invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T>;
 }
 
-// Mirrors `DecisionPolicy` in C#.
-/** The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously. */
-export type DecisionPolicy = 'run' | 'stop' | 'start' | 'prevent-and-stop';
+// Mirrors `DecisionPolicy` in C# and its `ToLiteral()`, member by member.
+/** The literal of every verdict, in the order of the C# members. */
+export const decisionPolicies = ['run', 'stop', 'start', 'prevent-and-stop', 'prevent'] as const;
+
+/**
+ * The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously:
+ * `prevent-and-stop` calls `preventDefault()` and `stopPropagation()` on the event, `prevent` only `preventDefault()`.
+ */
+export type DecisionPolicy = (typeof decisionPolicies)[number];
 
 /** What `attach` returns to C#: the per-element handle with `update(optionsJson)` and `dispose()`. */
 export interface TwinHandle {
