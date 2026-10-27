@@ -549,7 +549,7 @@ const noop = (): void => {};
 let queuedFocusFrame = 0;
 
 /**
- * Focuses an element on the next animation frame, cancelling the focus any earlier call left pending.
+ * Focuses an element on the next animation frame, canceling the focus any earlier call left pending.
  * @param el The element, or `null` to only cancel.
  * @param options The scroll, synchronous and gate options.
  * @returns The function that cancels this call's frame while it is still the pending one.
@@ -642,10 +642,9 @@ export type InteractionTypeLiteral = 'mouse' | 'touch' | 'pen' | 'keyboard' | ''
 /** Where focus goes when the focused element inside the popup is lost; Base UI's `false`, `true` and `'popup'`. */
 export type FocusRestoration = 'none' | 'tabbable' | 'popup';
 
-/**
- * The last committed open change, as C# relays it in `update`; the record is the popup core's (ADR 04 Amendments
- * 2026-10-27), with the fields its relay carries.
- */
+// The record is the popup core's `OpenChangeRelay` (ADR 04 Amendments 2026-10-27), with the two coalesced-close
+// members of track 3's design point 11.
+/** The last committed open change, as C# relays it in `update`. */
 export interface OpenChangeRelay {
   /** Moves on every committed open change; the module acts once per value. */
   revision: number;
@@ -659,13 +658,17 @@ export interface OpenChangeRelay {
   pointerType?: string | null;
   /** The id of the trigger the change names. */
   triggerId?: string | null;
+  /** The revision of a close the same batch committed before this open, or `null` when there was none. */
+  closedRevision?: number | null;
+  /** The reason of that close. */
+  closedReason?: string | null;
 }
 
 /** The options of a focus manager handle; mirrors `FocusManagerOptions` in C#. */
 export interface FocusManagerOptions extends TwinOptions {
   /** Traps focus and hides the outside with `aria-hidden`; `true` by default. */
   modal?: boolean | undefined;
-  /** Turns every behaviour off: no initial focus, trap, marking or return focus. */
+  /** Turns every behavior off: no initial focus, trap, marking or return focus. */
   disabled?: boolean | undefined;
   /** The open's resolved initial focus: `false` does nothing; `true` takes the target, else the default. */
   initialFocus?: boolean | undefined;
@@ -700,12 +703,18 @@ export interface FocusManagerOptions extends TwinOptions {
    * element before the popup in focus order and the guard after it the element after (Popover).
    */
   triggerFocusGuards?: boolean | undefined;
+  /** The element focused when Tab leaves the popup backward, by reference index (Menu's). */
+  previousFocusableElement?: number | null | undefined;
+  /** The element focused when Tab leaves the popup forward, by reference index (Menu's). */
+  nextFocusableElement?: number | null | undefined;
   /** Elements outside the popup that count as inside it, by reference index (Base UI's `getInsideElements`). */
   insideElements?: number[] | null | undefined;
   /** Elements outside the popup that count as inside it, by element id. */
   insideElementIds?: string[] | null | undefined;
   /** The last committed open change; the module acts when its revision moves. */
-  openChange?: OpenChangeRelay | null | undefined;
+  relay?: OpenChangeRelay | null | undefined;
+  /** How many of the module's requests C# has answered, canceled or not; the module asks again when it moves. */
+  answered?: number | undefined;
 }
 
 /** The focus-out close request; mirrors `FocusOutCloseRequest` in C#. */
@@ -885,7 +894,8 @@ export function attach(
   // A focus-out close is a request: the module disarms after sending one until the next open (ADR 04 Amendments
   // 2026-10-27, "a module disarms itself after requesting a close until the next open arrives").
   let closeRequested = false;
-  let relayRevision = options.openChange?.revision ?? null;
+  let relayRevision = options.relay?.revision ?? null;
+  let answered = options.answered ?? 0;
   let onOpenChangeLocal: ((details: OpenChangeDetails) => void) | null = null;
   let pendingReturnFocus: { cancelled: boolean } | null = null;
   // Whether the batch removed the popup element: the manager stops as it does on dispose (design point 1, chosen by
@@ -931,10 +941,12 @@ export function attach(
   // Popover's trigger focus guards (PSH-FOC-09, FLT-KEY-06), found by position around the anchor.
   const triggerBeforeGuard = (reference: Element | null): HTMLElement | null =>
     options.triggerFocusGuards && isFocusGuard(reference?.previousElementSibling) ? reference.previousElementSibling : null;
+  // Popover passes the trigger and its after-guard (by position, `triggerFocusGuards`); Menu passes elements (by index).
   const previousFocusableElement = (reference: HTMLElement | null): HTMLElement | null =>
-    options.triggerFocusGuards ? reference : null;
+    resolveReference(options.previousFocusableElement) ?? (options.triggerFocusGuards ? reference : null);
   const nextFocusableElement = (reference: Element | null): HTMLElement | null =>
-    options.triggerFocusGuards && isFocusGuard(reference?.nextElementSibling) ? reference.nextElementSibling : null;
+    resolveReference(options.nextFocusableElement) ??
+    (options.triggerFocusGuards && isFocusGuard(reference?.nextElementSibling) ? reference.nextElementSibling : null);
   const insideElements = (reference: Element | null): Element[] => [
     ...(options.insideElements ?? []).map(resolveReference),
     ...(options.insideElementIds ?? []).map(resolveId),
@@ -1291,14 +1303,26 @@ export function attach(
 
     addPreviouslyFocusedElement(elementFocusedBeforeOpen);
 
-    // The batch that removes the popup releases return focus pre-paint, before C# disposes the handle.
+    // The batch that removes the popup, or any of its ancestors, releases return focus pre-paint, before C# disposes
+    // the handle. Each ancestor's own child list is observed, not the document's subtree; a move (the portal's) is
+    // followed by observing the new ancestors.
+    const observeAncestors = () => {
+      for (let node = popup.parentNode; node; node = node.parentNode) {
+        removal.observe(node, { childList: true });
+      }
+    };
     const removal = new (ownerWindow(popup).MutationObserver)(() => {
-      if (!popup.isConnected && !removed) {
+      if (removed) {
+        return;
+      }
+      if (!popup.isConnected) {
         removed = true;
         sync();
+        return;
       }
+      observeAncestors();
     });
-    removal.observe(doc, { childList: true, subtree: true });
+    observeAncestors();
 
     onOpenChangeLocal = (details) => {
       // Focus guards transfer focus themselves; other close handlers may still need return focus.
@@ -1392,7 +1416,7 @@ export function attach(
           tabbableReturnElement.focus(focusOptions);
         }
 
-        // A cancelled return also clears the suppression before the next close.
+        // A canceled return also clears the suppression before the next close.
         preventReturnFocus = false;
       });
     };
@@ -1526,7 +1550,7 @@ export function attach(
 
   // The relay (ADR 04 Amendments 2026-10-27): the internal `openchange` runs once per committed change.
   const applyRelay = (): void => {
-    const relay = options.openChange;
+    const relay = options.relay;
     if (!relay || relay.revision === relayRevision) {
       return;
     }
@@ -1559,6 +1583,11 @@ export function attach(
       }
       options = parseOptions<FocusManagerOptions>(nextOptionsJson);
       optionReferences = nextReferences ?? [];
+      // A request C# answered, canceled or not, re-arms the focus-out close (ADR 04 Amendments 2026-10-27).
+      if ((options.answered ?? 0) !== answered) {
+        answered = options.answered ?? 0;
+        closeRequested = false;
+      }
       applyRelay();
       // The batch decides open and closed after attach; `update` never changes it.
       sync();
