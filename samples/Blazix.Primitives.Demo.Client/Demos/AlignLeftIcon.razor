@@ -1,0 +1,8 @@
+<svg width="16" height="16" fill="none" viewBox="0 0 16 16" stroke="currentColor" style="display: block" @attributes="Attributes">
+    <path stroke-linecap="square" stroke-linejoin="round" d="M2.5 4.5h11m-11 7h9M2.5 8h5" />
+</svg>
+
+@code {
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Attributes { get; set; }
+}
