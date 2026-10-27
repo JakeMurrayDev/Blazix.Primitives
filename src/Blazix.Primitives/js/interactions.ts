@@ -17,7 +17,9 @@
 // FloatingTreeStore.ts, FloatingTree.tsx, FloatingDelayGroup.tsx; hooks/useClick.ts, useDismiss.ts, useFocus.ts,
 // useClientPoint.ts, useHoverReferenceInteraction.ts, useHoverFloatingInteraction.ts, useHoverShared.ts,
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
-import { closest, contains, isElement, isHTMLElement, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
+import { eventInfo } from './event-info';
+import { cancelFrame, requestFrame } from './transitions';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -55,6 +57,29 @@ export interface OpenChangeRelay {
   triggerId?: string | null;
 }
 
+/** The press type an outside press is read as (FLT-API-02). */
+export type PressType = 'intentional' | 'sloppy';
+
+/** The options of `useDismiss` on a session (FLT §6.4); `null` turns dismissal off. */
+export interface DismissOptions {
+  /** Whether Escape closes the popup (FLT-KEY-01); `true` when absent. */
+  escapeKey?: boolean | null;
+  /** Whether an outside press closes the popup (FLT-DIS-09); `true` when absent. */
+  outsidePress?: boolean | null;
+  /** The press type per pointer type (FLT-API-02); `sloppy` for both when absent. */
+  outsidePressEvent?: { mouse?: PressType | null; touch?: PressType | null } | null;
+  /** Whether Escape and outside presses bubble through the tree (FLT-API-01); `{ escapeKey: false, outsidePress: true }` when absent. */
+  bubbles?: { escapeKey?: boolean | null; outsidePress?: boolean | null } | null;
+  /** Dialog's predicate: only a primary-button press dismisses. */
+  primaryButtonOnly?: boolean | null;
+  /** Dialog's predicate: only a single-touch press dismisses. */
+  singleTouch?: boolean | null;
+  /** Dialog's predicate: the ids of the popup's own backdrops, a press on which dismisses even though they lie outside. */
+  ownBackdropIds?: string[] | null;
+  /** Dialog's predicate: only the topmost open popup dismisses. */
+  topmost?: boolean | null;
+}
+
 /** The options of a `session` handle (a popup Root). */
 export interface SessionRoleOptions {
   /** Whether the popup is open, as committed by C#. */
@@ -65,26 +90,105 @@ export interface SessionRoleOptions {
   parentToken?: string | null;
   /** The popup element's id (Base UI's `floatingId`). */
   floatingId?: string | null;
-  /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`). */
+  /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`, FLT-PTR-13). */
   ending?: boolean | null;
+  /** Dismissal; `null` turns it off. */
+  dismiss?: DismissOptions | null;
+}
+
+/** The options of `useClick` on a trigger (FLT §6.3); `null` turns it off. */
+export interface ClickOptions {
+  /** Which pointer event toggles (FLT-PTR-02/03); `click` when absent. */
+  event?: 'click' | 'mousedown' | 'mousedown-only' | null;
+  /** Whether a repeated press closes (FLT-PTR-05); `true` when absent. */
+  toggle?: boolean | null;
+  /** Whether strictly mouse-like presses are dropped. */
+  ignoreMouse?: boolean | null;
+  /** Whether a press keeps a hover- or focus-opened popup open (FLT-PTR-06); `true` when absent. */
+  stickIfOpen?: boolean | null;
+  /** Whether `stickIfOpen` holds only within the patient-click window after a hover open (Popover). */
+  patientClick?: boolean | null;
+  /** The touch-only open deferral in milliseconds (FLT-PTR-04). */
+  touchOpenDelay?: number | null;
+  /** The reason of the request; `trigger-press` when absent. */
+  reason?: 'trigger-press' | 'input-press' | null;
+}
+
+/** The options of `useHoverReferenceInteraction` on a trigger (FLT §6.7, §6.9); `null` turns it off. */
+export interface HoverOptions {
+  /** The open delay in milliseconds. */
+  delayOpen?: number | null;
+  /** The close delay in milliseconds. */
+  delayClose?: number | null;
+  /** The rest time before a hover opens (FLT-PTR-16). */
+  restMs?: number | null;
+  /** Whether the first `mousemove` also opens; `true` when absent. */
+  move?: boolean | null;
+  /** Whether only mouse-like pointers hover (FLT-PTR-11). */
+  mouseOnly?: boolean | null;
+  /** Whether leaving the trigger is judged by the safe polygon (FLT-ALG-15). */
+  safePolygon?: boolean | null;
+  /** The safe polygon's `blockPointerEvents` (FLT-DOM-19). */
+  blockPointerEvents?: boolean | null;
+  /** Whether a `mouseout` cancels a pending open (FLT-PTR-18). */
+  guardStaleOpen?: boolean | null;
+  /** Whether a nested tooltip trigger (`data-base-ui-tooltip-trigger`) vetoes the hover (Tooltip's `shouldOpen`). */
+  nestedTooltipTriggers?: boolean | null;
+  /** The provider token whose delay group the trigger belongs to (FLT-ALG-23). */
+  delayGroupToken?: string | null;
+}
+
+/** The options of `useFocus` on a trigger (FLT §6.5); `null` turns it off. */
+export interface FocusOptions {
+  /** The open delay in milliseconds (FLT-FOC-01). */
+  delay?: number | null;
+}
+
+/** The options of `useClientPoint` on a trigger (FLT §6.6); `null` turns it off. */
+export interface ClientPointOptions {
+  /** The tracked axis (FLT-API-14); `both` when absent. */
+  axis?: 'x' | 'y' | 'both' | null;
 }
 
 /** The options of a `trigger` handle. */
 export interface TriggerRoleOptions {
   /** The trigger's id in the session's trigger map; the element's `id` when absent. */
   triggerId?: string | null;
+  click?: ClickOptions | null;
+  /** Whether a press on the trigger closes the open popup (FLT-PTR-30). */
+  referencePress?: boolean | null;
+  /** Whether a press on a closed popup's trigger cancels a pending hover open on the bus alone (Tooltip). */
+  cancelPendingOpenOnPress?: boolean | null;
+  hover?: HoverOptions | null;
+  focus?: FocusOptions | null;
+  clientPoint?: ClientPointOptions | null;
+  /** Whether the trigger records the hovered line for the inline middleware (PreviewCard). */
+  hoveredLine?: boolean | null;
+}
+
+/** The options of `useHoverFloatingInteraction` on a floating element (FLT §6.8); `null` turns it off. */
+export interface FloatingHoverOptions {
+  /** The close delay in milliseconds after the pointer leaves the floating element (FLT-PTR-24). */
+  closeDelay?: number | null;
 }
 
 /** The options of a `floating` handle. */
 export interface FloatingRoleOptions {
-  /** Whether the session registers a tree node for this floating element (FLT-STR-07). */
+  /** Whether the session registers a tree node for this floating element (FLT-STR-07); `true` when absent. */
   node?: boolean | null;
+  hover?: FloatingHoverOptions | null;
 }
 
-/** The options of a `provider` handle (a TooltipProvider). */
+/** The options of a `provider` handle (a TooltipProvider, FLT §6.9). */
 export interface ProviderRoleOptions {
   /** The provider token the group is keyed by. */
   token?: string | null;
+  /** The group's open delay in milliseconds. */
+  delayOpen?: number | null;
+  /** The group's close delay in milliseconds. */
+  delayClose?: number | null;
+  /** The warm period after the last member closes, in milliseconds. */
+  timeout?: number | null;
 }
 
 /** The options of an `interactions` handle; mirrors `InteractionsOptions` in C#. Exactly one role is set. */
@@ -717,109 +821,192 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// The delay groups (FLT-ALG-23): one per provider token, sanctioned page-global state
+// Shared plumbing of the hooks: timers, listeners, requests
 // ---------------------------------------------------------------------------------------------------------------
 
+/** A restartable timer (Base UI's `Timeout`): `start` replaces a pending callback. */
+interface Timer {
+  start(delay: number, callback: () => void): void;
+  clear(): void;
+  isStarted(): boolean;
+}
+
+function createTimer(): Timer {
+  let id: ReturnType<typeof setTimeout> | undefined;
+  return {
+    start(delay, callback) {
+      if (id !== undefined) {
+        clearTimeout(id);
+      }
+      id = setTimeout(() => {
+        id = undefined;
+        callback();
+      }, delay);
+    },
+    clear() {
+      if (id !== undefined) {
+        clearTimeout(id);
+        id = undefined;
+      }
+    },
+    isStarted: () => id !== undefined,
+  };
+}
+
+type Cleanup = () => void;
+
+function listen<K extends keyof DocumentEventMap>(
+  target: EventTarget,
+  type: K | string,
+  listener: (event: any) => void,
+  options?: boolean | AddEventListenerOptions,
+): Cleanup {
+  target.addEventListener(type, listener, options);
+  return () => target.removeEventListener(type, listener, options);
+}
+
+function mergeCleanups(...cleanups: (Cleanup | false | null | undefined)[]): Cleanup {
+  return () => {
+    for (const cleanup of cleanups) {
+      if (cleanup) {
+        cleanup();
+      }
+    }
+  };
+}
+
+function triggerIdOf(record: SessionRecord, element: Element): string | null {
+  for (const [id, trigger] of record.triggers) {
+    if (trigger === element) {
+      return id;
+    }
+  }
+  return element.id || null;
+}
+
+/**
+ * A request a handle sends (ADR 04 Amendments 2026-10-27): recorded for the relay's pairing, then reported on the
+ * handle's own twin. Nothing is emitted here: `openchange` follows the commit the relay brings.
+ */
+function requestOpenChange(
+  record: SessionRecord,
+  channel: TwinChannel,
+  open: boolean,
+  reason: string,
+  event: Event | undefined,
+  trigger?: Element | null,
+  extra?: Record<string, unknown>,
+): void {
+  record.pending = { open, reason, event };
+  channel.report('OnRequest', {
+    open,
+    reason,
+    event: event === undefined ? null : eventInfo(event),
+    triggerId: trigger ? triggerIdOf(record, trigger) : null,
+    ...extra,
+  });
+}
+
+/** What a hook's controller reads: its session, its handle's element and channel, and the handle's current options. */
+interface HandleContext {
+  readonly record: SessionRecord;
+  /** The trigger or floating element; `null` for the session handle. */
+  readonly element: HTMLElement | null;
+  readonly channel: TwinChannel;
+  readonly twinReference: DotNetTwin;
+  /** The options of the last `attach` or `update`. */
+  readonly options: InteractionsOptions;
+}
+
+/** One hook's half of a handle: told after every `update`, disposed with the handle. */
+interface Controller {
+  update?(previous: InteractionsOptions): void;
+  dispose(): void;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region dismiss: useDismiss (FLT-DIS-01..16, FLT-KEY-01..03, FLT-PTR-26..30, FLT-ALG-17) and the `escape` point
+// ---------------------------------------------------------------------------------------------------------------
+
+/** The session's half: the document listeners for Escape and outside presses. */
+function createSessionDismissController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+/** The floating element's half: the inside-press marks and the floating `keydown`. */
+function createFloatingDismissController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+/** The trigger's half: the reference press and the reference `keydown`. */
+function createReferenceDismissController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+// #endregion dismiss
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region click: useClick (FLT-PTR-01..06, FLT-ALG-16) and the `press` point
+// ---------------------------------------------------------------------------------------------------------------
+
+/** A next-frame callback over `transitions.ts`'s frame scheduler (Base UI's `useAnimationFrame`). */
+interface FrameRequest {
+  request(callback: () => void): void;
+  cancel(): void;
+}
+
+function createFrameRequest(): FrameRequest {
+  let id: number | undefined;
+  return {
+    request(callback) {
+      if (id !== undefined) {
+        cancelFrame(id);
+      }
+      id = requestFrame(() => {
+        id = undefined;
+        callback();
+      });
+    },
+    cancel() {
+      if (id !== undefined) {
+        cancelFrame(id);
+        id = undefined;
+      }
+    },
+  };
+}
+
+function createClickController(_context: HandleContext): Controller {
+  void createFrameRequest;
+  return { dispose() {} };
+}
+
+// #endregion click
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region hover: the hover pair, the shared hover state and safePolygon (FLT-PTR-11..25, FLT-ALG-15, FLT-ALG-24)
+// ---------------------------------------------------------------------------------------------------------------
+
+function createHoverReferenceController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+function createHoverFloatingController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+// #endregion hover
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region delay-group: FloatingDelayGroup and useDelayGroup (FLT-ALG-23, FLT-EVT-07, FLT-ANI-01)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** One group per provider token: the sanctioned page-global state of the module beside the session map. */
 interface DelayGroup {
   token: string;
 }
 
 const delayGroups = new Map<string, DelayGroup>();
-
-// ---------------------------------------------------------------------------------------------------------------
-// Handles
-// ---------------------------------------------------------------------------------------------------------------
-
-function attachSession(token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
-  const record = acquireRecord(token);
-  const channel = createTwinChannel(twinReference);
-  let disposed = false;
-  record.channel = channel;
-  applySessionOptions(record, initialOptions);
-
-  return {
-    update(optionsJson) {
-      if (disposed) {
-        return;
-      }
-      applySessionOptions(record, parseOptions<InteractionsOptions>(optionsJson));
-    },
-    dispose() {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
-      if (record.channel === channel) {
-        record.channel = null;
-      }
-      releaseSession(record);
-    },
-  };
-}
-
-function attachTrigger(element: HTMLElement, token: string, initialOptions: InteractionsOptions, _twinReference: DotNetTwin): TwinHandle {
-  const record = acquireRecord(token);
-  let disposed = false;
-  let triggerId = initialOptions.trigger?.triggerId ?? element.id;
-  record.triggers.set(triggerId, element);
-
-  return {
-    update(optionsJson) {
-      if (disposed) {
-        return;
-      }
-      const options = parseOptions<InteractionsOptions>(optionsJson);
-      const nextId = options.trigger?.triggerId ?? element.id;
-      if (nextId !== triggerId) {
-        if (record.triggers.get(triggerId) === element) {
-          record.triggers.delete(triggerId);
-        }
-        triggerId = nextId;
-        record.triggers.set(triggerId, element);
-      }
-    },
-    dispose() {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
-      if (record.triggers.get(triggerId) === element) {
-        record.triggers.delete(triggerId);
-      }
-      releaseSession(record);
-    },
-  };
-}
-
-function attachFloating(element: HTMLElement, token: string, initialOptions: InteractionsOptions, _twinReference: DotNetTwin): TwinHandle {
-  const record = acquireRecord(token);
-  let disposed = false;
-  record.floatingElement = element;
-  record.hasNode = initialOptions.floating?.node !== false;
-  // FLT-STR-05, FLT-STR-08: the latest floating context, never cleared once published (FLT §10 Q13, replicated).
-  record.dataRef.current.floatingContext = record.context;
-
-  return {
-    update(optionsJson) {
-      if (disposed) {
-        return;
-      }
-      const options = parseOptions<InteractionsOptions>(optionsJson);
-      record.hasNode = options.floating?.node !== false;
-    },
-    dispose() {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
-      if (record.floatingElement === element) {
-        record.floatingElement = null;
-        record.hasNode = false;
-      }
-      releaseSession(record);
-    },
-  };
-}
 
 function attachProvider(token: string, _initialOptions: InteractionsOptions, _twinReference: DotNetTwin): TwinHandle {
   let group = delayGroups.get(token);
@@ -841,6 +1028,314 @@ function attachProvider(token: string, _initialOptions: InteractionsOptions, _tw
       }
     },
   };
+}
+
+/** A trigger's membership in its provider's group. */
+function createDelayGroupController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+// #endregion delay-group
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region focus: useFocus (FLT-FOC-01..04, FLT-API-15)
+// ---------------------------------------------------------------------------------------------------------------
+
+// FLT-A11Y-06: Mac Safari moves no focus on a pointer press, so modality is read from the last keydown or pointerdown.
+const isMacSafari = platform.os.mac && platform.engine.webkit;
+
+// The `data-base-ui-focus-guard` attribute and its `data-type="outside"` (portal guards), read by the blur close.
+const FOCUS_GUARD_ATTRIBUTE = 'data-base-ui-focus-guard';
+
+/**
+ * useFocus on a trigger (useFocus.ts): a focus opens the popup after `delay` (FLT-FOC-01); a window blur while the
+ * reference holds focus, and a press or Escape close, block the next focus on that reference (FLT-FOC-02/03); a blur
+ * closes it after 0 ms unless focus stayed in the reference, moved into the floating element, onto an outside focus
+ * guard or onto another enabled trigger (FLT-FOC-04). React's `onFocus`/`onBlur` are `focusin`/`focusout`.
+ */
+function createFocusController(context: HandleContext): Controller {
+  const { record, channel } = context;
+  const element = context.element as HTMLElement;
+  const timeout = createTimer();
+  let blockFocus = false;
+  let blockedReference: Element | null = null;
+  let keyboardModality = true;
+  let cleanup: Cleanup | null = null;
+
+  const focusOptions = (): FocusOptions | null => context.options.trigger?.focus ?? null;
+
+  const resetBlockedFocus = () => {
+    blockFocus = false;
+    blockedReference = null;
+  };
+
+  const onWindowBlur = () => {
+    const currentDomReference = record.domReferenceElement;
+    if (!record.open && isHTMLElement(currentDomReference) && currentDomReference === activeElement(ownerDocument(currentDomReference))) {
+      blockFocus = true;
+      blockedReference = currentDomReference;
+    }
+  };
+
+  // FLT-FOC-03: the listener runs when the relay brings the commit (on Server a round trip after it).
+  const onOpenChange = (details: SessionOpenChangeDetails) => {
+    if (details.reason === 'trigger-press' || details.reason === 'escape-key') {
+      const referenceElement = record.domReferenceElement;
+      if (isElement(referenceElement)) {
+        blockedReference = referenceElement;
+        blockFocus = true;
+      }
+    }
+  };
+
+  const onFocus = (event: FocusEvent) => {
+    const delay = focusOptions()?.delay ?? 0;
+    if (blockFocus) {
+      if (blockedReference === element) {
+        return;
+      }
+      resetBlockedFocus();
+    }
+    const target = getTarget(event);
+    if (isElement(target)) {
+      if (isMacSafari && !event.relatedTarget) {
+        if (!keyboardModality && !isTypeableElement(target)) {
+          return;
+        }
+      } else if (!matchesFocusVisible(target)) {
+        return;
+      }
+    }
+    const movedFromOtherEnabledTrigger = isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements);
+    if ((record.open && movedFromOtherEnabledTrigger) || !delay) {
+      requestOpenChange(record, channel, true, 'trigger-focus', event, element);
+      return;
+    }
+    timeout.start(delay, () => {
+      if (blockFocus) {
+        return;
+      }
+      requestOpenChange(record, channel, true, 'trigger-focus', event, element);
+    });
+  };
+
+  const onBlur = (event: FocusEvent) => {
+    resetBlockedFocus();
+    const relatedTarget = event.relatedTarget;
+    const movedToFocusGuard =
+      isElement(relatedTarget) && relatedTarget.hasAttribute(FOCUS_GUARD_ATTRIBUTE) && relatedTarget.getAttribute('data-type') === 'outside';
+    timeout.start(0, () => {
+      const domReference = record.domReferenceElement;
+      const activeEl = activeElement(ownerDocument(domReference ?? element));
+      if (!relatedTarget && activeEl === domReference) {
+        return;
+      }
+      if (contains(record.dataRef.current.floatingContext?.elements.floating, activeEl) || contains(domReference, activeEl) || movedToFocusGuard) {
+        return;
+      }
+      const nextFocusedElement = relatedTarget ?? activeEl;
+      if (isTargetInsideEnabledTrigger(nextFocusedElement, record.triggerElements)) {
+        return;
+      }
+      requestOpenChange(record, channel, false, 'trigger-focus', event);
+    });
+  };
+
+  const install = () => {
+    if (cleanup !== null || focusOptions() === null) {
+      return;
+    }
+    const win = ownerWindow(element);
+    record.events.on('openchange', onOpenChange);
+    cleanup = mergeCleanups(
+      listen(win, 'blur', onWindowBlur),
+      isMacSafari && listen(win, 'keydown', () => (keyboardModality = true), true),
+      isMacSafari && listen(win, 'pointerdown', () => (keyboardModality = false), true),
+      listen(element, 'mouseleave', resetBlockedFocus),
+      listen(element, 'focusin', onFocus),
+      listen(element, 'focusout', onBlur),
+      () => record.events.off('openchange', onOpenChange),
+    );
+  };
+
+  const uninstall = () => {
+    cleanup?.();
+    cleanup = null;
+    timeout.clear();
+  };
+
+  install();
+  return {
+    update() {
+      if (focusOptions() === null) {
+        uninstall();
+      } else {
+        install();
+      }
+    },
+    dispose: uninstall,
+  };
+}
+
+// #endregion focus
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region client-point: useClientPoint (FLT-PTR-07..10, FLT-ALG-25) and the hovered line (PSH-PTR-08/29)
+// ---------------------------------------------------------------------------------------------------------------
+
+function setPositionReference(record: SessionRecord, reference: SessionVirtualElement | null): void {
+  if (record.positionReference === reference) {
+    return;
+  }
+  record.positionReference = reference;
+  for (const listener of [...record.positionListeners]) {
+    listener();
+  }
+}
+
+function createClientPointController(_context: HandleContext): Controller {
+  void setPositionReference;
+  return { dispose() {} };
+}
+
+function createHoveredLineController(_context: HandleContext): Controller {
+  return { dispose() {} };
+}
+
+// #endregion client-point
+
+// ---------------------------------------------------------------------------------------------------------------
+// Handles
+// ---------------------------------------------------------------------------------------------------------------
+
+type ControllerFactory = (context: HandleContext) => Controller;
+
+// Builds a handle over its controllers: `update` stores the options, then tells each controller; `dispose` is idempotent
+// and a repeated `attach` of the same element is the caller's (ADR 06 Amendments 2026-10-18 rule 2).
+function composeHandle(
+  record: SessionRecord,
+  element: HTMLElement | null,
+  initialOptions: InteractionsOptions,
+  twinReference: DotNetTwin,
+  factories: ControllerFactory[],
+  onUpdate: (options: InteractionsOptions, previous: InteractionsOptions) => void,
+  onDispose: () => void,
+): TwinHandle {
+  const channel = createTwinChannel(twinReference);
+  const context = { record, element, channel, twinReference, options: initialOptions };
+  const controllers = factories.map((factory) => factory(context));
+  let disposed = false;
+  return {
+    update(optionsJson) {
+      if (disposed) {
+        return;
+      }
+      const previous = context.options;
+      context.options = parseOptions<InteractionsOptions>(optionsJson);
+      onUpdate(context.options, previous);
+      for (const controller of controllers) {
+        controller.update?.(previous);
+      }
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      for (const controller of controllers) {
+        controller.dispose();
+      }
+      onDispose();
+      releaseSession(record);
+    },
+  };
+}
+
+function attachSession(token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
+  const record = acquireRecord(token);
+  applySessionOptions(record, initialOptions);
+  let channel: TwinChannel | null = null;
+  const handle = composeHandle(
+    record,
+    null,
+    initialOptions,
+    twinReference,
+    [
+      (context) => {
+        channel = context.channel;
+        record.channel = context.channel;
+        return { dispose() {} };
+      },
+      createSessionDismissController,
+    ],
+    (options) => applySessionOptions(record, options),
+    () => {
+      if (record.channel === channel) {
+        record.channel = null;
+      }
+    },
+  );
+  return handle;
+}
+
+function attachTrigger(element: HTMLElement, token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
+  const record = acquireRecord(token);
+  let triggerId = initialOptions.trigger?.triggerId ?? element.id;
+  record.triggers.set(triggerId, element);
+  return composeHandle(
+    record,
+    element,
+    initialOptions,
+    twinReference,
+    [
+      createReferenceDismissController,
+      createClickController,
+      createHoverReferenceController,
+      createDelayGroupController,
+      createFocusController,
+      createClientPointController,
+      createHoveredLineController,
+    ],
+    (options) => {
+      const nextId = options.trigger?.triggerId ?? element.id;
+      if (nextId !== triggerId) {
+        if (record.triggers.get(triggerId) === element) {
+          record.triggers.delete(triggerId);
+        }
+        triggerId = nextId;
+        record.triggers.set(triggerId, element);
+      }
+    },
+    () => {
+      if (record.triggers.get(triggerId) === element) {
+        record.triggers.delete(triggerId);
+      }
+    },
+  );
+}
+
+function attachFloating(element: HTMLElement, token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
+  const record = acquireRecord(token);
+  record.floatingElement = element;
+  record.hasNode = initialOptions.floating?.node !== false;
+  // FLT-STR-05, FLT-STR-08: the latest floating context, never cleared once published (FLT §10 Q13, replicated).
+  record.dataRef.current.floatingContext = record.context;
+  return composeHandle(
+    record,
+    element,
+    initialOptions,
+    twinReference,
+    [createFloatingDismissController, createHoverFloatingController],
+    (options) => {
+      record.hasNode = options.floating?.node !== false;
+    },
+    () => {
+      if (record.floatingElement === element) {
+        record.floatingElement = null;
+        record.hasNode = false;
+      }
+    },
+  );
 }
 
 /**
