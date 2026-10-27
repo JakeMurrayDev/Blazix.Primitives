@@ -545,6 +545,26 @@ describe('useFocus', () => {
     expect(popup.changes.at(-1)?.details.triggerId).toBe(other.id);
     expect(popup.activeTriggerId).toBe(other.id);
   });
+
+  it('port: a focus open of a delay group member while another member is open carries the instant phase', async () => {
+    const token = 'focus-group';
+    attach(null, JSON.stringify({ provider: { token, delayOpen: 600, delayClose: 0 } }), createFakeTwin().twin);
+    const first = harness();
+    first.attachSession();
+    const firstTrigger = element('button');
+    first.attachTrigger(firstTrigger, { trigger: { hover: { delayGroupToken: token } } });
+    const second = harness();
+    second.attachSession();
+    const secondTrigger = element('button');
+    second.attachTrigger(secondTrigger, { trigger: { focus: {}, hover: { delayGroupToken: token } } });
+
+    first.setOpen(true, 'trigger-hover', firstTrigger.id, 'mouseenter');
+    await Promise.resolve();
+    secondTrigger.focus();
+
+    expect(second.changes.at(-1)?.open).toBe(true);
+    expect(second.changes.at(-1)?.details.instant).toBe(true);
+  });
 });
 
 // #region click tests
@@ -1164,6 +1184,20 @@ describe('useClientPoint', () => {
       },
     };
   }
+
+  it('port: a floating element that attaches after the commit is relayed resets a virtual reference left by an earlier move to the DOM reference', async () => {
+    const { popup, reference } = focusApp();
+    mouseMove(reference, 500, 500);
+    await flushPointerEffects();
+    expectLocation(popup, { x: 500, y: 500 });
+
+    // The focus open commits and is relayed; the Positioner attaches later (on Server, a round trip after the commit).
+    reference.focus();
+    await flushPointerEffects();
+    popup.attachFloating(element('div', 'floating'));
+
+    expectRect(popup, { x: 10, y: 20, width: 30, height: 40 });
+  });
 
   it('restores the DOM reference when opened by a non-mouse event', async () => {
     const { popup, reference, openWithFocusEvent } = focusApp();
