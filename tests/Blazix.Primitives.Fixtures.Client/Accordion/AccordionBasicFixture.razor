@@ -93,6 +93,21 @@
             </AccordionItem>
         </AccordionRoot>
     </AccordionCaseFrame>
+
+    <AccordionCaseFrame Name="indexed" Case="indexed">
+        <AccordionRoot @ref="indexedRoot" TValue="string">
+            <AccordionItem>
+                <AccordionHeader>
+                    <AccordionTrigger @ref="indexedTrigger1">first</AccordionTrigger>
+                </AccordionHeader>
+            </AccordionItem>
+            <AccordionItem>
+                <AccordionHeader>
+                    <AccordionTrigger @ref="indexedTrigger2">second</AccordionTrigger>
+                </AccordionHeader>
+            </AccordionItem>
+        </AccordionRoot>
+    </AccordionCaseFrame>
 </FixtureContainer>
 
 @code {
@@ -108,6 +123,10 @@
     private readonly AccordionCase disabledItem = new();
     private readonly AccordionCase nonNativeDisabled = new();
     private readonly AccordionCase values = new();
+    private readonly AccordionCase indexed = new();
+    private AccordionRoot<string>? indexedRoot;
+    private AccordionTrigger<string>? indexedTrigger1;
+    private AccordionTrigger<string>? indexedTrigger2;
     private AccordionTrigger<string>? uncontrolledTrigger;
     private AccordionTrigger<string>? nonNativeTrigger;
     private AccordionTrigger<string>? disabledRootTrigger1;
@@ -122,6 +141,6 @@
     protected override IEnumerable<object?> Parts =>
     [
         uncontrolledTrigger, nonNativeTrigger, disabledRootTrigger1, disabledRootTrigger2, disabledItemTrigger1, disabledItemTrigger2,
-        nonNativeDisabledTrigger, valuesTrigger1, valuesTrigger2,
+        nonNativeDisabledTrigger, valuesTrigger1, valuesTrigger2, indexedRoot, indexedTrigger1, indexedTrigger2,
     ];
 }

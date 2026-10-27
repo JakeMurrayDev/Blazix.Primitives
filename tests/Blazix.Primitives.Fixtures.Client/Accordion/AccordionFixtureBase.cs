@@ -13,7 +13,7 @@ public abstract class AccordionFixtureBase : ComponentBase
 
     protected int Sync { get; set; }
 
-    /// <summary>The triggers and initially rendered panels of the page, read after the first interactive render.</summary>
+    /// <summary>The roots, triggers and initially rendered panels of the page, read after the first interactive render.</summary>
     protected abstract IEnumerable<object?> Parts { get; }
 
     /// <inheritdoc />
@@ -26,6 +26,7 @@ public abstract class AccordionFixtureBase : ComponentBase
 
         await Task.WhenAll(Parts.Select(part => part switch
         {
+            AccordionRoot<string> root => root.TwinAttached,
             AccordionTrigger<string> trigger => trigger.TwinAttached,
             AccordionPanel<string> panel => panel.TwinAttached,
             AccordionTrigger<int> trigger => trigger.TwinAttached,

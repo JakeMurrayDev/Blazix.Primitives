@@ -231,6 +231,28 @@ test.describe('<Accordion.Trigger />', () => {
     await expect(trigger).not.toBeFocused();
   });
 
+  test('renders data-index on every trigger including the first', async ({ page, mode }) => {
+    // ACC-STA-13, ACC-DOM-05: the registration-only list reports the order; on Server the index lands after paint plus a
+    // round trip (ACC §9, the CMP-STA-10 row), so the prerendered and first-rendered value is -1.
+    const fixture = await gotoAccordion(page, mode, 'accordion-basic');
+    const { container } = accordionCase(fixture, 'indexed');
+    const triggers = container.getByRole('button', { name: /^(first|second)$/ });
+
+    await expect(triggers.nth(0)).toHaveAttribute('data-index', '0');
+    await expect(triggers.nth(1)).toHaveAttribute('data-index', '1');
+    await expect(container.locator('h3').nth(1)).toHaveAttribute('data-index', '1');
+  });
+
+  test('port: the prerendered item index is -1 until the list reports it', async ({ page, mode }) => {
+    const response = await page.request.get(fixtureUrl(mode, 'accordion-initially-open'));
+    await page.setContent((await response.text()).replace(/<script[\s\S]*?<\/script>/g, ''));
+    await expect(page.getByRole('button', { name: 'Trigger 1' })).toHaveAttribute('data-index', '-1');
+
+    const fixture = await gotoAccordion(page, mode, 'accordion-initially-open');
+    await expect(fixture.getByRole('button', { name: 'Trigger 1' })).toHaveAttribute('data-index', '0');
+    await expect(fixture.getByText('Panel contents 1')).toHaveAttribute('data-index', '0');
+  });
+
   test('keeps a non-native trigger tabbable', async ({ page, mode }) => {
     // ACC-FOC-01: every enabled trigger is an independent tab stop, and opening moves no focus.
     const fixture = await gotoAccordion(page, mode, 'accordion-basic');

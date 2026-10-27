@@ -41,6 +41,7 @@ public sealed class AccordionTestContext : IDisposable
 {
     public const string CollapsibleModulePath = "./_content/Blazix.Primitives/js/collapsible.js";
     public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
+    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
 
     public AccordionTestContext()
     {
@@ -52,6 +53,8 @@ public sealed class AccordionTestContext : IDisposable
         CollapsibleHandle = SetupHandle(CollapsibleModule);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
+        CompositeModule = Context.JSInterop.SetupModule(CompositeModulePath);
+        CompositeHandle = SetupHandle(CompositeModule);
     }
 
     public BunitContext Context { get; } = new();
@@ -67,6 +70,10 @@ public sealed class AccordionTestContext : IDisposable
     public BunitJSModuleInterop ButtonModule { get; }
 
     public BunitJSModuleInterop ButtonHandle { get; }
+
+    public BunitJSModuleInterop CompositeModule { get; }
+
+    public BunitJSModuleInterop CompositeHandle { get; }
 
     /// <inheritdoc />
     public void Dispose() => Context.Dispose();
@@ -86,6 +93,10 @@ public sealed class AccordionTestContext : IDisposable
     /// <summary>The <see cref="CollapsibleTwin"/> of every panel attach, in order.</summary>
     internal IReadOnlyList<CollapsibleTwin> PanelTwins() =>
         [.. CollapsibleModule.Invocations["attach"].Select(invocation => ((DotNetObjectReference<CollapsibleTwin>)invocation.Arguments[2]!).Value)];
+
+    /// <summary>The <see cref="CompositeTwin"/> of the list attached last (the root's registration-only list).</summary>
+    internal CompositeTwin ListTwin() =>
+        ((DotNetObjectReference<CompositeTwin>)CompositeModule.Invocations["attach"][^1].Arguments[2]!).Value;
 
     /// <summary>Ends every attached panel's exit as the module reports it (the convergent hide and the completion message).</summary>
     public void CompletePanelExits<TComponent>(IRenderedComponent<TComponent> cut)

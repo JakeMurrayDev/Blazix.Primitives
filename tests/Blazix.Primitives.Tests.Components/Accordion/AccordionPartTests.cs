@@ -123,6 +123,47 @@ public sealed class AccordionPartTests : IDisposable
         Assert.Empty(cut.FindAll("[data-value]"));
     }
 
+    // ACC-STA-13, ACC-DOM-05: the index is the item's position in the order the registration-only list reports (track 1's
+    // E1, ADR 04 Amendments 2026-10-26), -1 until the first report; the report is driven here as the module sends it.
+    [Fact(DisplayName = "renders data-index on every trigger including the first")]
+    [Trait("Requirement", "ACC-DOM-05")]
+    [Trait("Requirement", "ACC-STA-13")]
+    public void Renders_data_index_on_every_trigger_including_the_first()
+    {
+        IRenderedComponent<AccordionRoot<string>> cut = Context.Render<AccordionRoot<string>>(p => p
+            .AddChildContent<AccordionItem<string>>(item => item.AddChildContent<AccordionHeader<string>>(header => header.AddChildContent<AccordionTrigger<string>>(trigger => trigger.AddChildContent("first"))))
+            .AddChildContent<AccordionItem<string>>(item => item.AddChildContent<AccordionHeader<string>>(header => header.AddChildContent<AccordionTrigger<string>>(trigger => trigger.AddChildContent("second")))));
+        Assert.All(cut.FindAll("button"), trigger => Assert.Equal("-1", trigger.GetAttribute("data-index")));
+        Assert.Contains("\"registrationOnly\":true", host.AttachOptions(host.CompositeModule)[0], StringComparison.Ordinal);
+        string[] ids = [.. cut.FindAll("div > div").Select(item => item.Id!)];
+
+        cut.InvokeAsync(() => host.ListTwin().OnItemsChange($$"""{"ids":["{{ids[0]}}","{{ids[1]}}"]}"""));
+
+        IReadOnlyList<IElement> triggers = cut.FindAll("button");
+        Assert.Equal("0", triggers[0].GetAttribute("data-index"));
+        Assert.Equal("1", triggers[1].GetAttribute("data-index"));
+        Assert.Equal("0", cut.FindAll("h3")[0].GetAttribute("data-index"));
+        Assert.Equal("1", cut.Find($"#{ids[1]}").GetAttribute("data-index"));
+    }
+
+    [Fact(DisplayName = "port: a reordered report moves the indexes, and an item outside a root's list keeps -1")]
+    [Trait("Requirement", "ACC-STA-13")]
+    [Trait("Requirement", "ACC-STR-07")]
+    public void A_reordered_report_moves_the_indexes()
+    {
+        IRenderedComponent<AccordionRoot<string>> cut = Context.Render<AccordionRoot<string>>(p => p
+            .AddChildContent<AccordionItem<string>>(item => item.AddUnmatched("id", "a").AddChildContent<AccordionTrigger<string>>())
+            .AddChildContent<AccordionItem<string>>(item => item.AddUnmatched("id", "b").AddChildContent<AccordionTrigger<string>>()));
+
+        cut.InvokeAsync(() => host.ListTwin().OnItemsChange("""{"ids":["b","a"]}"""));
+        Assert.Equal("1", cut.Find("#a").GetAttribute("data-index"));
+        Assert.Equal("0", cut.Find("#b").GetAttribute("data-index"));
+
+        cut.InvokeAsync(() => host.ListTwin().OnItemsChange("""{"ids":["a"]}"""));
+        Assert.Equal("0", cut.Find("#a").GetAttribute("data-index"));
+        Assert.Equal("-1", cut.Find("#b").GetAttribute("data-index"));
+    }
+
     [Fact(DisplayName = "keeps data-panel-open instead of data-open")]
     [Trait("Requirement", "ACC-DOM-11")]
     public void Keeps_data_panel_open_instead_of_data_open()
