@@ -24,7 +24,7 @@ ADRs 01–06 left fifteen items open (two were closed on 2026-10-18: case-insens
 | 02 scratch-render cost on a list part | M5 (Menu) | timed measurement; result appended to ADR 02; decides frame caching (ADR 16 B) |
 | 04 Server preserves the order between JS-to-.NET invocations and event dispatches | M0 | permanent L4 Server test on the twin base |
 | 04 a render queued inside a synchronous invoke flushes before the listener returns | M0 | permanent L4 WebAssembly test on `decide()` |
-| 04 a portal node with siblings in its logical parent | M4, track 1 (Amendments 2026-10-27) | permanent L4 test `@verifies ADR-04/3` on the test-only `FixturePortal` host, both modes, with the wrapper shape of ADR 04 Amendments 2026-10-27 ([issue 8](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/8)) |
+| 04 a portal node with siblings in its logical parent | M4, track 1 (Amendments 2026-10-27) | permanent L4 test `@verifies ADR-04/3` on the test-only `FixturePortal` host, both modes, with the wrapper shape of ADR 04 Amendments 2026-10-27 ([issue 8](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/8)) 2026-10-27: verified, both modes, `tests/browser/portal.spec.ts` "@verifies ADR-04/3 …" (issue closed). |
 | 04 build without Node via `BlazixSkipJsBuild` | M0 | a manual CI job that builds with the flag and prebuilt outputs (ADR 11), run before every tagged release |
 | 05 Razor binds union-typed parameters | **now** | `spikes/union-binding/` on the RC2 SDK; blocks the parameter shape of M0 |
 | 05 `EqualityComparer<T>.Default` does not box on WebAssembly | M0 | permanent L4 WebAssembly allocation probe (`GC.GetTotalAllocatedBytes` around N comparisons) on the interpreter; AOT by inspection of the generated code, stated as such |

@@ -30,7 +30,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/avatar.md | AVA | implemented | 58 reqs (opus) | |
 | components/button.md | BTN | implemented | 29 reqs (opus) | |
 | components/checkbox.md | CHK | implemented | 151 reqs; revised 2026-10-23, M2 tracks 5–6 |
-| components/checkbox-group.md | CKG | implemented | 83 reqs; revised 2026-10-23, M2 track 6; the five portal titles of CKG-STR-02, CKG-FRM-03/06 and CKG-FOC-02 open to M4 |
+| components/checkbox-group.md | CKG | implemented | 83 reqs; revised 2026-10-27, M4 track 1 (proposed): the five portal titles of CKG-STR-02, CKG-FRM-03/06 and CKG-FOC-02 green at L4 on the test-only portal |
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
@@ -50,7 +50,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/preview-card.md | PRV | approved | 158 reqs |
 | components/progress.md | PRG | implemented | 55 reqs (opus) | |
 | components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7 |
-| components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-23, M2 track 8; RDG-FRM-04 and RDG-STR-02's portal clause open to M4 |
+| components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-27, M4 track 1 (proposed): RDG-FRM-04 and RDG-STR-02's portal clause green at L4 on the test-only portal |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
 | components/select.md | SEL | approved | 332 reqs | |
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |
