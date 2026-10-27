@@ -150,6 +150,62 @@ public sealed class ToolbarRootTests : IDisposable
         Assert.Contains("\"reportHandledKeys\":true", test.LastCompositeOptions, StringComparison.Ordinal);
     }
 
+    [Fact(DisplayName = "disables all toolbar items except links")]
+    [Trait("Requirement", "TLB-API-01")]
+    [Trait("Requirement", "TLB-API-06")]
+    [Trait("Requirement", "TLB-API-11")]
+    [Trait("Requirement", "TLB-API-12")]
+    [Trait("Requirement", "TLB-API-15")]
+    [Trait("Requirement", "TLB-STA-05")]
+    [Trait("Requirement", "TLB-DOM-06")]
+    [Trait("Requirement", "TLB-DOM-09")]
+    [Trait("Requirement", "TLB-ARIA-03")]
+    [Trait("Requirement", "TLB-ARIA-04")]
+    [Trait("Requirement", "TLB-ARIA-05")]
+    [Trait("Requirement", "TLB-EDGE-03")]
+    public void Disables_all_toolbar_items_except_links()
+    {
+        RenderFragment items = builder =>
+        {
+            builder.OpenComponent<ToolbarButton>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<ToolbarLink>(1);
+            builder.AddAttribute(2, "href", "https://base-ui.com");
+            builder.AddComponentParameter(3, nameof(ToolbarLink.ChildContent), (RenderFragment)(text => text.AddContent(0, "Link")));
+            builder.CloseComponent();
+            builder.OpenComponent<ToolbarInput>(4);
+            builder.AddComponentParameter(5, nameof(ToolbarInput.DefaultValue), string.Empty);
+            builder.CloseComponent();
+        };
+        IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p
+            .Add(x => x.Disabled, true)
+            .AddChildContent(builder =>
+            {
+                builder.AddContent(0, items);
+                builder.OpenComponent<ToolbarGroup>(1);
+                builder.AddComponentParameter(2, nameof(ToolbarGroup.ChildContent), items);
+                builder.CloseComponent();
+            }));
+
+        IReadOnlyList<IElement> toolbarItems = [.. cut.FindAll("button"), .. cut.FindAll("input")];
+        Assert.Equal(4, toolbarItems.Count);
+        Assert.All(toolbarItems, item =>
+        {
+            Assert.Equal("true", item.GetAttribute("aria-disabled"));
+            Assert.True(item.HasAttribute("data-disabled"));
+        });
+
+        Assert.True(cut.Find("[role=group]").HasAttribute("data-disabled"));
+
+        IReadOnlyList<IElement> links = cut.FindAll("a");
+        Assert.Equal(2, links.Count);
+        Assert.All(links, link =>
+        {
+            Assert.False(link.HasAttribute("data-disabled"));
+            Assert.False(link.HasAttribute("aria-disabled"));
+        });
+    }
+
     [Fact(DisplayName = "port: the state objects are the root's Disabled and Orientation")]
     [Trait("Requirement", "TLB-STA-01")]
     [Trait("Requirement", "TLB-API-04")]
@@ -207,6 +263,7 @@ public sealed class ToolbarRootTests : IDisposable
     [Trait("Requirement", "TLB-STR-02")]
     [Trait("Requirement", "TLB-EDGE-01")]
     [InlineData(typeof(ToolbarButton))]
+    [InlineData(typeof(ToolbarInput))]
     [InlineData(typeof(ToolbarGroup))]
     [InlineData(typeof(ToolbarLink))]
     [InlineData(typeof(ToolbarSeparator))]

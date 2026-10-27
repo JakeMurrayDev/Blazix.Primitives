@@ -6,8 +6,7 @@ using LibraryOrientation = Blazix.Primitives.Orientation;
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
 namespace Blazix.Primitives.Tests.Components;
 
-// ToolbarGroup.test.tsx's [L2] titles verbatim and port titles (marked as such). "disables all toolbar items except links in
-// the group" renders a button and an input, so it is in ToolbarButtonTests.
+// ToolbarGroup.test.tsx's [L2] titles verbatim and port titles (marked as such).
 /// <summary>The toolbar group: a structural <c>role="group"</c> that contributes its disabled state.</summary>
 public sealed class ToolbarGroupTests : IDisposable
 {
@@ -28,6 +27,39 @@ public sealed class ToolbarGroupTests : IDisposable
         IElement group = cut.Find("[data-testid=group]");
         Assert.Equal("group", group.GetAttribute("role"));
         Assert.Equal("DIV", group.TagName);
+    }
+
+    [Fact(DisplayName = "disables all toolbar items except links in the group")]
+    [Trait("Requirement", "TLB-API-15")]
+    [Trait("Requirement", "TLB-STA-05")]
+    [Trait("Requirement", "TLB-ARIA-03")]
+    [Trait("Requirement", "TLB-ARIA-04")]
+    [Trait("Requirement", "TLB-ARIA-05")]
+    [Trait("Requirement", "TLB-EDGE-03")]
+    public void Disables_all_toolbar_items_except_links_in_the_group()
+    {
+        IRenderedComponent<ToolbarRoot> cut = Context.Render<ToolbarRoot>(p => p.AddChildContent<ToolbarGroup>(g => g
+            .Add(x => x.Disabled, true)
+            .AddChildContent(builder =>
+            {
+                builder.OpenComponent<ToolbarButton>(0);
+                builder.CloseComponent();
+                builder.OpenComponent<ToolbarLink>(1);
+                builder.AddAttribute(2, "href", "https://base-ui.com");
+                builder.CloseComponent();
+                builder.OpenComponent<ToolbarInput>(3);
+                builder.AddComponentParameter(4, nameof(ToolbarInput.DefaultValue), string.Empty);
+                builder.CloseComponent();
+            })));
+
+        Assert.All([cut.Find("button"), cut.Find("input")], item =>
+        {
+            Assert.Equal("true", item.GetAttribute("aria-disabled"));
+            Assert.True(item.HasAttribute("data-disabled"));
+        });
+
+        Assert.False(cut.Find("a").HasAttribute("data-disabled"));
+        Assert.False(cut.Find("a").HasAttribute("aria-disabled"));
     }
 
     [Fact(DisplayName = "port: the group's disabled state is the root's or its own, its orientation the root's, and it is not an item")]
