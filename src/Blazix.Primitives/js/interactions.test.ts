@@ -546,6 +546,25 @@ describe('useFocus', () => {
     expect(popup.activeTriggerId).toBe(other.id);
   });
 
+  it('port: with nestedTooltipTriggers a focus inside an enabled nested tooltip trigger is left to it, and a focus on the trigger opens', () => {
+    const popup = harness();
+    popup.attachSession();
+    const outer = element('div');
+    outer.tabIndex = 0;
+    outer.setAttribute('data-base-ui-tooltip-trigger', '');
+    const inner = document.createElement('button');
+    inner.setAttribute('data-base-ui-tooltip-trigger', '');
+    outer.append(inner);
+    popup.attachTrigger(outer, { trigger: { focus: {}, hover: { nestedTooltipTriggers: true } } });
+    popup.setReference(outer);
+
+    inner.focus();
+    expect(popup.changes).toEqual([]);
+
+    outer.focus();
+    expect(popup.open).toBe(true);
+  });
+
   it('port: a focus open of a delay group member while another member is open carries the instant phase', async () => {
     const token = 'focus-group';
     attach(null, JSON.stringify({ provider: { token, delayOpen: 600, delayClose: 0 } }), createFakeTwin().twin);
