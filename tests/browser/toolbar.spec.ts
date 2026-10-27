@@ -540,6 +540,41 @@ test.describe('<Toolbar.Input />', () => {
       });
     }
 
+    // TLB-KEY-09, TLB-KEY-02, §16 Q8 (settled by the orchestrator 2026-10-27: Base UI cannot simulate it): with real
+    // right-to-left text in an `rtl` input, the browser moves the caret logically, so the forward key (ArrowLeft) advances
+    // selectionStart; the module decides by selectionStart only, leaving the input at its logical ends.
+    test('port: with right-to-left text the arrows move the caret logically inside the input and leave it at its logical ends', async ({ page, mode }) => {
+      const fixture = await gotoToolbar(page, mode, 'toolbar-input');
+      const { item, before } = toolbarCase(fixture, 'caret-rtl-text');
+      const input = item('input');
+      const select = (start: number, end: number) =>
+        input.evaluate((element, [s, e]) => (element as HTMLInputElement).setSelectionRange(s, e), [start, end] as const);
+      const caret = () => input.evaluate((element) => (element as HTMLInputElement).selectionStart);
+
+      await tabIn(page, before);
+      await page.keyboard.press('ArrowLeft');
+      await expect(input).toBeFocused();
+
+      await select(2, 2);
+      await page.keyboard.press('ArrowLeft');
+      await expect(input).toBeFocused();
+      expect(await caret()).toBe(3);
+
+      await page.keyboard.press('ArrowRight');
+      await expect(input).toBeFocused();
+      expect(await caret()).toBe(2);
+
+      await select(4, 4);
+      await page.keyboard.press('ArrowLeft');
+      await expect(item('after')).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(input).toBeFocused();
+      await select(0, 0);
+      await page.keyboard.press('ArrowRight');
+      await expect(item('before')).toBeFocused();
+    });
+
     // TLB-KEY-09, TLB-KEY-10, TLB-FOC-05.
     for (const { orientation, nextKey, prevKey } of [
       { orientation: 'horizontal', nextKey: 'ArrowRight', prevKey: 'ArrowLeft' },
