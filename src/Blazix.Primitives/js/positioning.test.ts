@@ -595,12 +595,13 @@ function middlewareState(overrides: Partial<MiddlewareState> & { reference?: Rec
 }
 
 describe('positioning module: the arrow fork (FLT-ALG-09)', () => {
-  it('centers the arrow on the anchor, measured against the floating element', async () => {
+  it('centers the arrow on the anchor, measured against the floating element, and returns nothing without an element', async () => {
     const element = document.createElement('div');
     const result = await arrow({ element, padding: 5 }).fn(middlewareState({ x: 110, y: 136 }));
 
     // center = 52/2 - 10/2 + ((72 + 100 - 110 - 52)/2 - (110 - 100)/2) = 21 + 0
     expect(result).toEqual({ x: 110, data: { x: 21, centerOffset: 0 }, reset: false });
+    expect(await arrow({ element: null }).fn(middlewareState({}))).toEqual({});
   });
 
   it('clamps the arrow to the padding and reports the offset from the center', async () => {
@@ -619,10 +620,6 @@ describe('positioning module: the arrow fork (FLT-ALG-09)', () => {
 
     expect(result.reset).toBe(true);
     expect((result.data as { alignmentOffset: number }).alignmentOffset).toBeLessThan(0);
-  });
-
-  it('returns nothing without an element', async () => {
-    expect(await arrow({ element: null }).fn(middlewareState({}))).toEqual({});
   });
 });
 
@@ -920,27 +917,26 @@ describe('positioning module: the attribute writes', () => {
 });
 
 describe('positioning module: the handle', () => {
-  it('returns the live handle on a repeated attach and disposes idempotently, stopping the tracking', async () => {
+  it('returns the live handle on a repeated attach and disposes idempotently, stopping the tracking and dropping a pass still in flight', async () => {
+    stubViewport();
     const { positioner, handle, fake } = setup();
     await settle();
     expect(attach(positioner, JSON.stringify(options()), fake.twin)).toBe(handle);
+    expect(positioner.style.transform).toMatch(/^translate\(/);
+    const reports = fake.reports.length;
 
     handle.dispose();
     handle.dispose();
     expect(spies.autoUpdateCleanup).toHaveBeenCalledTimes(1);
+    expect(positioner.style.transform).toBe('');
 
-    const again = attach(positioner, JSON.stringify(options()), fake.twin);
-    handles.push(again);
+    // A new handle's first pass is in flight when it is disposed: its result is never applied or reported.
+    const again = attach(positioner, JSON.stringify(options({ side: 'top' })), fake.twin);
     expect(again).not.toBe(handle);
-  });
-
-  it('applies no result of a pass that resolves after dispose', async () => {
-    stubViewport();
-    const { handle, positioner, fake } = setup();
-    handle.dispose();
+    again.dispose();
     await settle();
     expect(positioner.style.transform).toBe('');
-    expect(fake.reported('OnPlacementChange')).toHaveLength(0);
+    expect(fake.reports).toHaveLength(reports);
   });
 });
 
