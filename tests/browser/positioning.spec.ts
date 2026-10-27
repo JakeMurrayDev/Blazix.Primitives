@@ -307,7 +307,7 @@ test.describe('positioning module', () => {
       const records: { hidden: boolean; position: string; opacity: string; transform: string }[] = [];
       (element as unknown as { records: typeof records }).records = records;
       new MutationObserver(() => {
-        records.push({ hidden: element.hidden, position: element.style.position, opacity: element.style.opacity, transform: element.style.transform });
+        records.push({ hidden: element.hasAttribute('hidden'), position: element.style.position, opacity: element.style.opacity, transform: element.style.transform });
       }).observe(element, { attributes: true });
     });
     const records = () => positioner.evaluate((node) => (node as unknown as { records: { hidden: boolean; position: string; opacity: string; transform: string }[] }).records);
