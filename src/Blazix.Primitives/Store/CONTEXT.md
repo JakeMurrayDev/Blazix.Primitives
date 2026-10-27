@@ -50,6 +50,7 @@ The public surface, with what each member does (requirement IDs follow for trace
 ## Outputs
 
 - The stores of the popup families and the floating layer (UTL §4.2 "Used by").
+- `../Popup/PopupStore<TState, TPayload>` (M4 track 1; ADR 05 Amendments 2026-10-27): a `ComponentStore<TState>` the popup families subclass, whose record nests the shared `PopupStoreState<TPayload>` as one member; since a record member compares by reference, the popup store compares the nested record with its generated `ShallowEquals` before writing, so a write that changes nothing stays a no-op that allocates nothing (UTL-STA-11, ADR 16 rule 7).
 - Tested at L1 by `tests/Blazix.Primitives.Tests/Store/`, including the notification budget (zero bytes for N subscribers whose selections did not change) and a generated `ShallowEquals` over a record with every kind of member (zero bytes on CoreCLR; the WebAssembly interpreter cost is pinned by Track 3's harness test).
 
 ## Human check
