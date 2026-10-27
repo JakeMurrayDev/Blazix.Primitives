@@ -2,7 +2,8 @@
 namespace Blazix.Primitives.Tests;
 
 /// <summary>
-/// The trigger registry at L1 (utils/popups/popupTriggerMap.test.ts, titles verbatim; PSH-STA-33, PSH-EDGE-07). An element
+/// The trigger registry at L1 (utils/popups/popupTriggerMap.test.ts and the PopupTriggerMap block of
+/// utils/popups/popupStoreUtils.test.tsx, titles verbatim; PSH-STA-33, PSH-EDGE-07). An element
 /// is the registering part plus its element (settled by the orchestrator 2026-10-27), so a fresh owner object stands for a
 /// fresh DOM element. The duplicate-id check throws in every build (design point 6 of M4 track 1, settled by the
 /// orchestrator 2026-10-27; ADR 02 Amendments 2026-10-27), so the production title is restated.
@@ -182,5 +183,50 @@ public sealed class PopupTriggerRegistryTests
         Assert.NotEqual(new PopupTriggerElement(part, rendered), new PopupTriggerElement(part));
         Assert.NotEqual(new PopupTriggerElement(part, rendered), new PopupTriggerElement(new object(), rendered));
         Assert.Equal(new PopupTriggerElement(part), new PopupTriggerElement(part));
+    }
+
+    [Fact(DisplayName = "stores and retrieves elements by id")]
+    [Trait("Requirement", "PSH-STA-33")]
+    public void Stores_and_retrieves_elements_by_id()
+    {
+        PopupTriggerRegistry map = new();
+        PopupTriggerElement button = CreateButton();
+
+        map.Add("trigger", button);
+
+        Assert.Equal(button, map.GetById("trigger"));
+        Assert.True(map.HasElement(button));
+        Assert.True(map.HasMatchingElement(element => element == button));
+    }
+
+    [Fact(DisplayName = "replaces a registered element when the id is reused")]
+    [Trait("Requirement", "PSH-STA-33")]
+    public void Replaces_a_registered_element_when_the_id_is_reused()
+    {
+        PopupTriggerRegistry map = new();
+        PopupTriggerElement first = CreateButton();
+        PopupTriggerElement second = CreateButton();
+
+        map.Add("trigger", first);
+        map.Add("trigger", second);
+
+        Assert.Equal(second, map.GetById("trigger"));
+        Assert.False(map.HasElement(first));
+        Assert.True(map.HasElement(second));
+    }
+
+    [Fact(DisplayName = "deletes an element and no longer matches it")]
+    [Trait("Requirement", "PSH-STA-33")]
+    public void Deletes_an_element_and_no_longer_matches_it()
+    {
+        PopupTriggerRegistry map = new();
+        PopupTriggerElement button = CreateButton();
+
+        map.Add("trigger", button);
+        map.Delete("trigger");
+
+        Assert.Null(map.GetById("trigger"));
+        Assert.False(map.HasElement(button));
+        Assert.False(map.HasMatchingElement(element => element == button));
     }
 }

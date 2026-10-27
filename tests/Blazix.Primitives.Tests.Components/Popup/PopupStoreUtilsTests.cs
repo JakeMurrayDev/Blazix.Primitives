@@ -134,6 +134,59 @@ public sealed class PopupStoreUtilsTests : IDisposable
         Assert.Equal(0, Store.Popup.TriggerCount);
     }
 
+    // Base UI's stable callback is the trigger's registration, which follows the store its trigger reaches: a detached
+    // trigger whose handle moves to another root unregisters from the first store and registers into the second, and a new
+    // instance under the same id registers only into the current one.
+    [Fact(DisplayName = "returns a stable callback that unregisters from the store it registered in")]
+    [Trait("Requirement", "PSH-STA-26")]
+    [Trait("Requirement", "PSH-ALG-04")]
+    public async Task Returns_a_stable_callback_that_unregisters_from_the_store_it_registered_in()
+    {
+        TestPopupHandle<string> first = new();
+        TestPopupHandle<string> second = new();
+        TestPopupRoot<string>? firstRoot = null;
+        TestPopupRoot<string>? secondRoot = null;
+        IRenderedComponent<PopupTestHost> cut = test.Render(
+            (builder, host) =>
+            {
+                builder.OpenComponent<TestPopupRoot<string>>(0);
+                builder.AddComponentParameter(1, nameof(TestPopupRoot<string>.Handle), first);
+                builder.AddComponentReferenceCapture(2, reference => firstRoot = (TestPopupRoot<string>)reference);
+                builder.CloseComponent();
+                builder.OpenComponent<TestPopupRoot<string>>(3);
+                builder.AddComponentParameter(4, nameof(TestPopupRoot<string>.Handle), second);
+                builder.AddComponentReferenceCapture(5, reference => secondRoot = (TestPopupRoot<string>)reference);
+                builder.CloseComponent();
+                if (host.Get<bool>("mounted"))
+                {
+                    builder.OpenComponent<TestPopupTrigger<string>>(6);
+                    builder.SetKey(host.Get<string>("key"));
+                    builder.AddComponentParameter(7, "id", "trigger");
+                    builder.AddComponentParameter(8, nameof(TestPopupTrigger<string>.Handle), host.Get<TestPopupHandle<string>>("handle"));
+                    builder.CloseComponent();
+                }
+            },
+            new() { ["mounted"] = true, ["key"] = "initial", ["handle"] = first });
+
+        cut.WaitForAssertion(() => Assert.NotNull(firstRoot!.Store.Triggers.GetById("trigger")));
+        PopupTriggerElement initial = firstRoot!.Store.Triggers.GetById("trigger")!.Value;
+
+        await cut.Instance.SetAsync("handle", second);
+
+        Assert.Null(firstRoot.Store.Triggers.GetById("trigger"));
+        Assert.Equal(initial, secondRoot!.Store.Triggers.GetById("trigger"));
+
+        await cut.Instance.SetAsync("key", "replacement");
+
+        Assert.Null(firstRoot.Store.Triggers.GetById("trigger"));
+        PopupTriggerElement? replacement = secondRoot.Store.Triggers.GetById("trigger");
+        Assert.NotNull(replacement);
+        Assert.NotEqual(initial, replacement);
+
+        await cut.Instance.SetAsync("mounted", false);
+        Assert.Null(secondRoot.Store.Triggers.GetById("trigger"));
+    }
+
     [Theory(DisplayName = "claims the only registered trigger when a closed popup opens")]
     [InlineData(false)]
     [InlineData(true)]
@@ -253,6 +306,70 @@ public sealed class PopupStoreUtilsTests : IDisposable
         Assert.Null(Store.Popup.ActiveTriggerId);
         Assert.Null(Store.Popup.ActiveTriggerElement);
         Assert.False(Store.Popup.Open);
+    }
+
+    // Base UI hides the trigger in a layout effect of the claiming commit; here the trigger's first after-render hides it, the
+    // batch that follows the boundary that claimed it.
+    [Theory(DisplayName = "closes when an implicitly claimed trigger unmounts during the claim commit")]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Requirement", "PSH-STA-18")]
+    [Trait("Requirement", "PSH-STA-25")]
+    [Trait("Requirement", "PSH-ALG-03")]
+    public async Task Closes_when_an_implicitly_claimed_trigger_unmounts_during_the_claim_commit(bool withPopupPart)
+    {
+        List<(bool Open, EventReason Reason)> requests = [];
+        IRenderedComponent<PopupTestHost> cut = RenderTree(
+            triggers: ["trigger"],
+            defaultOpen: true,
+            closeOnActiveTriggerUnmount: true,
+            withPopupPart: withPopupPart,
+            onOpenChange: args => requests.Add((args.Value, args.Details.Reason)),
+            hideTriggersAfterFirstRender: true);
+
+        cut.WaitForAssertion(() => Assert.Single(requests));
+        (bool open, EventReason reason) = requests[0];
+        Assert.False(open);
+        Assert.Equal(EventReason.None, reason);
+        Assert.Null(Store.Triggers.GetById("trigger"));
+        Assert.Null(Store.Popup.ActiveTriggerId);
+        Assert.Null(Store.Popup.ActiveTriggerElement);
+        Assert.False(Store.Popup.Open);
+    }
+
+    [Theory(DisplayName = "closes when the active trigger unmounts after registering in a count-neutral commit")]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Requirement", "PSH-STA-23")]
+    [Trait("Requirement", "PSH-STA-25")]
+    [Trait("Requirement", "PSH-ALG-03")]
+    public async Task Closes_when_the_active_trigger_unmounts_after_registering_in_a_count_neutral_commit(bool withPopupPart)
+    {
+        List<(bool Open, EventReason Reason)> requests = [];
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: ["first"], closeOnActiveTriggerUnmount: true, withPopupPart: withPopupPart, onOpenChange: args => requests.Add((args.Value, args.Details.Reason)));
+        await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { Open = true, ActiveTriggerId = "first", ActiveTriggerElement = Store.Triggers.GetById("first") }));
+
+        // Ownership moves to a trigger that has not registered yet: the popup stays open (pending).
+        await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { ActiveTriggerId = "second", ActiveTriggerElement = null }));
+        Assert.True(Store.Popup.Open);
+        Assert.Empty(requests);
+
+        // Swap "first" out and "second" in within one batch, so the trigger count nets out unchanged.
+        await cut.Instance.SetAsync("triggers", new[] { "second" });
+        Assert.Equal(Store.Triggers.GetById("second"), Store.Popup.ActiveTriggerElement);
+        Assert.NotNull(Store.Popup.ActiveTriggerElement);
+        Assert.True(Store.Popup.Open);
+        Assert.Empty(requests);
+
+        // The now-registered active trigger genuinely unmounts: the popup closes.
+        await cut.Instance.SetAsync("triggers", Array.Empty<string>());
+
+        (bool open, EventReason reason) = Assert.Single(requests);
+        Assert.False(open);
+        Assert.Equal(EventReason.None, reason);
+        Assert.False(Store.Popup.Open);
+        Assert.Null(Store.Popup.ActiveTriggerId);
+        Assert.Null(Store.Popup.ActiveTriggerElement);
     }
 
     [Theory(DisplayName = "keeps the popup open when ownership returns to a pending trigger after %s")]
@@ -397,6 +514,67 @@ public sealed class PopupStoreUtilsTests : IDisposable
         Assert.Equal(0, Store.Popup.TriggerCount);
     }
 
+    // The popupId selector block: the floating id is the Root's generated id (PSH-STA-01), drawn at its first parameter set;
+    // the popup part reports the id it renders.
+    [Fact(DisplayName = "syncs the floating id into the popup store for trigger ownership selectors")]
+    [Trait("Requirement", "PSH-STA-04")]
+    [Trait("Requirement", "PSH-STA-46")]
+    public void Syncs_the_floating_id_into_the_popup_store_for_trigger_ownership_selectors()
+    {
+        RenderTree(triggers: [], withPopupPart: false);
+
+        Assert.StartsWith("base-ui-", Store.Popup.FloatingId, StringComparison.Ordinal);
+        Assert.Equal(Store.Popup.FloatingId, PopupSelectors<TestPopupStoreState<string>, string>.PopupId(Store.State));
+    }
+
+    [Fact(DisplayName = "omits popup id when the floating id is empty")]
+    [Trait("Requirement", "PSH-STA-04")]
+    public async Task Omits_popup_id_when_the_floating_id_is_empty()
+    {
+        IRenderedComponent<PopupTestHost> cut = RenderTree(triggers: [], withPopupPart: false);
+
+        await cut.InvokeAsync(() => Store.WritePopup(Store.Popup with { FloatingId = string.Empty }));
+
+        Assert.Equal(string.Empty, Store.Popup.FloatingId);
+        Assert.Null(PopupSelectors<TestPopupStoreState<string>, string>.PopupId(Store.State));
+    }
+
+    [Fact(DisplayName = "prefers an explicit popup element id over the generated floating id")]
+    [Trait("Requirement", "PSH-STA-04")]
+    public void Prefers_an_explicit_popup_element_id_over_the_generated_floating_id()
+    {
+        test.Render((builder, _) =>
+        {
+            builder.OpenComponent<TestPopupRoot<string>>(0);
+            builder.AddComponentParameter(1, nameof(TestPopupRoot<string>.DefaultOpen), true);
+            builder.AddComponentParameter(2, nameof(TestPopupRoot<string>.ChildContent), (RenderFragment)(content =>
+            {
+                content.OpenComponent<TestPopupPopup<string>>(0);
+                content.AddComponentParameter(1, "id", "explicit-popup-id");
+                content.CloseComponent();
+            }));
+            builder.AddComponentReferenceCapture(3, reference => root = (TestPopupRoot<string>)reference);
+            builder.CloseComponent();
+        });
+
+        Assert.NotEqual("explicit-popup-id", Store.Popup.FloatingId);
+        Assert.Equal("explicit-popup-id", PopupSelectors<TestPopupStoreState<string>, string>.PopupId(Store.State));
+    }
+
+    [Fact(DisplayName = "associates a lone trigger with the popup id unless the popup opened without a trigger")]
+    [Trait("Requirement", "PSH-STA-10")]
+    public void Associates_a_lone_trigger_with_the_popup_id_unless_the_popup_opened_without_a_trigger()
+    {
+        // Base UI writes a bare store, with no root to reconcile the count against the registry.
+        TestPopupStore<string> store = new("popup-id", sessionToken: null);
+
+        store.WritePopup(store.Popup with { Open = true, TriggerCount = 1 });
+        Assert.Equal("popup-id", PopupSelectors<TestPopupStoreState<string>, string>.TriggerPopupId(store.State, "trigger"));
+
+        store.WritePopup(store.Popup with { OpenedWithoutTrigger = true });
+        Assert.Null(PopupSelectors<TestPopupStoreState<string>, string>.TriggerPopupId(store.State, "trigger"));
+    }
+
     // ADR 16 Amendments 2026-10-27 (design point 8): the claim that a family never re-renders its content for an open or a
     // close, measured; and the fallback's cost when no popup part is registered.
     [Fact(DisplayName = "port: with a popup part registered, an open and a close render neither the root nor an inactive trigger, and without one the store renders the root on the reconciliation's inputs")]
@@ -442,7 +620,8 @@ public sealed class PopupStoreUtilsTests : IDisposable
         bool closeOnActiveTriggerUnmount = false,
         bool withPopupPart = true,
         Action<ValueChangeEventArgs<bool>>? onOpenChange = null,
-        Dictionary<string, int>? renders = null)
+        Dictionary<string, int>? renders = null,
+        bool hideTriggersAfterFirstRender = false)
     {
         IRenderedComponent<PopupTestHost> cut = test.Render((builder, host) =>
         {
@@ -457,6 +636,12 @@ public sealed class PopupStoreUtilsTests : IDisposable
             builder.AddComponentParameter(5, nameof(TestPopupRoot<string>.ChildContent), (RenderFragment)(content => RenderTriggers(content, host, withPopupPart, renders)));
             builder.AddComponentReferenceCapture(6, reference => root = (TestPopupRoot<string>)reference);
             builder.CloseComponent();
+            if (hideTriggersAfterFirstRender)
+            {
+                builder.OpenComponent<AfterFirstRender>(7);
+                builder.AddComponentParameter(8, nameof(AfterFirstRender.Run), (Func<Task>)(() => host.SetAsync("triggers", Array.Empty<string>())));
+                builder.CloseComponent();
+            }
         }, new() { ["triggers"] = triggers });
         return cut;
     }
@@ -502,4 +687,13 @@ public sealed class PopupStoreUtilsTests : IDisposable
             builder.CloseComponent();
         }
     }
+}
+
+/// <summary>Runs a callback once, after its first render: Base UI's <c>HideOnLayout</c>, at the batch boundary.</summary>
+internal sealed class AfterFirstRender : ComponentBase
+{
+    [Parameter]
+    public Func<Task>? Run { get; set; }
+
+    protected override Task OnAfterRenderAsync(bool firstRender) => firstRender && Run is not null ? Run() : Task.CompletedTask;
 }
