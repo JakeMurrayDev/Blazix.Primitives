@@ -1047,8 +1047,34 @@ function attachProvider(token: string, _initialOptions: InteractionsOptions, _tw
   };
 }
 
+/** What a member trigger's hover reads from its group at `mouseenter` (FLT-API-16). */
+interface DelayGroupReading {
+  /** The group's open delay now: 0 while another member is open (or the group is warm), else the provider's. */
+  delayOpen: number | undefined;
+  /** The provider's close delay. */
+  delayClose: number | undefined;
+}
+
+/**
+ * Reads the group a trigger's hover belongs to.
+ * @returns The reading, or `null` without a provider of that token.
+ */
+function readDelayGroup(_token: string | null | undefined): DelayGroupReading | null {
+  return null;
+}
+
+/**
+ * The instant phase an open request of this session carries (FLT-ALG-23): whether another member of the group is the
+ * current one, so C# renders `data-instant="delay"` in the batch of `data-open`.
+ */
+function delayGroupInstantPhase(_record: SessionRecord, _token: string | null | undefined): boolean {
+  return false;
+}
+
 /** A trigger's membership in its provider's group. */
 function createDelayGroupController(_context: HandleContext): Controller {
+  void readDelayGroup;
+  void delayGroupInstantPhase;
   return { dispose() {} };
 }
 
@@ -1215,7 +1241,14 @@ function createClientPointController(_context: HandleContext): Controller {
   return { dispose() {} };
 }
 
+/**
+ * Recomputes the hovered line just before the hover region reports an open (PSH-PTR-08/29); a no-op unless the
+ * trigger records it.
+ */
+function recordHoveredLineBeforeOpen(_context: HandleContext, _event: MouseEvent): void {}
+
 function createHoveredLineController(_context: HandleContext): Controller {
+  void recordHoveredLineBeforeOpen;
   return { dispose() {} };
 }
 
