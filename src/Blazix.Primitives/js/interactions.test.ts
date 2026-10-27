@@ -557,4 +557,917 @@ describe('useFocus', () => {
 // #endregion hover tests
 
 // #region pointer tests (useClientPoint, the delay group, the hovered line)
+// The pointer regions' exports; an import declaration is hoisted, so it stands in the block that uses it.
+import { delayGroupInstantPhase, readDelayGroup, readHoveredLine, updateHoveredLine, type InteractionsOptions } from './interactions';
+import type { TwinHandle } from './twin';
+
+/**
+ * Lets the pointer regions' deferred effects run: they re-read the session a microtask after the relay or the event
+ * that changed their inputs, as React runs a hook's effects after its commit.
+ */
+async function flushPointerEffects(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// useClientPoint (useClientPoint.test.tsx; FLT-PTR-07..10, FLT-API-14, FLT-ALG-25, FLT-EDGE-09, FLT-STR-02, FLT-STR-11).
+// Base UI reads `elements.reference.getBoundingClientRect()`, the root store's selected reference (FLT-STR-02); this
+// module does no positioning, so the titles read the session's `positionReference`, else its DOM reference. Base UI's
+// `fireEvent` runs React's effects before it returns; here the effects a relay or an event schedules run a microtask
+// later, so a title flushes them where Base UI's `act` would.
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('useClientPoint', () => {
+  type Axis = 'x' | 'y' | 'both';
+
+  interface ClientPointApp {
+    readonly popup: PopupHarness;
+    readonly reference: HTMLElement;
+    readonly trigger: TwinHandle;
+    floating: HTMLElement | null;
+    /** The App's button: flips `open` with no event, so no open event is recorded (a C#-origin commit). */
+    toggle(): Promise<void>;
+    /** A re-render with `enabled` (Tooltip's `trackCursorAxis` turned off is `clientPoint: null`). */
+    setEnabled(enabled: boolean): void;
+  }
+
+  // The App of useClientPoint.test.tsx: a reference carrying the hook's props (`getReferenceProps` and `getTriggerProps`
+  // are the same listeners on the trigger handle here), and a floating element rendered while open.
+  function app(options: { axis?: Axis; setReference?: boolean } = {}): ClientPointApp {
+    const popup = harness();
+    popup.attachSession();
+    const reference = element('div', 'reference');
+    const clientPoint = options.axis === undefined ? {} : { axis: options.axis };
+    const trigger = popup.attachTrigger(reference, { trigger: { clientPoint } });
+    if (options.setReference !== false) {
+      popup.setReference(reference);
+    }
+    let floatingHandle: TwinHandle | null = null;
+    const state: ClientPointApp = {
+      popup,
+      reference,
+      trigger,
+      floating: null,
+      async toggle() {
+        if (!popup.open) {
+          popup.setOpen(true);
+          state.floating = element('div', 'floating');
+          floatingHandle = popup.attachFloating(state.floating);
+        } else {
+          popup.setOpen(false);
+          floatingHandle?.dispose();
+          state.floating?.remove();
+          floatingHandle = null;
+          state.floating = null;
+        }
+        await flushPointerEffects();
+      },
+      setEnabled(enabled) {
+        trigger.update(JSON.stringify({ sessionToken: popup.token, trigger: { clientPoint: enabled ? clientPoint : null } }));
+      },
+    };
+    return state;
+  }
+
+  function referenceRect(popup: PopupHarness) {
+    const session = getSession(popup.token)!;
+    return (session.positionReference ?? session.domReferenceElement)?.getBoundingClientRect();
+  }
+
+  function expectLocation(popup: PopupHarness, { x, y }: { x: number; y: number }) {
+    const rect = referenceRect(popup);
+    expect(rect?.x).toBe(x);
+    expect(rect?.y).toBe(y);
+    expect(rect?.width).toBe(0);
+    expect(rect?.height).toBe(0);
+  }
+
+  function expectRect(popup: PopupHarness, { x, y, width, height }: { x: number; y: number; width: number; height: number }) {
+    const rect = referenceRect(popup);
+    expect(rect?.x).toBe(x);
+    expect(rect?.y).toBe(y);
+    expect(rect?.width).toBe(width);
+    expect(rect?.height).toBe(height);
+  }
+
+  function mouseMove(target: EventTarget, clientX: number, clientY: number) {
+    target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX, clientY }));
+  }
+
+  function rectOf(x: number, y: number, width: number, height: number): DOMRect {
+    return { x, y, width, height, top: y, right: x + width, bottom: y + height, left: x, toJSON: () => {} };
+  }
+
+  // The test's `store.set('positionReference', …)`: the module's setter is internal, so the title writes the field.
+  function writePositionReference(popup: PopupHarness, value: unknown) {
+    (getSession(popup.token) as unknown as { positionReference: unknown }).positionReference = value;
+  }
+
+  it('updates position from trigger props', async () => {
+    // Port: the test shim's element sync (FLT-STR-11's standalone root store, M5's) is the session's `setReference`.
+    const { popup, reference } = app();
+
+    await flushPointerEffects();
+
+    mouseMove(reference, 400, 200);
+
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 400, y: 200 });
+  });
+
+  it('uses trigger element when dom reference is missing', async () => {
+    // Port: no DOM reference is set at all, so the virtual reference can only come from the handler's element.
+    const { popup, reference } = app({ axis: 'x', setReference: false });
+    reference.getBoundingClientRect = () => rectOf(10, 50, 0, 0);
+    expect(getSession(popup.token)!.domReferenceElement).toBeNull();
+
+    await flushPointerEffects();
+
+    mouseMove(reference, 200, 300);
+
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 200, y: 50 });
+  });
+
+  it('renders at mouse event coords', async () => {
+    const { popup, reference, toggle } = app();
+
+    await flushPointerEffects();
+
+    mouseMove(reference, 500, 500);
+
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 500, y: 500 });
+
+    mouseMove(reference, 1000, 1000);
+
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 1000, y: 1000 });
+
+    // Window listener isn't registered unless the floating element is open.
+    mouseMove(window, 700, 700);
+
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 1000, y: 1000 });
+
+    await toggle();
+
+    mouseMove(reference, 700, 700);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 700, y: 700 });
+
+    mouseMove(document.body, 0, 0);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 0, y: 0 });
+  });
+
+  it('cleans up window listener when closing or disabling', async () => {
+    const { popup, reference, toggle, setEnabled } = app();
+
+    await toggle();
+
+    mouseMove(reference, 500, 500);
+    await flushPointerEffects();
+
+    await toggle();
+
+    mouseMove(document.body, 0, 0);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 500, y: 500 });
+
+    await toggle();
+
+    mouseMove(document.body, 500, 500);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 500, y: 500 });
+
+    setEnabled(false);
+
+    mouseMove(document.body, 0, 0);
+    await flushPointerEffects();
+
+    expectRect(popup, { x: 0, y: 0, width: 0, height: 0 });
+  });
+
+  it('clears virtual references on unmount without retaining a stale DOM reference', async () => {
+    const popup = harness();
+    popup.attachSession();
+    const reference = element('button', 'reference');
+    popup.attachFloating(element('div'));
+    const virtualReference = {
+      getBoundingClientRect: () => reference.getBoundingClientRect(),
+    };
+
+    writePositionReference(popup, virtualReference);
+
+    const trigger = popup.attachTrigger(reference, { trigger: { clientPoint: {} } });
+    popup.setReference(reference);
+
+    trigger.update(JSON.stringify({ sessionToken: popup.token, trigger: { clientPoint: null } }));
+    await flushPointerEffects();
+
+    expect(getSession(popup.token)!.positionReference).toBe(reference);
+
+    writePositionReference(popup, virtualReference);
+    trigger.dispose();
+
+    expect(getSession(popup.token)!.positionReference).toBe(null);
+  });
+
+  it('axis x', async () => {
+    const { popup, reference, toggle } = app({ axis: 'x' });
+
+    await toggle();
+
+    mouseMove(reference, 500, 500);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 500, y: 0 });
+  });
+
+  it('axis y', async () => {
+    const { popup, reference, toggle } = app({ axis: 'y' });
+
+    await toggle();
+
+    mouseMove(reference, 500, 500);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 0, y: 500 });
+  });
+
+  it.for([
+    {
+      axis: 'x',
+      atCursor: { x: 500, y: 20, width: 0, height: 40 },
+      afterReferenceMoves: { x: 550, y: 70, width: 0, height: 40 },
+    },
+    {
+      axis: 'y',
+      atCursor: { x: 10, y: 500, width: 30, height: 0 },
+      afterReferenceMoves: { x: 60, y: 550, width: 30, height: 0 },
+    },
+  ] as const)('keeps the reference size on the untracked axis when tracking $axis', async ({ axis, atCursor, afterReferenceMoves }) => {
+    const { popup, reference, toggle } = app({ axis });
+    let referenceRectValue = { x: 10, y: 20, width: 30, height: 40 };
+
+    reference.getBoundingClientRect = () => {
+      const { x, y, width, height } = referenceRectValue;
+      return rectOf(x, y, width, height);
+    };
+
+    mouseMove(reference, 500, 500);
+    await flushPointerEffects();
+
+    expectRect(popup, atCursor);
+
+    // Opening re-reads the same virtual element as an auto-update. The open wasn't a hover,
+    // so the cursor point keeps its offset from the reference instead of snapping back.
+    referenceRectValue = { x: 60, y: 70, width: 30, height: 40 };
+
+    await toggle();
+
+    expectRect(popup, afterReferenceMoves);
+  });
+
+  it('removes window listener when cursor lands on floating element', async () => {
+    const state = app();
+
+    await state.toggle();
+
+    mouseMove(state.reference, 500, 500);
+
+    mouseMove(state.floating!, 500, 500);
+
+    await flushPointerEffects();
+
+    mouseMove(document.body, 0, 0);
+
+    expectLocation(state.popup, { x: 500, y: 500 });
+  });
+
+  it('reattaches window listener after cursor returns from floating element to reference', async () => {
+    const state = app();
+
+    await state.toggle();
+
+    mouseMove(state.reference, 500, 500);
+
+    mouseMove(state.floating!, 500, 500);
+
+    await flushPointerEffects();
+
+    mouseMove(document.body, 0, 0);
+
+    expectLocation(state.popup, { x: 500, y: 500 });
+
+    mouseMove(state.reference, 600, 700);
+    await flushPointerEffects();
+
+    // Reapply deterministic coordinates after the effect attaches the window listener.
+    // A real browser cursor can emit an unrelated move while the effect is flushing.
+    mouseMove(state.reference, 600, 700);
+
+    expectLocation(state.popup, { x: 600, y: 700 });
+
+    mouseMove(document.body, 100, 200);
+
+    await flushPointerEffects();
+    expectLocation(state.popup, { x: 100, y: 200 });
+  });
+
+  // Port: the App's button calls `setOpen` with a focus event; here the trigger's own focus hook requests the open with
+  // its `focusin`, which C# commits and the relay pairs with the request, so the session records it (FLT-STA-03).
+  function focusApp() {
+    const popup = harness();
+    popup.attachSession();
+    const reference = element('button', 'reference');
+    popup.attachTrigger(reference, { trigger: { clientPoint: {}, focus: {} } });
+    popup.setReference(reference);
+    reference.getBoundingClientRect = () => rectOf(10, 20, 30, 40);
+    return {
+      popup,
+      reference,
+      async openWithFocusEvent() {
+        reference.focus();
+        popup.attachFloating(element('div', 'floating'));
+        await flushPointerEffects();
+        expect(popup.open).toBe(true);
+        expect(getSession(popup.token)!.dataRef.current.openEvent?.type).toBe('focusin');
+      },
+    };
+  }
+
+  it('restores the DOM reference when opened by a non-mouse event', async () => {
+    const { popup, reference, openWithFocusEvent } = focusApp();
+
+    mouseMove(reference, 500, 500);
+    await flushPointerEffects();
+
+    expectLocation(popup, { x: 500, y: 500 });
+
+    await openWithFocusEvent();
+
+    expectRect(popup, { x: 10, y: 20, width: 30, height: 40 });
+
+    mouseMove(document.body, 100, 200);
+
+    mouseMove(reference, 300, 400);
+    await flushPointerEffects();
+
+    expectRect(popup, { x: 10, y: 20, width: 30, height: 40 });
+  });
+
+  it('port: a move on the reference after a non-mouse open installs no virtual reference, even before the effect re-runs', async () => {
+    const { popup, reference, openWithFocusEvent } = focusApp();
+    await openWithFocusEvent();
+    expect(getSession(popup.token)!.positionReference).toBe(reference);
+
+    mouseMove(reference, 300, 400);
+
+    expect(getSession(popup.token)!.positionReference).toBe(reference);
+  });
+
+  it('port: with a mouse the cursor is followed while the floating element stays attached after the close; with a touch only while open', async () => {
+    const { popup, reference } = app();
+    popup.setOpen(true);
+    popup.attachFloating(element('div', 'floating'));
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+    await flushPointerEffects();
+
+    // The floating element stays attached through its exit transition.
+    popup.setOpen(false);
+    await flushPointerEffects();
+    mouseMove(document.body, 300, 300);
+    expectLocation(popup, { x: 300, y: 300 });
+
+    reference.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    await flushPointerEffects();
+    mouseMove(document.body, 100, 100);
+    expectLocation(popup, { x: 300, y: 300 });
+  });
+
+  it('port: disabling while open ignores cursor updates after re-enabling until the floating element unmounts', async () => {
+    const state = app();
+    await state.toggle();
+
+    state.setEnabled(false);
+    state.setEnabled(true);
+    await flushPointerEffects();
+    mouseMove(state.reference, 500, 500);
+    expect(getSession(state.popup.token)!.positionReference).toBe(state.reference);
+
+    await state.toggle();
+    mouseMove(state.reference, 500, 500);
+    expectLocation(state.popup, { x: 500, y: 500 });
+  });
+
+  it('port: a trigger that never enables cursor anchoring leaves the position reference alone, attached or disposed', async () => {
+    const popup = harness();
+    popup.attachSession();
+    const virtualReference = { getBoundingClientRect: () => rectOf(1, 2, 0, 0) };
+    const anchored = popup.attachTrigger(element('button'), { trigger: { clientPoint: {} } });
+    writePositionReference(popup, virtualReference);
+    anchored.dispose();
+    expect(getSession(popup.token)!.positionReference).toBeNull();
+
+    writePositionReference(popup, virtualReference);
+    const reference = element('button');
+    const plain = popup.attachTrigger(reference);
+    popup.setOpen(true, 'none', reference.id);
+    await flushPointerEffects();
+    mouseMove(reference, 50, 60);
+    plain.dispose();
+
+    expect(getSession(popup.token)!.positionReference).toBe(virtualReference);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// FloatingDelayGroup (FloatingDelayGroup.test.tsx; FLT-API-16, FLT-ALG-23, FLT-EVT-07, FLT-ANI-01, FLT-EDGE-11/12).
+// The Tooltip of the upstream file is a session with one trigger handle that names the provider token; the provider is
+// an elementless `provider` handle. Its `useHover` with `delay: () => delayRef.current` is the hover region's, built in
+// parallel: `mouseEnter` and `mouseLeave` below stand in for it (they read the group at the event as the hover region
+// does, start the timer, and commit the open or close as C# would), until the hover region's merge replaces them with
+// `mouseenter` and `mouseleave` events. The group's own half (its readings, the previous member's close, the instant
+// phase an open carries) is the module's.
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('FloatingDelayGroup', () => {
+  const token = 'delay-group';
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  interface GroupTooltip {
+    readonly popup: PopupHarness;
+    readonly reference: HTMLElement;
+    trigger: TwinHandle;
+    timer: ReturnType<typeof setTimeout> | undefined;
+    /** The instant phase each open carried, read when the open was requested. */
+    readonly instants: boolean[];
+  }
+
+  function provider(delay: { open: number; close: number }, timeoutMs?: number): TwinHandle {
+    return attach(
+      null,
+      JSON.stringify({ provider: { token, delayOpen: delay.open, delayClose: delay.close, timeout: timeoutMs ?? null } }),
+      createFakeTwin().twin,
+    );
+  }
+
+  function memberOptions(): Partial<InteractionsOptions> {
+    return { trigger: { hover: { delayGroupToken: token } } };
+  }
+
+  function tooltip(label: string): GroupTooltip {
+    const popup = harness();
+    popup.attachSession();
+    const reference = element('button', `reference-${label}`);
+    const trigger = popup.attachTrigger(reference, memberOptions());
+    return { popup, reference, trigger, timer: undefined, instants: [] };
+  }
+
+  const recordOf = (tip: GroupTooltip) => getSession(tip.popup.token) as Parameters<typeof delayGroupInstantPhase>[0];
+
+  function mouseEnter(tip: GroupTooltip) {
+    clearTimeout(tip.timer);
+    const open = () => {
+      tip.instants.push(delayGroupInstantPhase(recordOf(tip), token));
+      tip.popup.setOpen(true, 'trigger-hover', tip.reference.id);
+    };
+    const delay = readDelayGroup(token)?.delayOpen ?? 0;
+    if (delay) {
+      tip.timer = setTimeout(open, delay);
+    } else {
+      open();
+    }
+  }
+
+  function mouseLeave(tip: GroupTooltip) {
+    clearTimeout(tip.timer);
+    const close = () => tip.popup.setOpen(false, 'trigger-hover');
+    const delay = readDelayGroup(token)?.delayClose ?? 0;
+    if (delay) {
+      tip.timer = setTimeout(close, delay);
+    } else {
+      close();
+    }
+  }
+
+  async function advance(ms: number) {
+    await vi.advanceTimersByTimeAsync(ms);
+    await flushPointerEffects();
+  }
+
+  it('groups delays correctly', async () => {
+    provider({ open: 1000, close: 200 });
+    const one = tooltip('one');
+    const two = tooltip('two');
+    const three = tooltip('three');
+
+    mouseEnter(one);
+
+    await advance(1);
+
+    expect(one.popup.open).toBe(false);
+
+    await advance(999);
+
+    expect(one.popup.open).toBe(true);
+
+    mouseEnter(two);
+
+    await advance(1);
+
+    expect(one.popup.open).toBe(false);
+    expect(two.popup.open).toBe(true);
+
+    mouseEnter(three);
+
+    await advance(1);
+
+    expect(two.popup.open).toBe(false);
+    expect(three.popup.open).toBe(true);
+
+    mouseLeave(three);
+
+    await advance(1);
+
+    expect(three.popup.open).toBe(true);
+
+    await advance(199);
+
+    expect(three.popup.open).toBe(false);
+
+    // Port (FLT-EVT-07, FLT-ANI-01): each previous member was closed through its Root's twin, reason `none`, no event,
+    // with the instant phase; the opens that took over carried it, the first did not.
+    for (const previous of [one, two]) {
+      expect(previous.popup.requests.map((request) => request.payload)).toEqual([
+        { open: false, reason: 'none', event: null, triggerId: null, instant: true },
+      ]);
+    }
+    expect([...one.instants, ...two.instants, ...three.instants]).toEqual([false, true, true]);
+  });
+
+  it('timeoutMs', async () => {
+    provider({ open: 1000, close: 100 }, 500);
+    const one = tooltip('one');
+    const two = tooltip('two');
+    const three = tooltip('three');
+
+    mouseEnter(one);
+
+    await advance(1000);
+
+    mouseLeave(one);
+
+    expect(one.popup.open).toBe(true);
+
+    await advance(499);
+
+    expect(one.popup.open).toBe(false);
+
+    mouseEnter(two);
+
+    await advance(1);
+
+    expect(two.popup.open).toBe(true);
+
+    mouseEnter(three);
+
+    await advance(1);
+
+    expect(two.popup.open).toBe(false);
+    expect(three.popup.open).toBe(true);
+
+    mouseLeave(three);
+
+    await advance(1);
+
+    expect(three.popup.open).toBe(true);
+
+    await advance(99);
+
+    expect(three.popup.open).toBe(false);
+  });
+
+  it('resets the instant phase after Strict Mode replays the lifecycle effects', async () => {
+    // Restated (ADR 06 Amendments 2026-10-18 rule 2): React's replay of the mount effects is each member's trigger handle
+    // disposed twice and attached again to the same element before the hover. Base UI's `data-instant-phase` on the
+    // second trigger is the instant phase its open carried; after its close, the trigger's own phase is C#'s (from the
+    // hover region's close request), and the group's half is the phase every member's next open carries.
+    provider({ open: 1000, close: 0 }, 50);
+    const one = tooltip('one');
+    const two = tooltip('two');
+    for (const tip of [one, two]) {
+      tip.trigger.dispose();
+      tip.trigger.dispose();
+      tip.trigger = tip.popup.attachTrigger(tip.reference, memberOptions());
+    }
+
+    mouseEnter(one);
+    await advance(1000);
+
+    mouseEnter(two);
+    await advance(1);
+
+    expect(two.instants).toEqual([true]);
+
+    mouseLeave(two);
+    await flushPointerEffects();
+    expect(delayGroupInstantPhase(recordOf(one), token)).toBe(true);
+    await advance(50);
+
+    expect(delayGroupInstantPhase(recordOf(one), token)).toBe(false);
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 1000, delayClose: 0 });
+  });
+
+  it('keeps the active context when an inactive consumer unmounts', async () => {
+    provider({ open: 1000, close: 100 }, 500);
+    const one = tooltip('one');
+    const two = tooltip('two');
+    const three = tooltip('three');
+
+    mouseEnter(one);
+
+    await advance(1000);
+
+    expect(one.popup.open).toBe(true);
+
+    two.popup.dispose();
+    expect(getSession(two.popup.token)).toBeUndefined();
+
+    mouseEnter(three);
+
+    await advance(1);
+
+    expect(one.popup.open).toBe(false);
+    expect(three.popup.open).toBe(true);
+  });
+
+  it('keeps the timeout active when the last closed consumer unmounts', async () => {
+    provider({ open: 1000, close: 100 }, 500);
+    const one = tooltip('one');
+    const two = tooltip('two');
+
+    mouseEnter(one);
+
+    await advance(1000);
+
+    mouseLeave(one);
+
+    await advance(100);
+
+    expect(one.popup.open).toBe(false);
+
+    one.popup.dispose();
+    expect(getSession(one.popup.token)).toBeUndefined();
+    // Port: the group's half, the warm delay the next hover reads (FLT-EDGE-11).
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 0, delayClose: 100 });
+
+    mouseEnter(two);
+
+    await advance(1);
+
+    expect(two.popup.open).toBe(true);
+  });
+
+  it('does not re-render unrelated consumers', async () => {
+    provider({ open: 1000, close: 100 }, 500);
+    const one = tooltip('one');
+    const two = tooltip('two');
+    const three = tooltip('three');
+
+    mouseEnter(one);
+
+    await advance(1000);
+
+    mouseLeave(one);
+
+    expect(one.popup.open).toBe(true);
+
+    await advance(499);
+
+    expect(one.popup.open).toBe(false);
+
+    mouseEnter(two);
+
+    await advance(1);
+
+    expect(two.popup.open).toBe(true);
+    // Port: the render counts are React's (FLT-ALG-23's note); a member's state lives in its controller and the group,
+    // and nothing reaches the twin of a member the change does not concern.
+    expect(three.popup.requests).toEqual([]);
+  });
+
+  it('port: a provider holds its group from its first attach to its last dispose, and a trigger without one reads none', () => {
+    const first = provider({ open: 1000, close: 200 });
+    const second = provider({ open: 1000, close: 200 });
+
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 1000, delayClose: 200 });
+    expect(readDelayGroup('another-provider')).toBeNull();
+    expect(readDelayGroup(null)).toBeNull();
+
+    first.dispose();
+    first.dispose();
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 1000, delayClose: 200 });
+
+    second.dispose();
+    expect(readDelayGroup(token)).toBeNull();
+  });
+
+  it('port: the group resets to the provider delay timeoutMs after its last member closed', async () => {
+    provider({ open: 1000, close: 100 }, 500);
+    const one = tooltip('one');
+    const two = tooltip('two');
+
+    mouseEnter(one);
+    await advance(1000);
+    mouseLeave(one);
+    await advance(100);
+
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 0, delayClose: 100 });
+    expect(delayGroupInstantPhase(recordOf(two), token)).toBe(true);
+    expect(delayGroupInstantPhase(recordOf(one), token)).toBe(false);
+
+    await advance(499);
+    expect(readDelayGroup(token)?.delayOpen).toBe(0);
+
+    await advance(1);
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 1000, delayClose: 100 });
+    expect(delayGroupInstantPhase(recordOf(two), token)).toBe(false);
+  });
+
+  it('port: a provider delay change keeps the open delay at 0 while a member is current and adopts the new close delay; with none it replaces the delay', async () => {
+    const handle = provider({ open: 1000, close: 100 });
+    const one = tooltip('one');
+    const update = (open: number, close: number) =>
+      handle.update(JSON.stringify({ provider: { token, delayOpen: open, delayClose: close, timeout: null } }));
+
+    update(800, 50);
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 800, delayClose: 50 });
+
+    mouseEnter(one);
+    await advance(800);
+    expect(one.popup.open).toBe(true);
+
+    update(600, 300);
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 0, delayClose: 300 });
+
+    mouseLeave(one);
+    await advance(300);
+    expect(one.popup.open).toBe(false);
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 600, delayClose: 300 });
+  });
+
+  it('port: disposing the current member while its popup is open clears the group at once', async () => {
+    provider({ open: 1000, close: 100 }, 500);
+    const one = tooltip('one');
+    const two = tooltip('two');
+
+    mouseEnter(one);
+    await advance(1000);
+    expect(readDelayGroup(token)?.delayOpen).toBe(0);
+    expect(delayGroupInstantPhase(recordOf(two), token)).toBe(true);
+
+    one.trigger.dispose();
+
+    expect(readDelayGroup(token)).toEqual({ delayOpen: 1000, delayClose: 100 });
+    expect(delayGroupInstantPhase(recordOf(two), token)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// The hovered line (utils/popups/inlineRect.test.ts, its first six titles; PSH-PTR-08, PSH-PTR-29). Upstream calls the
+// trigger props' handlers with a fake event over a ref; here a PreviewCard trigger handle with `hoveredLine` receives
+// the events, the record is the session's, read through `readHoveredLine`, and `updateHoveredLine` is
+// `updateInlineRectCoords`. The open the record is recomputed before (`recordHoveredLineBeforeOpen`) is the hover
+// region's, proven when it is merged.
+// ---------------------------------------------------------------------------------------------------------------
+
+describe('inlineRect', () => {
+  type RectLike = { left: number; top: number; right: number; bottom: number; width: number; height: number };
+
+  const twoLines: RectLike[] = [
+    { left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 },
+    { left: 0, top: 20, right: 10, bottom: 30, width: 10, height: 10 },
+  ];
+
+  function popupWithSession(): PopupHarness {
+    const popup = harness();
+    popup.attachSession();
+    return popup;
+  }
+
+  function createTrigger(popup: PopupHarness, rects: RectLike[] | (() => RectLike[]), hoveredLine = true): HTMLElement {
+    const trigger = element('span');
+    Object.defineProperty(trigger, 'getClientRects', {
+      value: () => (typeof rects === 'function' ? rects() : rects),
+    });
+    popup.attachTrigger(trigger, { trigger: { hoveredLine } });
+    return trigger;
+  }
+
+  function mouse(trigger: Element, type: 'mouseenter' | 'mousemove', clientX: number, clientY: number) {
+    trigger.dispatchEvent(new MouseEvent(type, { bubbles: type === 'mousemove', clientX, clientY }));
+  }
+
+  const hoveredLine = (popup: PopupHarness) => readHoveredLine(getSession(popup.token)!);
+
+  it('clears stored coords on focus', () => {
+    const popup = popupWithSession();
+    const trigger = createTrigger(popup, twoLines);
+    mouse(trigger, 'mousemove', 2, 3);
+    expect(hoveredLine(popup)).toEqual({ x: 2, y: 3, lineIndex: 0, element: trigger });
+
+    trigger.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+    expect(hoveredLine(popup)).toBeUndefined();
+  });
+
+  it('stores undefined when the trigger does not wrap', () => {
+    const popup = popupWithSession();
+    let rects = twoLines;
+    const trigger = createTrigger(popup, () => rects);
+    mouse(trigger, 'mousemove', 1, 1);
+    expect(hoveredLine(popup)).toEqual({ x: 1, y: 1, lineIndex: 0, element: trigger });
+
+    rects = [{ left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 }];
+    mouse(trigger, 'mousemove', 5, 5);
+
+    expect(hoveredLine(popup)).toBeUndefined();
+  });
+
+  it('updates stored coords on mouse move while closed', () => {
+    const popup = popupWithSession();
+    const trigger = createTrigger(popup, twoLines);
+
+    mouse(trigger, 'mousemove', 5, 25);
+
+    expect(hoveredLine(popup)).toEqual({ x: 5, y: 25, lineIndex: 1, element: trigger });
+  });
+
+  it('does not update stored coords on mouse move while open', () => {
+    const popup = popupWithSession();
+    const trigger = createTrigger(popup, twoLines);
+    mouse(trigger, 'mousemove', 1, 1);
+    popup.setOpen(true, 'trigger-hover', trigger.id);
+
+    mouse(trigger, 'mousemove', 5, 25);
+
+    expect(hoveredLine(popup)).toEqual({ x: 1, y: 1, lineIndex: 0, element: trigger });
+  });
+
+  it('does not update stored coords on mouse enter while open', () => {
+    const popup = popupWithSession();
+    const trigger = createTrigger(popup, twoLines);
+    mouse(trigger, 'mouseenter', 1, 1);
+    expect(hoveredLine(popup)).toEqual({ x: 1, y: 1, lineIndex: 0, element: trigger });
+    popup.setOpen(true, 'trigger-hover', trigger.id);
+
+    mouse(trigger, 'mouseenter', 5, 25);
+
+    expect(hoveredLine(popup)).toEqual({ x: 1, y: 1, lineIndex: 0, element: trigger });
+  });
+
+  it('updates stored coords from a native mouse event while open', () => {
+    const popup = popupWithSession();
+    const trigger = createTrigger(popup, twoLines);
+    mouse(trigger, 'mousemove', 1, 1);
+    popup.setOpen(true, 'trigger-hover', trigger.id);
+
+    updateHoveredLine(getSession(popup.token)!, trigger, 5, 25);
+
+    expect(hoveredLine(popup)).toEqual({ x: 5, y: 25, lineIndex: 1, element: trigger });
+  });
+
+  it('port: the record is the session\'s: a trigger records only with hoveredLine, and moves on a trigger the popup is not open by replace it', () => {
+    const popup = popupWithSession();
+    const first = createTrigger(popup, twoLines);
+    const second = createTrigger(popup, twoLines);
+    const plain = createTrigger(popup, twoLines, false);
+    mouse(first, 'mousemove', 5, 5);
+    expect(hoveredLine(popup)).toEqual({ x: 5, y: 5, lineIndex: 0, element: first });
+
+    popup.setOpen(true, 'trigger-hover', first.id);
+    mouse(second, 'mousemove', 5, 25);
+    expect(hoveredLine(popup)).toEqual({ x: 5, y: 25, lineIndex: 1, element: second });
+
+    mouse(plain, 'mousemove', 1, 1);
+    expect(hoveredLine(popup)).toEqual({ x: 5, y: 25, lineIndex: 1, element: second });
+  });
+});
 // #endregion pointer tests

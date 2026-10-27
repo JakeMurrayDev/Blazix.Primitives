@@ -1059,7 +1059,7 @@ interface DelayGroupReading {
  * Reads the group a trigger's hover belongs to.
  * @returns The reading, or `null` without a provider of that token.
  */
-function readDelayGroup(_token: string | null | undefined): DelayGroupReading | null {
+export function readDelayGroup(_token: string | null | undefined): DelayGroupReading | null {
   return null;
 }
 
@@ -1067,7 +1067,7 @@ function readDelayGroup(_token: string | null | undefined): DelayGroupReading | 
  * The instant phase an open request of this session carries (FLT-ALG-23): whether another member of the group is the
  * current one, so C# renders `data-instant="delay"` in the batch of `data-open`.
  */
-function delayGroupInstantPhase(_record: SessionRecord, _token: string | null | undefined): boolean {
+export function delayGroupInstantPhase(_record: SessionRecord, _token: string | null | undefined): boolean {
   return false;
 }
 
@@ -1246,6 +1246,24 @@ function createClientPointController(_context: HandleContext): Controller {
  * trigger records it.
  */
 function recordHoveredLineBeforeOpen(_context: HandleContext, _event: MouseEvent): void {}
+
+/** The hovered line of a trigger that renders more than one line box. */
+export interface HoveredLine {
+  x: number;
+  y: number;
+  lineIndex?: number | undefined;
+  element: Element;
+}
+
+/** Reads the session's hovered line. */
+export function readHoveredLine(_session: InteractionSession): HoveredLine | undefined {
+  return undefined;
+}
+
+/** Records the hovered line of a trigger at a client point. */
+export function updateHoveredLine(_session: InteractionSession, _element: Element, _clientX: number, _clientY: number): HoveredLine | undefined {
+  return undefined;
+}
 
 function createHoveredLineController(_context: HandleContext): Controller {
   void recordHoveredLineBeforeOpen;
