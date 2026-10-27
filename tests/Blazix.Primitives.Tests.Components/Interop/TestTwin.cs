@@ -8,6 +8,9 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 internal sealed record TestTwinOptions : TwinOptions
 {
     public int Threshold { get; init; }
+
+    /// <summary>An element-typed option: the index of its element in the references sent with the options.</summary>
+    public int? TargetReferenceIndex { get; init; }
 }
 
 /// <summary>The payload of the test twin's one callback.</summary>
@@ -46,4 +49,20 @@ internal sealed class TestTwin(IJSRuntime jsRuntime) : TwinBase<TestTwin, TestTw
         Decisions.Add((point, snapshot));
         return NextVerdict;
     }
+}
+
+/// <summary>
+/// A node a consumer's script holds (a closed shadow root, say), as the twin receives it: an
+/// <see cref="IJSObjectReference"/> that the contract tests pass through and never call.
+/// </summary>
+internal sealed class ScriptHeldReference : IJSObjectReference
+{
+    /// <inheritdoc />
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    /// <inheritdoc />
+    public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => throw new NotSupportedException();
+
+    /// <inheritdoc />
+    public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => throw new NotSupportedException();
 }
