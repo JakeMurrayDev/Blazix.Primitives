@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/toggle/**/*.test.tsx` (1 file) |
 | Docs page | `docs/src/app/(docs)/react/components/toggle/page.mdx` |
 | Prefix | `TGL` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-27 |
 | Builds on | none |
 | Derived by | [toggle-group](toggle-group.md) (owns a set of Toggles), [toolbar](toolbar.md) (hosts Toggles as roving items) |

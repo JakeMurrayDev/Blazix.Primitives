@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/toolbar/**/*.test.tsx` (6 files; plus `link/ToolbarLink.spec.tsx`, type-level only) |
 | Docs page | `docs/src/app/(docs)/react/components/toolbar/page.mdx` |
 | Prefix | `TLB` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-27 |
 | Builds on | none ([separator](separator.md) is reused by `Toolbar.Separator`) |
 | Derived by | none; hosts [toggle-group](toggle-group.md) / [toggle](toggle.md) and any popup trigger via `Toolbar.Button` substitution |

@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/toggle-group/**/*.test.tsx` (1 file; plus `ToggleGroup.spec.tsx`, type-level only) |
 | Docs page | `docs/src/app/(docs)/react/components/toggle-group/page.mdx` |
 | Prefix | `TGG` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-27 |
 | Builds on | [toggle](toggle.md) (the group's items) |
 | Derived by | none; hosted by [toolbar](toolbar.md) |
