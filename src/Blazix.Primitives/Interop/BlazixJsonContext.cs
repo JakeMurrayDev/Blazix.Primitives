@@ -39,4 +39,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]
 [JsonSerializable(typeof(TabsIndicatorMeasurement))]
+[JsonSerializable(typeof(FocusManagerOptions))]
+[JsonSerializable(typeof(FocusOutCloseRequest))]
+[JsonSerializable(typeof(InteractionTypeChange))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;
