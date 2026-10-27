@@ -68,6 +68,49 @@ internal static class FloatingLiterals
         };
     }
 
+    /// <summary>Returns the literal of a transition status.</summary>
+    /// <param name="status">The status, or <see langword="null"/> for none.</param>
+    /// <returns><c>starting</c>, <c>ending</c>, <c>idle</c>, or <see langword="null"/>.</returns>
+    public static string? ToLiteral(TransitionStatus? status)
+    {
+        return status switch
+        {
+            TransitionStatus.Starting => "starting",
+            TransitionStatus.Ending => "ending",
+            TransitionStatus.Idle => "idle",
+            _ => null,
+        };
+    }
+
+    /// <summary>Parses the literal of a side the browser-side behavior reported.</summary>
+    /// <param name="literal">The literal.</param>
+    /// <returns>The side; <see cref="Side.Bottom"/> for an unknown literal.</returns>
+    public static Side ParseSide(string literal)
+    {
+        return literal switch
+        {
+            "top" => Side.Top,
+            "left" => Side.Left,
+            "right" => Side.Right,
+            "inline-end" => Side.InlineEnd,
+            "inline-start" => Side.InlineStart,
+            _ => Side.Bottom,
+        };
+    }
+
+    /// <summary>Parses the literal of an alignment the browser-side behavior reported.</summary>
+    /// <param name="literal">The literal.</param>
+    /// <returns>The alignment; <see cref="Align.Center"/> for an unknown literal.</returns>
+    public static Align ParseAlign(string literal)
+    {
+        return literal switch
+        {
+            "start" => Align.Start,
+            "end" => Align.End,
+            _ => Align.Center,
+        };
+    }
+
     /// <summary>Returns the literal of a fallback axis side.</summary>
     /// <param name="side">The fallback axis side.</param>
     /// <returns><c>start</c>, <c>end</c> or <c>none</c>.</returns>
