@@ -206,6 +206,7 @@ public sealed class ToolbarRootTests : IDisposable
     [Theory(DisplayName = "port: a toolbar part outside ToolbarRoot throws the missing-context error")]
     [Trait("Requirement", "TLB-STR-02")]
     [Trait("Requirement", "TLB-EDGE-01")]
+    [InlineData(typeof(ToolbarButton))]
     [InlineData(typeof(ToolbarGroup))]
     [InlineData(typeof(ToolbarLink))]
     [InlineData(typeof(ToolbarSeparator))]

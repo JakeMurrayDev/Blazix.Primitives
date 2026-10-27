@@ -4,15 +4,17 @@ using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
-/// The bUnit context of the Toolbar tests: the library's services and bUnit's JS interop mock standing
+/// The bUnit context of the Toolbar tests: the library's services, the buttons' captured logger, and bUnit's JS interop mock standing
 /// in for the <c>composite</c> module on the root and the <c>button</c> module on each button and input. A test drives the
-/// twins as the modules would (ADR 06 §1): <see cref="DecideNavigateAsync"/> is the root's navigation decision and
-/// <see cref="ReportHandledKeyAsync"/> its Server report of a handled key.
+/// twins as the modules would (ADR 06 §1): <see cref="DecideNavigateAsync"/> is the root's navigation decision,
+/// <see cref="ReportHandledKeyAsync"/> its Server report of a handled key, and <see cref="DecideActivateAsync"/> a button's
+/// activation decision.
 /// </summary>
 public sealed class ToolbarTestContext : IDisposable
 {
@@ -22,6 +24,7 @@ public sealed class ToolbarTestContext : IDisposable
     public ToolbarTestContext()
     {
         Context.Services.AddBlazixPrimitives();
+        Context.Services.AddSingleton<ILogger<ToolbarButton>>(ButtonLogger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
         CompositeModule = Context.JSInterop.SetupModule(CompositeModulePath);
@@ -30,6 +33,8 @@ public sealed class ToolbarTestContext : IDisposable
 
     public BunitContext Context { get; } = new();
 
+    public CapturingLogger<ToolbarButton> ButtonLogger { get; } = new();
+
     public BunitJSModuleInterop ButtonModule { get; }
 
     public BunitJSModuleInterop ButtonHandle { get; }
@@ -37,6 +42,9 @@ public sealed class ToolbarTestContext : IDisposable
     public BunitJSModuleInterop CompositeModule { get; }
 
     public BunitJSModuleInterop CompositeHandle { get; }
+
+    /// <summary>The messages written to the buttons' logger, in order.</summary>
+    public IReadOnlyList<string> ButtonMessages => [.. ButtonLogger.Entries.Select(entry => entry.Message)];
 
     /// <summary>The options JSON of every <c>button</c> attach, in order.</summary>
     public IReadOnlyList<string> ButtonAttaches => [.. ButtonModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!)];
@@ -83,6 +91,14 @@ public sealed class ToolbarTestContext : IDisposable
     /// <summary>The <see cref="CompositeTwin"/> attached last.</summary>
     internal CompositeTwin CompositeTwin() =>
         ((DotNetObjectReference<CompositeTwin>)CompositeModule.Invocations["attach"][^1].Arguments[2]!).Value;
+
+    /// <summary>Asks a button's activation decision for a key, as the <c>button</c> module does on WebAssembly.</summary>
+    internal Task<string> DecideActivateAsync<TComponent>(IRenderedComponent<TComponent> cut, string key, int button = -1)
+        where TComponent : IComponent
+    {
+        ButtonTwin target = ButtonTwin(button);
+        return cut.InvokeAsync(() => target.Decide(Blazix.Primitives.Interop.ButtonTwin.ActivatePoint, KeyDownJson(key, null)));
+    }
 
     /// <summary>Asks the root's navigation decision for a key on the item with the given element id, as the module does on WebAssembly.</summary>
     internal Task<string> DecideNavigateAsync<TComponent>(IRenderedComponent<TComponent> cut, string key, string itemId, string tagName = "BUTTON")
