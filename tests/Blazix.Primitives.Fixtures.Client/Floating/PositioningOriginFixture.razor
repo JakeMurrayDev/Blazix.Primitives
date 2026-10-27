@@ -1,0 +1,97 @@
+@namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures
+@using Blazix.Primitives
+@inherits PositioningFixtureBase
+
+@*
+    The `positioning-origin` fixture: the 19 "transform origin" cases of Base UI's popover/positioner/PopoverPositioner.test.tsx
+    (FLT-DOM-07, FLT-DOM-10, FLT-ALG-11) on the test-only positioner, one per page named by `?case=`. Popover is
+    incidental to them: they assert the module's --transform-origin (design point 8 of the positioning track, settled by
+    the orchestrator 2026-10-27). A 72×36 trigger (2×20 for `narrow`) and a 52×24 popup unless a case says otherwise.
+*@
+<FixtureContainer Name="positioning-origin" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++">Sync</button>
+
+    @switch (Case)
+    {
+        case "start-rtl":
+        case "end-rtl":
+            <DirectionProvider Direction="TextDirection.Rtl">
+                <div dir="rtl">
+                    <div id="trigger" data-testid="trigger" style="@MarginTrigger">Trigger</div>
+                </div>
+                <FixturePositioner @ref="Positioner" data-testid="positioner" dir="rtl" Align="@(Case == "start-rtl" ? Align.Start : Align.End)">
+                    <div data-popup style="@PopupStyle">Popup</div>
+                </FixturePositioner>
+            </DirectionProvider>
+            break;
+        default:
+            <div id="trigger" data-testid="trigger" style="@TriggerStyle(Case)">Trigger</div>
+            <FixturePositioner @ref="Positioner"
+                               data-testid="positioner"
+                               dir="@(Case == "floating-rtl" ? "rtl" : null)"
+                               Side="SideFor(Case)"
+                               Align="AlignFor(Case)"
+                               SideOffset="@(Case is "horizontal-end" or "side-offset" or "side-offset-top" ? 7 : null)"
+                               AlignOffset="@(Case == "align-offset" ? 7 : null)"
+                               ArrowPadding="@(Case == "narrow" ? 20 : null)"
+                               CollisionPadding="@(Case == "one-px-shift" ? 0 : null)"
+                               CollisionAvoidance="AvoidanceFor(Case)">
+                <div data-popup style="@PopupStyleFor(Case)">
+                    @if (Case == "arrow")
+                    {
+                        <FixturePositionerArrow data-testid="arrow" style="width: 10px; height: 10px" />
+                    }
+                    Popup
+                </div>
+            </FixturePositioner>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private const string MarginTrigger = "width: 72px; height: 36px; margin: 50px";
+    private const string PopupStyle = "width: 52px; height: 24px";
+
+    private static string TriggerStyle(string name) => name switch
+    {
+        "horizontal-end" => "width: 72px; height: 36px; position: fixed; left: 200px; top: 50px",
+        "side-offset-top" => "width: 72px; height: 36px; position: fixed; left: 50px; top: 200px",
+        "narrow" => "width: 2px; height: 20px; position: fixed; left: 50px; top: 50px",
+        "align-flip" => "width: 72px; height: 36px; position: fixed; top: 50px; right: 4px",
+        "one-px-shift" => "width: 72px; height: 36px; position: fixed; left: calc(100vw - 51px); top: 50px",
+        "start-shifted" => "width: 72px; height: 36px; position: fixed; top: 50px; right: 10px",
+        "end-shifted" => "width: 72px; height: 36px; position: fixed; left: 10px; top: 50px",
+        "horizontal-shifted" or "overlap" => "width: 72px; height: 36px; position: fixed; left: 50px; bottom: 10px",
+        _ => MarginTrigger,
+    };
+
+    private static string PopupStyleFor(string name) => name switch
+    {
+        "align-flip" or "start-shifted" or "end-shifted" => "width: 240px; height: 24px",
+        "horizontal-shifted" => "width: 52px; height: 120px",
+        _ => PopupStyle,
+    };
+
+    private static Side? SideFor(string name) => name switch
+    {
+        "horizontal" or "horizontal-shifted" => Side.Right,
+        "horizontal-end" => Side.Left,
+        "side-offset-top" => Side.Top,
+        _ => null,
+    };
+
+    private static Align? AlignFor(string name) => name switch
+    {
+        "center" or "overlap" => null,
+        "end" or "horizontal-end" or "end-shifted" => Align.End,
+        _ => Align.Start,
+    };
+
+    private static CollisionAvoidance? AvoidanceFor(string name) => name switch
+    {
+        "align-flip" => new CollisionAvoidance(Align: CollisionAvoidanceMode.Flip),
+        "one-px-shift" or "start-shifted" or "end-shifted" or "horizontal-shifted" => new CollisionAvoidance(Align: CollisionAvoidanceMode.Shift),
+        "overlap" => new CollisionAvoidance(Side: CollisionAvoidanceMode.Shift),
+        _ => null,
+    };
+}

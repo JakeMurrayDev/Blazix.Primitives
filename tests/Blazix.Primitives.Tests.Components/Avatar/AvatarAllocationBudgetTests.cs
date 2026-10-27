@@ -9,6 +9,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// image already has, as after a re-derivation) allocates only its payload, and renders nothing. The budget is the first
 /// measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class AvatarAllocationBudgetTests : IDisposable
 {
     private const string Payload = """{"status":"loaded"}""";

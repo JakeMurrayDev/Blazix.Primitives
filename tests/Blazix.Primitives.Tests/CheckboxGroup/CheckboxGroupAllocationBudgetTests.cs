@@ -5,6 +5,7 @@ namespace Blazix.Primitives.Tests;
 /// (checkbox-group §4, CKG-STA-03: a commit produces a new list). Measured on the test thread; the budget was taken from
 /// the first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class CheckboxGroupAllocationBudgetTests
 {
     // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 72 bytes, the new six-entry array and nothing else.

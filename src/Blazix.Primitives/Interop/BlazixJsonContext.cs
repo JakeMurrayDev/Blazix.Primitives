@@ -42,6 +42,8 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(ScrollLockOptions))]
 [JsonSerializable(typeof(PortalOptions))]
 [JsonSerializable(typeof(TabsIndicatorMeasurement))]
+[JsonSerializable(typeof(PositioningOptions))]
+[JsonSerializable(typeof(PositioningPlacement))]
 [JsonSerializable(typeof(InteractionsOptions))]
 [JsonSerializable(typeof(InteractionsRequest))]
 [JsonSerializable(typeof(InteractionsPress))]

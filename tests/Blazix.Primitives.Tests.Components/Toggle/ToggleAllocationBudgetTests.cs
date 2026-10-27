@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// click includes Blazor's dispatch, the request and the render of the new state. The budgets were taken from the first
 /// measurement and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class ToggleAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): 624 bytes for the re-render, Button's 560 with the same

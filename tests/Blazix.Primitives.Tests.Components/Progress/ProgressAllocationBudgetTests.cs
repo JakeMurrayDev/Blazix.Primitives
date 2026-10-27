@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// none is allocated while the status is unchanged; the class and style merges are memoised), measured the way
 /// <c>AllocationBudgetTests</c> measures <c>SampleRoot</c>. The budget is the first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class ProgressAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 344 bytes, the same as MeterRoot's (MeterAllocationBudgetTests):

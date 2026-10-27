@@ -1,0 +1,15 @@
+@namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures
+@using Blazix.Primitives
+@inherits PositioningFixtureBase
+
+@*
+    The `positioning-prerender` fixture (prerendered): an open positioner at first render, side top and align start, with
+    a consumer style, so the static response carries what C# renders before the first positioning pass (ADR 03
+    Consequences; ADR 04 Amendments 2026-10-18 and 2026-10-27).
+*@
+<FixtureContainer Name="positioning-prerender" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <div id="trigger" data-testid="trigger" style="position: fixed; top: 200px; left: 200px; width: 72px; height: 36px">Trigger</div>
+    <FixturePositioner @ref="Positioner" data-testid="positioner" Side="Side.Top" Align="Align.Start" style="color: rgb(1, 2, 3)">
+        <div data-popup style="width: 52px; height: 24px">Popup</div>
+    </FixturePositioner>
+</FixtureContainer>

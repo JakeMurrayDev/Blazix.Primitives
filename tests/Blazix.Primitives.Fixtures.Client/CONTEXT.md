@@ -39,6 +39,12 @@ The fixture components and the harness services, in a Blazor WebAssembly project
   - `PopupSuiteFixtureBase`: the shared suites' fixture contract (`?case=` and the root's props from the query, the callbacks as `data-open-changes` and `data-open-change-completes`, `data-attached`, the sync barrier), inherited by the popup families' suite fixtures (tests/browser/CONTEXT.md, `suites/`).
   - The pages: `popup-conformance`, `popup-triggers` (contained or detached triggers with payloads, nesting, root mount and handle buttons, the programmatic and overlap cases, `throws=false`), `popup-unmount` (PSH-STA-23), `portal-basic` (`FixturePortal`, issue 8's siblings and children, the containers) and `scroll-lock-basic` (`FixtureScrollLock`, two locks on a tall page).
   - `FixturePortal` and `FixturePortalFocusPublisher` (a stand-in for the focus manager's publication) also serve `checkbox-group-portal` and `radio-group-portal`, the seven portal titles left open to M4 by the M2 groups.
+- `Floating/`: the `positioning` module's fixtures (namespace `FloatingFixtures`; `tests/browser/positioning.spec.ts` and the positioner conformance suite), M4 track 2. No Positioner part ships before M4 tracks 5–7, so `FixturePositioner` and `FixturePositionerArrow` are test-only parts composing `PositionerBehavior` and `PositionerArrowBehavior` with every input as a parameter (public, because Razor finds only public components). They render the C# mirror as `data-mirrored-side`, `data-mirrored-align`, `data-mirrored-anchor-hidden` and `data-mirrored-uncentered`, and `data-open` while open. `PositioningFixtureBase` renders the case named by the page's `?case=` and `data-attached` once the case's positioner is attached, and counts the sync button. The pages:
+  - `positioning-suite`: the suite's case contract, with `viewport` and `viewport-toggle` over `AdaptiveOrigin` standing in for the Viewport;
+  - `positioning-origin`: the 19 transform-origin cases;
+  - `positioning-lifecycle`: `kept-mounted`, `arrow`, `arrow-edge`, `scroll`, `anchor-element` (an anchor and a boundary passed as element references after the first render) and `portaled` (the positioner inside `FixturePortal`);
+  - `positioning-prerender` (prerendered).
+  The host keeps the browser's 8px body margin, so each anchor is `position: fixed` where Base UI's sits at the viewport origin.
 - `Prerender/`, `Allocation/`, `KeepAlive/`: the fixtures of the M0 verification items (ADR-02/1, ADR-06/1, ADR-05/3, ADR-06/2).
 
 ## Outputs

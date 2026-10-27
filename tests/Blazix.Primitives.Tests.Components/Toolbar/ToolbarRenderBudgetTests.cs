@@ -11,6 +11,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// options; it reaches no item and sends nothing. The budget was taken from the first measurement and only tightens
 /// afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class ToolbarRenderBudgetTests : IDisposable
 {
     // First measurement 2026-10-27 (arm64, .NET 11 RC2, Release): 736 bytes, which reaches no item (bUnit's parameterless

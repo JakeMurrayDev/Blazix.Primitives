@@ -11,12 +11,16 @@ namespace Blazix.Primitives.Tests.Components;
 /// own per-render cost of the root, its fixed cascade and its trigger; the behaviours' comparison of their options
 /// allocates nothing and sends nothing. The budget was taken from the first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class InteractionsAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-27 (arm64, .NET 11, Release): 2072 bytes for the parent passing the same values again to a
     // root with one trigger. The root and its fixed cascade render; the trigger, whose only parameter is the same
     // EventCallback, is skipped by Blazor's change detection. The session behaviour compares its inputs with the options
-    // last sent before it builds a record, so the comparison allocates nothing and nothing is sent.
+    // last sent before it builds a record, so the comparison allocates nothing and nothing is sent. 2026-10-28 (ADR 16
+    // Amendments 2026-10-27, issue 112; after M4 tracks 1 and 2 were on `main`): in the non-parallel AllocationBudgets
+    // collection, and the figure before it lands is the envelope of full runs: 2072 in 25 of 25 full runs of the project in
+    // Release.
     private const long RerenderBudgetBytes = 2072;
 
     private readonly InteractionsTestContext host = new();

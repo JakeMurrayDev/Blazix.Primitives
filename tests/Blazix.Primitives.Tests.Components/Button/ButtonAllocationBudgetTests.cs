@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// render needs a renderer, so the budget sits at L2 beside <c>Rendering/AllocationBudgetTests</c>. The budget was taken
 /// from the first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class ButtonAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-21 (arm64, .NET 11 RC2, Release): 616 bytes enabled and 584 disabled with a copied bag;

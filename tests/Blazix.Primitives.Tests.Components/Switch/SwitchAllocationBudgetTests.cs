@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// toggle includes the parse of the module's report, the request, the render it causes and the update the dom twin sends.
 /// The budgets were taken from the first measurement and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class SwitchAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): 672 bytes for the re-render, against Button's 560 with
