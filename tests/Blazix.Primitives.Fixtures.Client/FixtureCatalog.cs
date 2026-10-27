@@ -86,6 +86,7 @@ public static class FixtureCatalog
         ["focus-manager-restore"] = new(typeof(FocusManagerRestoreFixture)),
         ["focus-manager-non-modal"] = new(typeof(FocusManagerNonModalFixture)),
         ["focus-manager-composite"] = new(typeof(FocusManagerCompositeFixture)),
+        ["focus-manager-portal"] = new(typeof(FocusManagerPortalFixture)),
         ["field-basic"] = new(typeof(FieldBasicFixture)),
         ["field-validation"] = new(typeof(FieldValidationFixture)),
         ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),

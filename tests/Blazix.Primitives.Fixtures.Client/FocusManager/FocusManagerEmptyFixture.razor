@@ -10,8 +10,7 @@
     <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
     @if (IsOpen)
     {
-        @FocusManagerMarkup.InsideGuard
-        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" RenderTabIndex="false" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" Open="IsOpen" RenderTabIndex="false" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" data-popup>
             <p>Nothing to tab to.</p>
         </FixtureFocusManaged>
     }

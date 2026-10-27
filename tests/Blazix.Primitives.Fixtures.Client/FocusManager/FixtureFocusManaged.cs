@@ -9,20 +9,20 @@ namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
 /// <summary>
 /// A test-only focus-managed popup for the <c>focus-manager-*</c> fixtures (tests/browser/focus-manager.spec.ts): a
 /// <c>div</c> with the Popup parts' focusable props (<c>role="dialog"</c>, <c>tabindex="-1"</c>,
-/// <c>data-base-ui-focusable</c>) and <c>data-open</c> while <see cref="Open"/>, the trailing inside focus guard, and the
-/// <see cref="FocusManagerTwin"/> handle with every option as a parameter. No public part manages focus before Popover
-/// and Dialog (the M2 and M3 composite precedent: ADR 12 Amendments 2026-10-27 item 1).
+/// <c>data-base-ui-focusable</c>) and <c>data-open</c> while <see cref="Open"/>, composing
+/// <see cref="FocusManagerBehavior"/> as a Popup part does: the inside guards around it, the publication to an enclosing
+/// portal, the inputs from the parameter set. No public part manages focus before Popover and Dialog (the M2 and M3
+/// composite precedent: ADR 12 Amendments 2026-10-27 item 1).
 /// </summary>
 public sealed class FixtureFocusManaged : PartBase<EmptyState>
 {
-    private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private FocusManagerTwin? twin;
-    private TwinHandle<FocusManagerOptions>? handle;
-    private FocusManagerOptions? sent;
-    private int answered;
+    private FocusManagerBehavior? behavior;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
 
     [Parameter]
     public bool Open { get; set; }
@@ -49,16 +49,18 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
     public bool? ExplicitReturnFocus { get; set; }
 
     [Parameter]
-    public string? CloseInteractionType { get; set; }
-
-    [Parameter]
     public string RestoreFocus { get; set; } = FocusManagerTwin.RestoreNone;
 
     [Parameter]
     public bool CloseOnFocusOut { get; set; } = true;
 
+    /// <summary>Gets or sets how the popup was opened; <see langword="null"/> for a programmatic open.</summary>
     [Parameter]
-    public string? OpenInteractionType { get; set; } = "";
+    public InteractionType? OpenInteractionType { get; set; } = InteractionType.Unknown;
+
+    /// <summary>Gets or sets the snapshot of the event that caused the last close, which the close type is classified from.</summary>
+    [Parameter]
+    public EventSnapshot? CloseEvent { get; set; }
 
     [Parameter]
     public string? DomReferenceId { get; set; }
@@ -80,22 +82,17 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
     public bool RenderTabIndex { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether changed options are sent before the render that applies them (design point
-    /// 1 (d)) rather than only from <c>OnAfterRender</c>.
+    /// Gets or sets a value indicating whether the inputs are set from the parameter set, so changed options are sent
+    /// before the render that applies them (design point 1 (d)), rather than from <c>OnAfterRender</c>.
     /// </summary>
     [Parameter]
     public bool PushBeforeRender { get; set; } = true;
 
+    /// <summary>Gets or sets the callback the focus-out close request reaches; the behavior answers every request.</summary>
     [Parameter]
     public EventCallback<EventSnapshot> OnFocusOutClose { get; set; }
 
-    [Parameter]
-    public EventCallback<string> OnInteractionTypeChange { get; set; }
-
-    public Task TwinAttached => attached.Task;
-
-    /// <summary>Gets a value indicating whether C# renders the inside guards: enabled and modal (no portal before track 1).</summary>
-    public bool RendersInsideGuards => !Disabled && Modal;
+    public Task TwinAttached => behavior?.TwinAttached ?? Task.CompletedTask;
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -107,12 +104,19 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
     protected override bool UsesGeneratedId => true;
 
     /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        behavior = new FocusManagerBehavior(JSRuntime, InvokeAsync, snapshot => OnFocusOutClose.InvokeAsync(snapshot));
+        base.OnInitialized();
+    }
+
+    /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        // Sent while the render that applies them is still being built, so the interop message precedes the batch.
-        if (PushBeforeRender && handle is not null)
+        behavior!.Portal = Portal;
+        if (PushBeforeRender)
         {
-            _ = PushAsync();
+            behavior.SetInputs(Inputs());
         }
     }
 
@@ -124,29 +128,26 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
             return;
         }
 
-        if (twin is null)
+        if (!PushBeforeRender)
         {
-            twin = new FocusManagerTwin(JSRuntime);
-            twin.FocusOutCloseRequested += request => _ = InvokeAsync(() => RouteFocusOutCloseAsync(request));
-            twin.InteractionTypeChanged += type => _ = InvokeAsync(() => OnInteractionTypeChange.InvokeAsync(type));
-            sent = BuildOptions();
-            handle = Element is { } element
-                ? await twin.AttachAsync(element, sent)
-                : await twin.AttachAsync(Id!, sent);
-            attached.TrySetResult();
-            StateHasChanged();
-            return;
+            behavior!.SetInputs(Inputs());
         }
 
-        await PushAsync();
+        bool wasAttached = behavior!.TwinAttached.IsCompleted;
+        await behavior.AfterRenderAsync(Element, Id);
+        if (!wasAttached && behavior.TwinAttached.IsCompleted)
+        {
+            // data-handle-attached.
+            StateHasChanged();
+        }
     }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing && twin is not null)
+        if (disposing && behavior is not null)
         {
-            _ = twin.DisposeAsync();
+            _ = behavior.DisposeAsync().AsTask();
         }
 
         base.Dispose(disposing);
@@ -162,7 +163,7 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
         }
 
         attributes.Set("data-base-ui-focusable", "");
-        if (attached.Task.IsCompleted)
+        if (behavior!.TwinAttached.IsCompleted)
         {
             attributes.Set("data-handle-attached", "");
         }
@@ -174,69 +175,44 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
     }
 
     /// <inheritdoc />
-    protected override void BuildAfterElement(RenderTreeBuilder builder)
-    {
-        if (RendersInsideGuards)
-        {
-            builder.AddContent(0, FocusManagerMarkup.InsideGuard);
-        }
-    }
+    protected override void BuildBeforeElement(RenderTreeBuilder builder) => behavior!.BuildBeforeElement(builder);
 
-    // The behaviour's answered-requests counter: raised for every request it routed, closed or canceled, and sent from the
-    // commit path outside a render, so a canceled close re-arms the module with nothing rendered.
-    private async Task RouteFocusOutCloseAsync(FocusOutCloseRequest request)
-    {
-        answered++;
-        await OnFocusOutClose.InvokeAsync(request.Event);
-        await PushAsync();
-    }
+    /// <inheritdoc />
+    protected override void BuildAfterElement(RenderTreeBuilder builder) => behavior!.BuildAfterElement(builder);
 
-    private async Task PushAsync()
+    private FocusManagerInputs Inputs() => new()
     {
-        FocusManagerOptions next = BuildOptions();
-        if (handle is null || next.Equals(sent))
-        {
-            return;
-        }
-
-        sent = next;
-        await handle.UpdateAsync(next);
-    }
-
-    private FocusManagerOptions BuildOptions() => new()
-    {
+        Open = Open,
         Modal = Modal,
         Disabled = Disabled,
-        InitialFocus = InitialFocus,
-        InitialFocusId = InitialFocusId,
-        ReturnFocus = ReturnFocus,
-        ReturnFocusId = ReturnFocusId,
+        InitialFocus = Target(InitialFocus, InitialFocusId),
+        ReturnFocus = Target(ReturnFocus, ReturnFocusId),
         ExplicitReturnFocus = ExplicitReturnFocus,
-        CloseInteractionType = CloseInteractionType,
         RestoreFocus = RestoreFocus,
         CloseOnFocusOut = CloseOnFocusOut,
         OpenInteractionType = OpenInteractionType,
+        CloseEvent = CloseEvent,
         OpenSelector = OpenSelector,
         TreatPopupAsFloatingElement = TreatPopupAsFloatingElement,
         DomReferenceId = DomReferenceId,
         TriggerFocusGuards = TriggerFocusGuards,
         InsideElementIds = InsideElementIds,
-        Answered = answered,
     };
-}
 
-/// <summary>The inside focus guard as C# renders it (the Popup parts render it through the pipeline once track 1 lands).</summary>
-public static class FocusManagerMarkup
-{
-    /// <summary>Gets the inside focus guard: a visually hidden <c>span</c> with <c>tabindex="0"</c>, <c>data-base-ui-focus-guard</c>, <c>data-type="inside"</c> and <c>aria-hidden="true"</c>.</summary>
-    public static RenderFragment InsideGuard { get; } = builder =>
+    // The value union as a family resolves it: false moves no focus, an id targets that element, else the default.
+    private static FocusTargetValue? Target(bool focus, string? id)
     {
-        builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "tabindex", "0");
-        builder.AddAttribute(2, "data-base-ui-focus-guard", "");
-        builder.AddAttribute(3, "data-type", "inside");
-        builder.AddAttribute(4, "aria-hidden", "true");
-        builder.AddAttribute(5, "style", "position: fixed; top: 0; left: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; border: 0; padding: 0; width: 1px; height: 1px; margin: 0");
-        builder.CloseElement();
-    };
+        if (!focus)
+        {
+            return new FocusTargetValue(false);
+        }
+
+        if (id is null)
+        {
+            // Not `null` in a conditional: the string conversion would take it.
+            return default(FocusTargetValue?);
+        }
+
+        return new FocusTargetValue(id);
+    }
 }

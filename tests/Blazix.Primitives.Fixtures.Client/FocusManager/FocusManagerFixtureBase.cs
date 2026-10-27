@@ -1,4 +1,3 @@
-using Blazix.Primitives.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
@@ -6,10 +5,10 @@ namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
 
 /// <summary>
 /// The base of the <c>focus-manager-*</c> fixtures (tests/browser/focus-manager.spec.ts). It plays the popup store: a
-/// trigger toggles <see cref="IsOpen"/>, a focus-out request or Escape closes, and the close type is the interaction type
-/// the module last reported (the classification is C#'s, design point 6). It renders <c>data-attached</c> once the
-/// handle is attached (or at once while no popup is rendered), and the reports as <c>data-focus-out-closes</c> and
-/// <c>data-interaction-type</c>.
+/// trigger toggles <see cref="IsOpen"/>, a focus-out request or Escape closes, and the close's event snapshot is handed to
+/// the popup, whose <see cref="FocusManagerBehavior"/> classifies the close type (design point 6). It renders
+/// <c>data-attached</c> once the handle is attached (or at once while no popup is rendered) and the routed focus-out
+/// requests as <c>data-focus-out-closes</c>.
 /// </summary>
 public abstract class FocusManagerFixtureBase : ComponentBase
 {
@@ -19,11 +18,9 @@ public abstract class FocusManagerFixtureBase : ComponentBase
 
     protected int FocusOutCloses { get; private set; }
 
-    protected string InteractionType { get; private set; } = "";
+    protected EventSnapshot? CloseEvent { get; private set; }
 
-    protected string? CloseType { get; private set; }
-
-    protected string? OpenType { get; set; } = "";
+    protected InteractionType? OpenType { get; set; } = InteractionType.Unknown;
 
     protected bool Attached { get; private set; }
 
@@ -34,18 +31,18 @@ public abstract class FocusManagerFixtureBase : ComponentBase
     {
         if (IsOpen)
         {
-            Close(e.Detail == 0 ? "keyboard" : "mouse");
+            Close(EventSnapshot.FromEventArgs(e));
         }
         else
         {
-            OpenType = e.Detail == 0 ? "keyboard" : "mouse";
+            OpenType = e.Detail == 0 ? InteractionType.Keyboard : InteractionType.Mouse;
             IsOpen = true;
         }
     }
 
-    protected void Close(string? closeType)
+    protected void Close(EventSnapshot snapshot)
     {
-        CloseType = closeType;
+        CloseEvent = snapshot;
         IsOpen = false;
     }
 
@@ -53,7 +50,7 @@ public abstract class FocusManagerFixtureBase : ComponentBase
     {
         if (e.Key == "Escape" && IsOpen)
         {
-            Close("keyboard");
+            Close(EventSnapshot.FromEventArgs(e));
         }
     }
 
@@ -62,13 +59,8 @@ public abstract class FocusManagerFixtureBase : ComponentBase
         FocusOutCloses++;
         if (!CancelFocusOutCloses)
         {
-            Close(InteractionType);
+            Close(snapshot);
         }
-    }
-
-    protected void OnInteractionTypeChange(string type)
-    {
-        InteractionType = type;
     }
 
     /// <inheritdoc />

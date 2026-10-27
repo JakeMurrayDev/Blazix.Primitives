@@ -7,7 +7,7 @@
     content that holds an aria-live region, a <script> and an element with its own aria-hidden (FLT-ARIA-01, DOM-15,
     KEY-04, KEY-05, FOC-06, FOC-07). A switch disables the manager (the inside guards are not rendered while disabled).
 *@
-<FixtureContainer Name="focus-manager-modal" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" data-interaction-type="@InteractionType" @onkeydown="OnKeyDown">
+<FixtureContainer Name="focus-manager-modal" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" @onkeydown="OnKeyDown">
     <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
     <button type="button" data-disable @onclick="() => disabled = !disabled">Toggle disabled</button>
     <div data-outside>
@@ -18,11 +18,7 @@
     </div>
     @if (IsOpen)
     {
-        @if (!disabled)
-        {
-            @FocusManagerMarkup.InsideGuard
-        }
-        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" Disabled="disabled" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" Open="IsOpen" Disabled="disabled" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" data-popup>
             <button type="button" data-one>one</button>
             <button type="button" data-two>two</button>
             <button type="button" data-close @onclick="Toggle">Close</button>

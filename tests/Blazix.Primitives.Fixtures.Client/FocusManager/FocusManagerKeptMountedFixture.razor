@@ -10,16 +10,12 @@
     their release land with the batch (ADR 04 Amendments 2026-10-27); the options are sent before that batch (design
     point 1 (d)); `?push=after` sends them from OnAfterRender only, the order design point 1 (c) has to wait for.
 *@
-<FixtureContainer Name="focus-manager-kept-mounted" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" data-interaction-type="@InteractionType" @onkeydown="OnKeyDown">
+<FixtureContainer Name="focus-manager-kept-mounted" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" @onkeydown="OnKeyDown">
     <button type="button" id="fm-reference" data-reference @onclick="FromTrigger">Open</button>
     <button type="button" data-hover-open @onclick="HoverOpen">Hover open</button>
     <button type="button" data-target-two @onclick="@(() => initialFocusId = "fm-two")">Target two</button>
     <div data-outside><button type="button" data-outside-button>Outside</button></div>
-    @if (enabled)
-    {
-        @FocusManagerMarkup.InsideGuard
-    }
-    <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" Disabled="!enabled" InitialFocusId="@initialFocusId" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" PushBeforeRender="pushBeforeRender" data-popup>
+    <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" Open="IsOpen" Disabled="!enabled" InitialFocusId="@initialFocusId" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" PushBeforeRender="pushBeforeRender" data-popup>
         <button type="button" data-one>one</button>
         <button type="button" id="fm-two" data-two>two</button>
         <button type="button" data-close @onclick="Toggle">Close</button>
@@ -45,7 +41,7 @@
     private void HoverOpen()
     {
         hovered = true;
-        OpenType = "mouse";
+        OpenType = InteractionType.Mouse;
         IsOpen = true;
     }
 

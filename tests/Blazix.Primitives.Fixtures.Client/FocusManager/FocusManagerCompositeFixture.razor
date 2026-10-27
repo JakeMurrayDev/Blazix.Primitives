@@ -12,8 +12,7 @@
     <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
     @if (IsOpen)
     {
-        @FocusManagerMarkup.InsideGuard
-        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" OnInteractionTypeChange="OnInteractionTypeChange" Open="IsOpen" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseInteractionType="@CloseType" data-popup>
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" Open="IsOpen" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" data-popup>
             <FixtureCompositeRoot data-root>
                 <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
                 <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
