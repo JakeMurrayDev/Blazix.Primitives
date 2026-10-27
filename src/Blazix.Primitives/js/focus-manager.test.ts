@@ -2042,6 +2042,32 @@ describe('FloatingFocusManager', () => {
       expect(outside.getAttribute('aria-hidden')).toBe('true');
     });
 
+    // ADR 01 and ADR 04 Amendments 2026-10-27 (design point 1, chosen by the user): return focus also runs when the batch
+    // removes the popup, before C# disposes the handle a round trip later on Server.
+    it('returns focus in the batch that removes the popup, before the handle is disposed', async () => {
+      const app = renderApp();
+      app.reference.focus();
+
+      const manager = app.open();
+      await settle();
+      expect(document.activeElement).toBe(app.one);
+
+      manager.update({ closeInteractionType: 'keyboard' });
+      const focusSpy = vi.spyOn(app.reference, 'focus');
+      for (const guard of Array.from(document.querySelectorAll('[data-base-ui-focus-guard]'))) {
+        guard.remove();
+      }
+      app.floating.removeAttribute('data-open');
+      app.floating.remove();
+      await settle();
+
+      expect(document.activeElement).toBe(app.reference);
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true, focusVisible: true });
+      manager.handle.dispose();
+      await settle();
+      expect(focusSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('a late update cannot reopen what a newer batch closed', async () => {
       const app = renderApp();
       const outside = element('div', 'outside');
@@ -2083,6 +2109,73 @@ describe('FloatingFocusManager', () => {
 
       expect(document.activeElement).toBe(byTestId('inside'));
       expect(outside.getAttribute('aria-hidden')).toBe('true');
+    });
+  });
+
+  // The attach-order rule (design point 1's composite clause): composite items render `tabindex="-1"` until the
+  // `composite` module attaches, so a group whose module attaches after initial focus chose its default is re-picked
+  // once, while focus is still where initial focus put it.
+  describe('a composite tab stop written after initial focus', () => {
+    function renderGroupPopup() {
+      const reference = element('button', 'reference', { id: 'reference' });
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      const root = element('div', undefined, { id: 'group-root' });
+      const items = ['1', '2'].map((id) => element('div', `item-${id}`, { id: `group-item-${id}`, tabindex: '-1' }));
+      root.append(...items);
+      const after = element('button', 'after-group');
+      floating.append(root, after);
+      document.body.append(reference, floating);
+      const attachGroup = () =>
+        handles.push(
+          attachComposite(
+            root,
+            JSON.stringify({
+              orientation: 'both',
+              loopFocus: true,
+              enableHomeAndEndKeys: false,
+              stopEventPropagation: true,
+              highlightItemOnHover: false,
+              modifierKeys: [],
+              direction: 'ltr',
+              selectOnNavigation: false,
+              reportFocusLeave: false,
+              reportHighlight: false,
+              items: items.map((item) => ({ id: item.id, tabIndex: null })),
+            } satisfies CompositeOptions),
+            createFakeTwin().twin,
+          ),
+        );
+      return { reference, floating, items, after, attachGroup };
+    }
+
+    it('moves initial focus onto the group tab stop the composite writes after the frame', async () => {
+      const popup = renderGroupPopup();
+      popup.reference.focus();
+
+      attachManager(popup.floating);
+      await settle();
+      expect(document.activeElement).toBe(popup.after);
+
+      popup.attachGroup();
+      await settle();
+
+      expect(popup.items[0]!.getAttribute('tabindex')).toBe('0');
+      expect(document.activeElement).toBe(popup.items[0]);
+    });
+
+    it('leaves focus alone once the user has interacted, and re-picks at most once', async () => {
+      const popup = renderGroupPopup();
+      popup.reference.focus();
+
+      attachManager(popup.floating);
+      await settle();
+      expect(document.activeElement).toBe(popup.after);
+
+      keyDown(popup.after, 'a');
+      popup.attachGroup();
+      await settle();
+      expect(popup.items[0]!.getAttribute('tabindex')).toBe('0');
+      expect(document.activeElement).toBe(popup.after);
     });
   });
 
