@@ -12,7 +12,16 @@ import { isElementVisible } from './composite';
 import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoot, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import { cancelFrame, observeOpenInput, requestFrame } from './transitions';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  resolveReference as resolveTwinReference,
+  type DotNetTwin,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinReferences,
+} from './twin';
 
 /** An element that can take focus. */
 export type FocusableElement = HTMLElement | SVGElement;
@@ -751,6 +760,31 @@ interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
 }
 
+// The `portal` module publishes its state on its node under this key and the focus manager fills its slot (design
+// point 3 of the focus-manager track, settled by the orchestrator 2026-10-27): the two modules import nothing from each
+// other, so the shapes are declared on both sides.
+const PORTAL_STATE = Symbol.for('blazix.portal');
+
+/** What the manager publishes to the portal it is rendered inside (Base UI's `FocusManagerState`). */
+interface PortalFocusPublication {
+  modal: boolean;
+  closeOnFocusOut: boolean;
+  open: boolean;
+  domReference: Element | null;
+  insideGuards: { before: HTMLElement | null; after: HTMLElement | null };
+  close(event: Event): void;
+}
+
+/** The part of the portal's published state the manager reads and writes. */
+interface PortalState {
+  outsideGuards(): { before: HTMLElement | null; after: HTMLElement | null };
+  focusManager: PortalFocusPublication | null;
+}
+
+interface PortalNode extends HTMLElement {
+  [PORTAL_STATE]?: PortalState;
+}
+
 /** One effect of the manager: set up while its key is non-null, torn down and set up again when the key changes. */
 interface Effect {
   key: string | null;
@@ -863,7 +897,7 @@ export function attach(
   elementOrId: Element | string,
   optionsJson: string,
   twinReference: DotNetTwin,
-  references?: ReadonlyArray<Element | null> | null,
+  references?: TwinReferences,
 ): TwinHandle {
   const popup = resolveElement(elementOrId) as AttachedElement;
   const existing = popup[attachedHandle];
@@ -873,7 +907,7 @@ export function attach(
 
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<FocusManagerOptions>(optionsJson);
-  let optionReferences: ReadonlyArray<Element | null> = references ?? [];
+  let optionReferences: TwinReferences = references;
   let disposed = false;
   const doc = ownerDocument(popup);
 
@@ -921,10 +955,7 @@ export function attach(
   };
 
   const resolveReference = (index: number | null | undefined): HTMLElement | null => {
-    if (index == null) {
-      return null;
-    }
-    const element = optionReferences[index];
+    const element = resolveTwinReference<Element>(optionReferences, index);
     return isHTMLElement(element) ? element : null;
   };
 
@@ -952,9 +983,14 @@ export function attach(
     ...(options.insideElementIds ?? []).map(resolveId),
     triggerBeforeGuard(reference),
   ].filter((x): x is HTMLElement => x != null);
-  // The enclosing portal's node; its guards and the publication follow the portal module (track 1).
+  // The enclosing portal's node (Base UI's `PortalContext`), and the state the `portal` module published on it.
   const portalNode = (floating: Element | null): HTMLElement | null =>
     floating?.parentElement?.closest<HTMLElement>(`[${PORTAL_ATTRIBUTE}]`) ?? null;
+  const portalState = (portal: HTMLElement | null): PortalState | null => (portal as PortalNode | null)?.[PORTAL_STATE] ?? null;
+  const outsideGuards = (portal: HTMLElement | null): (HTMLElement | null)[] => {
+    const guards = portalState(portal)?.outsideGuards();
+    return [guards?.before ?? null, guards?.after ?? null];
+  };
 
   const getTabbableContent = (container: Element | null): FocusableElement[] => (container ? tabbable(container) : []);
 
@@ -1079,9 +1115,13 @@ export function attach(
         const inside = insideElements(reference);
         const isRelatedFocusGuard =
           isFocusGuard(relatedTarget) &&
-          [beforeGuard(), afterGuard(), previousFocusableElement(reference), nextFocusableElement(reference)].includes(
-            relatedTarget,
-          );
+          [
+            beforeGuard(),
+            afterGuard(),
+            ...outsideGuards(portal),
+            previousFocusableElement(reference),
+            nextFocusableElement(reference),
+          ].includes(relatedTarget);
 
         const movedToUnrelatedNode = !(
           contains(reference, relatedTarget) ||
@@ -1179,7 +1219,14 @@ export function attach(
   const markingEffect = (floating: HTMLElement, reference: HTMLElement | null, portal: HTMLElement | null, modal: boolean) => {
     // Portals nested inside this portal stay exposed.
     const portalNodes = Array.from(portal?.querySelectorAll(`[${PORTAL_ATTRIBUTE}]`) ?? []);
-    const controlInsideElements = [floating, ...portalNodes, beforeGuard(), afterGuard(), ...insideElements(reference)];
+    const controlInsideElements = [
+      floating,
+      ...portalNodes,
+      beforeGuard(),
+      afterGuard(),
+      ...outsideGuards(portal),
+      ...insideElements(reference),
+    ];
     const inside = [...controlInsideElements, previousFocusableElement(reference), nextFocusableElement(reference)].filter(
       (x): x is Element => x != null,
     );
@@ -1431,6 +1478,22 @@ export function attach(
     }
   };
 
+  // The publication to the enclosing portal (FLT-FOC-18), :972-990: the portal routes its outside guards with it, and
+  // its close is the focus-out request.
+  const publicationEffect = (state: PortalState, modal: boolean, closeOnFocusOut: boolean, reference: HTMLElement | null) => {
+    state.focusManager = {
+      modal,
+      closeOnFocusOut,
+      open,
+      domReference: reference,
+      insideGuards: { before: beforeGuard(), after: afterGuard() },
+      close: (event: Event) => requestClose(eventInfo(event)),
+    };
+    return () => {
+      state.focusManager = null;
+    };
+  };
+
   // The managed `tabindex` (FLT-DOM-17), :992-1001.
   const tabIndexEffect = (floatingFocusElement: HTMLElement) => {
     handleTabIndex(floatingFocusElement);
@@ -1472,6 +1535,13 @@ export function attach(
       returnFocusEffect(floating, floatingFocusElement!, reference),
     );
     runEffect('webkitBlur', !disposed && !removed && platform.engine.webkit && !open && !!floating, [floating], () => webkitBlurEffect(floating!));
+    const state = portalState(portal);
+    runEffect(
+      'publication',
+      !disabled && state !== null,
+      [state, modal, open, closeOnFocusOut, reference, beforeGuard(), afterGuard()],
+      () => publicationEffect(state!, modal, closeOnFocusOut, reference),
+    );
     runEffect('tabIndex', !disabled && !!floatingFocusElement, [floatingFocusElement], () =>
       tabIndexEffect(floatingFocusElement!),
     );
@@ -1502,12 +1572,13 @@ export function attach(
       return;
     }
     for (const { element, listener } of guardListeners) {
-      element.removeEventListener('focus', listener);
+      element.removeEventListener('focusin', listener);
     }
     guardListeners = guards.map((element) => {
       const before = element === beforeGuard();
       const listener = (event: FocusEvent) => onGuardFocus(before, event);
-      element.addEventListener('focus', listener);
+      // React's `onFocus` is `focusin`, so the portal's capture listeners on its node run first (FLT-FOC-17).
+      element.addEventListener('focusin', listener);
       if (!swappedGuards.has(element) && platform.screenReader.voiceOver && platform.engine.webkit) {
         swappedGuards.add(element);
         element.setAttribute('role', 'button');
@@ -1529,12 +1600,13 @@ export function attach(
       return;
     }
     const reference = domReferenceElement();
+    const [beforeOutside, afterOutside] = outsideGuards(portal);
     if (before) {
       preventReturnFocus = false;
       if (isOutsideEvent(event, portal)) {
         getNextTabbable(reference)?.focus();
       } else {
-        previousFocusableElement(reference)?.focus();
+        (previousFocusableElement(reference) ?? beforeOutside)?.focus();
       }
     } else {
       if (options.closeOnFocusOut !== false) {
@@ -1543,7 +1615,7 @@ export function attach(
       if (isOutsideEvent(event, portal)) {
         getPreviousTabbable(reference)?.focus();
       } else {
-        nextFocusableElement(reference)?.focus();
+        (nextFocusableElement(reference) ?? afterOutside)?.focus();
       }
     }
   };
@@ -1576,13 +1648,13 @@ export function attach(
 
   sync();
 
-  const handle: TwinHandle & { update(optionsJson: string, references?: ReadonlyArray<Element | null> | null): void } = {
-    update(nextOptionsJson: string, nextReferences?: ReadonlyArray<Element | null> | null) {
+  const handle: TwinHandle = {
+    update(nextOptionsJson: string, nextReferences?: TwinReferences) {
       if (disposed) {
         return;
       }
       options = parseOptions<FocusManagerOptions>(nextOptionsJson);
-      optionReferences = nextReferences ?? [];
+      optionReferences = nextReferences;
       // A request C# answered, canceled or not, re-arms the focus-out close (ADR 04 Amendments 2026-10-27).
       if ((options.answered ?? 0) !== answered) {
         answered = options.answered ?? 0;
@@ -1600,7 +1672,7 @@ export function attach(
       stopObserving();
       sync();
       for (const { element, listener } of guardListeners) {
-        element.removeEventListener('focus', listener);
+        element.removeEventListener('focusin', listener);
       }
       guardListeners = [];
       clearTimeout(pointerDownTimeout);
