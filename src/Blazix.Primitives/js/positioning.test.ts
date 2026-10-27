@@ -494,6 +494,42 @@ describe('positioning module: the anchor', () => {
     expect(spies.autoUpdate.mock.lastCall?.[3]).toEqual({ ancestorScroll: false, elementResize: false, layoutShift: false });
   });
 
+  it('re-resolves a trigger or an arrow that a render replaced, by id, on the next pass', async () => {
+    stubViewport();
+    const arrowElement = document.createElement('div');
+    arrowElement.id = 'arrow';
+    const { trigger, positioner } = setup({ arrowId: 'arrow' });
+    positioner.append(arrowElement);
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+
+    const replacement = document.createElement('button');
+    replacement.id = 'trigger';
+    stubRect(replacement, 400, 100, 72, 36);
+    trigger.replaceWith(replacement);
+    const newArrow = document.createElement('div');
+    newArrow.id = 'arrow';
+    arrowElement.replaceWith(newArrow);
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(replacement);
+    expect(spies.autoUpdate.mock.lastCall?.[0]).toBe(replacement);
+    expect(newArrow.getAttribute('data-side')).toBe('bottom');
+    expect(newArrow.style.getPropertyValue('position')).toBe('absolute');
+
+    // A replaced Arrow alone keeps the tracking and still gets this pass's writes.
+    const subscriptions = spies.autoUpdate.mock.calls.length;
+    const third = document.createElement('div');
+    third.id = 'arrow';
+    newArrow.replaceWith(third);
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(spies.autoUpdate.mock.calls.length).toBe(subscriptions);
+    expect(third.getAttribute('data-side')).toBe('bottom');
+    expect(third.style.getPropertyValue('position')).toBe('absolute');
+  });
+
   it('starts no positioning pass while the anchor does not resolve, and starts when it does (FLT-STA-09)', async () => {
     const { update } = setup({ triggerId: 'missing' });
     await settle();
