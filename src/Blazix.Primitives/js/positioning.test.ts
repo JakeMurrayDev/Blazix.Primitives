@@ -23,7 +23,7 @@ import {
   type PositioningOptions,
 } from './positioning';
 import { styleWriter } from './dom';
-import type { TwinHandle } from './twin';
+import type { TwinHandle, TwinReferences } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
 const spies = vi.hoisted(() => ({
@@ -120,14 +120,17 @@ interface Setup {
   trigger: HTMLElement;
   positioner: HTMLElement;
   handle: TwinHandle;
-  update(overrides: Partial<PositioningOptions>): void;
+  update(overrides: Partial<PositioningOptions>, references?: TwinReferences): void;
 }
 
 function options(overrides: Partial<PositioningOptions> = {}): PositioningOptions {
   return { triggerId: 'trigger', ...overrides };
 }
 
-function setup(overrides: Partial<PositioningOptions> = {}, init: { synchronous?: boolean; hidden?: boolean; open?: boolean } = {}): Setup {
+function setup(
+  overrides: Partial<PositioningOptions> = {},
+  init: { synchronous?: boolean; hidden?: boolean; open?: boolean; references?: TwinReferences } = {},
+): Setup {
   const trigger = document.createElement('button');
   trigger.id = 'trigger';
   stubRect(trigger, 100, 100, 72, 36);
@@ -142,16 +145,16 @@ function setup(overrides: Partial<PositioningOptions> = {}, init: { synchronous?
   document.body.append(trigger, positioner);
   const fake = createFakeTwin({ synchronous: init.synchronous ?? false });
   let current = options(overrides);
-  const handle = attach(positioner, JSON.stringify(current), fake.twin);
+  const handle = attach(positioner, JSON.stringify(current), fake.twin, init.references);
   handles.push(handle);
   return {
     fake,
     trigger,
     positioner,
     handle,
-    update(next) {
+    update(next, references) {
       current = { ...current, ...next };
-      handle.update(JSON.stringify(current));
+      handle.update(JSON.stringify(current), references);
     },
   };
 }
@@ -363,6 +366,34 @@ describe('positioning module: the pipeline', () => {
     expect(spies.flip.mock.lastCall?.[0].boundary).toEqual({ x: 1, y: 2, width: 300, height: 200 });
   });
 
+  it('passes the boundary elements the references carry to the engine, and rebuilds when an element at the same index changes (FLT-API-09)', async () => {
+    const first = document.createElement('section');
+    const second = document.createElement('section');
+    document.body.append(first, second);
+    const { update } = setup({ boundaryRefs: [0] }, { references: [first] });
+    await settle();
+    expect(spies.size.mock.lastCall?.[0].boundary).toEqual([first]);
+    expect(spies.size.mock.lastCall?.[0].boundary[0]).toBe(first);
+    expect(spies.flip.mock.lastCall?.[0].boundary[0]).toBe(first);
+
+    update({ boundaryRefs: [1, 2], anchorRef: 0 }, [first, first, second]);
+    await settle();
+    const list = spies.size.mock.lastCall?.[0].boundary as Element[];
+    expect(list).toHaveLength(2);
+    expect(list[0]).toBe(first);
+    expect(list[1]).toBe(second);
+
+    const built = spies.offset.mock.calls.length;
+    update({ boundaryRefs: [1, 2], anchorRef: 0 }, [first, first, second]);
+    await settle();
+    expect(spies.offset.mock.calls.length).toBe(built);
+
+    update({ boundaryRefs: [1, 2], anchorRef: 0 }, [first, second, first]);
+    await settle();
+    expect(spies.offset.mock.calls.length).toBe(built + 1);
+    expect((spies.size.mock.lastCall?.[0].boundary as Element[])[0]).toBe(second);
+  });
+
   it('configures the arrow middleware with the Arrow and its padding, or a detached stand-in with none (FLT-POS-08, FLT-DOM-10)', async () => {
     const arrowElement = document.createElement('div');
     arrowElement.id = 'arrow';
@@ -483,6 +514,32 @@ describe('positioning module: the anchor', () => {
     await settle();
     expect(spies.autoUpdate.mock.calls.length).toBe(subscriptions + 1);
     expect((spies.autoUpdate.mock.lastCall?.[0] as { contextElement: Element }).contextElement).toBe(second);
+  });
+
+  it('positions against the anchor element the references carry, wrapped so that its own rect is measured, and registers the one a later update carries at the same index (FLT-API-11)', async () => {
+    const first = document.createElement('span');
+    stubRect(first, 300, 40, 20, 10);
+    const second = document.createElement('span');
+    stubRect(second, 500, 60, 30, 10);
+    document.body.append(first, second);
+    const { update } = setup({ anchorRef: 0 }, { references: [first] });
+    await settle();
+
+    const reference = spies.computePosition.mock.lastCall?.[0] as { contextElement: Element; getBoundingClientRect(): DOMRect };
+    expect(reference).not.toBe(first);
+    expect(reference.contextElement).toBe(first);
+    expect(reference.getBoundingClientRect()).toMatchObject({ x: 300, y: 40, width: 20, height: 10 });
+    const subscriptions = spies.autoUpdate.mock.calls.length;
+
+    update({ style: 'color: blue' }, [first]);
+    await settle();
+    expect(spies.autoUpdate.mock.calls.length).toBe(subscriptions);
+
+    update({}, [second]);
+    await settle();
+    expect(spies.autoUpdate.mock.calls.length).toBe(subscriptions + 1);
+    expect((spies.autoUpdate.mock.lastCall?.[0] as { contextElement: Element }).contextElement).toBe(second);
+    expect((spies.computePosition.mock.lastCall?.[0] as { getBoundingClientRect(): DOMRect }).getBoundingClientRect()).toMatchObject({ x: 500 });
   });
 
   it('tracks the anchor while mounted with the configured options, and a kept-mounted popup only while mounted (FLT-STA-09, FLT-POS-11, FLT-POS-12)', async () => {

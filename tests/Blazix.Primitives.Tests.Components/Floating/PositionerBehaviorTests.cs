@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -9,7 +10,8 @@ namespace Blazix.Primitives.Tests.Components;
 /// (ADR 12 Amendments 2026-10-27 item 1): the markup rendered before the first positioning pass and frozen at attach
 /// (FLT-DOM-01, FLT-DOM-02, FLT-DOM-05, FLT-ANI-05; ADR 04 Amendments 2026-10-18 and 2026-10-27), one <c>update</c> per
 /// change, the mirror of the module's report and the parts it renders (FLT-DOM-08), the Arrow's id through the
-/// positioner's context, the direction and the inputs as options.
+/// positioner's context, the direction, the inputs as options, the element inputs as references, and the first attach under
+/// a portal.
 /// </summary>
 public sealed class PositionerBehaviorTests : IDisposable
 {
@@ -220,6 +222,70 @@ public sealed class PositionerBehaviorTests : IDisposable
         JsonElement second = PositioningTestContext.Parse(host.AttachOptions);
         Assert.Equal("anchor", second.GetProperty("anchorId").GetString());
         Assert.Equal(12, second.GetProperty("collisionPadding").GetDouble());
+    }
+
+    [Fact(DisplayName = "sends the anchor element and the boundary elements as indexes into the references after the options, an update when an element at the same index changes, and no reference for an element not rendered yet")]
+    [Trait("Requirement", "FLT-API-09")]
+    [Trait("Requirement", "FLT-API-11")]
+    public async Task Sends_the_element_inputs_as_references()
+    {
+        var anchor = new ElementReference("anchor-element");
+        var first = new ElementReference("boundary-1");
+        var second = new ElementReference("boundary-2");
+        IRenderedComponent<TestPositioner> cut = host.Context.Render<TestPositioner>(p => p
+            .Add(x => x.Anchor, new AnchorValue(anchor))
+            .Add(x => x.CollisionBoundary, new CollisionBoundaryValue([first, second])));
+
+        JsonElement attached = PositioningTestContext.Parse(host.AttachOptions);
+        Assert.Equal(0, attached.GetProperty("anchorRef").GetInt32());
+        Assert.Equal([1, 2], attached.GetProperty("boundaryRefs").EnumerateArray().Select(index => index.GetInt32()));
+        Assert.Equal([anchor, first, second], Assert.IsType<object[]>(host.Attaches[^1].Arguments[3]));
+
+        // Equal elements in a new list send nothing.
+        await cut.InvokeAsync(cut.Instance.Refresh);
+        cut.Render(p => p.Add(x => x.CollisionBoundary, new CollisionBoundaryValue(new List<ElementReference> { first, second })));
+        Assert.Empty(host.UpdateOptions);
+
+        // Another anchor element at the same index, and one boundary element.
+        var other = new ElementReference("anchor-other");
+        cut.Render(p => p.Add(x => x.Anchor, new AnchorValue(other)).Add(x => x.CollisionBoundary, new CollisionBoundaryValue(first)));
+        JSRuntimeInvocation update = Assert.Single(host.Handle.Invocations["update"]);
+        JsonElement updated = PositioningTestContext.Parse((string)update.Arguments[0]!);
+        Assert.Equal(0, updated.GetProperty("anchorRef").GetInt32());
+        Assert.Equal([1], updated.GetProperty("boundaryRefs").EnumerateArray().Select(index => index.GetInt32()));
+        Assert.Equal([other, first], Assert.IsType<object[]>(update.Arguments[1]));
+
+        // An element not rendered yet has no id to send: the trigger and the clipping ancestors apply.
+        host.Context.Render<TestPositioner>(p => p
+            .Add(x => x.Anchor, new AnchorValue(default(ElementReference)))
+            .Add(x => x.CollisionBoundary, new CollisionBoundaryValue(default(ElementReference))));
+        JsonElement unrendered = PositioningTestContext.Parse(host.AttachOptions);
+        Assert.False(unrendered.TryGetProperty("anchorRef", out _));
+        Assert.False(unrendered.TryGetProperty("boundaryRefs", out _));
+        Assert.Equal(3, host.Attaches[^1].Arguments.Count);
+    }
+
+    [Fact(DisplayName = "attaches a positioner under a portal only once the portal has moved its node")]
+    [Trait("Requirement", "FLT-DOM-02")]
+    [Trait("Requirement", "FLT-STA-09")]
+    public async Task Attaches_under_a_portal_once_moved()
+    {
+        var portal = new PopupPortalContext();
+        IRenderedComponent<CascadingValue<PopupPortalContext>> cut = host.Context.Render<CascadingValue<PopupPortalContext>>(p => p
+            .Add(x => x.Value, portal)
+            .Add(x => x.IsFixed, true)
+            .AddChildContent<TestPositioner>());
+        TestPositioner positioner = cut.FindComponent<TestPositioner>().Instance;
+
+        // Until the module has moved the node it is `display: none` in place, where nothing measures.
+        await cut.InvokeAsync(positioner.Refresh);
+        Assert.False(positioner.TwinAttached.IsCompleted);
+        Assert.DoesNotContain(host.Context.JSInterop.Invocations, invocation => invocation.Identifier == "import");
+
+        await cut.InvokeAsync(portal.CompleteMove);
+        await positioner.TwinAttached.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
+        Assert.Single(host.Attaches);
+        Assert.Equal(PrePosition, cut.Find("div").GetAttribute("style"));
     }
 
     [Fact(DisplayName = "re-attaches when the element is removed and rendered again")]

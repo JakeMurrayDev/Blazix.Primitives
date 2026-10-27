@@ -9,7 +9,8 @@ namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures;
 /// <c>TestPositioner</c> in the L2 project: a <c>div</c> composing <see cref="PositionerBehavior"/> with every input as a
 /// parameter (public, because Razor finds only public components), because no Positioner part ships before M4 tracks 5
 /// to 7. It renders <c>data-open</c> while open, which the module reads as the open input, and the C# mirror of the
-/// module's report as <c>data-mirrored-side</c>, <c>data-mirrored-align</c> and <c>data-mirrored-anchor-hidden</c>.
+/// module's report as <c>data-mirrored-side</c>, <c>data-mirrored-align</c> and <c>data-mirrored-anchor-hidden</c>. Under a
+/// portal it hands the behavior the portal's context, as a family's Positioner part will.
 /// </summary>
 public sealed class FixturePositioner : PartBase<EmptyState>
 {
@@ -22,6 +23,9 @@ public sealed class FixturePositioner : PartBase<EmptyState>
 
     [CascadingParameter]
     private DirectionProviderContext? DirectionContext { get; set; }
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
 
     [Parameter]
     public AnchorValue? Anchor { get; set; }
@@ -107,6 +111,7 @@ public sealed class FixturePositioner : PartBase<EmptyState>
     protected override void OnParametersSet()
     {
         behavior!.SetDirectionContext(DirectionContext);
+        behavior.SetPortalContext(Portal);
         behavior.SetInputs(new PositionerInputs
         {
             Anchor = Anchor,

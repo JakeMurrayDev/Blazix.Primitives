@@ -1,5 +1,6 @@
 using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components.Interop;
@@ -14,6 +15,8 @@ public sealed class PositioningTwinContractTests
     private const string ModulePath = "./_content/Blazix.Primitives/js/positioning.js";
 
     [Fact]
+    [Trait("Requirement", "FLT-API-09")]
+    [Trait("Requirement", "FLT-API-11")]
     [Trait("Requirement", "FLT-API-17")]
     [Trait("Requirement", "FLT-POS-17")]
     public async Task Attach_imports_the_positioning_module_and_sends_every_field_on_attach_and_update()
@@ -29,6 +32,13 @@ public sealed class PositioningTwinContractTests
 
         // A repeated attach of the same element is a no-op (ADR 06 Amendments 2026-10-18 rule 2).
         Assert.Same(attached, await twin.AttachAsync("base-ui-1", new PositioningOptions { Sticky = true }));
+        var anchor = new ElementReference("anchor-element");
+        var first = new ElementReference("boundary-1");
+        var second = new ElementReference("boundary-2");
+        TwinReferences references = new();
+        int anchorRef = references.Add(anchor);
+        var boundaryRefs = new PositioningIndexes(references.Add(first), 2);
+        references.Add(second);
         await attached.UpdateAsync(new PositioningOptions
         {
             SessionToken = "base-ui-9",
@@ -37,6 +47,7 @@ public sealed class PositioningTwinContractTests
             TransitionStatus = "starting",
             TriggerId = "base-ui-2",
             AnchorId = "anchor",
+            AnchorRef = anchorRef,
             VirtualAnchor = new PositioningRect(1, 2, 3.5, 4),
             PositionMethod = "fixed",
             Side = "inline-end",
@@ -47,6 +58,7 @@ public sealed class PositioningTwinContractTests
             AlignOffsetFunction = new PositioningOffset(0, 0, 0, 1, 0, null),
             CollisionBoundary = "clipping-ancestors",
             BoundaryRect = new PositioningRect(0, 0, 300, 200),
+            BoundaryRefs = boundaryRefs,
             CollisionPadding = 12,
             CollisionPaddingSides = new PositioningPadding(1, 2, 3, 4),
             Sticky = true,
@@ -60,7 +72,7 @@ public sealed class PositioningTwinContractTests
             ArrowId = "base-ui-3",
             ArrowStyle = "background: red",
             Style = "color: blue",
-        });
+        }, references);
         await attached.DisposeAsync();
         await attached.DisposeAsync();
 
@@ -73,8 +85,9 @@ public sealed class PositioningTwinContractTests
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"sessionToken":"base-ui-9","openSelector":"[data-open]","keepMounted":true,"transitionStatus":"starting","triggerId":"base-ui-2","anchorId":"anchor","virtualAnchor":{"x":1,"y":2,"width":3.5,"height":4},"positionMethod":"fixed","side":"inline-end","align":"start","sideOffset":8,"sideOffsetFunction":{"constant":1,"anchorWidth":0.5,"anchorHeight":0,"positionerWidth":1,"positionerHeight":0,"overrides":[{"side":"inline-end","constant":9,"anchorWidth":0,"anchorHeight":0,"positionerWidth":0,"positionerHeight":0}]},"alignOffset":-2.5,"alignOffsetFunction":{"constant":0,"anchorWidth":0,"anchorHeight":0,"positionerWidth":1,"positionerHeight":0},"collisionBoundary":"clipping-ancestors","boundaryRect":{"x":0,"y":0,"width":300,"height":200},"collisionPadding":12,"collisionPaddingSides":{"top":1,"right":2,"bottom":3,"left":4},"sticky":true,"arrowPadding":0,"disableAnchorTracking":true,"collisionAvoidance":{"side":"shift","align":"none","fallbackAxisSide":"start"},"shift":{"crossAxis":true,"rootBoundary":"layoutViewport"},"lazyFlip":"placement","adaptiveOrigin":true,"direction":"rtl","arrowId":"base-ui-3","arrowStyle":"background: red","style":"color: blue"}""",
+            """{"sessionToken":"base-ui-9","openSelector":"[data-open]","keepMounted":true,"transitionStatus":"starting","triggerId":"base-ui-2","anchorId":"anchor","anchorRef":0,"virtualAnchor":{"x":1,"y":2,"width":3.5,"height":4},"positionMethod":"fixed","side":"inline-end","align":"start","sideOffset":8,"sideOffsetFunction":{"constant":1,"anchorWidth":0.5,"anchorHeight":0,"positionerWidth":1,"positionerHeight":0,"overrides":[{"side":"inline-end","constant":9,"anchorWidth":0,"anchorHeight":0,"positionerWidth":0,"positionerHeight":0}]},"alignOffset":-2.5,"alignOffsetFunction":{"constant":0,"anchorWidth":0,"anchorHeight":0,"positionerWidth":1,"positionerHeight":0},"collisionBoundary":"clipping-ancestors","boundaryRect":{"x":0,"y":0,"width":300,"height":200},"boundaryRefs":[1,2],"collisionPadding":12,"collisionPaddingSides":{"top":1,"right":2,"bottom":3,"left":4},"sticky":true,"arrowPadding":0,"disableAnchorTracking":true,"collisionAvoidance":{"side":"shift","align":"none","fallbackAxisSide":"start"},"shift":{"crossAxis":true,"rootBoundary":"layoutViewport"},"lazyFlip":"placement","adaptiveOrigin":true,"direction":"rtl","arrowId":"base-ui-3","arrowStyle":"background: red","style":"color: blue"}""",
             update.Arguments[0]);
+        Assert.Equal([anchor, first, second], Assert.IsType<object[]>(update.Arguments[1]));
         Assert.Single(handle.Invocations["dispose"]);
     }
 

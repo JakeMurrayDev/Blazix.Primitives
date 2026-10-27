@@ -12,7 +12,8 @@ public sealed partial record TestPositionerState(bool Open, Side Side, Align Ali
 /// A test-only positioner (the <see cref="TestCompositeRoot"/> precedent; ADR 12 Amendments 2026-10-27 item 1): a
 /// <c>div</c> that composes <see cref="PositionerBehavior"/> as a family's Positioner part will (Popover, Tooltip and
 /// PreviewCard in M4 tracks 5 to 7), with every input of the behavior as a parameter. It renders <c>data-open</c> while
-/// open, which the module reads as the open input, and cascades the positioner's context to its content.
+/// open, which the module reads as the open input, cascades the positioner's context to its content, and hands the
+/// behavior the enclosing portal's context, as a portaled Positioner part will.
 /// </summary>
 internal sealed class TestPositioner : PartBase<TestPositionerState>
 {
@@ -26,6 +27,9 @@ internal sealed class TestPositioner : PartBase<TestPositionerState>
 
     [CascadingParameter]
     private DirectionProviderContext? DirectionContext { get; set; }
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
 
     [Parameter]
     public AnchorValue? Anchor { get; set; }
@@ -118,6 +122,7 @@ internal sealed class TestPositioner : PartBase<TestPositionerState>
     protected override void OnParametersSet()
     {
         behavior!.SetDirectionContext(DirectionContext);
+        behavior.SetPortalContext(Portal);
         behavior.SetInputs(new PositionerInputs
         {
             Anchor = Anchor,

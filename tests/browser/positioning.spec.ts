@@ -12,7 +12,9 @@ import { gotoPositionerCase, inlineStyle, positionerConformanceTests } from './s
 //   the library ships with a stub twin (the dom.spec.ts precedent).
 // - Port titles: the pre-position style per mount (FLT-DOM-02, FLT-ANI-02), will-change at a high pixel ratio
 //   (FLT-DOM-03), the prerendered markup (ADR 03), the arrow (FLT-DOM-09), the C# mirror per mode (the RND-STA-01 row of
-//   ADR 01, FLT-DOM-08) and a scroll re-positioning in the same frame on both modes (FLT-POS-16, FLT-ALG-13).
+//   ADR 01, FLT-DOM-08), a scroll re-positioning in the same frame on both modes (FLT-POS-16, FLT-ALG-13), the element
+//   references of the anchor and the boundary (FLT-API-11, FLT-API-09), and the first attach under a portal (FLT-DOM-02,
+//   FLT-STA-09).
 // Every test runs on both render modes; Server latency is added through `page.routeWebSocket`. No sleeps: final values
 // are polled, transient ones are recorded in the page by a MutationObserver.
 
@@ -448,5 +450,41 @@ test.describe('positioning module', () => {
     const translateY = (transform: string) => Number(/translate\([^,]+, (-?[\d.]+)px\)/.exec(transform)?.[1]);
     expect(translateY(before) - translateY(inFrame.transform)).toBe(40);
     expect(inFrame.side).toBe('top');
+  });
+
+  test('port: positions against an anchor element reference and flips inside a boundary element reference', async ({ page, mode }) => {
+    // FLT-API-11's and FLT-API-09's element cases, sent as indexes into the references after the options. Below the
+    // anchor the popup would cross the boundary element's bottom edge, which the viewport alone would not.
+    const container = await gotoPositionerCase(page, mode, 'positioning-lifecycle', 'anchor-element');
+    const positioner = container.getByTestId('positioner');
+    await expect(positioner).toHaveAttribute('data-side', 'top');
+    await expect.poll(() => rect(positioner)).toMatchObject({ left: 324, bottom: 200 });
+    await expect(positioner).toHaveAttribute('data-mirrored-side', 'top');
+  });
+
+  test('port: a Positioner under a Portal attaches after the move, so its first pass measures it in its container', async ({ page, mode }) => {
+    // FLT-DOM-02 and FLT-STA-09 for a portaled Positioner: until the portal module moves the node it is `display: none`
+    // in place, where a pass would measure a popup of no size. The first transform the module writes is recorded with
+    // where the Positioner was at that moment.
+    await page.addInitScript(() => {
+      const first: { transform?: string; inFixture?: boolean } = {};
+      (window as unknown as { firstPass: typeof first }).firstPass = first;
+      new MutationObserver((records) => {
+        for (const record of records) {
+          const node = record.target as HTMLElement;
+          if (first.transform === undefined && node.dataset?.['testid'] === 'positioner' && node.style.transform) {
+            first.transform = node.style.transform;
+            first.inFixture = node.closest('[data-fixture]') !== null;
+          }
+        }
+      }).observe(document, { attributes: true, attributeFilter: ['style'], subtree: true });
+    });
+    const container = await gotoPositionerCase(page, mode, 'positioning-lifecycle', 'portaled');
+    const positioner = page.getByTestId('positioner');
+    await expect(container.getByTestId('positioner')).toHaveCount(0);
+    await expect.poll(() => rect(positioner)).toMatchObject({ left: 10, top: 36 });
+
+    const first = await page.evaluate(() => (window as unknown as { firstPass: { transform?: string; inFixture?: boolean } }).firstPass);
+    expect(first).toEqual({ transform: await inlineStyle(positioner, 'transform'), inFixture: false });
   });
 });

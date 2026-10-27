@@ -11,11 +11,13 @@ public sealed class PositioningOptionsTests
     private static PositioningOptions Build(double sideOffset = 8) => new()
     {
         TriggerId = "base-ui-2",
+        AnchorRef = 0,
         VirtualAnchor = new PositioningRect(1, 2, 3, 4),
         Side = "top",
         SideOffset = sideOffset,
         SideOffsetFunction = new PositioningOffset(0, 1, 0, 1, 0, [new PositioningOffsetOverride("right", "end", 3, 0, 0, 0, 0)]),
         BoundaryRect = new PositioningRect(0, 0, 300, 200),
+        BoundaryRefs = new PositioningIndexes(1, 2),
         CollisionPaddingSides = new PositioningPadding(1, 2, 3, 4),
         CollisionAvoidance = new PositioningCollisionAvoidance(null, "shift", "none"),
         Shift = new PositioningShift(false, "layoutViewport"),
@@ -34,6 +36,10 @@ public sealed class PositioningOptionsTests
         // The overrides are a list: compared item by item, not by reference.
         Assert.Equal(Build(), Build() with { SideOffsetFunction = new PositioningOffset(0, 1, 0, 1, 0, new List<PositioningOffsetOverride> { new("right", "end", 3, 0, 0, 0, 0) }) });
         Assert.NotEqual(Build(), Build() with { SideOffsetFunction = new PositioningOffset(0, 1, 0, 1, 0, [new PositioningOffsetOverride("left", "end", 3, 0, 0, 0, 0)]) });
+
+        // The boundary's indexes into the references compare by value too.
+        Assert.NotEqual(Build(), Build() with { BoundaryRefs = new PositioningIndexes(1, 3) });
+        Assert.NotEqual(Build(), Build() with { AnchorRef = null });
     }
 
     [Fact(DisplayName = "comparing two options records allocates nothing")]
