@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test';
-import { expect, test, type RenderMode } from '../helpers';
+import { expect, readDiagnostics, test, type RenderMode } from '../helpers';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's detachedTriggersConformanceTests (packages/react/test/detachedTriggersConformanceTests.tsx at v1.9.0), titles
@@ -21,7 +21,10 @@ export interface DetachedTriggersConfig {
   openInteractions: readonly [OpenInteraction, ...OpenInteraction[]];
   /** Whether triggers expose `aria-expanded` and `aria-controls`. */
   ariaExpanded: boolean;
-  /** Whether the handle's open throws for an unregistered trigger id instead of opening unassociated with a warning. */
+  /**
+   * Whether the handle's open throws for an unregistered trigger id instead of opening unassociated with a warning; the
+   * fixture's handle follows its `throws=false` query option.
+   */
   throwOnMissingTrigger: boolean;
   /** Whether the fixture's popup renders a close ("Close popup"), which click-opened popups are closed with. */
   close: boolean;
@@ -31,10 +34,12 @@ export interface DetachedTriggersConfig {
   viewport?: boolean;
   /** Titles listed open, each with its row and the track or milestone that proves it. */
   open?: Readonly<Record<string, string>>;
+  /** When given, only these titles are declared (a second run of one branch, such as `throwOnMissingTrigger: false`). */
+  only?: readonly string[];
 }
 
 export function detachedTriggersConformanceTests(config: DetachedTriggersConfig): void {
-  const { fixture: fixtureName, openInteractions, ariaExpanded, throwOnMissingTrigger, close, positioner = false, viewport = false, open: listedOpen = {} } = config;
+  const { fixture: fixtureName, openInteractions, ariaExpanded, throwOnMissingTrigger, close, positioner = false, viewport = false, open: listedOpen = {}, only } = config;
   const primaryInteraction = openInteractions[0];
   // Switching the active trigger must keep the popup mounted. Hover-opened popups close on `mouseleave` before the next
   // trigger is entered, so they switch with focus instead.
@@ -119,6 +124,10 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
   /** Declares a title; one listed open is skipped with its reason. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
+    if (only && !only.includes(title)) {
+      return;
+    }
+
     test(title, async ({ page, mode }) => {
       test.skip(title in listedOpen, listedOpen[title]);
       await body({ page, mode });
@@ -280,16 +289,91 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
             );
             await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
           });
+        } else {
+          it('opens unassociated with a warning when opened with an unregistered trigger id', async ({ page, mode }) => {
+            const fixture = await render(page, mode, { mode: 'detached', throws: false });
+
+            await fixture.locator('[data-handle-open="missing"]').click();
+            await waitForPopupOpen(page);
+            const warnings = (await readDiagnostics(page, mode, fixture)).filter((entry) => entry.message.includes('No trigger found with id "missing"'));
+            expect(warnings).toHaveLength(1);
+            await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
+            await expectActiveTrigger(page, null);
+          });
         }
       });
 
       test.describe('root ownership', () => {
+        it('ignores imperative calls while no root is attached and follows the root across remounts', async ({ page, mode }) => {
+          const fixture = await render(page, mode, { mode: 'detached', rootMounted: false });
+          const detachedWarnings = async () =>
+            (await readDiagnostics(page, mode, fixture)).filter((entry) => entry.message.includes('no root using this handle is mounted')).length;
+
+          // Before any root attached the handle has no logger, so its two warnings are dropped (design point 6 of M4 track
+          // 1, settled by the orchestrator 2026-10-27); Base UI counts two here.
+          await fixture.locator('[data-handle-open="trigger-1"]').click();
+          await fixture.locator('[data-handle-close]').click();
+          await settle(fixture);
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
+          expect(await detachedWarnings()).toBe(0);
+
+          await fixture.locator('[data-toggle-root]').click();
+          await expect(page.locator('[data-testid="root-payload"]')).toHaveText('No payload');
+          await expect(getPopup(page)).toHaveCount(0);
+
+          await fixture.locator('[data-handle-open="trigger-1"]').click();
+          await waitForContent(page, '1');
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
+
+          // Unmounting the root while open detaches it from the handle.
+          await fixture.locator('[data-toggle-root]').click();
+          await settle(fixture);
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
+          await expect(getPopup(page)).toHaveCount(0);
+
+          await fixture.locator('[data-handle-open="trigger-1"]').click();
+          await fixture.locator('[data-handle-close]').click();
+          await settle(fixture);
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
+          expect(await detachedWarnings()).toBe(2);
+
+          // A remounted root starts closed, without the previous payload, and is controllable.
+          await fixture.locator('[data-toggle-root]').click();
+          await expect(page.locator('[data-testid="root-payload"]')).toHaveText('No payload');
+          await expect(getPopup(page)).toHaveCount(0);
+
+          await fixture.locator('[data-handle-open="trigger-2"]').click();
+          await waitForContent(page, '2');
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
+        });
+
         it('registers a detached trigger declared after the root', async ({ page, mode }) => {
           await render(page, mode, { mode: 'detached', rootFirst: true });
 
           await openWith(primaryInteraction, getTrigger(page, 2));
           await waitForContent(page, '2');
           await expectActiveTrigger(page, 2);
+        });
+
+        it('resolves a trigger still registered to the previous root during a transient overlap', async ({ page, mode }) => {
+          // The detached trigger settles into the outgoing root's store. The incoming root then attaches while the outgoing
+          // one is still mounted, and its batch opens by trigger id before the trigger has migrated to the incoming store.
+          const fixture = await render(page, mode, { case: 'overlap' });
+          await fixture.locator('[data-set-phase="overlap"]').click();
+          await settle(fixture);
+
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
+          await expect(fixture).not.toHaveAttribute('data-handle-error', /./);
+          await expect(getTrigger(page, 2)).toHaveAttribute('data-popup-open');
+          await expect(getTrigger(page, 1)).not.toHaveAttribute('data-popup-open');
+          expect((await readDiagnostics(page, mode, fixture)).filter((entry) => entry.message.includes('No trigger found'))).toHaveLength(0);
+
+          // Completing the handoff (the outgoing root unmounts) keeps the popup open and associated.
+          await fixture.locator('[data-set-phase="incoming"]').click();
+          await settle(fixture);
+          await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
+          await expect(getTrigger(page, 2)).toHaveAttribute('data-popup-open');
+          await expect(getTrigger(page, 1)).not.toHaveAttribute('data-popup-open');
         });
       });
 

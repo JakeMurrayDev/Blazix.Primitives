@@ -146,5 +146,6 @@ public static class FixtureCatalog
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
         ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
+        ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
     };
 }

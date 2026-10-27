@@ -7,9 +7,13 @@
     the test-only popup host, the suite's Fixture as a page. Triggers `trigger-1`.. carry their number as payload; the
     root's payload template renders `root-payload` and the portaled popup with its `content` and a close.
     - `mode=contained|detached`, `triggerCount` (2), `rootFirst`, `nesting` (wrappers around the triggers);
-    - `open` and `triggerId` (a controlled root), `defaultOpen`, `defaultTriggerId`;
+    - `open` and `triggerId` (a controlled root), `defaultOpen`, `defaultTriggerId`; `throws=false` gives the handle
+      Dialog's behavior for an unregistered trigger id (open unassociated with a warning);
     - `case=controlled`: the suite's programmatic case, a controlled root whose OnOpenChange follows the request, and the
       buttons "Open Trigger 1", "Open Trigger 2" and "Close externally";
+    - `rootMounted=false`: the root starts unmounted;
+    - `case=overlap`: detached triggers and two keyed roots on one handle by phase (`[data-set-phase]`: outgoing, overlap,
+      incoming); the incoming root's batch opens `trigger-2` through the handle after its first render (OpenOnMount);
     - buttons: `[data-toggle-root]` (mounts or unmounts the root), `[data-set-nesting]`, `[data-recreate-handle]`,
       `[data-handle-open]` (the handle's OpenAsync with that id; a thrown message renders as `data-handle-error`),
       `[data-handle-close]`; the container renders the handle's `IsOpen` as `data-handle-open-state`.
@@ -30,13 +34,32 @@
     <button type="button" data-handle-open="missing" @onclick='() => HandleOpenAsync("missing")'>Handle open missing</button>
     <button type="button" data-handle-close @onclick="HandleCloseAsync">Handle close</button>
 
+    @foreach (string value in new[] { "outgoing", "overlap", "incoming" })
+    {
+        <button type="button" data-set-phase="@value" @onclick="() => phase = value">Phase @value</button>
+    }
+
     <div style="margin: 50px">
-        @if (detached && !rootFirst)
+        @if (Case == "overlap")
+        {
+            @Nest(0)
+            @if (phase is "outgoing" or "overlap")
+            {
+                <FixturePopupRoot TPayload="string" @key="@("outgoing")" Handle="@handle" PayloadContent="@Popup" />
+            }
+
+            @if (phase is "overlap" or "incoming")
+            {
+                <FixturePopupRoot TPayload="string" @key="@("incoming")" Handle="@handle" PayloadContent="@Popup" />
+                <OpenOnMount Run='() => HandleOpenAsync("trigger-2")' />
+            }
+        }
+        else if (detached && !rootFirst)
         {
             @Nest(nesting)
         }
 
-        @if (rootMounted)
+        @if (rootMounted && Case != "overlap")
         {
             @if (controlled)
             {
@@ -60,7 +83,7 @@
             }
         }
 
-        @if (detached && rootFirst)
+        @if (detached && rootFirst && Case != "overlap")
         {
             @Nest(nesting)
         }
@@ -75,7 +98,7 @@
 </FixtureContainer>
 
 @code {
-    private FixturePopupHandle<string>? handle = new();
+    private FixturePopupHandle<string>? handle;
     private bool detached;
     private bool controlled;
     private bool open;
@@ -87,9 +110,13 @@
     private bool rootMounted = true;
     private int nesting;
     private string? handleError;
+    private bool throws = true;
+    private string phase = "outgoing";
 
     protected override void OnInitialized()
     {
+        throws = QueryFlag("throws") != false;
+        handle = new FixturePopupHandle<string>(throws);
         detached = Query("mode") == "detached";
         controlled = Case == "controlled" || QueryFlag("open") is not null;
         open = QueryFlag("open") == true;
@@ -99,6 +126,11 @@
         triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
         rootFirst = QueryFlag("rootFirst") == true;
         nesting = int.TryParse(Query("nesting"), out int level) ? level : 0;
+        rootMounted = QueryFlag("rootMounted") != false;
+        if (Case == "overlap")
+        {
+            detached = true;
+        }
     }
 
     private RenderFragment Nest(int level) => level == 0 ? Triggers : @<div>@Nest(level - 1)</div>;
@@ -135,7 +167,7 @@
         triggerId = id;
     }
 
-    private void RecreateHandle() => handle = new FixturePopupHandle<string>();
+    private void RecreateHandle() => handle = new FixturePopupHandle<string>(throws);
 
     private async Task HandleOpenAsync(string id)
     {
@@ -148,6 +180,9 @@
         {
             handleError = error.Message;
         }
+
+        // OpenOnMount calls this outside the page's own events: render the handle's state now.
+        StateHasChanged();
     }
 
     private Task HandleCloseAsync() => handle!.CloseAsync();
