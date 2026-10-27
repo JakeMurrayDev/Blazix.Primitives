@@ -10,6 +10,7 @@ namespace Blazix.Primitives;
 /// <summary>One part's handle on the <c>interactions</c> module: its attach, its option sends and its release.</summary>
 internal sealed class InteractionsAttachment : IAsyncDisposable
 {
+    private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TwinHandle<InteractionsOptions>? handle;
     private InteractionsOptions? sentOptions;
     private bool attaching;
@@ -29,6 +30,10 @@ internal sealed class InteractionsAttachment : IAsyncDisposable
     /// <summary>Gets the options last sent to the module.</summary>
     /// <value>The options, or <see langword="null"/> before the attach.</value>
     public InteractionsOptions? SentOptions => sentOptions;
+
+    /// <summary>Gets a task that completes when the first attach succeeded.</summary>
+    /// <value>A task that completes after the first interactive render has attached the handle.</value>
+    public Task Attached => attachedSource.Task;
 
     /// <summary>Gets the number of option records sent since the attach, the attach's included.</summary>
     /// <value>The count, which an unchanged render does not move.</value>
@@ -83,6 +88,7 @@ internal sealed class InteractionsAttachment : IAsyncDisposable
             {
                 sentOptions = options;
                 Sends++;
+                attachedSource.TrySetResult();
             }
 
             return;

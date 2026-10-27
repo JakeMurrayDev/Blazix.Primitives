@@ -42,6 +42,10 @@ internal sealed class InteractionsProviderBehavior : IAsyncDisposable
     /// <value>The count, which an unchanged render does not move.</value>
     internal int Sends => attachment.Sends;
 
+    /// <summary>Gets a task that completes when the handle is attached.</summary>
+    /// <value>A task that completes after the first interactive render has attached the handle.</value>
+    internal Task TwinAttached => attachment.Attached;
+
     /// <inheritdoc />
     /// <remarks>Releases the provider's handle and the twin. Idempotent.</remarks>
     public async ValueTask DisposeAsync()
