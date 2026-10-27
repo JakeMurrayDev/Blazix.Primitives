@@ -125,5 +125,7 @@ public static class FixtureCatalog
         ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
         ["toolbar-button"] = new(typeof(ToolbarButtonFixture)),
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
+        ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
+        ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
     };
 }
