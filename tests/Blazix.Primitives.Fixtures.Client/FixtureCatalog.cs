@@ -20,6 +20,8 @@ using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
+using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
+using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -68,6 +70,10 @@ public static class FixtureCatalog
         ["composite-rtl"] = new(typeof(CompositeRtlFixture)),
         ["composite-reorder"] = new(typeof(CompositeReorderFixture)),
         ["composite-selection"] = new(typeof(CompositeSelectionFixture)),
+        ["composite-nested"] = new(typeof(CompositeNestedFixture)),
+        ["composite-flags"] = new(typeof(CompositeFlagsFixture)),
+        ["composite-follow"] = new(typeof(CompositeFollowFixture)),
+        ["composite-registration"] = new(typeof(CompositeRegistrationFixture)),
         ["field-basic"] = new(typeof(FieldBasicFixture)),
         ["field-validation"] = new(typeof(FieldValidationFixture)),
         ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),
@@ -115,5 +121,9 @@ public static class FixtureCatalog
         ["radio-group-form"] = new(typeof(RadioGroupFormFixture)),
         ["radio-group-edit-form"] = new(typeof(RadioGroupEditFormFixture)),
         ["radio-group-allocation"] = new(typeof(RadioGroupAllocationFixture)),
+        ["toggle-standalone"] = new(typeof(ToggleStandaloneFixture)),
+        ["toggle-composite-root"] = new(typeof(ToggleCompositeRootFixture)),
+        ["toggle-group-orientation"] = new(typeof(ToggleGroupOrientationFixture)),
+        ["toggle-group-basic"] = new(typeof(ToggleGroupBasicFixture)),
     };
 }

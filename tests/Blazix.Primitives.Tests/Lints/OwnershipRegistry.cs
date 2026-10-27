@@ -45,6 +45,13 @@ internal static class OwnershipRegistry
         // `C# (standalone); C# → JS (in a group, from attach)`. There is no composite entry: the lint reads only
         // docs/components/*.md.
         new("radio", "Root", "tabindex", Writer.CsharpToJs),
+        // Toggle (M3 tracks 2-3; ADR 04 Amendments 2026-10-22, chosen by the user; the radio row's shape): the composite module
+        // writes a grouped toggle's roving tabindex from attach; C# renders the standalone values and "-1" in a group
+        // (CMP-STA-15); toggle.md §5.1 reads `C# (standalone); C# → JS (in a group/toolbar, from attach)`.
+        new("toggle", "Toggle", "tabindex", Writer.CsharpToJs),
+        // ToggleGroup (M3 track 3): toggle-group.md §5.1 gives the standalone group's composite keydown and focus listeners
+        // the Writer `JS` (TGG-DOM-06); the composite module attaches them and C# renders no handler for them.
+        new("toggle-group", "Group", "handlers", Writer.Js),
         // Radio (M2 tracks 7-8; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden radio input's checked
         // property from attach, C# rendering the initial value once (the Switch shape); the transitions module writes the
         // Indicator's transition attributes, mirrored in its state's TransitionStatus.

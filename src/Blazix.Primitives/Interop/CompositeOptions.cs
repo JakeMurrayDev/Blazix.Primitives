@@ -1,10 +1,15 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (composite row) and §3; CMP §6.1 (the root part's options and defaults) and §6.2; the RadioGroup options of
 // ADR 04 Amendments 2026-10-20 (the pending-navigation flag and the focus-driven selection, RDG-STA-06, RAD-FOC-05) and
 // the reports of RDG-FOC-04/05 and CMP-EVT-01; the items' ids and consumer tabindex of ADR 04 Amendments 2026-10-22
-// (RAD-DOM-16). Not carried (CMP §10 Q1, M3, M5): grid, onLoop, a consumer-owned highlight, onMapChange, metadata or an
-// explicit index from C#.
+// (RAD-DOM-16); the M3 extensions of ADR 04 Amendments 2026-10-26 (chosen by the user): the items' flags and the
+// derived indices (CMP-STA-08, CMP-KEY-08, TLB-STA-02), the items report, onMapChange as ids (CMP-EVT-03), the
+// registration-only mode of a root-less list (CMP-STR-03), and TabsList's highlight that follows the item marked active
+// (CMP-STA-22, CMP-EDGE-09), sent only when set. Not carried (CMP §10 Q1, M5): grid, onLoop, a highlighted index from
+// C#, metadata or an explicit index from C#: values stay in C#, joined to the reported ids.
 /// <summary>
 /// The options of the <c>composite</c> module: the roving group's configuration and its items, sent on <c>attach</c> and
 /// on every <c>update</c>. The module resolves the items, keeps their order, writes their <c>tabindex</c> and handles the
@@ -44,6 +49,15 @@ internal sealed record CompositeOptions : TwinOptions
     /// </value>
     public IReadOnlyList<int>? DisabledIndices { get; init; }
 
+    /// <summary>Gets a value indicating whether the module derives the indices navigation skips from the items' flags.</summary>
+    /// <value>
+    /// <see langword="true"/> to skip the items that are <see cref="CompositeItemRegistration.Disabled"/> and not
+    /// <see cref="CompositeItemRegistration.FocusableWhenDisabled"/>, in place of <see cref="DisabledIndices"/>; the
+    /// default is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool DeriveDisabledIndices { get; init; }
+
     /// <summary>Gets the reading direction, which swaps the horizontal arrow keys.</summary>
     /// <value><c>ltr</c>, the default, or <c>rtl</c>.</value>
     public string Direction { get; init; } = "ltr";
@@ -74,13 +88,50 @@ internal sealed record CompositeOptions : TwinOptions
     /// that never reaches Blazor's dispatcher; the default is <see langword="false"/>.
     /// </value>
     public bool ReportHandledKeys { get; init; }
+
+    /// <summary>Gets a value indicating whether the module reports the items' ids in index order on each publication that changed them.</summary>
+    /// <value>
+    /// <see langword="true"/> to receive <see cref="CompositeTwin.ItemsChanged"/>; the default is <see langword="false"/>,
+    /// which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReportItems { get; init; }
+
+    /// <summary>Gets a value indicating whether the root is a list that only orders and reports its items.</summary>
+    /// <value>
+    /// <see langword="true"/> for a list without a roving group, read once on <c>attach</c>: the module keeps the items'
+    /// order and reports it to <see cref="CompositeTwin.ItemsChanged"/>, handles no key, writes no <c>tabindex</c> and
+    /// keeps no highlight, so every other option is ignored. The default is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RegistrationOnly { get; init; }
+
+    /// <summary>Gets a value indicating whether the highlight follows the item marked active.</summary>
+    /// <value>
+    /// <see langword="true"/> to move the highlight to the item that carries <c>data-composite-item-active</c> whenever it
+    /// changes while focus is outside the root and the item is not <c>aria-disabled="true"</c>, except once after a keydown
+    /// on that item; the highlight is then not moved off an item that <see cref="DisabledIndices"/> disables. The default
+    /// is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool FollowActiveItem { get; init; }
 }
 
-// ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16).
+// ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16); the flags of ADR 04
+// Amendments 2026-10-26 (chosen by the user), Base UI's Toolbar item metadata (ToolbarRoot.tsx:79-82).
 /// <summary>One item of a composite group as the module receives it.</summary>
 /// <param name="Id">The id of the item's element, which the module resolves from the root's document or shadow root.</param>
 /// <param name="TabIndex">
 /// The consumer's <c>tabindex</c> on the item, which the module never writes over; <see langword="null"/> when the module
 /// writes the roving value.
 /// </param>
-internal sealed record CompositeItemRegistration(string Id, string? TabIndex);
+/// <param name="Disabled">Whether the item is disabled; <see langword="false"/>, the default, is not sent.</param>
+/// <param name="FocusableWhenDisabled">
+/// Whether the item stays navigable and can hold the tab stop while disabled; <see langword="false"/>, the default, is not
+/// sent.
+/// </param>
+internal sealed record CompositeItemRegistration(
+    string Id,
+    string? TabIndex,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Disabled = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool FocusableWhenDisabled = false);

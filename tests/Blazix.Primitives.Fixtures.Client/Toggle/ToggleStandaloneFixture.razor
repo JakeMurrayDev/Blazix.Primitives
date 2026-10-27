@@ -1,0 +1,72 @@
+@namespace Blazix.Primitives.Fixtures.Client.ToggleFixtures
+@using Blazix.Primitives
+@inherits ToggleFixtureBase
+
+@*
+    The `toggle-standalone` fixture (tests/browser/toggle.spec.ts): standalone toggles, each case recording its
+    OnPressedChange, the consumer's clicks and key presses.
+    - `native`, `non-native` (a span through Render, NativeButton="false"): Enter and Space activation (TGL-EVT-06,
+      TGL-KEY-01).
+    - `controlled`: @bind-Pressed, the bound value shown as `data-bound`.
+    - `disabled-native`, `disabled-non-native`: the consumer's onclick and onpointerdown are counted (TGL-PTR-02).
+    - `veto-click`: a native toggle whose consumer onclick calls PreventPartHandler() (TGL-PTR-03).
+    - `veto-key`: a non-native toggle whose consumer onkeydown calls PreventPartHandler() for Enter (the `activate`
+      decision point; ADR 01's "C#-origin consumer vetoes" row).
+*@
+<FixtureContainer Name="toggle-standalone" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>[data-toggle] { display: inline-block; min-width: 2rem; min-height: 1rem; border: 1px solid; }</style>
+
+    <ToggleCaseFrame Name="native" Case="native">
+        <Toggle @ref="Toggle" data-toggle OnPressedChange="native.Press" @onclick="native.Click">Native</Toggle>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="non-native" Case="nonNative">
+        <Toggle @ref="Toggle" NativeButton="false" OnPressedChange="nonNative.Press" @onclick="nonNative.Click">
+            <Render><span data-toggle></span></Render>
+            <ChildContent>Non-native</ChildContent>
+        </Toggle>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="controlled" Case="controlled">
+        <Toggle @ref="Toggle" data-toggle @bind-Pressed="bound" OnPressedChange="controlled.Press">Controlled</Toggle>
+        <span data-bound="@(bound ? "true" : "false")"></span>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="disabled-native" Case="disabledNative">
+        <Toggle @ref="Toggle" data-toggle Disabled="true" OnPressedChange="disabledNative.Press"
+                @onclick="disabledNative.Click" @onpointerdown="disabledNative.PointerDown">Disabled</Toggle>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="disabled-non-native" Case="disabledNonNative">
+        <Toggle @ref="Toggle" NativeButton="false" Disabled="true" OnPressedChange="disabledNonNative.Press"
+                @onclick="disabledNonNative.Click" @onpointerdown="disabledNonNative.PointerDown">
+            <Render><span data-toggle></span></Render>
+            <ChildContent>Disabled</ChildContent>
+        </Toggle>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="veto-click" Case="vetoClick">
+        <Toggle @ref="Toggle" data-toggle OnPressedChange="vetoClick.Press" @onclick="vetoClick.Click">Veto click</Toggle>
+    </ToggleCaseFrame>
+
+    <ToggleCaseFrame Name="veto-key" Case="vetoKey">
+        <Toggle @ref="Toggle" NativeButton="false" OnPressedChange="vetoKey.Press" @onkeydown="e => vetoKey.KeyDown(KeyDownSource, e)">
+            <Render><span data-toggle></span></Render>
+            <ChildContent>Veto key</ChildContent>
+        </Toggle>
+    </ToggleCaseFrame>
+</FixtureContainer>
+
+@code {
+    private const string KeyDownSource = "toggle";
+
+    private readonly ToggleCase native = new();
+    private readonly ToggleCase nonNative = new();
+    private readonly ToggleCase controlled = new();
+    private readonly ToggleCase disabledNative = new();
+    private readonly ToggleCase disabledNonNative = new();
+    private readonly ToggleCase vetoClick = new() { VetoClick = true };
+    private readonly ToggleCase vetoKey = new() { VetoKeys = ["Enter"] };
+    private bool bound;
+}

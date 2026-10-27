@@ -1,0 +1,41 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+@inherits CompositeFixtureBase
+
+@*
+    The `composite-follow` fixture (tests/browser/composite.spec.ts): the highlight that follows the item marked active
+    (CMP-STA-22, CMP-EDGE-09; TAB-FOC-04..07; M3 track 1, E5), TabsList's option on the test-only root. The fixture
+    renders `data-composite-item-active` on the selected item, as a Tab does on the active Tab. A button outside the root
+    selects the next item (focus outside the root); Enter on an item selects the item after it from C# (focus inside).
+*@
+<FixtureContainer Name="composite-follow" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-selected="@selected">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-next @onclick="Next">Select the next item</button>
+
+    <FixtureCompositeRoot @ref="root" Orientation="Orientation.Horizontal" FollowActiveItem="true" data-root>
+        @for (int i = 1; i <= 3; i++)
+        {
+            int number = i;
+            <FixtureCompositeItem @key="number" data-item="@number" data-composite-item-active="@(selected == number ? "" : null)"
+                                  @onkeydown="e => OnItemKey(e, number)">@number</FixtureCompositeItem>
+        }
+    </FixtureCompositeRoot>
+</FixtureContainer>
+
+@code {
+    private FixtureCompositeRoot? root;
+    private int selected = 1;
+
+    protected override IEnumerable<FixtureCompositeRoot?> Roots => [root];
+
+    private void Next() => selected = selected % 3 + 1;
+
+    private void OnItemKey(KeyboardEventArgs e, int number)
+    {
+        if (e.Key == "Enter")
+        {
+            selected = number % 3 + 1;
+        }
+    }
+}

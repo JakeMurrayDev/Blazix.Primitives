@@ -24,6 +24,14 @@ public sealed class FixtureCompositeItem : PartBase<EmptyState>
     [Parameter]
     public string Tag { get; set; } = "div";
 
+    /// <summary>The item's <c>disabled</c> flag, sent in its registration.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>The item's <c>focusableWhenDisabled</c> flag, sent in its registration.</summary>
+    [Parameter]
+    public bool FocusableWhenDisabled { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => Tag;
 
@@ -44,7 +52,7 @@ public sealed class FixtureCompositeItem : PartBase<EmptyState>
     protected override void OnParametersSet()
     {
         behavior!.SetConsumerAttributes(AdditionalAttributes);
-        behavior.SetRegistration(Id, AdditionalAttributes);
+        behavior.SetRegistration(Id, AdditionalAttributes, Disabled, FocusableWhenDisabled);
     }
 
     /// <inheritdoc />

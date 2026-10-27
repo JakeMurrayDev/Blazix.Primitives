@@ -1,0 +1,60 @@
+<DemoFrame Slug="toggle-group" Note="A group where any number of toggles may be pressed, a vertical group, a group that does not wrap, and a disabled toggle.">
+    <Hero>
+        <ToggleGroup aria-label="Text alignment" DefaultValue="@(new[] { "left" })" class="@GroupClass">
+            <Toggle aria-label="Align left" Value="left" class="@ToggleClass">
+                <AlignLeftIcon />
+            </Toggle>
+            <Toggle aria-label="Align center" Value="center" class="@ToggleClass">
+                <AlignCenterIcon />
+            </Toggle>
+            <Toggle aria-label="Align right" Value="right" class="@ToggleClass">
+                <AlignRightIcon />
+            </Toggle>
+        </ToggleGroup>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <ToggleGroup aria-label="Text alignment" Multiple="true" @bind-Value="multiple" class="@GroupClass">
+                <Toggle aria-label="Align left" Value="left" class="@ToggleClass"><AlignLeftIcon /></Toggle>
+                <Toggle aria-label="Align center" Value="center" class="@ToggleClass"><AlignCenterIcon /></Toggle>
+                <Toggle aria-label="Align right" Value="right" class="@ToggleClass"><AlignRightIcon /></Toggle>
+            </ToggleGroup>
+            <span class="VariantName">Multiple: <strong>@(multiple.Count == 0 ? "none" : string.Join(", ", multiple))</strong></span>
+        </div>
+        <div class="Variant">
+            <ToggleGroup aria-label="Text alignment" Orientation="Orientation.Vertical" DefaultValue="@(new[] { "center" })" class="@VerticalGroupClass">
+                <Toggle aria-label="Align left" Value="left" class="@ToggleClass"><AlignLeftIcon /></Toggle>
+                <Toggle aria-label="Align center" Value="center" class="@ToggleClass"><AlignCenterIcon /></Toggle>
+                <Toggle aria-label="Align right" Value="right" class="@ToggleClass"><AlignRightIcon /></Toggle>
+            </ToggleGroup>
+            <span class="VariantName">Orientation="Orientation.Vertical" (the up and down arrows)</span>
+        </div>
+        <div class="Variant">
+            <ToggleGroup aria-label="Text alignment" LoopFocus="false" class="@GroupClass">
+                <Toggle aria-label="Align left" Value="left" class="@ToggleClass"><AlignLeftIcon /></Toggle>
+                <Toggle aria-label="Align center" Value="center" class="@ToggleClass"><AlignCenterIcon /></Toggle>
+                <Toggle aria-label="Align right" Value="right" class="@ToggleClass"><AlignRightIcon /></Toggle>
+            </ToggleGroup>
+            <span class="VariantName">LoopFocus="false" (the arrows stop at either end; Home and End still jump)</span>
+        </div>
+        <div class="Variant">
+            <ToggleGroup aria-label="Text alignment" class="@GroupClass">
+                <Toggle aria-label="Align left" Value="left" class="@ToggleClass"><AlignLeftIcon /></Toggle>
+                <Toggle aria-label="Align center" Value="center" Disabled="true" class="@DisabledToggleClass"><AlignCenterIcon /></Toggle>
+                <Toggle aria-label="Align right" Value="right" class="@ToggleClass"><AlignRightIcon /></Toggle>
+            </ToggleGroup>
+            <span class="VariantName">A disabled toggle: the arrow keys skip it</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string GroupClass = "flex gap-px p-px border border-neutral-950 dark:border-white";
+    private const string ToggleClass = "flex size-8 items-center justify-center border-none rounded-none bg-transparent text-neutral-950 dark:text-white select-none hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:not-data-pressed:bg-neutral-200 dark:active:not-data-disabled:not-data-pressed:bg-neutral-700 data-pressed:bg-neutral-950 data-pressed:text-white dark:data-pressed:bg-white dark:data-pressed:text-neutral-950 data-pressed:hover:not-data-disabled:bg-neutral-950 data-pressed:hover:not-data-disabled:text-white dark:data-pressed:hover:not-data-disabled:bg-white dark:data-pressed:hover:not-data-disabled:text-neutral-950 focus-visible:relative focus-visible:z-1 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+
+    // The hero's classes, stacked for the vertical group, and a dimmed disabled toggle.
+    private const string VerticalGroupClass = GroupClass + " flex-col";
+    private const string DisabledToggleClass = ToggleClass + " data-disabled:opacity-50";
+
+    private IReadOnlyList<string> multiple = ["left", "right"];
+}

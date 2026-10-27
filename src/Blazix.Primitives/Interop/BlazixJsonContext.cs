@@ -28,6 +28,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(CompositeHighlightChange))]
 [JsonSerializable(typeof(CompositeFocusLeave))]
 [JsonSerializable(typeof(CompositeKeyHandled))]
+[JsonSerializable(typeof(CompositeItemsChange))]
 [JsonSerializable(typeof(FormOptions))]
 [JsonSerializable(typeof(FormControlReport))]
 [JsonSerializable(typeof(LabelMismatch))]

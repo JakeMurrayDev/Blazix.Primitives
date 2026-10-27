@@ -9,7 +9,7 @@ import { test, expect, gotoFixture, type Page, type RenderMode } from './helpers
 // sleeps: a state inside one dispatch is witnessed by a listener the page adds after the module's, a later one by
 // `expect`, and C#'s view by the fixture's data attributes after a sync barrier.
 
-type FixtureName = 'composite-list' | 'composite-rtl' | 'composite-reorder' | 'composite-selection';
+type FixtureName = 'composite-list' | 'composite-rtl' | 'composite-reorder' | 'composite-selection' | 'composite-nested' | 'composite-flags' | 'composite-follow' | 'composite-registration';
 
 /** Opens a composite fixture and waits until every root has its behavior attached. */
 async function gotoComposite(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
@@ -475,5 +475,178 @@ test.describe('composite selection on navigation (port)', () => {
     await settle(fixture);
     await expect(fixture).toHaveAttribute('data-focus-leaves', '1');
     await expect(fixture).toHaveAttribute('data-last-leave', `focusout:${leaving}`);
+  });
+});
+
+// --- M3 track 1 (ADR 04 Amendments 2026-10-26, chosen by the user): the items' flags (E3) and the outer registration (E4) ---
+
+test.describe('nested Composite items', () => {
+  // CMP-STR-04 and CMP-STA-29's cited title, on Base UI's NestedItemsRoot: the root derives its disabled indices from the
+  // flags, and the outer registration of each shared element (focusable when disabled) is the one the module receives.
+  test('keeps outer metadata and focus navigation when items share a DOM node', async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-nested');
+    const item = (label: string) => fixture.locator(`[data-root] [data-item="${label}"]`);
+
+    await fixture.locator('[data-before]').focus();
+    await page.keyboard.press('Tab');
+    await expect(item('first')).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await expect(item('second')).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await expect(item('third')).toBeFocused();
+  });
+});
+
+test.describe('composite item flags (port)', () => {
+  // CMP-STA-29 and CMP-KEY-08 over the derived indices, with ADR 01's row for `update`-carried values: on WebAssembly the
+  // flag's `update` runs in the task that applies the render batch, so the tab stop moves in the batch that marks the item
+  // disabled; on Server it moves a round trip later.
+  test('a runtime flag change moves the tab stop off an item that is no longer focusable', async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-flags');
+    const root = fixture.locator('[data-root]');
+    const item = (label: string) => root.locator(`[data-item="${label}"]`);
+    await expect(item('1')).toHaveAttribute('tabindex', '0');
+    await root.evaluate((element) => {
+      const batches: string[][] = [];
+      (element as unknown as { batches: string[][] }).batches = batches;
+      new MutationObserver((records) => {
+        batches.push(records.map((record) => `${(record.target as Element).getAttribute('data-item')}:${record.attributeName}`));
+      }).observe(element, { subtree: true, attributes: true, attributeFilter: ['tabindex', 'data-disabled'] });
+    });
+
+    await fixture.locator('[data-toggle]').click();
+    await expect(item('2')).toHaveAttribute('tabindex', '0');
+    await expect(item('1')).toHaveAttribute('tabindex', '-1');
+
+    const batches = await root.evaluate((element) => (element as unknown as { batches: string[][] }).batches);
+    const disabled = batches.findIndex((batch) => batch.includes('1:data-disabled'));
+    const tabStop = batches.findIndex((batch) => batch.includes('2:tabindex'));
+    expect(disabled).toBeGreaterThanOrEqual(0);
+    if (mode === 'wasm') {
+      expect(tabStop).toBe(disabled);
+    } else {
+      expect(tabStop).toBeGreaterThan(disabled);
+    }
+
+    // The arrow keys skip the disabled item: from the last item, looping, to the second.
+    await item('3').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(item('2')).toBeFocused();
+  });
+});
+
+// --- M3 track 1: the active-item follow (E5) and the registration-only list (E1) -------------------------------------
+
+test.describe('composite active-item follow (port)', () => {
+  // CMP-STA-22's consumer-owned clause as TabsList uses it (TAB-FOC-04): the module observes the marker in the applied
+  // batch and moves the tab stop in the same microtask checkpoint, before paint, on both modes; the records of one
+  // observer callback (created after the module's) hold the marker's change and the tab stop's.
+  test('with focus outside the root, the tab stop moves to the marked item in the batch that marks it', async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-follow');
+    const root = fixture.locator('[data-root]');
+    const item = (label: string) => root.locator(`[data-item="${label}"]`);
+    await expect(item('1')).toHaveAttribute('tabindex', '0');
+    await root.evaluate((element) => {
+      const batches: string[][] = [];
+      (element as unknown as { batches: string[][] }).batches = batches;
+      new MutationObserver((records) => {
+        batches.push(
+          records
+            .filter((record) => record.attributeName === 'data-composite-item-active' || (record.target as Element).getAttribute('tabindex') === '0')
+            .map((record) => `${(record.target as Element).getAttribute('data-item')}:${record.attributeName}`),
+        );
+      }).observe(element, { subtree: true, attributes: true, attributeFilter: ['tabindex', 'data-composite-item-active'] });
+    });
+
+    await fixture.locator('[data-next]').click();
+    await expect(item('2')).toHaveAttribute('tabindex', '0');
+    await expect(item('1')).toHaveAttribute('tabindex', '-1');
+
+    const batches = await root.evaluate((element) => (element as unknown as { batches: string[][] }).batches);
+    const marked = batches.findIndex((batch) => batch.includes('2:data-composite-item-active'));
+    expect(marked).toBeGreaterThanOrEqual(0);
+    expect(batches[marked]).toContain('2:tabindex');
+  });
+
+  // TAB-FOC-05's shape: the tab stop follows a selection made from outside the root, but a selection made while an item
+  // has focus leaves the roving highlight with the focused item, and the next arrow continues from it.
+  test('with focus inside the root, the tab stop stays on the focused item and ArrowRight continues from it', async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-follow');
+    const root = fixture.locator('[data-root]');
+    const item = (label: string) => root.locator(`[data-item="${label}"]`);
+    await fixture.locator('[data-next]').click();
+    await expect(item('2')).toHaveAttribute('tabindex', '0');
+
+    await item('2').focus();
+    await expect(item('2')).toHaveAttribute('tabindex', '0');
+    await page.keyboard.press('Enter');
+    await expect(fixture).toHaveAttribute('data-selected', '3');
+    await expect(item('3')).toHaveAttribute('data-composite-item-active', '');
+    await settle(fixture);
+
+    await expect(item('2')).toHaveAttribute('tabindex', '0');
+    await expect(item('3')).toHaveAttribute('tabindex', '-1');
+
+    await page.keyboard.press('ArrowRight');
+    await expect(item('3')).toBeFocused();
+  });
+});
+
+test.describe('composite registration-only list (port)', () => {
+  // CMP-STA-15 and CMP-STA-10's row (ADR 01, "EVD-STA-07, CMP-STA-10, FFI registration": published indexes): an item's
+  // index is -1 in the batch that inserts it. On WebAssembly the report runs inside the update of the same task, so the
+  // index is written before paint, in the same delivery of mutation records; on Server it arrives a round trip later.
+  test("a list item's data-index is -1 when it is inserted, then its index: in the same task on WebAssembly, a round trip later on Server", async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-registration');
+    const list = fixture.locator('[data-list]');
+    const entry = (label: string) => list.locator(`[data-entry="${label}"]`);
+    await expect(entry('a')).toHaveAttribute('data-index', '0');
+    await list.evaluate((element) => {
+      const batches: string[][] = [];
+      (element as unknown as { batches: string[][] }).batches = batches;
+      new MutationObserver((records) => {
+        batches.push(
+          records.flatMap((record) =>
+            record.type === 'childList'
+              ? Array.from(record.addedNodes, (node) => `inserted:${(node as Element).querySelector?.('[data-entry]')?.getAttribute('data-entry')}`)
+              : [`${(record.target as Element).getAttribute('data-entry')}:${record.oldValue}->${(record.target as Element).getAttribute('data-index')}`],
+          ),
+        );
+      }).observe(element, { childList: true, subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-index'] });
+    });
+
+    await fixture.locator('[data-add]').click();
+    await expect(entry('new')).toHaveAttribute('data-index', '0');
+    await expect(entry('a')).toHaveAttribute('data-index', '1');
+    await expect(entry('c')).toHaveAttribute('data-index', '3');
+
+    const batches = await list.evaluate((element) => (element as unknown as { batches: string[][] }).batches);
+    const insertion = batches.findIndex((batch) => batch.includes('inserted:new'));
+    const indexed = batches.findIndex((batch) => batch.includes('new:-1->0'));
+    expect(insertion).toBeGreaterThanOrEqual(0);
+    expect(indexed).toBeGreaterThanOrEqual(0);
+    if (mode === 'wasm') {
+      expect(indexed).toBe(insertion);
+    } else {
+      expect(indexed).toBeGreaterThan(insertion);
+    }
+  });
+
+  // CMP-STA-11 through the list: Blazor moves the keyed sections and no registration changes, so only the module's move
+  // detection sees the new order, and its report changes the indexes.
+  test("a list item's data-index follows a reorder that only the module observes", async ({ page, mode }) => {
+    const fixture = await gotoComposite(page, mode, 'composite-registration');
+    const list = fixture.locator('[data-list]');
+    const entry = (label: string) => list.locator(`[data-entry="${label}"]`);
+    await expect(entry('a')).toHaveAttribute('data-index', '0');
+    await expect(entry('b')).toHaveAttribute('data-index', '1');
+
+    await fixture.locator('[data-reorder]').click();
+
+    await expect(entry('b')).toHaveAttribute('data-index', '0');
+    await expect(entry('a')).toHaveAttribute('data-index', '1');
+    await expect(entry('c')).toHaveAttribute('data-index', '2');
   });
 });

@@ -16,6 +16,9 @@ public abstract class CompositeFixtureBase : ComponentBase
     /// <summary>The roots of the page, read after the first interactive render.</summary>
     protected abstract IEnumerable<FixtureCompositeRoot?> Roots { get; }
 
+    /// <summary>The registration-only lists of the page, read after the first interactive render.</summary>
+    protected virtual IEnumerable<FixtureCompositeList?> Lists => [];
+
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -24,7 +27,8 @@ public abstract class CompositeFixtureBase : ComponentBase
             return;
         }
 
-        await Task.WhenAll(Roots.Select(root => root?.TwinAttached ?? Task.CompletedTask));
+        await Task.WhenAll(Roots.Select(root => root?.TwinAttached ?? Task.CompletedTask)
+            .Concat(Lists.Select(list => list?.TwinAttached ?? Task.CompletedTask)));
         Attached = true;
         StateHasChanged();
     }
