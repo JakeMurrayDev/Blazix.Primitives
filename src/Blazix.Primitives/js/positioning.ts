@@ -944,9 +944,19 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   };
 
+  // A render may replace the trigger, the anchor or the Arrow with a new element of the same id: the next pass finds it.
+  const isDetached = (): boolean => {
+    const element = reference === null ? null : 'nodeType' in reference ? reference : reference.contextElement;
+    return (element != null && !element.isConnected) || (arrowElement !== null && !arrowElement.isConnected);
+  };
+
   // One positioning pass (FLT-POS-16): committed only when its data differs from the previous pass's.
   const position = () => {
     if (disposed || !mounted || reference === null) {
+      return;
+    }
+    // A new reference restarts the tracking, whose first update is this pass; a new Arrow alone does not.
+    if (isDetached() && refresh()) {
       return;
     }
     const passReference = reference;
@@ -984,8 +994,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
   };
 
-  // Anchor tracking (FLT-POS-11/12, FLT-ALG-13, FLT-STA-09): while mounted and the reference resolves.
-  const syncTracking = () => {
+  // Anchor tracking (FLT-POS-11/12, FLT-ALG-13, FLT-STA-09): while mounted and the reference resolves. Returns whether
+  // the tracking was restarted, which runs a pass at once.
+  const syncTracking = (): boolean => {
     const tracking = !options.disableAnchorTracking;
     const autoUpdateOptions: AutoUpdateOptions = {
       ancestorScroll: tracking,
@@ -994,19 +1005,21 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     };
     const key = mounted && reference !== null ? [reference, pipelineKey, JSON.stringify(autoUpdateOptions)] : null;
     if (key !== null && trackingKey !== null && key.every((part, i) => part === (trackingKey as unknown[])[i])) {
-      return;
+      return false;
     }
     stopTracking?.();
     stopTracking = null;
     trackingKey = key;
     if (key !== null && reference !== null) {
       stopTracking = autoUpdate(reference, element, position, autoUpdateOptions);
+      return true;
     }
+    return false;
   };
 
-  const refresh = () => {
+  const refresh = (): boolean => {
     if (disposed) {
-      return;
+      return false;
     }
     if (!mounted && mountPlacement !== null) {
       mountPlacement = null;
@@ -1025,7 +1038,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
     resolveArrow();
     render();
-    syncTracking();
+    return syncTracking();
   };
 
   const observe = () => {
