@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// per-render cost and the twins' comparison of their options, which sends nothing. The budgets were taken from the first
 /// measurement and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class RadioAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 1016 bytes for a radio and its indicator, Checkbox's 704

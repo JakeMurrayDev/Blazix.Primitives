@@ -10,6 +10,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// per-render cost and the behaviour's comparison of its options, which sends nothing. The budget was taken from the
 /// first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class CompositeAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): 3936 bytes for the parent passing the same values again

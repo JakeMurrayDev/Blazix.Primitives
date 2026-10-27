@@ -10,6 +10,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// (it is what every keystroke pays); the parts render nothing, since the field's state is unchanged after the first
 /// keystroke. The budget was taken from the first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class FieldAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): 1024 bytes, most of it the report's deserialization (the

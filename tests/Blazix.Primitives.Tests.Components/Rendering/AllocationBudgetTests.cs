@@ -8,6 +8,7 @@ namespace Blazix.Primitives.Tests.Components.Rendering;
 /// bUnit's synchronous re-render on the test thread, which includes Blazor's own per-render cost (parameter views,
 /// the diff). The budget was taken from the first measurement and only tightens afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class AllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-20 (arm64, .NET 11 RC2, Release): 256 bytes on both paths, all of it the
