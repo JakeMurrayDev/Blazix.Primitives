@@ -1,0 +1,40 @@
+@inject IJSRuntime Js
+
+@*
+    The transport probe of issue 26 (ADR 16 §B, Amendments 2026-10-27; M4 track 3), WebAssembly only: per message kind,
+    the twin base's transport against [JSImport]/[JSExport] with the same JSON, as medians and 95th percentiles of
+    per-message microseconds over batched samples, and the difference multiplied by a hover-and-flip sample (a hover open
+    and close, each one request report and one session update, plus one positioning mirror report per flip).
+*@
+<FixtureContainer Name="interactions-transport" data-state="@state" data-results="@results">
+    <button type="button" data-measure @onclick="MeasureAsync">Measure</button>
+    <pre data-summary>@summary</pre>
+</FixtureContainer>
+
+@code {
+    private string state = "idle";
+    private string results = "";
+    private string summary = "";
+
+    private async Task MeasureAsync()
+    {
+        if (!OperatingSystem.IsBrowser())
+        {
+            state = "unsupported";
+            return;
+        }
+
+        try
+        {
+            results = await TransportProbeRun.MeasureAsync(Js);
+            state = "done";
+        }
+        catch (JSException exception)
+        {
+            results = exception.Message;
+            state = "failed";
+        }
+
+        summary = results.Replace(';', '\n');
+    }
+}

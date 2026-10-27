@@ -11,6 +11,7 @@ using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
 using Blazix.Primitives.Fixtures.Client.FormFixtures;
 using Blazix.Primitives.Fixtures.Client.InputFixtures;
+using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
@@ -38,6 +39,7 @@ public static class FixtureCatalog
         ["probe"] = new(typeof(ProbeFixture)),
         ["prerender"] = new(typeof(PrerenderFixture), Prerender: true, Roots: 2),
         ["allocation"] = new(typeof(AllocationFixture)),
+        ["interactions-transport"] = new(typeof(InteractionsTransportFixture)),
         ["keep-alive"] = new(typeof(KeepAliveFixture)),
         ["button-behavior"] = new(typeof(ButtonBehaviorFixture)),
         ["button-native"] = new(typeof(ButtonNativeFixture)),
