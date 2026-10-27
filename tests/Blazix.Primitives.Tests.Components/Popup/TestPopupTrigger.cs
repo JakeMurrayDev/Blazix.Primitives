@@ -25,7 +25,7 @@ public sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerState>
 
     public TestPopupTrigger()
     {
-        behavior = new(this, StateHasChanged);
+        behavior = new(this, "TestPopupTrigger", StateHasChanged);
         onClick = CreateHandler<MouseEventArgs>("onclick", OnClickAsync);
     }
 

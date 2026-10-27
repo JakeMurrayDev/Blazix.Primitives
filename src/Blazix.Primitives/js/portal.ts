@@ -31,11 +31,13 @@ export interface PortalOptions extends TwinOptions {
   containerRef?: number | null;
   /** A CSS selector of the container, matched in the wrapper's document. */
   containerSelector?: string | null;
-  /** The lite portal: no outside guards and no owner (PSH-STR-11/12). */
+  // PSH-STR-11/12.
+  /** The lite portal: no outside guards and no owner. */
   lite?: boolean;
 }
 
-/** The state a focus manager inside the portal publishes to it (FLT-FOC-18; written by track 4). */
+// FLT-FOC-18; written by M4 track 4's focus manager.
+/** The state a focus manager inside the portal publishes to it. */
 export interface PortalFocusPublication {
   modal: boolean;
   closeOnFocusOut: boolean;
@@ -108,9 +110,10 @@ function swapGuardForVoiceOver(guard: HTMLElement | null): void {
   }
 }
 
+// FLT-API-13.
 /**
- * Resolves a portal's container (FLT-API-13): the referenced node, else the first match of the selector in the wrapper's
- * document, else that document's body.
+ * Resolves a portal's container: the referenced node, else the first match of the selector in the wrapper's document,
+ * else that document's body.
  * @param options The handle's options.
  * @param references The references received with the options.
  * @param wrapper The node's in-place wrapper, whose document a selector and the default resolve in.

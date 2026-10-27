@@ -24,6 +24,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
     where TState : class, IStoreState<TState>, IPopupStoreState<TState, TPayload>
 {
     private readonly object owner;
+    private readonly string partName;
     private readonly Action requestRender;
     private readonly Action<SelectorSubscription<TState>>? addSelections;
     private readonly Action storeChanged;
@@ -47,11 +48,14 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
 
     /// <summary>Initializes a new instance of the <see cref="PopupTriggerBehavior{TStore, TState, TPayload}"/> class.</summary>
     /// <param name="owner">The trigger part, whose identity registers in the store.</param>
+    /// <param name="partName">The part's name as a consumer writes it, such as <c>PopoverTrigger</c>, for its messages.</param>
     /// <param name="requestRender">Asks the part to render, its <c>StateHasChanged</c>.</param>
     /// <param name="addSelections">Adds the family's own selections to each subscription the behavior creates, or <see langword="null"/>.</param>
-    public PopupTriggerBehavior(object owner, Action requestRender, Action<SelectorSubscription<TState>>? addSelections = null)
+    public PopupTriggerBehavior(object owner, string partName, Action requestRender, Action<SelectorSubscription<TState>>? addSelections = null)
     {
         ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrEmpty(partName);
+        this.partName = partName;
         ArgumentNullException.ThrowIfNull(requestRender);
         this.owner = owner;
         this.requestRender = requestRender;
@@ -185,7 +189,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         }
 
         return handle.Store as TStore
-            ?? throw new InvalidOperationException($"Blazix: the trigger's `Handle` belongs to another popup family than `{typeof(TStore).Name}`.");
+            ?? throw new InvalidOperationException($"Blazix: the `Handle` of `{partName}` belongs to another popup family.");
     }
 
     private void UseStore(TStore next)

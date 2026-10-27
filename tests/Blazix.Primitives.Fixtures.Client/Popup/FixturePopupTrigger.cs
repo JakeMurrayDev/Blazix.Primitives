@@ -22,7 +22,7 @@ public sealed class FixturePopupTrigger<TPayload> : PartBase<FixturePopupTrigger
 
     public FixturePopupTrigger()
     {
-        behavior = new(this, StateHasChanged);
+        behavior = new(this, "FixturePopupTrigger", StateHasChanged);
         onClick = CreateHandler<MouseEventArgs>("onclick", OnClickAsync);
     }
 

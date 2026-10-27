@@ -20,7 +20,8 @@ export interface ScrollLockOptions extends TwinOptions {
   enabled: boolean;
 }
 
-/** The attribute the full inset path writes on `<html>` while locked (UTL-DOM-08). */
+// UTL-DOM-08.
+/** The attribute the full inset path writes on `<html>` while locked. */
 export const SCROLL_LOCKED_ATTRIBUTE = 'data-base-ui-scroll-locked';
 
 type StyleSnapshot = Record<string, string>;
