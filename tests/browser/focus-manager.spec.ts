@@ -1,0 +1,379 @@
+import { test, expect, gotoFixture, type Page } from './helpers';
+import type { Locator } from '@playwright/test';
+
+// L4 (ADR 06 §2) of the `focus-manager` module on the test-only `focus-manager-*` fixtures (ADR 12 Amendments 2026-10-27
+// item 1: no public part manages focus before Popover and Dialog). The browser-only Base UI titles of
+// FloatingFocusManager.test.tsx (prop: restoreFocus) and tabbable.test.ts run here; the rest of the module is L3. The
+// fixture plays the popup store (FocusManagerFixtureBase); the module reads the open state from the applied batch.
+const focusManagerModule = '/_content/Blazix.Primitives/js/focus-manager.js';
+
+/** Adds a one-way delay to the circuit's WebSocket in each direction (CDP emulation does not delay it). */
+async function delayCircuit(page: Page, oneWayMs: number): Promise<void> {
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    socket.onMessage((message) => {
+      setTimeout(() => server.send(message), oneWayMs);
+    });
+    server.onMessage((message) => {
+      setTimeout(() => socket.send(message), oneWayMs);
+    });
+  });
+}
+
+async function gotoFocusManager(page: Page, mode: 'server' | 'wasm', name: string, query = ''): Promise<Locator> {
+  if (query) {
+    await page.goto(`/${mode}/${name}?${query}`, { waitUntil: 'commit' });
+    await page.locator('html[data-blazix-started]').waitFor({ state: 'attached' });
+  }
+  const container = query ? page.locator(`[data-fixture="${name}"]`) : await gotoFixture(page, mode, name);
+  await expect(container).toHaveAttribute('data-attached', 'true');
+  return container;
+}
+
+/**
+ * Records, in the page, every write of `data-open`, `aria-hidden` and `data-base-ui-inert` with the number of the
+ * animation frame it landed in, so a test asserts that two writes landed before the same paint (ADR 06 §2: recorded
+ * markers, no frame polls).
+ */
+async function recordWrites(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __fmFrame: number; __fmWrites: { name: string; target: string; value: string | null; frame: number }[] };
+    w.__fmFrame = 0;
+    w.__fmWrites = [];
+    const tick = () => {
+      w.__fmFrame += 1;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const target = record.target as Element;
+        const name = target.hasAttribute('data-popup') ? 'popup' : target.hasAttribute('data-outside') ? 'outside' : target.tagName.toLowerCase();
+        w.__fmWrites.push({ name: record.attributeName!, target: name, value: target.getAttribute(record.attributeName!), frame: w.__fmFrame });
+      }
+    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-open', 'aria-hidden', 'data-base-ui-inert'] });
+  });
+}
+
+async function writes(page: Page): Promise<{ name: string; target: string; value: string | null; frame: number }[]> {
+  return page.evaluate(() => (window as unknown as { __fmWrites: { name: string; target: string; value: string | null; frame: number }[] }).__fmWrites);
+}
+
+test.describe('focus manager', () => {
+  test.describe('prop: restoreFocus', () => {
+    test('true: restores focus to nearest tabbable element if currently focused element is removed', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-restore');
+      await fixture.locator('[data-mode="tabbable"]').click();
+      await expect(fixture).toHaveAttribute('data-restore', 'tabbable');
+
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-two]')).toBeFocused();
+
+      // fireEvent.click: the press does not move focus; C# removes the focused button in a render batch.
+      await fixture.locator('[data-remove]').dispatchEvent('click');
+
+      await expect(fixture.locator('[data-three]')).toBeFocused();
+    });
+
+    test('false: does not restore focus to nearest tabbable element if currently focused element is removed', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-restore');
+      await fixture.locator('[data-mode="none"]').click();
+      await expect(fixture).toHaveAttribute('data-restore', 'none');
+
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-two]')).toBeFocused();
+
+      await fixture.locator('[data-remove]').dispatchEvent('click');
+      await expect(fixture.locator('[data-two]')).toHaveCount(0);
+
+      await expect(page.locator('body')).toBeFocused();
+    });
+
+    test('restores focus to the nearest tabbable element when the focused element becomes hidden', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-restore');
+      await fixture.locator('[data-reference]').click();
+      const two = fixture.locator('[data-two]');
+      await expect(two).toBeFocused();
+
+      await two.evaluate((element) => {
+        document.body.tabIndex = -1;
+        (element as HTMLElement).style.visibility = 'hidden';
+        document.body.focus();
+      });
+
+      await expect(fixture.locator('[data-three]')).toBeFocused();
+    });
+
+    // FLT-FOC-12's `'popup'`, which Dialog and Popover pass and no Base UI title covers.
+    test("port: 'popup' restores focus to the popup itself when the focused element is removed", async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-restore');
+      await fixture.locator('[data-mode="popup"]').click();
+      await expect(fixture).toHaveAttribute('data-restore', 'popup');
+
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-two]')).toBeFocused();
+
+      await fixture.locator('[data-remove]').dispatchEvent('click');
+
+      await expect(fixture.locator('[data-popup]')).toBeFocused();
+    });
+  });
+
+  // FLT-DOM-15's port titles: C# renders the inside guards for an enabled modal (or portaled) manager and the module
+  // listens on them (ADR 02 and ADR 04 Amendments 2026-10-27).
+  test.describe('inside focus guards', () => {
+    test('port: an enabled modal manager has its inside guards and Tab wraps through them', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-modal');
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await expect(fixture.locator('[data-base-ui-focus-guard][data-type="inside"]')).toHaveCount(2);
+
+      await page.keyboard.press('Tab');
+      await expect(fixture.locator('[data-two]')).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(fixture.locator('[data-close]')).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await expect(fixture.locator('[data-close]')).toBeFocused();
+    });
+
+    test('port: a disabled manager has no inside guards and moves no focus', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-modal');
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-base-ui-focus-guard][data-type="inside"]')).toHaveCount(2);
+      await fixture.locator('[data-close]').click();
+      await expect(fixture.locator('[data-popup]')).toHaveCount(0);
+
+      await fixture.locator('[data-disable]').click();
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-handle-attached', '');
+
+      await expect(fixture.locator('[data-base-ui-focus-guard][data-type="inside"]')).toHaveCount(0);
+      await expect(fixture.locator('[data-reference]')).toBeFocused();
+    });
+
+    test('port: a non-modal manager outside a portal has no inside guards, and Tab out of it asks for the close', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-non-modal');
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await expect(fixture.locator('[data-base-ui-focus-guard]')).toHaveCount(0);
+
+      await page.keyboard.press('Tab');
+      await expect(fixture.locator('[data-two]')).toBeFocused();
+      await page.keyboard.press('Tab');
+
+      await expect(fixture.locator('[data-last]')).toBeFocused();
+      await expect(fixture).toHaveAttribute('data-focus-out-closes', '1');
+      await expect(fixture.locator('[data-popup]')).toHaveCount(0);
+    });
+  });
+
+  // FLT-ARIA-01, A11Y-07, DOM-16 in the page, with the outside content the brief names.
+  test('port: a modal manager hides the outside except live regions, their ancestors and scripts, and keeps an existing aria-hidden', async ({ page, mode }) => {
+    const fixture = await gotoFocusManager(page, mode, 'focus-manager-modal');
+    await fixture.locator('[data-reference]').click();
+    await expect(fixture.locator('[data-one]')).toBeFocused();
+
+    await expect(fixture.locator('[data-outside-button]')).toHaveAttribute('aria-hidden', 'true');
+    await expect(fixture.locator('[data-reference]')).toHaveAttribute('aria-hidden', 'true');
+    await expect(fixture.locator('[data-outside]')).not.toHaveAttribute('aria-hidden');
+    await expect(fixture.locator('[data-live]')).not.toHaveAttribute('aria-hidden');
+    await expect(fixture.locator('[data-script]')).not.toHaveAttribute('aria-hidden');
+    await expect(fixture.locator('[data-outside]')).toHaveAttribute('data-base-ui-inert', '');
+    await expect(fixture.locator('[data-popup]')).not.toHaveAttribute('aria-hidden');
+    await expect(fixture.locator('[data-reference]')).not.toHaveAttribute('inert');
+
+    await page.keyboard.press('Escape');
+    await expect(fixture.locator('[data-popup]')).toHaveCount(0);
+
+    await expect(fixture.locator('[data-outside-button]')).not.toHaveAttribute('aria-hidden');
+    await expect(fixture.locator('[data-outside]')).not.toHaveAttribute('data-base-ui-inert');
+    await expect(fixture.locator('[data-own-hidden]')).toHaveAttribute('aria-hidden', 'true');
+    await expect(fixture.locator('[data-reference]')).toBeFocused();
+  });
+
+  // FLT-ALG-27, DOM-17, KEY-04: a dialog-role popup rendered without a tabindex and with nothing to tab to.
+  test('port: a dialog with no tabbable content and no tabindex is managed to tabindex 0 and keeps focus on Tab', async ({ page, mode }) => {
+    const fixture = await gotoFocusManager(page, mode, 'focus-manager-empty');
+    await fixture.locator('[data-reference]').click();
+    const popup = fixture.locator('[data-popup]');
+    await expect(popup).toBeFocused();
+    await expect(popup).toHaveAttribute('tabindex', '0');
+    await expect(popup).toHaveAttribute('data-tabindex', '0');
+
+    await page.keyboard.press('Tab');
+    await expect(popup).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(popup).toBeFocused();
+  });
+
+  // ADR 04 Amendments 2026-10-27 (the focus manager's open input): an attached popup's marking and trap land with the
+  // batch that opens or closes it, before paint, on both modes; on Server under a 150 ms one-way delay.
+  test.describe('the open input under latency', () => {
+    test.beforeEach(async ({ page, mode }) => {
+      if (mode === 'server') {
+        await delayCircuit(page, 150);
+      }
+    });
+
+    test('port: the marking lands in the batch that opens an attached popup and is released in the batch that closes it', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-kept-mounted');
+      await recordWrites(page);
+
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(fixture.locator('[data-popup]')).not.toHaveAttribute('data-open');
+      await expect(fixture.locator('[data-outside]')).not.toHaveAttribute('aria-hidden');
+
+      const recorded = await writes(page);
+      const opened = recorded.find((w) => w.target === 'popup' && w.name === 'data-open' && w.value !== null);
+      const hidden = recorded.find((w) => w.target === 'outside' && w.name === 'aria-hidden' && w.value === 'true');
+      const closed = recorded.find((w) => w.target === 'popup' && w.name === 'data-open' && w.value === null);
+      const released = recorded.find((w) => w.target === 'outside' && w.name === 'aria-hidden' && w.value === null);
+      expect(opened && hidden && closed && released).toBeTruthy();
+      expect(hidden!.frame).toBe(opened!.frame);
+      expect(released!.frame).toBe(closed!.frame);
+    });
+
+    test('port: an open the options disable takes no focus and marks nothing', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-kept-mounted');
+      await recordWrites(page);
+
+      await fixture.locator('[data-hover-open]').click();
+      await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-open', '');
+      // The positive half: a press open of the same popup marks the page and moves focus.
+      await fixture.locator('[data-hover-open]').focus();
+      await fixture.locator('[data-reference]').dispatchEvent('click');
+      await expect(fixture.locator('[data-popup]')).not.toHaveAttribute('data-open');
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(fixture.locator('[data-popup]')).not.toHaveAttribute('data-open');
+
+      const recorded = await writes(page);
+      const firstOpen = recorded.findIndex((w) => w.target === 'popup' && w.name === 'data-open' && w.value !== null);
+      const firstClose = recorded.findIndex((w, i) => i > firstOpen && w.target === 'popup' && w.name === 'data-open' && w.value === null);
+      expect(firstOpen).toBeGreaterThanOrEqual(0);
+      expect(recorded.slice(firstOpen, firstClose).filter((w) => w.name === 'aria-hidden' || w.name === 'data-base-ui-inert')).toEqual([]);
+      expect(recorded.some((w) => w.target === 'outside' && w.name === 'aria-hidden' && w.value === 'true')).toBe(true);
+    });
+
+    test("port: this open's initial focus target is used", async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-kept-mounted');
+      await fixture.locator('[data-reference]').click();
+      await expect(fixture.locator('[data-one]')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(fixture.locator('[data-reference]')).toBeFocused();
+
+      await fixture.locator('[data-target-two]').click();
+      await fixture.locator('[data-reference]').click();
+
+      await expect(fixture.locator('[data-two]')).toBeFocused();
+    });
+  });
+});
+
+// tabbable.test.ts's `it.skipIf(isJSDOM)` titles (FLT-FOC-14, ALG-18 "L4 for the browser-only cases"): the page imports
+// the module the library ships and runs the query on real layout. The render mode plays no part (the dom.spec.ts
+// precedent).
+test.describe('tabbable', () => {
+  // Each case builds its elements in the page and names the ones the assertions read.
+  const cases: { key: string; title: string; expectTabbable: Record<string, boolean>; inList: Record<string, boolean> }[] = [
+    {
+      key: 'contents-visible',
+      title: 'keeps visible descendants of display: contents ancestors in the tab order in Chromium',
+      expectTabbable: { wrapper: false, button: true },
+      inList: { wrapper: false, button: true },
+    },
+    {
+      key: 'block-content-visibility',
+      title: 'excludes descendants of block content-visibility:hidden ancestors from the tab order',
+      expectTabbable: { button: false },
+      inList: { button: false },
+    },
+    {
+      key: 'contents-content-visibility',
+      title: 'keeps descendants of display: contents content-visibility:hidden ancestors in the tab order',
+      expectTabbable: { button: true },
+      inList: { button: true },
+    },
+    {
+      key: 'inline-content-visibility',
+      title: 'keeps descendants of inline content-visibility:hidden ancestors in the tab order',
+      expectTabbable: { button: true },
+      inList: { button: true },
+    },
+    {
+      key: 'candidate-content-visibility',
+      title: 'keeps content-visibility:hidden candidates in the tab order',
+      expectTabbable: { button: true },
+      inList: { button: true },
+    },
+    {
+      key: 'zero-size',
+      title: 'keeps zero-size elements in the tab order',
+      expectTabbable: { element: true },
+      inList: { element: true },
+    },
+  ];
+
+  for (const { key, title, expectTabbable, inList } of cases) {
+    test(title, async ({ page, mode }) => {
+      await gotoFixture(page, mode, 'probe');
+
+      const result = await page.evaluate(
+        async ({ path, key: caseKey }) => {
+          const { isTabbable, tabbable } = await import(path);
+          const root = document.createElement('div');
+          const elements: Record<string, HTMLElement> = {};
+          const button = document.createElement('button');
+          if (caseKey === 'zero-size') {
+            const element = document.createElement('div');
+            element.tabIndex = 0;
+            Object.assign(element.style, { width: '0', height: '0', padding: '0', border: '0' });
+            root.append(element);
+            elements.element = element;
+          } else if (caseKey === 'candidate-content-visibility') {
+            button.style.setProperty('content-visibility', 'hidden');
+            root.append(button);
+            elements.button = button;
+          } else {
+            const wrapper = document.createElement('div');
+            if (caseKey === 'contents-visible') {
+              wrapper.style.display = 'contents';
+              wrapper.tabIndex = 0;
+              elements.wrapper = wrapper;
+            } else if (caseKey === 'contents-content-visibility') {
+              wrapper.style.display = 'contents';
+              wrapper.style.setProperty('content-visibility', 'hidden');
+            } else if (caseKey === 'inline-content-visibility') {
+              wrapper.style.display = 'inline';
+              wrapper.style.setProperty('content-visibility', 'hidden');
+            } else {
+              wrapper.style.setProperty('content-visibility', 'hidden');
+            }
+            wrapper.append(button);
+            root.append(wrapper);
+            elements.button = button;
+          }
+          document.body.append(root);
+          try {
+            const list = tabbable(document.body) as Element[];
+            return {
+              tabbable: Object.fromEntries(Object.entries(elements).map(([name, element]) => [name, isTabbable(element) as boolean])),
+              inList: Object.fromEntries(Object.entries(elements).map(([name, element]) => [name, list.includes(element)])),
+            };
+          } finally {
+            root.remove();
+          }
+        },
+        { path: focusManagerModule, key },
+      );
+
+      expect(result.tabbable).toEqual(expectTabbable);
+      expect(result.inList).toEqual(inList);
+    });
+  }
+});
