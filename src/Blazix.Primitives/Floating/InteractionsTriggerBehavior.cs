@@ -14,9 +14,10 @@ namespace Blazix.Primitives;
 // - on WebAssembly the press decider runs it synchronously inside the click, and the request unless it called
 //   PreventPartHandler(); Blazor then dispatches the same click to the part's own onclick, which skips it (a one-shot
 //   marker matched by click count and modifiers);
-// - on Server the module reports the press, whose message precedes Blazor's own dispatch of the click: the report runs
-//   the consumer's onclick and then the request, and the part's onclick skips the click it already ran. Whichever of
-//   the two arrives first runs the handler; the other reads its verdict.
+// - on Server the module reports the press, whose message precedes Blazor's own dispatch of the click on one circuit
+//   (ADR-04/1): the report runs the consumer's onclick and then the request, and the part's onclick skips the click it
+//   already ran. A dispatch with no press before it is a click the module did not turn into a press: it runs the
+//   handler and leaves nothing behind.
 // Every other request the trigger's handle makes (hover, focus, reference press) arrives as a report.
 /// <summary>
 /// One trigger's handle on the <c>interactions</c> module: its options, the gate of the consumer's <c>onclick</c>, the press
@@ -29,7 +30,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     private readonly EventCallback onClick;
     private readonly InteractionsAttachment attachment;
     private AttributeValue consumerClick;
-    private DecidedClick? decidedClick;
+    private ClickKey? decidedClick;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="InteractionsTriggerBehavior"/> class.</summary>
@@ -127,23 +128,14 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     /// <returns>The consumer handler's task.</returns>
     public Task HandleClickAsync(MouseEventArgs e)
     {
-        ClickKey current = DecidedClick.From(e);
-        if (decidedClick is { FromDispatch: false } decided && decided.Click == current)
-        {
-            decidedClick = null;
-            return Task.CompletedTask;
-        }
-
-        if (!consumerClick.IsHandler)
+        ClickKey? decided = decidedClick;
+        decidedClick = null;
+        if (decided == DecidedClick.From(e) || !consumerClick.IsHandler)
         {
             return Task.CompletedTask;
         }
 
-        // Blazor's dispatch arrived before the module's report (Server): the report reads this verdict.
-        decidedClick = new DecidedClick(current, e.PartHandlerPrevented(), FromDispatch: true);
-        Task handler = consumerClick.InvokeAsync(e);
-        decidedClick = decidedClick.Value with { Vetoed = e.PartHandlerPrevented() };
-        return handler;
+        return consumerClick.InvokeAsync(e);
     }
 
     /// <summary>Attaches the trigger's handle after the first render that showed its element, then sends the options that changed.</summary>
@@ -188,14 +180,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         }
 
         MouseEventArgs args = ToArgs(snapshot);
-        ClickKey key = DecidedClick.From(args);
-        if (decidedClick is { FromDispatch: true } dispatched && dispatched.Click == key)
-        {
-            decidedClick = null;
-            return dispatched.Vetoed;
-        }
-
-        decidedClick = new DecidedClick(key, false, FromDispatch: false);
+        decidedClick = DecidedClick.From(args);
         try
         {
             Task handler = consumerClick.InvokeAsync(args);
@@ -260,12 +245,20 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         }
     }
 
-    /// <summary>The click a handler already ran for: its key, the verdict and which path ran it.</summary>
-    private readonly record struct DecidedClick(ClickKey Click, bool Vetoed, bool FromDispatch)
+    /// <summary>Builds the key of a click a press already ran the consumer's handler for.</summary>
+    private static class DecidedClick
     {
+        /// <summary>Returns the key of a click.</summary>
+        /// <param name="e">The click's arguments.</param>
+        /// <returns>The click count and modifiers, matched against Blazor's dispatch of the same click.</returns>
         public static ClickKey From(MouseEventArgs e) => new(e.Detail, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
     }
 
-    /// <summary>What matches a decided click against the other path's arrival of the same click.</summary>
+    /// <summary>What matches a press's click against Blazor's dispatch of the same click.</summary>
+    /// <param name="Detail">The click count.</param>
+    /// <param name="AltKey">Whether Alt was held.</param>
+    /// <param name="CtrlKey">Whether Control was held.</param>
+    /// <param name="MetaKey">Whether Meta was held.</param>
+    /// <param name="ShiftKey">Whether Shift was held.</param>
     private readonly record struct ClickKey(long Detail, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey);
 }

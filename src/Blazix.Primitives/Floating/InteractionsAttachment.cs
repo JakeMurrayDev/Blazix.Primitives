@@ -84,25 +84,19 @@ internal sealed class InteractionsAttachment : IAsyncDisposable
                 attaching = false;
             }
 
-            if (handle is not null)
+            if (handle is null)
             {
-                sentOptions = options;
-                Sends++;
-                attachedSource.TrySetResult();
+                return;
             }
 
-            return;
+            sentOptions = options;
+            Sends++;
+            attachedSource.TrySetResult();
+
+            // A render while the attach was in flight returned early: send what changed meanwhile.
         }
 
-        if (sentOptions is { } sent && unchanged(sent))
-        {
-            return;
-        }
-
-        InteractionsOptions next = build();
-        sentOptions = next;
-        Sends++;
-        await handle.UpdateAsync(next);
+        await FlushAsync(unchanged, build);
     }
 
     /// <summary>Releases the handle, so a later sync attaches again.</summary>
@@ -115,6 +109,19 @@ internal sealed class InteractionsAttachment : IAsyncDisposable
             sentOptions = null;
             await released.DisposeAsync();
         }
+    }
+
+    private async Task FlushAsync(Func<InteractionsOptions, bool> unchanged, Func<InteractionsOptions> build)
+    {
+        if (handle is null || (sentOptions is { } sent && unchanged(sent)))
+        {
+            return;
+        }
+
+        InteractionsOptions next = build();
+        sentOptions = next;
+        Sends++;
+        await handle.UpdateAsync(next);
     }
 }
 

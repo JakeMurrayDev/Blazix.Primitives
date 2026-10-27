@@ -43,6 +43,10 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
     [CascadingParameter]
     private FixtureInteractionsRoot Root { get; set; } = null!;
 
+    /// <summary>Gets or sets a value indicating whether a repeated press closes the popup (<c>Click.Toggle</c>).</summary>
+    [Parameter]
+    public bool Toggle { get; set; } = true;
+
     /// <summary>Gets a task that completes when both handles are attached.</summary>
     public Task TwinsAttached => Task.WhenAll(button!.TwinAttached, interactions!.TwinAttached);
 
@@ -70,6 +74,7 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
     protected override void OnParametersSet()
     {
         interactions!.SessionToken = Root.Session.Token;
+        interactions.Options = new InteractionsTriggerOptions { Click = new InteractionsClickOptions { Toggle = Toggle ? null : false } };
         button!.SetConsumerAttributes(AdditionalAttributes);
         interactions.SetConsumerAttributes(AdditionalAttributes);
     }
@@ -82,8 +87,10 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
             return;
         }
 
+        // Both handles start attaching in the same render, so the interactions options are built before any later input.
+        Task interactionsSync = interactions!.AfterRenderAsync(Enabled, Element, Id);
         await button!.AfterRenderAsync(Enabled, Element, Id, composite: false);
-        await interactions!.AfterRenderAsync(Enabled, Element, Id);
+        await interactionsSync;
     }
 
     /// <inheritdoc />
