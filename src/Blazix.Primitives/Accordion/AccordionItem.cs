@@ -40,8 +40,9 @@ public static class AccordionItemDataAttributes
 //   (ACC-ARIA-06: prerender equals the interactive render); then its element id (D3), which Base UI does not render.
 // - Two fixed cascades (settled; ACC-EDGE-14): CollapsibleRootContext, so real Collapsible parts bind to the item, and
 //   AccordionItemContext<TValue>.
-// - ACC-EDGE-01: outside a root it throws in every build. The index (ACC-STA-13) waits for track 1's registration-only
-//   composite list and reads -1 until then.
+// - ACC-EDGE-01: outside a root it throws in every build.
+// - ACC-STA-13, ACC-DOM-05: it is an item of its root's registration-only composite list (CompositeListItemBehavior, track 1's
+//   E1, ADR 04 Amendments 2026-10-26), registered by its element id; its index is the reported position, -1 until then.
 /// <summary>
 /// Represents one section of an accordion, Base UI's <c>Accordion.Item</c>, rendered as a <c>div</c>: it groups an
 /// <see cref="AccordionHeader{TValue}"/> and its <see cref="AccordionTrigger{TValue}"/> with the
@@ -58,7 +59,9 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
     private readonly RenderFragment renderPart;
     private readonly RenderFragment renderItemCascade;
     private readonly Action itemChanged;
+    private readonly Action indexChanged;
     private AccordionItemContext<TValue>? context;
+    private CompositeListItemBehavior? listItem;
     private string? fallbackValue;
     private bool valueSupplied;
 
@@ -68,6 +71,7 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
         renderPart = base.BuildRenderTree;
         renderItemCascade = BuildItemCascade;
         itemChanged = StateHasChanged;
+        indexChanged = () => context!.SetIndex(listItem!.Index);
     }
 
     [Inject]
@@ -81,6 +85,9 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
 
     [CascadingParameter]
     private AccordionRootContext? AnyRootContext { get; set; }
+
+    [CascadingParameter]
+    private CompositeListContext? ListContext { get; set; }
 
     // ACC-API-10
     /// <summary>Gets or sets the value that identifies the item in its root's value.</summary>
@@ -150,6 +157,7 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
         context = new AccordionItemContext<TValue>(root, collapsible, IdGenerator.Next());
         context.AddListener(itemChanged);
         base.OnInitialized();
+        listItem = new CompositeListItemBehavior(ListContext, indexChanged);
     }
 
     /// <inheritdoc />
@@ -157,6 +165,7 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
     {
         context!.OnOpenChange = OnOpenChange;
         context.ApplyParameters(AccordionValues.Identity(valueSupplied, Value!, fallbackValue!), Disabled);
+        listItem!.SetRegistration(Id);
     }
 
     /// <inheritdoc />
@@ -171,10 +180,17 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
     }
 
     /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        return listItem!.AfterRenderAsync(Element);
+    }
+
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing && context is not null)
         {
+            listItem?.Dispose();
             context.RemoveListener(itemChanged);
             context.Dispose();
         }

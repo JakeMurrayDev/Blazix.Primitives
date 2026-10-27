@@ -2,6 +2,7 @@ using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -34,7 +35,9 @@ public static class AccordionRootDataAttributes
 // - ACC-EDGE-04: an explicit KeepMounted="false" with HiddenUntilFound is found with TryGetValue and logged once (settled by the
 //   orchestrator 2026-10-25 under the CollapsiblePanel precedent).
 // - The context is cascaded around the element, as Base UI's provider wraps it; fixed (ADR 16 rule 9).
-// - Track 1's registration-only composite list (ACC-STR-01's registry, ACC-STA-13) is open until that pull request is on main.
+// - It is the registration-only composite list of its items (ACC-STR-01's registry, ACC-STA-13; CompositeListBehavior, track 1's
+//   E1, ADR 04 Amendments 2026-10-26): no listener, no tabindex, the items' order reported by the module. Its context is
+//   cascaded inside the element, around the consumer's content (the RadioGroup pattern), fixed (ADR 16 rule 9).
 /// <summary>
 /// Represents the root of an accordion, Base UI's <c>Accordion.Root</c>, rendered as a <c>div</c>: a vertically stacked
 /// set of <see cref="AccordionItem{TValue}"/> sections whose panels open and close. It owns the values of the open items.
@@ -55,6 +58,9 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
     private readonly RenderFragment renderPart;
     private readonly Action committed;
     private AccordionRootContext<TValue>? context;
+    private CompositeListBehavior? list;
+    private RenderFragment? cascade;
+    private RenderFragment? cascadedContent;
     private AccordionRootState<TValue>? state;
     private bool pendingKeepMountedWarning;
 
@@ -70,6 +76,12 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
 
     [Inject]
     private CollapsibleDevelopmentLog DevelopmentLog { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
 
     // ACC-API-01
     /// <summary>Gets or sets the values of the open items, when the consumer owns them.</summary>
@@ -174,6 +186,15 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
         }
     }
 
+    // ADR 02 decision 1: under a substitute callback the list's twin finds the element by id.
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => RenderFunction is not null;
+
+    // For the fixtures: completes once the registration-only list is attached to the root's element.
+    /// <summary>Gets a task that completes when the root's list behavior is attached to its element.</summary>
+    /// <value>A task that completes after the first interactive render has attached it.</value>
+    internal Task TwinAttached => list!.TwinAttached;
+
     /// <summary>Gets the shared state the root cascades to its items.</summary>
     /// <value>The context; available from the first parameter set.</value>
     internal AccordionRootContext<TValue> Context => context!;
@@ -195,6 +216,13 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
     }
 
     /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        list = new CompositeListBehavior(JSRuntime, IdGenerator, StateHasChanged);
+    }
+
+    /// <inheritdoc />
     protected override void OnParametersSet()
     {
         AccordionRootContext<TValue> shared = context!;
@@ -207,6 +235,15 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
             pendingKeepMountedWarning = false;
             DevelopmentLog.Report(Logger, CollapsibleDevelopmentLog.AccordionRootKeepMountedIgnoredMessage);
         }
+
+        // The list's registry wraps the consumer's content inside the root's element; rebuilt only for other content.
+        if (cascade is null || (!ReferenceEquals(ChildContent, cascade) && !ReferenceEquals(cascadedContent, ChildContent)))
+        {
+            cascadedContent = ChildContent;
+            cascade = list!.Context.Cascade(cascadedContent);
+        }
+
+        ChildContent = cascade;
     }
 
     /// <inheritdoc />
@@ -218,6 +255,29 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
         builder.AddComponentParameter(2, nameof(CascadingValue<AccordionRootContext<TValue>>.IsFixed), true);
         builder.AddComponentParameter(3, nameof(CascadingValue<AccordionRootContext<TValue>>.ChildContent), renderPart);
         builder.CloseComponent();
+    }
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        return list!.AfterRenderAsync(Enabled, Element, Id);
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            list?.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        list!.AddAttributes(attributes, Id);
     }
 
     // ACC-EDGE-01 (the PRG-EDGE-01 precedent: `Blazix: ` for `Base UI: `, the part names for the context names).

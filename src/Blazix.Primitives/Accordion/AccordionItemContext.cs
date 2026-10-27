@@ -166,6 +166,18 @@ internal sealed class AccordionItemContext<TValue> : AccordionItemContext, IDisp
         Sync();
     }
 
+    // ACC-STA-13: the item's position in the order its root's registration-only list reported, -1 before the first report.
+    /// <summary>Sets the item's index and publishes the new state when it changed.</summary>
+    /// <param name="index">The index the list reported for the item, or -1.</param>
+    public void SetIndex(int index)
+    {
+        if (State.Index != index)
+        {
+            State = State with { Index = index };
+            Publish();
+        }
+    }
+
     private void Sync()
     {
         // ACC-API-11: the effective disabled; ACC-STA-04: the derived open flag.
