@@ -50,6 +50,14 @@ internal static class OwnershipRegistry
         // composite focus and mousemove listeners (TLB-PTR-02, TLB-KEY-13); the modules attach them and C# renders none.
         new("toolbar", "Root", "handlers", Writer.Js),
         new("toolbar", "Input", "handlers", Writer.Js),
+        // The always-item parts take the second half of the settled tabindex cell, `C# → JS (from attach)` (ADR 04
+        // Amendments 2026-10-22, chosen by the user; the cell text chosen by the user 2026-10-26, M3 plan): C# renders "-1"
+        // (CMP-STA-15) and the composite module writes the roving value from attach. Design point 14.1 (a), pending the
+        // user: the button module clears the DOM disabled property a substituted part rendered (TLB-DOM-08, UBT-ALG-04).
+        new("toolbar", "Button", "tabindex", Writer.CsharpToJs),
+        new("toolbar", "Link", "tabindex", Writer.CsharpToJs),
+        new("toolbar", "Input", "tabindex", Writer.CsharpToJs),
+        new("toolbar", "Button", "disabled", Writer.CsharpToJs),
         // Radio (M2 tracks 7-8; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden radio input's checked
         // property from attach, C# rendering the initial value once (the Switch shape); the transitions module writes the
         // Indicator's transition attributes, mirrored in its state's TransitionStatus.

@@ -354,8 +354,8 @@ Toolbar owns no value. Its state is (a) the composite root's **highlighted index
 |---|---|---|---|
 | `type` | `"button"` (native mode) | TLB-DOM-04 | C# |
 | `role` | `"button"` (non-native mode) | TLB-DOM-04 | C# |
-| `tabindex` | roving: `"0"` on the tab-stop item, `"-1"` otherwise | TLB-DOM-05 | C# |
-| `disabled` | only when `focusableWhenDisabled={false}` and disabled (native) | TLB-DOM-04 | C# |
+| `tabindex` | roving: `"0"` on the tab-stop item, `"-1"` otherwise | TLB-DOM-05 | C# → JS (from attach) |
+| `disabled` | only when `focusableWhenDisabled={false}` and disabled (native) | TLB-DOM-04, TLB-DOM-08 | C#; C# → JS (the DOM property a substituted part rendered, cleared by the `button` module while focusable when disabled, design point 14.1, pending the user) |
 | `aria-disabled` | per matrix | TLB-ARIA-03 | C# |
 | `data-disabled`, `data-orientation`, `data-focusable` | §3.2 | TLB-DOM-03 | C# |
 
@@ -386,6 +386,11 @@ Toolbar owns no value. Its state is (a) the composite root's **highlighted index
 
 ### 5.3 Link element
 
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `tabindex` | roving `"0"` / `"-1"` | TLB-DOM-06 | C# → JS (from attach) |
+| `data-orientation` | always; toolbar orientation | TLB-DOM-06 | C# |
+
 - **TLB-DOM-06** — MUST. `Toolbar.Link` MUST render an `<a>` (default) carrying the roving `tabindex` and `data-orientation` only; it MUST never carry `disabled`, `aria-disabled`, `data-disabled`, `data-focusable`, `type` or an added `role` (the native link role applies).
   Source: `toolbar/link/ToolbarLink.tsx:28-43`; `toolbar/link/ToolbarLinkDataAttributes.ts:5`. Test: [L2] `ToolbarLink.test.tsx` "renders an anchor" (`getByRole('link')`); `ToolbarRoot.test.tsx` "disables all toolbar items except links" (no `data-disabled` / `aria-disabled`).
   Port note 2026-10-27: asserted by `ToolbarLinkTests` "renders an anchor" and "port: a link is an item with tabindex -1 and data-orientation only, whatever the toolbar's disabled state". §5.3 gains a table for the link's `tabindex`, `C# → JS (from attach)` as TLB-DOM-05's note gives (ADR 04 Amendments 2026-10-22; the ownership lint reads a cell under a heading naming the part).
@@ -394,7 +399,7 @@ Toolbar owns no value. Its state is (a) the composite root's **highlighted index
 
 | Attribute | Value / present when | Req | Writer |
 |---|---|---|---|
-| `tabindex` | roving `"0"` / `"-1"` | TLB-DOM-07 | C# |
+| `tabindex` | roving `"0"` / `"-1"` | TLB-DOM-07 | C# → JS (from attach) |
 | `aria-disabled` | `"true"` while effectively disabled; absent otherwise | TLB-ARIA-04 | C# |
 | `disabled` | never | TLB-DOM-07 | C# |
 | `type`, `role` | not added (consumer's `type` forwarded) | TLB-DOM-07 | C# |
