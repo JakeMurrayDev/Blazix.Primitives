@@ -1,0 +1,57 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+@using Blazix.Primitives
+@inherits TabsFixtureBase
+
+@*
+    The `tabs-panels` fixture (tests/browser/tabs.spec.ts, group G; open with ?animations=1 for the animated cases):
+    TabsPanel.test.tsx's "animations" pages. A Panel with a 1 ms opacity transition on its starting and ending styles; one
+    with a 100 ms keyframe animation on its ending style; the same two kept mounted; and Panels with no motion.
+*@
+<FixtureContainer Name="tabs-panels" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <style>
+        .animation-test-panel { transition: opacity 1ms; }
+        .animation-test-panel[data-starting-style], .animation-test-panel[data-ending-style] { opacity: 0; }
+        @@keyframes test-anim { to { opacity: 0; } }
+        .exit-test-panel[data-ending-style] { animation: test-anim 100ms; }
+    </style>
+
+    <TabsCaseFrame Name="enter" Case="enter">
+        <TabsRoot TValue="string" DefaultValue="@("one")" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="StringTab" Value="@("one")" data-tab="one">One</TabsTab>
+                <TabsTab @ref="StringTab" Value="@("two")" data-tab="two">Two</TabsTab>
+            </TabsList>
+            <TabsPanel @ref="StringPanel" Value="@("one")" data-panel="one">Panel one</TabsPanel>
+            <TabsPanel Value="@("two")" class="animation-test-panel" data-panel="two">Panel two</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="exit" Case="exit">
+        <TabsRoot TValue="string" DefaultValue="@("one")" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="StringTab" Value="@("one")" data-tab="one">One</TabsTab>
+                <TabsTab @ref="StringTab" Value="@("two")" data-tab="two">Two</TabsTab>
+            </TabsList>
+            <TabsPanel @ref="StringPanel" Value="@("one")" class="exit-test-panel" data-panel="one">Panel one</TabsPanel>
+            <TabsPanel Value="@("two")" data-panel="two">Panel two</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+
+    <TabsCaseFrame Name="kept" Case="kept">
+        <TabsRoot TValue="string" DefaultValue="@("one")" data-root>
+            <TabsList @ref="List">
+                <TabsTab @ref="StringTab" Value="@("one")" data-tab="one">One</TabsTab>
+                <TabsTab @ref="StringTab" Value="@("two")" data-tab="two">Two</TabsTab>
+            </TabsList>
+            <TabsPanel @ref="StringPanel" Value="@("one")" KeepMounted="true" class="exit-test-panel" data-panel="one">Panel one</TabsPanel>
+            <TabsPanel @ref="StringPanel" Value="@("two")" KeepMounted="true" class="animation-test-panel" data-panel="two">Panel two</TabsPanel>
+        </TabsRoot>
+    </TabsCaseFrame>
+</FixtureContainer>
+
+@code {
+    private readonly TabsCase enter = new();
+    private readonly TabsCase exit = new();
+    private readonly TabsCase kept = new();
+}

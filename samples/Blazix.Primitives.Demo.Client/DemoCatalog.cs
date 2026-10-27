@@ -26,6 +26,7 @@ public static class DemoCatalog
         new("radio-group", "Radio Group", "Radio buttons (Radio) in a group (Radio Group) that holds the one value selected.", typeof(RadioGroupDemo)),
         new("toggle", "Toggle", "A two-state button that is pressed or not.", typeof(ToggleDemo)),
         new("toggle-group", "Toggle Group", "A set of toggles that share one value, here the text alignment.", typeof(ToggleGroupDemo)),
+        new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
