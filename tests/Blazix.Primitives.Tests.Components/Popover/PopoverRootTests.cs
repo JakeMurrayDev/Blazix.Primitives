@@ -1,6 +1,8 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -387,6 +389,246 @@ public sealed class PopoverRootTests : IDisposable
         Assert.Equal(2, TriggerGuards(cut));
     }
 
+    [Fact(DisplayName = "does not leak from a canceled close into a synchronous second close")]
+    [Trait("Requirement", "POP-EVT-04")]
+    public async Task Does_not_leak_from_a_canceled_close_into_a_synchronous_second_close()
+    {
+        PopoverHandle<int> handle = new();
+        int closeAttempts = 0;
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            Handle = handle,
+            DefaultOpen = true,
+            DefaultTriggerId = "trigger-1",
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (args.Value)
+                {
+                    return;
+                }
+
+                closeAttempts++;
+                if (closeAttempts == 1)
+                {
+                    OpenChangeEventDetails details = (OpenChangeEventDetails)args.Details;
+                    details.PreventUnmountOnClose();
+                    details.Cancel();
+                    _ = handle.CloseAsync();
+                }
+            }),
+        });
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+
+        await cut.InvokeAsync(handle.CloseAsync);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid=\"popup\"]")));
+        Assert.Equal(2, closeAttempts);
+    }
+
+    [Fact(DisplayName = "unmounts on a normal close after a prevented close and initially open remount")]
+    [Trait("Requirement", "POP-EVT-04")]
+    [Trait("Requirement", "POP-ANI-06")]
+    [Trait("Requirement", "POP-EDGE-07")]
+    public async Task Unmounts_on_a_normal_close_after_a_prevented_close_and_initially_open_remount()
+    {
+        PopoverHandle<int> handle = new();
+        bool preventNextUnmount = true;
+        IRenderedComponent<PopupTestHost> cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, new PopoverSpec
+            {
+                Handle = handle,
+                RootMounted = host.Get<bool>("mounted"),
+                DefaultOpen = host.Get<bool>("remountOpen"),
+                DefaultTriggerId = "trigger-1",
+                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, args =>
+                {
+                    if (!args.Value && preventNextUnmount)
+                    {
+                        preventNextUnmount = false;
+                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    }
+                }),
+            }),
+            new() { ["mounted"] = true, ["remountOpen"] = false });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+        await test.PressAsync(cut, "trigger-1", open: false);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        Assert.False(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+
+        await cut.InvokeAsync(() => cut.Instance.SetAsync("mounted", false));
+        Assert.Empty(cut.FindAll("[data-testid=\"popup\"]"));
+
+        await cut.InvokeAsync(() => cut.Instance.SetAsync("remountOpen", true));
+        await cut.InvokeAsync(() => cut.Instance.SetAsync("mounted", true));
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open")));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+
+        await test.PressAsync(cut, "trigger-1", open: false);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid=\"popup\"]")));
+    }
+
+    [Theory(DisplayName = "unmounts on a normal close after preventUnmountOnClose and external reopen")]
+    [MemberData(nameof(Shapes))]
+    [Trait("Requirement", "POP-EVT-04")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task Unmounts_on_a_normal_close_after_preventUnmountOnClose_and_external_reopen(string shape)
+    {
+        PopoverSpec spec = Shape(shape);
+        bool preventNextUnmount = true;
+        IRenderedComponent<PopupTestHost> cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, spec with
+            {
+                Open = host.Get<bool>("open"),
+                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, args =>
+                {
+                    if (!args.Value && preventNextUnmount)
+                    {
+                        preventNextUnmount = false;
+                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    }
+
+                    return host.SetAsync("open", args.Value);
+                }),
+            }),
+            new() { ["open"] = false });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        Assert.True(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+
+        await test.PressAsync(cut, "trigger-1", open: false);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        Assert.False(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"content\"]"));
+
+        await cut.InvokeAsync(() => cut.Instance.SetAsync("open", true));
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open")));
+
+        await test.PressAsync(cut, "trigger-1", open: false);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid=\"content\"]")));
+    }
+
+    [Theory(DisplayName = "unmounts on a later normal close after a preventUnmountOnClose cycle and reopen")]
+    [MemberData(nameof(Shapes))]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task Unmounts_on_a_later_normal_close_after_a_preventUnmountOnClose_cycle_and_reopen(string shape)
+    {
+        bool preventNextUnmount = true;
+        IRenderedComponent<PopupTestHost> cut = Render(Shape(shape) with
+        {
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value && preventNextUnmount)
+                {
+                    preventNextUnmount = false;
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }),
+        });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+        await test.PressAsync(cut, "trigger-1", open: false);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        Assert.False(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"content\"]"));
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        Assert.True(cut.Find("[data-testid=\"trigger-1\"]").HasAttribute("data-popup-open"));
+
+        await test.PressAsync(cut, "trigger-1", open: false);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid=\"content\"]")));
+    }
+
+    // Base UI's "keeps the opt-out when a controlled close is applied in a transition": React's startTransition commits
+    // the consumer's close in a later render; Blazor has no transitions, so the consumer applies it after its callback.
+    [Theory(DisplayName = "port: keeps the opt-out when a controlled close is applied after the callback returns")]
+    [MemberData(nameof(Shapes))]
+    [Trait("Requirement", "POP-ANI-06")]
+    [Trait("Requirement", "POP-EVT-04")]
+    public async Task Keeps_the_opt_out_when_a_controlled_close_is_applied_after_the_callback_returns(string shape)
+    {
+        PopoverSpec spec = Shape(shape);
+        PopoverRoot<int>? root = null;
+        List<bool> completes = [];
+        bool? requested = null;
+        IRenderedComponent<PopupTestHost> cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, spec with
+            {
+                Open = host.Get<bool>("open"),
+                TriggerIdSupplied = true,
+                TriggerId = "trigger-1",
+                CaptureRoot = r => root = r,
+                OnOpenChangeComplete = EventCallback.Factory.Create<bool>(host, completes.Add),
+                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, args =>
+                {
+                    if (!args.Value)
+                    {
+                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    }
+
+                    requested = args.Value;
+                }),
+            }),
+            new() { ["open"] = true });
+
+        await test.PressAsync(cut, "trigger-1", open: false);
+        Assert.False(requested);
+        await cut.InvokeAsync(() => cut.Instance.SetAsync("open", false));
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        cut.WaitForAssertion(() => Assert.Equal("false", cut.Find("[data-testid=\"trigger-1\"]").GetAttribute("aria-expanded")));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+        Assert.DoesNotContain(false, completes);
+
+        await cut.InvokeAsync(root!.Unmount);
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-testid=\"popup\"]")));
+        Assert.Equal([false], completes.Where(open => !open));
+    }
+
+    // Base UI's "opens by trigger from a descendant layout effect on initial mount": a descendant opens the popover through
+    // the handle in its layout effect, before the Root's effects ran. Blazor's counterpart is a descendant's first
+    // OnAfterRenderAsync, inside the Root's first render batch.
+    [Fact(DisplayName = "port: opens by trigger from a descendant's first render on initial mount")]
+    [Trait("Requirement", "POP-API-09")]
+    [Trait("Requirement", "POP-API-26")]
+    [Trait("Requirement", "POP-EDGE-06")]
+    public void Opens_by_trigger_from_a_descendants_first_render_on_initial_mount()
+    {
+        DevelopmentWarningsSwitch.TurnOn();
+        CapturingLogger<PopoverRoot<int>> logger = new();
+        test.Context.Services.AddSingleton<ILogger<PopoverRoot<int>>>(logger);
+        PopoverHandle<int> handle = new();
+
+        IRenderedComponent<PopupTestHost> cut = test.Render((builder, _) =>
+        {
+            builder.OpenComponent<PopoverRoot<int>>(0);
+            builder.AddComponentParameter(1, nameof(PopoverRoot<int>.Handle), handle);
+            builder.AddComponentParameter(2, nameof(PopoverRoot<int>.ChildContent), (RenderFragment)(child =>
+            {
+                child.OpenComponent<PopoverTrigger<int>>(0);
+                child.AddAttribute(1, "id", "trigger-1");
+                child.AddAttribute(2, "data-testid", "trigger-1");
+                child.AddComponentParameter(3, nameof(PopoverTrigger<int>.ChildContent), (RenderFragment)(text => text.AddContent(0, "Trigger")));
+                child.CloseComponent();
+                child.OpenComponent<OpenOnFirstRender>(4);
+                child.AddComponentParameter(5, nameof(OpenOnFirstRender.Run), (Func<Task>)(() => handle.OpenAsync("trigger-1")));
+                child.CloseComponent();
+            }));
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=\"trigger-1\"]").GetAttribute("aria-expanded")));
+        Assert.True(handle.IsOpen);
+        Assert.DoesNotContain(logger.Entries, entry => entry.Message.Contains("no root using this handle is mounted", StringComparison.Ordinal));
+    }
+
     private static PopoverSpec Shape(string shape) => shape switch
     {
         "detached triggers" => new PopoverSpec { DetachedTriggers = true, Handle = new PopoverHandle<int>() },
@@ -406,4 +648,13 @@ public sealed class PopoverRootTests : IDisposable
     }
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
+
+    // Runs a callback once, after its first render (a descendant's counterpart of a layout effect on mount).
+    private sealed class OpenOnFirstRender : ComponentBase
+    {
+        [Parameter]
+        public Func<Task>? Run { get; set; }
+
+        protected override Task OnAfterRenderAsync(bool firstRender) => firstRender && Run is not null ? Run() : Task.CompletedTask;
+    }
 }
