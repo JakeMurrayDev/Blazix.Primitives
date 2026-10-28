@@ -59,6 +59,8 @@ internal sealed record PopoverSpec
 
     public Func<PopoverBackdropState, string?>? BackdropClass { get; init; }
 
+    public Func<PopoverPopupState, string?>? PopupClass { get; init; }
+
     public Action<PopoverRoot<int>>? CaptureRoot { get; init; }
 }
 
@@ -181,6 +183,11 @@ internal static class PopoverTree
                 p.OpenComponent<PopoverPopup>(0);
                 p.AddComponentParameter(1, "data-testid", "popup");
                 p.AddComponentParameter(2, nameof(PopoverPopup.ChildContent), (RenderFragment)(c => PopupContent(c, spec)));
+                if (spec.PopupClass is not null)
+                {
+                    p.AddComponentParameter(3, nameof(PopoverPopup.ClassValue), spec.PopupClass);
+                }
+
                 p.CloseComponent();
             }));
             b.CloseComponent();

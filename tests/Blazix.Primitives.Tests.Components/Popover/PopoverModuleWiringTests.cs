@@ -96,6 +96,34 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.False(cut.Find("[data-testid=\"popup\"]").HasAttribute("data-instant"));
     }
 
+    [Fact(DisplayName = "port: a keyboard press that moves the popover to another trigger clears the instant type in the render that applies it")]
+    [Trait("Requirement", "POP-ANI-07")]
+    [Trait("Requirement", "POP-DOM-28")]
+    public async Task A_move_between_triggers_clears_the_instant_type_at_commit()
+    {
+        List<PopoverInstantType?> renders = [];
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            Triggers = 2,
+            PopupClass = state =>
+            {
+                renders.Add(state.Instant);
+                return null;
+            },
+        });
+
+        // A keyboard press (detail 0) opens with the `click` instant type (POP-STA-07).
+        await test.PressAsync(cut, "trigger-1", open: true, detail: 0);
+        Assert.Equal(PopoverInstantType.Click, renders[^1]);
+        renders.Clear();
+
+        await test.PressAsync(cut, "trigger-2", open: true, detail: 0);
+
+        // useTriggerSwitchTransition clears it in the commit of the move; no render shows `click` on the new trigger.
+        Assert.NotEmpty(renders);
+        Assert.All(renders, Assert.Null);
+    }
+
     [Theory(DisplayName = "port: the positioner sends the cut-out and the anchored lock for a modal press, not for a hover, and the touch flag")]
     [InlineData("press", "mouse", true, false)]
     [InlineData("press", "touch", true, true)]
