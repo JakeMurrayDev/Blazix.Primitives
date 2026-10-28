@@ -1,0 +1,130 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-nested` fixture (tests/browser/popover.spec.ts, M4 track 5): PopoverRoot.test.tsx's nested popup
+    interactions, one per `case`:
+    - `programmatic`: a parent popover ("Parent trigger", `parent-popup`) whose popup holds a button "Open child
+      programmatically", a controlled child root on the trigger `child-reference` ("Child reference", `child-popup` with a
+      close "Close child") and a close "Close parent";
+    - `press`: a button `outside`, then a default-open parent ("Parent", `parent-popup`) whose popup holds a child popover
+      ("Child", `child-popup` reading "Child content");
+    - `child`: PopoverRoot.test.tsx's TestPopover as the parent (`parent-trigger`, `parent-popup`), in the `variant`
+      contained, detached or multiple, whose popup holds a contained child popover (`child-trigger`, `child-popup`).
+    A child trigger renders once its parent opens, after the page's readiness: an OpenOnMount beside it waits for that
+    trigger's handles, and the container then renders `data-child-attached="true"`.
+*@
+<FixtureContainer Name="popover-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-child-attached="@(childAttached ? "true" : "false")" data-open-changes="@OpenChanges">
+    @if (Case == "programmatic")
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root">
+            <PopoverTrigger TPayload="NoPayload" @ref="trigger">Parent trigger</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup data-testid="parent-popup">
+                        <button type="button" @onclick="() => childOpen = true">Open child programmatically</button>
+                        <PopoverRoot TPayload="NoPayload" Open="@childOpen" TriggerId="child-reference" OnOpenChange="args => childOpen = args.Value">
+                            <PopoverTrigger TPayload="NoPayload" @ref="childTrigger" id="child-reference">Child reference</PopoverTrigger>
+                            <PopoverPortal>
+                                <PopoverPositioner>
+                                    <PopoverPopup data-testid="child-popup">
+                                        <PopoverClose>Close child</PopoverClose>
+                                    </PopoverPopup>
+                                </PopoverPositioner>
+                            </PopoverPortal>
+                        </PopoverRoot>
+                        <PopoverClose>Close parent</PopoverClose>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    }
+    else if (Case == "press")
+    {
+        <button type="button" data-testid="outside">Outside</button>
+        <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" OnOpenChange="RecordOpenChange">
+            <PopoverTrigger TPayload="NoPayload" @ref="trigger">Parent</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup data-testid="parent-popup">
+                        <PopoverRoot TPayload="NoPayload">
+                            <PopoverTrigger TPayload="NoPayload" @ref="childTrigger">Child</PopoverTrigger>
+                            <OpenOnMount Run="ChildMountedAsync" />
+                            <PopoverPortal>
+                                <PopoverPositioner>
+                                    <PopoverPopup data-testid="child-popup">Child content</PopoverPopup>
+                                </PopoverPositioner>
+                            </PopoverPortal>
+                        </PopoverRoot>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    }
+    else if (variant == "contained")
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root">
+            <PopoverTrigger TPayload="NoPayload" @ref="trigger" data-testid="parent-trigger">Toggle</PopoverTrigger>
+            @ParentPortal
+        </PopoverRoot>
+    }
+    else
+    {
+        <PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" data-testid="parent-trigger">Toggle</PopoverTrigger>
+        @if (variant == "multiple")
+        {
+            <PopoverTrigger TPayload="NoPayload" @ref="second" Handle="@handle" data-testid="trigger-2">Toggle another</PopoverTrigger>
+        }
+        <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle">
+            @ParentPortal
+        </PopoverRoot>
+    }
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private readonly PopoverHandle<NoPayload> handle = new();
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private PopoverTrigger<NoPayload>? second;
+    private PopoverTrigger<NoPayload>? childTrigger;
+    private bool childAttached;
+    private bool childOpen;
+    private string variant = "contained";
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        second?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    // The parent popup's padding leaves room to press it beside the child trigger.
+    private RenderFragment ParentPortal => @<PopoverPortal>
+        <PopoverPositioner>
+            <PopoverPopup data-testid="parent-popup" style="padding: 16px">
+                <PopoverRoot TPayload="NoPayload">
+                    <PopoverTrigger TPayload="NoPayload" @ref="childTrigger" data-testid="child-trigger">Toggle</PopoverTrigger>
+                    <OpenOnMount Run="ChildMountedAsync" />
+                    <PopoverPortal>
+                        <PopoverPositioner>
+                            <PopoverPopup data-testid="child-popup" />
+                        </PopoverPositioner>
+                    </PopoverPortal>
+                </PopoverRoot>
+            </PopoverPopup>
+        </PopoverPositioner>
+    </PopoverPortal>;
+
+    protected override void OnInitialized() => variant = Query("variant") ?? "contained";
+
+    private async Task ChildMountedAsync()
+    {
+        await (childTrigger?.TwinsAttached ?? Task.CompletedTask);
+        childAttached = true;
+        StateHasChanged();
+    }
+}

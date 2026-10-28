@@ -1,7 +1,9 @@
 @namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
 @using Blazix.Primitives
 @using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
 @inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
 
 @*
     The `popover-root` fixture (tests/browser/popover.spec.ts, M4 track 5): PopoverRoot.test.tsx's TestPopover, whose
@@ -15,8 +17,13 @@
     - `inside`, the popup's content: `input` (`input-inside`), `button` (`inside`), `close` (a close "Close"),
       `close-labeled` (an empty close labeled "Close popover"), `remove` (`remove`, which its pointerdown removes), `hide`
       (`hide-button`, which its click hides with display: none, then an input); otherwise "Content";
-    - `popupClass=fade`: a 500 ms opacity transition that fades the popup out while `[data-ending-style]`.
-    The sync button is out of the tab order, so a Tab from the popover's last element leaves the page as in Base UI's test.
+    - `popupClass=fade`: a 500 ms opacity transition that fades the popup out while `[data-ending-style]`;
+    - `backdrop`: a PopoverBackdrop `backdrop` over the page; `positionerWidth`: the positioner's CSS width (`full`:
+      `calc(100vw - 10px)`);
+    - `container=shadow`: the portal renders nothing until a page script attaches an open shadow root to
+      `[data-shadow-host]` after the first render and hands it to C# (Base UI's `container: shadowRoot`).
+    `[data-unmount]` calls the root's Unmount. The sync button and the controls are out of the tab order, so a Tab from the
+    popover's last element leaves the page as in Base UI's test.
 *@
 <FixtureContainer Name="popover-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
@@ -56,7 +63,9 @@
             <button type="button" data-testid="outside">Outside</button>
         }
     </div>
+    <div data-shadow-host @ref="shadowHost"></div>
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
 </FixtureContainer>
 
 @code {
@@ -76,6 +85,10 @@
     private string? popupClass;
     private bool showRemove = true;
     private bool hidden;
+    private bool backdrop;
+    private string? positionerStyle;
+    private PortalContainerValue? container;
+    private ElementReference shadowHost;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -84,8 +97,12 @@
         root?.SessionAttached ?? Task.CompletedTask,
     ];
 
-    private RenderFragment Portal => @<PopoverPortal KeepMounted="@keepMounted">
-        <PopoverPositioner data-testid="positioner">
+    private RenderFragment Portal => @<PopoverPortal KeepMounted="@keepMounted" Container="@container">
+        @if (backdrop)
+        {
+            <PopoverBackdrop data-testid="backdrop" style="position: fixed; inset: 0" />
+        }
+        <PopoverPositioner data-testid="positioner" style="@positionerStyle">
             <PopoverPopup data-testid="popover-popup" class="@popupClass">
                 @if (inside == "input")
                 {
@@ -141,6 +158,37 @@
         outside = Query("outside");
         inside = Query("inside");
         popupClass = Query("popupClass");
+        backdrop = QueryFlag("backdrop") == true;
+        positionerStyle = Query("positionerWidth") switch
+        {
+            null => null,
+            "full" => "width: calc(100vw - 10px)",
+            { } width => $"width: {width}",
+        };
+        if (Query("container") == "shadow")
+        {
+            container = PortalContainerValue.Pending;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && Query("container") == "shadow")
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createOpenShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
     }
 
     private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) =>

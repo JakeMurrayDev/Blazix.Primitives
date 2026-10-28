@@ -1,8 +1,8 @@
 import { type Locator, type Route } from '@playwright/test';
-import { expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import { expect, Fixture, fixtureUrl, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
-import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
+import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { positionerConformanceTests } from './suites/positioner-conformance';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
@@ -730,6 +730,27 @@ test.describe('<Popover.Trigger /> hover', () => {
 });
 
 
+// A click on the page itself (Base UI's `document.body`): the viewport's bottom-right corner, which the fixtures leave empty.
+async function clickEmptyPage(page: Page): Promise<void> {
+  const { width, height } = page.viewportSize()!;
+  const point = [width - 4, height - 4] as const;
+  expect(await page.evaluate(([x, y]) => {
+    const element = document.elementFromPoint(x, y);
+    return element === document.body || element === document.documentElement;
+  }, point)).toBe(true);
+  await page.mouse.click(...point);
+}
+
+// A press on a backdrop covering the viewport, at the bottom-right corner: pressed first, released after the checks.
+async function pressBackdropCorner(page: Page, backdrop: Locator): Promise<() => Promise<void>> {
+  const { width, height } = page.viewportSize()!;
+  const point = [width - 4, height - 4] as const;
+  expect(await backdrop.evaluate((element, [x, y]) => document.elementFromPoint(x, y) === element, point)).toBe(true);
+  await page.mouse.move(...point);
+  await page.mouse.down();
+  return () => page.mouse.up();
+}
+
 // The focus guards a key press visits, recorded by a capture `focusin` listener (PopoverRoot.test.tsx's trackFocusedGuards):
 // `unique` is false once one guard took focus twice.
 async function trackFocusedGuards(page: Page): Promise<() => Promise<{ count: number; unique: boolean }>> {
@@ -757,6 +778,150 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
       gotoPopupFixture(page, mode, 'popover-root', { variant, ...options });
     // Base UI's titles focus an element inside a default-open popup with act(), after the open's initial focus has landed
     // on it; here the titles wait for that initial focus instead, so it cannot land after the test's own keys.
+
+    test('should close when the anchor is clicked twice', async ({ page, mode }) => {
+      await goto(page, mode);
+      const anchor = page.getByTestId('trigger');
+
+      await anchor.click();
+      await expect(page.getByText('Content', { exact: true })).toBeVisible();
+
+      await anchor.click();
+      await expect(page.getByText('Content', { exact: true })).toHaveCount(0);
+    });
+
+    test('rewires dismiss interactions after closing and reopening', async ({ page, mode }) => {
+      await goto(page, mode, { modal: false, inside: 'close' });
+      const trigger = page.getByTestId('trigger');
+
+      await trigger.click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+
+      await trigger.click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await clickEmptyPage(page);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
+
+    test('remains uncontrolled, so a trigger click closes it', async ({ page, mode }) => {
+      await goto(page, mode, { defaultOpen: true });
+      await expect(page.getByText('Content', { exact: true })).toBeVisible();
+
+      await page.getByTestId('trigger').click();
+
+      await expect(page.getByText('Content', { exact: true })).toHaveCount(0);
+    });
+
+    test.describe('outside press event with backdrops', () => {
+      test('uses intentional outside press with user backdrop (mouse): closes on click, not on mousedown', async ({ page, mode }) => {
+        const fixture = await goto(page, mode, { defaultOpen: true, backdrop: true });
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        const release = await pressBackdropCorner(page, page.getByTestId('backdrop'));
+        await settle(fixture);
+        await expect(page.getByRole('dialog')).toBeVisible();
+        expect(await openChanges(fixture)).toEqual([]);
+
+        await release();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        expect(await openChanges(fixture)).toHaveLength(1);
+      });
+
+      test('uses intentional outside press with internal backdrop (modal=true): closes on click, not on mousedown', async ({ page, mode }) => {
+        const fixture = await goto(page, mode, { defaultOpen: true, modal: true });
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        // Base UI's document.querySelector('[role="presentation"]'): the backdrop, before the positioner (which has the role too).
+        const internalBackdrop = page.locator('[role="presentation"]').first();
+
+        const release = await pressBackdropCorner(page, internalBackdrop);
+        await settle(fixture);
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        expect(await openChanges(fixture)).toEqual([]);
+
+        await release();
+        await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+        expect(await openChanges(fixture)).toHaveLength(1);
+      });
+
+      test('closing via outside press: works when clicking another element inside the same shadow root', async ({ page, mode }) => {
+        const fixture = await goto(page, mode, { defaultOpen: true, container: 'shadow' });
+        await expect(page.getByRole('dialog')).toBeVisible();
+        // Base UI renders its own outside button into the shadow root; Blazor renders into the document, so the spec adds it.
+        // Base UI's fireEvent.click moves no focus, so the button's mousedown keeps focus where it is: a real press that
+        // moved focus out of the popup would close it with focus-out first (and, on Server, twice: gap 14 below).
+        await page.locator('[data-shadow-host]').evaluate((host) => {
+          const outside = Object.assign(document.createElement('button'), { textContent: 'Outside' });
+          outside.setAttribute('data-testid', 'outside');
+          outside.style.cssText = 'position: fixed; left: 0; bottom: 0';
+          outside.addEventListener('mousedown', (event) => event.preventDefault());
+          host.shadowRoot!.append(outside);
+        });
+
+        await page.getByTestId('outside').click();
+
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+      });
+
+      test('closing via outside press: works when clicking outside the shadow root', async ({ page, mode }) => {
+        const fixture = await goto(page, mode, { defaultOpen: true, container: 'shadow' });
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        await clickEmptyPage(page);
+
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+      });
+    });
+
+    test('does not repeat closing completion when `unmount` is called after the automatic unmount', async ({ page, mode }) => {
+      const fixture = await goto(page, mode);
+      const trigger = page.getByTestId('trigger');
+      const closings = async () => (await openChangeCompletes(fixture)).filter((open) => open === 'false');
+
+      await trigger.click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await trigger.click();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect.poll(closings).toHaveLength(1);
+
+      await pressControl(fixture.locator('[data-unmount]'));
+      await settle(fixture);
+      expect(await closings()).toHaveLength(1);
+    });
+
+    test('should render an internal backdrop when `true`', async ({ page, mode }) => {
+      await goto(page, mode, { modal: true, outside: 'after' });
+
+      await page.getByTestId('trigger').click();
+      await expect(page.getByTestId('popover-popup')).toBeVisible();
+
+      await expect(page.getByTestId('positioner').locator('xpath=preceding-sibling::*[1]')).toHaveAttribute('role', 'presentation');
+    });
+
+    test('should close child popover when clicking parent popover', async ({ page, mode }) => {
+      const fixture = await gotoPopupFixture(page, mode, 'popover-nested', { case: 'child', variant });
+      await expect(page.getByTestId('parent-popup')).toHaveCount(0);
+      await expect(page.getByTestId('child-popup')).toHaveCount(0);
+
+      await page.getByTestId('parent-trigger').click();
+      const parentPopup = page.getByTestId('parent-popup');
+      await expect(parentPopup).toBeVisible();
+      await expect(page.getByTestId('child-popup')).toHaveCount(0);
+
+      await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+      await page.getByTestId('child-trigger').click();
+      await expect(parentPopup).toBeVisible();
+      await expect(page.getByTestId('child-popup')).toHaveCount(1);
+
+      await parentPopup.click({ position: { x: 4, y: 4 } });
+      await settle(fixture);
+
+      await expect(parentPopup).toBeVisible();
+      await expect(page.getByTestId('child-popup')).toHaveCount(0);
+    });
 
     test('focuses the trigger after the popover is closed but not unmounted', async ({ page, mode }) => {
       await goto(page, mode, { before: 'plain', after: 'plain', keepMounted: true, inside: 'close' });
@@ -987,5 +1152,95 @@ test.describe('<Popover.Popup /> focus', () => {
     await page.getByTestId('hide-button').click();
 
     await expect(page.getByTestId('popover-popup')).toBeFocused();
+  });
+});
+
+// PopoverRoot.test.tsx's touch scroll-lock titles (POP-PTR-14/19, POP-EDGE-14): a modal root of their own, here
+// `popover-root`'s contained layout, opened by a real tap in a context with touch.
+test.describe('<Popover.Root /> prop: modal, touch', () => {
+  touchTest('applies scroll lock when a touch-opened popup covers the viewport width', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-root', { modal: true, positionerWidth: 'full' });
+
+    await page.getByTestId('trigger').tap();
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+
+    await expect.poll(() => isScrollLocked(page)).toBe(true);
+  });
+
+  touchTest('does not apply scroll lock when a touch-opened popup is narrower than the viewport', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { modal: true, positionerWidth: '240px' });
+
+    await page.getByTestId('trigger').tap();
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+    await settle(fixture);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+    expect(await isScrollLocked(page)).toBe(false);
+  });
+});
+
+// Gap 14 (M4 track 5, raised 2026-10-29): with focus in a non-modal popup, a real press on a focusable outside element
+// moves focus first, so the focus manager closes with focus-out and the press's outside-press finds the popup closed, one
+// OnOpenChange as in Base UI (WebAssembly). On Server both close requests leave before the first commit returns, and
+// OnOpenChange runs again, with outside-press, for a popover already closed.
+test.describe('<Popover.Root /> a press outside that moves focus', () => {
+  test('port: a real press on a focusable outside element closes once, with focus-out', async ({ page, mode }) => {
+    test.skip(mode === 'server', 'gap 14: on Server the outside-press request reaches OnOpenChange after the focus-out close');
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { defaultOpen: true, inside: 'button', outside: 'after' });
+    await expect(page.getByTestId('inside')).toBeFocused();
+
+    await page.getByTestId('outside').click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await settle(fixture);
+    expect(await openChanges(fixture)).toEqual(['false:focus-out']);
+  });
+});
+
+// PopoverRoot.test.tsx's nested popup interactions that render their own roots, on `popover-nested`.
+test.describe('<Popover.Root /> nested popup interactions', () => {
+  test('returns focus through nested programmatic popovers in close order', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-nested', { case: 'programmatic' });
+    const parentTrigger = page.getByRole('button', { name: 'Parent trigger' });
+
+    await parentTrigger.click();
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+
+    const childOpener = page.getByRole('button', { name: 'Open child programmatically' });
+    await childOpener.click();
+    await expect(page.getByTestId('child-popup')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Close child' }).click();
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+    await expect(childOpener).toBeFocused();
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Close parent' }).click();
+    await expect(page.getByTestId('parent-popup')).toHaveCount(0);
+    await expect(parentTrigger).toBeFocused();
+  });
+
+  test('keeps the parent popover open when press starts in nested popover and ends outside', async ({ page, mode }) => {
+    // Gap 15 (M4 track 5, raised 2026-10-29): the parent closes with outside-press on both modes. Base UI's child popup
+    // is in the parent's React tree, so its pointerdown reaches the parent's capture handlers and sets FLT-PTR-29's
+    // press-started-inside marker; the interactions module listens on the DOM, where the child's portal is outside it.
+    test.skip(true, 'gap 15: a press that starts in a nested popover\'s popup is not one that started inside the parent (interactions)');
+    const fixture = await gotoPopupFixture(page, mode, 'popover-nested', { case: 'press' });
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+
+    await page.getByRole('button', { name: 'Child', exact: true }).click();
+    const childPopup = page.getByTestId('child-popup');
+    await expect(childPopup).toBeVisible();
+
+    // A real press starts in the child popup and is released on the outside button.
+    await childPopup.hover();
+    await page.mouse.down();
+    await page.getByTestId('outside').hover();
+    await page.mouse.up();
+    await settle(fixture);
+
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+    await expect(childPopup).toBeVisible();
   });
 });
