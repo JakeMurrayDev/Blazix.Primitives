@@ -7,6 +7,18 @@ import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { positionerConformanceTests } from './suites/positioner-conformance';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
+// Touch titles: Playwright taps only in a context made with `hasTouch`, and the worker's shared context is not, so each
+// touch title opens its own (on `wasm` it downloads the runtime again).
+const touchTest = test.extend<{ touchPage: Page }>({
+  touchPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ hasTouch: true });
+    const page = await context.newPage();
+    await page.clock.install();
+    await use(page);
+    await context.close();
+  },
+});
+
 // The [L4] rows of docs/components/popover.md (M4 track 5, issue 125) on the `popover-*` fixtures, every title on both
 // render modes. The shared suites run with Popover's values (PopoverRoot.test.tsx and
 // PopoverRoot.detached-triggers.test.tsx): a trigger pressed by click through the `interactions` module's `press`, role
@@ -477,6 +489,225 @@ test.describe('<Popover.Trigger /> hover', () => {
     await settle(fixture);
 
     await expect(page.getByText('Content', { exact: true })).toBeVisible();
+  });
+
+  test('should have the data-popup-open but not the data-pressed attribute when open by hover', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { delay: 0 });
+    const trigger = page.getByTestId('trigger-1');
+
+    await trigger.hover();
+
+    await expect(trigger).toHaveAttribute('data-popup-open');
+    await expect(trigger).not.toHaveAttribute('data-pressed');
+  });
+
+  test('should toggle closed with Enter or Space when rendering a <div>', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { openOnHover: false, nativeButton: false });
+    const trigger = page.getByTestId('trigger-1');
+    const content = page.getByText('Content', { exact: true });
+
+    // Each Shift+Tab leaves the popup, so it waits for the open's initial focus to land there first.
+    const focusInPopup = () => expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-testid="popup"]') != null)).toBe(true);
+
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(content).toBeVisible();
+
+    await focusInPopup();
+    await page.keyboard.press('Shift+Tab');
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(content).toHaveCount(0);
+
+    await page.keyboard.press('Enter');
+    await expect(content).toBeVisible();
+    await focusInPopup();
+    await page.keyboard.press('Shift+Tab');
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(content).toHaveCount(0);
+
+    await page.keyboard.press(' ');
+    await expect(content).toBeVisible();
+    await focusInPopup();
+    await page.keyboard.press('Shift+Tab');
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press(' ');
+    await expect(content).toHaveCount(0);
+  });
+
+  // PopoverTrigger.test.tsx's MultiTriggerPopover: two hover triggers (delay and closeDelay 0) whose payload the popup shows.
+  // A real mouse reaches the trigger before pressing it, so the mouse case's press lands on a hover-opened popup.
+  test('hands ownership to a hovered sibling trigger when opened by mouse', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { triggerCount: 2, delay: 0, closeDelay: 0 });
+
+    await page.getByTestId('trigger-1').click();
+    await expect(page.getByTestId('payload')).toHaveText('1');
+
+    await page.getByTestId('trigger-2').hover();
+
+    await expect(page.getByTestId('payload')).toHaveText('2');
+    await expect(page.getByTestId('trigger-2')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  touchTest('keeps ownership on the tapped trigger when a sibling trigger is hovered', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { triggerCount: 2, delay: 0, closeDelay: 0 });
+
+    await page.getByTestId('trigger-1').tap();
+    await expect(page.getByTestId('payload')).toHaveText('1');
+
+    await page.getByTestId('trigger-2').hover();
+    await settle(fixture);
+
+    await expect(page.getByTestId('payload')).toHaveText('1');
+    await expect(page.getByTestId('trigger-2')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('does not move focus to the popover when opened with hover', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { delay: 0 });
+    const trigger = page.getByTestId('trigger-1');
+
+    await trigger.focus();
+    await trigger.hover();
+    await settle(fixture);
+
+    const close = page.getByRole('button', { name: 'Close' });
+    await expect(close).toBeVisible();
+    await expect(close).not.toBeFocused();
+  });
+
+  test('does not change focus when opened with hover and closed', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { delay: 0, closeDelay: 0, inputs: true, popupClass: 'fade' });
+    const lastInput = page.getByTestId('last-input');
+
+    await lastInput.focus();
+    await page.getByTestId('trigger-1').hover();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    await page.getByTestId('first-input').hover();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(lastInput).toBeFocused();
+  });
+
+  test('returns focus to the trigger if opened by click before the hover delay completes', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { delay: 300 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+
+    await trigger.hover();
+    await page.clock.runFor(100);
+    await trigger.click();
+    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+
+    await page.clock.runFor(1000);
+    await page.clock.resume();
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await expect(trigger).toBeFocused();
+  });
+
+  test('enables modal behavior after a hover-open is clicked', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { modal: true, delay: 0 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+    const backdrop = page.getByTestId('positioner').locator('xpath=preceding-sibling::*[1]');
+
+    await trigger.hover();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(backdrop).toHaveCount(0);
+
+    await page.clock.runFor(patientClickThreshold - 1);
+    await trigger.click();
+
+    await expect(backdrop).toHaveAttribute('role', 'presentation');
+  });
+
+  // Base UI clicks the trigger while the pointer is in the positioner; a real pointer cannot, so the click comes from Enter on
+  // the focused trigger, which leaves the pointer where it is.
+  test('cleans up the safe polygon handler after a hover-opened popup becomes click-sticky', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { modal: false, delay: 0, closeDelay: 0 });
+    await pausedClock(page);
+    await page.evaluate(() => {
+      const moves: { added: unknown[]; removed: unknown[] } = { added: [], removed: [] };
+      (window as unknown as { moves: typeof moves }).moves = moves;
+      const add = document.addEventListener.bind(document);
+      const remove = document.removeEventListener.bind(document);
+      document.addEventListener = (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+        if (type === 'mousemove') moves.added.push(listener);
+        add(type, listener, options);
+      };
+      document.removeEventListener = (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => {
+        if (type === 'mousemove') moves.removed.push(listener);
+        remove(type, listener, options);
+      };
+    });
+    const trigger = page.getByTestId('trigger-1');
+    const moves = () => page.evaluate(() => {
+      const { added, removed } = (window as unknown as { moves: { added: unknown[]; removed: unknown[] } }).moves;
+      return { added: added.length, lastRemoved: added.length > 0 && removed.includes(added.at(-1)) };
+    });
+
+    await trigger.focus();
+    await trigger.hover();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    // The paused clock holds the positioner's first frame: let it place the popup, well inside the patient-click window.
+    await page.clock.runFor(100);
+    await expect(page.getByTestId('positioner')).toHaveAttribute('style', /translate/);
+    const box = (await page.getByTestId('popup').boundingBox())!;
+    await page.mouse.move(box.x + 10, box.y + 10, { steps: 4 });
+    await expect.poll(async () => (await moves()).added).toBeGreaterThan(0);
+    expect((await moves()).lastRemoved).toBe(false);
+
+    await page.keyboard.press('Enter');
+    await settle(fixture);
+    await page.mouse.move(5, 5);
+    await settle(fixture);
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect.poll(async () => (await moves()).lastRemoved).toBe(true);
+  });
+
+  test('reopens immediately when re-hovering the trigger during a hover close transition', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { keepMounted: true, delay: 1, popupClass: 'reopen', animations: 1 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+    const popup = page.getByTestId('popup');
+
+    await trigger.hover();
+    await page.clock.runFor(1);
+    await expect(popup).toHaveAttribute('data-open');
+
+    await page.mouse.move(5, 5);
+    await page.clock.runFor(50);
+    await expect(popup).toHaveAttribute('data-ending-style');
+
+    // The clock stays paused, so the rest delay cannot reopen it: only the close-transition fast path on mouseenter can.
+    await trigger.hover();
+
+    await expect(popup).toHaveAttribute('data-open');
+    await expect(popup).not.toHaveAttribute('data-closed');
+  });
+
+  test('keeps the popup open when the last hovered trigger is pressed', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { open: false, triggerCount: 2, hoverTriggers: 1, delay: 0 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+    const popup = page.getByTestId('popup');
+
+    await trigger.hover();
+    await expect(popup).toBeVisible();
+    // The hover's patient-click window ends, so only the close-time reset keeps the click sticky.
+    await page.clock.runFor(patientClickThreshold);
+
+    await pressControl(fixture.locator('[data-set-open="false"]'));
+    await expect(popup).toHaveCount(0);
+    await pressControl(fixture.locator('[data-set-open="true"]'));
+    await expect(popup).toBeVisible();
+
+    await trigger.click();
+    await settle(fixture);
+    await expect(popup).toBeVisible();
   });
 
   test('should close after delay', async ({ page, mode }) => {
