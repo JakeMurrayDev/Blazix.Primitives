@@ -604,8 +604,8 @@ interface SessionRecord extends InteractionSession {
   /** The answered-requests counter last applied. */
   answered: number;
   pending: PendingRequest | null;
-  /** The handles whose close request C# has not answered yet, each with the mark of that request (design point 13.9). */
-  closesInFlight: Map<HandleChannel, object>;
+  /** The mark of the session's close request C# has not answered yet, or `null` (design point 13.9, gap 14). */
+  closeInFlight: object | null;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
   channel: HandleChannel | null;
@@ -699,7 +699,7 @@ function createSessionRecord(token: string): SessionRecord {
     lastRevision: undefined,
     answered: 0,
     pending: null,
-    closesInFlight: new Map(),
+    closeInFlight: null,
     triggers,
     channel: null,
     positionListeners: new Set(),
@@ -879,7 +879,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
   if (relay !== null && relay.revision !== record.lastRevision) {
-    record.closesInFlight.clear();
+    record.closeInFlight = null;
     const first = record.lastRevision === undefined;
     const previousRevision = record.lastRevision ?? 0;
     record.lastRevision = relay.revision;
@@ -919,7 +919,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   // Design point 10 (settled by the orchestrator 2026-10-27): a canceled request moves no revision, so the answered
   // counter is what re-arms a session that requested a close.
   if (answered !== record.answered) {
-    record.closesInFlight.clear();
+    record.closeInFlight = null;
     record.answered = answered;
     rearmDismiss(record);
   }
@@ -1012,6 +1012,7 @@ function triggerIdOf(record: SessionRecord, element: Element): string | null {
 /**
  * A request a handle sends: recorded for the relay's pairing, then reported on the
  * handle's own twin. Nothing is emitted here: `openchange` follows the commit the relay brings.
+ * @returns `false` when a close is dropped because a close request of the session is in flight; otherwise `true`.
  */
 function requestOpenChange(
   record: SessionRecord,
@@ -1021,10 +1022,11 @@ function requestOpenChange(
   event: Event | undefined,
   trigger?: Element | null,
   extra?: Record<string, unknown>,
-): void {
-  // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28): one close
-  // request in flight per handle. Base UI's second close (the reference press's `click` after its `pointerdown`) is a
-  // no-op on a store the first closed; on Server it would reach the store a round trip later. The boundary: from the
+): boolean {
+  // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28), widened from
+  // the handle to the session by ADR 04 Amendments 2026-10-29 (gap 14): one close request in flight per session. Base UI's
+  // second close (the reference press's `click` after its `pointerdown`, or the outside press after a focus-out close) is
+  // a no-op on a store the first closed; on Server it would reach the store a round trip later. The boundary: from the
   // emission until C# answers, which is the first of a session update whose relay revision or answered counter moved
   // (`applySessionOptions`) and the request's own invocation settling (a trigger's or the floating element's twin routes
   // its request to the store directly, and a canceled one moves neither counter). Marked before the call, which
@@ -1043,7 +1045,7 @@ function requestOpenChange(
     // Base UI's store does inside `setOpen`, until C# answers the request (the boundary of a close in flight above).
     if (!trigger || !record.open || trigger === record.domReferenceElement) {
       channel.report('OnRequest', payload);
-      return;
+      return true;
     }
     const anchor = {};
     record.pendingAnchor = trigger;
@@ -1059,19 +1061,38 @@ function requestOpenChange(
         }
       }
     });
-    return;
+    return true;
   }
-  if (record.closesInFlight.has(channel)) {
-    return;
+  const release = claimSessionClose(record);
+  if (release === null) {
+    // Dropped: the caller does not disarm for a request it did not send.
+    return false;
+  }
+  record.pending = { open, reason, event };
+  void channel.request(payload).finally(release);
+  return true;
+}
+
+/**
+ * Claims the session's one close request in flight (design point 13.9 of M4 track 6, widened to the session by ADR 04
+ * Amendments 2026-10-29, gap 14): a module that sends a close through its own twin (the focus manager's focus-out) claims
+ * it before the report, so the session's handles send no second close while C# has not answered the first. A session
+ * update whose relay revision or answered counter moved clears the claim.
+ * @param session The session.
+ * @returns The release to call once C# answered the request, canceled or not, or `null` while a close is in flight.
+ */
+export function claimSessionClose(session: InteractionSession): (() => void) | null {
+  const record = session as SessionRecord;
+  if (record.closeInFlight !== null) {
+    return null;
   }
   const mark = {};
-  record.closesInFlight.set(channel, mark);
-  record.pending = { open, reason, event };
-  void channel.request(payload).finally(() => {
-    if (record.closesInFlight.get(channel) === mark) {
-      record.closesInFlight.delete(channel);
+  record.closeInFlight = mark;
+  return () => {
+    if (record.closeInFlight === mark) {
+      record.closeInFlight = null;
     }
-  });
+  };
 }
 
 /** A handle's channel to its twin, with the request path whose invocation settles once C# ran the request. */
@@ -1328,8 +1349,9 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   // the session, so the disarm below applies only when none arrived (design point 10).
   const answeredBefore = record.answered;
   const verdict = decide(channel, ESCAPE_POINT, event, 'prevent-and-stop');
+  let sent = true;
   if (!channel.lastDecisionWasSynchronous) {
-    requestOpenChange(record, channel, false, 'escape-key', event);
+    sent = requestOpenChange(record, channel, false, 'escape-key', event);
   }
   const accepted = verdict === 'prevent-and-stop' || verdict === 'prevent';
   if (accepted) {
@@ -1340,7 +1362,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   }
   // A close is pending until the relay brings the next open or C# answers the request; a cancel the verdict reports
   // leaves the session armed.
-  if (accepted && record.answered === answeredBefore) {
+  if (accepted && sent && record.answered === answeredBefore) {
     state.disarmed = true;
   }
 }
@@ -1623,8 +1645,7 @@ function createSessionDismissController(context: HandleContext): Controller {
       // so a press's compatibility `mousedown` does not request again before the commit arrives.
       if (!state.disarmed) {
         const answeredBefore = record.answered;
-        requestOpenChange(record, context.channel, false, 'outside-press', event);
-        if (record.answered === answeredBefore) {
+        if (requestOpenChange(record, context.channel, false, 'outside-press', event) && record.answered === answeredBefore) {
           state.disarmed = true;
         }
       }
