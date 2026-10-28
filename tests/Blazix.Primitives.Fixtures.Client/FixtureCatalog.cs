@@ -179,5 +179,6 @@ public static class FixtureCatalog
         ["dialog-root"] = new(typeof(DialogRootFixture)),
         ["dialog-popup"] = new(typeof(DialogPopupFixture)),
         ["dialog-shared"] = new(typeof(DialogSharedFixture)),
+        ["dialog-shadow"] = new(typeof(DialogShadowFixture)),
     };
 }
