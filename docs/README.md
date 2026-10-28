@@ -18,7 +18,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | architecture/rendering-and-composition.md | RND | approved | 123 reqs; conformance obligations in §4.9 |
 | architecture/event-details-and-reasons.md | EVD | approved | 83 reqs; reason matrix in §4.3.7 | |
 | architecture/composite-and-list-navigation.md | CMP | approved | 225 reqs; keyboard matrices §4.5-4.6, algorithms §5; revised 2026-10-27 (M2 track 3, M3 tracks 1, 5 and 6; the M5 rows listed in §10 items 12 to 15) | |
-| architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5; revised 2026-10-28 (M4 track 1: the portal rows; M4 track 4: the focus manager and its portal wiring; the rows open to track 3 and to M5 listed in §10 item 17) | |
+| architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5; revised 2026-10-28 (M4 track 1: the portal rows; M4 track 4: the focus manager and its portal wiring; the rows open to M4 track 5 and to M5 listed in §10 item 17) | |
 | architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3; revised 2026-10-27 (M4 track 1: the popup store, handles and suites; §10 item 12) | |
 | architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1; revised 2026-10-27 (M4 track 1: the popup host; §10 item 11) | |
 | architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-23 (M2 track 1, PRs 1a and 1c) | |
