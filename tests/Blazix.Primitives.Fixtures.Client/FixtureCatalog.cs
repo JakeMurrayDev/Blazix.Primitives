@@ -7,6 +7,7 @@ using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+using Blazix.Primitives.Fixtures.Client.DialogFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
 using Blazix.Primitives.Fixtures.Client.FloatingFixtures;
@@ -152,6 +153,7 @@ public static class FixtureCatalog
         ["tabs-panels"] = new(typeof(TabsPanelsFixture)),
         ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
         ["tabs-focus"] = new(typeof(TabsFocusFixture)),
+        ["tabs-dialog"] = new(typeof(TabsDialogFixture)),
         ["toolbar-orientation"] = new(typeof(ToolbarOrientationFixture)),
         ["toolbar-keys"] = new(typeof(ToolbarKeysFixture)),
         ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
@@ -159,6 +161,7 @@ public static class FixtureCatalog
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
+        ["toolbar-dialog"] = new(typeof(ToolbarDialogFixture)),
         ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
@@ -169,5 +172,12 @@ public static class FixtureCatalog
         ["positioning-origin"] = new(typeof(PositioningOriginFixture)),
         ["positioning-lifecycle"] = new(typeof(PositioningLifecycleFixture)),
         ["positioning-prerender"] = new(typeof(PositioningPrerenderFixture), Prerender: true),
+        ["dialog-conformance"] = new(typeof(DialogConformanceFixture)),
+        ["dialog-triggers"] = new(typeof(DialogTriggersFixture)),
+        ["dialog-focus-props"] = new(typeof(DialogFocusPropsFixture)),
+        ["dialog-focus-props-nonmodal"] = new(typeof(DialogFocusPropsNonModalFixture)),
+        ["dialog-root"] = new(typeof(DialogRootFixture)),
+        ["dialog-popup"] = new(typeof(DialogPopupFixture)),
+        ["dialog-shared"] = new(typeof(DialogSharedFixture)),
     };
 }
