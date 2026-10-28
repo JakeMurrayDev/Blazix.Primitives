@@ -121,8 +121,12 @@
     private string? handleError;
     private string phase = "outgoing";
 
-    // The triggers press through the `interactions` module, so the page is ready once their handles and the session attached.
-    protected override IEnumerable<Task> Attachments => [.. triggers.Values.Select(trigger => trigger.TwinAttached), mainRoot?.SessionAttached ?? Task.CompletedTask];
+    // The triggers press through the `interactions` module, so the page is ready once their handles and the session attached;
+    // a detached trigger attaches only once a root gives it a session, so with no root mounted nothing is awaited.
+    protected override IEnumerable<Task> Attachments =>
+        !rootMounted
+            ? []
+            : [.. triggers.Values.Select(trigger => trigger.TwinAttached), mainRoot?.SessionAttached ?? Task.CompletedTask];
 
     protected override void OnInitialized()
     {
