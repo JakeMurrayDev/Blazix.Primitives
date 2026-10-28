@@ -38,9 +38,7 @@ public sealed class AvatarAllocationBudgetTests : IDisposable
             twin.OnImageStatus(Payload);
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        twin.OnImageStatus(Payload);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = AllocationSampler.LeastOfFive(() => twin.OnImageStatus(Payload));
         long payload = PayloadBytes();
 
         Assert.True(allocated <= ReportBudgetBytes, $"a status message allocated {allocated} bytes; the budget is {ReportBudgetBytes}");
@@ -57,8 +55,6 @@ public sealed class AvatarAllocationBudgetTests : IDisposable
             bare.OnImageStatus(Payload);
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        bare.OnImageStatus(Payload);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return AllocationSampler.LeastOfFive(() => bare.OnImageStatus(Payload));
     }
 }

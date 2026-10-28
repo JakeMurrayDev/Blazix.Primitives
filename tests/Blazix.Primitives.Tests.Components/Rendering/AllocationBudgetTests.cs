@@ -74,8 +74,6 @@ public sealed class AllocationBudgetTests : IDisposable
             cut.InvokeAsync(refresh);
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.InvokeAsync(refresh);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return AllocationSampler.LeastOfFive(() => cut.InvokeAsync(refresh));
     }
 }

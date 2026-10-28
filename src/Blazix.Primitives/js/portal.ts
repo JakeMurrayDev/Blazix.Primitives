@@ -29,7 +29,18 @@
 import { ownerDocument } from './dom';
 import { disableFocusInside, enableFocusInside, getNextTabbable, getPreviousTabbable, isOutsideEvent } from './focus-manager';
 import { platform } from './platform';
-import { applyConsumerStyle, parseOptions, resolveElement, resolveReference, type DotNetTwin, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
+import {
+  applyConsumerStyle,
+  parseOptions,
+  registerShadowRoot,
+  resolveElement,
+  resolveReference,
+  type DotNetTwin,
+  type TwinCaptures,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinReferences,
+} from './twin';
 
 /** The options of a `portal` handle; mirrors `PortalOptions` in C#. */
 export interface PortalOptions extends TwinOptions {
@@ -123,10 +134,11 @@ function swapGuardForVoiceOver(guard: HTMLElement | null): void {
  * @param options The handle's options.
  * @param references The references received with the options.
  * @param wrapper The node's in-place wrapper, whose document a selector and the default resolve in.
+ * @param captures The capture ids received with the references.
  * @returns The container, or `null` when a selector matches nothing.
  */
-export function resolveContainer(options: PortalOptions, references: TwinReferences, wrapper: Element): Node | null {
-  const referenced = resolveReference<Node>(references, options.containerRef);
+export function resolveContainer(options: PortalOptions, references: TwinReferences, wrapper: Element, captures?: TwinCaptures): Node | null {
+  const referenced = resolveReference<Node>(references, options.containerRef, captures);
   if (referenced !== null) {
     return referenced;
   }
@@ -142,14 +154,21 @@ export function resolveContainer(options: PortalOptions, references: TwinReferen
 /**
  * Attaches the portal to its node: moves the node out of its in-place wrapper into the resolved container, applies the
  * consumer's style, and keeps both until `update` changes them or `dispose` restores the node.
- * @param elementOrId The portal node, or its id.
+ * @param elementOrId The portal node, its id, or `null` when Blazor could not revive it (inside a shadow root).
  * @param optionsJson The `PortalOptions` JSON.
  * @param _twinReference The twin; the portal reports nothing to it yet.
  * @param references The container's reference, when the options name one.
+ * @param captures The capture ids of the node and of the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson, references)` and `dispose()`; the live handle when the node is already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, _twinReference: DotNetTwin, references?: TwinReferences): TwinHandle {
-  const node: AttachedNode = resolveElement(elementOrId);
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  _twinReference: DotNetTwin,
+  references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const node: AttachedNode = resolveElement(elementOrId, captures?.[0]);
   const existing = node[attachedHandle];
   if (existing) {
     return existing;
@@ -157,6 +176,19 @@ export function attach(elementOrId: Element | string, optionsJson: string, _twin
 
   let options = parseOptions<PortalOptions>(optionsJson);
   let currentReferences = references;
+  let currentCaptures = captures;
+  // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the parts inside the node attach after the move, and
+  // Blazor revives their references as null inside a shadow root, so the root the node is in is registered for the lookup.
+  let shadowRoot: ShadowRoot | null = null;
+  let releaseShadowRoot: (() => void) | null = null;
+  const trackShadowRoot = (next: ShadowRoot | null) => {
+    if (next === shadowRoot) {
+      return;
+    }
+    releaseShadowRoot?.();
+    releaseShadowRoot = next === null ? null : registerShadowRoot(next);
+    shadowRoot = next;
+  };
   const wrapper = node.parentElement;
   const voiceOver = platform.screenReader.voiceOver && platform.engine.webkit;
   let disposed = false;
@@ -236,7 +268,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, _twin
 
   // The node is visible only in a container; in place (a selector that matched nothing) it stays hidden.
   const place = () => {
-    const container = wrapper === null ? null : resolveContainer(options, currentReferences, wrapper);
+    const container = wrapper === null ? null : resolveContainer(options, currentReferences, wrapper, currentCaptures);
     if (container !== null && node.parentNode !== container) {
       container.appendChild(node);
     } else if (container === null && wrapper !== null && node.parentNode !== wrapper) {
@@ -247,6 +279,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, _twin
     if (container === null) {
       node.style.display = 'none';
     }
+    const root = node.getRootNode();
+    trackShadowRoot(root instanceof ShadowRoot ? root : null);
   };
 
   const swapGuards = () => {
@@ -259,6 +293,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, _twin
 
   const release = () => {
     disposed = true;
+    trackShadowRoot(null);
     observer?.disconnect();
     node.removeEventListener('focusin', onFocusInside, true);
     node.removeEventListener('focusout', onFocusInside, true);
@@ -293,12 +328,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, _twin
   swapGuards();
 
   const handle: TwinHandle = {
-    update(nextOptionsJson: string, nextReferences?: TwinReferences) {
+    update(nextOptionsJson: string, nextReferences?: TwinReferences, nextCaptures?: TwinCaptures) {
       if (disposed) {
         return;
       }
       options = parseOptions<PortalOptions>(nextOptionsJson);
       currentReferences = nextReferences;
+      currentCaptures = nextCaptures;
       place();
       swapGuards();
     },

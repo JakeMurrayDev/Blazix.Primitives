@@ -90,16 +90,22 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
 
         try
         {
-            // ADR 04 Amendments 2026-10-27: the references follow the options string only when there are some.
+            // ADR 04 Amendments 2026-10-27: the references follow the options string only when there are some; Amendments
+            // 2026-10-28: their capture ids follow them when one of them is an element.
             string json = JsonSerializer.Serialize(options, optionsTypeInfo);
             object[]? argument = references?.ToArgument();
+            string?[]? captures = TwinReferences.CaptureIds(elementCaptureId: null, references);
             if (argument is null)
             {
                 await handle.InvokeVoidAsync("update", json).ConfigureAwait(false);
             }
-            else
+            else if (captures is null)
             {
                 await handle.InvokeVoidAsync("update", json, argument).ConfigureAwait(false);
+            }
+            else
+            {
+                await handle.InvokeVoidAsync("update", json, argument, captures).ConfigureAwait(false);
             }
         }
         catch (JSDisconnectedException)
