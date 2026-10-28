@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
 
@@ -53,6 +54,27 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
     /// <param name="name">The option's name.</param>
     /// <returns><see langword="true"/> when the option is <c>true</c> or <c>1</c>; <see langword="null"/> when absent.</returns>
     protected bool? QueryFlag(string name) => Query(name) is { } value ? value is "true" or "1" : null;
+
+    // The suites' `pressControl` (tests/browser/suites/popupFixture.ts) presses a control marked `data-key-control` with a
+    // dispatched Shift keydown, which no dismissal mode reads (a click on the control is an outside press once a real press
+    // happened while open). The control acts on that key only, beside its onclick, so a real Tab on a focused control does
+    // nothing (gap 11 of M4 track 5, settled by the orchestrator 2026-10-28).
+    /// <summary>Wraps a control's action as its keydown handler, which runs it for the Shift key only.</summary>
+    /// <param name="action">The control's action.</param>
+    /// <returns>The keydown handler.</returns>
+    protected static Func<KeyboardEventArgs, Task> OnShift(Func<Task> action) =>
+        e => e.Key == "Shift" ? action() : Task.CompletedTask;
+
+    /// <summary>Wraps a control's action as its keydown handler, which runs it for the Shift key only.</summary>
+    /// <param name="action">The control's action.</param>
+    /// <returns>The keydown handler.</returns>
+    protected static Action<KeyboardEventArgs> OnShift(Action action) => e =>
+    {
+        if (e.Key == "Shift")
+        {
+            action();
+        }
+    };
 
     /// <summary>
     /// Records the root's open change; cancels an open when the case asks (<c>cancelOpen=true</c>), cancels a close
