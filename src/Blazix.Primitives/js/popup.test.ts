@@ -5,11 +5,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
-// `positioning`'s reader stands in for an attached Positioner: the rendered physical side is the attribute the test sets.
-vi.mock('./positioning', () => ({
-  readPlacement: (element: Element) => ({ physicalSide: element.getAttribute('data-physical-side') ?? 'bottom', isPositioned: true }),
-}));
-
 const {
   TRIGGER_CHANGE_REPORT,
   VIEWPORT_REPORT,
@@ -317,14 +312,16 @@ describe('auto-resize', () => {
   });
 
   it.each([
-    { side: 'top', expected: { position: 'absolute', bottom: '0px', left: '0px' } },
-    { side: 'left', expected: { position: 'absolute', top: '0px', right: '0px' } },
-    { side: 'right', expected: {} },
-    { side: 'bottom', expected: {} },
-  ] as const)('port: anchors the popup on the rendered physical $side side', ({ side, expected }) => {
+    { side: 'top', direction: 'ltr', expected: { position: 'absolute', bottom: '0px', left: '0px' } },
+    { side: 'left', direction: 'ltr', expected: { position: 'absolute', top: '0px', right: '0px' } },
+    { side: 'inline-start', direction: 'ltr', expected: { position: 'absolute', top: '0px', right: '0px' } },
+    { side: 'inline-start', direction: 'rtl', expected: {} },
+    { side: 'inline-end', direction: 'rtl', expected: { position: 'absolute', top: '0px', right: '0px' } },
+    { side: 'bottom', direction: 'ltr', expected: {} },
+  ] as const)('port: anchors the popup on the $side side in $direction', ({ side, direction, expected }) => {
     const rendered = renderViewport();
-    rendered.positioner.setAttribute('data-physical-side', side);
-    attachTo(rendered.viewport, openViewport, createFakeTwin());
+    rendered.positioner.setAttribute('data-side', side);
+    attachTo(rendered.viewport, { viewport: { ...openViewport.viewport, direction } }, createFakeTwin());
 
     for (const property of ['position', 'top', 'bottom', 'left', 'right']) {
       expect(rendered.popup.style.getPropertyValue(property)).toBe((expected as Record<string, string>)[property] ?? '');
@@ -336,7 +333,6 @@ describe('auto-resize', () => {
     attachTo(rendered.viewport, openViewport, createFakeTwin());
     expect(rendered.popup.style.position).toBe('');
 
-    rendered.positioner.setAttribute('data-physical-side', 'top');
     rendered.positioner.setAttribute('data-side', 'top');
     await settle();
 
