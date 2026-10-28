@@ -62,8 +62,9 @@ internal sealed partial record PopupStoreState<TPayload>(
     // family's record.
 
     // TIP-STA-02 (tooltip/root/TooltipRoot.tsx:68-82: the transitions run on `!disabled && openState`); design point 13.7 of
-    // M4 track 6, ADR 05 Amendments 2026-10-28 (settled by the orchestrator 2026-10-28). A family whose root has a `disabled` prop (Tooltip; Menu
-    // in M5) sets it through PopupStore.SetDisabled; the stored open state is left to the family's disabled close.
+    // M4 track 6, ADR 05 Amendments 2026-10-28 (settled by the orchestrator 2026-10-28). Tooltip sets it through
+    // PopupStore.SetDisabled (Menu does not: its `disabled` only switches the interactions off); the stored open state is
+    // left to the family's disabled close.
     /// <summary>Gets a value indicating whether the popup's root is disabled, which keeps it effectively closed.</summary>
     public bool Disabled { get; init; }
 

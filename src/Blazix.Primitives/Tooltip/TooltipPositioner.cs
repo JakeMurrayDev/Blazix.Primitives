@@ -75,7 +75,7 @@ public static class TooltipPositionerCssVars
 }
 
 // tooltip/positioner/TooltipPositionerContext.ts:14-21 (TIP-EDGE-04): the placement the Popup, Arrow and Viewport read.
-// It wraps track 2's PositionerContext, whose listeners the parts join (the Arrow's behaviour joins it itself).
+// It wraps track 2's PositionerContext, whose listeners the parts join (the Arrow's behavior joins it itself).
 /// <summary>What a tooltip positioner gives the popup, arrow and viewport inside it.</summary>
 internal sealed class TooltipPositionerContext(PositionerContext positioner)
 {
@@ -100,7 +100,7 @@ internal sealed class TooltipPositionerContext(PositionerContext positioner)
 // §5.3, §10.
 // - Track 2's PositionerBehavior (Floating/) with Tooltip's defaults (TIP-POS-01: Side.Top, Align.Center, a collision
 //   and an arrow padding of 5, POPUP_COLLISION_AVOIDANCE as null); `role="presentation"`, `hidden` while unmounted and
-//   the placement through the behaviour's attribute helpers. KeepMounted is the Portal's (TIP-POS-09: no parameter).
+//   the placement through the behavior's attribute helpers. KeepMounted is the Portal's (TIP-POS-09: no parameter).
 // - `pointer-events: none` while `!open || TrackCursorAxis == Both || DisableHoverablePopup` (TIP-DOM-07): the module
 //   writes it while closed (FLT-DOM-01); while open and unhoverable the part puts it ahead of the consumer's style, which
 //   the layered writer applies as the consumer band (ADR 04 Amendments 2026-10-27), so a consumer `pointer-events` still

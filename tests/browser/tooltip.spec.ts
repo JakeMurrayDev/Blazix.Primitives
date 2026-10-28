@@ -27,7 +27,7 @@ detachedTriggersConformanceTests({
     // `interactions` handle attaches under no session; the module keeps that binding when the session token arrives, and
     // the hover open closes at once. Open until PR 136 (track 5) lands with its fix of `Floating/InteractionsTriggerBehavior`.
     'registers a detached trigger declared after the root':
-      'PSH-STR-03 with a late session token: open until PR 136 lands the session rebinding of InteractionsTriggerBehavior',
+      'TIP-EDGE-15, TIP-STR-09, PSH-STR-03 with a late session token: open until PR 136 lands the session rebinding of InteractionsTriggerBehavior',
   },
 });
 
