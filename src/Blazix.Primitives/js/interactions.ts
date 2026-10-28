@@ -589,6 +589,8 @@ interface SessionRecord extends InteractionSession {
   /** The answered-requests counter last applied. */
   answered: number;
   pending: PendingRequest | null;
+  /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
+  namedTrigger: Element | null;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
   channel: TwinChannel | null;
@@ -680,6 +682,7 @@ function createSessionRecord(token: string): SessionRecord {
     lastRevision: undefined,
     answered: 0,
     pending: null,
+    namedTrigger: null,
     triggers,
     channel: null,
     positionListeners: new Set(),
@@ -800,6 +803,16 @@ export function getSession(token: string): InteractionSession | undefined {
 }
 
 /**
+ * Names the element the next relayed `focus-out` close without a trigger carries as its trigger element, such as a
+ * popup trigger's focus guard, which the guard's own close names; a canceled close clears it.
+ * @param session The session.
+ * @param element The element.
+ */
+export function nameRelayTrigger(session: InteractionSession, element: Element): void {
+  (session as SessionRecord).namedTrigger = element;
+}
+
+/**
  * Determines whether no open session was opened later than this one (the topmost gate of nested popups).
  * @param session The session.
  * @returns `true` when the session is open and topmost.
@@ -870,7 +883,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
         reason: relay.reason,
         nativeEvent: event,
         nested: record.nested,
-        triggerElement: relay.triggerId != null ? record.triggers.get(relay.triggerId) : undefined,
+        triggerElement: relay.triggerId != null ? record.triggers.get(relay.triggerId) : namedTrigger(record, open, relay.reason),
       };
       record.events.emit('openchange', details);
     }
@@ -888,9 +901,19 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   const answered = role.answered ?? 0;
   if (answered !== record.answered) {
     record.answered = answered;
+    // A canceled close moves no revision: the name it was given does not wait for a later close.
+    record.namedTrigger = null;
     rearmDismiss(record);
   }
   notifySessionChange(record);
+}
+
+// Design point 4's sub-point of M4 track 5 (settled by the orchestrator 2026-10-28): the element `nameRelayTrigger` named
+// is the trigger of the next relayed `focus-out` close that names none, once.
+function namedTrigger(record: SessionRecord, open: boolean, reason: string): Element | undefined {
+  const named = record.namedTrigger;
+  record.namedTrigger = null;
+  return !open && reason === 'focus-out' && named !== null ? named : undefined;
 }
 
 // The coalesced close's dispatch: its `openchange` (with the session's own request event when it was that close), then
