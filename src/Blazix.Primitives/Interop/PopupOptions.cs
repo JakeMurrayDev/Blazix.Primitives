@@ -43,10 +43,6 @@ internal sealed record PopupViewportOptions
     /// <summary>Gets the payload's version, whose change re-measures the popup.</summary>
     /// <value>The store's payload version.</value>
     public int ContentVersion { get; init; }
-
-    /// <summary>Gets the text direction the direction provider gives, which turns a logical side into a physical one.</summary>
-    /// <value><c>rtl</c>, or <see langword="null"/> for <c>ltr</c>.</value>
-    public string? Direction { get; init; }
 }
 
 // PSH-ALG-17, PSH-ALG-21, POP-ANI-07.
