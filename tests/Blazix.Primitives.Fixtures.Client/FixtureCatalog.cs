@@ -29,6 +29,7 @@ using Blazix.Primitives.Fixtures.Client.TabsFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
+using Blazix.Primitives.Fixtures.Client.TooltipFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -161,5 +162,7 @@ public static class FixtureCatalog
         ["positioning-origin"] = new(typeof(PositioningOriginFixture)),
         ["positioning-lifecycle"] = new(typeof(PositioningLifecycleFixture)),
         ["positioning-prerender"] = new(typeof(PositioningPrerenderFixture), Prerender: true),
+        ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
+        ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
     };
 }

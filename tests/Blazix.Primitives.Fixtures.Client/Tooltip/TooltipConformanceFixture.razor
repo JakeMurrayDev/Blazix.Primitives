@@ -1,0 +1,70 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-conformance` fixture (tests/browser/tooltip.spec.ts): popupConformanceTests (tests/browser/suites/) with
+    TooltipRoot.test.tsx's tree (:27-40): a contained trigger, portal, positioner and popup. The query sets the root's
+    props as PopupSuiteFixtureBase documents: `open=true|false` makes the root controlled, `defaultOpen`, `cancelOpen`,
+    `keepMounted`, `animated` (200 ms keyframes on `[data-open]` and `[data-ending-style]`; open with `?animations=1`).
+*@
+<FixtureContainer Name="tooltip-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes tooltip-conformance-enter { from { opacity: 0; } }
+        @@keyframes tooltip-conformance-exit { to { opacity: 0; } }
+        .tooltip-animated[data-open] { animation: tooltip-conformance-enter 200ms; }
+        .tooltip-animated[data-ending-style] { animation: tooltip-conformance-exit 200ms; }
+    </style>
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
+    <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+
+    @if (controlled)
+    {
+        <TooltipRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </TooltipRoot>
+    }
+    else
+    {
+        <TooltipRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </TooltipRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private Dictionary<string, object> popupAttributes = [];
+    private TooltipTrigger<NoPayload>? trigger;
+    private TooltipRoot<NoPayload>? root;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        popupAttributes["data-testid"] = "popup";
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "tooltip-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <TooltipTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Open menu</TooltipTrigger>
+        <TooltipPortal KeepMounted="@keepMounted">
+            <TooltipPositioner>
+                <TooltipPopup @attributes="popupAttributes">Content</TooltipPopup>
+            </TooltipPositioner>
+        </TooltipPortal>
+    </text>;
+}
