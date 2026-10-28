@@ -1,0 +1,89 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-hover` fixture (tests/browser/popover.spec.ts, M4 track 5): PopoverRoot.test.tsx's and
+    PopoverTrigger.test.tsx's TestPopover for the pointer and hover titles: triggers labeled "Toggle" (`trigger-1`..), a
+    portaled popup holding "Content" and a close labeled "Close", an outside button `outside`. The query:
+    `openOnHover` (default true), `delay`, `closeDelay` (milliseconds), `disabled`, `modal`, `keepMounted`,
+    `triggerCount` (default 1; detached triggers share one handle when more than one), `open=true|false` (a controlled
+    root that follows its OnOpenChange, `[data-set-open]` driving it from outside).
+*@
+<FixtureContainer Name="popover-hover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control style="position: fixed; right: 0; bottom: 40px" @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-testid="outside" style="position: fixed; left: 0; bottom: 0">Outside</button>
+
+    <div style="padding: 100px">
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            int index = number - 1;
+            <PopoverTrigger TPayload="NoPayload" @ref="triggers[index]" Handle="@handle" id="@($"trigger-{number}")" data-testid="@($"trigger-{number}")"
+                            OpenOnHover="@openOnHover" Delay="@delay" CloseDelay="@closeDelay" Disabled="@disabled" style="margin-right: 40px">Toggle</PopoverTrigger>
+        }
+    </div>
+
+    @if (controlled)
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" Open="@open" Modal="@modal" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Popup
+        </PopoverRoot>
+    }
+    else
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Popup
+        </PopoverRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly PopoverTrigger<NoPayload>?[] triggers = new PopoverTrigger<NoPayload>?[4];
+    private readonly PopoverHandle<NoPayload> handle = new();
+    private PopoverRoot<NoPayload>? root;
+    private bool openOnHover = true;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private bool disabled;
+    private bool modal;
+    private bool keepMounted;
+    private bool controlled;
+    private bool open;
+    private int triggerCount = 1;
+
+    protected override IEnumerable<Task> Attachments =>
+        [.. triggers.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];
+
+    private RenderFragment Popup => @<text>
+        <PopoverPortal KeepMounted="@keepMounted">
+            <PopoverPositioner data-testid="positioner">
+                <PopoverPopup data-testid="popup" style="position: relative; z-index: 1">
+                    <span>Content</span>
+                    <PopoverClose data-testid="close">Close</PopoverClose>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </text>;
+
+    protected override void OnInitialized()
+    {
+        openOnHover = QueryFlag("openOnHover") != false;
+        delay = int.TryParse(Query("delay"), out int open) ? new Duration(open) : null;
+        closeDelay = int.TryParse(Query("closeDelay"), out int close) ? new Duration(close) : null;
+        disabled = QueryFlag("disabled") == true;
+        modal = QueryFlag("modal") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 1;
+        controlled = QueryFlag("open") is not null;
+        this.open = QueryFlag("open") == true;
+    }
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        open = args.Value;
+    }
+}

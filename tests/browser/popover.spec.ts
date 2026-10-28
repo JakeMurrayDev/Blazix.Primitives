@@ -315,3 +315,49 @@ test.describe('<Popover.Positioner /> internal backdrop', () => {
   });
 });
 
+// The pointer and hover titles of PopoverRoot.test.tsx and PopoverTrigger.test.tsx on `popover-hover` (POP-PTR rows): real
+// mouse input, the interactions module's hover timers driven by a paused page clock (Base UI's fake timers), which every
+// title resumes after itself (the worker context's clock, tests/browser/CONTEXT.md).
+test.describe('<Popover.Trigger /> hover', () => {
+  test.afterEach(async ({ page }) => {
+    await page.clock.resume().catch(() => undefined);
+  });
+
+  async function pausedClock(page: Page): Promise<void> {
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 1000);
+  }
+
+  test('should open after delay with rest type by default', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { delay: 100 });
+    await pausedClock(page);
+    const content = page.getByText('Content', { exact: true });
+
+    await page.getByTestId('trigger-1').hover();
+    await page.mouse.move(110, 110, { steps: 2 });
+    await page.getByTestId('trigger-1').hover();
+    await expect(content).toHaveCount(0);
+
+    await page.clock.runFor(100);
+    await expect(content).toBeVisible();
+  });
+
+  test('should close after delay', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { closeDelay: 100 });
+    await pausedClock(page);
+    const content = page.getByText('Content', { exact: true });
+
+    await page.getByTestId('trigger-1').hover();
+    await page.clock.runFor(300);
+    await expect(content).toBeVisible();
+
+    await page.getByTestId('outside').hover();
+    await page.clock.runFor(50);
+    await settle(fixture);
+    await expect(content).toBeVisible();
+
+    await page.clock.runFor(50);
+    await expect(content).toHaveCount(0);
+  });
+});
+
