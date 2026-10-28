@@ -752,7 +752,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     if (sessionReference) {
       return { key: sessionReference, value: sessionReference as VirtualElement };
     }
-    const trigger = options.triggerId ? doc.getElementById(options.triggerId) : null;
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6; ADR 01's hand-off row): the session's reference
+    // element, which is a hand-off's trigger before C# commits it, else C#'s trigger.
+    const trigger = session?.domReferenceElement ?? (options.triggerId ? doc.getElementById(options.triggerId) : null);
     return { key: trigger, value: trigger };
   };
 
