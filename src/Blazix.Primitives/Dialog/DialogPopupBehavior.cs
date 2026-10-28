@@ -21,6 +21,8 @@ namespace Blazix.Primitives;
 // - the page scroll lock (track 1's PopupScrollLockBehavior): enabled while open and modal === true, on the popup's document
 //   (DLG-DOM-26/27).
 // - its `transitions` handle (no `transition: none`, TRN-DOM-05), whose finished enter and exit drive the store.
+// - the `popup` module's Popup role (track 5's PopupTwin), after the portal moved: DLG-KEY-09, the arrow keys, Home and End
+//   stopped unconditionally (DialogPopup.tsx:82-86; PopupElementOptions.StopCompositeKeys).
 // - `--nested-dialogs`, written by C# in the commit path on both modes (DLG-DOM-19, ADR 04 Amendments 2026-10-27).
 /// <summary>The behavior of a dialog-family popup.</summary>
 internal sealed class DialogPopupBehavior : IAsyncDisposable
@@ -28,6 +30,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     private const string OpenSelector = "[data-open]";
 
     private static readonly InteractionsFloatingOptions s_floating = new();
+    private static readonly PopupOptions s_stoppedKeys = new() { Popup = new PopupElementOptions { StopCompositeKeys = true } };
 
     private readonly string partName;
     private readonly ILogger logger;
@@ -37,6 +40,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     private readonly InteractionsFloatingBehavior floating;
     private readonly PopupScrollLockBehavior scrollLock;
     private readonly DialogTransitions transitions;
+    private readonly PopupModuleAttachment keys;
     private IDialogRootContext? context;
     private PopupPortalContext? portal;
     private IDisposable? subscription;
@@ -71,13 +75,14 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
         floating = new InteractionsFloatingBehavior(jsRuntime, request => context!.RequestOpenAsync(request.Open, request.Details), dispatchException);
         scrollLock = new PopupScrollLockBehavior(jsRuntime);
         transitions = new DialogTransitions(jsRuntime, externalExit: false, invokeAsync, status => context!.MirrorStatus(status), opened => context!.CompleteTransitionAsync(opened));
+        keys = new PopupModuleAttachment(jsRuntime);
     }
 
     /// <summary>Gets the root's context.</summary>
     public IDialogRootContext Context => context!;
 
-    /// <summary>Gets a task that completes once the transitions, focus and floating handles have attached.</summary>
-    public Task TwinAttached => Task.WhenAll(transitions.Attached, focus.TwinAttached, floating.TwinAttached);
+    /// <summary>Gets a task that completes once the transitions, focus, floating and popup handles have attached.</summary>
+    public Task TwinAttached => Task.WhenAll(transitions.Attached, focus.TwinAttached, floating.TwinAttached, keys.Attached);
 
     /// <summary>Attaches the handles after the render, sends their changed options and runs the batch boundary.</summary>
     /// <param name="element">The popup's element.</param>
@@ -97,7 +102,8 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
         Task focused = focus.AfterRenderAsync(element, id);
         Task pressed = floating.AfterRenderAsync(enabled: true, element, id);
         Task locked = scrollLock.ApplyAsync(element, root.Open && root.Modality == DialogModality.Modal);
-        await Task.WhenAll(transitioned, focused, pressed, locked);
+        Task stopped = StopCompositeKeysAsync(element, moved);
+        await Task.WhenAll(transitioned, focused, pressed, locked, stopped);
         await root.AtBatchBoundaryAsync();
     }
 
@@ -121,6 +127,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
         await floating.DisposeAsync();
         await scrollLock.DisposeAsync();
         await transitions.DisposeAsync();
+        await keys.DisposeAsync();
     }
 
     /// <summary>Checks the part's placement and subscribes to the root's state, once.</summary>
@@ -308,5 +315,21 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
             warned = true;
             DevelopmentWarnings.Write(logger, $"Blazix: `{partName}` received both `{parameter}` and `{parameter}Resolver`. `{parameter}Resolver` is used; set only one of them.");
         }
+    }
+
+    // A portaled part attaches once the portal has moved its node (design point 3 of M4 track 1).
+    private async Task StopCompositeKeysAsync(ElementReference? element, Task moved)
+    {
+        if (element is not { } target)
+        {
+            return;
+        }
+
+        if (!moved.IsCompleted)
+        {
+            await moved;
+        }
+
+        await keys.SyncAsync(target, s_stoppedKeys);
     }
 }
