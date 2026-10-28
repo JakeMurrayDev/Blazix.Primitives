@@ -1,0 +1,70 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `dialog-popover` fixture (tests/browser/dialog.spec.ts): Dialog with Popover (PR 136).
+    - `case=popover-triggers`: DialogRoot.detached-triggers.test.tsx's "closes a nonmodal dialog on Escape from an inactive
+      trigger inside a popover on every open" (DLG-KEY-01): an initially open popover `popover` holding a non-modal dialog's
+      root with a handle and its two detached triggers ("Dialog trigger 1", "Dialog trigger 2"); the dialog popup is
+      `dialog`.
+    - `case=popover-in-dialog`: DLG-STA-07's third gate case: an initially open modal dialog `dialog` holding a popover
+      (trigger "Popover trigger", popup `popover`). The container records the dialog root's open changes.
+*@
+<FixtureContainer Name="dialog-popover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (Case == "popover-in-dialog")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="dialogRoot" DefaultOpen="true" OnOpenChange="RecordOpenChange">
+            <DialogPortal>
+                <DialogPopup data-testid="dialog" style="position: fixed; z-index: 10; top: 200px; left: 200px">
+                    <PopoverRoot TPayload="NoPayload" @ref="popoverRoot">
+                        <PopoverTrigger TPayload="NoPayload" @ref="popoverTrigger">Popover trigger</PopoverTrigger>
+                        <PopoverPortal>
+                            <PopoverPositioner SideOffset="8">
+                                <PopoverPopup data-testid="popover">Popover</PopoverPopup>
+                            </PopoverPositioner>
+                        </PopoverPortal>
+                    </PopoverRoot>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="popoverRoot" DefaultOpen="true">
+            <PopoverTrigger TPayload="NoPayload" @ref="popoverTrigger">Popover trigger</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner SideOffset="8">
+                    <PopoverPopup data-testid="popover">
+                        <DialogRoot TPayload="NoPayload" @ref="dialogRoot" Handle="@handle" Modal="false" OnOpenChange="RecordOpenChange">
+                            <DialogTrigger TPayload="NoPayload" @ref="dialogTrigger" Handle="@handle">Dialog trigger 1</DialogTrigger>
+                            <DialogTrigger TPayload="NoPayload" Handle="@handle">Dialog trigger 2</DialogTrigger>
+                            <DialogPortal>
+                                <DialogPopup data-testid="dialog">Dialog</DialogPopup>
+                            </DialogPortal>
+                        </DialogRoot>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly DialogHandle<NoPayload> handle = new();
+    private DialogRoot<NoPayload>? dialogRoot;
+    private DialogTrigger<NoPayload>? dialogTrigger;
+    private PopoverRoot<NoPayload>? popoverRoot;
+    private PopoverTrigger<NoPayload>? popoverTrigger;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        dialogRoot?.SessionAttached ?? Task.CompletedTask,
+        dialogTrigger?.TwinAttached ?? Task.CompletedTask,
+        popoverRoot?.SessionAttached ?? Task.CompletedTask,
+        popoverTrigger?.TwinsAttached ?? Task.CompletedTask,
+    ];
+}
