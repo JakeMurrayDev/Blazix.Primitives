@@ -6,8 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
 // `positioning`'s reader stands in for an attached Positioner: the rendered physical side is the attribute the test sets.
+const placementReads = vi.hoisted(() => ({ count: 0 }));
 vi.mock('./positioning', () => ({
-  readPlacement: (element: Element) => ({ physicalSide: element.getAttribute('data-physical-side') ?? 'bottom', isPositioned: true }),
+  readPlacement: (element: Element) => {
+    placementReads.count += 1;
+    return element.hasAttribute('data-unattached') ? null : { physicalSide: element.getAttribute('data-physical-side') ?? 'bottom', isPositioned: true };
+  },
 }));
 
 const {
@@ -204,6 +208,21 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: true });
   });
 
+  it('port: an update that arrives before the mutation records (WebAssembly) still clones the removed content', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const twin = createFakeTwin({ synchronous });
+    const handle = attachTo(rendered.viewport, openViewport, twin);
+
+    // WebAssembly applies the render batches and C#'s after-render update in one task, before the observer's microtask.
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    handle.update(JSON.stringify({ viewport: { open: true, popupId: 'popup', contentVersion: 1 } }));
+    await settle();
+
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
+  });
+
   it('port: the starting style moves to an ending style over a frame, and the previous content leaves once the current one settles', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
@@ -342,6 +361,33 @@ describe('auto-resize', () => {
 
     expect(rendered.popup.style.position).toBe('absolute');
     expect(rendered.popup.style.bottom).toBe('0px');
+  });
+
+  it('port: a positioner whose handle attaches after the viewport measured re-anchors the popup on its first write', async () => {
+    const rendered = renderViewport();
+    rendered.positioner.setAttribute('data-unattached', '');
+    attachTo(rendered.viewport, openViewport, createFakeTwin());
+    expect(rendered.popup.style.position).toBe('');
+
+    rendered.positioner.removeAttribute('data-unattached');
+    rendered.positioner.setAttribute('data-physical-side', 'left');
+    rendered.positioner.style.setProperty('--anchor-width', '72px');
+    await settle();
+
+    expect(rendered.popup.style.position).toBe('absolute');
+    expect(rendered.popup.style.right).toBe('0px');
+  });
+
+  it("port: the measurement's own writes on a positioner that reads nothing never re-measure it", async () => {
+    const rendered = renderViewport();
+    rendered.positioner.setAttribute('data-unattached', '');
+    attachTo(rendered.viewport, openViewport, createFakeTwin());
+    placementReads.count = 0;
+
+    await settle();
+    await settle();
+
+    expect(placementReads.count).toBe(0);
   });
 
   it('port: the anchoring styles of a side, as Base UI derives them', () => {
