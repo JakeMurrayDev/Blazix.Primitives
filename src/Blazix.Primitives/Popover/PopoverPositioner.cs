@@ -89,6 +89,7 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
 
     private PositionerBehavior? positioner;
     private InteractionsFloatingBehavior? floating;
+    private PopupModuleAttachment? module;
     private PopoverSubscription? subscription;
     private PopoverSelection<bool>? open;
     private PopoverSelection<bool>? mounted;
@@ -99,7 +100,11 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     private PopoverSelection<bool>? openOnHover;
     private PopoverSelection<bool>? disabled;
     private PopoverSelection<int>? closeDelay;
+    private PopoverSelection<PopoverModalKind>? modal;
+    private PopoverSelection<bool>? hoverOpened;
+    private PopoverSelection<InteractionType?>? openMethod;
     private PopoverPositionerState? state;
+    private string? switchedFrom;
     private RenderFragment? cascadedContent;
     private RenderFragment? cascade;
 
@@ -209,7 +214,10 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
     /// <summary>Gets a task that completes when the positioner's behaviors are first attached.</summary>
-    internal Task TwinAttached => Task.WhenAll(positioner!.TwinAttached, floating!.TwinAttached);
+    internal Task TwinAttached => Task.WhenAll(positioner!.TwinAttached, floating!.TwinAttached, module!.Attached);
+
+    /// <summary>Gets the positioner's <c>popup</c> twin, for the tests.</summary>
+    internal PopupTwin PopupTwin => module!.Twin;
 
     /// <summary>Gets the positioner's behavior, for the tests.</summary>
     internal PositionerBehavior Behavior => positioner!;
@@ -239,6 +247,12 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
         openOnHover = subscription.Select(PopoverSelectors.OpenOnHover);
         disabled = subscription.Select(PopoverSelectors.Disabled);
         closeDelay = subscription.Select(PopoverSelectors.CloseDelay);
+        modal = subscription.Select(PopoverSelectors.Modal);
+        hoverOpened = subscription.Select(PopoverSelectors.HoverOpened);
+        openMethod = subscription.Select(PopoverSelectors.OpenMethod);
+        module = new PopupModuleAttachment(JSRuntime);
+        module.Twin.TriggerChangeSettled += () => _ = InvokeAsync(root.CompleteTriggerChange);
+        switchedFrom = activeTriggerId.Value;
         base.OnInitialized();
     }
 
@@ -264,16 +278,30 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     {
         PopoverRootContext root = RootContext!;
         root.SetPositionerElement(Enabled ? Element : null);
-        if (!open!.Value)
+        bool isOpen = open!.Value;
+        string? triggerId = activeTriggerId!.Value;
+        if (!isOpen)
         {
             root.ClearTriggerChangeWhenClosed();
         }
+        else if (switchedFrom is not null && triggerId is not null && !string.Equals(switchedFrom, triggerId, StringComparison.Ordinal))
+        {
+            // useTriggerSwitchTransition.ts: the instant type is cleared while the popup moves between triggers.
+            root.BeginTriggerChange();
+        }
 
-        // Both handles start in the same render; the positioning one awaits the portal's move inside its behavior.
+        if (triggerId is not null)
+        {
+            switchedFrom = triggerId;
+        }
+
+        // The three handles start in the same render; the positioning one awaits the portal's move inside its behavior.
         SetFloatingOptions();
         Task floatingSync = floating!.AfterRenderAsync(Enabled, Element, Id);
+        Task moduleSync = SyncPopupModuleAsync(isOpen, triggerId);
         await positioner!.AfterRenderAsync(Element, Id);
         await floatingSync;
+        await moduleSync;
     }
 
     /// <inheritdoc />
@@ -287,6 +315,11 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
             if (floating is not null)
             {
                 _ = floating.DisposeAsync().AsTask();
+            }
+
+            if (module is not null)
+            {
+                _ = module.DisposeAsync().AsTask();
             }
 
             if (RootContext is not null && RootContext.State.Mounted)
@@ -344,6 +377,30 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
         {
             floating.Options = new InteractionsFloatingOptions { Node = true, Hover = hover ? new InteractionsFloatingHoverOptions(delay) : null };
         }
+    }
+
+    // POP-STR-13, POP-PTR-19 (PopoverPositioner.tsx:98-105): the backdrop and the lock while modal is true and the popover
+    // was not opened by hover; a touch open locks only a popover that spans the viewport (the module's width test).
+    private async Task SyncPopupModuleAsync(bool isOpen, string? triggerId)
+    {
+        if (Element is not { } element)
+        {
+            return;
+        }
+
+        await PopupPortalContext.WhenMoved(Portal);
+        bool trueModalNonHover = modal!.Value == PopoverModalKind.Modal && !hoverOpened!.Value;
+        await module!.SyncAsync(element, new PopupOptions
+        {
+            Positioner = new PopupPositionerOptions
+            {
+                Open = isOpen,
+                Cutout = mounted!.Value && trueModalNonHover,
+                ScrollLock = isOpen && trueModalNonHover,
+                TouchOpen = openMethod!.Value == InteractionType.Touch,
+                ActiveTriggerId = triggerId,
+            },
+        });
     }
 
     // A part renders on a mirror change only when its state record changed (track 2's rule): the Arrow and the Popup listen

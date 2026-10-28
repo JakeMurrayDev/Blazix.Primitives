@@ -79,6 +79,8 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private const string StartingStyle = "transition: none";
 
     private static readonly StateAttributesMapping<PopoverPopupState> s_mapping = PopupStateMapping.CreateOpen<PopoverPopupState>();
+    private static readonly PopupOptions s_freeKeys = new() { Popup = new PopupElementOptions() };
+    private static readonly PopupOptions s_stoppedKeys = new() { Popup = new PopupElementOptions { StopCompositeKeys = true } };
 
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly PopoverClosePartCount closeParts;
@@ -95,6 +97,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private PopoverSelection<int>? unmountRequests;
     private IDisposable? boundaryPart;
     private PopoverPopupState? state;
+    private PopupModuleAttachment? module;
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
     private TransitionsOptions? sentTransitions;
@@ -127,6 +130,9 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
 
+    [CascadingParameter]
+    private ToolbarRootContext? ToolbarContext { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
@@ -158,6 +164,9 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     /// <summary>Gets a value indicating whether a close part is mounted inside the popup.</summary>
     internal bool HasClosePart => closeParts.HasClosePart;
 
+    /// <summary>Gets the popup's <c>popup</c> twin attachment, for the tests.</summary>
+    internal PopupModuleAttachment Module => module!;
+
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
@@ -183,6 +192,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         unmountRequests = subscription.Select(PopoverSelectors.UnmountRequests);
         boundaryPart = root.RegisterBoundaryPart();
         PositionerContext!.AddListener(positionerChanged);
+        module = new PopupModuleAttachment(JSRuntime);
         base.OnInitialized();
     }
 
@@ -209,7 +219,11 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         {
             root.SetPopupElement(element, RenderedId);
             await PopupPortalContext.WhenMoved(Portal);
-            await SyncTransitionsAsync(element);
+            Task transitionsSync = SyncTransitionsAsync(element);
+
+            // POP-KEY-12 (PopoverPopup.tsx:96-100): inside a toolbar the composite keys stop at the popup.
+            await module!.SyncAsync(element, ToolbarContext is null ? s_freeKeys : s_stoppedKeys);
+            await transitionsSync;
         }
 
         await root.AtBatchBoundaryAsync();
@@ -236,6 +250,11 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
                 _ = transitions.DisposeAsync().AsTask();
                 transitions = null;
                 transitionsHandle = null;
+            }
+
+            if (module is not null)
+            {
+                _ = module.DisposeAsync().AsTask();
             }
         }
 

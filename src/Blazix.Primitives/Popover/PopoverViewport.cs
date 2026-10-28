@@ -1,7 +1,9 @@
 using System.Globalization;
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -64,10 +66,14 @@ public static class PopoverViewportCssVars
 public sealed class PopoverViewport : PartBase<PopoverViewportState>
 {
     private readonly RenderFragment current;
+    private PopupModuleAttachment? module;
     private PopoverSubscription? subscription;
     private PopoverSelection<PopoverInstantType?>? instant;
     private PopoverSelection<string?>? activeTriggerId;
     private PopoverSelection<int>? payloadVersion;
+    private PopoverSelection<bool>? open;
+    private PopoverSelection<bool>? mounted;
+    private PopoverSelection<string?>? popupId;
     private PopoverViewportState? state;
     private RenderFragment? consumerContent;
     private string? keyedTriggerId;
@@ -84,11 +90,20 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
         current = RenderCurrent;
     }
 
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
     [CascadingParameter]
     private PopoverRootContext? RootContext { get; set; }
 
     [CascadingParameter]
     private PositionerContext? PositionerContext { get; set; }
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
+
+    [CascadingParameter]
+    private DirectionProviderContext? DirectionContext { get; set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -112,6 +127,12 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
     /// <summary>Gets the key the current content renders with, for the tests.</summary>
     internal string? ContentKey => key;
 
+    /// <summary>Gets a task that completes when the viewport's <c>popup</c> handle has attached.</summary>
+    internal Task TwinAttached => module!.Attached;
+
+    /// <summary>Gets the viewport's <c>popup</c> twin, for the tests.</summary>
+    internal PopupTwin Twin => module!.Twin;
+
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
@@ -130,6 +151,11 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
         instant = subscription.Select(PopoverSelectors.InstantType);
         activeTriggerId = subscription.Select(PopoverSelectors.ActiveTriggerId);
         payloadVersion = subscription.Select(PopoverSelectors.PayloadVersion);
+        open = subscription.Select(PopoverSelectors.Open);
+        mounted = subscription.Select(PopoverSelectors.Mounted);
+        popupId = subscription.Select(PopoverSelectors.PopupId);
+        module = new PopupModuleAttachment(JSRuntime);
+        module.Twin.ViewportChanged += report => _ = InvokeAsync(() => Mirror(report.ActivationDirection, report.Transitioning));
         keyedTriggerId = activeTriggerId.Value;
         keyedPayloadVersion = payloadVersion.Value;
         root.SetAdaptiveOrigin(true);
@@ -151,6 +177,29 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
     }
 
     /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Element is not { } element)
+        {
+            return;
+        }
+
+        await PopupPortalContext.WhenMoved(Portal);
+        await module!.SyncAsync(element, new PopupOptions
+        {
+            Viewport = new PopupViewportOptions
+            {
+                Open = open!.Value,
+                Mounted = mounted!.Value,
+                PopupId = popupId!.Value,
+                ActiveTriggerId = activeTriggerId!.Value,
+                ContentVersion = payloadVersion!.Value,
+                Direction = DirectionProviderContext.Read(DirectionContext) == TextDirection.Rtl ? "rtl" : null,
+            },
+        });
+    }
+
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -158,6 +207,10 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
             subscription?.Dispose();
             subscription = null;
             RootContext?.SetAdaptiveOrigin(false);
+            if (module is not null)
+            {
+                _ = module.DisposeAsync().AsTask();
+            }
         }
 
         base.Dispose(disposing);
