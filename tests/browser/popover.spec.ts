@@ -26,12 +26,6 @@ detachedTriggersConformanceTests({
   close: true,
   positioner: true,
   viewport: true,
-  open: {
-    'allows controlling the open state and active trigger programmatically':
-      'POP-API-07 (its focus clause) and POP-FOC-05 on WebAssembly: focus returns to the external "Open Trigger 1" instead ' +
-      'of "Open Trigger 2" after a programmatic switch and close (gap 12 of track 5, settled by the orchestrator 2026-10-28: ' +
-      'track 4 fixes the focus manager\'s return target on a reference switch; un-skip at the main merge after it)',
-  },
 });
 
 // The first run of viewportConformanceTests (track 1 wrote it for the families): PopoverViewport.test.tsx's config.
