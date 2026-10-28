@@ -90,6 +90,13 @@ public sealed class TransitionsTwinContractTests
             JsonSerializer.Serialize(new TransitionsOptions { DisableTransitionWhileStarting = true }, BlazixJsonContext.Default.TransitionsOptions),
             StringComparison.Ordinal);
 
+        // Issue 147's flag (ADR 04 Amendments 2026-10-29): left out at its default, and written when a popup announces a
+        // retained close.
+        Assert.Contains(
+            "\"retainExit\":true",
+            JsonSerializer.Serialize(new TransitionsOptions { RetainExit = true }, BlazixJsonContext.Default.TransitionsOptions),
+            StringComparison.Ordinal);
+
         foreach ((TransitionStatus status, string literal) in new[] { (TransitionStatus.Starting, "starting"), (TransitionStatus.Ending, "ending"), (TransitionStatus.Idle, "idle") })
         {
             string json = JsonSerializer.Serialize(new TransitionsOptions { Status = status }, BlazixJsonContext.Default.TransitionsOptions);

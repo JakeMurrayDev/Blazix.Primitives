@@ -908,6 +908,31 @@ describe('attach', () => {
     ]);
   });
 
+  // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): a popup part announces
+  // a retained close before its batch; that close keeps its ending phase, not hidden, until C# requests the unmount
+  // (TRN-ANI-23), and an ordinary close still completes at its exit end.
+  it('port: a retained exit stays in its ending phase until the unmount is requested', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+    update(handle, { open: true, keepMounted: true, hiddenWhenUnmounted: true, retainExit: true });
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, retainExit: true });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+    expect(element.hasAttribute('hidden')).toBe(false);
+    expect(fake.reported('OnTransitionComplete')).toEqual([]);
+
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, retainExit: true, unmountRequests: 1 });
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+    expect(element.hasAttribute('hidden')).toBe(true);
+    expect(fake.reported('OnStatusChange').at(-1)).toEqual({ status: null, mounted: false });
+  });
+
   // ADR 04 Amendments 2026-10-28 (gap 13 of M4 track 5, option (b)): the handed-over style is the dom writer's consumer
   // band, so another module's layer on the same element stays.
   it('applies the consumer style only when the part hands it over, as the writer\'s consumer band beside another module\'s layer', () => {

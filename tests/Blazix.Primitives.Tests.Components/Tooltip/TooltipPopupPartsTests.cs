@@ -183,6 +183,38 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.True(JsonDocument.Parse((string)attach.Arguments[1]!).RootElement.GetProperty("disableTransitionWhileStarting").GetBoolean());
     }
 
+    // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): the opt-out reaches the
+    // popup's transitions handle from the store notification, before the batch that closes the tooltip exists.
+    [Fact(DisplayName = "port: a retained close announces itself to the popup's transitions handle before the close renders")]
+    [Trait("Requirement", "TIP-EVT-04")]
+    public async Task A_retained_close_announces_itself_to_the_transitions_handle_before_the_close_renders()
+    {
+        List<bool> openWhenAnnounced = [];
+        IRenderedComponent<TooltipBasicHost>? cut = null;
+        host.Context.JSInterop.SetupVoid("update", invocation =>
+        {
+            if (invocation.Arguments.Count > 0 && invocation.Arguments[0] is string json && json.Contains("\"retainExit\":true", StringComparison.Ordinal))
+            {
+                openWhenAnnounced.Add(cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
+            }
+
+            return false;
+        });
+        cut = host.Context.Render<TooltipBasicHost>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.OnOpenChange, (ValueChangeEventArgs<bool> args) =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }));
+
+        await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
+
+        Assert.Equal([true], openWhenAnnounced);
+    }
+
     private JsonElement PositioningOptions()
     {
         JSRuntimeInvocation attach = host.Context.JSInterop.Invocations.Last(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal) is false && json.Contains("\"collisionPadding\"", StringComparison.Ordinal));

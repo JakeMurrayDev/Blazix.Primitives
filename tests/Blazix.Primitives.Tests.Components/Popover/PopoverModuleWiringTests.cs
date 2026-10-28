@@ -216,5 +216,44 @@ public sealed class PopoverModuleWiringTests : IDisposable
             attach => attach.Arguments[1] is string json && json.Contains("\"disableTransitionWhileStarting\":true", StringComparison.Ordinal));
     }
 
+    // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): the opt-out reaches the
+    // popup's transitions handle from the store notification, before the batch that closes the popup exists.
+    [Fact(DisplayName = "port: a retained close announces itself to the popup's transitions handle before the close renders")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task A_retained_close_announces_itself_to_the_transitions_handle_before_the_close_renders()
+    {
+        List<bool> openWhenAnnounced = [];
+        IRenderedComponent<PopupTestHost>? cut = null;
+        test.Context.JSInterop.SetupVoid("update", invocation =>
+        {
+            if (invocation.Arguments.Count > 0 && invocation.Arguments[0] is string json && json.Contains("\"retainExit\":true", StringComparison.Ordinal))
+            {
+                openWhenAnnounced.Add(cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
+            }
+
+            return false;
+        });
+        cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, new PopoverSpec
+            {
+                Open = host.Get<bool>("open"),
+                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, args =>
+                {
+                    if (!args.Value)
+                    {
+                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    }
+
+                    return host.SetAsync("open", args.Value);
+                }),
+            }),
+            new() { ["open"] = false });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        await test.PressAsync(cut, "trigger-1", open: false);
+
+        Assert.Equal([true], openWhenAnnounced);
+    }
+
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }
