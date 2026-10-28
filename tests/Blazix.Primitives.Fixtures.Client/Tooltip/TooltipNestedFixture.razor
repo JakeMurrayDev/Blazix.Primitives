@@ -17,7 +17,7 @@
 <FixtureContainer Name="tooltip-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges">
     <div style="position: fixed; top: 0; left: 0">
-        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
         <button type="button" data-open-outer @onclick="() => controlledOpen = true">Open outer</button>
     </div>
     <div style="position: fixed; top: 200px; left: 100px">

@@ -12,7 +12,7 @@
     `bottom` where Base UI's suite passes no side; Tooltip's default `top` would flip there anyway, from the viewport's origin.
 *@
 <FixtureContainer Name="tooltip-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
-    <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++">Sync</button>
+    <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     @* The suite finds the positioner inside the fixture's container, so the portal moves its node here. *@
     <div id="tooltip-positioner-host"></div>
 

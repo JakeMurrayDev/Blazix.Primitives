@@ -12,7 +12,7 @@
 <FixtureContainer Name="tooltip-prerender" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-handle-open-state="@(handle.IsOpen ? "true" : "false")">
     <div style="position: fixed; top: 0; left: 0">
-        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     </div>
     <div style="position: fixed; top: 200px; left: 100px">
         <TooltipTrigger Handle="handle" @ref="trigger" id="trigger-1" data-testid="trigger-1">Trigger 1</TooltipTrigger>

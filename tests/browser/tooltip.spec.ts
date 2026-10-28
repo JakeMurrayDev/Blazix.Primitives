@@ -1,5 +1,5 @@
 import { type Browser } from '@playwright/test';
-import { expect, fixtureUrl, readDiagnostics, test, type Page, type RenderMode } from './helpers';
+import { expect, fixtureUrl, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -8,8 +8,6 @@ import { gotoPositionerCase, positionerConformanceTests } from './suites/positio
 // The [L4] rows of docs/components/tooltip.md (M4 track 6, issue 121) on the Tooltip fixtures, both render modes, Server
 // first. Base UI's titles verbatim; port titles start with "port:". The shared suites run with Tooltip's options
 // (TooltipRoot.test.tsx:27-40, TooltipRoot.detached-triggers.test.tsx:175-189).
-
-const OVERLAP_TITLE = 'resolves a trigger still registered to the previous root during a transient overlap';
 
 popupConformanceTests({
   fixture: 'tooltip-conformance',
@@ -24,41 +22,13 @@ detachedTriggersConformanceTests({
   close: false,
   positioner: true,
   open: {
-    // Base UI changes the phase with `setProps`; the suite helper clicks the fixture's button with the real pointer, which
-    // is a press outside an open tooltip (TIP-PTR-14). The port title below runs the same steps with a click that has no
-    // pointer press: a fixture control, not the gesture under test, which tests/browser/CONTEXT.md's real-input rule
-    // governs (tooltip.md's dated note on TIP-PTR-14); it moves to the suites' `pressControl` once track 5's helper PR lands.
-    [OVERLAP_TITLE]: 'TIP-PTR-14: the phase button is an outside press; restated as the port title of this spec',
     // Run 40707988387 (172f72f), browser-server (2), reproduced at 4x CPU throttling: the root attaches its store to the
     // handle after its render (PSH-STR-03), so a trigger declared after it renders on the fallback store and its
     // `interactions` handle attaches under no session; the module keeps that binding when the session token arrives, and
-    // the hover open closes at once. Open until track 5's fix of `Floating/InteractionsTriggerBehavior` is on `main`.
+    // the hover open closes at once. Open until PR 136 (track 5) lands with its fix of `Floating/InteractionsTriggerBehavior`.
     'registers a detached trigger declared after the root':
-      'PSH-STR-03 with a late session token: open until the session rebinding of InteractionsTriggerBehavior (track 5) is on main',
+      'PSH-STR-03 with a late session token: open until PR 136 lands the session rebinding of InteractionsTriggerBehavior',
   },
-});
-
-test.describe('detached triggers', () => {
-  test(`port: ${OVERLAP_TITLE}, with the phase changed by a click with no pointer press`, async ({ page, mode }) => {
-    const fixture = await gotoPopupFixture(page, mode, 'tooltip-triggers', { case: 'overlap' });
-    const setPhase = (phase: string) => fixture.locator(`[data-set-phase="${phase}"]`).evaluate((element) => (element as HTMLElement).click());
-    const trigger = (number: number) => page.locator(`[data-testid="trigger-${number}"]`);
-
-    await setPhase('overlap');
-    await settle(fixture);
-
-    await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
-    await expect(fixture).not.toHaveAttribute('data-handle-error', /./);
-    await expect(trigger(2)).toHaveAttribute('data-popup-open');
-    await expect(trigger(1)).not.toHaveAttribute('data-popup-open');
-    expect((await readDiagnostics(page, mode, fixture)).filter((entry) => entry.message.includes('No trigger found'))).toHaveLength(0);
-
-    await setPhase('incoming');
-    await settle(fixture);
-    await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
-    await expect(trigger(2)).toHaveAttribute('data-popup-open');
-    await expect(trigger(1)).not.toHaveAttribute('data-popup-open');
-  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -16,8 +16,8 @@
 <FixtureContainer Name="tooltip-handoff" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges">
     <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
-        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
-        <button type="button" data-handle-open @onclick='() => handle.OpenAsync("trigger-1")'>Open</button>
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" data-handle-open data-key-control @onclick='() => handle.OpenAsync("trigger-1")' @onkeydown='OnShift(() => handle.OpenAsync("trigger-1"))'>Open</button>
     </div>
     <div style="position: fixed; top: 200px; left: 100px; display: flex; gap: 40px">
         @if (Case == "own-id")

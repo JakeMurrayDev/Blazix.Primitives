@@ -29,9 +29,9 @@
         [data-fixture="tooltip-root"] [data-testid="popup"] { width: 120px; height: 40px; }
     </style>
     <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
-        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
-        <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
-        <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+        <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
         <button type="button" data-toggle-disabled @onclick="() => disabled = !disabled">Toggle disabled</button>
         <button type="button" data-toggle-trigger @onclick="() => showTrigger = !showTrigger">Toggle trigger</button>
         <button type="button" data-toggle-axis @onclick="() => axis = TooltipTrackCursorAxis.None">Stop tracking</button>
