@@ -111,5 +111,20 @@ internal static class OwnershipRegistry
         // TabsPanelState.TransitionStatus; C# renders data-starting-style once, on an element it creates open.
         new("tabs", "Panel", "data-starting-style", Writer.Js, "TabsPanelState.TransitionStatus"),
         new("tabs", "Panel", "data-ending-style", Writer.Js, "TabsPanelState.TransitionStatus"),
+        // Dialog (M4 track 8; ADR 04 §2 and Amendments 2026-10-27): the transitions module writes the Backdrop's, the
+        // Viewport's and the Popup's transition attributes, mirrored in each state's TransitionStatus; C# renders the
+        // initial status under the handover. `--nested-dialogs` is C#'s, written in the commit path (no entry).
+        new("dialog", "Backdrop", "data-starting-style", Writer.Js, "DialogBackdropState.TransitionStatus"),
+        new("dialog", "Backdrop", "data-ending-style", Writer.Js, "DialogBackdropState.TransitionStatus"),
+        new("dialog", "Viewport", "data-starting-style", Writer.Js, "DialogViewportState.TransitionStatus"),
+        new("dialog", "Viewport", "data-ending-style", Writer.Js, "DialogViewportState.TransitionStatus"),
+        new("dialog", "Popup", "data-starting-style", Writer.Js, "DialogPopupState.TransitionStatus"),
+        new("dialog", "Popup", "data-ending-style", Writer.Js, "DialogPopupState.TransitionStatus"),
+        // dialog.md §5.2's Writer table (ADR 04 Amendments 2026-10-27, the portal node of Dialog): the node renders
+        // `display: none` until the portal module moves it, which owns `style` from attach.
+        new("dialog", "Portal", "style", Writer.CsharpToJs),
+        // dialog.md §5.8 (DLG-ARIA-11): the focus manager's outside marking writes `aria-hidden` on elements no part owns,
+        // under the section's heading words; its page-global state is recorded in js/CONTEXT.md.
+        new("dialog", "ARIA", "aria-hidden", Writer.Js),
     ];
 }
