@@ -8,9 +8,18 @@ import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 // `positioning`'s reader stands in for an attached Positioner: the rendered physical side is the attribute the test sets.
 const placementReads = vi.hoisted(() => ({ count: 0 }));
 const named = vi.hoisted(() => ({ calls: [] as { token: string; element: Element }[] }));
+// The interactions session the Viewport reads its active trigger from (design point 13.13): one stub for every token.
+const session = vi.hoisted(() => ({ token: 'session', domReferenceElement: null as Element | null, references: 0 }));
 vi.mock('./interactions', () => ({
   getSession: (token: string) => ({ token }),
-  nameRelayTrigger: (session: { token: string }, element: Element) => named.calls.push({ token: session.token, element }),
+  acquireSession: () => {
+    session.references += 1;
+    return session;
+  },
+  releaseSession: () => {
+    session.references -= 1;
+  },
+  nameRelayTrigger: (target: { token: string }, element: Element) => named.calls.push({ token: target.token, element }),
 }));
 vi.mock('./positioning', () => ({
   readPlacement: (element: Element) => {
@@ -48,6 +57,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  session.domReferenceElement = null;
   for (const handle of handles.splice(0)) {
     handle.dispose();
   }
@@ -126,8 +136,9 @@ function current(text: string): HTMLElement {
   return container;
 }
 
-/** Opens the popup on a trigger as C# renders it: `aria-expanded` and `aria-controls` on the active trigger only. */
+/** Opens the popup on a trigger as C# renders it: `aria-expanded` and `aria-controls` on the active trigger only, and the session's reference. */
 function activate(rendered: RenderedViewport, index: number): void {
+  session.domReferenceElement = rendered.triggers[index] ?? null;
   rendered.triggers.forEach((trigger, i) => {
     if (i === index) {
       trigger.setAttribute('data-popup-open', '');
@@ -149,7 +160,7 @@ function remount(rendered: RenderedViewport, text: string): HTMLElement {
   return next;
 }
 
-const openViewport = { viewport: { open: true, popupId: 'popup' } };
+const openViewport = { sessionToken: 'session', viewport: { open: true, popupId: 'popup' } };
 
 describe('getActivationDirection', () => {
   it('returns undefined without an offset', () => {
@@ -210,6 +221,21 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(rendered.viewport.lastElementChild).toBe(next);
     expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('right down');
     expect(rendered.viewport.hasAttribute('data-transitioning')).toBe(true);
+    expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: true });
+  });
+
+  it('port: a Viewport whose triggers render no aria-controls still reports the activation direction', async () => {
+    const rendered = renderViewport();
+    session.domReferenceElement = rendered.triggers[0]!;
+    const twin = createFakeTwin({ synchronous });
+    attachTo(rendered.viewport, openViewport, twin);
+
+    // Tooltip's and PreviewCard's triggers carry neither aria-expanded nor aria-controls (TIP-ARIA-02/05, PRV-ARIA-02).
+    session.domReferenceElement = rendered.triggers[1]!;
+    remount(rendered, 'Two');
+    await settle();
+
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: true });
   });
 
