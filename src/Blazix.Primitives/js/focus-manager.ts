@@ -733,9 +733,10 @@ export interface FocusManagerOptions extends TwinOptions {
   insideElementIds?: string[] | null | undefined;
   /** The last committed open change; the module acts when its revision moves. Unused while a session is joined. */
   relay?: OpenChangeRelay | null | undefined;
+  // The session is the `interactions` module's export (M4 track 3).
   /**
    * The popup's interactions session token: the manager then reads the session's `openchange`, `dataRef`, anchor,
-   * registered triggers and tree (M4 track 3's export).
+   * registered triggers and tree.
    */
   sessionToken?: string | null | undefined;
   /** How many of the module's requests C# has answered, canceled or not; the module asks again when it moves. */
