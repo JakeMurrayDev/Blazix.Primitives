@@ -194,6 +194,7 @@ public static class FixtureCatalog
         ["dialog-popup"] = new(typeof(DialogPopupFixture)),
         ["dialog-shared"] = new(typeof(DialogSharedFixture)),
         ["dialog-shadow"] = new(typeof(DialogShadowFixture)),
+        ["dialog-popover"] = new(typeof(DialogPopoverFixture)),
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
         ["tooltip-root"] = new(typeof(TooltipRootFixture)),
