@@ -801,6 +801,25 @@ test.describe('the topmost gate of non-nested dialogs', () => {
   });
 });
 
+// DLG §16 Q10 (DLG-PTR-05): with `modal: 'trap-focus'` the press mode is sloppy, until a consumer Backdrop exists, when it
+// becomes intentional for mouse too. A mousedown on the backdrop then closes nothing; its click closes.
+test("port: a trap-focus dialog with a backdrop closes on the backdrop's click, not on its mousedown", async ({ page, mode }) => {
+  const fixture = await gotoPopupFixture(page, mode, 'dialog-root', { defaultOpen: true, modal: 'trap-focus', backdrop: true });
+  await expect(page.getByTestId('dialog-popup')).toBeVisible();
+  await expect(page.getByTestId('backdrop')).toBeVisible();
+  const height = page.viewportSize()!.height;
+
+  await page.mouse.move(10, height - 10);
+  await page.mouse.down();
+  await settle(fixture);
+  await expect(page.getByTestId('dialog-popup')).toBeVisible();
+  expect(await openChanges(fixture)).toEqual([]);
+
+  await page.mouse.up();
+  await expect(page.getByTestId('dialog-popup')).toHaveCount(0);
+  expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+});
+
 // DialogRoot.detached-triggers.test.tsx's browser-only title (DLG-KEY-01), on the `dialog-root` fixture's two detached
 // triggers.
 test('closes a non-modal dialog with Escape from an inactive detached trigger', async ({ page, mode }) => {
