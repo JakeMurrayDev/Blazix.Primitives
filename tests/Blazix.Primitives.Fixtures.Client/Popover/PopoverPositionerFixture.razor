@@ -15,11 +15,60 @@
     - `collision-padding`: the trigger fixed at bottom 8px, left 16px, a 200×1000 popup capped by --available-height,
       side bottom, sideOffset 8, collisionPadding 12, fallbackAxisSide none, opened by `[data-open-button]` after mount;
     - `viewport`: a PopoverViewport in the popup; `viewport-toggle`: `[data-viewport-toggle]` mounts and unmounts it.
+    PopoverPositioner.test.tsx's own titles, on an open root whose trigger renders a `div`:
+    - `anchored`: a 100×100 trigger relatively placed at the page's top-left, `[data-move]` moves it 100 px down; a
+      100×100 popup, `keepMounted` from the query;
+    - `custom-anchor`: a 100×100 trigger, then a 50×50 `custom-anchor` the positioner takes as its anchor once it has
+      rendered, a keep-mounted portal;
+    - `ancestor-scroll`: the trigger (72×36) inside a 72 px scroller `scroller` holding 200 px of content, a 52×24 popup,
+      DisableAnchorTracking.
 *@
 <FixtureContainer Name="popover-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
     <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
 
-    @if (Case == "collision-padding")
+    @if (Case == "anchored")
+    {
+        <div style="position: fixed; top: 0; left: 0">
+            <PopoverRoot TPayload="NoPayload" @ref="root" Open="true">
+                <PopoverTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger"
+                                style="@($"width: 100px; height: 100px; position: relative; top: {top}px")">Trigger</PopoverTrigger>
+                <PopoverPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
+                    <PopoverPositioner data-testid="positioner">
+                        <PopoverPopup style="width: 100px; height: 100px">Popup</PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+        </div>
+        <button type="button" data-move data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => top = 100" @onkeydown="OnShift(() => top = 100)">Move</button>
+    }
+    else if (Case == "custom-anchor")
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root" Open="true">
+            <PopoverTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger" style="width: 100px; height: 100px">Trigger</PopoverTrigger>
+            <div @ref="customAnchor" data-testid="custom-anchor" style="width: 50px; height: 50px; position: relative">Anchor</div>
+            <PopoverPortal KeepMounted="true">
+                <PopoverPositioner data-testid="positioner" Anchor="@anchor">
+                    <PopoverPopup style="width: 100px; height: 100px">Popup</PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    }
+    else if (Case == "ancestor-scroll")
+    {
+        <div data-testid="scroller" style="height: 72px; overflow: auto">
+            <div style="height: 200px">
+                <PopoverRoot TPayload="NoPayload" @ref="root" Open="true">
+                    <PopoverTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger" style="width: 72px; height: 36px">Trigger</PopoverTrigger>
+                    <PopoverPortal>
+                        <PopoverPositioner data-testid="positioner" DisableAnchorTracking="true">
+                            <PopoverPopup style="width: 52px; height: 24px">Popup</PopoverPopup>
+                        </PopoverPositioner>
+                    </PopoverPortal>
+                </PopoverRoot>
+            </div>
+        </div>
+    }
+    else if (Case == "collision-padding")
     {
         <PopoverRoot TPayload="NoPayload" @ref="root" Open="@open">
             <div style="position: fixed; bottom: 8px; left: 16px">
@@ -66,6 +115,7 @@
 
 @code {
     private static readonly CollisionAvoidance s_noFallback = new(FallbackAxisSide: FallbackAxisSide.None);
+    private static readonly RenderFragment s_div = @<div></div>;
     private static readonly PortalContainerValue s_host = new("#popover-positioner-host");
     private const string AnchorSize = "width: 72px; height: 36px; box-sizing: border-box; margin: 0; padding: 0; border: 0";
 
@@ -79,6 +129,9 @@
     private TextDirection direction = TextDirection.Ltr;
     private OffsetValue? sideOffset;
     private OffsetValue? alignOffset;
+    private int top;
+    private ElementReference customAnchor;
+    private AnchorValue? anchor;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -122,6 +175,19 @@
             };
             sideOffset = sideCase ? offset : null;
             alignOffset = sideCase ? null : offset;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // Base UI's anchor is a state ref, null on the first render and the element from the next one.
+        if (firstRender && Case == "custom-anchor")
+        {
+            anchor = customAnchor;
+            StateHasChanged();
         }
     }
 }

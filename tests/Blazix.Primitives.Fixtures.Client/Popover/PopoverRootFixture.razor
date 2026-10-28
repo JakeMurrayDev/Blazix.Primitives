@@ -17,7 +17,8 @@
     - `inside`, the popup's content: `input` (`input-inside`), `button` (`inside`), `close` (a close "Close"),
       `close-labeled` (an empty close labeled "Close popover"), `remove` (`remove`, which its pointerdown removes), `hide`
       (`hide-button`, which its click hides with display: none, then an input); otherwise "Content";
-    - `popupClass=fade`: a 500 ms opacity transition that fades the popup out while `[data-ending-style]`;
+    - `popupClass`: `fade`, a 500 ms opacity transition that fades the popup out while `[data-ending-style]`, or
+      `transition-state`, PopoverPopupTransitionState.test.tsx's 10 s fade in while open and not starting;
     - `backdrop`: a PopoverBackdrop `backdrop` over the page; `positionerWidth`: the positioner's CSS width (`full`:
       `calc(100vw - 10px)`);
     - `container=shadow`: the portal renders nothing until a page script attaches an open shadow root to
@@ -30,6 +31,8 @@
     <style>
         .fade { transition: opacity 500ms; }
         .fade[data-ending-style] { opacity: 0; }
+        .transition-state { opacity: 0; transition: opacity 10s linear; }
+        .transition-state[data-open]:not([data-starting-style]) { opacity: 1; }
     </style>
     <div>
         @Input(before)

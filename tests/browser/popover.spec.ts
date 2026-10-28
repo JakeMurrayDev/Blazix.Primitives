@@ -1599,3 +1599,128 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
     await expect(page.getByTestId('popup')).toHaveCount(0);
   });
 });
+
+// PopoverPopupTransitionState.test.tsx (POP-ANI-02, EVT-07, KEY-02): Base UI tracks the popup's (open, transitionStatus)
+// from its render prop; the port renders them as data-open and data-starting-style/data-ending-style, recorded on every
+// change and deduplicated as Base UI's onState does.
+test.describe('Popover popup transition state', () => {
+  test('starts each opening once when the popup is kept mounted', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { keepMounted: true, popupClass: 'transition-state', animations: 1 });
+    await page.evaluate(() => {
+      const states: { open: boolean; transitionStatus: string | undefined }[] = [];
+      (window as unknown as { popupStates: typeof states }).popupStates = states;
+      const record = (popup: Element) => {
+        const state = {
+          open: popup.hasAttribute('data-open'),
+          transitionStatus: popup.hasAttribute('data-starting-style') ? 'starting' : popup.hasAttribute('data-ending-style') ? 'ending' : undefined,
+        };
+        const previous = states.at(-1);
+        if (previous?.open !== state.open || previous?.transitionStatus !== state.transitionStatus) {
+          states.push(state);
+        }
+      };
+      new MutationObserver((records) => {
+        for (const entry of records) {
+          if ((entry.target as Element).getAttribute('data-testid') === 'popover-popup') {
+            record(entry.target as Element);
+          }
+        }
+      }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-open', 'data-closed', 'data-starting-style', 'data-ending-style'] });
+    });
+    const states = () => page.evaluate(() => (window as unknown as { popupStates: { open: boolean; transitionStatus?: string }[] }).popupStates);
+    const clearStates = () => page.evaluate(() => {
+      (window as unknown as { popupStates: unknown[] }).popupStates.length = 0;
+    });
+    const trigger = page.getByTestId('trigger');
+    const popup = page.getByTestId('popover-popup');
+
+    // The transition outlasts every phase, so each phase is finished explicitly instead of waited out.
+    const finishPhase = async (completesBefore: number) => {
+      await expect.poll(() => popup.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);
+      expect(await openChangeCompletes(fixture)).toHaveLength(completesBefore);
+      await popup.evaluate((element) => element.getAnimations().forEach((animation) => animation.finish()));
+    };
+
+    const openPopover = async () => {
+      await clearStates();
+      const before = (await openChangeCompletes(fixture)).length;
+      await trigger.click();
+      await expect(popup).toBeVisible();
+      await finishPhase(before);
+      await expect.poll(async () => (await openChangeCompletes(fixture)).slice(before)).toEqual(['true']);
+      expect((await states()).filter((state) => state.open)).toEqual([
+        { open: true, transitionStatus: 'starting' },
+        { open: true },
+      ]);
+    };
+
+    await openPopover();
+    const popupHandle = await popup.elementHandle();
+
+    const before = (await openChangeCompletes(fixture)).length;
+    await page.keyboard.press('Escape');
+    await finishPhase(before);
+    await expect.poll(async () => (await openChangeCompletes(fixture)).slice(before)).toEqual(['false']);
+    // keepMounted retains the element, so the next opening reuses it.
+    expect(await popupHandle!.evaluate((element) => element.isConnected)).toBe(true);
+
+    await openPopover();
+    expect(await popupHandle!.evaluate((element) => element === document.querySelector('[data-testid="popover-popup"]'))).toBe(true);
+  });
+});
+
+// PopoverPositioner.test.tsx's own titles (POP-POS-04/05) on `popover-positioner`.
+test.describe('<Popover.Positioner /> anchoring', () => {
+  for (const keepMounted of [false, true]) {
+    test(`remains anchored if keepMounted=${keepMounted}`, async ({ page, mode }) => {
+      const fixture = await gotoPopupFixture(page, mode, 'popover-positioner', { case: 'anchored', keepMounted });
+      const positioner = page.getByTestId('positioner');
+      const rect = () => positioner.evaluate((element) => {
+        const { x, y } = element.getBoundingClientRect();
+        return { x, y };
+      });
+
+      await expect.poll(rect).toEqual({ x: 5, y: 100 });
+
+      await pressControl(fixture.locator('[data-move]'));
+
+      await expect.poll(rect).not.toEqual({ x: 5, y: 100 });
+      expect(await rect()).toEqual({ x: 5, y: 200 });
+    });
+  }
+
+  test('observes a custom anchor for keepMounted auto-updates', async ({ page, mode }) => {
+    // Base UI swaps in a ResizeObserver that records what it observes; this one also observes it.
+    await page.addInitScript(() => {
+      const Original = window.ResizeObserver;
+      const observed: Element[] = [];
+      (window as unknown as { observedElements: Element[] }).observedElements = observed;
+      window.ResizeObserver = class extends Original {
+        override observe(target: Element, options?: ResizeObserverOptions): void {
+          observed.push(target);
+          super.observe(target, options);
+        }
+      };
+    });
+    await gotoPopupFixture(page, mode, 'popover-positioner', { case: 'custom-anchor' });
+
+    await expect.poll(() => page.evaluate(() => (window as unknown as { observedElements: Element[] }).observedElements
+      .includes(document.querySelector('[data-testid="custom-anchor"]')!))).toBe(true);
+  });
+
+  test('does not follow the anchor when its ancestor scrolls', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-positioner', { case: 'ancestor-scroll' });
+    const y = (testId: string) => page.getByTestId(testId).evaluate((element) => element.getBoundingClientRect().y);
+    await expect(page.getByTestId('positioner')).toHaveAttribute('style', /translate/);
+    const initialTriggerY = await y('trigger');
+    const initialPositionerY = await y('positioner');
+
+    await page.getByTestId('scroller').evaluate(async (element) => {
+      element.scrollTop = 20;
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+
+    expect(await y('trigger')).toBe(initialTriggerY - 20);
+    expect(await y('positioner')).toBe(initialPositionerY);
+  });
+});
