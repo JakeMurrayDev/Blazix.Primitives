@@ -160,6 +160,21 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.Equal(arrow.Id, PositioningOptions().GetProperty("arrowId").GetString());
     }
 
+    // TIP-ANI-02's TRN-DOM-05 clause (ADR 04 Amendments 2026-10-28, gap 13 of M4 track 5): C# renders `transition: none`
+    // while starting until the transitions handle attaches; from attach the module writes it into its own band.
+    [Fact(DisplayName = "port: the popup renders transition: none while starting, and its transitions handle writes it from attach")]
+    [Trait("Requirement", "TIP-ANI-02")]
+    public async Task The_popup_renders_transition_none_while_starting_and_hands_it_to_its_transitions_handle()
+    {
+        IRenderedComponent<TooltipBasicHost> cut = host.Context.Render<TooltipBasicHost>();
+
+        await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerHover)));
+
+        Assert.Contains("transition: none", cut.Find("[data-testid=\"popup\"]").GetAttribute("style") ?? string.Empty, StringComparison.Ordinal);
+        JSRuntimeInvocation attach = host.Context.JSInterop.Invocations.Last(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal));
+        Assert.True(JsonDocument.Parse((string)attach.Arguments[1]!).RootElement.GetProperty("disableTransitionWhileStarting").GetBoolean());
+    }
+
     private JsonElement PositioningOptions()
     {
         JSRuntimeInvocation attach = host.Context.JSInterop.Invocations.Last(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal) is false && json.Contains("\"collisionPadding\"", StringComparison.Ordinal));
