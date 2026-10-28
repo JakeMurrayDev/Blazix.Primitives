@@ -21,7 +21,7 @@
     - `custom-anchor`: a 100×100 trigger, then a 50×50 `custom-anchor` the positioner takes as its anchor once it has
       rendered, a keep-mounted portal;
     - `ancestor-scroll`: the trigger (72×36) inside a 72 px scroller `scroller` holding 200 px of content, a 52×24 popup,
-      DisableAnchorTracking.
+      DisableAnchorTracking; `anchor-hidden`: the same with anchor tracking.
 *@
 <FixtureContainer Name="popover-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
     <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
@@ -53,14 +53,14 @@
             </PopoverPortal>
         </PopoverRoot>
     }
-    else if (Case == "ancestor-scroll")
+    else if (Case is "ancestor-scroll" or "anchor-hidden")
     {
         <div data-testid="scroller" style="height: 72px; overflow: auto">
             <div style="height: 200px">
                 <PopoverRoot TPayload="NoPayload" @ref="root" Open="true">
                     <PopoverTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger" style="width: 72px; height: 36px">Trigger</PopoverTrigger>
                     <PopoverPortal>
-                        <PopoverPositioner data-testid="positioner" DisableAnchorTracking="true">
+                        <PopoverPositioner data-testid="positioner" DisableAnchorTracking="@(Case == "ancestor-scroll")">
                             <PopoverPopup style="width: 52px; height: 24px">Popup</PopoverPopup>
                         </PopoverPositioner>
                     </PopoverPortal>

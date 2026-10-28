@@ -1755,3 +1755,109 @@ test.describe('<Popover.Positioner /> anchoring', () => {
     expect(await y('positioner')).toBe(initialPositionerY);
   });
 });
+
+// Port titles for rows Base UI tests only in its floating modules (POP-DOM-11, DOM-17, KEY-04, PTR-15, ARIA-10).
+test.describe('<Popover.Root /> port: floating mechanics on Popover', () => {
+  test('port: an open non-modal popover renders the outside guards and the aria-owns owner at the portal\'s position', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-root', {});
+    await page.getByTestId('trigger').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    const portal = await page.evaluate(() => {
+      const node = document.querySelector('[data-base-ui-portal]')!;
+      const owner = document.querySelector(`[aria-owns="${node.id}"]`);
+      const outside = [...document.querySelectorAll('[data-base-ui-focus-guard][data-type="outside"]')];
+      return {
+        owner: owner !== null && !node.contains(owner),
+        ownerRole: owner?.getAttribute('role') ?? null,
+        outside: outside.length,
+        outsideInNode: outside.some((guard) => node.contains(guard)),
+        aroundOwner: outside.every((guard) => guard.parentElement === owner?.parentElement),
+      };
+    });
+    expect(portal).toEqual({ owner: true, ownerRole: null, outside: 2, outsideInNode: false, aroundOwner: true });
+  });
+
+  test('port: every focus guard of an open popover is aria-hidden', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-root', {});
+    await page.getByTestId('trigger').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    const guards = await page.evaluate(() => [...document.querySelectorAll('[data-base-ui-focus-guard]')].map((guard) => guard.getAttribute('aria-hidden')));
+    expect(guards.length).toBeGreaterThanOrEqual(4);
+    expect(guards.every((value) => value === 'true')).toBe(true);
+  });
+
+  test('port: a right press neither toggles the popover nor counts as an outside press inside it', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', {});
+    const trigger = page.getByTestId('trigger');
+
+    await trigger.click({ button: 'right' });
+    await settle(fixture);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await trigger.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByTestId('popover-popup').click({ button: 'right' });
+    await settle(fixture);
+    await expect(page.getByRole('dialog')).toBeVisible();
+  });
+
+  test('port: Escape closes one nesting level at a time', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-nested', { case: 'press' });
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+    await page.getByRole('button', { name: 'Child', exact: true }).click();
+    await expect(page.getByTestId('child-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('parent-popup')).toHaveCount(0);
+  });
+
+  test('port: the positioner is marked anchor-hidden once its anchor scrolls out of view', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-positioner', { case: 'anchor-hidden' });
+    const positioner = page.getByTestId('positioner');
+    await expect(positioner).toHaveAttribute('style', /translate/);
+    await expect(positioner).not.toHaveAttribute('data-anchor-hidden');
+
+    await page.getByTestId('scroller').evaluate((element) => {
+      element.scrollTop = 120;
+    });
+
+    await expect(positioner).toHaveAttribute('data-anchor-hidden', '');
+  });
+});
+
+// Gap 17 (M4 track 5, raised 2026-10-29): a popover that closes while a part's first attach is in flight (Escape right
+// after the open) unmounts the element the attach names, and the module throws "no element for the reference". The
+// `popup` handles drop that error (PopupModuleAttachment); the positioning handle's (Floating/PositionerBehavior) does not,
+// so on WebAssembly the renderer logs an unhandled exception and shows Blazor's error UI.
+test.describe('<Popover.Root /> a close during the first attach', () => {
+  test('port: a popover closed right after it opens raises no renderer error', async ({ page, mode }) => {
+    test.skip(mode === 'wasm', 'gap 17: the positioning handle\'s attach throws once its element is gone (Floating/PositionerBehavior)');
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        errors.push(message.text());
+      }
+    });
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', {});
+    const trigger = page.getByTestId('trigger');
+
+    for (let round = 0; round < 5; round += 1) {
+      await trigger.click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    await settle(fixture);
+
+    expect(errors.filter((text) => text.includes('Unhandled exception'))).toEqual([]);
+    await expect(page.locator('#blazor-error-ui')).toBeHidden();
+  });
+});
