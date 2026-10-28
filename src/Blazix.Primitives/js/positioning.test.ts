@@ -23,6 +23,7 @@ import {
   type PositioningOptions,
 } from './positioning';
 import { styleWriter } from './dom';
+import { acquireSession, getSession, releaseSession, resetInteractionsForTest, type SessionVirtualElement } from './interactions';
 import type { TwinHandle, TwinReferences } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
@@ -618,6 +619,111 @@ describe('positioning module: the anchor', () => {
     update({ triggerId: 'trigger' });
     await settle();
     expect(spies.computePosition).toHaveBeenCalled();
+  });
+});
+
+describe('positioning module: the session (FLT-STA-08)', () => {
+  afterEach(() => {
+    resetInteractionsForTest();
+  });
+
+  // The session is the real `interactions` one; its position reference is written as the client point writes it.
+  function setPositionReference(session: object, reference: SessionVirtualElement | null): void {
+    (session as { positionReference: SessionVirtualElement | null }).positionReference = reference;
+  }
+
+  it('takes the session of its token, publishes each committed placement to it, positions against its position reference while one is set, and releases it at dispose (FLT-STA-08)', async () => {
+    stubViewport();
+    const session = acquireSession('base-ui-1');
+    const setPlacement = vi.spyOn(session, 'setPlacement');
+    const subscribeThrough = session.subscribePositionReference.bind(session);
+    const subscribe = vi.spyOn(session, 'subscribePositionReference');
+    const unsubscribe = vi.fn();
+    subscribe.mockImplementation((listener) => {
+      const stop = subscribeThrough(listener);
+      unsubscribe.mockImplementation(stop);
+      return unsubscribe;
+    });
+    const { trigger, handle, update } = setup({ sessionToken: 'base-ui-1', side: 'top' });
+    await settle();
+    expect(setPlacement).toHaveBeenLastCalledWith('top');
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    const notify = subscribe.mock.calls[0]![0];
+
+    const point: SessionVirtualElement = {
+      getBoundingClientRect: () => ({ x: 400, y: 300, width: 0, height: 0, top: 300, left: 400, right: 400, bottom: 300 }),
+    };
+    setPositionReference(session, point);
+    notify();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(point);
+
+    update({ side: 'bottom' });
+    await settle();
+    expect(setPlacement).toHaveBeenLastCalledWith('bottom');
+
+    setPositionReference(session, null);
+    notify();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+
+    // A new token moves the handle to that session; the previous one keeps only the test's reference.
+    update({ sessionToken: 'base-ui-2' });
+    await settle();
+    const next = getSession('base-ui-2');
+    expect(next).toBeDefined();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    releaseSession(session);
+    expect(getSession('base-ui-1')).toBeUndefined();
+
+    handle.dispose();
+    expect(getSession('base-ui-2')).toBeUndefined();
+  });
+
+  it('publishes the placement of the last committed pass to the session of a new token at once (FLT-STA-08)', async () => {
+    const { update } = setup({ sessionToken: 'base-ui-1', side: 'top' });
+    await settle();
+    const next = acquireSession('base-ui-2');
+    const setPlacement = vi.spyOn(next, 'setPlacement');
+
+    update({ sessionToken: 'base-ui-2' });
+    expect(setPlacement).toHaveBeenCalledWith('top');
+    releaseSession(next);
+  });
+
+  it('an anchor outranks the session\'s position reference, which outranks the trigger (FLT-STR-02, FLT-STA-08)', async () => {
+    // Base UI keeps two slots: the Positioner's anchor in useFloating's own position reference, which overrides the
+    // store's reference, the session's position reference or else the trigger.
+    const anchor = document.createElement('span');
+    anchor.id = 'anchor';
+    stubRect(anchor, 300, 40, 20, 10);
+    document.body.append(anchor);
+    const session = acquireSession('base-ui-1');
+    const subscribe = vi.spyOn(session, 'subscribePositionReference');
+    const { trigger, update } = setup({ sessionToken: 'base-ui-1', anchorId: 'anchor' });
+    await settle();
+    const point: SessionVirtualElement = {
+      getBoundingClientRect: () => ({ x: 400, y: 300, width: 0, height: 0, top: 300, left: 400, right: 400, bottom: 300 }),
+    };
+    setPositionReference(session, point);
+    subscribe.mock.calls[0]![0]();
+    await settle();
+    expect((spies.computePosition.mock.lastCall?.[0] as { contextElement?: Element }).contextElement).toBe(anchor);
+
+    update({ anchorId: null, virtualAnchor: { x: 10, y: 20, width: 30, height: 40 } });
+    await settle();
+    expect((spies.computePosition.mock.lastCall?.[0] as { getBoundingClientRect(): DOMRect }).getBoundingClientRect()).toMatchObject({ x: 10, y: 20 });
+
+    update({ virtualAnchor: null });
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(point);
+
+    setPositionReference(session, null);
+    subscribe.mock.calls[0]![0]();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+    releaseSession(session);
   });
 });
 

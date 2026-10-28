@@ -6,8 +6,8 @@ namespace Blazix.Primitives.Interop;
 // options as references, which `AnchorRef` and `BoundaryRefs` name by index (ADR 04 Amendments 2026-10-27, element-typed
 // option values, settled by the orchestrator 2026-10-27). Value equality (ADR 04 and ADR 16 Amendments 2026-10-27): a re-render that builds equal options sends no
 // update. The open and mounted inputs are read from the applied batch (design point 7, settled by the orchestrator
-// 2026-10-27), so they are not fields here. The session token (design point 4) is inert until the `interactions` export
-// exists (track 3).
+// 2026-10-27), so they are not fields here. The session token (design point 4) names the `interactions` session the
+// module takes at attach.
 /// <summary>The options of the <c>positioning</c> module, sent on <c>attach</c> and on every <c>update</c> of a positioner's handle.</summary>
 internal sealed record PositioningOptions : TwinOptions
 {
