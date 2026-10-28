@@ -71,7 +71,9 @@ public sealed class PortalTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal(node, attach.Arguments[0]);
         Assert.Equal("""{"lite":false}""", attach.Arguments[1]);
-        Assert.Equal(3, attach.Arguments.Count);
+        Assert.Equal(5, attach.Arguments.Count);
+        Assert.Null(attach.Arguments[3]);
+        Assert.Equal(new string?[] { node.Id }, Assert.IsType<string?[]>(attach.Arguments[4]));
         IReadOnlyList<JSRuntimeInvocation> updates = handle.Invocations["update"];
         Assert.Equal(3, updates.Count);
         Assert.Equal("""{"containerRef":0,"lite":false}""", updates[0].Arguments[0]);
