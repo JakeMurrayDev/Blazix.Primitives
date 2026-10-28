@@ -944,6 +944,8 @@ export function attach(
   let pointerDownTimeout: ReturnType<typeof setTimeout> | undefined;
   let blurTimeout: ReturnType<typeof setTimeout> | undefined;
   let restoreFocusFrame = 0;
+  // Stops a focus-out close request that waits for the browser's focus move to land.
+  let cancelPendingFocusOutClose: (() => void) | null = null;
   // The popup's interactions session, joined by `sessionToken` (M4 track 3): Base UI's root store context. Without one,
   // the manager keeps its own `dataRef` and reads the relay.
   let session: InteractionSession | null = null;
@@ -1069,6 +1071,31 @@ export function attach(
     }
     closeRequested = true;
     twin.report(FOCUS_OUT_CLOSE_REPORT, { event: snapshot, interactionType: lastInteractionType } satisfies FocusOutCloseRequest);
+  };
+
+  // The browser fires `focusout` with the body as the active element and focuses the related target after the microtask
+  // checkpoint. WebAssembly answers a request inside the call, so a focus-out close requested in that window would commit
+  // and release return focus before focus lands, where Base UI's commit waits for React's render and Server's for the
+  // round trip (M4 track 5's Gap 12, settled by the orchestrator 2026-10-28): the request waits for the next `focusin`,
+  // or the next task when focus lands nowhere.
+  const requestFocusOutClose = (snapshot: EventInfo): void => {
+    cancelPendingFocusOutClose?.();
+    const current = ownerDocument(popup);
+    if (activeElement(current) !== current.body) {
+      requestClose(snapshot);
+      return;
+    }
+    const send = (): void => {
+      cancelPendingFocusOutClose?.();
+      requestClose(snapshot);
+    };
+    const timeout = setTimeout(send, 0);
+    current.addEventListener('focusin', send, true);
+    cancelPendingFocusOutClose = () => {
+      clearTimeout(timeout);
+      current.removeEventListener('focusin', send, true);
+      cancelPendingFocusOutClose = null;
+    };
   };
 
   // ---- the effects, in FloatingFocusManager.tsx's order ----
@@ -1246,7 +1273,7 @@ export function attach(
           relatedTarget !== getPreviouslyFocusedElement()
         ) {
           preventReturnFocus = true;
-          requestClose(snapshot);
+          requestFocusOutClose(snapshot);
         }
       });
     };
@@ -1757,6 +1784,7 @@ export function attach(
       clearTimeout(pointerDownTimeout);
       clearTimeout(blurTimeout);
       cancelFrame(restoreFocusFrame);
+      cancelPendingFocusOutClose?.();
       delete popup[attachedHandle];
     },
   };
