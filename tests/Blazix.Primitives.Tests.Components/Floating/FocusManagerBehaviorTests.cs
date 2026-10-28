@@ -8,6 +8,7 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
+// Two titles are allocation budgets (ADR 16 rule 7), so the class runs in the non-parallel budgets collection (issue 112).
 /// <summary>
 /// <see cref="FocusManagerBehavior"/> at L2 over the test-only <see cref="TestFocusManaged"/> (design point 6 of the
 /// focus-manager track, settled by the orchestrator 2026-10-27): the inside guards' render rule (FLT-DOM-15's C# half),
@@ -16,6 +17,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// through the references array (FLT-API-05), the focus-out close routed and answered (FLT-FOC-11) and the close type
 /// classified (FLT-FOC-10). The modules are mocked; their behaviour is L3 and L4.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class FocusManagerBehaviorTests : IDisposable
 {
     private const string ModulePath = "./_content/Blazix.Primitives/js/focus-manager.js";
