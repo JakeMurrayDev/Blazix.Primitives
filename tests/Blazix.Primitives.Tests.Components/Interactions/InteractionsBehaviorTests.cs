@@ -286,6 +286,39 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
     }
 
+    // The module keys a trigger handle by the session it attached under (a fidelity correction of track 3's behaviour,
+    // found by track 5 on detached triggers; settled by the orchestrator 2026-10-28).
+    [Fact]
+    public async Task A_trigger_handle_attaches_once_its_session_has_a_token_again_under_another_and_keeps_it_through_a_missing_one()
+    {
+        await using InteractionsTriggerBehavior behavior = new(host.Context.JSInterop.JSRuntime, _ => Task.CompletedTask, _ => Task.CompletedTask, EventCallback.Empty);
+        behavior.Options = new InteractionsTriggerOptions { Click = new InteractionsClickOptions() };
+
+        // A detached trigger in its handle's fallback store has no session yet: attaching would key it under none.
+        await behavior.AfterRenderAsync(true, null, "t");
+        Assert.Empty(host.Module.Invocations["attach"]);
+
+        behavior.SessionToken = "base-ui-1";
+        await behavior.AfterRenderAsync(true, null, "t");
+        JSRuntimeInvocation first = Assert.Single(host.Attaches);
+        Assert.Equal("base-ui-1", SessionTokenOf((string)first.Arguments[1]!));
+
+        // A batch without a token (a recreated handle before its root attaches) keeps the live handle and sends nothing.
+        behavior.SessionToken = null;
+        await behavior.AfterRenderAsync(true, null, "t");
+        Assert.Empty(host.Handle.Invocations["dispose"]);
+        Assert.Empty(host.Handle.Invocations["update"]);
+
+        // Another root's session: the handle attaches again under its token.
+        behavior.SessionToken = "base-ui-2";
+        await behavior.AfterRenderAsync(true, null, "t");
+        Assert.Single(host.Handle.Invocations["dispose"]);
+        Assert.Equal(2, host.Attaches.Count);
+        Assert.Equal("base-ui-2", SessionTokenOf((string)host.Attaches[1].Arguments[1]!));
+    }
+
+    private static string? SessionTokenOf(string options) => JsonDocument.Parse(options).RootElement.GetProperty("sessionToken").GetString();
+
     private IRenderedComponent<TestInteractionsRoot> RenderPopup(
         Action<bool, OpenChangeEventDetails>? onOpenChange = null,
         Action<MouseEventArgs>? onClick = null,
