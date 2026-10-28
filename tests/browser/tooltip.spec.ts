@@ -26,7 +26,8 @@ detachedTriggersConformanceTests({
   open: {
     // Base UI changes the phase with `setProps`; the suite helper clicks the fixture's button with the real pointer, which
     // is a press outside an open tooltip (TIP-PTR-14). The port title below runs the same steps with a click that has no
-    // pointer press.
+    // pointer press: a fixture control, not the gesture under test, which tests/browser/CONTEXT.md's real-input rule
+    // governs (tooltip.md's dated note on TIP-PTR-14); it moves to the suites' `pressControl` once track 5's helper PR lands.
     [OVERLAP_TITLE]: 'TIP-PTR-14: the phase button is an outside press; restated as the port title of this spec',
     // Run 40707988387 (172f72f), browser-server (2), reproduced at 4x CPU throttling: the root attaches its store to the
     // handle after its render (PSH-STR-03), so a trigger declared after it renders on the fallback store and its
