@@ -27,7 +27,7 @@ import { platform } from './platform';
 import { readPlacement } from './positioning';
 import { acquireScrollLock } from './scroll-lock';
 import { createAnimationsWatcher, createFrameSlot, type AnimationsWatcher } from './transitions';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
+import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinCaptures, type TwinChannel, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
 
 /** The report of the Viewport's direction and transitioning flag. */
 export const VIEWPORT_REPORT = 'OnViewportChange';
@@ -212,10 +212,18 @@ interface AttachedElement extends HTMLElement {
  * @param optionsJson The `PopupOptions` JSON.
  * @param twinReference The twin's object reference.
  * @param references The elements the options name by index, if any.
- * @returns The handle with `update(optionsJson, references)` and `dispose()`; the live handle when already attached.
+ * @param captures The capture ids C# sends: the element's first, then the references'.
+ * @returns The handle with `update(optionsJson, references, captures)` and `dispose()`; the live handle when already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin, references?: TwinReferences): TwinHandle {
-  const element = resolveElement(elementOrId) as AttachedElement;
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  // ADR 04 Amendments 2026-10-28: a part inside a shadow root is revived as `null` and found by its capture id.
+  const element = resolveElement(elementOrId, captures?.[0]) as AttachedElement;
   const existing = element[attachedHandle];
   if (existing) {
     return existing;
