@@ -41,7 +41,7 @@ const {
 import type { Offset, PopupGuardFocus, PopupOptions, PopupViewportReport } from './popup';
 import { resetScrollLockForTest, scrollLockCount } from './scroll-lock';
 import { resetFrameScheduler } from './transitions';
-import type { TwinHandle } from './twin';
+import { registerShadowRoot, type TwinHandle } from './twin';
 
 let frames: FrameRequestCallback[] = [];
 const handles: TwinHandle[] = [];
@@ -589,6 +589,31 @@ describe('the popup', () => {
 
     expect(reached).toHaveBeenCalledTimes(2);
     expect(reached.mock.calls[1]![0].key).toBe('Tab');
+  });
+});
+
+describe('the twin contract', () => {
+  // ADR 04 Amendments 2026-10-28 (main a446b4f): Blazor revives the reference of a part inside a shadow root as `null`,
+  // so the module resolves it by the capture id C# passes as `captures[0]`.
+  it('port: a part inside a portal\'s shadow root attaches by its capture id', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = host.attachShadow({ mode: 'open' });
+    const release = registerShadowRoot(root);
+    const toolbar = document.createElement('div');
+    const popup = document.createElement('div');
+    popup.setAttribute('_bl_popup-capture', '');
+    toolbar.appendChild(popup);
+    root.appendChild(toolbar);
+    const reached = vi.fn();
+    toolbar.addEventListener('keydown', reached);
+
+    const handle = attach(null, JSON.stringify({ popup: { stopCompositeKeys: true } }), createFakeTwin().twin, null, ['popup-capture']);
+    handles.push(handle);
+    popup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(reached).not.toHaveBeenCalled();
+    release();
   });
 });
 
