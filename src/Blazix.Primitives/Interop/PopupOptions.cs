@@ -1,7 +1,8 @@
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 Amendments 2026-10-27 (the `popup` row, chosen by the user 2026-10-27); design point 5 of M4 track 5 (one role
-// sub-record per handle, the InteractionsOptions precedent; pending the user). Records compare by value, so an unchanged
+// sub-record per handle, the InteractionsOptions precedent; settled by the orchestrator 2026-10-28, ADR 04 Amendments
+// 2026-10-28, which records ContentVersion). Records compare by value, so an unchanged
 // render sends nothing (ADR 16 rule 7). The module owns the parts' styles through the dom style writer, so a part leaves
 // TwinOptions.Style unset.
 /// <summary>

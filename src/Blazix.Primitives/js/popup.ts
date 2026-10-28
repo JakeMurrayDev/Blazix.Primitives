@@ -2,7 +2,8 @@
 // issue 125): the DOM half of Base UI's popup utilities that no other module owns, attached by the parts of every popup
 // family. One handle per part, one role per handle (the `interactions` precedent). Design points 1-3 and 5-8 of track 5
 // (the placement, the `[data-previous]` container, the physical side, the surface, the anchored lock, the trigger-change
-// report, the keydown stop) are built as recommended, pending the user.
+// report, the keydown stop) are built as recommended, settled by the orchestrator 2026-10-28 (ADR 04 Amendments
+// 2026-10-28).
 // - The Viewport (utils/usePopupViewport.tsx, utils/usePopupAutoResize.ts; PSH-ALG-13..15, PSH-DOM-07..12, PSH-ANI-05..13,
 //   PSH-I18N-01): a `MutationObserver` on the Viewport sees the keyed `[data-current]` C# remounts in the applied batch,
 //   before paint on both modes. On a move between triggers while open, the removed `[data-current]` is cloned into a
