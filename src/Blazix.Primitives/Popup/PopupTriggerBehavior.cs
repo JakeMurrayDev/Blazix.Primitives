@@ -98,8 +98,14 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
             Register();
         }
 
-        // PSH-STA-30: while the trigger owns the mounted popup, a changed forwarded value is written post-commit.
-        if (IsMountedByTrigger && registeredId is not null && (!forwarded || forwardedSupplied != payloadSupplied || !Equality.Is(forwardedPayload, payload)))
+        // PSH-STA-28/30: when the trigger comes to own the mounted popup, and while it owns it whenever a forwarded value
+        // changed, the values are written post-commit; a trigger that lost the popup writes them again when it takes it
+        // back (useTriggerDataForwarding re-runs on isMountedByThisTrigger; design point 13.8 of M4 track 6).
+        if (!IsMountedByTrigger)
+        {
+            forwarded = false;
+        }
+        else if (registeredId is not null && (!forwarded || forwardedSupplied != payloadSupplied || !Equality.Is(forwardedPayload, payload)))
         {
             Forwarded();
             current.ForwardTriggerData(registeredElement, payloadSupplied, payload);
