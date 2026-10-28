@@ -727,8 +727,8 @@ describe('positioning module: the session (FLT-STA-08)', () => {
   });
 
   it('an anchor that does not resolve falls back to the session\'s position reference while one is set, then the trigger, as a null anchor does (FLT-API-11, FLT-STA-08)', async () => {
-    // Base UI registers `anchor || null` in useFloating's own position reference, and a null one leaves the store's
-    // reference in force: the session's position reference or else the trigger.
+    // Base UI registers `unwrappedElement || null` in useFloating's own position reference, and a null one leaves the
+    // store's reference in force: the session's position reference or else the trigger.
     const session = acquireSession('base-ui-1');
     const subscribe = vi.spyOn(session, 'subscribePositionReference');
     const { trigger, update } = setup({ sessionToken: 'base-ui-1', anchorId: 'missing' });
