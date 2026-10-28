@@ -1,6 +1,7 @@
 @namespace Blazix.Primitives.Fixtures.Client.PopupFixtures
 @using Blazix.Primitives
 @inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
 
 @*
     The `popup-conformance` fixture (tests/browser/popup.spec.ts): popupConformanceTests (tests/browser/suites/) on the
@@ -10,7 +11,10 @@
     - `defaultOpen`, `cancelOpen` (the root's OnOpenChange cancels an open), `cancelClose` (it cancels a close),
       `allowPropagation` (a close lets its keydown propagate), `popupId`, `keepMounted`;
     - `animated`: the popup takes the `popup-animated` class, 200 ms keyframes on `[data-open]` and `[data-ending-style]`
-      (open the page with `?animations=1`).
+      (open the page with `?animations=1`);
+    - `container=shadow`: the portal renders nothing (a pending container) until a page script creates a closed shadow
+      root on `[data-shadow-host]` after the first render and hands it to C# as an IJSObjectReference
+      (`blazixFixtureDom.lastClosedShadowRoot` in the page), the portal-basic pattern (ADR 04 Amendments 2026-10-28).
 *@
 <FixtureContainer Name="popup-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
@@ -23,6 +27,8 @@
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
     <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
     <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+    <div data-shadow-host @ref="shadowHost"></div>
+    <button type="button" data-testid="outside-button">Outside</button>
 
     @if (controlled)
     {
@@ -46,6 +52,8 @@
     private Dictionary<string, object> popupAttributes = [];
     private FixturePopupPopup<NoPayload>? popup;
     private FixturePopupRoot<NoPayload>? root;
+    private ElementReference shadowHost;
+    private PortalContainerValue? container;
 
     protected override IEnumerable<Task> Attachments =>
         [.. popup is null ? [] : new[] { popup.TwinAttached }, root?.SessionAttached ?? Task.CompletedTask];
@@ -66,11 +74,35 @@
         {
             popupAttributes["class"] = "popup-animated";
         }
+
+        if (Query("container") == "shadow")
+        {
+            container = PortalContainerValue.Pending;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && Query("container") == "shadow")
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
     }
 
     private RenderFragment Content => @<text>
         <FixturePopupTrigger TPayload="NoPayload" data-testid="trigger">Trigger</FixturePopupTrigger>
-        <FixturePopupPortal TPayload="NoPayload" KeepMounted="@keepMounted">
+        <FixturePopupPortal TPayload="NoPayload" KeepMounted="@keepMounted" Container="@container">
             <FixturePopupPopup TPayload="NoPayload" @ref="popup" KeepMounted="@keepMounted" @attributes="popupAttributes">
                 <span>Popup content</span>
                 <FixturePopupClose TPayload="NoPayload" data-testid="close">Close popup</FixturePopupClose>
