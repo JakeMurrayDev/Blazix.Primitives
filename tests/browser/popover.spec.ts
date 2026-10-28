@@ -31,10 +31,4 @@ detachedTriggersConformanceTests({
 viewportConformanceTests({
   fixture: 'popover-viewport',
   openOn: 'click',
-  open: {
-    'shows the latest content after rapid trigger changes':
-      'POP-API-14 (a trigger active again writes its payload again): open to gap 10 of track 5, Popup/PopupTriggerBehavior',
-    'creates morphing containers after a kept-mounted popup closes and reopens':
-      'POP-API-14 (a trigger active again writes its payload again): open to gap 10 of track 5, Popup/PopupTriggerBehavior',
-  },
 });
