@@ -88,6 +88,40 @@ public sealed class PopupTwinContractTests
     }
 
     [Fact]
+    [Trait("Requirement", "PSH-ALG-18")]
+    public async Task The_trigger_role_sends_its_guards_and_popup_id()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        module.SetupModule("attach", _ => true);
+        await using PopupTwin twin = new(context.JSInterop.JSRuntime);
+
+        await twin.AttachAsync("trigger", new PopupOptions { SessionToken = "base-ui-2", Trigger = new PopupTriggerOptions { Guards = true, PopupId = "base-ui-1" } });
+
+        Assert.Equal(
+            """{"sessionToken":"base-ui-2","trigger":{"guards":true,"popupId":"base-ui-1"}}""",
+            module.Invocations["attach"][0].Arguments[1]);
+    }
+
+    [Fact]
+    [Trait("Requirement", "PSH-ALG-18")]
+    public async Task A_guard_focus_is_reported_on_Server_and_decided_after_its_handover_on_WebAssembly()
+    {
+        await using PopupTwin twin = new(new NoRuntime());
+        List<(string Guard, string Type)> focused = [];
+        twin.GuardFocused += (guard, snapshot) => focused.Add((guard, snapshot.Type));
+
+        twin.OnGuardFocus("""{"guard":"before","event":{"kind":"FocusEvent","type":"focusin"}}""");
+        twin.OnGuardFocusing("""{"guard":"after"}""");
+        string verdict = twin.Decide("guard", """{"kind":"FocusEvent","type":"focusin"}""");
+        string unhanded = twin.Decide("guard", """{"kind":"FocusEvent","type":"focusin"}""");
+
+        Assert.Equal("run", verdict);
+        Assert.Equal("run", unhanded);
+        Assert.Equal([("before", "focusin"), ("after", "focusin")], focused);
+    }
+
+    [Fact]
     public async Task Every_decision_point_answers_run_while_no_guard_asks()
     {
         await using PopupTwin twin = new(new NoRuntime());

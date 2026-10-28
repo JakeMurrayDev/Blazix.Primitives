@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -113,6 +115,50 @@ public sealed class PopoverFocusTests : IDisposable
 
         Assert.Equal(InteractionType.Keyboard, calls[^1]);
         Assert.Equal("elsewhere", Options().GetProperty("returnFocusId").GetString());
+    }
+
+    [Fact(DisplayName = "port: the trigger asks the popup module to watch its guards while it owns the open, untrapped popover")]
+    [Trait("Requirement", "POP-STR-14")]
+    [Trait("Requirement", "POP-FOC-04")]
+    public async Task The_trigger_asks_the_module_to_watch_its_guards()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec());
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+
+        JsonElement options = JsonDocument.Parse(test.LastPopupOptions("trigger")!).RootElement;
+        Assert.True(options.GetProperty("trigger").GetProperty("guards").GetBoolean());
+        Assert.Equal(cut.Find("[data-testid=\"popup\"]").Id, options.GetProperty("trigger").GetProperty("popupId").GetString());
+        Assert.StartsWith("base-ui-", options.GetProperty("sessionToken").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a focused trigger guard closes the popover with focus-out, its event and the guard as the trigger")]
+    [Trait("Requirement", "POP-FOC-04")]
+    [Trait("Requirement", "POP-EVT-05")]
+    public async Task A_focused_trigger_guard_closes_the_popover()
+    {
+        List<OpenChangeEventDetails> closes = [];
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    closes.Add((OpenChangeEventDetails)args.Details);
+                }
+            }),
+        });
+        await test.PressAsync(cut, "trigger-1", open: true);
+        PopupTwin twin = test.PopupTwinOf("trigger");
+
+        await cut.InvokeAsync(() => twin.OnGuardFocus("""{"guard":"before","event":{"kind":"FocusEvent","type":"focusin"}}"""));
+
+        OpenChangeEventDetails details = Assert.Single(closes);
+        Assert.Equal(EventReason.FocusOut, details.Reason);
+        Assert.Equal("focusin", details.Event.Type);
+        Assert.Null(details.Trigger?.Id);
+        Assert.NotNull(details.Trigger?.Element);
+        Assert.Equal("false", cut.Find("[data-testid=\"trigger-1\"]").GetAttribute("aria-expanded"));
     }
 
     private JsonElement Options() => JsonDocument.Parse(test.LastFocusOptions() ?? "{}").RootElement;
