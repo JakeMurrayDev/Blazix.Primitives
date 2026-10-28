@@ -652,9 +652,7 @@ public sealed class DialogDetachedTriggersTests : IDisposable
     }
 
     // describe "imperative actions on the handle".
-    [Fact(
-        DisplayName = "associates an imperative open-by-id with a persistent detached trigger after the root remounts",
-        Skip = "Open until PR 137 lands (M4 track 6's design point 13.8, PSH-STA-28/30): PopupTriggerBehavior forgets what it forwarded once the trigger no longer owns the popup, so after the root remounts with a fresh store the trigger's unchanged payload is forwarded again. Until then the payload renders \"No payload\", expected \"7\".")]
+    [Fact(DisplayName = "associates an imperative open-by-id with a persistent detached trigger after the root remounts")]
     [Trait("Requirement", "DLG-EDGE-12")]
     public async Task Associates_an_imperative_open_by_id_with_a_persistent_detached_trigger_after_the_root_remounts()
     {
