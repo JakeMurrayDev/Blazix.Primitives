@@ -1,5 +1,5 @@
 import { type Browser } from '@playwright/test';
-import { expect, readDiagnostics, test, type Page, type RenderMode } from './helpers';
+import { expect, fixtureUrl, readDiagnostics, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -1291,4 +1291,26 @@ test.describe('<Tooltip.Trigger /> in a toolbar', () => {
       await expect(popup(page)).toBeVisible();
     });
   }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// TIP-EDGE-12 restated for Blazor (sheet D §8: Base UI's hydration titles are React SSR's) on the prerendered
+// `tooltip-prerender`: the static markup's trigger shows no data-popup-open, as Base UI's server markup reads the fallback
+// store; once interactive the trigger registers after the root's first render and the default-open root stays open.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<Tooltip.Root /> prerendered', () => {
+  test("port: keeps a default-open root open until its detached trigger registers, and the prerendered trigger shows no data-popup-open", async ({ page, mode }) => {
+    const response = await page.request.get(fixtureUrl(mode, 'tooltip-prerender'));
+    await page.setContent((await response.text()).replace(/<script[\s\S]*?<\/script>/g, ''));
+    await expect(page.locator('[data-testid="trigger-1"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="trigger-1"]')).not.toHaveAttribute('data-popup-open');
+
+    const fixture = await gotoPopupFixture(page, mode, 'tooltip-prerender');
+
+    await expect(page.locator('[data-testid="trigger-1"]')).toHaveAttribute('data-popup-open', '');
+    await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
+    await expect(page.locator('[data-testid="popup"]')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual([]);
+  });
 });
