@@ -342,6 +342,89 @@ test.describe('<Popover.Trigger /> hover', () => {
     await expect(content).toBeVisible();
   });
 
+  // PATIENT_CLICK_THRESHOLD (utils/constants.ts): a press within 500 ms of a hover open keeps the popover open (sticks).
+  const patientClickThreshold = 500;
+
+  test('does not open on hover when disabled', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { disabled: true, delay: 0, nativeButton: false });
+    const trigger = page.getByTestId('trigger-1');
+    await expect(trigger).toHaveAttribute('data-disabled');
+
+    await trigger.hover();
+    await page.mouse.move(110, 110);
+
+    await expect(page.getByText('Content', { exact: true })).toHaveCount(0);
+    await expect(trigger).not.toHaveAttribute('data-popup-open');
+  });
+
+  test('closes the popover if the user clicks patiently', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { delay: 0 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+
+    await trigger.hover();
+    await expect(trigger).toHaveAttribute('data-popup-open');
+    await page.clock.runFor(patientClickThreshold);
+    await trigger.click();
+    await expect(trigger).not.toHaveAttribute('data-popup-open');
+
+    await page.getByTestId('outside').hover();
+    await settle(fixture);
+    await expect(trigger).not.toHaveAttribute('data-popup-open');
+  });
+
+  test('sticks if the user clicks impatiently', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { delay: 0 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+
+    await trigger.hover();
+    await expect(trigger).toHaveAttribute('data-popup-open');
+    await page.clock.runFor(patientClickThreshold - 1);
+    await trigger.click();
+    await settle(fixture);
+    await expect(trigger).toHaveAttribute('data-popup-open');
+
+    await page.getByTestId('outside').hover();
+    await settle(fixture);
+    await expect(trigger).toHaveAttribute('data-popup-open');
+    await page.clock.runFor(1);
+    await settle(fixture);
+    await expect(trigger).toHaveAttribute('data-popup-open');
+  });
+
+  test('sticks when clicked before the hover delay completes', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { delay: 300 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+
+    await trigger.hover();
+    await page.clock.runFor(100);
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('data-popup-open');
+
+    await page.getByTestId('outside').hover();
+    await settle(fixture);
+    await expect(trigger).toHaveAttribute('data-popup-open');
+  });
+
+  test('should keep the popover open when re-hovered and clicked within the patient threshold', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { delay: 100 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+    const content = page.getByText('Content', { exact: true });
+
+    await trigger.hover();
+    await page.clock.runFor(100);
+    await expect(content).toBeVisible();
+    await page.clock.runFor(patientClickThreshold);
+
+    await page.mouse.move(5, 5);
+    await trigger.hover();
+    await trigger.click();
+    await expect(content).toBeVisible();
+  });
+
   test('should close after delay', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { closeDelay: 100 });
     await pausedClock(page);

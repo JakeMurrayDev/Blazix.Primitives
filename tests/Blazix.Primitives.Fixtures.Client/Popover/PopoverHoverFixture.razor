@@ -8,7 +8,8 @@
     PopoverTrigger.test.tsx's TestPopover for the pointer and hover titles: triggers labeled "Toggle" (`trigger-1`..), a
     portaled popup holding "Content" and a close labeled "Close", an outside button `outside`. The query:
     `openOnHover` (default true), `delay`, `closeDelay` (milliseconds), `disabled`, `modal`, `keepMounted`,
-    `triggerCount` (default 1; detached triggers share one handle when more than one), `open=true|false` (a controlled
+    `triggerCount` (default 1; detached triggers share one handle when more than one), `nativeButton=false` (a `span`
+    trigger), `open=true|false` (a controlled
     root that follows its OnOpenChange, `[data-set-open]` driving it from outside).
 *@
 <FixtureContainer Name="popover-hover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -22,7 +23,8 @@
         {
             int index = number - 1;
             <PopoverTrigger TPayload="NoPayload" @ref="triggers[index]" Handle="@handle" id="@($"trigger-{number}")" data-testid="@($"trigger-{number}")"
-                            OpenOnHover="@openOnHover" Delay="@delay" CloseDelay="@closeDelay" Disabled="@disabled" style="margin-right: 40px">Toggle</PopoverTrigger>
+                            OpenOnHover="@openOnHover" Delay="@delay" CloseDelay="@closeDelay" Disabled="@disabled" NativeButton="@nativeButton"
+                            Render="@(nativeButton ? null : s_span)" style="margin-right: 40px">Toggle</PopoverTrigger>
         }
     </div>
 
@@ -41,6 +43,8 @@
 </FixtureContainer>
 
 @code {
+    private static readonly RenderFragment s_span = @<span style="display: inline-block; padding: 4px">Toggle</span>;
+
     private readonly PopoverTrigger<NoPayload>?[] triggers = new PopoverTrigger<NoPayload>?[4];
     private readonly PopoverHandle<NoPayload> handle = new();
     private PopoverRoot<NoPayload>? root;
@@ -53,6 +57,7 @@
     private bool controlled;
     private bool open;
     private int triggerCount = 1;
+    private bool nativeButton = true;
 
     protected override IEnumerable<Task> Attachments =>
         [.. triggers.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];
@@ -77,6 +82,7 @@
         modal = QueryFlag("modal") == true;
         keepMounted = QueryFlag("keepMounted") == true;
         triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 1;
+        nativeButton = QueryFlag("nativeButton") != false;
         controlled = QueryFlag("open") is not null;
         this.open = QueryFlag("open") == true;
     }
