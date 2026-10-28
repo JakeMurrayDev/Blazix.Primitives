@@ -294,6 +294,38 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: false });
   });
 
+  // Gap 19's residual (M4 track 6, settled by the orchestrator 2026-10-29, option (i)): on Server a hand-off that flips
+  // the side brings the flip a message after the content batch, so it lands mid-morph; the measurement's overrides
+  // (`display: none` on [data-previous], `transition: none` on [data-current]) would cut the morph short, so the
+  // re-measure waits for the morph's cleanup.
+  it('port: a side change during a morph re-measures once, at the morph\'s cleanup', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    attachTo(rendered.viewport, openViewport, createFakeTwin({ synchronous }));
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    const previous = rendered.viewport.querySelector<HTMLElement>('[data-previous]')!;
+    placementReads.count = 0;
+
+    rendered.positioner.setAttribute('data-physical-side', 'top');
+    rendered.positioner.setAttribute('data-side', 'top');
+    await settle();
+
+    expect(placementReads.count).toBe(0);
+    expect(previous.isConnected).toBe(true);
+    expect(rendered.popup.style.position).toBe('');
+
+    flushFrames();
+    flushFrames();
+    await settle();
+
+    expect(rendered.viewport.querySelector('[data-previous]')).toBe(null);
+    expect(placementReads.count).toBe(1);
+    expect(rendered.popup.style.position).toBe('absolute');
+    expect(rendered.popup.style.bottom).toBe('0px');
+  });
+
   it('port: a remount without a move (a lagging payload) keeps the previous content first and restarts the choreography', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
