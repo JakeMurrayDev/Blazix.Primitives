@@ -23,6 +23,8 @@ import {
 } from './focus-manager';
 import { attach as attachComposite, type CompositeOptions } from './composite';
 import { attach as attachPortal, getPortalState } from './portal';
+import { resetInteractionsForTest } from './interactions';
+import { createPopupHarness, type PopupHarness } from './test-support/interactions-harness';
 import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
@@ -895,6 +897,7 @@ describe('enqueueFocus', () => {
 // ---------------------------------------------------------------------------------------------------------------
 
 interface Manager {
+  popup: HTMLElement;
   handle: TwinHandle & { update(optionsJson: string, references?: ReadonlyArray<Element | null> | null): void };
   fake: FakeTwin;
   options: FocusManagerOptions;
@@ -922,6 +925,7 @@ function attachManager(
   const handle = attach(popup, JSON.stringify(current), fake.twin, references) as Manager['handle'];
   handles.push(handle);
   return {
+    popup,
     handle,
     fake,
     get options() {
@@ -1004,12 +1008,14 @@ function renderApp({ guards = true, children = [] as HTMLElement[], modal }: { g
 /** C# closes a popup rendered under `{open && …}`: the close's options, the batch that removes it, then dispose. */
 async function unmount(manager: Manager, next: Partial<FocusManagerOptions> = {}): Promise<void> {
   manager.update(next);
-  const popup = document.querySelector('[data-open]') as HTMLElement | null;
-  popup?.removeAttribute('data-open');
-  for (const guard of Array.from(document.querySelectorAll('[data-base-ui-focus-guard][data-type="inside"]'))) {
-    guard.remove();
+  const popup = manager.popup;
+  popup.removeAttribute('data-open');
+  for (const guard of [popup.previousElementSibling, popup.nextElementSibling]) {
+    if (guard?.matches('[data-base-ui-focus-guard][data-type="inside"]')) {
+      guard.remove();
+    }
   }
-  popup?.remove();
+  popup.remove();
   manager.handle.dispose();
   await settle();
 }
@@ -1063,13 +1069,16 @@ interface RenderedPortal {
  * popup and its inside guards render inside the node; the outside guards and the owner render beside the wrapper while
  * the manager's publication is non-modal and open.
  */
-function renderPortal(place: (wrapper: HTMLElement) => void, { container }: { container?: Element } = {}): RenderedPortal {
+let portalIds = 0;
+
+function renderPortal(place: (wrapper: HTMLElement) => void, { container }: { container?: Node } = {}): RenderedPortal {
   // C# renders in the top document, whatever the container.
   const doc = document;
   const wrapper = doc.createElement('div');
   wrapper.setAttribute('style', 'display: contents');
   const node = doc.createElement('div');
-  node.id = 'base-ui-portal-1';
+  portalIds += 1;
+  node.id = `base-ui-portal-${portalIds}`;
   node.setAttribute('data-base-ui-portal', '');
   node.setAttribute('style', 'display: none');
   wrapper.append(node);
@@ -2837,6 +2846,368 @@ describe('FloatingFocusManager', () => {
 
         expect(app.iframeDoc.activeElement).toBe(app.reference);
       });
+    });
+  });
+
+  // The titles that compose the manager with the interactions session (M4 track 3): the session harness plays the popup
+  // store and relays each commit in the session's `update`, the test renders the popup as C# would after the commit, and
+  // the manager joins the same session by its token. The manager then reads the session's `openchange` (with `nested`,
+  // the real event and the trigger), its `dataRef`, its tree and its registered triggers.
+  describe('with the interactions session', () => {
+    const popups: PopupHarness[] = [];
+
+    afterEach(() => {
+      for (const popup of popups.splice(0)) {
+        popup.dispose();
+      }
+      resetInteractionsForTest();
+    });
+
+    function sessionPopup(options: Parameters<typeof createPopupHarness>[0] = {}): PopupHarness {
+      const popup = createPopupHarness(options);
+      popups.push(popup);
+      return popup;
+    }
+
+    // `fireEvent`'s defaults: the events bubble (but mouseenter and mouseleave), are cancelable and composed.
+    const mouse = (target: EventTarget, type: string, init: MouseEventInit = {}) => {
+      const bubbles = type !== 'mouseenter' && type !== 'mouseleave';
+      target.dispatchEvent(new MouseEvent(type, { bubbles, cancelable: bubbles, composed: true, ...init }));
+    };
+    const pointer = (target: EventTarget, type: string, init: PointerEventInit = {}) => {
+      target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, ...init }));
+    };
+    // user-event's primary mouse click: the pointer, mouse and click events of one press.
+    const userClick = (target: HTMLElement) => {
+      pointer(target, 'pointerdown', { pointerType: 'mouse', button: 0, buttons: 1 });
+      mouse(target, 'mousedown', { button: 0, buttons: 1, detail: 1 });
+      target.focus();
+      pointer(target, 'pointerup', { pointerType: 'mouse', button: 0 });
+      mouse(target, 'mouseup', { button: 0, detail: 1 });
+      pointer(target, 'click', { pointerType: 'mouse', button: 0, detail: 1 });
+    };
+
+    it('focuses without a frame delay when a screen reader press opens it', async () => {
+      const popup = sessionPopup();
+      popup.attachSession();
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      popup.attachTrigger(reference, { trigger: { click: { event: 'mousedown' } } });
+
+      // A screen reader press is a `mousedown` with `detail: 0`.
+      mouse(reference, 'mousedown', { detail: 0 });
+      expect(popup.open).toBe(true);
+
+      // C#'s opening batch, then the manager's attach.
+      const floating = element('div', 'floating', { role: 'dialog', tabindex: '-1', 'data-open': '' });
+      const one = element('button', 'one');
+      floating.append(one);
+      document.body.append(floating);
+      popup.attachFloating(floating);
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
+      attachManager(floating, { sessionToken: popup.token });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(document.activeElement).toBe(one);
+    });
+
+    it('always returns to the reference for nested elements', async () => {
+      const outer = sessionPopup();
+      const inner = sessionPopup();
+      outer.attachSession({ session: { dismiss: { bubblesOutsidePress: false } } });
+      inner.attachSession({ session: { parentToken: outer.token, dismiss: { bubblesOutsidePress: false } } });
+      const openDialog = element('button', 'open-dialog', { id: 'open-dialog' });
+      document.body.append(openDialog);
+      outer.attachTrigger(openDialog, { trigger: { click: {} } });
+
+      userClick(openDialog);
+      expect(outer.open).toBe(true);
+      const outerPortal = renderPortal((wrapper) => document.body.append(wrapper));
+      const outerFloating = element('div', 'outer-floating', { tabindex: '-1' });
+      const openNested = element('button', 'open-nested-dialog', { id: 'open-nested-dialog' });
+      outerFloating.append(openNested, element('button', 'close-dialog'));
+      outerPortal.open(outerFloating, { modal: true, sessionToken: outer.token, domReferenceId: 'open-dialog' });
+      outer.attachFloating(outerFloating);
+      await settle();
+      inner.attachTrigger(openNested, { trigger: { click: {} } });
+
+      userClick(openNested);
+      expect(inner.open).toBe(true);
+      // The nested portal's container is the enclosing portal's node (FLT-API-13).
+      const innerPortal = renderPortal((wrapper) => outerFloating.append(wrapper), { container: outerPortal.node });
+      const innerFloating = element('div', 'inner-floating', { tabindex: '-1' });
+      innerFloating.append(element('button', 'close-nested-dialog'));
+      const innerManager = innerPortal.open(innerFloating, { modal: true, sessionToken: inner.token, domReferenceId: 'open-nested-dialog' });
+      const innerHandle = inner.attachFloating(innerFloating);
+      await settle();
+      expect(document.querySelector('[data-testid="close-nested-dialog"]')).not.toBeNull();
+
+      pointer(document.body, 'pointerdown');
+      expect(inner.open).toBe(false);
+      expect(outer.open).toBe(true);
+      await innerPortal.close(innerManager);
+      innerHandle.dispose();
+      expect(document.activeElement).toBe(openNested);
+
+      pointer(document.body, 'pointerdown');
+      expect(outer.open).toBe(false);
+    });
+
+    it('mixed modality and nesting', async () => {
+      const outer = sessionPopup();
+      const side = sessionPopup();
+      outer.attachSession({ session: { dismiss: { bubblesOutsidePress: false } } });
+      side.attachSession({ session: { parentToken: outer.token, dismiss: { bubblesOutsidePress: false } } });
+      const openDialog = element('button', 'open-dialog', { id: 'open-dialog' });
+      document.body.append(openDialog);
+      outer.attachTrigger(openDialog, { trigger: { click: {} } });
+
+      userClick(openDialog);
+      const outerPortal = renderPortal((wrapper) => document.body.append(wrapper));
+      const outerFloating = element('div', 'outer-floating', { tabindex: '-1' });
+      const openNested = element('button', 'open-nested-dialog');
+      outerFloating.append(element('button', 'close-dialog'), openNested);
+      const outerManager = outerPortal.open(outerFloating, { modal: false, sessionToken: outer.token, domReferenceId: 'open-dialog' });
+      outer.attachFloating(outerFloating);
+      await settle();
+
+      // `onClick={() => setSideDialogOpen(true)}`: a controlled open of the side dialog, a tree child of the outer one
+      // rendered beside it in its own portal.
+      userClick(openNested);
+      side.setOpen(true);
+      const sidePortal = renderPortal((wrapper) => outerPortal.wrapper.after(wrapper));
+      const sideFloating = element('div', 'side-floating', { tabindex: '-1' });
+      sideFloating.append(element('button', 'close-nested-dialog'));
+      sidePortal.open(sideFloating, { modal: true, sessionToken: side.token, domReferenceId: null });
+      side.attachFloating(sideFloating);
+      await settle();
+
+      // Focus moved into the side dialog, a descendant node: the outer non-modal dialog asks for no close.
+      expect(document.activeElement).toBe(byTestId('close-nested-dialog'));
+      expect(outerManager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+      expect(document.querySelector('[data-testid="close-dialog"]')).not.toBeNull();
+      expect(document.querySelector('[data-testid="close-nested-dialog"]')).not.toBeNull();
+    });
+
+    it('focus does not return to reference when floating element is triggered by hover', async () => {
+      const popup = sessionPopup();
+      popup.attachSession();
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      popup.attachTrigger(reference, { trigger: { hover: {} } });
+      reference.focus();
+
+      mouse(reference, 'mouseenter');
+      await settle();
+      expect(popup.open).toBe(true);
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      document.body.append(floating);
+      popup.attachFloating(floating, { floating: { hover: { closeDelay: 0 } } });
+      const manager = attachManager(floating, { sessionToken: popup.token });
+      await settle();
+      expect(document.activeElement).toBe(floating);
+
+      mouse(floating, 'mouseleave');
+      await settle();
+      expect(popup.open).toBe(false);
+      await unmount(manager);
+
+      expect(document.activeElement).not.toBe(reference);
+    });
+
+    describe('Navigation', () => {
+      // test/floating-ui-tests/Navigation.tsx's Product item: hover, focus and dismiss on the reference, a non-modal
+      // manager without initial focus in a portal. The safe polygon is left out: its pointer geometry is the hover
+      // region's own titles; the floating element's leave closes through its handle.
+      function renderNavigation() {
+        const popup = sessionPopup();
+        popup.attachSession({ session: { dismiss: {} } });
+        const product = element('a', 'product', { href: '#', id: 'product' });
+        document.body.append(product);
+        popup.attachTrigger(product, { trigger: { hover: {}, focus: {} } });
+        const portal = renderPortal((wrapper) => document.body.append(wrapper));
+        let floating: HTMLElement | null = null;
+        let manager: Manager | null = null;
+        return {
+          popup,
+          product,
+          get floating() {
+            return floating!;
+          },
+          /** C#'s batch after a commit: renders the subnavigation when open, removes it when closed. */
+          async render() {
+            if (popup.open && manager === null) {
+              floating = element('div', 'subnavigation');
+              floating.append(element('button', 'close'), element('a', 'link-1', { href: '#' }));
+              manager = portal.open(floating, { modal: false, initialFocus: false, sessionToken: popup.token, domReferenceId: 'product' });
+              popup.attachFloating(floating, { floating: { hover: { closeDelay: 0 } } });
+            } else if (!popup.open && manager !== null) {
+              await portal.close(manager);
+              manager = null;
+            }
+            await settle();
+          },
+        };
+      }
+
+      it('does not re-open after closing via escape key', async () => {
+        const nav = renderNavigation();
+        mouse(nav.product, 'mouseenter');
+        await settle();
+        await nav.render();
+        expect(nav.popup.open).toBe(true);
+
+        keyDown(document.activeElement ?? document.body, 'Escape');
+        expect(nav.popup.open).toBe(false);
+        await nav.render();
+        await nav.render();
+
+        expect(document.activeElement).toBe(nav.product);
+        expect(nav.popup.open).toBe(false);
+        expect(document.querySelector('[data-testid="link-1"]')).toBeNull();
+      });
+
+      it('closes when unhovering floating element even when focus is inside it', async () => {
+        const nav = renderNavigation();
+        mouse(nav.product, 'mouseenter');
+        await settle();
+        await nav.render();
+        expect(nav.popup.open).toBe(true);
+
+        // userEvent.click(subnavigation): the pointer leaves the reference for the floating element; the press focuses inside.
+        mouse(nav.product, 'mouseleave');
+        mouse(nav.floating, 'mouseenter');
+        byTestId('close').focus();
+        mouse(nav.floating, 'mouseleave');
+        await settle();
+        expect(nav.popup.open).toBe(false);
+        await nav.render();
+        await nav.render();
+
+        mouse(nav.product, 'mouseenter');
+        await settle();
+        await nav.render();
+        mouse(nav.product, 'mouseleave');
+        await settle();
+        await nav.render();
+
+        expect(nav.popup.open).toBe(false);
+        expect(document.querySelector('[data-testid="subnavigation"]')).toBeNull();
+      });
+    });
+
+    it('dismisses when clicking outside a shared shadow root while focus is managed', async () => {
+      const popup = sessionPopup({ open: true });
+      popup.attachSession({ session: { dismiss: {} } });
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      popup.attachTrigger(reference);
+      popup.setReference(reference);
+      const host = element('div');
+      document.body.append(host);
+      const shadowRoot = host.attachShadow({ mode: 'open' });
+      // The port renders in the top document; the portal moves the node into the shadow root (a script-held container).
+      const portal = renderPortal((wrapper) => document.body.append(wrapper), { container: shadowRoot });
+      const floating = element('div', 'dialog', { role: 'dialog', tabindex: '-1' });
+      portal.open(floating, { modal: true, sessionToken: popup.token });
+      popup.attachFloating(floating);
+      await settle();
+      expect(floating.getRootNode()).toBe(shadowRoot);
+
+      userClick(document.body);
+
+      expect(popup.open).toBe(false);
+      expect(popup.changes.at(-1)?.details.reason).toBe('outside-press');
+    });
+
+    // Port titles for the rows' session clauses (FLT-FOC-08's virtual branch, FLT-FOC-11's registered triggers).
+    it('port: where preventScroll is unsupported, an outside press returns focus only when a screen reader made it', async () => {
+      const popup = sessionPopup();
+      popup.attachSession({ session: { dismiss: {} } });
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      popup.attachTrigger(reference, { trigger: { click: {} } });
+      const open = async () => {
+        userClick(reference);
+        expect(popup.open).toBe(true);
+        const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+        document.body.append(floating);
+        const handle = popup.attachFloating(floating);
+        const manager = attachManager(floating, { sessionToken: popup.token });
+        await settle();
+        expect(document.activeElement).toBe(floating);
+        return { manager, handle };
+      };
+
+      // jsdom's focus() never reads `preventScroll`: a mouse press outside returns no focus.
+      const first = await open();
+      pointer(document.body, 'pointerdown', { pointerType: 'mouse' });
+      expect(popup.open).toBe(false);
+      await unmount(first.manager);
+      first.handle.dispose();
+      expect(document.activeElement).not.toBe(reference);
+
+      // A virtual pointer press (no pointer type, detail 0) returns it.
+      const second = await open();
+      pointer(document.body, 'pointerdown', { pointerType: '' });
+      expect(popup.open).toBe(false);
+      await unmount(second.manager);
+
+      expect(document.activeElement).toBe(reference);
+    });
+
+    // FLT-ALG-22's tree clause, without the portal whose focus-out marker would keep the popup open anyway.
+    it('port: focus moving from a non-modal popup into a nested popup asks for no close', async () => {
+      const outer = sessionPopup();
+      const inner = sessionPopup();
+      outer.attachSession();
+      inner.attachSession({ session: { parentToken: outer.token } });
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      outer.attachTrigger(reference, { trigger: { click: {} } });
+      userClick(reference);
+      const outerFloating = element('div', 'outer-floating', { tabindex: '-1', 'data-open': '' });
+      outerFloating.append(element('button', 'outer-inside'));
+      document.body.append(outerFloating);
+      outer.attachFloating(outerFloating);
+      const outerManager = attachManager(outerFloating, { modal: false, sessionToken: outer.token });
+      await settle();
+      expect(document.activeElement).toBe(byTestId('outer-inside'));
+
+      inner.setOpen(true);
+      const innerFloating = element('div', 'inner-floating', { tabindex: '-1', 'data-open': '' });
+      innerFloating.append(element('button', 'inner-inside'));
+      document.body.append(innerFloating);
+      inner.attachFloating(innerFloating);
+      attachManager(innerFloating, { modal: false, sessionToken: inner.token, domReferenceId: null });
+      await settle();
+
+      expect(document.activeElement).toBe(byTestId('inner-inside'));
+      expect(outerManager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+    });
+
+    it('port: focus moving from a non-modal popup to another of its registered triggers asks for no close', async () => {
+      const popup = sessionPopup();
+      popup.attachSession();
+      const reference = element('button', 'reference', { id: 'reference' });
+      const other = element('button', 'other', { id: 'other' });
+      document.body.append(reference, other);
+      popup.attachTrigger(reference, { trigger: { click: {} } });
+      popup.attachTrigger(other, { trigger: { click: {} } });
+      userClick(reference);
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      floating.append(element('button', 'inside'));
+      document.body.append(floating);
+      popup.attachFloating(floating);
+      const manager = attachManager(floating, { modal: false, sessionToken: popup.token });
+      await settle();
+      expect(document.activeElement).toBe(byTestId('inside'));
+
+      other.focus();
+      await settle();
+
+      expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
     });
   });
 });
