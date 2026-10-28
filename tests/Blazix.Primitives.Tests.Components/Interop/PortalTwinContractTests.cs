@@ -139,23 +139,30 @@ public sealed class PortalTwinContractTests
 
     // Design point 3 (ADR 04 Amendments 2026-10-27): the move completes only once the module ran. A render during the
     // pending first attach reaches TwinBase.AttachAsync, which hands back the pending handle at once.
+    // Issue 141: the two renders run on the renderer's dispatcher, as a part's OnAfterRenderAsync always does. Without
+    // that synchronization context the two continuations of the pending attach ran on the thread pool in either order, and
+    // the older render's, finding its container already superseded, sent a second update (14 of 300 runs locally).
     [Fact]
     [Trait("Requirement", "FLT-API-13")]
     public async Task A_render_during_the_pending_first_attach_neither_attaches_again_nor_completes_the_move_early()
     {
+        using BunitContext context = new();
         PendingModuleRuntime runtime = new();
         PopupPortalBehavior behavior = new(runtime, () => { });
         ElementReference node = new("portal-3");
         try
         {
-            Task first = behavior.OnAfterRenderAsync(node, container: null);
-            Task second = behavior.OnAfterRenderAsync(node, container: "#root");
+            await context.Renderer.Dispatcher.InvokeAsync(async () =>
+            {
+                Task first = behavior.OnAfterRenderAsync(node, container: null);
+                Task second = behavior.OnAfterRenderAsync(node, container: "#root");
 
-            Assert.False(behavior.Context.Moved.IsCompleted);
-            Assert.False(second.IsCompleted);
+                Assert.False(behavior.Context.Moved.IsCompleted);
+                Assert.False(second.IsCompleted);
 
-            runtime.Module.SetResult(new RecordingModule());
-            await Task.WhenAll(first, second);
+                runtime.Module.SetResult(new RecordingModule());
+                await Task.WhenAll(first, second);
+            });
 
             Assert.True(behavior.Context.Moved.IsCompletedSuccessfully);
             RecordingModule module = (RecordingModule)await runtime.Module.Task;
