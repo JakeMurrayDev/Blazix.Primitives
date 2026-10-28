@@ -34,6 +34,8 @@ public sealed class DialogTestContext : IDisposable
         FocusManagerHandle = SetupHandle(FocusManagerModule);
         ScrollLockModule = Context.JSInterop.SetupModule(Prefix + "scroll-lock.js");
         ScrollLockHandle = SetupHandle(ScrollLockModule);
+        PopupModule = Context.JSInterop.SetupModule(Prefix + "popup.js");
+        PopupHandle = SetupHandle(PopupModule);
     }
 
     public BunitContext Context { get; } = new();
@@ -65,6 +67,10 @@ public sealed class DialogTestContext : IDisposable
     public BunitJSModuleInterop ScrollLockModule { get; }
 
     public BunitJSModuleInterop ScrollLockHandle { get; }
+
+    public BunitJSModuleInterop PopupModule { get; }
+
+    public BunitJSModuleInterop PopupHandle { get; }
 
     /// <inheritdoc />
     public void Dispose() => Context.Dispose();

@@ -139,4 +139,17 @@ public sealed class DialogPopupTests : IDisposable
             p.Add(x => x.KeepMounted, value);
         }
     });
+
+    // DLG-KEY-09 (dialog/popup/DialogPopup.tsx:82-86): the Popup stops the composite keys unconditionally, through the
+    // `popup` module's Popup role (PopupElementOptions.StopCompositeKeys, M4 track 5's name), so a dialog opened from a
+    // toolbar item never moves the toolbar's focus.
+    [Fact(DisplayName = "port: the popup attaches the popup module's Popup role and stops the composite keys")]
+    [Trait("Requirement", "DLG-KEY-09")]
+    public void The_popup_attaches_the_popup_modules_popup_role_and_stops_the_composite_keys()
+    {
+        test.Context.Render<DialogHarness>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.Modal, false));
+
+        string options = Assert.Single(DialogTestContext.AttachOptions(test.PopupModule))!;
+        Assert.Contains("\"popup\":{\"stopCompositeKeys\":true}", options, StringComparison.Ordinal);
+    }
 }
