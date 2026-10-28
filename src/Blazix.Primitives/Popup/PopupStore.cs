@@ -200,7 +200,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
             rootApplied = true;
             // The store is seeded before any part subscribes, so an initially open root is mounted with no enter
             // transition (PSH-ANI-02, TRN-STA-02); a root disabled from its first render is not (TIP-STA-02, TIP-EDGE-10).
-            bool initialOpen = !current.Disabled && (openProp ?? defaultOpen);
+            bool initialOpen = PopupStoreState<TPayload>.IsEffectivelyOpen(current.Disabled, openProp, defaultOpen);
             (bool mounted, TransitionStatus? status) = TransitionStatusRules.Initial(initialOpen, enableIdleState: false, animateInitialOpen: false);
             SetState(TState.WithPopup(State, current with
             {

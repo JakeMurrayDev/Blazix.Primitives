@@ -128,7 +128,7 @@ internal sealed class TooltipStore<TPayload> : PopupStore<TooltipStoreState<TPay
 
         // TooltipRoot.tsx:103-118: `ending` is the status this write leaves, read from the effective open state it commits.
         PopupStoreState<TPayload> popup = state.Popup;
-        bool effectiveOpen = !popup.Disabled && (popup.OpenProp ?? open);
+        bool effectiveOpen = PopupStoreState<TPayload>.IsEffectivelyOpen(popup.Disabled, popup.OpenProp, open);
         bool ending = !effectiveOpen && popup.Mounted;
         if ((ending && details.Reason == EventReason.None) || (!ending && instantPhase))
         {

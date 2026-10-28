@@ -130,6 +130,7 @@ public sealed class TooltipPositioner : PartBase<TooltipPositionerState>
     private TooltipPositionerState? state;
     private RenderFragment? cascadedContent;
     private RenderFragment? cascade;
+    private InteractionsFloatingOptions? hoverFloating;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -320,7 +321,7 @@ public sealed class TooltipPositioner : PartBase<TooltipPositionerState>
 
         // TIP-PTR-26: the popup's own leave, enabled while the root is not disabled, with the store's close delay.
         floating!.SessionToken = root!.SessionToken;
-        floating.Options = current.Disabled ? s_disabledFloating : new InteractionsFloatingOptions { Node = false, Hover = new InteractionsFloatingHoverOptions(current.CloseDelay) };
+        floating.Options = current.Disabled ? s_disabledFloating : HoverFloating(current.CloseDelay);
         Task sync = floating.AfterRenderAsync(Enabled, Element, Id);
         await behavior!.AfterRenderAsync(Element, Id);
 
@@ -374,4 +375,15 @@ public sealed class TooltipPositioner : PartBase<TooltipPositionerState>
     }
 
     private Task RequestAsync(OpenChangeRequest request) => root!.RequestAsync(request);
+
+    // ADR 16: the options object is rebuilt only when the close delay changes, so an unchanged render sends nothing.
+    private InteractionsFloatingOptions HoverFloating(int closeDelay)
+    {
+        if (hoverFloating?.Hover is not { } hover || hover.CloseDelay != closeDelay)
+        {
+            hoverFloating = new InteractionsFloatingOptions { Node = false, Hover = new InteractionsFloatingHoverOptions(closeDelay) };
+        }
+
+        return hoverFloating;
+    }
 }

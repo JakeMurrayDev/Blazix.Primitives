@@ -69,7 +69,7 @@ internal sealed partial record PopupStoreState<TPayload>(
 
     // PSH-STA-02, TIP-STA-02.
     /// <summary>Gets the effective open state: the controlled value when controlled, else the internal one, while the root is not disabled.</summary>
-    public bool EffectiveOpen => !Disabled && (OpenProp ?? Open);
+    public bool EffectiveOpen => IsEffectivelyOpen(Disabled, OpenProp, Open);
 
     // PSH-STA-03.
     /// <summary>Gets the effective active trigger id: the controlled value when controlled, else the internal one.</summary>
@@ -94,6 +94,14 @@ internal sealed partial record PopupStoreState<TPayload>(
     // PSH-STA-06.
     /// <summary>Gets the active trigger's registration while mounted, and <see langword="null"/> otherwise.</summary>
     public PopupTriggerElement? DerivedActiveTriggerElement => Mounted ? ActiveTriggerElement : null;
+
+    // PSH-STA-02, TIP-STA-02: the one definition, also read for a state a write is about to commit.
+    /// <summary>Determines the effective open state of a set of inputs.</summary>
+    /// <param name="disabled">Whether the root is disabled.</param>
+    /// <param name="openProp">The controlled <c>Open</c> parameter, or <see langword="null"/> while uncontrolled.</param>
+    /// <param name="open">The internal open state.</param>
+    /// <returns><see langword="true"/> if the root is not disabled and the controlled value, else the internal one, is open.</returns>
+    public static bool IsEffectivelyOpen(bool disabled, bool? openProp, bool open) => !disabled && (openProp ?? open);
 
     // store.ts:90-125, createInitialPopupStoreState.
     /// <summary>Creates the initial state of a store.</summary>
