@@ -18,6 +18,9 @@ internal enum DecisionPolicy
 
     /// <summary>Call <c>preventDefault()</c> and <c>stopPropagation()</c> on the event. The fallback for Escape on the innermost open popup.</summary>
     PreventAndStop,
+
+    /// <summary>Call <c>preventDefault()</c> on the event and let it propagate.</summary>
+    Prevent,
 }
 
 /// <summary>Conversions between <see cref="DecisionPolicy"/> and the literals the JavaScript <c>decide()</c> helper understands.</summary>
@@ -25,7 +28,7 @@ internal static class DecisionPolicyLiterals
 {
     /// <summary>Returns the kebab-case literal of a policy.</summary>
     /// <param name="policy">The policy to convert.</param>
-    /// <returns><c>run</c>, <c>stop</c>, <c>start</c> or <c>prevent-and-stop</c>.</returns>
+    /// <returns><c>run</c>, <c>stop</c>, <c>start</c>, <c>prevent-and-stop</c> or <c>prevent</c>.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="policy"/> is not a defined <see cref="DecisionPolicy"/> value.</exception>
     public static string ToLiteral(this DecisionPolicy policy)
     {
@@ -35,6 +38,7 @@ internal static class DecisionPolicyLiterals
             DecisionPolicy.Stop => "stop",
             DecisionPolicy.Start => "start",
             DecisionPolicy.PreventAndStop => "prevent-and-stop",
+            DecisionPolicy.Prevent => "prevent",
             // The value is formatted as an integer: passing the enum as the actual value would box it.
             _ => throw new ArgumentOutOfRangeException(nameof(policy), $"Blazix: `{(int)policy}` is not a member of `DecisionPolicy`."),
         };

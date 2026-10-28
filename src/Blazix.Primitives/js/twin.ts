@@ -8,9 +8,15 @@ export interface DotNetTwin {
   invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T>;
 }
 
-// Mirrors `DecisionPolicy` in C#.
-/** The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously. */
-export type DecisionPolicy = 'run' | 'stop' | 'start' | 'prevent-and-stop';
+// Mirrors `DecisionPolicy` in C# and its `ToLiteral()`, member by member.
+/** The literal of every verdict, in the order of the C# members. */
+export const decisionPolicies = ['run', 'stop', 'start', 'prevent-and-stop', 'prevent'] as const;
+
+/**
+ * The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously:
+ * `prevent-and-stop` calls `preventDefault()` and `stopPropagation()` on the event, `prevent` only `preventDefault()`.
+ */
+export type DecisionPolicy = (typeof decisionPolicies)[number];
 
 // ADR 04 Amendments 2026-10-27 (element-typed option values cross as interop arguments): mirrors `TwinReferences` in C#.
 /**
@@ -105,6 +111,20 @@ export function resolveElement(elementOrId: Element | string): HTMLElement {
     throw new Error(`Blazix: no element for ${typeof elementOrId === 'string' ? `id '${elementOrId}'` : 'the reference'}`);
   }
   return element;
+}
+
+/** `attach`'s first argument: the element, its id, or `null` for the token form (a handle without an element). */
+export type AttachTarget = Element | string | null;
+
+/**
+ * Resolves `attach`'s first argument, the token form included: `null` attaches a handle that has no element (a part that
+ * renders none, keyed by a token in its options), otherwise the element itself or the id of the element in the document.
+ * @param elementOrId The element, its `id` attribute, or `null` for the token form.
+ * @returns The HTML element, or `null` for the token form.
+ * @throws When an id names no element or the reference is not an HTML element.
+ */
+export function attachTarget(elementOrId: AttachTarget): HTMLElement | null {
+  return elementOrId === null ? null : resolveElement(elementOrId);
 }
 
 /**

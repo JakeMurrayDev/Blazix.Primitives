@@ -1,0 +1,103 @@
+@namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PortalFixtures
+@inherits PositioningFixtureBase
+
+@*
+    The `positioning-lifecycle` fixture: the module's port titles on the test-only positioner, one case per page named by
+    `?case=`.
+    - `kept-mounted`: a kept-mounted positioner opened and closed by two buttons, Open and Mounted together (FLT-DOM-02,
+      FLT-ANI-02, FLT-STA-09).
+    - `arrow`: a 10×10 arrow in a 52×24 popup under a 72×36 trigger at the origin, toggled by a button (FLT-DOM-09/10).
+    - `arrow-edge`: a 20×20 trigger at the left edge under a 200px wide centred popup, which the arrow cannot centre on.
+    - `scroll`: the trigger inside a scrollable container, the positioner outside it, side top with a 52×60 popup, so
+      scrolling the trigger up flips the popup below it (FLT-POS-16, FLT-ALG-13, FLT-DOM-08 and the RND-STA-01 row).
+    - `anchor-element`: a 52×40 popup anchored to a 100×20 element captured by `@ref`, inside a 300×140 boundary element
+      whose bottom edge is 20px below the anchor, so the popup flips to the top inside it (FLT-API-11, FLT-API-09). The
+      two references are passed after the first render, as a consumer's captured references are.
+    - `portaled`: the positioner inside the test-only portal, which moves its node into the body (FLT-DOM-02, FLT-STA-09).
+*@
+<FixtureContainer Name="positioning-lifecycle" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++">Sync</button>
+
+    @switch (Case)
+    {
+        case "kept-mounted":
+            <div id="trigger" data-testid="trigger" style="position: fixed; top: 0; left: 0; width: 72px; height: 36px">Trigger</div>
+            <button type="button" data-open-button style="position: fixed; right: 0; top: 0" @onclick="() => open = true">Open</button>
+            <button type="button" data-close-button style="position: fixed; right: 0; top: 40px" @onclick="() => open = false">Close</button>
+            <FixturePositioner @ref="Positioner" data-testid="positioner" KeepMounted="true" Open="open" Mounted="open">
+                <div data-popup style="width: 52px; height: 24px">Popup</div>
+            </FixturePositioner>
+            break;
+        case "arrow":
+            <div id="trigger" data-testid="trigger" style="position: fixed; top: 0; left: 0; width: 72px; height: 36px">Trigger</div>
+            <button type="button" data-arrow-toggle style="position: fixed; right: 0; top: 0" @onclick="() => arrow = !arrow">Toggle Arrow</button>
+            <FixturePositioner @ref="Positioner" data-testid="positioner">
+                <div data-popup style="width: 52px; height: 24px">
+                    @if (arrow)
+                    {
+                        <FixturePositionerArrow data-testid="arrow" style="width: 10px; height: 10px" />
+                    }
+                    Popup
+                </div>
+            </FixturePositioner>
+            break;
+        case "arrow-edge":
+            <div id="trigger" data-testid="trigger" style="position: fixed; top: 100px; left: 0; width: 20px; height: 20px">Trigger</div>
+            <FixturePositioner @ref="Positioner" data-testid="positioner">
+                <div data-popup style="width: 200px; height: 24px">
+                    <FixturePositionerArrow data-testid="arrow" style="width: 10px; height: 10px" />
+                    Popup
+                </div>
+            </FixturePositioner>
+            break;
+        case "scroll":
+            <div data-scroller style="position: fixed; top: 0; left: 200px; width: 300px; height: 300px; overflow: auto">
+                <div style="height: 1000px; padding-top: 200px; box-sizing: border-box">
+                    <div id="trigger" data-testid="trigger" style="width: 72px; height: 36px">Trigger</div>
+                </div>
+            </div>
+            <FixturePositioner @ref="Positioner" data-testid="positioner" Side="Side.Top">
+                <div data-popup style="width: 52px; height: 60px">Popup</div>
+            </FixturePositioner>
+            break;
+        case "anchor-element":
+            <div id="trigger" data-testid="trigger" style="position: fixed; top: 0; left: 0; width: 72px; height: 36px">Trigger</div>
+            <div @ref="boundaryElement" data-testid="boundary" style="position: fixed; top: 100px; left: 250px; width: 300px; height: 140px"></div>
+            <span @ref="anchorElement" data-testid="anchor" style="position: fixed; top: 200px; left: 300px; width: 100px; height: 20px">Anchor</span>
+            <FixturePositioner @ref="Positioner" data-testid="positioner" Anchor="anchor" CollisionBoundary="boundary">
+                <div data-popup style="width: 52px; height: 40px">Popup</div>
+            </FixturePositioner>
+            break;
+        case "portaled":
+            <div id="trigger" data-testid="trigger" style="position: fixed; top: 0; left: 0; width: 72px; height: 36px">Trigger</div>
+            <FixturePortal>
+                <FixturePositioner @ref="Positioner" data-testid="positioner">
+                    <div data-popup style="width: 52px; height: 24px">Popup</div>
+                </FixturePositioner>
+            </FixturePortal>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private bool open;
+    private bool arrow = true;
+    private ElementReference anchorElement;
+    private ElementReference boundaryElement;
+    private AnchorValue? anchor;
+    private CollisionBoundaryValue? boundary;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive && Case == "anchor-element")
+        {
+            anchor = anchorElement;
+            boundary = boundaryElement;
+            StateHasChanged();
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+}

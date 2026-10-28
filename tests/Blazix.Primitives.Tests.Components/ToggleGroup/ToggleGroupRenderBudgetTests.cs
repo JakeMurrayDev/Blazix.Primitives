@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// dispatch, the request, the new list and the renders of the two toggles whose state changed. The budgets were taken from
 /// the first measurement and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class ToggleGroupRenderBudgetTests : IDisposable
 {
     // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): 848 bytes for the re-render, which reaches no toggle

@@ -54,7 +54,10 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
     /// <returns><see langword="true"/> when the option is <c>true</c> or <c>1</c>; <see langword="null"/> when absent.</returns>
     protected bool? QueryFlag(string name) => Query(name) is { } value ? value is "true" or "1" : null;
 
-    /// <summary>Records the root's open change; cancels an open when the case asks (<c>cancelOpen=true</c>).</summary>
+    /// <summary>
+    /// Records the root's open change; cancels an open when the case asks (<c>cancelOpen=true</c>), cancels a close
+    /// (<c>cancelClose=true</c>) or lets a close's keydown propagate (<c>allowPropagation=true</c>).
+    /// </summary>
     /// <param name="args">The root's callback arguments.</param>
     protected void RecordOpenChange(ValueChangeEventArgs<bool> args)
     {
@@ -62,6 +65,18 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
         if (args.Value && QueryFlag("cancelOpen") == true)
         {
             args.Details.Cancel();
+        }
+
+        // The Escape titles of tests/browser/interactions.spec.ts (M4 track 3): a close canceled, or one that lets the
+        // keydown propagate.
+        if (!args.Value && QueryFlag("cancelClose") == true)
+        {
+            args.Details.Cancel();
+        }
+
+        if (!args.Value && QueryFlag("allowPropagation") == true)
+        {
+            args.Details.AllowPropagation();
         }
 
         StateHasChanged();

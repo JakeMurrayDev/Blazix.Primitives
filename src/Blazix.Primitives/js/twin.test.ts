@@ -2,7 +2,7 @@
 // (WebAssembly) form. Port titles: Base UI has no counterpart.
 import { describe, expect, it } from 'vitest';
 import { createFakeTwin } from './test-support/fake-twin';
-import { createTwinChannel, resolveReference, type DotNetTwin } from './twin';
+import { attachTarget, createTwinChannel, decisionPolicies, resolveReference, type DotNetTwin } from './twin';
 
 /** Wraps a fake twin so the test can count the synchronous invocations the channel makes. */
 function counting(twin: DotNetTwin): { twin: DotNetTwin; calls: string[] } {
@@ -56,5 +56,25 @@ describe('createTwinChannel', () => {
     expect(channel.decide('select', undefined, 'stop')).toBe('stop');
     expect(channel.lastDecisionWasSynchronous).toBe(false);
     expect(calls).toEqual(['Ping']);
+  });
+});
+
+describe('decisionPolicies', () => {
+  it('port: lists the literals of every C# DecisionPolicy member, prevent included', () => {
+    expect(decisionPolicies).toEqual(['run', 'stop', 'start', 'prevent-and-stop', 'prevent']);
+  });
+});
+
+describe('attachTarget', () => {
+  it('port: the token form (null) has no element, while an id or an element resolves to the element', () => {
+    const element = document.createElement('div');
+    element.id = 'attached';
+    document.body.append(element);
+
+    expect(attachTarget(null)).toBeNull();
+    expect(attachTarget('attached')).toBe(element);
+    expect(attachTarget(element)).toBe(element);
+    expect(() => attachTarget('missing')).toThrow('Blazix: ');
+    element.remove();
   });
 });

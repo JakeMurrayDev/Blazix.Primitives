@@ -8,7 +8,7 @@
 // internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and AvatarImage.tsx.
 // Requirements: shared-utilities.md §4.10 (UTL-DOM-18..22), §4.11 (UTL-DOM-23..31), §4.13, §4.16, UTL-ALG-11..14.
 // The Floating UI DOM predicates Base UI imports are re-implemented here with the same semantics, so this module and
-// the button module stay out of the positioning chunk (ADR 04 §4).
+// the button module stay out of `js/positioning.js`, which bundles the engine (ADR 04 §4, Amendments 2026-10-27).
 import { platform } from './platform';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
 
@@ -516,6 +516,161 @@ export function observeIntersection(
   }, options);
   observer.observe(element);
   return () => observer.disconnect();
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The layered-style writer (ADR 04 Amendments 2026-10-27, Decision 2)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * A named layer of declarations a module writes on an element. `positioning` and `transitions` lose to the consumer's
+ * style (Base UI merges the positioner styles, then `transition: none`, then the consumer's props); `positioning-measured`
+ * and `auto-resize` win over it (Base UI writes those variables with `setProperty` after render). Within a band the
+ * later name wins.
+ */
+export type StyleLayerName = 'positioning' | 'transitions' | 'positioning-measured' | 'auto-resize';
+
+const styleLayerOrder: readonly StyleLayerName[] = ['positioning', 'transitions', 'positioning-measured', 'auto-resize'];
+const consumerRank = 2;
+
+/** One module's declarations on an element. */
+export interface StyleLayer {
+  /** Sets a declaration; a shorthand is held as the longhands the browser expands it to. */
+  set(property: string, value: string): void;
+  /** Removes a declaration this layer set. */
+  remove(property: string): void;
+  /** Removes every declaration of this layer; a module clears its layers when its handle is disposed. */
+  clear(): void;
+}
+
+/** The one writer of an element's `style` attribute once a module has taken it over. */
+export interface StyleWriter {
+  /** Sets the consumer's merged style string; `null` for none. */
+  setConsumer(cssText: string | null | undefined): void;
+  /** Returns the named layer. */
+  layer(name: StyleLayerName): StyleLayer;
+}
+
+interface Declaration {
+  value: string;
+  priority: string;
+}
+
+// A symbol on the element, as every module's handle is kept: the modules that write one element share its writer.
+const attachedStyleWriter = Symbol('blazix.dom.styleWriter');
+
+interface StyledElement extends HTMLElement {
+  [attachedStyleWriter]?: StyleWriter;
+}
+
+function readDeclarations(scratch: CSSStyleDeclaration, cssText: string): Map<string, Declaration> {
+  const parsed = new Map<string, Declaration>();
+  scratch.cssText = cssText;
+  for (let i = 0; i < scratch.length; i++) {
+    const name = scratch[i]!;
+    parsed.set(name, { value: scratch.getPropertyValue(name), priority: scratch.getPropertyPriority(name) });
+  }
+  return parsed;
+}
+
+/**
+ * Returns the element's style writer, created on first use and shared by every module that writes the element: the
+ * element's whole `style` is the consumer's string plus the named layers in their fixed order, and each write touches
+ * only the properties whose winning value changed. C# freezes the element's rendered `style` from the handover on, so
+ * this is its only writer.
+ * @param element The element.
+ * @returns The writer.
+ */
+export function styleWriter(element: HTMLElement): StyleWriter {
+  const styled = element as StyledElement;
+  const existing = styled[attachedStyleWriter];
+  if (existing) {
+    return existing;
+  }
+
+  // Index 0..1 the under layers, 2 the consumer, 3..4 the over layers; a higher rank wins.
+  const sources: Array<Map<string, Declaration>> = [new Map(), new Map(), new Map(), new Map(), new Map()];
+  const applied = new Map<string, string>();
+
+  const apply = (properties: Iterable<string>) => {
+    for (const property of properties) {
+      let winner: Declaration | undefined;
+      for (let rank = sources.length - 1; rank >= 0 && winner === undefined; rank--) {
+        winner = sources[rank]!.get(property);
+      }
+      const key = winner === undefined ? undefined : `${winner.value}!${winner.priority}`;
+      if (key === applied.get(property)) {
+        continue;
+      }
+      if (winner === undefined) {
+        applied.delete(property);
+        element.style.removeProperty(property);
+      } else {
+        applied.set(property, key!);
+        element.style.setProperty(property, winner.value, winner.priority);
+      }
+    }
+  };
+
+  const replace = (rank: number, next: Map<string, Declaration>) => {
+    const previous = sources[rank]!;
+    sources[rank] = next;
+    apply(new Set([...previous.keys(), ...next.keys()]));
+  };
+
+  const layers = new Map<StyleLayerName, StyleLayer>();
+  let consumerText: string | null = null;
+  let scratch: CSSStyleDeclaration | null = null;
+  // A custom property is its own longhand; anything else goes through a detached declaration, which expands shorthands
+  // the way the browser does.
+  const parse = (cssText: string): Map<string, Declaration> =>
+    readDeclarations((scratch ??= ownerDocument(element).createElement('div').style), cssText);
+  const longhands = (property: string, value: string): Map<string, Declaration> =>
+    property.startsWith('--') ? new Map([[property, { value, priority: '' }]]) : parse(`${property}: ${value}`);
+
+  const writer: StyleWriter = {
+    setConsumer(cssText) {
+      const text = cssText || null;
+      if (text === consumerText) {
+        return;
+      }
+      consumerText = text;
+      replace(consumerRank, text === null ? new Map() : parse(text));
+    },
+    layer(name) {
+      const known = layers.get(name);
+      if (known) {
+        return known;
+      }
+      const index = styleLayerOrder.indexOf(name);
+      const rank = index < consumerRank ? index : index + 1;
+      const layer: StyleLayer = {
+        set(property, value) {
+          const declarations = longhands(property, value);
+          const own = sources[rank]!;
+          for (const [longhand, declaration] of declarations) {
+            own.set(longhand, declaration);
+          }
+          apply(declarations.keys());
+        },
+        remove(property) {
+          const removed = [...longhands(property, 'initial').keys(), property];
+          const own = sources[rank]!;
+          for (const longhand of removed) {
+            own.delete(longhand);
+          }
+          apply(removed);
+        },
+        clear() {
+          replace(rank, new Map());
+        },
+      };
+      layers.set(name, layer);
+      return layer;
+    },
+  };
+  styled[attachedStyleWriter] = writer;
+  return writer;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

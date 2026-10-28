@@ -1,0 +1,65 @@
+@*
+    The press host of M4 track 3 (FLT-PTR-03, FLT-ALG-16; ADR 04 and ADR 01 Amendments 2026-10-27, the decision point
+    press): a trigger carrying a button handle and an interactions handle, a consumer onclick that vetoes the press while
+    the box is checked, and the popup's state as attributes. data-attached once the session and both trigger handles are
+    attached. With LateSession the session attaches only after the attach button, so the trigger attaches first.
+*@
+<FixtureContainer Name="@Name"
+                  data-open="@(root?.Open == true ? "true" : "false")"
+                  data-requests="@(root?.Requests ?? 0)"
+                  data-consumer-clicks="@consumerClicks"
+                  data-attached="@(attached ? "true" : "false")">
+    <button type="button" data-attach-session @onclick="AttachSession">Attach the session</button>
+    <CascadingValue Value="this" IsFixed="true">
+        <FixtureInteractionsRoot @ref="root" SessionReady="@sessionReady" OnChanged="StateHasChanged">
+            <InteractionsPressTrigger @ref="trigger" />
+        </FixtureInteractionsRoot>
+    </CascadingValue>
+    @if (root?.Open == true)
+    {
+        <div data-popup>Popup</div>
+    }
+</FixtureContainer>
+
+@code {
+    private FixtureInteractionsRoot? root;
+    private InteractionsPressTrigger? trigger;
+    private bool sessionReady;
+    private bool attached;
+    private int consumerClicks;
+
+    [Parameter]
+    public string Name { get; set; } = "interactions-press";
+
+    [Parameter]
+    public bool LateSession { get; set; }
+
+    /// <summary>Counts a run of the consumer's onclick; called by the trigger host.</summary>
+    public void ConsumerClicked()
+    {
+        consumerClicks++;
+        StateHasChanged();
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        sessionReady = !LateSession;
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive || root is null || trigger is null)
+        {
+            return;
+        }
+
+        await trigger.TwinsAttached;
+        await root.SessionAttached;
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void AttachSession() => sessionReady = true;
+}

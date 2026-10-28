@@ -105,6 +105,22 @@ function isValidLinkElement(element: Element | null): element is HTMLAnchorEleme
   return isHTMLElement(element) && element.tagName === 'A' && Boolean((element as HTMLAnchorElement).href);
 }
 
+// UBT-ALG-06 (utils/useEnhancedClickHandler.ts:20-34); also the interactions module's press (design point 5 of M4 track
+// 3, settled by the orchestrator 2026-10-27).
+/**
+ * Classifies how a click happened, as the enhanced click handler does.
+ * @param event The click.
+ * @param lastPointerType The pointer type of the last `pointerdown` on the element, or `''`.
+ * @returns `keyboard` for a click without a click count, else the click's own pointer type (Chromium's `PointerEvent`
+ * clicks), else `lastPointerType` (Safari's and Firefox's `MouseEvent` clicks).
+ */
+export function classifyClick(event: MouseEvent, lastPointerType: InteractionType): InteractionType {
+  if (event.detail === 0) {
+    return 'keyboard';
+  }
+  return 'pointerType' in event ? ((event as PointerEvent).pointerType as InteractionType) : lastPointerType;
+}
+
 /**
  * Determines whether a pointer type is touch-like. Pen counts as touch so a stylus tap does not force the software
  * keyboard.
@@ -559,11 +575,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       return;
     }
     if (current.reportInteractionType) {
-      if (event.detail === 0) {
-        reportInteraction('keyboard', event);
-      } else {
-        // Chromium delivers PointerEvent clicks; Safari and Firefox deliver MouseEvent clicks.
-        reportInteraction('pointerType' in event ? ((event as PointerEvent).pointerType as InteractionType) : lastPointerType, event);
+      reportInteraction(classifyClick(event, lastPointerType), event);
+      if (event.detail !== 0) {
         lastPointerType = '';
       }
     }

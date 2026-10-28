@@ -51,6 +51,8 @@
     <BlazixJsEntry Include="js/tabs.ts" Out="js/tabs" />
     <BlazixJsEntry Include="js/scroll-lock.ts" Out="js/scroll-lock" />
     <BlazixJsEntry Include="js/portal.ts" Out="js/portal" />
+    <BlazixJsEntry Include="js/positioning.ts" Out="js/positioning" />
+    <BlazixJsEntry Include="js/interactions.ts" Out="js/interactions" />
     <BlazixJsEntry Include="js/focus-manager.ts" Out="js/focus-manager" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>

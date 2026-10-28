@@ -5,6 +5,7 @@ namespace Blazix.Primitives.Tests.Accordion;
 /// nothing, and a committed toggle with no receivers allocates the new value and each item's new records. The toggle is
 /// measured at 3 and 20 items for design point D4 (option (a), settled by the orchestrator 2026-10-26).
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class AccordionAllocationBudgetTests
 {
     // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): 0 bytes.

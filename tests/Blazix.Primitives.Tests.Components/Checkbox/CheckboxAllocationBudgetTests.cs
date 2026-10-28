@@ -12,6 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// the report includes the parse of its JSON and the comparison with the mirrored status. The budgets were taken from the
 /// first measurement and only tighten afterwards.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class CheckboxAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 704 bytes for the re-render, Switch's 672 plus 32 for the

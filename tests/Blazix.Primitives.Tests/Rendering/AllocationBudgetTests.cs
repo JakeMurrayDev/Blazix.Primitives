@@ -9,6 +9,7 @@ namespace Blazix.Primitives.Tests.Rendering;
 /// wrote it and only tightens afterwards; a loosening needs an ADR amendment. The measurement is per thread and the
 /// runs are repeated so a JIT or pool warm-up does not count.
 /// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class AllocationBudgetTests
 {
     // First measurement 2026-10-20 (arm64, .NET 11 RC2, Release): 1184 bytes, the result list, its entries array,

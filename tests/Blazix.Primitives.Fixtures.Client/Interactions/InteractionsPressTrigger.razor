@@ -1,0 +1,37 @@
+@*
+    The press host's trigger and its option boxes (M4 track 3). It takes no parameters, so a render of the page (its
+    readiness marker, a committed change, the consumer's click, whose callback the page receives) does not render it
+    again: only its own boxes do. The stalled-load title relies on that.
+*@
+<label><input type="checkbox" data-veto @bind="veto" /> Veto the press</label>
+<label><input type="checkbox" data-keep-open @bind="keepOpen" /> Keep open on a repeated press</label>
+<FixtureInteractionsTrigger @ref="trigger" Toggle="@(!keepOpen)" data-trigger @onclick="consumerClick">Toggle</FixtureInteractionsTrigger>
+
+@code {
+    private FixtureInteractionsTrigger? trigger;
+    private EventCallback<MouseEventArgs> consumerClick;
+    private bool veto;
+    private bool keepOpen;
+
+    [CascadingParameter]
+    private InteractionsPressFixture Page { get; set; } = null!;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        // The page receives the callback, so a consumer click renders the page and not this host.
+        consumerClick = EventCallback.Factory.Create<MouseEventArgs>(Page, OnConsumerClick);
+    }
+
+    /// <summary>Gets a task that completes when both of the trigger's handles are attached.</summary>
+    public Task TwinsAttached => trigger!.TwinsAttached;
+
+    private void OnConsumerClick(MouseEventArgs e)
+    {
+        Page.ConsumerClicked();
+        if (veto)
+        {
+            e.PreventPartHandler();
+        }
+    }
+}
