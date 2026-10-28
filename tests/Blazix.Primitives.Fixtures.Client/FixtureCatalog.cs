@@ -165,5 +165,6 @@ public static class FixtureCatalog
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
         ["tooltip-root"] = new(typeof(TooltipRootFixture)),
+        ["tooltip-provider"] = new(typeof(TooltipProviderFixture)),
     };
 }

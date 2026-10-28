@@ -66,10 +66,13 @@ test.afterEach(async ({ page }) => {
   await page.clock.resume();
 });
 
+const frozenPages = new WeakSet<Page>();
+
 /** Pauses the page's clock: its timers fire only when the test runs it forward. */
 async function freezeClock(page: Page): Promise<void> {
   const now = await page.evaluate(() => Date.now());
   await page.clock.pauseAt(now + 1);
+  frozenPages.add(page);
 }
 
 /**
@@ -81,8 +84,15 @@ async function clickInPlace(page: Page): Promise<void> {
   await page.mouse.up();
 }
 
-/** Moves the real pointer away from the trigger, below it, which leaves it from the side opposite a top popup. */
+/**
+ * Moves the real pointer away from the trigger, below it, which leaves it from the side opposite a top popup. Under a
+ * paused clock the frames run first, so the positioning pass has published the placement the safe polygon reads.
+ */
 async function moveAway(page: Page): Promise<void> {
+  if (frozenPages.has(page)) {
+    await page.clock.runFor(32);
+  }
+
   await page.mouse.move(400, 600);
 }
 
@@ -511,3 +521,195 @@ async function recordEscape(page: Page): Promise<void> {
 function escapeReachedWindow(page: Page): Promise<boolean> {
   return page.evaluate(() => (window as unknown as { escapeReached: boolean }).escapeReached);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// TooltipProvider.test.tsx and the two animation titles of TooltipRoot.test.tsx (:456-590) on `tooltip-provider`: the
+// delay group is the `interactions` module's (ADR 04 Amendments 2026-10-27), keyed by the provider's token.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<Tooltip.Provider />', () => {
+  const open = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) => gotoPopupFixture(page, mode, 'tooltip-provider', options);
+  const trigger = (page: Page, number: number) => page.locator(`[data-testid="trigger-${number}"]`);
+  const popup = (page: Page, number: number) => page.locator(`[data-testid="popup-${number}"]`);
+
+  test.describe('prop: delay', () => {
+    test('waits for the delay before showing the tooltip', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { count: 1, delay: 10_000 });
+      await freezeClock(page);
+
+      await trigger(page, 1).hover();
+      await page.clock.runFor(1_000);
+      await settle(fixture);
+      await expect(popup(page, 1)).toHaveCount(0);
+
+      await page.clock.runFor(9_000);
+
+      await expect(popup(page, 1)).toHaveText('Content One');
+    });
+
+    test('respects delay=0', async ({ page, mode }) => {
+      await open(page, mode, { count: 1, delay: 0 });
+      await freezeClock(page);
+
+      await trigger(page, 1).hover();
+
+      await expect(popup(page, 1)).toHaveText('Content One');
+    });
+
+    test('respects trigger delay prop over provider delay prop', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { count: 1, delay: 10, triggerDelay: 100 });
+      await freezeClock(page);
+
+      await trigger(page, 1).hover();
+      await page.clock.runFor(99);
+      await settle(fixture);
+      await expect(popup(page, 1)).toHaveCount(0);
+
+      await page.clock.runFor(1);
+
+      await expect(popup(page, 1)).toBeVisible();
+    });
+  });
+
+  test.describe('prop: closeDelay', () => {
+    test('waits for the closeDelay before hiding the tooltip', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { count: 1, closeDelay: 400 });
+      await freezeClock(page);
+      await trigger(page, 1).hover();
+      await page.clock.runFor(OPEN_DELAY);
+      await expect(popup(page, 1)).toBeVisible();
+
+      await moveAway(page);
+      await page.clock.runFor(300);
+      await settle(fixture);
+      await expect(popup(page, 1)).toBeVisible();
+
+      await page.clock.runFor(300);
+
+      await expect(popup(page, 1)).toHaveCount(0);
+    });
+
+    test('uses the latest closeDelay after the prop updates', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { count: 1, closeDelay: 400 });
+      await freezeClock(page);
+      await trigger(page, 1).hover();
+      await page.clock.runFor(OPEN_DELAY);
+      await expect(popup(page, 1)).toBeVisible();
+
+      await fixture.locator('[data-set-close-delay]').evaluate((element) => (element as HTMLElement).click());
+      await settle(fixture);
+      await moveAway(page);
+      await page.clock.runFor(999);
+      await settle(fixture);
+      await expect(popup(page, 1)).toBeVisible();
+
+      await page.clock.runFor(1);
+
+      await expect(popup(page, 1)).toHaveCount(0);
+    });
+  });
+
+  test.describe('prop: timeout', () => {
+    test('opens an adjacent tooltip instantly while the group is active', async ({ page, mode }) => {
+      await open(page, mode, { timeout: 400, delay: 100 });
+      await freezeClock(page);
+      await trigger(page, 1).hover();
+      await page.clock.runFor(100);
+      await expect(popup(page, 1)).toHaveText('Content One');
+
+      await trigger(page, 2).hover();
+
+      await expect(popup(page, 2)).toHaveText('Content Two');
+      await expect(popup(page, 1)).toHaveCount(0);
+    });
+
+    test('respects a trigger delay over delay=0 outside the instant phase', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { timeout: 400, delay: 0, triggerDelay: 100 });
+      await freezeClock(page);
+
+      await trigger(page, 1).hover();
+      await page.clock.runFor(99);
+      await settle(fixture);
+      await expect(popup(page, 1)).toHaveCount(0);
+      await page.clock.runFor(1);
+      await expect(popup(page, 1)).toBeVisible();
+
+      await trigger(page, 2).hover();
+      await expect(popup(page, 2)).toBeVisible();
+      await expect(popup(page, 1)).toHaveCount(0);
+
+      await moveAway(page);
+      await expect(popup(page, 2)).toHaveCount(0);
+      await page.clock.runFor(400);
+      await settle(fixture);
+
+      await trigger(page, 1).hover();
+      await page.clock.runFor(99);
+      await settle(fixture);
+      await expect(popup(page, 1)).toHaveCount(0);
+      await page.clock.runFor(1);
+      await expect(popup(page, 1)).toBeVisible();
+    });
+
+    test('requires the full delay again once the timeout elapses', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { timeout: 400, delay: 100 });
+      await freezeClock(page);
+      await trigger(page, 1).hover();
+      await page.clock.runFor(100);
+      await expect(popup(page, 1)).toBeVisible();
+
+      await moveAway(page);
+      await expect(popup(page, 1)).toHaveCount(0);
+      await page.clock.runFor(400);
+      await settle(fixture);
+      await trigger(page, 2).hover();
+      await settle(fixture);
+      await expect(popup(page, 2)).toHaveCount(0);
+
+      await page.clock.runFor(100);
+
+      await expect(popup(page, 2)).toBeVisible();
+    });
+  });
+});
+
+test.describe('<Tooltip.Root /> animations', () => {
+  const trigger = (page: Page, number: number) => page.locator(`[data-testid="trigger-${number}"]`);
+  const popup = (page: Page, number: number) => page.locator(`[data-testid="popup-${number}"]`);
+
+  test('toggles instant animations for adjacent tooltips only while opening', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tooltip-provider', { css: 'instant', triggerDelay: 0, animations: 1 });
+
+    await trigger(page, 1).hover();
+    await expect(popup(page, 1)).toBeVisible();
+    await expect(popup(page, 1)).not.toHaveAttribute('data-instant');
+
+    await moveAway(page);
+    await trigger(page, 2).hover();
+
+    await expect(popup(page, 2)).toHaveAttribute('data-instant', 'delay');
+    expect(await popup(page, 2).evaluate((element) => element.getAnimations().length)).toBe(0);
+    // Closing from the starting style would exit from `opacity: 0` and never start a transition.
+    await expect(popup(page, 2)).not.toHaveAttribute('data-starting-style');
+
+    await moveAway(page);
+
+    await expect(popup(page, 2)).toHaveAttribute('data-ending-style', '');
+    await expect(popup(page, 2)).not.toHaveAttribute('data-instant');
+    expect(await popup(page, 2).evaluate((element) => element.getAnimations().length)).toBe(1);
+  });
+
+  test('unmounts an exiting tooltip when another tooltip opens', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tooltip-provider', { css: 'exit', triggerDelay: 0, timeout: 30_000, animations: 1 });
+
+    await trigger(page, 1).hover();
+    await expect(popup(page, 1)).toBeVisible();
+    await moveAway(page);
+    await expect.poll(() => popup(page, 1).evaluate((element) => element.getAnimations().length)).toBe(1);
+
+    await trigger(page, 2).hover();
+    await expect(popup(page, 2)).toBeVisible();
+
+    await expect(popup(page, 1)).toHaveCount(0);
+  });
+});
