@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -122,5 +123,15 @@ public sealed class PositioningTwinContractTests
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => throw new NotSupportedException();
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => throw new NotSupportedException();
+    }
+
+    // PSH-POS-03, PSH-ALG-16 (M4 track 7, issue 122): PreviewCard's Positioner turns the inline middleware on; the option is
+    // written only when set, so every other Positioner's record is unchanged.
+    [Fact(DisplayName = "port: the hovered-line option is written only when set")]
+    [Trait("Requirement", "PSH-POS-03")]
+    public void The_hovered_line_option_is_written_only_when_set()
+    {
+        Assert.DoesNotContain("hoveredLine", JsonSerializer.Serialize(new PositioningOptions(), BlazixJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
+        Assert.Contains("\"hoveredLine\":true", JsonSerializer.Serialize(new PositioningOptions { HoveredLine = true }, BlazixJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
     }
 }
