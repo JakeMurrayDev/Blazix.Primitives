@@ -81,27 +81,6 @@ internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPay
         }
     }
 
-    // POP-STA-09: the latest mount wins; an unmount clears only its own id.
-    /// <summary>Writes the title's id.</summary>
-    /// <param name="id">The id, or <see langword="null"/> to clear it.</param>
-    public void SetTitleElementId(string? id)
-    {
-        if (!string.Equals(State.TitleElementId, id, StringComparison.Ordinal))
-        {
-            Write(State with { TitleElementId = id });
-        }
-    }
-
-    /// <summary>Writes the description's id.</summary>
-    /// <param name="id">The id, or <see langword="null"/> to clear it.</param>
-    public void SetDescriptionElementId(string? id)
-    {
-        if (!string.Equals(State.DescriptionElementId, id, StringComparison.Ordinal))
-        {
-            Write(State with { DescriptionElementId = id });
-        }
-    }
-
     // PSH-POS-02: a mounted Viewport positions the popover by its edges.
     /// <summary>Writes whether a viewport is mounted.</summary>
     /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>

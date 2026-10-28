@@ -79,13 +79,13 @@ internal abstract class PopoverRootContext
     /// <param name="focusManagerModal">Whether focus is trapped.</param>
     public abstract void SetFocusManagerModal(bool focusManagerModal);
 
-    /// <summary>Writes the title's id.</summary>
-    /// <param name="id">The id, or <see langword="null"/>.</param>
-    public abstract void SetTitleElementId(string? id);
+    /// <summary>Creates the sync of a Title's id into the store, which resets it when the Title goes away.</summary>
+    /// <returns>The sync.</returns>
+    public abstract PopoverIdSync CreateTitleSync();
 
-    /// <summary>Writes the description's id.</summary>
-    /// <param name="id">The id, or <see langword="null"/>.</param>
-    public abstract void SetDescriptionElementId(string? id);
+    /// <summary>Creates the sync of a Description's id into the store, which resets it when the Description goes away.</summary>
+    /// <returns>The sync.</returns>
+    public abstract PopoverIdSync CreateDescriptionSync();
 
     /// <summary>Writes whether a viewport is mounted.</summary>
     /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
@@ -186,10 +186,10 @@ internal sealed class PopoverRootContext<TPayload>(PopoverStore<TPayload> store)
     public override void SetFocusManagerModal(bool focusManagerModal) => store.SetFocusManagerModal(focusManagerModal);
 
     /// <inheritdoc />
-    public override void SetTitleElementId(string? id) => store.SetTitleElementId(id);
+    public override PopoverIdSync CreateTitleSync() => new IdSync(store, PopoverStoreState<TPayload>.TitleElementIdField);
 
     /// <inheritdoc />
-    public override void SetDescriptionElementId(string? id) => store.SetDescriptionElementId(id);
+    public override PopoverIdSync CreateDescriptionSync() => new IdSync(store, PopoverStoreState<TPayload>.DescriptionElementIdField);
 
     /// <inheritdoc />
     public override void SetAdaptiveOrigin(bool adaptiveOrigin) => store.SetAdaptiveOrigin(adaptiveOrigin);
@@ -217,6 +217,17 @@ internal sealed class PopoverRootContext<TPayload>(PopoverStore<TPayload> store)
         public override PopoverSelection<TValue> Select<TArg, TValue>(Func<IPopoverState, TArg, TValue> selector, TArg arg) => new ArgSelection<TArg, TValue>(inner.Select<TArg, TValue>(selector, arg));
     }
 
+    private sealed class IdSync(PopoverStore<TPayload> store, StoreField<PopoverStoreState<TPayload>, string?> field) : PopoverIdSync
+    {
+        private readonly SyncedValueWithCleanup<PopoverStoreState<TPayload>, string> synced = new(field);
+
+        /// <inheritdoc />
+        public override void Dispose() => synced.Dispose();
+
+        /// <inheritdoc />
+        public override void Sync(string? id) => synced.Sync(store, id);
+    }
+
     private sealed class Selection<TValue>(StoreSelection<PopoverStoreState<TPayload>, TValue> inner) : PopoverSelection<TValue>
     {
         /// <inheritdoc />
@@ -229,3 +240,17 @@ internal sealed class PopoverRootContext<TPayload>(PopoverStore<TPayload> store)
         public override TValue Value => inner.Value;
     }
 }
+
+// POP-STA-09 (useSyncedValueWithCleanup; UTL-STA-20 in Blazor's order, main's fix of 2026-10-28): a part's id in a store
+// member, reset when the part goes away only while it synced the member last.
+/// <summary>Copies a part's id into a member of the popover's store and resets it when the part goes away.</summary>
+internal abstract class PopoverIdSync : IDisposable
+{
+    /// <inheritdoc />
+    public abstract void Dispose();
+
+    /// <summary>Copies the id into the member.</summary>
+    /// <param name="id">The part's id, or <see langword="null"/>.</param>
+    public abstract void Sync(string? id);
+}
+

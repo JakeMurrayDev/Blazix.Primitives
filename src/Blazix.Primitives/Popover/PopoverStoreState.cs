@@ -39,6 +39,15 @@ internal sealed partial record PopoverStoreState<TPayload>(
     EventSnapshot? CloseEvent)
     : IStoreState<PopoverStoreState<TPayload>>, IPopupStoreState<PopoverStoreState<TPayload>, TPayload>, IPopoverState
 {
+    // POP-STA-09 (useSyncedValueWithCleanup): the Title's and Description's ids, synced by SyncedValueWithCleanup.
+    /// <summary>The key of the title's id.</summary>
+    public static readonly StoreField<PopoverStoreState<TPayload>, string?> TitleElementIdField =
+        new(nameof(TitleElementId), static state => state.TitleElementId, static (state, value) => state with { TitleElementId = value });
+
+    /// <summary>The key of the description's id.</summary>
+    public static readonly StoreField<PopoverStoreState<TPayload>, string?> DescriptionElementIdField =
+        new(nameof(DescriptionElementId), static state => state.DescriptionElementId, static (state, value) => state with { DescriptionElementId = value });
+
     /// <inheritdoc />
     public PopupStoreState<TPayload> Popup { get; init; } = Popup;
 

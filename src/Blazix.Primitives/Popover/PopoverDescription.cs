@@ -8,7 +8,7 @@ namespace Blazix.Primitives;
 /// <summary>Represents a paragraph that describes a popover, Base UI's <c>Popover.Description</c>, rendered as a <c>p</c>.</summary>
 public sealed class PopoverDescription : PartBase<EmptyState>
 {
-    private string? published;
+    private PopoverIdSync? sync;
 
     [CascadingParameter]
     private PopoverRootContext? RootContext { get; set; }
@@ -26,27 +26,19 @@ public sealed class PopoverDescription : PartBase<EmptyState>
     /// <exception cref="InvalidOperationException">The description is not inside a <see cref="PopoverRoot{TPayload}"/>.</exception>
     protected override void OnInitialized()
     {
-        PopoverRootContext.Require(RootContext);
+        sync = PopoverRootContext.Require(RootContext).CreateDescriptionSync();
         base.OnInitialized();
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet()
-    {
-        string? id = Id;
-        if (!string.Equals(published, id, StringComparison.Ordinal))
-        {
-            published = id;
-            RootContext!.SetDescriptionElementId(id);
-        }
-    }
+    protected override void OnParametersSet() => sync!.Sync(Id);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing && published is not null && string.Equals(RootContext!.State.DescriptionElementId, published, StringComparison.Ordinal))
+        if (disposing)
         {
-            RootContext.SetDescriptionElementId(null);
+            sync?.Dispose();
         }
 
         base.Dispose(disposing);
