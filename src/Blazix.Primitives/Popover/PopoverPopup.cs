@@ -116,6 +116,8 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private PopoverSelection<PopupTriggerElement?>? activeTrigger;
     private PopoverSelection<EventSnapshot?>? closeEvent;
     private PopoverSelection<OpenChangeRelay?>? relay;
+    private PopoverSelection<bool>? retainExit;
+    private IDisposable? retainRegistration;
     private bool initialResolved;
     private FocusTargetValue? resolvedInitial;
     private EventSnapshot? finalResolvedFor;
@@ -245,6 +247,12 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         activeTrigger = subscription.Select(PopoverSelectors.ActiveTriggerElement);
         closeEvent = subscription.Select(PopoverSelectors.CloseEvent);
         relay = subscription.Select(PopoverSelectors.OpenChange);
+        retainExit = subscription.Select(PopoverSelectors.PreventUnmountingOnClose);
+
+        // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator, option (B)): the opt-out is recorded in the
+        // close's own store write, so it is announced before that write is published, inside the open-change path and so
+        // before any render of the close: on Server the call lands before the close's batch, on WebAssembly it is synchronous.
+        retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         focus = new FocusManagerBehavior(JSRuntime, InvokeAsync, snapshot =>
             root.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut) { Event = snapshot }));
         boundaryPart = root.RegisterBoundaryPart();
@@ -303,6 +311,8 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
             PositionerContext?.RemoveListener(positionerChanged);
             subscription?.Dispose();
             subscription = null;
+            retainRegistration?.Dispose();
+            retainRegistration = null;
             boundaryPart?.Dispose();
             boundaryPart = null;
             if (RootContext is not null)
@@ -400,6 +410,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
             ReportOpenComplete = true,
             OpenSelector = OpenSelector,
             UnmountRequests = unmountRequests!.Value,
+            RetainExit = retainExit!.Value,
 
             // TRN-DOM-05, POP-DOM-29 (ADR 04 Amendments 2026-10-28): the module writes transition: none on the starting frame
             // from the handover on, under the consumer's style, which it applies as its writer's consumer band.
@@ -424,6 +435,18 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
+    }
+
+    // Sends the opt-out at once; a handle not attached yet gets it with its first options.
+    private void AnnounceRetainExit(bool retain)
+    {
+        if (transitionsHandle is null || sentTransitions is null || sentTransitions.RetainExit == retain)
+        {
+            return;
+        }
+
+        sentTransitions = sentTransitions with { RetainExit = retain };
+        _ = transitionsHandle.UpdateAsync(sentTransitions).AsTask();
     }
 
     private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)

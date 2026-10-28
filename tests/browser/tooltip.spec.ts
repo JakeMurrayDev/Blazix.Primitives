@@ -1354,6 +1354,37 @@ viewportConformanceTests({
   openOn: 'focus',
 });
 
+// Issue 147 (TIP-EVT-04, TRN-ANI-23; ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29): a close
+// kept mounted by PreventUnmountOnClose keeps its ending phase until Unmount(). The popup announces the opt-out to its
+// transitions handle ahead of the close's batch, so it holds on Server under circuit latency as well.
+test.describe('<Tooltip.Root /> a retained close', () => {
+  for (const latency of [0, 250]) {
+    const suffix = latency === 0 ? '' : ', under circuit latency on Server';
+    test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'tooltip-root', { case: 'contained', delay: 0, preventUnmount: true });
+      const trigger = page.locator('[data-testid="trigger"]');
+      const popup = page.locator('[data-testid="popup"]');
+      await trigger.hover();
+      await expect(popup).toBeVisible();
+
+      await moveAway(page);
+
+      await expect(trigger).not.toHaveAttribute('data-popup-open');
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await settle(fixture);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await expect(popup).not.toHaveAttribute('hidden');
+
+      await fixture.locator('[data-unmount]').evaluate((element) => (element as HTMLElement).click());
+      await expect(popup).toHaveCount(0);
+    });
+  }
+});
+
 test.describe('<Tooltip.Viewport />', () => {
   test('anchors the positioner from the far edge while it transitions', async ({ page, mode }) => {
     await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'far-edge' });

@@ -233,26 +233,23 @@ public sealed class PopoverModuleWiringTests : IDisposable
 
             return false;
         });
-        cut = test.Render(
-            (builder, host) => PopoverTree.Build(builder, new PopoverSpec
+        cut = Render(new PopoverSpec
+        {
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
             {
-                Open = host.Get<bool>("open"),
-                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, args =>
+                if (!args.Value)
                 {
-                    if (!args.Value)
-                    {
-                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
-                    }
-
-                    return host.SetAsync("open", args.Value);
-                }),
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
             }),
-            new() { ["open"] = false });
+        });
 
         await test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForAssertion(() => Assert.Contains(test.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
         await test.PressAsync(cut, "trigger-1", open: false);
 
-        Assert.Equal([true], openWhenAnnounced);
+        // The first announcement left before the close rendered; the after-render update repeats the flag.
+        Assert.True(openWhenAnnounced.First());
     }
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));

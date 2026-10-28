@@ -821,6 +821,11 @@ export interface TransitionsOptions extends TwinOptions {
    */
   externalExit?: boolean;
   /**
+   * Whether the current close was retained (TRN-ANI-23; issue 147): no exit watcher completes it, and it keeps its ending
+   * phase until `unmountRequests` increases. A popup part sends it ahead of the close's batch.
+   */
+  retainExit?: boolean;
+  /**
    * The selector the element matches while C# renders it open. When set, it is the open input, read from the DOM
    * after every render batch, and `open` is not read after `attach`.
    */
@@ -953,7 +958,8 @@ export function attach(
 
   // Each watcher arms whenever its enabled state or the open input changes, aborting the previous wait.
   const armWatchers = (state: TransitionState) => {
-    const closeEnabled = !options.externalExit && state.mounted && !state.open && (!options.deferEndingState || state.status === 'ending');
+    const closeEnabled =
+      !options.externalExit && !options.retainExit && state.mounted && !state.open && (!options.deferEndingState || state.status === 'ending');
     const nextCloseKey = `${closeEnabled}|${state.open}`;
     if (nextCloseKey !== closeKey) {
       closeKey = nextCloseKey;
@@ -1098,6 +1104,8 @@ export function attach(
         }
       }
       applyOpen();
+      // A retained close announced, or released, while the exit is under way re-arms the exit watcher (issue 147).
+      armWatchers(machine);
     },
     dispose() {
       if (disposed) {

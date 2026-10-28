@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { expect, Fixture, fixtureUrl, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
@@ -1775,10 +1775,8 @@ test.describe('<Popover.Close /> rendering a tooltip trigger', () => {
   });
 
   test('remains anchored to the trigger when closing from a tooltip trigger close', async ({ page, mode }) => {
-    // Gap 18 (raised 2026-10-29 by track 6, settled by the orchestrator 2026-10-29): a retained close still ends its exit
-    // in the transitions module, which drops data-ending-style and hides the popup, so the positioner collapses and
-    // re-centres under the trigger (53 px on this layout). The fix is issue 147's.
-    test.skip(true, 'open to issue 147: a close kept mounted by PreventUnmountOnClose loses data-ending-style at its exit end (POP-ANI-06, POP-POS-03)');
+    // Issue 147 (gap 18, settled by the orchestrator 2026-10-29): a retained close keeps its ending phase, so the
+    // positioner keeps its size and anchor through the exit.
     await gotoPopupFixture(page, mode, 'popover-tooltip-close', { case: 'anchored' });
     const positioner = page.getByTestId('positioner');
     const rect = () => positioner.evaluate((element) => {
@@ -1797,6 +1795,37 @@ test.describe('<Popover.Close /> rendering a tooltip trigger', () => {
     expect(Math.abs(closing.x - initial.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(closing.y - initial.y)).toBeLessThanOrEqual(1);
   });
+});
+
+// Issue 147 (POP-ANI-06, TRN-ANI-23; ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29): a close kept
+// mounted by PreventUnmountOnClose keeps its ending phase until Unmount(). The popup announces the opt-out to its
+// transitions handle ahead of the close's batch, so it holds on Server under circuit latency as well.
+test.describe('<Popover.Root /> a retained close', () => {
+  for (const latency of [0, 250]) {
+    const suffix = latency === 0 ? '' : ', under circuit latency on Server';
+    test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'popover-root', { preventUnmount: true });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popover-popup');
+      await trigger.click();
+      await expect(popup).toBeVisible();
+
+      await trigger.click();
+
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await settle(fixture);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await expect(popup).not.toHaveAttribute('hidden');
+
+      await pressControl(fixture.locator('[data-unmount]'));
+      await expect(popup).toHaveCount(0);
+    });
+  }
 });
 
 // Port titles for rows Base UI tests only in its floating modules (POP-DOM-11, DOM-17, KEY-04, PTR-15, ARIA-10).

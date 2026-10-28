@@ -101,6 +101,12 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
             args.Details.AllowPropagation();
         }
 
+        // Issue 147's titles (M4 track 6): every close is kept mounted until the root's unmount action runs.
+        if (!args.Value && QueryFlag("preventUnmount") == true && args.Details is OpenChangeEventDetails details)
+        {
+            details.PreventUnmountOnClose();
+        }
+
         StateHasChanged();
     }
 

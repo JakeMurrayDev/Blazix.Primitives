@@ -210,9 +210,12 @@ public sealed class TooltipPopupPartsTests : IDisposable
                 }
             }));
 
+        cut.WaitForAssertion(() => Assert.Contains(host.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
+
         await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
 
-        Assert.Equal([true], openWhenAnnounced);
+        // The first announcement left before the close rendered; the after-render update repeats the flag.
+        Assert.True(openWhenAnnounced.First());
     }
 
     private JsonElement PositioningOptions()

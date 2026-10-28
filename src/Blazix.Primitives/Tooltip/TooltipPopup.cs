@@ -67,6 +67,7 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
 
     private readonly Action mirrorChanged;
     private TooltipStoreView? view;
+    private IDisposable? retainRegistration;
     private TooltipPositionerContext? positioner;
     private TooltipPortalContext? portalContext;
     private TooltipPopupState? state;
@@ -139,6 +140,11 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
         positioner = TooltipPositionerContext.Require(PositionerContext);
         positioner.Positioner.AddListener(mirrorChanged);
         view = root.CreateView(StateHasChanged, TooltipSelection.Open | TooltipSelection.Mounted | TooltipSelection.TransitionStatus | TooltipSelection.InstantType | TooltipSelection.UnmountRequests);
+
+        // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator, option (B)): the opt-out is recorded in the
+        // close's own store write, so it is announced before that write is published, inside the open-change path and so
+        // before any render of the close: on Server the call lands before the close's batch, on WebAssembly it is synchronous.
+        retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         base.OnInitialized();
     }
 
@@ -167,6 +173,8 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
             view?.ClearPopupElement();
             view?.Dispose();
             view = null;
+            retainRegistration?.Dispose();
+            retainRegistration = null;
             if (transitions is not null)
             {
                 _ = transitions.DisposeAsync().AsTask();
@@ -235,6 +243,7 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
             ReportOpenComplete = true,
             OpenSelector = "[data-open]",
             UnmountRequests = current.UnmountRequests,
+            RetainExit = current.PreventUnmountingOnClose,
             DisableTransitionWhileStarting = true,
             Style = consumerStyle ?? string.Empty,
         };
@@ -256,6 +265,18 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
+    }
+
+    // Sends the opt-out at once; a handle not attached yet gets it with its first options.
+    private void AnnounceRetainExit(bool retain)
+    {
+        if (transitionsHandle is null || sentTransitions is null || sentTransitions.RetainExit == retain)
+        {
+            return;
+        }
+
+        sentTransitions = sentTransitions with { RetainExit = retain };
+        _ = transitionsHandle.UpdateAsync(sentTransitions).AsTask();
     }
 
     // Design point 3 of M4 track 1: the portal node is `display: none` in place until the portal module moves it, so the

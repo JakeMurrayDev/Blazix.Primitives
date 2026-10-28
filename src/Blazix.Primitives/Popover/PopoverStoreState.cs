@@ -79,6 +79,9 @@ internal sealed partial record PopoverStoreState<TPayload>(
     int IPopoverState.UnmountRequests => Popup.UnmountRequests;
 
     /// <inheritdoc />
+    bool IPopoverState.PreventUnmountingOnClose => Popup.PreventUnmountingOnClose;
+
+    /// <inheritdoc />
     int IPopoverState.PayloadVersion => Popup.PayloadVersion;
 
     /// <inheritdoc />
@@ -192,6 +195,9 @@ internal interface IPopoverState
     /// <summary>Gets how many times the unmount action ended a close.</summary>
     int UnmountRequests { get; }
 
+    /// <summary>Gets a value indicating whether the current close keeps the popup mounted until the unmount action runs.</summary>
+    bool PreventUnmountingOnClose { get; }
+
     /// <summary>Gets the payload's version.</summary>
     int PayloadVersion { get; }
 
@@ -286,6 +292,9 @@ internal static class PopoverSelectors
 
     /// <summary>Selects how many times the unmount action ended a close.</summary>
     public static readonly Func<IPopoverState, int> UnmountRequests = static state => state.UnmountRequests;
+
+    /// <summary>Selects whether the current close keeps the popup mounted until the unmount action runs.</summary>
+    public static readonly Func<IPopoverState, bool> PreventUnmountingOnClose = static state => state.PreventUnmountingOnClose;
 
     /// <summary>Selects the active trigger's <c>Disabled</c>.</summary>
     public static readonly Func<IPopoverState, bool> Disabled = static state => state.Disabled;
