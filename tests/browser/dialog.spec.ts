@@ -803,20 +803,45 @@ test.describe('closed shadow root', () => {
   ]) {
     test.describe(`nested '${name}'`, () => {
       for (const { outer, nested } of portalSetups) {
-        test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+        // ADR 04 Amendments 2026-10-29 (design point 10 of M4 track 8, issue 146): Blazor dispatches C# event handlers
+        // from the document's event target, the shadow host for an event from inside a shadow root, so a Close inside one
+        // never runs. Where the nested popup sits in the shadow root, the port title closes it through the modules' paths.
+        const nestedInShadow = nested === 'shadow root' || (outer === 'shadow root' && nested === undefined);
+        if (!nestedInShadow) {
+          test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+            test.skip(kind === 'alert', 'open: AlertDialog is M4 track 9 (issue 124)');
+            const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+
+            await click(page, 'open-nested');
+            await expect.poll(() => exists(page, 'nested')).toBe(true);
+
+            await click(page, 'close-nested');
+
+            await expect.poll(() => exists(page, 'nested')).toBe(false);
+            expect(await exists(page, 'outer')).toBe(true);
+            await settle(fixture);
+            expect(await openChanges(fixture)).toEqual([]);
+          });
+          continue;
+        }
+
+        test(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
           test.skip(kind === 'alert', 'open: AlertDialog is M4 track 9 (issue 124)');
-          // Blazor dispatches C# event handlers from the document's event target, which is the shadow host for an event from
-          // inside a shadow root, so the nested Close's @onclick never runs while the nested popup is in one.
-          test.skip(nested === 'shadow root' || (outer === 'shadow root' && nested === undefined), 'open: design point 10 of M4 track 8 (C# event handlers inside a shadow-root portal container)');
           const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
 
           await click(page, 'open-nested');
           await expect.poll(() => exists(page, 'nested')).toBe(true);
-
-          await click(page, 'close-nested');
-
+          await page.keyboard.press('Escape');
           await expect.poll(() => exists(page, 'nested')).toBe(false);
           expect(await exists(page, 'outer')).toBe(true);
+
+          // A modal dialog's outside press closes it only on its own backdrop (DLG-PTR-10); a non-modal one on any element.
+          await click(page, 'open-nested');
+          await expect.poll(() => exists(page, 'nested')).toBe(true);
+          await click(page, kind === 'modal' ? 'nested-backdrop' : 'outside');
+          await expect.poll(() => exists(page, 'nested')).toBe(false);
+          expect(await exists(page, 'outer')).toBe(true);
+
           await settle(fixture);
           expect(await openChanges(fixture)).toEqual([]);
         });
