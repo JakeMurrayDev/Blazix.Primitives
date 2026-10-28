@@ -126,5 +126,8 @@ internal static class OwnershipRegistry
         // dialog.md §5.8 (DLG-ARIA-11): the focus manager's outside marking writes `aria-hidden` on elements no part owns,
         // under the section's heading words; its page-global state is recorded in js/CONTEXT.md.
         new("dialog", "ARIA", "aria-hidden", Writer.Js),
+        // dialog.md §5.8's focus guards (ADR 04 Amendments 2026-10-27, the VoiceOver swap as a JavaScript write after
+        // attach): under VoiceOver on WebKit the modules swap `aria-hidden` for `role="button"`; C# renders `aria-hidden`.
+        new("dialog", "ARIA", "role", Writer.Js),
     ];
 }
