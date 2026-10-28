@@ -167,6 +167,49 @@ public sealed class PopoverRootTests : IDisposable
         Assert.Equal("1", cut.Find("[data-testid=\"root-payload\"]").TextContent);
     }
 
+    [Fact(DisplayName = "should render an internal backdrop when `true`")]
+    [Trait("Requirement", "POP-STR-13")]
+    [Trait("Requirement", "POP-DOM-22")]
+    public async Task Should_render_an_internal_backdrop_when_true()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { Modal = true });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+
+        IElement? backdrop = cut.Find("[data-testid=\"positioner\"]").PreviousElementSibling;
+        Assert.NotNull(backdrop);
+        Assert.Equal("presentation", backdrop.GetAttribute("role"));
+        Assert.True(backdrop.HasAttribute("data-base-ui-inert"));
+        Assert.Equal("position: fixed; inset: 0; user-select: none; -webkit-user-select: none", backdrop.GetAttribute("style"));
+        Assert.False(backdrop.HasAttribute("inert"));
+    }
+
+    [Fact(DisplayName = "should not render an internal backdrop when `false`")]
+    [Trait("Requirement", "POP-STR-13")]
+    public async Task Should_not_render_an_internal_backdrop_when_false()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { Modal = false });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+
+        Assert.Null(cut.Find("[data-testid=\"positioner\"]").PreviousElementSibling);
+    }
+
+    [Fact(DisplayName = "enables modal behavior after a hover-open is clicked")]
+    [Trait("Requirement", "POP-STR-13")]
+    [Trait("Requirement", "POP-PTR-04")]
+    public async Task Enables_modal_behavior_after_a_hover_open_is_clicked()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { Modal = true, OpenOnHover = true });
+
+        await test.HoverAsync(cut, "trigger-1", open: true);
+        Assert.Null(cut.Find("[data-testid=\"positioner\"]").PreviousElementSibling);
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+
+        Assert.Equal("presentation", cut.Find("[data-testid=\"positioner\"]").PreviousElementSibling?.GetAttribute("role"));
+    }
+
     [Fact(DisplayName = "closes the popover when the `close` method is called")]
     [Trait("Requirement", "POP-API-05")]
     [Trait("Requirement", "POP-EVT-11")]
