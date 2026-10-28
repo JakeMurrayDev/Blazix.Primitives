@@ -13,6 +13,7 @@ import {
   getNodeChildren,
   getSession,
   isTopmostOpenSession,
+  nameRelayTrigger,
   releaseSession,
   resetInteractionsForTest,
   type SessionNode,
@@ -363,6 +364,29 @@ describe('the session', () => {
     expect(seen[0]?.details.nested).toBe(false);
     expect(session.open).toBe(false);
     expect(session.dataRef.current.openEvent).toBeUndefined();
+  });
+
+  it('port: a named element is the trigger element of the next relayed focus-out close without a trigger, and of that close only', () => {
+    const popup = harness();
+    popup.attachSession();
+    popup.attachTrigger(element('button', 'trigger'));
+    const session = getSession(popup.token)!;
+    const guard = element('span', 'guard');
+    const seen: SessionOpenChangeDetails[] = [];
+    session.events.on('openchange', (details: SessionOpenChangeDetails) => seen.push(details));
+    popup.setOpen(true, 'trigger-press', 'trigger');
+
+    nameRelayTrigger(session, guard);
+    popup.setOpen(false, 'focus-out');
+    popup.setOpen(true, 'trigger-press', 'trigger');
+    popup.setOpen(false, 'focus-out');
+
+    expect(seen.map((details) => [details.open, details.reason, details.triggerElement?.id])).toEqual([
+      [true, 'trigger-press', 'trigger'],
+      [false, 'focus-out', 'guard'],
+      [true, 'trigger-press', 'trigger'],
+      [false, 'focus-out', undefined],
+    ]);
   });
 
   it('port: a canceled request moves no revision and emits nothing, and a committed one carries its own event', () => {
