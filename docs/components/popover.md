@@ -1377,7 +1377,7 @@ Added 2026-10-29 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazi
 | "port: a modal popover cuts its trigger out of the internal backdrop" | L4 | POP-DOM-22 |
 | "port: a trigger mouseleave before the hover delay ends cancels the open and requests no close" | L4 | POP-PTR-06; §16 Q12 |
 | "port: an Escape close that allows propagation calls onOpenChange once" | L4 | POP-KEY-02; §16 Q7 |
-| "port: a real press on a focusable outside element closes once, with focus-out" | L4 | POP-DIS-07, POP-EVT-01 (gap 14; open on Server to PR 137's re-merge) |
+| "port: a real press on a focusable outside element closes once, with focus-out" | L4 | POP-DIS-07, POP-EVT-01 (gap 14; green on both render modes since PR 137's re-merge, 2026-10-29) |
 | "port: an open non-modal popover renders the outside guards and the aria-owns owner at the portal's position" | L4 | POP-DOM-11 |
 | "port: every focus guard of an open popover is aria-hidden" | L4 | POP-ARIA-10 |
 | "port: a right press neither toggles the popover nor counts as an outside press inside it" | L4 | POP-PTR-15 |

@@ -1214,11 +1214,10 @@ test.describe('<Popover.Root /> prop: modal, touch', () => {
 // moves focus first, so the focus manager closes with focus-out and the press's outside-press finds the popup closed, one
 // OnOpenChange as in Base UI (WebAssembly). On Server both close requests leave before the first commit returns, and
 // OnOpenChange runs again, with outside-press, for a popover already closed. Settled 2026-10-29 (ADR 04 Amendments
-// 2026-10-29): 13.9's one-close-in-flight rule widens to the session; track 6 writes it at PR 137's re-merge, which holds
-// 13.9's code.
+// 2026-10-29): 13.9's one-close-in-flight rule widens to the session, written by track 6 at PR 137's re-merge (the focus
+// manager's close claims the session's close in flight, as the press's does).
 test.describe('<Popover.Root /> a press outside that moves focus', () => {
   test('port: a real press on a focusable outside element closes once, with focus-out', async ({ page, mode }) => {
-    test.skip(mode === 'server', 'open to PR 137\'s re-merge: gap 14 (ADR 04 Amendments 2026-10-29) widens the one-close-in-flight rule to the session');
     const fixture = await gotoPopupFixture(page, mode, 'popover-root', { defaultOpen: true, inside: 'button', outside: 'after' });
     await expect(page.getByTestId('inside')).toBeFocused();
 
