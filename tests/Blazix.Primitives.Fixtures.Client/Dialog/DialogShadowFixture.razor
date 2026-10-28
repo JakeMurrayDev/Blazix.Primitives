@@ -1,0 +1,114 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
+@inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
+
+@*
+    The `dialog-shadow` fixture (tests/browser/dialog.spec.ts): DialogRoot.test.tsx's "closed shadow root" describe. Base UI
+    renders its whole tree into a closed shadow root; Blazor renders components into the document only, so here the roots
+    render in the page and their portals move into a closed shadow root a page script creates on `[data-shadow-host]`
+    after the first render and hands C# as an IJSObjectReference (`blazixFixtureDom.lastClosedShadowRoot`).
+    - `kind=modal|non-modal`: the nested dialog (with a Backdrop when modal), inside an initially open outer dialog of the
+      same modality (with a Backdrop when modal); the outer popup is `outer`, the nested trigger `open-nested`, the nested
+      popup `nested` and its Close `close-nested`;
+    - `outer=shadow`, `nested=shadow|body`: each portal's container, the shadow root or the body; absent, the portal's
+      default (the enclosing portal's node, else the body);
+    - `case=outside`: no nested dialog, a non-modal outer popup, and a page element `outside`.
+    The container records the outer root's open changes; `data-ready` is `true` once the shadow root exists and the outer
+    root's session and the nested trigger's handles have attached.
+*@
+<FixtureContainer Name="dialog-shadow" data-attached="@(Attached ? "true" : "false")" data-ready="@(ready ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <div data-shadow-host @ref="shadowHost"></div>
+    <div data-testid="outside">Outside</div>
+
+    @if (shadowRoot is not null)
+    {
+        <DialogRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" Modal="@outerModal" OnOpenChange="RecordOpenChange">
+            <DialogPortal Container="@ContainerOf(Query("outer"))">
+                @if (modal)
+                {
+                    <DialogBackdrop />
+                }
+                <DialogPopup data-testid="outer">
+                    @if (Case != "outside")
+                    {
+                        <DialogRoot TPayload="NoPayload" Modal="@nestedModal">
+                            <DialogTrigger TPayload="NoPayload" @ref="nestedTrigger" data-testid="open-nested">Open nested</DialogTrigger>
+                            <DialogPortal Container="@ContainerOf(Query("nested"))">
+                                @if (modal)
+                                {
+                                    <DialogBackdrop />
+                                }
+                                <DialogPopup data-testid="nested">
+                                    <DialogClose data-testid="close-nested">Close</DialogClose>
+                                </DialogPopup>
+                            </DialogPortal>
+                        </DialogRoot>
+                    }
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private ElementReference shadowHost;
+    private IJSObjectReference? shadowRoot;
+    private DialogRoot<NoPayload>? root;
+    private DialogTrigger<NoPayload>? nestedTrigger;
+    private bool modal;
+    private ModalValue? outerModal;
+    private ModalValue? nestedModal;
+    private bool ready;
+    private bool waiting;
+
+    protected override void OnInitialized()
+    {
+        modal = Case != "outside" && Query("kind") != "non-modal";
+        outerModal = modal;
+        nestedModal = modal;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        try
+        {
+            if (firstRender)
+            {
+                // The shadow root's host exists only after the first render.
+                shadowRoot = await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost);
+                StateHasChanged();
+                return;
+            }
+
+            if (shadowRoot is not null && root is not null && !ready && !waiting)
+            {
+                waiting = true;
+                await Task.WhenAll(root.SessionAttached, nestedTrigger?.TwinAttached ?? Task.CompletedTask);
+                ready = true;
+                StateHasChanged();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went while the page was set up.
+        }
+    }
+
+    private PortalContainerValue? ContainerOf(string? target) => target switch
+    {
+        "shadow" => new PortalContainerValue(shadowRoot!),
+        "body" => (PortalContainerValue)"body",
+        _ => (PortalContainerValue?)null,
+    };
+}
