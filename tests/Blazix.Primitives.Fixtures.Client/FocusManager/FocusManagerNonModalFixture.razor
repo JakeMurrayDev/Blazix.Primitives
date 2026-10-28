@@ -7,16 +7,19 @@
     asks C# to close it (FLT-FOC-11, a request); the switch turns `closeOnFocusOut` off. The outside is marked with the
     inert marker only (FLT-ARIA-02, DOM-16). The cancel switch makes the page refuse the close, as a consumer's
     `Cancel()` would; the host still answers the request, so the module asks again (the answered counter, ADR 04
-    Amendments 2026-10-27).
+    Amendments 2026-10-27). The clearing switch makes a focus-out close render the popup once more with no reference and
+    remove it a render later, as Popover's store does for a controlled root whose `OnOpenChange` clears `TriggerId`
+    (M4 track 5's Gap 12).
 *@
 <FixtureContainer Name="focus-manager-non-modal" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" @onkeydown="OnKeyDown">
     <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
     <button type="button" data-focus-out-switch @onclick="() => closeOnFocusOut = !closeOnFocusOut">Toggle close on focus out</button>
     <button type="button" data-cancel-switch @onclick="() => CancelFocusOutCloses = !CancelFocusOutCloses">Toggle cancel</button>
+    <button type="button" data-clear-reference-switch @onclick="() => clearReference = !clearReference">Toggle clearing the reference</button>
     <div data-outside><button type="button" data-outside-button>Outside</button></div>
-    @if (IsOpen)
+    @if (IsOpen || unmountPending)
     {
-        <FixtureFocusManaged @ref="Popup" Open="IsOpen" Modal="false" CloseOnFocusOut="closeOnFocusOut" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" OnFocusOutClose="OnFocusOutClose" data-popup>
+        <FixtureFocusManaged @ref="Popup" Open="IsOpen" Modal="false" CloseOnFocusOut="closeOnFocusOut" DomReferenceId="@(IsOpen || !clearReference ? "fm-reference" : null)" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" OnFocusOutClose="CloseOnFocusOut" data-popup>
             <button type="button" data-one>one</button>
             <button type="button" data-two>two</button>
         </FixtureFocusManaged>
@@ -26,4 +29,24 @@
 
 @code {
     private bool closeOnFocusOut = true;
+    private bool clearReference;
+    private bool unmountPending;
+
+    private void CloseOnFocusOut(EventSnapshot snapshot)
+    {
+        OnFocusOutClose(snapshot);
+        unmountPending = clearReference && !IsOpen;
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (unmountPending)
+        {
+            unmountPending = false;
+            StateHasChanged();
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
 }
