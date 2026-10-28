@@ -1117,9 +1117,10 @@ test.describe('<Tooltip.Root /> layout', () => {
   const open = (page: Page, mode: RenderMode, options: PopupFixtureOptions) => gotoPopupFixture(page, mode, 'tooltip-layout', options);
   const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
 
+  /** The element's horizontal center, or `NaN` while it is not rendered, so an `expect.poll` over it retries. */
   async function centerX(page: Page, id: string): Promise<number> {
-    const box = (await byTestId(page, id).boundingBox())!;
-    return box.x + box.width / 2;
+    const box = await byTestId(page, id).boundingBox();
+    return box === null ? Number.NaN : box.x + box.width / 2;
   }
 
   test('does not open once the hovered trigger has unmounted', async ({ page, mode }) => {
