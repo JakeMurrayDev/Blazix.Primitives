@@ -31,9 +31,30 @@ export async function gotoPopupFixture(page: Page, mode: RenderMode, name: strin
  * A barrier: clicks the fixture's sync button and waits for C# to count it. Server processes one circuit's events in
  * order (ADR-04/1) and WebAssembly synchronously, so every event dispatched before has reached C# afterwards.
  */
+// A click on a fixture's own control (the barrier, a phase, the root's mount, the handle's calls) is an outside press, which
+// a family's dismissal answers by closing, where Base UI changes the same things through `rerender` and direct handle calls.
+// A control carrying `data-key-control` counts a neutral keydown (Shift) instead, which no dismissal reads; track 1's
+// test-only host, whose dismissal ignores outside presses, keeps the click.
+function activateControl(element: Element): void {
+  if (element.hasAttribute('data-key-control')) {
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', code: 'ShiftLeft', bubbles: true }));
+  } else {
+    (element as HTMLElement).click();
+  }
+}
+
+/** Activates a fixture control: a neutral keydown when it carries `data-key-control`, else Playwright's click. */
+export async function pressControl(control: Locator): Promise<void> {
+  if ((await control.getAttribute('data-key-control')) !== null) {
+    await control.evaluate(activateControl);
+  } else {
+    await control.click();
+  }
+}
+
 export async function settle(fixture: Locator): Promise<void> {
   const before = Number(await fixture.getAttribute('data-sync'));
-  await fixture.locator('[data-sync-button]').evaluate((element) => (element as HTMLElement).click());
+  await fixture.locator('[data-sync-button]').evaluate(activateControl);
   await expect(fixture).toHaveAttribute('data-sync', String(before + 1));
 }
 
