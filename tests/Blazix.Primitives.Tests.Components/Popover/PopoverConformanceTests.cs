@@ -100,6 +100,9 @@ public sealed class PopoverPopupConformanceTests : PartConformanceTests<PopoverP
         Context.RenderTree.Add<PopoverRoot<NoPayload>>(p => p.Add(x => x.Open, true));
         Context.RenderTree.Add<PopoverPortal>();
         Context.RenderTree.Add<PopoverPositioner>();
+
+        // The focus manager publishes to the portal after the popup's first render, which renders the popup again.
+        PopoverConformance.AddRenderedOnceForRefTitles(Context);
     }
 
     /// <inheritdoc />
@@ -303,6 +306,13 @@ internal static class PopoverConformance
         context.RenderTree.Add<PopoverPortal>();
         context.RenderTree.Add<PopoverPositioner>();
         context.RenderTree.Add<PopoverPopup>();
+        AddRenderedOnceForRefTitles(context);
+    }
+
+    /// <summary>Adds <see cref="RenderedOnce"/> for the two titles that look the captured element up in bUnit's markup.</summary>
+    /// <param name="context">The test's context.</param>
+    public static void AddRenderedOnceForRefTitles(BunitContext context)
+    {
         if (Xunit.TestContext.Current.TestMethod?.MethodName is "Should_pass_the_ref_to_the_custom_component" or "Should_merge_the_rendering_element_ref_with_the_custom_component_ref")
         {
             context.RenderTree.Add<RenderedOnce>();
@@ -312,7 +322,8 @@ internal static class PopoverConformance
 
 /// <summary>
 /// A test-only wrapper that renders its content once. A part inside the Popup makes the Popup render again in its mount
-/// batch (a Title's id, a Close's count), which re-renders every child holding a fragment (ADR 16 Amendments 2026-10-27);
+/// batch (a Title's id, a Close's count), and the focus manager's publication renders the Portal again, which re-renders
+/// every child holding a fragment (ADR 16 Amendments 2026-10-27);
 /// Blazor never copies an element's reference capture into the re-rendered frame, so bUnit's markup drops the id the
 /// two ref titles look up; here the part under test renders once, as React leaves an unchanged child alone. Rendering
 /// once is a fact of bUnit's markup (the render count) at L2, so no L4 title stands behind it.

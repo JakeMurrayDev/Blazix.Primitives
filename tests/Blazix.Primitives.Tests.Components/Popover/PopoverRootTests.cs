@@ -305,14 +305,14 @@ public sealed class PopoverRootTests : IDisposable
         // A replaced element would capture a new reference: the id of the capture is the element's identity in bUnit.
         string? element = TriggerElementId(cut);
         Assert.NotNull(element);
-        Assert.Empty(cut.FindAll("[data-base-ui-focus-guard]"));
+        Assert.Equal(0, TriggerGuards(cut));
 
         await test.PressAsync(cut, "trigger-1", open: true);
-        Assert.Equal(2, cut.FindAll("[data-base-ui-focus-guard]").Count);
+        Assert.Equal(2, TriggerGuards(cut));
         Assert.Equal(element, TriggerElementId(cut));
 
         await test.PressAsync(cut, "trigger-1", open: false);
-        Assert.Empty(cut.FindAll("[data-base-ui-focus-guard]"));
+        Assert.Equal(0, TriggerGuards(cut));
         Assert.Equal(element, TriggerElementId(cut));
     }
 
@@ -329,7 +329,7 @@ public sealed class PopoverRootTests : IDisposable
 
         // The trap's aria-hidden of the outside is L4 (POP-ARIA-09); C# observes the decision through the guards.
         Assert.True(cut.FindComponent<PopoverRoot<int>>().Instance.Store.State.FocusManagerModal);
-        Assert.Empty(cut.FindAll("[data-testid=\"trigger-1\"] ~ [data-base-ui-focus-guard]"));
+        Assert.Equal(0, TriggerGuards(cut));
     }
 
     [Fact(DisplayName = "does not enable modal focus management when close is not rendered")]
@@ -341,7 +341,7 @@ public sealed class PopoverRootTests : IDisposable
         await test.PressAsync(cut, "trigger-1", open: true);
 
         Assert.False(cut.FindComponent<PopoverRoot<int>>().Instance.Store.State.FocusManagerModal);
-        Assert.Equal(2, cut.FindAll("[data-base-ui-focus-guard]").Count);
+        Assert.Equal(2, TriggerGuards(cut));
     }
 
     private static PopoverSpec Shape(string shape) => shape switch
@@ -353,6 +353,14 @@ public sealed class PopoverRootTests : IDisposable
 
     private static string? TriggerElementId(IRenderedComponent<PopupTestHost> cut) =>
         cut.FindComponents<PopoverTrigger<int>>().Single(trigger => trigger.Find("button").Id == "trigger-1").Instance.Element?.Id;
+
+    // The trigger's own guards, its focus-guard siblings; the focus manager's and the portal's render beside the popup.
+    private static int TriggerGuards(IRenderedComponent<PopupTestHost> cut)
+    {
+        IElement trigger = cut.Find("[data-testid=\"trigger-1\"]");
+        return (trigger.PreviousElementSibling?.HasAttribute("data-base-ui-focus-guard") == true ? 1 : 0)
+            + (trigger.NextElementSibling?.HasAttribute("data-base-ui-focus-guard") == true ? 1 : 0);
+    }
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }

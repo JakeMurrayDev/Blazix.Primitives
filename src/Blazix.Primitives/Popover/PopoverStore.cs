@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
 namespace Blazix.Primitives;
@@ -173,9 +174,12 @@ internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPay
         bool switches = open && popup.EffectiveOpen && details.Trigger?.Id is { } next
             && popup.EffectiveActiveTriggerId is { } previous && !string.Equals(previous, next, StringComparison.Ordinal);
         PopoverInstantType? instantType = switches ? null : InstantTypeFor(open, details);
-        return state.OpenChangeReason == details.Reason && state.InstantType == instantType
+
+        // FLT-FOC-10: the focus manager classifies the close type from the event that caused the close (PopoverPopup).
+        EventSnapshot? closeEvent = open ? state.CloseEvent : details.Event;
+        return state.OpenChangeReason == details.Reason && state.InstantType == instantType && ReferenceEquals(state.CloseEvent, closeEvent)
             ? state
-            : state with { OpenChangeReason = details.Reason, InstantType = instantType };
+            : state with { OpenChangeReason = details.Reason, InstantType = instantType, CloseEvent = closeEvent };
     }
 
     // useOpenStateTransitions' unmount callback (PopoverRoot.tsx:59-62): the reason resets with the popover.
@@ -194,4 +198,10 @@ internal interface IPopoverTriggerPart
 {
     /// <summary>Gets the id the trigger renders and registers under.</summary>
     string? TriggerId { get; }
+
+    /// <summary>Gets the element of the guard before the trigger, while the guards render.</summary>
+    ElementReference? PreGuard { get; }
+
+    /// <summary>Gets the element of the guard after the trigger, while the guards render.</summary>
+    ElementReference? FocusTarget { get; }
 }

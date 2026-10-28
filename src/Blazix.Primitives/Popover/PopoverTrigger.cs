@@ -181,14 +181,14 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    /// <inheritdoc />
+    ElementReference? IPopoverTriggerPart.PreGuard => preGuard;
+
+    /// <inheritdoc />
+    ElementReference? IPopoverTriggerPart.FocusTarget => focusTarget;
+
     /// <summary>Gets a task that completes when the trigger's behaviors are attached.</summary>
     internal Task TwinsAttached => Task.WhenAll(button!.TwinAttached, interactions!.TwinAttached);
-
-    /// <summary>Gets the element of the guard before the trigger, while the guards render.</summary>
-    internal ElementReference? PreGuard => preGuard;
-
-    /// <summary>Gets the element of the guard after the trigger, while the guards render.</summary>
-    internal ElementReference? FocusTarget => focusTarget;
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)

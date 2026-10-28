@@ -22,6 +22,7 @@ namespace Blazix.Primitives;
 /// <param name="OpenOnHover">The active trigger's <c>OpenOnHover</c>.</param>
 /// <param name="CloseDelay">The active trigger's close delay in milliseconds.</param>
 /// <param name="AdaptiveOrigin">Whether a viewport is mounted, which positions the popover by its edges instead of a transform.</param>
+/// <param name="CloseEvent">The snapshot of the event that caused the last committed close, or <see langword="null"/> before any close.</param>
 [StoreState]
 internal sealed partial record PopoverStoreState<TPayload>(
     PopupStoreState<TPayload> Popup,
@@ -34,7 +35,8 @@ internal sealed partial record PopoverStoreState<TPayload>(
     string? DescriptionElementId,
     bool OpenOnHover,
     int CloseDelay,
-    bool AdaptiveOrigin)
+    bool AdaptiveOrigin,
+    EventSnapshot? CloseEvent)
     : IStoreState<PopoverStoreState<TPayload>>, IPopupStoreState<PopoverStoreState<TPayload>, TPayload>, IPopoverState
 {
     /// <inheritdoc />
@@ -111,6 +113,9 @@ internal sealed partial record PopoverStoreState<TPayload>(
     /// <inheritdoc />
     bool IPopoverState.AdaptiveOrigin => AdaptiveOrigin;
 
+    /// <inheritdoc />
+    EventSnapshot? IPopoverState.CloseEvent => CloseEvent;
+
     /// <summary>Creates the initial state of a store.</summary>
     /// <param name="floatingId">The generated id of the popup element.</param>
     /// <returns>A closed popover with no trigger, non-modal, with no title or description.</returns>
@@ -125,7 +130,8 @@ internal sealed partial record PopoverStoreState<TPayload>(
         DescriptionElementId: null,
         OpenOnHover: false,
         CloseDelay: 0,
-        AdaptiveOrigin: false);
+        AdaptiveOrigin: false,
+        CloseEvent: null);
 
     /// <inheritdoc />
     public static PopoverStoreState<TPayload> WithPopup(PopoverStoreState<TPayload> state, PopupStoreState<TPayload> popup) => state with { Popup = popup };
@@ -218,6 +224,9 @@ internal interface IPopoverState
 
     /// <summary>Gets a value indicating whether a viewport is mounted.</summary>
     bool AdaptiveOrigin { get; }
+
+    /// <summary>Gets the snapshot of the event that caused the last committed close.</summary>
+    EventSnapshot? CloseEvent { get; }
 }
 
 // POP-STA-12 and the parts' selections (PopoverStore.ts:46-82) as named selectors over the non-generic view (ADR 05 §1).
@@ -286,6 +295,9 @@ internal static class PopoverSelectors
 
     /// <summary>Selects the relay of the last committed open change.</summary>
     public static readonly Func<IPopoverState, OpenChangeRelay?> OpenChange = static state => state.OpenChange;
+
+    /// <summary>Selects the snapshot of the event that caused the last committed close.</summary>
+    public static readonly Func<IPopoverState, EventSnapshot?> CloseEvent = static state => state.CloseEvent;
 
     // POP-STA-12.
     /// <summary>Selects whether the popover is open, owned by the trigger with the given id, and was opened by a press.</summary>

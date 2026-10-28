@@ -2,6 +2,7 @@ using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
@@ -72,6 +73,9 @@ public static class PopoverPopupCssVars
 //   `popup` modules write `transition: none` and the auto-resize variables over the consumer's style.
 // - The close-part count, cascaded fixed: FocusManagerModal = Modal is not off and a PopoverClose is inside (POP-STA-10).
 // - It selects the open and mounted state, so it registers as a boundary part (ADR 16 Amendments 2026-10-27).
+// - The focus manager (PopoverPopup.tsx:108-122; FLT §4.8, FocusManagerBehavior): trapped only when FocusManagerModal,
+//   disabled while unmounted or hover-opened, restoring to the popup, anchored at the active trigger whose guards count as
+//   Tab's way out; the inputs are set before each render and again after it, for a target that render created.
 /// <summary>Represents the container of a popover's content, Base UI's <c>Popover.Popup</c>, rendered as a <c>div</c>.</summary>
 public sealed class PopoverPopup : PartBase<PopoverPopupState>
 {
@@ -105,6 +109,15 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private string? frozenStyle;
     private string? consumerStyle;
     private RenderFragment? consumerContent;
+    private FocusManagerBehavior? focus;
+    private PopoverSelection<bool>? hoverOpened;
+    private PopoverSelection<InteractionType?>? openMethod;
+    private PopoverSelection<string?>? activeTriggerId;
+    private PopoverSelection<PopupTriggerElement?>? activeTrigger;
+    private PopoverSelection<EventSnapshot?>? closeEvent;
+    private PopoverSelection<OpenChangeRelay?>? relay;
+    private bool warnedInitialFocus;
+    private bool warnedFinalFocus;
 
     /// <summary>Initializes a new instance of the <see cref="PopoverPopup"/> class.</summary>
     public PopoverPopup()
@@ -132,6 +145,38 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
 
     [CascadingParameter]
     private ToolbarRootContext? ToolbarContext { get; set; }
+
+    /// <summary>Gets or sets where focus moves when the popover opens.</summary>
+    /// <value>
+    /// <see langword="false"/> to move no focus, <see langword="true"/> for the default, an element or an element's id;
+    /// <see langword="null"/>, the default, for the popup itself after a touch open, else its first tabbable element.
+    /// </value>
+    [Parameter]
+    public FocusTargetValue? InitialFocus { get; set; }
+
+    /// <summary>Gets or sets a function that chooses where focus moves when the popover opens, from how it was opened.</summary>
+    /// <value>
+    /// A function of the open interaction type that returns the target, <see langword="true"/> for the default, or
+    /// <see langword="null"/> to move no focus; it wins over <see cref="InitialFocus"/>. The default is <see langword="null"/>.
+    /// </value>
+    [Parameter]
+    public Func<InteractionType, FocusTargetValue?>? InitialFocusResolver { get; set; }
+
+    /// <summary>Gets or sets where focus returns when the popover closes.</summary>
+    /// <value>
+    /// <see langword="false"/> to move no focus, <see langword="true"/> for the default, an element or an element's id;
+    /// <see langword="null"/>, the default, for the trigger.
+    /// </value>
+    [Parameter]
+    public FocusTargetValue? FinalFocus { get; set; }
+
+    /// <summary>Gets or sets a function that chooses where focus returns when the popover closes, from how it was closed.</summary>
+    /// <value>
+    /// A function of the close interaction type that returns the target, <see langword="true"/> for the default, or
+    /// <see langword="null"/> to move no focus; it wins over <see cref="FinalFocus"/>. The default is <see langword="null"/>.
+    /// </value>
+    [Parameter]
+    public Func<InteractionType, FocusTargetValue?>? FinalFocusResolver { get; set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -190,6 +235,14 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         descriptionId = subscription.Select(PopoverSelectors.DescriptionElementId);
         modal = subscription.Select(PopoverSelectors.Modal);
         unmountRequests = subscription.Select(PopoverSelectors.UnmountRequests);
+        hoverOpened = subscription.Select(PopoverSelectors.HoverOpened);
+        openMethod = subscription.Select(PopoverSelectors.OpenMethod);
+        activeTriggerId = subscription.Select(PopoverSelectors.ActiveTriggerId);
+        activeTrigger = subscription.Select(PopoverSelectors.ActiveTriggerElement);
+        closeEvent = subscription.Select(PopoverSelectors.CloseEvent);
+        relay = subscription.Select(PopoverSelectors.OpenChange);
+        focus = new FocusManagerBehavior(JSRuntime, InvokeAsync, snapshot =>
+            root.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut) { Event = snapshot }));
         boundaryPart = root.RegisterBoundaryPart();
         PositionerContext!.AddListener(positionerChanged);
         module = new PopupModuleAttachment(JSRuntime);
@@ -201,13 +254,17 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     {
         consumerContent = ChildContent;
         ChildContent = cascadedContent;
+        focus!.Portal = Portal;
+        WarnBothFocusForms();
     }
 
     /// <inheritdoc />
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         // POP-STA-10: written every render, so the Trigger's guards and the trap agree.
-        RootContext!.SetFocusManagerModal(modal!.Value != PopoverModalKind.NonModal && closeParts.HasClosePart);
+        bool trapped = modal!.Value != PopoverModalKind.NonModal && closeParts.HasClosePart;
+        RootContext!.SetFocusManagerModal(trapped);
+        focus!.SetInputs(FocusInputs(trapped));
         base.BuildRenderTree(builder);
     }
 
@@ -222,7 +279,12 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
             Task transitionsSync = SyncTransitionsAsync(element);
 
             // POP-KEY-12 (PopoverPopup.tsx:96-100): inside a toolbar the composite keys stop at the popup.
-            await module!.SyncAsync(element, ToolbarContext is null ? s_freeKeys : s_stoppedKeys);
+            Task moduleSync = module!.SyncAsync(element, ToolbarContext is null ? s_freeKeys : s_stoppedKeys);
+
+            // The inputs again after the render, for a target it created (the popup itself after a touch open).
+            focus!.SetInputs(FocusInputs(modal!.Value != PopoverModalKind.NonModal && closeParts.HasClosePart));
+            await focus.AfterRenderAsync(element, Id);
+            await moduleSync;
             await transitionsSync;
         }
 
@@ -256,10 +318,21 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
             {
                 _ = module.DisposeAsync().AsTask();
             }
+
+            if (focus is not null)
+            {
+                _ = focus.DisposeAsync().AsTask();
+            }
         }
 
         base.Dispose(disposing);
     }
+
+    /// <inheritdoc />
+    protected override void BuildBeforeElement(RenderTreeBuilder builder) => focus!.BuildBeforeElement(builder);
+
+    /// <inheritdoc />
+    protected override void BuildAfterElement(RenderTreeBuilder builder) => focus!.BuildAfterElement(builder);
 
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
@@ -368,6 +441,85 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         if (previous is null || previous != State)
         {
             StateHasChanged();
+        }
+    }
+
+    // POP-FOC-01..03 (PopoverPopup.tsx:68-71,108-122; createDefaultInitialFocus, popupStoreUtils.ts:37-40).
+    private FocusManagerInputs FocusInputs(bool trapped)
+    {
+        InteractionType? method = openMethod!.Value;
+        IPopoverTriggerPart? trigger = activeTrigger!.Value?.Owner as IPopoverTriggerPart;
+        ElementReference? preGuard = trigger?.PreGuard;
+        return new FocusManagerInputs
+        {
+            Open = open!.Value,
+            Modal = trapped,
+            Disabled = !mounted!.Value || hoverOpened!.Value,
+            InitialFocus = ResolveInitialFocus(method ?? InteractionType.Unknown),
+            ReturnFocus = ResolveFinalFocus(),
+            RestoreFocus = FocusManagerTwin.RestorePopup,
+            OpenInteractionType = method,
+            CloseEvent = closeEvent!.Value,
+            DomReferenceId = activeTriggerId!.Value,
+            TriggerFocusGuards = true,
+            PreviousFocusableElement = activeTrigger.Value?.Element,
+            NextFocusableElement = trigger?.FocusTarget,
+            InsideElements = preGuard is { } guard ? [guard] : null,
+            Relay = relay!.Value,
+            SessionToken = RootContext!.SessionToken,
+        };
+    }
+
+    // ADR 08 Amendments 2026-10-28: the resolver wins; its `null` moves no focus, `true` is the default target.
+    private FocusTargetValue? ResolveInitialFocus(InteractionType type)
+    {
+        if (InitialFocusResolver is { } resolver)
+        {
+            return resolver(type) ?? new FocusTargetValue(false);
+        }
+
+        if (InitialFocus is { } value)
+        {
+            return value;
+        }
+
+        return type == InteractionType.Touch && Element is { } popup ? new FocusTargetValue(popup) : default(FocusTargetValue?);
+    }
+
+    // The close interaction type as the focus manager classifies it (FLT-FOC-10), from the event that caused the close.
+    private FocusTargetValue? ResolveFinalFocus()
+    {
+        if (FinalFocusResolver is { } resolver)
+        {
+            if (closeEvent!.Value is not { } snapshot)
+            {
+                return default(FocusTargetValue?);
+            }
+
+            return resolver(CloseTypeClassifier.Classify(snapshot, focus!.RecordedInteractionType)) ?? new FocusTargetValue(false);
+        }
+
+        return FinalFocus;
+    }
+
+    private void WarnBothFocusForms()
+    {
+        ILogger? logger = RootContext!.Logger;
+        if (logger is null || !DevelopmentWarnings.IsEnabled)
+        {
+            return;
+        }
+
+        if (!warnedInitialFocus && InitialFocus is not null && InitialFocusResolver is not null)
+        {
+            warnedInitialFocus = true;
+            DevelopmentWarnings.Write(logger, "Blazix: `PopoverPopup` received both `InitialFocus` and `InitialFocusResolver`; the resolver is used.");
+        }
+
+        if (!warnedFinalFocus && FinalFocus is not null && FinalFocusResolver is not null)
+        {
+            warnedFinalFocus = true;
+            DevelopmentWarnings.Write(logger, "Blazix: `PopoverPopup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
         }
     }
 }
