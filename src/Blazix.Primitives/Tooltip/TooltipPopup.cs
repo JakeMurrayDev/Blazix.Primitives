@@ -224,11 +224,18 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
 
     // Design point 3 of M4 track 1: the portal node is `display: none` in place until the portal module moves it, so the
     // first attach waits for the move, or the module reads no animation on an element not rendered yet.
+    // On Server the move can complete after the close that unmounts this popup: the portal detaches from its own
+    // after-render, a round trip after the render that disposed this part, so a disposed popup attaches nothing.
     private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
     {
         await PopupPortalContext.WhenMoved(Portal);
+        if (transitions is not { } twin)
+        {
+            return;
+        }
+
         sentTransitions = options;
-        transitionsHandle = await transitions!.AttachAsync(element, options);
+        transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
     }
 }

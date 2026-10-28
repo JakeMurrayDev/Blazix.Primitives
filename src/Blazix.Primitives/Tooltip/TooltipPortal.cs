@@ -128,8 +128,10 @@ public sealed class TooltipPortal : PartBase<EmptyState>
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The view is read before the await: a portal disposed meanwhile still runs the boundary of its last render.
+        TooltipStoreView current = view!;
         await portal!.OnAfterRenderAsync(Enabled ? Element : null, Container);
-        await view!.AtBatchBoundaryAsync();
+        await current.AtBatchBoundaryAsync();
     }
 
     /// <inheritdoc />
