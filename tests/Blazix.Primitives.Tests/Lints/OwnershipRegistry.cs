@@ -164,5 +164,37 @@ internal static class OwnershipRegistry
         new("tooltip", "Viewport", "data-transitioning", Writer.Js, "TooltipViewportState.Transitioning"),
         new("tooltip", "Viewport", "--popup-width", Writer.Js),
         new("tooltip", "Viewport", "--popup-height", Writer.Js),
+        // PreviewCard (M4 track 7, issue 122; ADR 04 §2 as amended 2026-10-27, preview-card.md §5): the interactions module
+        // attaches the trigger's and the popup's listeners; positioning writes the Positioner's and the Arrow's style and
+        // placement from attach (mirrored in the state records); transitions writes the Popup's and the Backdrop's
+        // transition attributes and the Popup's `transition: none`; the popup module writes the Viewport's containers,
+        // direction and transitioning flag. data-instant is C#'s on every part.
+        new("preview-card", "Trigger", "handlers", Writer.Js),
+        new("preview-card", "Positioner", "pointer-events", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "transition", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "data-side", Writer.CsharpToJs, "PreviewCardPositionerState.Side"),
+        new("preview-card", "Positioner", "data-align", Writer.CsharpToJs, "PreviewCardPositionerState.Align"),
+        new("preview-card", "Positioner", "data-anchor-hidden", Writer.Js, "PreviewCardPositionerState.AnchorHidden"),
+        new("preview-card", "Positioner", "CSS variables", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "position", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "top", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "left", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "transform", Writer.CsharpToJs),
+        new("preview-card", "Positioner", "opacity", Writer.CsharpToJs),
+        new("preview-card", "Popup", "transition", Writer.Js),
+        new("preview-card", "Popup", "data-starting-style", Writer.Js, "PreviewCardPopupState.TransitionStatus"),
+        new("preview-card", "Popup", "data-ending-style", Writer.Js, "PreviewCardPopupState.TransitionStatus"),
+        new("preview-card", "Popup", "handlers", Writer.Js),
+        new("preview-card", "Arrow", "style", Writer.CsharpToJs),
+        new("preview-card", "Arrow", "data-side", Writer.CsharpToJs, "PreviewCardArrowState.Side"),
+        new("preview-card", "Arrow", "data-align", Writer.CsharpToJs, "PreviewCardArrowState.Align"),
+        new("preview-card", "Arrow", "data-uncentered", Writer.CsharpToJs, "PreviewCardArrowState.Uncentered"),
+        new("preview-card", "Backdrop", "data-starting-style", Writer.Js, "PreviewCardBackdropState.TransitionStatus"),
+        new("preview-card", "Backdrop", "data-ending-style", Writer.Js, "PreviewCardBackdropState.TransitionStatus"),
+        new("preview-card", "Viewport", "[data-previous] container", Writer.Js),
+        new("preview-card", "Viewport", "data-activation-direction", Writer.Js, "PreviewCardViewportState.ActivationDirection"),
+        new("preview-card", "Viewport", "data-transitioning", Writer.Js, "PreviewCardViewportState.Transitioning"),
+        new("preview-card", "Viewport", "--popup-width", Writer.Js),
+        new("preview-card", "Viewport", "--popup-height", Writer.Js),
     ];
 }

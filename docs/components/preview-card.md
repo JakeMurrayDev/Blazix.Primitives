@@ -561,6 +561,16 @@ Mount gating, status timing and completion are TRN-STA-02/03/04/06/09/13 and TRN
 
 ### 5.5 Arrow element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden` | `"true"` | PRV-ARIA-01 | C# |
+| `data-open` / `data-closed` | open / closed | PRV-DOM-17 | C# |
+| `style` | `position: absolute` + the arrow middleware's `top`/`left` + consumer style | PRV-DOM-16 | C# → JS |
+| `data-side`, `data-align` | resolved placement | PRV-DOM-17 | C# → JS |
+| `data-uncentered` | `""` iff the arrow cannot point at the anchor's center | PRV-DOM-17 | C# → JS |
+
+Writer note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122); ADR 13 §3): the table is added with the implementing pull request. As Tooltip's (§5.5 of tooltip.md), the Arrow has no twin of its own: its style and placement are written by the `positioning` module from the attach of the Positioner that carries its id, mirrored in `PreviewCardArrowState`.
+
 - **PRV-DOM-16** — MUST. The Arrow's inline style is `position: absolute` plus `top`/`left` from the arrow middleware (FLT-DOM-09); consumer `style` merges over it. The Arrow element is the arrow registered with the positioning session (FLT-DOM-10, FLT-POS-08) with `arrowPadding` from the Positioner (default 5).
   Source: `preview-card/arrow/PreviewCardArrow.tsx:23,36-37`; `internals/useAnchorPositioning.ts:381-390,616-623`. Test: none (`PreviewCardArrow.test.tsx` describeConformance only).
 - **PRV-DOM-17** — MUST. The Arrow renders `data-open`/`data-closed` (exactly one), `data-side`, `data-align`, and `data-uncentered=""` iff `uncentered` (default projection of a boolean field); no `data-anchor-hidden` (not in its state).
@@ -568,12 +578,33 @@ Mount gating, status timing and completion are TRN-STA-02/03/04/06/09/13 and TRN
 
 ### 5.6 Backdrop element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role` | `"presentation"` | PRV-DOM-18 | C# |
+| `hidden` | not mounted | PRV-DOM-18 | C# |
+| inline `pointer-events`, `user-select`, `-webkit-user-select` | always `none` | PRV-DOM-18 | C# |
+| `data-open` / `data-closed` | open / closed | PRV-DOM-19 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | PRV-DOM-19 | JS |
+
+Writer note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122); ADR 13 §3): the table is added with the implementing pull request; the transition attributes are the `transitions` module's, mirrored in `PreviewCardBackdropState`, as Popover's Backdrop's are.
+
 - **PRV-DOM-18** — MUST. The Backdrop renders `role="presentation"`, the `hidden` attribute while the card is not mounted, and the inline styles `pointer-events: none`, `user-select: none`, `-webkit-user-select: none` (consumer `style` merges over them). It is never interactive and never blocks presses or hover.
   Source: `preview-card/backdrop/PreviewCardBackdrop.tsx:34-43`. Test: [L2] `PreviewCardBackdrop.test.tsx` "sets `pointer-events: none` style". Docs: `CHANGELOG.md` v1.0.0-alpha.7 "Set `pointer-events: none` style on backdrops when hoverable".
 - **PRV-DOM-19** — MUST. The Backdrop renders `data-open`/`data-closed` (exactly one) and `data-starting-style`/`data-ending-style` per TRN-DOM-01/02/03; it never renders `data-anchor-hidden`, `data-side` or `data-align`.
   Source: `preview-card/backdrop/PreviewCardBackdrop.tsx:26-29,46`. Test: none.
 
 ### 5.7 Viewport element and its containers
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `[data-current]` container | always, keyed by the active trigger and the late payload | PRV-DOM-20 | C# |
+| `[data-previous]` container | during a content transition | PRV-DOM-20 | JS |
+| `data-activation-direction` | while a direction exists | PRV-DOM-21 | JS |
+| `data-transitioning` | `[data-previous]` rendered | PRV-DOM-21 | JS |
+| `data-instant` | `focus` \| `dismiss` when defined | PRV-DOM-21 | C# |
+| `--popup-width` / `--popup-height` on `[data-previous]` | the previous content's popup size | PRV-DOM-22 | JS |
+
+Writer note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): the Viewport is Popover's and Tooltip's over the card's store (`PreviewCardViewport`, track 5's `popup` module). C# renders `[data-current]`; the `popup` module writes the previous container, the direction and `data-transitioning`, mirrored in `PreviewCardViewportState`.
 
 - **PRV-DOM-20** — MUST. The Viewport renders its content inside `<div data-current>`; while a content transition is in progress (PRV-ANI-10) it renders, before it, `<div data-previous inert style="position: absolute; --popup-width: <w>px; --popup-height: <h>px">` containing a DOM clone of the previous content, with `data-ending-style=""` on the previous container and `data-starting-style=""` on the current container for the first frame (then swapped per PSH-STR-07 / `usePopupViewport`). The current container is remounted (new element) when the active trigger changes.
   Source: `utils/usePopupViewport.tsx:229-268`; `preview-card/viewport/PreviewCardViewport.tsx:28-32,43`. Test: [L2] `viewportConformanceTests.tsx` "renders children in the `current` container by default", "remounts the `current` container when the active trigger changes", "creates morphing containers during transitions", "keeps the latest transition active during rapid trigger changes" (L4 for the in-transition `[data-previous]` clause).
