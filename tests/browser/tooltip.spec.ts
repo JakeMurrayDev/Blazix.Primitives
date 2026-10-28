@@ -1060,10 +1060,10 @@ test.describe('nested tooltips', () => {
   // over it, which starts the hover hook's rest timer (useHoverReferenceInteraction.ts:426-497; Tooltip's `restMs` is the
   // open delay). That timer's open is not gated by the open state while the popup has no active trigger
   // (`isOverInactiveTrigger` is true for no reference), so Base UI's own code announces the outside-opened tooltip again
-  // in a browser; Base UI's title fires no `mousemove` on the parent area. The local reopen's own guard is an L3 title in
-  // `interactions.test.ts`.
+  // in a browser; Base UI's title fires no `mousemove` on the parent area. The local reopen's own `!open` guard has no
+  // title: an L3 one would pass against `main`, which ADR 11 §3's red check refuses.
   test('should not re-announce an open outer tooltip when the pending reopen fires', async ({ page, mode }) => {
-    test.skip(true, 'TIP-PTR-20: the real move over the parent area starts the hover rest timer, which Base UI does not gate; proven at L3');
+    test.skip(true, 'TIP-PTR-20: the real move over the parent area starts the hover rest timer, which Base UI does not gate');
     const fixture = await open(page, mode, { providerDelay: 100, innerDelay: 1000, outerControlled: true });
     await freezeClock(page);
     await moveTo(page, 'inner-trigger');
