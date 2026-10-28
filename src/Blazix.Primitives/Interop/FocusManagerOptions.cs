@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Interop;
 // props (design point 8 of the focus-manager track, settled by the orchestrator 2026-10-27); FinalFocus maps to
 // ReturnFocus. OpenInteractionType and CloseInteractionType carry InteractionType's literals (InteractionTypeLiterals),
 // OpenInteractionType's null being a programmatic open. Relay is the popup core's OpenChangeRelay (ADR 04 Amendments
-// 2026-10-27, the relay). Answered is the answered-requests counter and PreviousFocusableElement and NextFocusableElement
+// 2026-10-27, the relay); SessionToken is the interactions session's (M4 track 3), read in its place when set. Answered is the answered-requests counter and PreviousFocusableElement and NextFocusableElement
 // are Menu's indices beside TriggerFocusGuards (ADR 04 Amendments 2026-10-27, the verification of PR 128, settled by the
 // orchestrator). FLT-API-05, FLT-FOC-06, FOC-07, FOC-11, FOC-12, FOC-19..21, ARIA-01..03, DOM-17, KEY-06, FLT-EVT-02.
 /// <summary>
@@ -134,6 +134,10 @@ internal sealed record FocusManagerOptions : TwinOptions
     /// <value>The relay, or <see langword="null"/>, the default, before the popup's first committed change.</value>
     public OpenChangeRelay? Relay { get; init; }
 
+    /// <summary>Gets the token of the popup's interactions session, which the module joins.</summary>
+    /// <value>The token, or <see langword="null"/>, the default, for a manager outside any session, which reads <see cref="Relay"/>.</value>
+    public string? SessionToken { get; init; }
+
     /// <summary>Gets how many of the module's requests C# has answered.</summary>
     /// <value>
     /// The count, raised for every focus-out close request C# routed, canceled or not; the default is 0. The module asks
@@ -169,6 +173,7 @@ internal sealed record FocusManagerOptions : TwinOptions
             && SameItems(InsideElements, other.InsideElements)
             && SameItems(InsideElementIds, other.InsideElementIds)
             && Equals(Relay, other.Relay)
+            && string.Equals(SessionToken, other.SessionToken, StringComparison.Ordinal)
             && Answered == other.Answered;
     }
 
@@ -197,6 +202,7 @@ internal sealed record FocusManagerOptions : TwinOptions
         hash.Add(PreviousFocusableElement);
         hash.Add(NextFocusableElement);
         hash.Add(Relay);
+        hash.Add(SessionToken, StringComparer.Ordinal);
         hash.Add(Answered);
         hash.Add(InsideElements?.Count ?? -1);
         hash.Add(InsideElementIds?.Count ?? -1);

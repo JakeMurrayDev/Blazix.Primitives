@@ -399,6 +399,7 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
             InsideElements = inside,
             InsideElementIds = inputs.InsideElementIds,
             Relay = inputs.Relay,
+            SessionToken = inputs.SessionToken,
             Answered = Answered,
         };
         if (elements is null)

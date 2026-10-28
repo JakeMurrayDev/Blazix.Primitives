@@ -93,6 +93,10 @@ internal sealed record FocusManagerInputs
     /// <value>The relay, or <see langword="null"/>, the default, before the first committed change.</value>
     public OpenChangeRelay? Relay { get; init; }
 
+    /// <summary>Gets the token of the popup's interactions session (the popup store's <c>SessionToken</c>).</summary>
+    /// <value>The token, or <see langword="null"/>, the default, for none.</value>
+    public string? SessionToken { get; init; }
+
     /// <inheritdoc />
     public bool Equals(FocusManagerInputs? other)
     {
@@ -115,7 +119,8 @@ internal sealed record FocusManagerInputs
             && SameElement(NextFocusableElement, other.NextFocusableElement)
             && SameElements(InsideElements, other.InsideElements)
             && SameIds(InsideElementIds, other.InsideElementIds)
-            && Equals(Relay, other.Relay);
+            && Equals(Relay, other.Relay)
+            && string.Equals(SessionToken, other.SessionToken, StringComparison.Ordinal);
     }
 
     /// <inheritdoc />
@@ -141,6 +146,7 @@ internal sealed record FocusManagerInputs
         hash.Add(InsideElements?.Count ?? -1);
         hash.Add(InsideElementIds?.Count ?? -1);
         hash.Add(Relay);
+        hash.Add(SessionToken, StringComparer.Ordinal);
         return hash.ToHashCode();
     }
 
