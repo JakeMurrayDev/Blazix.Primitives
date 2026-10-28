@@ -8,6 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/tooltip/page.mdx` |
 | Prefix | `TIP` |
 | Status | approved |
+| Revised | 2026-10-28 |
 | Builds on | none |
 | Derived by | none ([preview-card](preview-card.md) shares most of the mechanisms but is a separate component) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -491,9 +492,11 @@ The Portal subtree exists in the DOM exactly while `mounted` (or `keepMounted`).
 | `data-popup-open` | `""` iff `isOpenedByTrigger(ownId)` | TIP-DOM-02 | C# |
 | `data-trigger-disabled` | `""` iff effective `disabled` | TIP-DOM-03 | C# |
 | `data-base-ui-tooltip-trigger` | `""` iff **not** disabled (private nested-trigger marker) | TIP-DOM-04 | C# |
-| event handlers | see TIP-DOM-05 | TIP-DOM-05 | JS |
+| handlers | see TIP-DOM-05 | TIP-DOM-05 | JS |
 
 No `aria-*` attribute, no `tabindex` and no `disabled` attribute is added by the part (§5.7).
+
+Writer note (2026-10-28, M4 track 6, issue 121): the handlers row is named `handlers`, as in the other families' tables; the `interactions` trigger handle attaches them (ADR 04 Amendments 2026-10-27).
 
 - **TIP-DOM-01** — MUST. The Trigger renders a `<button type="button">` unless substituted, with `id` equal to its trigger id (TIP-API-20). It does not use the shared button behavior (no `nativeButton` prop, no `role="button"` emulation, no keyboard activation handling): a substituted non-button element receives no extra attributes beyond those listed in this section.
   Source: `tooltip/trigger/TooltipTrigger.tsx:223-266`; `internals/useRenderElement.tsx:225-228` (RND-STR-05). Test: [L2] `TooltipTrigger.test.tsx` describeConformance (`refInstanceof: HTMLButtonElement`, no `button` option); `TooltipPositioner.test.tsx` positionerConformanceTests (trigger substituted with `<div />`).
@@ -521,7 +524,9 @@ No `aria-*` attribute, no `tabindex` and no `disabled` attribute is added by the
 | `data-open` / `data-closed` | from effective open | TIP-DOM-08 | C# |
 | `data-side`, `data-align` | rendered placement | TIP-DOM-08 | C# → JS |
 | `data-anchor-hidden` | `""` iff anchor hidden | TIP-DOM-08 | JS |
-| `data-instant` | `tracking-cursor` \| `delay` \| `focus` \| `dismiss` when defined | TIP-DOM-08 | C# → JS |
+| `data-instant` | `tracking-cursor` \| `delay` \| `focus` \| `dismiss` when defined | TIP-DOM-08 | C# |
+
+Writer note (2026-10-28, M4 track 6, issue 121): `data-instant` is rendered by C# from the store on every part (chosen by the user 2026-10-27, ADR 04 Amendments 2026-10-27; §16 Q2's resolution), so its cells here and in §5.4 read `C#` (sheet D Contradiction 1). `pointer-events: none` while the popup is open and unhoverable is put ahead of the consumer's style, which the layered writer applies as the consumer band; the `positioning` module writes it while closed (FLT-DOM-01).
 
 - **TIP-DOM-07** — MUST. The Positioner is the shared positioner element of FLT-DOM-01 configured with `hidden: !mounted` and `inert: !open || trackCursorAxis === 'both' || disableHoverablePopup`; "inert" here means **only** the inline style `pointer-events: none` (no `inert` attribute). The inline style is `''` (absent) when the popup is open, hoverable and not tracking both axes.
   Source: `tooltip/positioner/TooltipPositioner.tsx:94-101`; `utils/usePositioner.tsx:21-42`. Test: [L4] `TooltipRoot.test.tsx` "applies pointer-events: none to the positioner when `disableHoverablePopup = true`", "does not apply pointer-events: none to the positioner when `disableHoverablePopup = false`", "makes the positioner inert when tracking both axes", "keeps the positioner hoverable when tracking a single axis".
@@ -541,7 +546,7 @@ No `aria-*` attribute, no `tabindex` and no `disabled` attribute is added by the
 | `data-open` / `data-closed` | from effective open | TIP-DOM-12 | C# |
 | `data-starting-style` / `data-ending-style` | from `transitionStatus` | TIP-DOM-12 | JS |
 | `data-side`, `data-align` | rendered placement | TIP-DOM-12 | C# |
-| `data-instant` | `delay` \| `focus` \| `dismiss` when defined | TIP-DOM-12 | C# → JS |
+| `data-instant` | `delay` \| `focus` \| `dismiss` when defined | TIP-DOM-12 | C# |
 | `style` | `transition: none` while `'starting'` + `--popup-width/height` (Viewport only) + consumer style | TIP-DOM-13, TIP-DOM-16 | JS |
 | handlers | dismiss floating bag (Escape keydown, press-inside marking) + hover floating listeners | TIP-DOM-14 | JS |
 | `role` | **none** | TIP-ARIA-01 | C# |
@@ -556,6 +561,17 @@ No `aria-*` attribute, no `tabindex` and no `disabled` attribute is added by the
   Source: `tooltip/popup/TooltipPopup.tsx:33,48-51,68`; `tooltip/root/TooltipRoot.tsx:275-279`; `floating-ui-react/hooks/useDismiss.ts:784-800`; `floating-ui-react/hooks/useHoverFloatingInteraction.ts:247-255`. Test: [L4] `TooltipRoot.test.tsx` "survives the trip from the trigger to the popup, then closes after leaving it".
 
 ### 5.5 Arrow element
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden` | `"true"` | TIP-ARIA-03 | C# |
+| `data-open` / `data-closed` | from effective open | TIP-DOM-15 | C# |
+| `style` | `position: absolute` + the arrow middleware's `top`/`left` + consumer style | TIP-DOM-15 | C# → JS |
+| `data-side`, `data-align` | rendered placement | TIP-DOM-15 | C# → JS |
+| `data-uncentered` | `""` iff the arrow cannot point at the anchor's center | TIP-DOM-15 | C# → JS |
+| `data-instant` | `delay` \| `focus` \| `dismiss` when defined | TIP-DOM-15 | C# |
+
+Writer note (2026-10-28, M4 track 6, issue 121): the Arrow has no twin of its own; its style and placement attributes are written by the `positioning` module from the attach of the Positioner that carries its id, and frozen in C# from then (track 2's `PositionerArrowBehavior`; ADR 04 Amendments 2026-10-27, the Arrow's id through the context).
 
 - **TIP-DOM-15** — MUST. The Arrow renders with inline `position: absolute; top: <y>px; left: <x>px` from the arrow middleware (FLT-DOM-09, merged before the consumer style), `aria-hidden="true"`, `data-open`/`data-closed`, `data-side`, `data-align`, `data-uncentered` (iff the arrow cannot point at the anchor's center) and `data-instant` (when defined). It registers itself as the positioning session's arrow element.
   Source: `tooltip/arrow/TooltipArrow.tsx:22-41`; `tooltip/arrow/TooltipArrowDataAttributes.ts:6-29`; `utils/popupStateMapping.ts:48-61`. Test: [L4] `TooltipArrow.test.tsx` "is hidden from assistive technology and mirrors the resolved side", "is marked uncentered when it cannot point at the anchor", "is not marked uncentered when it can point at the anchor".
