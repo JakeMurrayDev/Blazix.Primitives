@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -864,5 +864,213 @@ test.describe('<PreviewCard.Arrow />', () => {
 
     await expect(arrow(page)).toHaveAttribute('data-side', 'bottom');
     await expect(arrow(page)).not.toHaveAttribute('data-uncentered');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The Server relaxations of preview-card.md §9 (ADR 01's relaxation table), each asserted per mode (ADR 13 §1) under the
+// circuit's latency (`delayCircuit`; CDP emulation does not delay the WebSocket). Each witness is a record the page takes
+// (a MutationObserver, a listener added last), never a poll of a short-lived state (ADR 06 §2).
+// ---------------------------------------------------------------------------------------------------------------------
+
+const LATENCY = 250;
+
+test.describe('Server relaxations (preview-card.md §9)', () => {
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+
+  // PRV-PTR-10 (EVD-EVT-18, PSH-ANI-03): the hover open is decided in the module and commits a round trip later on Server;
+  // on WebAssembly it commits with no round trip.
+  test('port: a hover open commits a round trip after the hover on Server and with none on WebAssembly', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', delay: 0 });
+    await page.evaluate(() => {
+      const times: { enter?: number; open?: number } = {};
+      (window as unknown as { hoverTimes: typeof times }).hoverTimes = times;
+      document.querySelector('[data-testid="trigger"]')!.addEventListener('mouseenter', () => {
+        times.enter ??= performance.now();
+      });
+      new MutationObserver(() => {
+        if (times.open === undefined && document.querySelector('[data-testid="popup"]')) {
+          times.open = performance.now();
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    const { enter, open } = await page.evaluate(() => (window as unknown as { hoverTimes: { enter: number; open: number } }).hoverTimes);
+    if (mode === 'server') {
+      expect(open - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(open - enter).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // PRV-STA-05/06/07 (RND-STA-01 for mirrored fields): the module writes data-side; the side C# mirrors (the positioner's
+  // class) follows a round trip later on Server, and within the module's report on WebAssembly.
+  test('port: the mirrored side follows the data-side the module writes', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', delay: 0, bottomEdge: true });
+    await page.evaluate(() => {
+      const records: { side: string | null; className: string }[] = [];
+      (window as unknown as { sideRecords: typeof records }).sideRecords = records;
+      new MutationObserver(() => {
+        const positioner = document.querySelector('[data-testid="positioner"]');
+        if (positioner) {
+          records.push({ side: positioner.getAttribute('data-side'), className: positioner.className });
+        }
+      }).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['data-side', 'class'] });
+    });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'positioner')).toHaveAttribute('data-side', 'top');
+    await expect(byTestId(page, 'positioner')).toHaveClass('mirrored-top');
+    const records = await page.evaluate(() => (window as unknown as { sideRecords: { side: string | null; className: string }[] }).sideRecords);
+    const lagging = records.some((record) => record.side === 'top' && record.className === 'mirrored-bottom');
+    // On WebAssembly the report runs .NET inside the module's observer callback, so the class lands in the same task.
+    expect(lagging).toBe(mode === 'server');
+  });
+
+  // PRV-DIS-01 (EVD-EVT-11, EVD-DIS-01, FLT-KEY-01): a consumer's cancel of an Escape close holds on both modes, and the
+  // keydown stops at the document on both (no allowPropagation call). On WebAssembly the cancel is read inside the keydown,
+  // so the key's default stays; on Server it arrives a round trip later and the module prevents the key per the
+  // innermost-popup fallback (ADR 04 §3).
+  test("port: a canceled Escape close keeps the card open on both modes and keeps the key's default only on WebAssembly", async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', defaultOpen: true, cancelClose: true });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await page.evaluate(() => {
+      const record: { prevented?: boolean; reached: boolean } = { reached: false };
+      (window as unknown as { escapeRecord: typeof record }).escapeRecord = record;
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          record.reached = true;
+        }
+      });
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Escape') {
+            setTimeout(() => {
+              record.prevented = event.defaultPrevented;
+            });
+          }
+        },
+        { capture: true },
+      );
+    });
+
+    await page.keyboard.press('Escape');
+    await settle(fixture);
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:escape-key');
+    const record = await page.evaluate(() => (window as unknown as { escapeRecord: { prevented: boolean; reached: boolean } }).escapeRecord);
+    expect(record).toEqual({ prevented: mode === 'server', reached: false });
+  });
+
+  // PRV-ANI-04 (TRN-ANI-03, TRN-ANI-09/10): after the exit animation the module writes the convergent `hidden` at once on
+  // both modes; the removal and onOpenChangeComplete(false) wait for the completion message, a round trip later on Server.
+  test('port: an animated close hides the popup at animation end and removes it a round trip later on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', defaultOpen: true, animated: true, animations: 1 });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(byTestId(page, 'popup')).not.toHaveAttribute('data-starting-style');
+    await page.evaluate(() => {
+      const times: { ended?: number; hidden?: number; removed?: number; completed?: number } = {};
+      (window as unknown as { exitTimes: typeof times }).exitTimes = times;
+      const isPopup = (node: Node) => node instanceof Element && node.matches('[data-testid="popup"]');
+      document.addEventListener(
+        'animationend',
+        (event) => {
+          if (isPopup(event.target as Node)) {
+            times.ended ??= performance.now();
+          }
+        },
+        { capture: true },
+      );
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          const target = mutation.target as Element;
+          if (mutation.attributeName === 'hidden' && isPopup(target) && target.hasAttribute('hidden')) {
+            times.hidden ??= performance.now();
+          }
+          if (mutation.attributeName === 'data-open-change-completes' && /false$/.test(target.getAttribute('data-open-change-completes') ?? '')) {
+            times.completed ??= performance.now();
+          }
+          for (const node of mutation.removedNodes) {
+            if (isPopup(node) || (node instanceof Element && node.querySelector('[data-testid="popup"]'))) {
+              times.removed ??= performance.now();
+            }
+          }
+        }
+      }).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['hidden', 'data-open-change-completes'] });
+    });
+
+    await page.keyboard.press('Escape');
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-change-completes', /false$/);
+    const { ended, hidden, removed, completed } = await page.evaluate(
+      () => (window as unknown as { exitTimes: { ended?: number; hidden?: number; removed?: number; completed?: number } }).exitTimes,
+    );
+    expect(hidden).toBeDefined();
+    if (mode === 'server') {
+      expect(Math.abs(hidden! - ended!)).toBeLessThan(LATENCY);
+      expect(removed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+      expect(completed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(removed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+      expect(completed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // PRV-STA-14, PRV-DIS-07 (PSH-STA-23): the close for a lost active trigger runs at the render-batch boundary, after paint
+  // plus a round trip on Server, during which the card stays.
+  test('port: the trigger-unmount close lands a round trip after the trigger leaves on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'detached', defaultOpen: true });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(byTestId(page, 'trigger')).toHaveAttribute('data-popup-open', '');
+    await page.evaluate(() => {
+      const times: { trigger?: number; popup?: number } = {};
+      (window as unknown as { removalTimes: typeof times }).removalTimes = times;
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.removedNodes) {
+            if (node instanceof HTMLElement && node.matches('[data-testid="trigger"]')) {
+              times.trigger ??= performance.now();
+            }
+            if (node instanceof HTMLElement && (node.matches('[data-testid="popup"]') || node.querySelector('[data-testid="popup"]'))) {
+              times.popup ??= performance.now();
+            }
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await fixture.locator('[data-toggle-trigger]').evaluate((element) => (element as HTMLElement).click());
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:none');
+    const { trigger, popup } = await page.evaluate(() => (window as unknown as { removalTimes: { trigger: number; popup: number } }).removalTimes);
+    if (mode === 'server') {
+      expect(popup - trigger).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(popup - trigger).toBeLessThan(2 * LATENCY - 20);
+    }
   });
 });

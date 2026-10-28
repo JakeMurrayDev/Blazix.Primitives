@@ -13,9 +13,11 @@
       PreventUnmountOnClose);
     - the first trigger: `delay`, `closeDelay`;
     - `keepMounted`, `animated` (200 ms keyframes; open with `?animations=1`), `showTrigger=false` (`[data-toggle-trigger]`
-      mounts or unmounts the first trigger);
+      mounts or unmounts the first trigger), `bottomEdge` (the triggers 24 px above the bottom, so a bottom card flips to
+      the top);
     - buttons: `[data-close]` and `[data-unmount]` call the root's CloseAsync and Unmount.
-    The container renders `data-open-changes`, `data-open-change-completes`, `data-attached` and `data-sync`.
+    The positioner's class is the side C# mirrors (`mirrored-top`, `mirrored-bottom`). The container renders
+    `data-open-changes`, `data-open-change-completes`, `data-attached` and `data-sync`.
 *@
 <FixtureContainer Name="preview-card-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
@@ -35,7 +37,7 @@
         <button type="button" data-unmount @onclick="() => root!.Unmount()">Unmount</button>
     </div>
 
-    <div style="position: fixed; top: 200px; left: 200px; display: flex; gap: 40px">
+    <div style="@($"position: fixed; {(bottomEdge ? "bottom: 24px" : "top: 200px")}; left: 200px; display: flex; gap: 40px")">
         @if (Case == "contained")
         {
             <PreviewCardRoot TPayload="NoPayload" @ref="root" @attributes="RootAttributes" DefaultOpen="@defaultOpen" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
@@ -80,6 +82,7 @@
     private PreviewCardRoot<NoPayload>? root;
     private PreviewCardTrigger<NoPayload>? trigger;
     private PreviewCardTrigger<NoPayload>? secondTrigger;
+    private bool bottomEdge;
 
     protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
 
@@ -102,6 +105,7 @@
         keepMounted = QueryFlag("keepMounted") == true;
         showTrigger = QueryFlag("showTrigger") != false;
         preventUnmount = QueryFlag("preventUnmount") == true;
+        bottomEdge = QueryFlag("bottomEdge") == true;
         delay = int.TryParse(Query("delay"), out int openDelay) ? openDelay : null;
         closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
         popupAttributes["data-testid"] = "popup";
@@ -123,8 +127,11 @@
         }
     }
 
+    // The placement as C# mirrors it, rendered as the positioner's class (the RND-STA-01 row's witness).
+    private static string PositionerClass(PreviewCardPositionerState state) => state.Side == Side.Top ? "mirrored-top" : "mirrored-bottom";
+
     private RenderFragment Popup => @<PreviewCardPortal KeepMounted="@keepMounted">
-        <PreviewCardPositioner data-testid="positioner">
+        <PreviewCardPositioner data-testid="positioner" ClassValue="PositionerClass">
             <PreviewCardPopup @attributes="popupAttributes">Content</PreviewCardPopup>
         </PreviewCardPositioner>
     </PreviewCardPortal>;
