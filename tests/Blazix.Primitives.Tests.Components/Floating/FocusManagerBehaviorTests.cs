@@ -176,13 +176,14 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         managed.Render();
         Assert.Empty(handle.Invocations["update"]);
 
-        await managed.InvokeAsync(() => managed.Instance.Behavior.SetInputs(managed.Instance.Inputs() with { Disabled = true }));
+        await managed.InvokeAsync(() => managed.Instance.Behavior.SetInputs(managed.Instance.Inputs() with { Disabled = true, SessionToken = "base-ui-9" }));
 
         // No render ran: the update left from the parameter set itself.
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Contains("\"disabled\":true", (string)update.Arguments[0]!, StringComparison.Ordinal);
+        Assert.Contains("\"sessionToken\":\"base-ui-9\"", (string)update.Arguments[0]!, StringComparison.Ordinal);
 
-        await managed.InvokeAsync(() => managed.Instance.Behavior.SetInputs(managed.Instance.Inputs() with { Disabled = true }));
+        await managed.InvokeAsync(() => managed.Instance.Behavior.SetInputs(managed.Instance.Inputs() with { Disabled = true, SessionToken = "base-ui-9" }));
 
         Assert.Single(handle.Invocations["update"]);
     }

@@ -68,6 +68,7 @@ public sealed class FocusManagerTwinContractTests
             InsideElements = [2],
             InsideElementIds = ["base-ui-5"],
             Relay = new OpenChangeRelay(3, "trigger-press", EventKind.PointerEvent, "click", "mouse", "base-ui-6", 2, "escape-key"),
+            SessionToken = "base-ui-8",
             Answered = 2,
         }, references);
         await attached.DisposeAsync();
@@ -83,7 +84,7 @@ public sealed class FocusManagerTwinContractTests
         // A programmatic open's null interaction type is sent, not omitted (FLT-FOC-20).
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"modal":false,"disabled":true,"initialFocus":false,"initialFocusElement":0,"initialFocusId":"base-ui-2","returnFocus":false,"returnFocusElement":1,"returnFocusId":"base-ui-3","explicitReturnFocus":true,"closeInteractionType":"keyboard","restoreFocus":"popup","closeOnFocusOut":false,"openInteractionType":null,"openSelector":"[data-open]","treatPopupAsFloatingElement":true,"domReferenceId":"base-ui-4","triggerFocusGuards":true,"previousFocusableElement":3,"nextFocusableElement":4,"insideElements":[2],"insideElementIds":["base-ui-5"],"relay":{"revision":3,"reason":"trigger-press","eventKind":"PointerEvent","eventType":"click","pointerType":"mouse","triggerId":"base-ui-6","coalescedCloseRevision":2,"coalescedCloseReason":"escape-key"},"answered":2}""",
+            """{"modal":false,"disabled":true,"initialFocus":false,"initialFocusElement":0,"initialFocusId":"base-ui-2","returnFocus":false,"returnFocusElement":1,"returnFocusId":"base-ui-3","explicitReturnFocus":true,"closeInteractionType":"keyboard","restoreFocus":"popup","closeOnFocusOut":false,"openInteractionType":null,"openSelector":"[data-open]","treatPopupAsFloatingElement":true,"domReferenceId":"base-ui-4","triggerFocusGuards":true,"previousFocusableElement":3,"nextFocusableElement":4,"insideElements":[2],"insideElementIds":["base-ui-5"],"relay":{"revision":3,"reason":"trigger-press","eventKind":"PointerEvent","eventType":"click","pointerType":"mouse","triggerId":"base-ui-6","coalescedCloseRevision":2,"coalescedCloseReason":"escape-key"},"sessionToken":"base-ui-8","answered":2}""",
             update.Arguments[0]);
 
         // Element targets cross beside the options, revived by Blazor; the options carry their indices (ADR 04
@@ -153,6 +154,7 @@ public sealed class FocusManagerTwinContractTests
         Assert.NotEqual(first, same with { PreviousFocusableElement = 1 });
         Assert.NotEqual(first, same with { NextFocusableElement = 1 });
         Assert.NotEqual(first, same with { Answered = 1 });
+        Assert.NotEqual(first, same with { SessionToken = "base-ui-8" });
         Assert.NotEqual(first, same with { Relay = new OpenChangeRelay(1, "trigger-press", EventKind.MouseEvent, "click", null, null) });
         Assert.Equal(
             first with { Relay = new OpenChangeRelay(1, "trigger-press", EventKind.MouseEvent, "click", null, null) },
