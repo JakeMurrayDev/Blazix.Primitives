@@ -1,5 +1,7 @@
+import { expect, test } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
+import { gotoPopupFixture } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
@@ -40,3 +42,45 @@ viewportConformanceTests({
 popupFocusPropsTests({
   fixture: 'popover-focus',
 });
+
+// POP-KEY-12 (PopoverPopup.tsx:95-99), PopoverPopup.test.tsx's two titles verbatim on `toolbar-popover` with `inside`: the
+// portal's container is inside the toolbar root, so a keydown in the popup bubbles to the toolbar's composite as React's
+// portaled events do in Base UI's test (a popup portaled to the body would pass without the stop).
+test.describe('<Popover.Popup /> inside a toolbar', () => {
+  test('does not relay composite keys from the popup to the toolbar', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'toolbar-popover', { inside: 'button' });
+
+    // The toolbar itself still navigates with the same key, so a passing assertion below can't come from an inert toolbar.
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'First' })).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    const trigger = page.getByTestId('trigger');
+    await expect(trigger).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    const insideButton = page.getByRole('button', { name: 'Inside' });
+    await expect(insideButton).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+
+    await expect(insideButton).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Last' })).not.toBeFocused();
+  });
+
+  test('keeps composite keys working inside the popup content', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'toolbar-popover', { inside: 'input' });
+
+    await page.getByTestId('trigger').click();
+
+    const input = page.getByRole('textbox');
+    await expect(input).toBeFocused();
+
+    await input.evaluate((element) => (element as HTMLInputElement).setSelectionRange(0, 0));
+    await page.keyboard.press('ArrowRight');
+
+    expect(await input.evaluate((element) => (element as HTMLInputElement).selectionStart)).toBe(1);
+    await expect(page.getByRole('button', { name: 'Last' })).not.toBeFocused();
+  });
+});
+
