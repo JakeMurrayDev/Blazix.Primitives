@@ -905,30 +905,31 @@ describe('attach', () => {
   // TRN-DOM-05: the parts that ask for it carry `transition: none` while starting, under the consumer's style, and drop it
   // with data-starting-style on the next frame.
   it('writes transition: none while starting when the part asks, under the consumer\'s style, and removes it on the clearing frame', () => {
+    // jsdom keeps the `transition` shorthand as one property, which a browser expands into its longhands.
     const fake = createFakeTwin();
     const element = createElement();
     const handle = attachTo(element, fake, { keepMounted: true, disableTransitionWhileStarting: true, style: 'color: red' });
 
     update(handle, { open: true, keepMounted: true, disableTransitionWhileStarting: true, style: 'color: red' });
     expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
-    expect(element.style.transitionProperty).toBe('none');
+    expect(element.style.getPropertyValue('transition')).toBe('none');
     expect(element.style.color).toBe('red');
 
     runFrame();
     expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
-    expect(element.style.transitionProperty).toBe('');
+    expect(element.style.getPropertyValue('transition')).toBe('');
 
     const consumer = createElement();
     const consumerHandle = attachTo(consumer, fake, { keepMounted: true, disableTransitionWhileStarting: true, style: 'transition: opacity 1s' });
     update(consumerHandle, { open: true, keepMounted: true, disableTransitionWhileStarting: true, style: 'transition: opacity 1s' });
     expect(consumer.hasAttribute(STARTING_STYLE)).toBe(true);
-    expect(consumer.style.transitionProperty).toBe('opacity');
+    expect(consumer.style.getPropertyValue('transition')).toBe('opacity 1s');
 
     const unasked = createElement();
     const unaskedHandle = attachTo(unasked, fake, { keepMounted: true });
     update(unaskedHandle, { open: true, keepMounted: true });
     expect(unasked.hasAttribute(STARTING_STYLE)).toBe(true);
-    expect(unasked.style.transitionProperty).toBe('');
+    expect(unasked.style.getPropertyValue('transition')).toBe('');
   });
 
   it('a repeated attach of the same element returns the live handle, and dispose is idempotent', () => {

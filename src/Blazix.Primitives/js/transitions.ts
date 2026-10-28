@@ -20,8 +20,8 @@
 // revert waits for C#'s answer to the request plus a frame (TRN-ANI-33/34; ADR 01 relaxation table).
 import { decide } from './decide';
 import { eventInfo } from './event-info';
+import { styleWriter, type StyleLayer } from './dom';
 import {
-  applyConsumerStyle,
   createTwinChannel,
   parseOptions,
   resolveElement,
@@ -811,6 +811,8 @@ export interface TransitionsOptions extends TwinOptions {
   revealOnBeforeMatch: boolean;
   /** How many times C# has asked the module to unmount the element; each increase while closed unmounts it. */
   unmountRequests: number;
+  /** Writes `transition: none` while the status is `'starting'`, under the consumer's style (TRN-DOM-05). */
+  disableTransitionWhileStarting?: boolean;
   /**
    * Whether another part's exit ends this element's: no exit watcher is armed, and the exit ends only when
    * `unmountRequests` increases (the Collapsible Root and Trigger, whose `'ending'` lasts until the panel's ends).
@@ -881,10 +883,30 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const isHidden = (state: TransitionState) => !state.open && !state.mounted;
 
+  // ADR 04 Amendments 2026-10-28 (gap 13 of M4 track 5, option (b)): the element's style goes through dom's layered
+  // writer, the handed-over style as its consumer band, and `transition: none` while starting in the `transitions`
+  // band under it (TRN-DOM-05), so a consumer `transition` wins and another module's layers stay.
+  let transitionLayer: StyleLayer | null = null;
+  let transitionDisabled = false;
+  const writeStartingTransition = (starting: boolean) => {
+    const disabled = starting && options.disableTransitionWhileStarting === true;
+    if (disabled === transitionDisabled) {
+      return;
+    }
+    transitionDisabled = disabled;
+    transitionLayer ??= styleWriter(element).layer('transitions');
+    if (disabled) {
+      transitionLayer.set('transition', 'none');
+    } else {
+      transitionLayer.remove('transition');
+    }
+  };
+
   const writeAttributes = (state: TransitionState) => {
     const shown = shownStatus(state.status);
     // A hidden-until-found element keeps its collapsed starting styles while hidden, so a reveal starts from them.
     attributes.write(shown === 'starting' || (options.hiddenUntilFound && isHidden(state)), shown === 'ending');
+    writeStartingTransition(shown === 'starting');
   };
 
   // The convergent write at exit end: the render C# makes for this state removes or hides the element anyway.
@@ -1016,7 +1038,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
 
   const applyStyle = () => {
     if (options.style != null) {
-      applyConsumerStyle(element, options);
+      styleWriter(element).setConsumer(options.style);
     }
   };
 
@@ -1071,6 +1093,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       }
       disposed = true;
       delete element[attachedHandle];
+      transitionLayer?.clear();
       machine.dispose();
       closeController?.abort();
       openController?.abort();
