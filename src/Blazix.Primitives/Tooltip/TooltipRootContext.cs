@@ -38,7 +38,8 @@ internal abstract class TooltipRootContext
     /// <returns>The view; disposing it ends the subscription and a boundary registration.</returns>
     public abstract TooltipStoreView CreateView(Action changed, TooltipSelection selection);
 
-    /// <summary>Writes whether a viewport is mounted (TIP-POS-05).</summary>
+    // TIP-POS-05.
+    /// <summary>Writes whether a viewport is mounted.</summary>
     /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
     public abstract void SetAdaptiveOrigin(bool adaptiveOrigin);
 }
