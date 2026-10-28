@@ -50,6 +50,8 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(InteractionsPressing))]
 [JsonSerializable(typeof(PopupOptions))]
 [JsonSerializable(typeof(PopupViewportReport))]
+[JsonSerializable(typeof(PopupGuardFocus))]
+[JsonSerializable(typeof(PopupGuardHandover))]
 [JsonSerializable(typeof(FocusManagerOptions))]
 [JsonSerializable(typeof(FocusOutCloseRequest))]
 [JsonSerializable(typeof(InteractionTypeChange))]

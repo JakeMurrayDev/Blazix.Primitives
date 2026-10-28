@@ -93,7 +93,8 @@ public sealed class PopupTwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
-        module.SetupModule("attach", _ => true);
+        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
         await using PopupTwin twin = new(context.JSInterop.JSRuntime);
 
         await twin.AttachAsync("trigger", new PopupOptions { SessionToken = "base-ui-2", Trigger = new PopupTriggerOptions { Guards = true, PopupId = "base-ui-1" } });

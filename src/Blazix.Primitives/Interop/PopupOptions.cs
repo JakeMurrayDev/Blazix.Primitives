@@ -23,6 +23,10 @@ internal sealed record PopupOptions : TwinOptions
     /// <value>The positioner options, or <see langword="null"/> for another role.</value>
     public PopupPositionerOptions? Positioner { get; init; }
 
+    /// <summary>Gets the options of a trigger's handle.</summary>
+    /// <value>The trigger options, or <see langword="null"/> for another role.</value>
+    public PopupTriggerOptions? Trigger { get; init; }
+
     /// <summary>Gets the options of a popup element's handle.</summary>
     /// <value>The popup options, or <see langword="null"/> for another role.</value>
     public PopupElementOptions? Popup { get; init; }
@@ -69,6 +73,19 @@ internal sealed record PopupPositionerOptions
     /// <summary>Gets the id of the active trigger: the cut-out, the lock's reference and the watched move.</summary>
     /// <value>The id, or <see langword="null"/>.</value>
     public string? ActiveTriggerId { get; init; }
+}
+
+// PSH-ALG-18, POP-STR-14 (useTriggerFocusGuards.ts); design point 5 of M4 track 5, settled by the orchestrator 2026-10-28.
+/// <summary>The options of a trigger's handle: whether its focus guards render, and the popup they lead into.</summary>
+internal sealed record PopupTriggerOptions
+{
+    /// <summary>Gets a value indicating whether the trigger's focus guards render beside it.</summary>
+    /// <value><see langword="true"/> while the trigger owns the open popup outside focus-manager-modal mode.</value>
+    public bool Guards { get; init; }
+
+    /// <summary>Gets the popup's id, whose parent is the positioner the guards' destinations skip.</summary>
+    /// <value>The id, or <see langword="null"/>.</value>
+    public string? PopupId { get; init; }
 }
 
 // POP-KEY-12, DLG-KEY-09.

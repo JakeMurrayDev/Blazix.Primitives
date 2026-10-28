@@ -73,6 +73,7 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
     private readonly Action<ElementReference> captureFocusTarget;
     private ButtonBehavior? button;
     private InteractionsTriggerBehavior? interactions;
+    private PopupModuleAttachment? guards;
     private StoreSelectionHolder selections;
     private PopoverTriggerState state = new(false, false);
     private bool payloadSupplied;
@@ -202,6 +203,8 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
     {
         button = new ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp);
         interactions = new InteractionsTriggerBehavior(JSRuntime, RouteAsync, DispatchExceptionAsync, onClick);
+        guards = new PopupModuleAttachment(JSRuntime);
+        guards.Twin.GuardFocused += OnGuardFocused;
         base.OnInitialized();
     }
 
@@ -240,6 +243,18 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
         Task interactionsSync = interactions!.AfterRenderAsync(Enabled, Element, Id);
         await button!.AfterRenderAsync(Enabled, Element, Id, composite: false);
         await interactionsSync;
+
+        // Design point 5 of M4 track 5: the `popup` module's Trigger role listens on the guards, attached the first time
+        // they render and kept after, so a trigger that never owned the open popover costs nothing.
+        if (Element is { } element && (selections.HasFocusGuards || guards!.Attached.IsCompleted))
+        {
+            PopoverStore<TPayload> store = behavior.Store;
+            await guards!.SyncAsync(element, new PopupOptions
+            {
+                SessionToken = store.SessionToken,
+                Trigger = new PopupTriggerOptions { Guards = selections.HasFocusGuards, PopupId = ((IPopoverState)store.State).PopupId },
+            });
+        }
     }
 
     /// <inheritdoc />
@@ -252,6 +267,12 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
             if (interactions is not null)
             {
                 _ = interactions.DisposeAsync().AsTask();
+            }
+
+            if (guards is not null)
+            {
+                guards.Twin.GuardFocused -= OnGuardFocused;
+                _ = guards.DisposeAsync().AsTask();
             }
         }
 
@@ -361,6 +382,19 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
         }
 
         return store.RequestOpenAsync(request.Open, request.Details);
+    }
+
+    // useTriggerFocusGuards.ts:42-49: a focused guard closes with `focus-out`, its event and the guard as the trigger (design
+    // point 4's sub-point (i)); on WebAssembly this runs inside the `guard` decision, so the close commits before the module
+    // moves focus.
+    private void OnGuardFocused(string guard, EventSnapshot snapshot)
+    {
+        ElementReference? element = guard == "before" ? preGuard : focusTarget;
+        _ = InvokeAsync(() => behavior.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut)
+        {
+            Event = snapshot,
+            Trigger = new EventTrigger(null, element),
+        }));
     }
 
     // The family's selections, which follow the store the behavior subscribed to; their arguments follow the parameters.
