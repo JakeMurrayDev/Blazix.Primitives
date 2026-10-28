@@ -24,12 +24,10 @@ internal sealed class PopupScrollLockBehavior : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        if (handle is not null)
-        {
-            await handle.DisposeAsync();
-            handle = null;
-        }
-
+        // The twin disposes its live handles. Disposing it first, rather than awaiting a handle whose attach is still in
+        // flight, marks it disposed with the part, so an attach the close overtook drops its missing element (issue 134's
+        // class; a render during the pending attach receives that pending handle).
+        handle = null;
         await twin.DisposeAsync();
     }
 

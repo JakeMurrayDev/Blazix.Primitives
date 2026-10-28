@@ -1,0 +1,149 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The Dialog tests' configurable tree: Base UI's tests render a Root with a Trigger, a Portal, an optional Backdrop and
+   Viewport, a Popup with a Title, a Description and a Close; each flag here turns one of those on, and the root's
+   callbacks are recorded for the assertions. *@
+@if (TriggerMode != "contained" && WithTrigger)
+{
+    <DialogTrigger TPayload="NoPayload" Handle="EffectiveHandle" data-testid="trigger">Open</DialogTrigger>
+    @if (TriggerMode == "multiple")
+    {
+        <DialogTrigger TPayload="NoPayload" Handle="EffectiveHandle" data-testid="trigger-2">Open another</DialogTrigger>
+    }
+}
+@if (ControlledOpen is { } controlled)
+{
+    <DialogRoot TPayload="NoPayload" @ref="Root" Open="controlled" OpenChanged="v => ControlledOpen = v" Modal="Modal" DisablePointerDismissal="DisablePointerDismissal"
+                OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="DefaultTriggerId">
+        @Body
+    </DialogRoot>
+}
+else
+{
+    <DialogRoot TPayload="NoPayload" @ref="Root" DefaultOpen="DefaultOpen" Modal="Modal" DisablePointerDismissal="DisablePointerDismissal"
+                OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="DefaultTriggerId">
+        @Body
+    </DialogRoot>
+}
+
+@code {
+    private RenderFragment Body => @<text>
+    @if (WithTrigger && TriggerMode == "contained")
+    {
+        <DialogTrigger TPayload="NoPayload" data-testid="trigger">Open</DialogTrigger>
+    }
+    @if (WithBackdrop && !BackdropInPortal)
+    {
+        <DialogBackdrop data-testid="backdrop" ForceRender="ForceRender" />
+    }
+    <DialogPortal KeepMounted="KeepMounted" data-testid="portal">
+        @if (WithBackdrop && BackdropInPortal)
+        {
+            <DialogBackdrop data-testid="backdrop" ForceRender="ForceRender" />
+        }
+        @if (WithViewport)
+        {
+            <DialogViewport data-testid="viewport">
+                @PopupContent
+            </DialogViewport>
+        }
+        else
+        {
+            @PopupContent
+        }
+    </DialogPortal>
+    @Extra
+</text>;
+
+    private RenderFragment PopupContent => @<DialogPopup data-testid="popup" @attributes="Ids(PopupId)">
+        @if (WithTitle)
+        {
+            <DialogTitle @attributes="Ids(TitleId)">Title</DialogTitle>
+        }
+        @if (WithDescription)
+        {
+            <DialogDescription @attributes="Ids(DescriptionId)">Description</DialogDescription>
+        }
+        @if (WithClose)
+        {
+            <DialogClose data-testid="close" Disabled="CloseDisabled" NativeButton="CloseNativeButton" Render="CloseRender" @attributes="CloseAttributes">Close</DialogClose>
+        }
+        @PopupExtra
+    </DialogPopup>;
+
+    public DialogRoot<NoPayload>? Root { get; private set; }
+
+    public List<string> OpenChanges { get; } = [];
+
+    public List<bool> Completes { get; } = [];
+
+    public List<string?> TriggerIds { get; } = [];
+
+    private readonly DialogHandle<NoPayload> ownHandle = new();
+
+    private DialogHandle<NoPayload>? EffectiveHandle => Handle ?? (TriggerMode == "contained" ? null : ownHandle);
+
+    [Parameter] public bool DefaultOpen { get; set; }
+
+    /// <summary>Base UI's TestDialog components: <c>contained</c>, <c>detached</c> (one trigger with a handle) or <c>multiple</c> (two).</summary>
+    [Parameter] public string TriggerMode { get; set; } = "contained";
+
+    [Parameter] public string? DefaultTriggerId { get; set; }
+
+    [Parameter] public bool? ControlledOpen { get; set; }
+
+    [Parameter] public bool CloseDisabled { get; set; }
+
+    [Parameter] public bool CloseNativeButton { get; set; } = true;
+
+    [Parameter] public RenderFragment? CloseRender { get; set; }
+
+    [Parameter] public Dictionary<string, object> CloseAttributes { get; set; } = [];
+
+    [Parameter] public ModalValue? Modal { get; set; }
+
+    [Parameter] public bool DisablePointerDismissal { get; set; }
+
+    [Parameter] public DialogHandle<NoPayload>? Handle { get; set; }
+
+    [Parameter] public bool WithTrigger { get; set; } = true;
+
+    [Parameter] public bool WithBackdrop { get; set; }
+
+    [Parameter] public bool BackdropInPortal { get; set; } = true;
+
+    [Parameter] public bool ForceRender { get; set; }
+
+    [Parameter] public bool WithViewport { get; set; }
+
+    [Parameter] public bool KeepMounted { get; set; }
+
+    [Parameter] public bool WithTitle { get; set; }
+
+    [Parameter] public string? TitleId { get; set; }
+
+    [Parameter] public bool WithDescription { get; set; }
+
+    [Parameter] public string? DescriptionId { get; set; }
+
+    [Parameter] public bool WithClose { get; set; }
+
+    [Parameter] public string? PopupId { get; set; }
+
+    [Parameter] public RenderFragment? PopupExtra { get; set; }
+
+    [Parameter] public RenderFragment? Extra { get; set; }
+
+    [Parameter] public Action<ValueChangeEventArgs<bool>>? OnOpenChange { get; set; }
+
+    private Task OnOpenChangeAsync(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add($"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}");
+        TriggerIds.Add(args.Details.Trigger?.Id);
+        OnOpenChange?.Invoke(args);
+        return Task.CompletedTask;
+    }
+
+    private void OnComplete(bool open) => Completes.Add(open);
+
+    private static Dictionary<string, object> Ids(string? id) => id is null ? [] : new() { ["id"] = id };
+}

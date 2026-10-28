@@ -1,0 +1,39 @@
+@namespace Blazix.Primitives.Fixtures.Client.TabsFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tabs-dialog` fixture (tests/browser/tabs.spec.ts): TabsRoot.test.tsx "works inside Dialog" (TAB-FOC-10's Dialog
+    title, M4 track 8; ADR 12 Amendments 2026-10-27 item 4): Tabs in a Dialog's popup.
+*@
+<FixtureContainer Name="tabs-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <style>
+        [data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <DialogRoot TPayload="NoPayload" @ref="root">
+        <DialogTrigger @ref="trigger">Open</DialogTrigger>
+        <DialogPortal>
+            <DialogPopup>
+                <TabsRoot DefaultValue="@("overview")">
+                    <TabsList>
+                        <TabsTab Value="@("overview")">Overview</TabsTab>
+                        <TabsTab Value="@("projects")">Projects</TabsTab>
+                        <TabsTab Value="@("account")">Account</TabsTab>
+                    </TabsList>
+                    <TabsPanel Value="@("overview")" />
+                    <TabsPanel Value="@("projects")" />
+                    <TabsPanel Value="@("account")" />
+                </TabsRoot>
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+</FixtureContainer>
+
+@code {
+    private DialogRoot<NoPayload>? root;
+    private DialogTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments => [trigger?.TwinAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

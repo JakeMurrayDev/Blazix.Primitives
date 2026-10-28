@@ -1,0 +1,21 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx "associates the requested trigger when opened by id in the same commit a root
+   attaches": two detached triggers with payloads, the root, and a sibling after it whose first OnAfterRenderAsync opens by
+   the second trigger's id, in the root's own first render batch. *@
+<DialogTrigger TPayload="int?" Handle="Handle" id="other" Payload="9">Other</DialogTrigger>
+<DialogTrigger TPayload="int?" Handle="Handle" id="trigger" Payload="5">Trigger</DialogTrigger>
+<DialogRoot TPayload="int?" Handle="Handle">
+    <PayloadContent Context="payload">
+        <span data-testid="payload">@(payload?.ToString() ?? "No payload")</span>
+        <DialogPortal>
+            <DialogPopup>Dialog Content</DialogPopup>
+        </DialogPortal>
+    </PayloadContent>
+</DialogRoot>
+<RunAfterFirstRender Run="OpenOnMount" />
+
+@code {
+    public DialogHandle<int?> Handle { get; } = new();
+
+    private Task OpenOnMount() => Handle.OpenAsync("trigger");
+}

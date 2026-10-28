@@ -1,0 +1,80 @@
+<DemoFrame Slug="dialog" Note="A dialog that opens a second dialog inside it, and a dialog whose trigger sits outside its root.">
+    <Hero>
+        <DialogRoot TPayload="NoPayload">
+            <DialogTrigger class="@ButtonClass">View notifications</DialogTrigger>
+            <DialogPortal>
+                <DialogBackdrop class="@BackdropClass" />
+                <DialogPopup class="@PopupClass">
+                    <div class="flex flex-col gap-1">
+                        <DialogTitle class="text-base font-bold">Notifications</DialogTitle>
+                        <DialogDescription class="@DescriptionClass">You are all caught up. Good job!</DialogDescription>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <DialogClose class="@ButtonClass">Close</DialogClose>
+                    </div>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <DialogRoot TPayload="NoPayload">
+                <DialogTrigger class="@ButtonClass">View notifications</DialogTrigger>
+                <DialogPortal>
+                    <DialogBackdrop class="@BackdropClass" />
+                    <DialogPopup class="@NestedPopupClass">
+                        <div class="flex flex-col gap-1">
+                            <DialogTitle class="text-base font-bold">Notifications</DialogTitle>
+                            <DialogDescription class="@DescriptionClass">You are all caught up. Good job!</DialogDescription>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <DialogRoot TPayload="NoPayload">
+                                <DialogTrigger class="@ButtonClass">Customize</DialogTrigger>
+                                <DialogPortal>
+                                    <DialogPopup class="@NestedPopupClass">
+                                        <div class="flex flex-col gap-1">
+                                            <DialogTitle class="text-base font-bold">Customize notifications</DialogTitle>
+                                            <DialogDescription class="@DescriptionClass">Review your settings here.</DialogDescription>
+                                        </div>
+                                        <div class="flex items-center justify-end gap-3">
+                                            <DialogClose class="@ButtonClass">Close</DialogClose>
+                                        </div>
+                                    </DialogPopup>
+                                </DialogPortal>
+                            </DialogRoot>
+                        </div>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            <span class="VariantName">Nested: the parent moves back and dims while the second dialog is open</span>
+        </div>
+        <div class="Variant">
+            <DialogTrigger TPayload="NoPayload" class="@ButtonClass" Handle="@detached">View notifications</DialogTrigger>
+            <DialogRoot TPayload="NoPayload" Handle="@detached">
+                <DialogPortal>
+                    <DialogBackdrop class="@BackdropClass" />
+                    <DialogPopup class="@PopupClass">
+                        <div class="flex flex-col gap-1">
+                            <DialogTitle class="text-base font-bold">Notifications</DialogTitle>
+                            <DialogDescription class="@DescriptionClass">You are all caught up. Good job!</DialogDescription>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <DialogClose class="@ButtonClass">Close</DialogClose>
+                        </div>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            <span class="VariantName">Detached trigger: the trigger is outside the root and opens it through a handle</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string ButtonClass = "flex h-8 items-center justify-center gap-2 border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 px-3 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 dark:text-white select-none hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:bg-neutral-200 dark:active:not-data-disabled:bg-neutral-700 data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string BackdropClass = "fixed inset-0 min-h-dvh bg-black opacity-20 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:opacity-50 supports-[-webkit-touch-callout:none]:absolute";
+    private const string PopupClass = "fixed top-1/2 left-1/2 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 bg-white dark:bg-neutral-950 p-4 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0";
+    private const string NestedPopupClass = "fixed top-[calc(50%+1.25rem*var(--nested-dialogs))] left-1/2 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 scale-[calc(1-0.1*var(--nested-dialogs))] bg-white dark:bg-neutral-950 p-4 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[top,scale,opacity] duration-100 ease-out after:absolute after:inset-0 after:bg-black/5 after:opacity-0 after:transition-opacity after:duration-100 after:ease-out after:pointer-events-none data-ending-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-ending-style:scale-[0.96] data-ending-style:opacity-0 data-nested-dialog-open:after:opacity-100 data-starting-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-starting-style:scale-[0.96] data-starting-style:opacity-0";
+    private const string DescriptionClass = "text-sm text-neutral-600 dark:text-neutral-400";
+
+    private readonly DialogHandle<NoPayload> detached = new();
+}

@@ -1,0 +1,12 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.test.tsx's DynamicLabels: a keyed title and description replaced at phase 1 and removed at phase 2. *@
+@if (phase < 2)
+{
+    <DialogTitle @key="@($"title-{phase}")">Title @(phase + 1)</DialogTitle>
+    <DialogDescription @key="@($"description-{phase}")">Description @(phase + 1)</DialogDescription>
+}
+<button type="button" data-testid="change-labels" @onclick="() => phase++">Change labels</button>
+
+@code {
+    private int phase;
+}

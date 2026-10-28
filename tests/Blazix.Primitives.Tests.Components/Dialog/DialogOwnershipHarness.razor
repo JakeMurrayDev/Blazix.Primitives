@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.test.tsx "keeps trigger ownership when another trigger mounts while open": a second trigger mounted from
+   inside the open popup. *@
+<DialogRoot TPayload="NoPayload" Modal="false">
+    <DialogTrigger id="trigger-1">Trigger 1</DialogTrigger>
+    @if (showSecondTrigger)
+    {
+        <DialogTrigger id="trigger-2">Trigger 2</DialogTrigger>
+    }
+    <DialogPortal>
+        <DialogPopup>
+            <button type="button" data-testid="mount-trigger-2" @onclick="() => showSecondTrigger = true">Mount trigger 2</button>
+        </DialogPopup>
+    </DialogPortal>
+</DialogRoot>
+
+@code {
+    private bool showSecondTrigger;
+}

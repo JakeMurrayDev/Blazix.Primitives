@@ -1,0 +1,51 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, the three programmatic-payload titles: an optional detached trigger with its own
+   payload and a handle-backed root whose popup renders the payload; with Controlled, the root is controlled and accepts
+   opens but declines close requests. *@
+<div>
+    @if (ShowTrigger)
+    {
+        <DialogTrigger TPayload="string" Handle="Handle" id="trigger" Payload="@("from trigger")">Trigger</DialogTrigger>
+    }
+    @if (Controlled)
+    {
+        <DialogRoot TPayload="string" @ref="Root" Handle="Handle" Open="open" OnOpenChange="AcceptOpens">
+            <PayloadContent Context="payload">
+                <DialogPortal>
+                    <DialogPopup data-testid="content">@payload</DialogPopup>
+                </DialogPortal>
+            </PayloadContent>
+        </DialogRoot>
+    }
+    else
+    {
+        <DialogRoot TPayload="string" @ref="Root" Handle="Handle">
+            <PayloadContent Context="payload">
+                <DialogPortal>
+                    <DialogPopup data-testid="content">@payload</DialogPopup>
+                </DialogPortal>
+            </PayloadContent>
+        </DialogRoot>
+    }
+</div>
+
+@code {
+    private bool open;
+
+    public DialogHandle<string> Handle { get; } = new();
+
+    public DialogRoot<string>? Root { get; private set; }
+
+    [Parameter] public bool ShowTrigger { get; set; } = true;
+
+    [Parameter] public bool Controlled { get; set; }
+
+    // Accept opens, but keep the dialog open on close requests.
+    private void AcceptOpens(ValueChangeEventArgs<bool> args)
+    {
+        if (args.Value)
+        {
+            open = true;
+        }
+    }
+}

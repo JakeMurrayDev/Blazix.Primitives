@@ -1,0 +1,49 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, the remount titles: persistent detached triggers on one handle (with a payload
+   when TriggerPayload is set), and a handle-backed root that renders its payload and can be unmounted from its popup and
+   remounted, or through the Mounted parameter (Base UI's setProps). *@
+<div>
+    @foreach (string id in TriggerIds)
+    {
+        if (TriggerPayload is { } triggerPayload)
+        {
+            <DialogTrigger @key="id" TPayload="int?" Handle="Handle" id="@id" Payload="triggerPayload">@id</DialogTrigger>
+        }
+        else
+        {
+            <DialogTrigger @key="id" TPayload="int?" Handle="Handle" id="@id">@id</DialogTrigger>
+        }
+    }
+    @if (!mounted)
+    {
+        <button type="button" data-testid="remount" @onclick="() => mounted = true">Remount root</button>
+    }
+    @if (mounted)
+    {
+        <DialogRoot TPayload="int?" Handle="Handle">
+            <PayloadContent Context="payload">
+                <span data-testid="payload">@(payload?.ToString() ?? "No payload")</span>
+                <DialogPortal>
+                    <DialogPopup>
+                        Dialog Content
+                        <button type="button" data-testid="unmount" @onclick="() => mounted = false">Unmount root</button>
+                    </DialogPopup>
+                </DialogPortal>
+            </PayloadContent>
+        </DialogRoot>
+    }
+</div>
+
+@code {
+    private bool mounted = true;
+
+    public DialogHandle<int?> Handle { get; } = new();
+
+    [Parameter] public IReadOnlyList<string> TriggerIds { get; set; } = [];
+
+    [Parameter] public int? TriggerPayload { get; set; }
+
+    [Parameter] public bool Mounted { get; set; } = true;
+
+    protected override void OnParametersSet() => mounted = Mounted;
+}
