@@ -1,0 +1,131 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-positioner` fixture (tests/browser/tooltip.spec.ts): the positioner conformance suite's cases
+    (tests/browser/suites/positioner-conformance.ts, its header has the contract) with TooltipPositioner.test.tsx's tree
+    (:55-75: the trigger substituted with a `div`), and TooltipArrow.test.tsx's ArrowTooltip (:20-41) by `case=arrow`,
+    `arrow-uncentered` (`ArrowPadding="40"`) and `arrow-centered` (`ArrowPadding="0"`, a 200 px trigger). The root is open
+    from its first render, except `collision-padding`, opened by `[data-open-button]`. The suite's cases name the side
+    `bottom` where Base UI's suite passes no side; Tooltip's default `top` would flip there anyway, from the viewport's origin.
+*@
+<FixtureContainer Name="tooltip-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++">Sync</button>
+    @* The suite finds the positioner inside the fixture's container, so the portal moves its node here. *@
+    <div id="tooltip-positioner-host"></div>
+
+    @if (Case == "collision-padding")
+    {
+        <button type="button" data-open-button style="position: fixed; right: 0; top: 0" @onclick="() => open = true">Open</button>
+        <TooltipRoot TPayload="NoPayload" @ref="root" Open="@open">
+            <div style="position: fixed; bottom: 8px; left: 16px">
+                <TooltipTrigger TPayload="NoPayload" @ref="trigger" Render="Div" data-testid="trigger" style="width: 72px; height: 36px; box-sizing: border-box">Trigger</TooltipTrigger>
+            </div>
+            <TooltipPortal Container="@PortalHost">
+                <TooltipPositioner data-testid="positioner" Side="Side.Bottom" SideOffset="8" CollisionPadding="12" CollisionAvoidance="s_noFallback">
+                    <TooltipPopup data-popup style="width: 200px; height: 1000px; max-height: var(--available-height)">Popup</TooltipPopup>
+                </TooltipPositioner>
+            </TooltipPortal>
+        </TooltipRoot>
+    }
+    else if (Case.StartsWith("arrow", StringComparison.Ordinal))
+    {
+        <div style="position: fixed; top: 0; left: 0">
+            <TooltipRoot TPayload="NoPayload" @ref="root" Open="true">
+                <TooltipTrigger TPayload="NoPayload" @ref="trigger" style="@($"width: {(Case == "arrow-centered" ? 200 : 20)}px; height: 20px")">T</TooltipTrigger>
+                <TooltipPortal Container="@PortalHost">
+                    <TooltipPositioner Side="Side.Bottom" ArrowPadding="@ArrowPaddingFor(Case)">
+                        <TooltipPopup style="width: 200px; height: 40px">
+                            <TooltipArrow data-testid="arrow" style="width: 10px; height: 10px" />
+                        </TooltipPopup>
+                    </TooltipPositioner>
+                </TooltipPortal>
+            </TooltipRoot>
+        </div>
+    }
+    else
+    {
+        <TooltipRoot TPayload="NoPayload" @ref="root" Open="true">
+            <TooltipTrigger TPayload="NoPayload" @ref="trigger" Render="Div" data-testid="trigger" style="position: fixed; top: 0; left: 0; width: 72px; height: 36px; box-sizing: border-box">Trigger</TooltipTrigger>
+            <TooltipPortal Container="@PortalHost">
+                @if (Case.StartsWith("sideOffset-override-", StringComparison.Ordinal) || Case.StartsWith("alignOffset-override-", StringComparison.Ordinal))
+                {
+                    OverrideCase overrideCase = OverrideCase.For(Case);
+                    <DirectionProvider Direction="overrideCase.Direction">
+                        <TooltipPositioner data-testid="positioner" Side="overrideCase.Side" Align="overrideCase.Align" SideOffset="overrideCase.SideOffset" AlignOffset="overrideCase.AlignOffset">
+                            <TooltipPopup data-popup style="width: 52px; height: 24px">Popup</TooltipPopup>
+                        </TooltipPositioner>
+                    </DirectionProvider>
+                }
+                else
+                {
+                    <TooltipPositioner data-testid="positioner" Side="Side.Bottom" SideOffset="SideOffsetFor(Case)" AlignOffset="AlignOffsetFor(Case)">
+                        <TooltipPopup data-popup style="width: 52px; height: 24px">Popup</TooltipPopup>
+                    </TooltipPositioner>
+                }
+            </TooltipPortal>
+        </TooltipRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly CollisionAvoidance s_noFallback = new(FallbackAxisSide: FallbackAxisSide.None);
+
+    private TooltipRoot<NoPayload>? root;
+    private TooltipTrigger<NoPayload>? trigger;
+    private bool open;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    private static RenderFragment Div => @<div />;
+
+    private static PortalContainerValue PortalHost => "#tooltip-positioner-host";
+
+    private static double? ArrowPaddingFor(string name) => name switch
+    {
+        "arrow-uncentered" => 40,
+        "arrow-centered" => 0,
+        _ => null,
+    };
+
+    private static OffsetValue? SideOffsetFor(string name) => name switch
+    {
+        "sideOffset-number" => 7,
+        "sideOffset-function" => new Offset(AnchorWidth: 1, PositionerWidth: 1),
+        _ => null,
+    };
+
+    private static OffsetValue? AlignOffsetFor(string name) => name switch
+    {
+        "alignOffset-number" => 7,
+        "alignOffset-function" => new Offset(PositionerWidth: 1),
+        _ => null,
+    };
+
+    private sealed record OverrideCase(Side Side, Align? Align, TextDirection Direction, OffsetValue? SideOffset, OffsetValue? AlignOffset)
+    {
+        public static OverrideCase For(string name)
+        {
+            bool side = name.StartsWith("sideOffset-", StringComparison.Ordinal);
+            int number = name[^1] - '0';
+            OffsetOverride keyed = number switch
+            {
+                1 => new OffsetOverride(Primitives.Side.Right, null, Constant: 5),
+                2 => new OffsetOverride(null, Primitives.Align.End, Constant: 5),
+                3 => new OffsetOverride(Primitives.Side.InlineEnd, null, Constant: 5),
+                _ => new OffsetOverride(Primitives.Side.InlineStart, null, Constant: 5),
+            };
+            OffsetValue offset = new Offset { Overrides = [keyed] };
+            (Primitives.Side requested, Primitives.Align? align, TextDirection direction) = number switch
+            {
+                1 => (Primitives.Side.Left, (Primitives.Align?)null, TextDirection.Ltr),
+                2 => (Primitives.Side.Right, Primitives.Align.Start, TextDirection.Ltr),
+                3 => (Primitives.Side.InlineStart, null, TextDirection.Ltr),
+                _ => (Primitives.Side.InlineStart, null, TextDirection.Rtl),
+            };
+            return new OverrideCase(requested, align, direction, side ? offset : null, side ? null : offset);
+        }
+    }
+}

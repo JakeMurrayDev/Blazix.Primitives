@@ -3,6 +3,7 @@ import { expect, readDiagnostics, test, type Page, type RenderMode } from './hel
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
+import { gotoPositionerCase, positionerConformanceTests } from './suites/positioner-conformance';
 
 // The [L4] rows of docs/components/tooltip.md (M4 track 6, issue 121) on the Tooltip fixtures, both render modes, Server
 // first. Base UI's titles verbatim; port titles start with "port:". The shared suites run with Tooltip's options
@@ -1216,5 +1217,38 @@ test.describe('<Tooltip.Root /> hand-off', () => {
 
     await expect(byTestId(page, 'content')).toHaveText('2');
     await expect(byTestId(page, 'trigger-2')).toHaveAttribute('data-popup-open', '');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// TooltipPositioner.test.tsx's positionerConformanceTests (:55-75) and TooltipArrow.test.tsx (:20-60) on
+// `tooltip-positioner`. Base UI runs the suite with `viewport: true`; its three Viewport titles wait for the Viewport
+// (track 5's `popup` module, design point 13.2): TIP-POS-05.
+// ---------------------------------------------------------------------------------------------------------------------
+
+positionerConformanceTests({ fixture: 'tooltip-positioner' });
+
+test.describe('<Tooltip.Arrow />', () => {
+  const arrow = (page: Page) => page.locator('[data-testid="arrow"]');
+
+  test('is hidden from assistive technology and mirrors the resolved side', async ({ page, mode }) => {
+    await gotoPositionerCase(page, mode, 'tooltip-positioner', 'arrow');
+
+    await expect(arrow(page)).toHaveAttribute('aria-hidden', 'true');
+    await expect(arrow(page)).toHaveAttribute('data-side', 'bottom');
+    await expect(arrow(page)).toHaveAttribute('data-open', '');
+  });
+
+  test('is marked uncentered when it cannot point at the anchor', async ({ page, mode }) => {
+    await gotoPositionerCase(page, mode, 'tooltip-positioner', 'arrow-uncentered');
+
+    await expect(arrow(page)).toHaveAttribute('data-uncentered', '');
+  });
+
+  test('is not marked uncentered when it can point at the anchor', async ({ page, mode }) => {
+    await gotoPositionerCase(page, mode, 'tooltip-positioner', 'arrow-centered');
+
+    await expect(arrow(page)).toHaveAttribute('data-side', 'bottom');
+    await expect(arrow(page)).not.toHaveAttribute('data-uncentered');
   });
 });
