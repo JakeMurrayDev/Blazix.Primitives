@@ -1,3 +1,4 @@
+import { type Browser } from '@playwright/test';
 import { expect, readDiagnostics, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
@@ -119,6 +120,22 @@ for (const variant of trio) {
         await page.clock.runFor(OPEN_DELAY);
 
         await expect(popup(page)).toHaveText('Content');
+      });
+
+      test('does not open when a touch pointer hovers the trigger', async ({ browser, mode }) => {
+        await withTouchPage(browser, async (page) => {
+          const fixture = await open(page, mode);
+          await freezeClock(page);
+
+          // A real tap: Chromium follows the touch with compatibility mouse events, which the hover reads as touch.
+          const box = (await trigger(page).boundingBox())!;
+          await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+          await page.clock.runFor(OPEN_DELAY);
+          await settle(fixture);
+
+          await expect(popup(page)).toHaveCount(0);
+          await page.clock.resume();
+        });
       });
 
       test('should close when the trigger is unhovered', async ({ page, mode }) => {
@@ -502,6 +519,21 @@ for (const variant of trio) {
       });
     });
   });
+}
+
+/**
+ * Runs a title on a page of its own touch-enabled context, for a real touch input (`page.touchscreen`): the worker's
+ * context has no touch. The clock is installed running, as on every page (ADR 06 §2).
+ */
+async function withTouchPage(browser: Browser, body: (page: Page) => Promise<void>): Promise<void> {
+  const context = await browser.newContext({ hasTouch: true });
+  try {
+    const page = await context.newPage();
+    await page.clock.install();
+    await body(page);
+  } finally {
+    await context.close();
+  }
 }
 
 /** Records whether the next Escape keydown reaches the window, from a listener the page adds last. */
@@ -934,6 +966,34 @@ test.describe('nested tooltips', () => {
     await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
   });
 
+  test('should not reopen the outer tooltip via the local reopen path for touch pointers', async ({ browser, mode }) => {
+    await withTouchPage(browser, async (page) => {
+      const fixture = await open(page, mode, { outerDelay: 0 });
+
+      const inner = (await byTestId(page, 'inner-trigger').boundingBox())!;
+      await page.touchscreen.tap(inner.x + inner.width / 2, inner.y + inner.height / 2);
+      const area = (await byTestId(page, 'outer-area').boundingBox())!;
+      await page.touchscreen.tap(area.x + area.width / 2, area.y + area.height / 2);
+      await settle(fixture);
+
+      await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    });
+  });
+
+  test('should allow mouse hover after leaving a touch interaction', async ({ browser, mode }) => {
+    await withTouchPage(browser, async (page) => {
+      await open(page, mode, { outerDelay: 0 });
+      const area = (await byTestId(page, 'outer-area').boundingBox())!;
+      await page.touchscreen.tap(area.x + area.width / 2, area.y + area.height / 2);
+      await page.mouse.move(400, 600);
+
+      await moveTo(page, 'inner-trigger');
+      await moveTo(page, 'outer-area');
+
+      await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    });
+  });
+
   test('should support nested triggers inside a detached parent trigger', async ({ page, mode }) => {
     const fixture = await open(page, mode, { detached: true, outerDelay: 0 });
 
@@ -1084,5 +1144,77 @@ test.describe('<Tooltip.Root /> layout', () => {
         })),
       )
       .toEqual({ opacity: 1, opacityAnimationCount: 0 });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The hand-off titles of TooltipRoot.detached-triggers.test.tsx (:308-341, :408-456, :574-613, :665-780) on
+// `tooltip-handoff`, with the real pointer and keyboard.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<Tooltip.Root /> hand-off', () => {
+  const open = (page: Page, mode: RenderMode, options: PopupFixtureOptions) => gotoPopupFixture(page, mode, 'tooltip-handoff', options);
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+
+  test('closes a cursor-tracking tooltip when an inactive trigger is pressed', async ({ browser, mode }) => {
+    await withTouchPage(browser, async (page) => {
+      const fixture = await open(page, mode, { case: 'pressed' });
+      await fixture.locator('[data-handle-open]').evaluate((element) => (element as HTMLElement).click());
+      await expect(byTestId(page, 'popup')).toBeVisible();
+
+      // A touch press, as Base UI's: no hover moves the tooltip to the pressed trigger first.
+      const box = (await byTestId(page, 'trigger-2').boundingBox())!;
+      await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+
+      await expect(byTestId(page, 'popup')).toHaveCount(0);
+      await expect(fixture).toHaveAttribute('data-open-changes', /^true:imperative-action false:trigger-press/);
+    });
+  });
+
+  test('hands off open state and payload to a trigger with its own DOM id while open', async ({ page, mode }) => {
+    await open(page, mode, { case: 'own-id' });
+    await expect(byTestId(page, 'trigger-2')).toHaveAttribute('id', 'custom-button');
+
+    await byTestId(page, 'trigger-1').focus();
+    await expect(byTestId(page, 'content')).toHaveText('1');
+    await byTestId(page, 'trigger-2').focus();
+
+    await expect(byTestId(page, 'trigger-2')).toHaveAttribute('data-popup-open', '');
+    await expect(byTestId(page, 'content')).toHaveText('2');
+  });
+
+  test('should close when focusing a disabled trigger while another trigger is open', async ({ page, mode }) => {
+    await open(page, mode, { case: 'disabled' });
+    await byTestId(page, 'trigger-1').focus();
+    await expect(byTestId(page, 'content')).toHaveText('1');
+
+    await byTestId(page, 'trigger-2').focus();
+
+    await expect(byTestId(page, 'content')).toHaveCount(0);
+    await expect(byTestId(page, 'trigger-2')).not.toHaveAttribute('data-popup-open');
+  });
+
+  test('should close when hovering a disabled trigger while another trigger is open', async ({ page, mode }) => {
+    await open(page, mode, { case: 'disabled' });
+    await byTestId(page, 'trigger-1').hover();
+    await expect(byTestId(page, 'content')).toHaveText('1');
+
+    await byTestId(page, 'trigger-2').hover();
+
+    await expect(byTestId(page, 'content')).toHaveCount(0);
+    await expect(byTestId(page, 'trigger-2')).not.toHaveAttribute('data-popup-open');
+  });
+
+  test('should switch to a rendered disabled button trigger when trigger hover is enabled', async ({ page, mode }) => {
+    await open(page, mode, { case: 'native-disabled' });
+    await byTestId(page, 'trigger-1').hover();
+    await expect(byTestId(page, 'content')).toHaveText('1');
+
+    // A natively disabled button still receives the pointer's enter and move events (TIP-PTR-25).
+    const box = (await byTestId(page, 'trigger-2').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+
+    await expect(byTestId(page, 'content')).toHaveText('2');
+    await expect(byTestId(page, 'trigger-2')).toHaveAttribute('data-popup-open', '');
   });
 });
