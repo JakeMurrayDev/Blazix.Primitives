@@ -168,10 +168,8 @@ for (const { name, triggers } of triggerModes) {
     });
 
     test.describe('outside press event with backdrops (shadow DOM)', () => {
-      // Listed open (DLG-STR-04, API-18, DIS-06): Blazor resolves an element reference with a document query, which does
-      // not reach into a shadow root, so the popup's handles attach to nothing once the portal moved it there (design
-      // point 9 of M4 track 8, raised 2026-10-28).
-      test.skip(true, 'open: design point 9 of M4 track 8 (element references inside a shadow-root portal container)');
+      // DLG-STR-04, API-18, DIS-06: the parts inside the portal moved into the shadow root resolve through the portal's
+      // registered shadow roots (ADR 04 Amendments 2026-10-28, design point 9 of M4 track 8, PR 144).
       // Base UI attaches an open shadow root; the port's portal takes a closed one a page script holds
       // (blazixFixtureDom.lastClosedShadowRoot), whose elements the test reaches through that script, as Base UI's do through
       // the root it holds.
@@ -756,6 +754,84 @@ test.describe('<Dialog.Popup />', () => {
 
       await expect(page.getByRole('button', { name: 'Open', includeHidden: true })).toBeFocused();
     });
+  });
+});
+
+// DialogRoot.test.tsx's "closed shadow root" describe (DLG-STR-04, DIS-03, DIS-06, PTR-11, API-18), on the
+// `dialog-shadow` fixture: the roots render in the page and their portals move into a closed shadow root a page script
+// holds (Blazor renders components into the document only). Elements are found and clicked through that script's handle,
+// as Base UI's test does through the root it holds. The parts inside the moved portals attach after the move and resolve
+// through the portal's registered shadow roots (ADR 04 Amendments 2026-10-28, design point 9, PR 144).
+test.describe('closed shadow root', () => {
+  type PortalContainer = 'shadow root' | 'body' | undefined;
+  const portalSetups: { outer: PortalContainer; nested: PortalContainer }[] = [
+    { outer: 'shadow root', nested: undefined },
+    { outer: 'shadow root', nested: 'shadow root' },
+    { outer: 'shadow root', nested: 'body' },
+    { outer: undefined, nested: undefined },
+    { outer: undefined, nested: 'shadow root' },
+  ];
+  const queryValue = (target: PortalContainer) => (target === 'shadow root' ? 'shadow' : target);
+  const named = (target: PortalContainer) => (target === undefined ? 'undefined' : `'${target}'`);
+
+  async function open(page: Page, mode: RenderMode, options: PopupFixtureOptions): Promise<Locator> {
+    const fixture = await gotoPopupFixture(page, mode, 'dialog-shadow', options);
+    await expect(fixture).toHaveAttribute('data-ready', 'true');
+    return fixture;
+  }
+
+  /** Whether an element with the test id is in the shadow root or the document. */
+  const exists = (page: Page, testId: string) =>
+    page.evaluate((id) => {
+      const selector = `[data-testid="${id}"]`;
+      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      return (root?.querySelector(selector) ?? document.querySelector(selector)) != null;
+    }, testId);
+
+  /** Base UI's `click`: the element's own `click()`, wherever it is. */
+  const click = (page: Page, testId: string) =>
+    page.evaluate((id) => {
+      const selector = `[data-testid="${id}"]`;
+      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      ((root?.querySelector(selector) ?? document.querySelector(selector)) as HTMLElement).click();
+    }, testId);
+
+  for (const { name, kind } of [
+    { name: 'modal dialog', kind: 'modal' },
+    { name: 'non-modal dialog', kind: 'non-modal' },
+    { name: 'alert dialog', kind: 'alert' },
+  ]) {
+    test.describe(`nested '${name}'`, () => {
+      for (const { outer, nested } of portalSetups) {
+        test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+          test.skip(kind === 'alert', 'open: AlertDialog is M4 track 9 (issue 124)');
+          // Blazor dispatches C# event handlers from the document's event target, which is the shadow host for an event from
+          // inside a shadow root, so the nested Close's @onclick never runs while the nested popup is in one.
+          test.skip(nested === 'shadow root' || (outer === 'shadow root' && nested === undefined), 'open: design point 10 of M4 track 8 (C# event handlers inside a shadow-root portal container)');
+          const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+
+          await click(page, 'open-nested');
+          await expect.poll(() => exists(page, 'nested')).toBe(true);
+
+          await click(page, 'close-nested');
+
+          await expect.poll(() => exists(page, 'nested')).toBe(false);
+          expect(await exists(page, 'outer')).toBe(true);
+          await settle(fixture);
+          expect(await openChanges(fixture)).toEqual([]);
+        });
+      }
+    });
+  }
+
+  test('still dismisses on a press outside the popup', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { case: 'outside', outer: 'shadow' });
+    expect(await exists(page, 'outer')).toBe(true);
+
+    await click(page, 'outside');
+
+    await expect.poll(() => exists(page, 'outer')).toBe(false);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
   });
 });
 
