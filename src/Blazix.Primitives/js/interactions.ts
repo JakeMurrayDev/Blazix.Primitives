@@ -553,7 +553,7 @@ export interface InteractionSession {
   readonly triggerElements: SessionTriggerMap;
   readonly positionReference: SessionVirtualElement | null;
   /**
-   * Subscribes to changes of `positionReference`.
+   * Subscribes to changes of `positionReference` and of `domReferenceElement`, the references a position follows.
    * @param listener Called after each change.
    * @returns The unsubscribe function.
    */
@@ -585,6 +585,10 @@ interface SessionRecord extends InteractionSession {
   hasNode: boolean;
   placement: string | undefined;
   positionReference: SessionVirtualElement | null;
+  /** The trigger a hand-off request named, the reference until C# answers that request (design point 13.4 (1)). */
+  pendingAnchor: Element | null;
+  /** The mark of the request that set `pendingAnchor`. */
+  pendingAnchorMark: object | null;
   lastRevision: number | undefined;
   /** The answered-requests counter last applied. */
   answered: number;
@@ -679,6 +683,8 @@ function createSessionRecord(token: string): SessionRecord {
     hasNode: false,
     placement: undefined,
     positionReference: null,
+    pendingAnchor: null,
+    pendingAnchorMark: null,
     lastRevision: undefined,
     answered: 0,
     pending: null,
@@ -697,6 +703,9 @@ function createSessionRecord(token: string): SessionRecord {
       return record.parentToken !== null;
     },
     get domReferenceElement() {
+      if (record.pendingAnchor !== null) {
+        return record.pendingAnchor;
+      }
       return record.activeTriggerId === null ? null : (triggers.get(record.activeTriggerId) ?? null);
     },
     get node(): SessionNode {
@@ -852,6 +861,9 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   const role = options.session ?? {};
   const open = role.open === true;
   const relay = options.relay ?? null;
+  const reference = record.domReferenceElement;
+  const answered = role.answered ?? 0;
+  const answeredRequest = (relay !== null && relay.revision !== record.lastRevision) || answered !== record.answered;
   record.parentToken = role.parentToken ?? null;
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
@@ -886,14 +898,22 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.openOrder = 0;
   }
   record.open = open;
+  // Design point 13.4 (1): C#'s answer replaces a hand-off's pending anchor with the active trigger it committed, or
+  // reverts it when the hand-off was canceled.
+  if (answeredRequest) {
+    record.pendingAnchor = null;
+    record.pendingAnchorMark = null;
+  }
   record.activeTriggerId = role.activeTriggerId ?? null;
   // Design point 10 (settled by the orchestrator 2026-10-27): a canceled request moves no revision, so the answered
   // counter is what re-arms a session that requested a close.
-  const answered = role.answered ?? 0;
   if (answered !== record.answered) {
     record.closesInFlight.clear();
     record.answered = answered;
     rearmDismiss(record);
+  }
+  if (record.domReferenceElement !== reference) {
+    notifyPositionListeners(record);
   }
   notifySessionChange(record);
 }
@@ -1007,7 +1027,27 @@ function requestOpenChange(
   };
   if (open) {
     record.pending = { open, reason, event };
-    channel.report('OnRequest', payload);
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6, settled by the orchestrator 2026-10-28; ADR 01's
+    // hand-off row): an open naming another trigger while open makes that trigger the session's reference at once, as
+    // Base UI's store does inside `setOpen`, until C# answers the request (the boundary of a close in flight above).
+    if (!trigger || !record.open || trigger === record.domReferenceElement) {
+      channel.report('OnRequest', payload);
+      return;
+    }
+    const anchor = {};
+    record.pendingAnchor = trigger;
+    record.pendingAnchorMark = anchor;
+    notifyPositionListeners(record);
+    void channel.request(payload).finally(() => {
+      if (record.pendingAnchorMark === anchor) {
+        const reference = record.domReferenceElement;
+        record.pendingAnchor = null;
+        record.pendingAnchorMark = null;
+        if (record.domReferenceElement !== reference) {
+          notifyPositionListeners(record);
+        }
+      }
+    });
     return;
   }
   if (record.closesInFlight.has(channel)) {
@@ -3964,6 +4004,10 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
     return;
   }
   record.positionReference = reference;
+  notifyPositionListeners(record);
+}
+
+function notifyPositionListeners(record: SessionRecord): void {
   for (const listener of [...record.positionListeners]) {
     listener();
   }
