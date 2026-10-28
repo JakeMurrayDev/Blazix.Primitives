@@ -100,7 +100,8 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
 
         // PSH-STA-28/30: when the trigger comes to own the mounted popup, and while it owns it whenever a forwarded value
         // changed, the values are written post-commit; a trigger that lost the popup writes them again when it takes it
-        // back (useTriggerDataForwarding re-runs on isMountedByThisTrigger; design point 13.8 of M4 track 6).
+        // back (useTriggerDataForwarding re-runs on isMountedByThisTrigger; design point 13.8 of M4 track 6, settled by the
+        // orchestrator 2026-10-28).
         if (!IsMountedByTrigger)
         {
             forwarded = false;

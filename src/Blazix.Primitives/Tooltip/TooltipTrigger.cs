@@ -34,7 +34,7 @@ public static class TooltipTriggerDataAttributes
 //   anchoring; every request reaches the store with the delay group's phase (ADR 04 Amendments 2026-10-27). The delays
 //   are resolved here (`Delay ?? Provider ?? 600`, `CloseDelay ?? Provider ?? 0`; issue 121), so the trigger renders
 //   again when its provider's delays change. The handle attaches to the trigger's own element, or by the id it renders
-//   under a substitute without one (design point 13.1 (a) of M4 track 6, pending the user).
+//   under a substitute without one (design point 13.1 (a) of M4 track 6, settled by the orchestrator 2026-10-28).
 // - No ButtonBehavior (TIP §16 Q10), no aria-* (TIP-ARIA-02/05), never the native `disabled` (TIP-API-18). The consumer's
 //   handlers pass through ungated (TIP-DOM-05).
 // - The Root's interaction bag (TIP-DOM-05 bag (3), TIP-STA-15) is the reference press and the cursor anchor, carried while
