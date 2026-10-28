@@ -1,6 +1,6 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, readDiagnostics, test, type RenderMode } from '../helpers';
-import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './popupFixture';
+import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's detachedTriggersConformanceTests (packages/react/test/detachedTriggersConformanceTests.tsx at v1.9.0), titles
 // verbatim, as a Playwright helper (ADR 09 Amendments 2026-10-27; design point 7 of M4 track 1). The suite's Fixture is a
@@ -87,7 +87,10 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
   const waitForPopupOpen = (page: Page) => expect(getPopup(page)).toBeVisible();
   const waitForPopupClosed = (page: Page) => expect(getPopup(page)).toHaveCount(0);
-  const waitForContent = (page: Page, text: string) => expect(page.locator('[data-testid="content"]')).toHaveText(text);
+  // The content outside a Viewport's `[data-previous]` clone: during a switch the clone holds the outgoing content, which
+  // Base UI's `waitFor` retries past and Playwright's strict locator would not.
+  const currentContent = (page: Page) => page.locator('[data-testid="content"]:not([data-previous] *)');
+  const waitForContent = (page: Page, text: string) => expect(currentContent(page)).toHaveText(text);
 
   /** Asserts that only the trigger with the given number is marked as the popup's active trigger, or that none is. */
   async function expectActiveTrigger(page: Page, activeNumber: number | null, triggerCount = 2): Promise<void> {
@@ -195,7 +198,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
             await render(page, mode, { mode: triggerMode, open: true, triggerId: 'trigger-2' });
 
             await waitForPopupOpen(page);
-            await expect(page.locator('[data-testid="content"]')).toHaveText('2');
+            await expect(currentContent(page)).toHaveText('2');
             await expectActiveTrigger(page, 2);
           });
 
@@ -209,9 +212,11 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           it('allows controlling the open state and active trigger programmatically', async ({ page, mode }) => {
             await render(page, mode, { mode: triggerMode, case: 'controlled' });
 
-            const openTrigger1 = page.getByRole('button', { name: 'Open Trigger 1' });
-            const openTrigger2 = page.getByRole('button', { name: 'Open Trigger 2' });
-            const closeExternally = page.getByRole('button', { name: 'Close externally' });
+            // A modal popup hides the page (`aria-hidden`), and these locators resolve on each use where Base UI queried
+            // the buttons up front (track 8).
+            const openTrigger1 = page.getByRole('button', { name: 'Open Trigger 1', includeHidden: true });
+            const openTrigger2 = page.getByRole('button', { name: 'Open Trigger 2', includeHidden: true });
+            const closeExternally = page.getByRole('button', { name: 'Close externally', includeHidden: true });
 
             await openTrigger1.click();
             await waitForContent(page, '1');
@@ -267,12 +272,12 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           await expect(getPopup(page)).toHaveCount(0);
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
 
-          await fixture.locator('[data-handle-open="trigger-2"]').click();
+          await pressControl(fixture.locator('[data-handle-open="trigger-2"]'));
           await waitForContent(page, '2');
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
           await expectActiveTrigger(page, 2);
 
-          await fixture.locator('[data-handle-close]').click();
+          await pressControl(fixture.locator('[data-handle-close]'));
           await waitForPopupClosed(page);
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
           await expectActiveTrigger(page, null);
@@ -282,7 +287,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           it('throws when opened with an unregistered trigger id', async ({ page, mode }) => {
             const fixture = await render(page, mode, { mode: 'detached' });
 
-            await fixture.locator('[data-handle-open="missing"]').click();
+            await pressControl(fixture.locator('[data-handle-open="missing"]'));
             await expect(fixture).toHaveAttribute(
               'data-handle-error',
               /was called with the trigger id "missing", but no matching trigger is registered/,
@@ -293,7 +298,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           it('opens unassociated with a warning when opened with an unregistered trigger id', async ({ page, mode }) => {
             const fixture = await render(page, mode, { mode: 'detached', throws: false });
 
-            await fixture.locator('[data-handle-open="missing"]').click();
+            await pressControl(fixture.locator('[data-handle-open="missing"]'));
             await waitForPopupOpen(page);
             const warnings = (await readDiagnostics(page, mode, fixture)).filter((entry) => entry.message.includes('No trigger found with id "missing"'));
             expect(warnings).toHaveLength(1);
@@ -311,38 +316,38 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
           // Before any root attached the handle has no logger, so its two warnings are dropped (design point 6 of M4 track
           // 1, settled by the orchestrator 2026-10-27); Base UI counts two here.
-          await fixture.locator('[data-handle-open="trigger-1"]').click();
-          await fixture.locator('[data-handle-close]').click();
+          await pressControl(fixture.locator('[data-handle-open="trigger-1"]'));
+          await pressControl(fixture.locator('[data-handle-close]'));
           await settle(fixture);
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
           expect(await detachedWarnings()).toBe(0);
 
-          await fixture.locator('[data-toggle-root]').click();
+          await pressControl(fixture.locator('[data-toggle-root]'));
           await expect(page.locator('[data-testid="root-payload"]')).toHaveText('No payload');
           await expect(getPopup(page)).toHaveCount(0);
 
-          await fixture.locator('[data-handle-open="trigger-1"]').click();
+          await pressControl(fixture.locator('[data-handle-open="trigger-1"]'));
           await waitForContent(page, '1');
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
 
           // Unmounting the root while open detaches it from the handle.
-          await fixture.locator('[data-toggle-root]').click();
+          await pressControl(fixture.locator('[data-toggle-root]'));
           await settle(fixture);
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
           await expect(getPopup(page)).toHaveCount(0);
 
-          await fixture.locator('[data-handle-open="trigger-1"]').click();
-          await fixture.locator('[data-handle-close]').click();
+          await pressControl(fixture.locator('[data-handle-open="trigger-1"]'));
+          await pressControl(fixture.locator('[data-handle-close]'));
           await settle(fixture);
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'false');
           expect(await detachedWarnings()).toBe(2);
 
           // A remounted root starts closed, without the previous payload, and is controllable.
-          await fixture.locator('[data-toggle-root]').click();
+          await pressControl(fixture.locator('[data-toggle-root]'));
           await expect(page.locator('[data-testid="root-payload"]')).toHaveText('No payload');
           await expect(getPopup(page)).toHaveCount(0);
 
-          await fixture.locator('[data-handle-open="trigger-2"]').click();
+          await pressControl(fixture.locator('[data-handle-open="trigger-2"]'));
           await waitForContent(page, '2');
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
         });
@@ -359,7 +364,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           // The detached trigger settles into the outgoing root's store. The incoming root then attaches while the outgoing
           // one is still mounted, and its batch opens by trigger id before the trigger has migrated to the incoming store.
           const fixture = await render(page, mode, { case: 'overlap' });
-          await fixture.locator('[data-set-phase="overlap"]').click();
+          await pressControl(fixture.locator('[data-set-phase="overlap"]'));
           await settle(fixture);
 
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
@@ -369,7 +374,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           expect((await readDiagnostics(page, mode, fixture)).filter((entry) => entry.message.includes('No trigger found'))).toHaveLength(0);
 
           // Completing the handoff (the outgoing root unmounts) keeps the popup open and associated.
-          await fixture.locator('[data-set-phase="incoming"]').click();
+          await pressControl(fixture.locator('[data-set-phase="incoming"]'));
           await settle(fixture);
           await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
           await expect(getTrigger(page, 2)).toHaveAttribute('data-popup-open');
@@ -401,9 +406,9 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
             await expectOpensAndCloses(page);
 
             for (const nesting of nextNestings) {
-              await fixture.locator(`[data-set-nesting="${nesting}"]`).click();
+              await pressControl(fixture.locator(`[data-set-nesting="${nesting}"]`));
               if (recreateHandle) {
-                await fixture.locator('[data-recreate-handle]').click();
+                await pressControl(fixture.locator('[data-recreate-handle]'));
               }
 
               await settle(fixture);

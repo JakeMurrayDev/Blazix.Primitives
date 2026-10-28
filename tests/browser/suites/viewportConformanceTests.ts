@@ -1,6 +1,6 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test, type RenderMode } from '../helpers';
-import { gotoPopupFixture, settle, type PopupFixtureOptions } from './popupFixture';
+import { gotoPopupFixture, pressInPage, settle, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's viewportConformanceTests (packages/react/test/viewportConformanceTests.tsx at v1.9.0), titles verbatim, as a
 // Playwright helper (ADR 09 Amendments 2026-10-27; ADR 06 Amendments 2026-10-27, one fixture base). A family's spec calls
@@ -583,8 +583,10 @@ function runningOnLatest(records: readonly ViewportRecord[], role: 'previous' | 
 }
 
 /** Presses a fixture control in the page: no pointer or focus moves, so the popup sees no outside press and no blur. */
+// In the page, so a trigger opened by focus is not blurred; a control marked `data-key-control` takes a keydown, because a
+// click on it would be an outside press (popupFixture.ts).
 async function press(fixture: Locator, selector: string): Promise<void> {
-  await fixture.locator(selector).evaluate((element) => (element as HTMLElement).click());
+  await pressInPage(fixture.locator(selector));
 }
 
 /** Waits `count` animation frames in the page (Base UI's `waitSingleFrame`). */
