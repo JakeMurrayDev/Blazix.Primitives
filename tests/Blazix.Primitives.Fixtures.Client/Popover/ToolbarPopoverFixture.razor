@@ -1,0 +1,75 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `toolbar-popover` fixture (tests/browser/toolbar.spec.ts and popover.spec.ts, M4 track 5): a PopoverTrigger
+    substituted into a ToolbarButton inside a Popover root.
+    - Default: ToolbarButton.test.tsx's Popover block, the popup's content "Content"; `disabled=true` disables the toolbar
+      button.
+    - `inside=button|input`: PopoverPopup.test.tsx's ToolbarPopover (POP-KEY-12): toolbar buttons First, Open (the trigger)
+      and Last, the popup holding a button "Inside" or an input "ab". The portal's container is inside the toolbar root,
+      so a keydown in the popup bubbles to the toolbar as React's portaled events do in Base UI's test.
+    The root's open changes are recorded on the container; the sync button comes after the toolbar, so the first Tab from
+    the page reaches the toolbar.
+*@
+<FixtureContainer Name="toolbar-popover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <ToolbarRoot data-root>
+        @if (inside is not null)
+        {
+            <ToolbarButton>First</ToolbarButton>
+        }
+        <PopoverRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+            <ToolbarButton Disabled="@disabled" Render="@Trigger">@(inside is null ? null : "Open")</ToolbarButton>
+            <PopoverPortal Container="@container">
+                <PopoverPositioner>
+                    <PopoverPopup>
+                        @if (inside == "button")
+                        {
+                            <button type="button">Inside</button>
+                        }
+                        else if (inside == "input")
+                        {
+                            <input value="ab" aria-label="Inside" />
+                        }
+                        else
+                        {
+                            @("Content")
+                        }
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+        @if (inside is not null)
+        {
+            <ToolbarButton>Last</ToolbarButton>
+            <div id="toolbar-popup-host"></div>
+        }
+    </ToolbarRoot>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private bool disabled;
+    private string? inside;
+    private PortalContainerValue? container;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private RenderFragment Trigger => @<PopoverTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" />;
+
+    protected override void OnInitialized()
+    {
+        disabled = QueryFlag("disabled") == true;
+        inside = Query("inside");
+        if (inside is not null)
+        {
+            container = new PortalContainerValue("#toolbar-popup-host");
+        }
+    }
+}

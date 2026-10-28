@@ -606,6 +606,10 @@ interface SessionRecord extends InteractionSession {
   pending: PendingRequest | null;
   /** The mark of the session's close request C# has not answered yet, or `null` (design point 13.9, gap 14). */
   closeInFlight: object | null;
+  /** A press's open event recorded on its request, with the one it replaced, until C# commits or cancels the request. */
+  optimisticOpenEvent: { request: PendingRequest; previous: Event | undefined } | null;
+  /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
+  namedTrigger: Element | null;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
   channel: HandleChannel | null;
@@ -700,6 +704,8 @@ function createSessionRecord(token: string): SessionRecord {
     answered: 0,
     pending: null,
     closeInFlight: null,
+    optimisticOpenEvent: null,
+    namedTrigger: null,
     triggers,
     channel: null,
     positionListeners: new Set(),
@@ -823,6 +829,16 @@ export function getSession(token: string): InteractionSession | undefined {
 }
 
 /**
+ * Names the element the next relayed `focus-out` close without a trigger carries as its trigger element, such as a
+ * popup trigger's focus guard, which the guard's own close names; a canceled close clears it.
+ * @param session The session.
+ * @param element The element.
+ */
+export function nameRelayTrigger(session: InteractionSession, element: Element): void {
+  (session as SessionRecord).namedTrigger = element;
+}
+
+/**
  * Determines whether no open session was opened later than this one (the topmost gate of nested popups).
  * @param session The session.
  * @returns `true` when the session is open and topmost.
@@ -891,13 +907,14 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
       record.pending = null;
+      record.optimisticOpenEvent = null;
       syncOpenEvent(record, open, event);
       const details: SessionOpenChangeDetails = {
         open,
         reason: relay.reason,
         nativeEvent: event,
         nested: record.nested,
-        triggerElement: relay.triggerId != null ? record.triggers.get(relay.triggerId) : undefined,
+        triggerElement: relay.triggerId != null ? record.triggers.get(relay.triggerId) : namedTrigger(record, open, relay.reason),
       };
       record.events.emit('openchange', details);
     }
@@ -921,12 +938,40 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   if (answered !== record.answered) {
     record.closeInFlight = null;
     record.answered = answered;
+    // A canceled close moves no revision: the name it was given does not wait for a later close.
+    record.namedTrigger = null;
+    rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
   }
   if (record.domReferenceElement !== reference) {
     notifyPositionListeners(record);
   }
   notifySessionChange(record);
+}
+
+// ADR 04 Amendments 2026-10-29 (gap 16 of M4 track 5): Base UI's `useClick` writes the open event in its click handler, so
+// a press records its click-like open event on its request, as a hover open awaiting its commit already counts as open;
+// the relay's commit confirms it, and an answer that leaves the request pending (C# canceled it) restores the previous.
+function recordOptimisticOpenEvent(record: SessionRecord, request: PendingRequest): void {
+  const previous = record.dataRef.current.openEvent;
+  syncOpenEvent(record, true, request.event);
+  record.optimisticOpenEvent = record.dataRef.current.openEvent === previous ? null : { request, previous };
+}
+
+function rollBackOptimisticOpenEvent(record: SessionRecord): void {
+  const optimistic = record.optimisticOpenEvent;
+  record.optimisticOpenEvent = null;
+  if (optimistic !== null && record.pending === optimistic.request && record.dataRef.current.openEvent === optimistic.request.event) {
+    record.dataRef.current.openEvent = optimistic.previous;
+  }
+}
+
+// Design point 4's sub-point of M4 track 5 (settled by the orchestrator 2026-10-28): the element `nameRelayTrigger` named
+// is the trigger of the next relayed `focus-out` close that names none, once.
+function namedTrigger(record: SessionRecord, open: boolean, reason: string): Element | undefined {
+  const named = record.namedTrigger;
+  record.namedTrigger = null;
+  return !open && reason === 'focus-out' && named !== null ? named : undefined;
 }
 
 // The coalesced close's dispatch: its `openchange` (with the session's own request event when it was that close), then
@@ -2039,7 +2084,11 @@ function createClickController(context: HandleContext): Controller {
     const options = clickOptions();
     const reason = options?.reason ?? 'trigger-press';
     const payload = { open: nextOpen, reason, triggerId: triggerIdOf(record, target === element ? element : target), interactionType: classify(event) };
-    record.pending = { open: nextOpen, reason, event };
+    const request: PendingRequest = { open: nextOpen, reason, event };
+    record.pending = request;
+    if (nextOpen) {
+      recordOptimisticOpenEvent(record, request);
+    }
     if (channel.synchronous) {
       twinReference.invokeMethod<void>('OnPressing', JSON.stringify(payload));
       decide(channel, PRESS_POINT, event, 'run');

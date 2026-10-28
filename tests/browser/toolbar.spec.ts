@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, gotoFixture, readDiagnostics, type Page, type RenderMode } from './helpers';
+import { gotoPopupFixture, openChanges } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/toolbar.md and the L4 clauses of its [L2] rows, on ToolbarRoot over the `composite`
 // module and ToolbarButton and ToolbarInput over the `button` module. Titles are Base UI's (toolbar/*/*.test.tsx);
@@ -703,6 +704,46 @@ test.describe('<Toolbar.Button />', () => {
   test.describe('rendering other Base UI components', () => {
     // Each substituted toggle records its OnPressedChange (design point 14.8, settled by the orchestrator 2026-10-27: the
     // pipeline keeps a substitute's typed callback typed): one entry per activation (TGL-EVT-06).
+    // ToolbarButton.test.tsx's Popover block (M4 track 5; issue 115): a PopoverTrigger substituted into the button.
+    test.describe('Popover', () => {
+      test('handles interactions', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'toolbar-popover');
+        const trigger = page.getByTestId('trigger');
+        await expect(page.getByText('Content')).toHaveCount(0);
+
+        await page.keyboard.press('Tab');
+        await expect(trigger).toBeFocused();
+        expect(await openChanges(fixture)).toEqual([]);
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByText('Content')).toBeVisible();
+        await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press']);
+
+        await page.keyboard.press('Escape');
+        await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+        await expect(trigger).toBeFocused();
+      });
+
+      test('disabled state', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'toolbar-popover', { disabled: true });
+        const trigger = page.getByTestId('trigger');
+        await expect(page.getByText('Content')).toHaveCount(0);
+        // The toolbar button's handle clears the DOM `disabled` its substitute rendered (design point 14.2 (a)).
+        await expect(trigger).not.toHaveAttribute('disabled');
+        await expect(trigger).toHaveAttribute('data-disabled');
+        await expect(trigger).toHaveAttribute('aria-disabled', 'true');
+
+        await page.keyboard.press('Tab');
+        await expect(trigger).toBeFocused();
+        for (const key of ['Enter', 'Space', 'ArrowUp', 'ArrowDown']) {
+          await page.keyboard.press(key);
+        }
+        await page.getByText('Sync').evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true })));
+        await expect(fixture).toHaveAttribute('data-sync', '1');
+        expect(await openChanges(fixture)).toEqual([]);
+      });
+    });
+
     test.describe('Toggle and ToggleGroup', () => {
       // TLB-STR-05, TLB-ARIA-09, TLB-EDGE-12.
       test('renders toggle and toggle group', async ({ page, mode }) => {

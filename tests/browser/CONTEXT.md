@@ -36,6 +36,6 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin)
 ## Human check
 
 - Each title keeps Base UI's wording and its `@verifies` tag where a verification item applies.
-- Gesture tests use real Playwright mouse and touch input, not `dispatchEvent`.
+- Gesture tests use real Playwright mouse and touch input, not `dispatchEvent`; driving a fixture's own control with `pressControl` is not the gesture under test.
 - `retries` stays 0; a flaky test is quarantined with `test.fixme`, `@quarantine` and an issue, for at most 14 days. The nightly summary counts the quarantined specs and reports any flaky result (there can be none while `retries` is 0).
 - A test that needs frozen time pauses the clock itself; nothing waits on a timeout.

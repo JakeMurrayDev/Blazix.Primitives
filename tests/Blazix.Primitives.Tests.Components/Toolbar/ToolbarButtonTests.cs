@@ -282,6 +282,37 @@ public sealed class ToolbarButtonTests : IDisposable
         Assert.Equal([element.GetAttribute("id")!], ToolbarTestContext.ItemIds(test.LastCompositeOptions));
     }
 
+    [Fact(DisplayName = "renders a popover trigger")]
+    [Trait("Requirement", "TLB-ARIA-09")]
+    public void Renders_a_popover_trigger()
+    {
+        // ToolbarButton.test.tsx's Popover block (M4 track 5): Toolbar.Button render={<Popover.Trigger />} inside a
+        // Popover.Root is one button, the trigger, with its own aria-haspopup.
+        Context.JSInterop.Mode = JSRuntimeMode.Loose;
+        IRenderedComponent<ToolbarRoot> cut = RenderPopoverTrigger(disabled: false);
+
+        IElement button = Assert.Single(cut.FindAll("button"));
+        Assert.Equal("trigger", button.GetAttribute("data-testid"));
+        Assert.Equal("dialog", button.GetAttribute("aria-haspopup"));
+    }
+
+    [Fact(DisplayName = "disabled state")]
+    [Trait("Requirement", "TLB-ARIA-09")]
+    [Trait("Requirement", "TLB-DOM-08")]
+    public void Popover_trigger_disabled_state()
+    {
+        // The Popover block's L2 half: the substituted trigger is a composite button, focusable when disabled. The DOM
+        // `disabled` its markup carries until the toolbar button's handle clears it (design point 14.2 (a)) and the keys
+        // are the L4 half.
+        Context.JSInterop.Mode = JSRuntimeMode.Loose;
+        IRenderedComponent<ToolbarRoot> cut = RenderPopoverTrigger(disabled: true);
+
+        IElement trigger = cut.Find("[data-testid=trigger]");
+        Assert.True(trigger.HasAttribute("data-disabled"));
+        Assert.Equal("true", trigger.GetAttribute("aria-disabled"));
+        Assert.Empty(cut.FindAll("[role=dialog]"));
+    }
+
     [Fact(DisplayName = "port: the consumer's onkeydown runs once, the arrows from navigate and other keys from activate or the button's handler")]
     [Trait("Requirement", "TLB-API-10")]
     [Trait("Requirement", "TLB-KEY-16")]
@@ -350,6 +381,37 @@ public sealed class ToolbarButtonTests : IDisposable
     }
 
     /// <summary>A component substitute that records the <c>Disabled</c> parameter it receives.</summary>
+    private IRenderedComponent<ToolbarRoot> RenderPopoverTrigger(bool disabled)
+    {
+        RenderFragment substitute = builder =>
+        {
+            builder.OpenComponent<PopoverTrigger<NoPayload>>(0);
+            builder.AddComponentParameter(1, "data-testid", "trigger");
+            builder.CloseComponent();
+        };
+        RenderFragment popover = builder =>
+        {
+            builder.OpenComponent<ToolbarButton>(0);
+            builder.AddComponentParameter(1, nameof(ToolbarButton.Disabled), disabled);
+            builder.AddComponentParameter(2, nameof(ToolbarButton.Render), substitute);
+            builder.CloseComponent();
+            builder.OpenComponent<PopoverPortal>(3);
+            builder.AddComponentParameter(4, nameof(PopoverPortal.ChildContent), (RenderFragment)(p =>
+            {
+                p.OpenComponent<PopoverPositioner>(0);
+                p.AddComponentParameter(1, nameof(PopoverPositioner.ChildContent), (RenderFragment)(q =>
+                {
+                    q.OpenComponent<PopoverPopup>(0);
+                    q.AddComponentParameter(1, nameof(PopoverPopup.ChildContent), (RenderFragment)(c => c.AddContent(0, "Content")));
+                    q.CloseComponent();
+                }));
+                p.CloseComponent();
+            }));
+            builder.CloseComponent();
+        };
+        return Context.Render<ToolbarRoot>(p => p.AddChildContent<PopoverRoot<NoPayload>>(r => r.Add(x => x.ChildContent, popover)));
+    }
+
     private sealed class DisabledProbe : ComponentBase
     {
         [Parameter]

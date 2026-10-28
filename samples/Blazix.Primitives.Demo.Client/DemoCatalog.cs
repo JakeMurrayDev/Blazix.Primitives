@@ -29,6 +29,7 @@ public static class DemoCatalog
         new("toggle-group", "Toggle Group", "A set of toggles that share one value, here the text alignment.", typeof(ToggleGroupDemo)),
         new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
         new("toolbar", "Toolbar", "A set of buttons, toggles, an input and a link that the arrow keys move between.", typeof(ToolbarDemo)),
+        new("popover", "Popover", "An accessible popup anchored to a button, here the notifications of an account.", typeof(PopoverDemo)),
         new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
     ];
 

@@ -16,6 +16,7 @@ using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
@@ -153,6 +154,7 @@ public static class FixtureCatalog
         ["tabs-panels"] = new(typeof(TabsPanelsFixture)),
         ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
         ["tabs-focus"] = new(typeof(TabsFocusFixture)),
+        ["tabs-popover"] = new(typeof(TabsPopoverFixture)),
         ["toolbar-orientation"] = new(typeof(ToolbarOrientationFixture)),
         ["toolbar-keys"] = new(typeof(ToolbarKeysFixture)),
         ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
@@ -160,9 +162,19 @@ public static class FixtureCatalog
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
+        ["toolbar-popover"] = new(typeof(ToolbarPopoverFixture)),
         ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
+        ["popover-conformance"] = new(typeof(PopoverConformanceFixture)),
+        ["popover-focus"] = new(typeof(PopoverFocusFixture)),
+        ["popover-detached"] = new(typeof(PopoverDetachedFixture)),
+        ["popover-hover"] = new(typeof(PopoverHoverFixture)),
+        ["popover-nested"] = new(typeof(PopoverNestedFixture)),
+        ["popover-root"] = new(typeof(PopoverRootFixture)),
+        ["popover-positioner"] = new(typeof(PopoverPositionerFixture)),
+        ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
+        ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
         ["scroll-lock-basic"] = new(typeof(ScrollLockBasicFixture)),

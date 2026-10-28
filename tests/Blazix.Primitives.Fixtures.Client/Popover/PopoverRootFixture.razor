@@ -1,0 +1,202 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
+@inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
+
+@*
+    The `popover-root` fixture (tests/browser/popover.spec.ts, M4 track 5): PopoverRoot.test.tsx's TestPopover, whose
+    titles run once per `variant`: `contained` (the trigger inside the root, the default), `detached` (the trigger before
+    the root, on a handle) and `multiple` (a second detached trigger `trigger-2`, "Toggle another", after the first and its
+    `afterTrigger`). The trigger `trigger` reads "Toggle"; the positioner `positioner` holds the popup `popover-popup`.
+    The query:
+    - `modal` (`true`, `false`, `trap-focus`), `defaultOpen`, `keepMounted`;
+    - `before`, `after`: an input before and after the popover, `plain` or its test id; `afterTrigger`: an input after the
+      trigger, the same way; `outside=before|after`: a button `outside` there;
+    - `inside`, the popup's content: `input` (`input-inside`), `button` (`inside`), `close` (a close "Close"),
+      `close-labeled` (an empty close labeled "Close popover"), `remove` (`remove`, which its pointerdown removes), `hide`
+      (`hide-button`, which its click hides with display: none, then an input); otherwise "Content";
+    - `popupClass`: `fade`, a 500 ms opacity transition that fades the popup out while `[data-ending-style]`, or
+      `transition-state`, PopoverPopupTransitionState.test.tsx's 10 s fade in while open and not starting;
+    - `backdrop`: a PopoverBackdrop `backdrop` over the page; `positionerWidth`: the positioner's CSS width (`full`:
+      `calc(100vw - 10px)`);
+    - `container=shadow`: the portal renders nothing until a page script attaches an open shadow root to
+      `[data-shadow-host]` after the first render and hands it to C# (Base UI's `container: shadowRoot`).
+    `[data-unmount]` calls the root's Unmount. The sync button and the controls are out of the tab order, so a Tab from the
+    popover's last element leaves the page as in Base UI's test.
+*@
+<FixtureContainer Name="popover-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        .fade { transition: opacity 500ms; }
+        .fade[data-ending-style] { opacity: 0; }
+        .transition-state { opacity: 0; transition: opacity 10s linear; }
+        .transition-state[data-open]:not([data-starting-style]) { opacity: 1; }
+    </style>
+    <div>
+        @Input(before)
+        @if (outside == "before")
+        {
+            <button type="button" data-testid="outside">Outside</button>
+        }
+        @if (variant == "contained")
+        {
+            <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Trigger(null)
+                @Input(afterTrigger)
+                @Portal
+            </PopoverRoot>
+        }
+        else
+        {
+            @Trigger(handle)
+            @Input(afterTrigger)
+            @if (variant == "multiple")
+            {
+                <PopoverTrigger TPayload="NoPayload" @ref="second" Handle="@handle" data-testid="trigger-2">Toggle another</PopoverTrigger>
+            }
+            <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Portal
+            </PopoverRoot>
+        }
+        @Input(after)
+        @if (outside == "after")
+        {
+            <button type="button" data-testid="outside">Outside</button>
+        }
+    </div>
+    <div data-shadow-host @ref="shadowHost"></div>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+</FixtureContainer>
+
+@code {
+    private readonly PopoverHandle<NoPayload> handle = new();
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private PopoverTrigger<NoPayload>? second;
+    private string variant = "contained";
+    private ModalValue? modal;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private string? before;
+    private string? after;
+    private string? afterTrigger;
+    private string? outside;
+    private string? inside;
+    private string? popupClass;
+    private bool showRemove = true;
+    private bool hidden;
+    private bool backdrop;
+    private string? positionerStyle;
+    private PortalContainerValue? container;
+    private ElementReference shadowHost;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        second?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private RenderFragment Portal => @<PopoverPortal KeepMounted="@keepMounted" Container="@container">
+        @if (backdrop)
+        {
+            <PopoverBackdrop data-testid="backdrop" style="position: fixed; inset: 0" />
+        }
+        <PopoverPositioner data-testid="positioner" style="@positionerStyle">
+            <PopoverPopup data-testid="popover-popup" class="@popupClass">
+                @if (inside == "input")
+                {
+                    <input data-testid="input-inside" />
+                }
+                else if (inside == "button")
+                {
+                    <button type="button" data-testid="inside">Inside</button>
+                }
+                else if (inside == "close")
+                {
+                    <PopoverClose>Close</PopoverClose>
+                }
+                else if (inside == "close-labeled")
+                {
+                    <PopoverClose aria-label="Close popover" />
+                }
+                else if (inside == "remove")
+                {
+                    @if (showRemove)
+                    {
+                        <button type="button" data-testid="remove" @onpointerdown="() => showRemove = false">Remove on pointer down</button>
+                    }
+                }
+                else if (inside == "hide")
+                {
+                    <button type="button" data-testid="hide-button" style="@(hidden ? "display: none" : null)" @onclick="() => hidden = true">Hide</button>
+                    <input />
+                }
+                else
+                {
+                    @("Content")
+                }
+            </PopoverPopup>
+        </PopoverPositioner>
+    </PopoverPortal>;
+
+    protected override void OnInitialized()
+    {
+        variant = Query("variant") ?? "contained";
+        modal = Query("modal") switch
+        {
+            "true" => new ModalValue(true),
+            "false" => new ModalValue(false),
+            "trap-focus" => ModalValue.TrapFocus,
+            _ => null,
+        };
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        before = Query("before");
+        after = Query("after");
+        afterTrigger = Query("afterTrigger");
+        outside = Query("outside");
+        inside = Query("inside");
+        popupClass = Query("popupClass");
+        backdrop = QueryFlag("backdrop") == true;
+        positionerStyle = Query("positionerWidth") switch
+        {
+            null => null,
+            "full" => "width: calc(100vw - 10px)",
+            { } width => $"width: {width}",
+        };
+        if (Query("container") == "shadow")
+        {
+            container = PortalContainerValue.Pending;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && Query("container") == "shadow")
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createOpenShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
+    }
+
+    private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) =>
+        @<PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@triggerHandle" data-testid="trigger">Toggle</PopoverTrigger>;
+
+    private static RenderFragment? Input(string? testId) =>
+        testId is null ? null : @<input data-testid="@(testId == "plain" ? null : testId)" />;
+}

@@ -1,0 +1,83 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-focus` fixture (tests/browser/popover.spec.ts, M4 track 5): popupFocusPropsTests (tests/browser/suites/)
+    on Popover, the suite's Test component as a page: an input `outside-before`, a trigger labeled "Open", the portaled
+    popup and an input `outside-target`. The popup takes the query's `initialFocus` and `finalFocus` (the suite's
+    FocusPropOption: `false`, `ref`, `fn-element`, `fn-true`, `fn-null`, `fn-keyboard`; a target is named by its id, the
+    element Base UI's ref points at: `inside-2` and `outside-target`); with `popupInputs=true` it holds inputs `inside-1`
+    and `inside-2`, then a close labeled "Close". The container records each call of a resolver as
+    `data-initial-focus-calls` and `data-final-focus-calls` (the interaction types, `unknown` for Base UI's `''`).
+*@
+<FixtureContainer Name="popover-focus" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-initial-focus-calls="@string.Join(' ', initialCalls)" data-final-focus-calls="@string.Join(' ', finalCalls)">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <input data-testid="outside-before" aria-label="Outside before" />
+    <PopoverRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <PopoverTrigger TPayload="NoPayload" @ref="trigger">Open</PopoverTrigger>
+        <PopoverPortal>
+            <PopoverPositioner>
+                <PopoverPopup data-testid="popup" InitialFocus="@initialFocus" InitialFocusResolver="@initialResolver"
+                              FinalFocus="@finalFocus" FinalFocusResolver="@finalResolver">
+                    @if (popupInputs)
+                    {
+                        <input data-testid="inside-1" aria-label="Inside 1" />
+                        <input id="inside-2" data-testid="inside-2" aria-label="Inside 2" />
+                    }
+                    <PopoverClose>Close</PopoverClose>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </PopoverRoot>
+    <input id="outside-target" data-testid="outside-target" aria-label="Outside target" />
+</FixtureContainer>
+
+@code {
+    private readonly List<string> initialCalls = [];
+    private readonly List<string> finalCalls = [];
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private bool popupInputs;
+    private FocusTargetValue? initialFocus;
+    private Func<InteractionType, FocusTargetValue?>? initialResolver;
+    private FocusTargetValue? finalFocus;
+    private Func<InteractionType, FocusTargetValue?>? finalResolver;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        popupInputs = QueryFlag("popupInputs") == true;
+        (initialFocus, initialResolver) = Prop(Query("initialFocus"), "inside-2", initialCalls, keyboardElse: null);
+        (finalFocus, finalResolver) = Prop(Query("finalFocus"), "outside-target", finalCalls, keyboardElse: new FocusTargetValue(true));
+    }
+
+    // The suite's PopupFocusPropFactory: a resolver's `null` moves no focus (Base UI's `undefined`) and `true` is the
+    // default target (Base UI's `null` and `true`; ADR 08 Amendments 2026-10-28).
+    private (FocusTargetValue? Value, Func<InteractionType, FocusTargetValue?>? Resolver) Prop(string? option, string targetId, List<string> calls, FocusTargetValue? keyboardElse)
+    {
+        FocusTargetValue target = new(targetId);
+        Func<InteractionType, FocusTargetValue?> Recorded(Func<InteractionType, FocusTargetValue?> resolve) => type =>
+        {
+            calls.Add(type == InteractionType.Unknown ? "unknown" : type.ToString().ToLowerInvariant());
+            StateHasChanged();
+            return resolve(type);
+        };
+
+        return option switch
+        {
+            "false" => (new FocusTargetValue(false), null),
+            "ref" => (target, null),
+            "fn-element" => (null, Recorded(_ => target)),
+            "fn-true" => (null, Recorded(_ => new FocusTargetValue(true))),
+            "fn-null" => (null, Recorded(_ => new FocusTargetValue(true))),
+            "fn-keyboard" => (null, Recorded(type => type == InteractionType.Keyboard ? target : keyboardElse)),
+            _ => (null, null),
+        };
+    }
+}
