@@ -9,7 +9,7 @@
     N, text "Trigger N"), then Portal > Positioner > Popup (`popup`) > Viewport (`viewport`) holding
     `<div data-testid="content">Content[ <payload>]</div>`. The query is the suite's contract (open, defaultOpen,
     defaultTriggerId, keepMounted, side with collision avoidance side none, direction, case=controlled|retained|lagging,
-    strict, triggerCount). The controls carry `data-key-control` and act on a Shift keydown beside their click
+    strict, triggerCount); `[data-unmount]` unmounts the whole root (design point 2's dispose mid-switch). The controls carry `data-key-control` and act on a Shift keydown beside their click
     (`OnShift`), which the suites dispatch: a click would be an outside press (tests/browser/CONTEXT.md).
 *@
 <FixtureContainer Name="popover-viewport" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
@@ -18,8 +18,12 @@
     <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
     <button type="button" data-remount-trigger data-key-control @onclick="RemountAsync" @onkeydown="OnShift(RemountAsync)">Remount trigger</button>
     <button type="button" data-set-payload data-key-control @onclick='() => laggingPayload = "ready"' @onkeydown='OnShift(() => laggingPayload = "ready")'>Set payload</button>
+    <button type="button" data-unmount data-key-control @onclick="() => mounted = false" @onkeydown="OnShift(() => mounted = false)">Unmount</button>
 
-    @if (direction == TextDirection.Rtl)
+    @if (!mounted)
+    {
+    }
+    else if (direction == TextDirection.Rtl)
     {
         <DirectionProvider Direction="TextDirection.Rtl">@Root</DirectionProvider>
     }
@@ -43,6 +47,7 @@
     private int triggerKey;
     private bool strict;
     private string? laggingPayload;
+    private bool mounted = true;
 
     protected override IEnumerable<Task> Attachments =>
         [.. triggerRefs.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];

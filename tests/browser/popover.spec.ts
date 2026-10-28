@@ -1,7 +1,7 @@
 import { expect, test } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
-import { gotoPopupFixture } from './suites/popupFixture';
+import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
@@ -81,6 +81,38 @@ test.describe('<Popover.Popup /> inside a toolbar', () => {
 
     expect(await input.evaluate((element) => (element as HTMLInputElement).selectionStart)).toBe(1);
     await expect(page.getByRole('button', { name: 'Last' })).not.toBeFocused();
+  });
+});
+
+// Design point 2 of M4 track 5 (settled by the orchestrator 2026-10-28): JavaScript inserts `[data-previous]` before C#'s
+// keyed `[data-current]`. The issue-8-style proof on both modes: mid-switch, a C# re-render keeps the inserted container
+// and Blazor's own nodes in place, and disposing the popup removes it with nothing left behind (the suite's lagging-payload
+// title is the C# remount).
+test.describe('<Popover.Viewport /> mid-switch', () => {
+  test('port: a C# re-render keeps [data-previous] before [data-current], and a dispose removes both', async ({ page, mode }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const fixture = await gotoPopupFixture(page, mode, 'popover-viewport', { animations: 1 });
+    await page.addStyleTag({
+      content: '@keyframes popover-hold { from { opacity: 0.5; } } [data-testid="viewport"] [data-current] { animation: popover-hold 10s; }',
+    });
+    const viewport = page.getByTestId('viewport');
+
+    await page.getByTestId('trigger-1').click();
+    await expect(viewport.locator('[data-current]')).toHaveText('Content 1');
+    await page.getByTestId('trigger-2').click();
+    await expect(viewport.locator('[data-previous]')).toHaveText('Content 1');
+
+    await settle(fixture);
+
+    await expect(viewport.locator(':scope > [data-previous] + [data-current]')).toHaveText('Content 2');
+    await expect(viewport.locator('[data-previous]')).toHaveCount(1);
+
+    await pressControl(fixture.locator('[data-unmount]'));
+
+    await expect(page.locator('[data-previous]')).toHaveCount(0);
+    await expect(page.getByTestId('viewport')).toHaveCount(0);
+    expect(errors).toEqual([]);
   });
 });
 
