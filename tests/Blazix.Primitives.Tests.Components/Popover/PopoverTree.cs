@@ -61,6 +61,14 @@ internal sealed record PopoverSpec
 
     public Func<PopoverPopupState, string?>? PopupClass { get; init; }
 
+    public FocusTargetValue? InitialFocus { get; init; }
+
+    public Func<InteractionType, FocusTargetValue?>? InitialFocusResolver { get; init; }
+
+    public FocusTargetValue? FinalFocus { get; init; }
+
+    public Func<InteractionType, FocusTargetValue?>? FinalFocusResolver { get; init; }
+
     public Action<PopoverRoot<int>>? CaptureRoot { get; init; }
 }
 
@@ -186,6 +194,26 @@ internal static class PopoverTree
                 if (spec.PopupClass is not null)
                 {
                     p.AddComponentParameter(3, nameof(PopoverPopup.ClassValue), spec.PopupClass);
+                }
+
+                if (spec.InitialFocus is not null)
+                {
+                    p.AddComponentParameter(4, nameof(PopoverPopup.InitialFocus), spec.InitialFocus);
+                }
+
+                if (spec.InitialFocusResolver is not null)
+                {
+                    p.AddComponentParameter(5, nameof(PopoverPopup.InitialFocusResolver), spec.InitialFocusResolver);
+                }
+
+                if (spec.FinalFocus is not null)
+                {
+                    p.AddComponentParameter(6, nameof(PopoverPopup.FinalFocus), spec.FinalFocus);
+                }
+
+                if (spec.FinalFocusResolver is not null)
+                {
+                    p.AddComponentParameter(7, nameof(PopoverPopup.FinalFocusResolver), spec.FinalFocusResolver);
                 }
 
                 p.CloseComponent();

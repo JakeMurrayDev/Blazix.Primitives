@@ -20,6 +20,8 @@ internal sealed class PopoverTestContext : IDisposable
 
     public const string PopupPath = "./_content/Blazix.Primitives/js/popup.js";
 
+    public const string FocusManagerPath = "./_content/Blazix.Primitives/js/focus-manager.js";
+
     private const string ClickTemplate = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
          "metaKey":false,"shiftKey":false,"pointerType":"{0}","detail":{1},"buttons":0,
@@ -44,6 +46,10 @@ internal sealed class PopoverTestContext : IDisposable
         PopupHandle = Popup.SetupModule("attach", _ => true);
         PopupHandle.SetupVoid("update", _ => true).SetVoidResult();
         PopupHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        FocusManager = Context.JSInterop.SetupModule(FocusManagerPath);
+        FocusManagerHandle = FocusManager.SetupModule("attach", _ => true);
+        FocusManagerHandle.SetupVoid("update", _ => true).SetVoidResult();
+        FocusManagerHandle.SetupVoid("dispose", _ => true).SetVoidResult();
     }
 
     public BunitContext Context { get; } = new();
@@ -55,6 +61,23 @@ internal sealed class PopoverTestContext : IDisposable
     public BunitJSModuleInterop Popup { get; }
 
     public BunitJSModuleInterop PopupHandle { get; }
+
+    public BunitJSModuleInterop FocusManager { get; }
+
+    public BunitJSModuleInterop FocusManagerHandle { get; }
+
+    /// <summary>Gets the options JSON the <c>focus-manager</c> handle sent last: its attach's, or its latest update's.</summary>
+    public string? LastFocusOptions()
+    {
+        IReadOnlyList<JSRuntimeInvocation> updates = FocusManagerHandle.Invocations["update"];
+        if (updates.Count > 0)
+        {
+            return updates[^1].Arguments[0] as string;
+        }
+
+        IReadOnlyList<JSRuntimeInvocation> attaches = FocusManager.Invocations["attach"];
+        return attaches.Count > 0 ? attaches[^1].Arguments[1] as string : null;
+    }
 
     /// <summary>Gets the options JSON the <c>popup</c> handle of a role sent last: its attach's, or its latest update's.</summary>
     /// <param name="role">The role's JSON key: <c>viewport</c>, <c>positioner</c> or <c>popup</c>.</param>
