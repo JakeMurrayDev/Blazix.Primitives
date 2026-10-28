@@ -7,6 +7,11 @@ import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
 // `positioning`'s reader stands in for an attached Positioner: the rendered physical side is the attribute the test sets.
 const placementReads = vi.hoisted(() => ({ count: 0 }));
+const named = vi.hoisted(() => ({ calls: [] as { token: string; element: Element }[] }));
+vi.mock('./interactions', () => ({
+  getSession: (token: string) => ({ token }),
+  nameRelayTrigger: (session: { token: string }, element: Element) => named.calls.push({ token: session.token, element }),
+}));
 vi.mock('./positioning', () => ({
   readPlacement: (element: Element) => {
     placementReads.count += 1;
@@ -24,7 +29,7 @@ const {
   getPopupAnchoringStyles,
   touchOpenLocksScroll,
 } = await import('./popup');
-import type { Offset, PopupOptions, PopupViewportReport } from './popup';
+import type { Offset, PopupGuardFocus, PopupOptions, PopupViewportReport } from './popup';
 import { resetScrollLockForTest, scrollLockCount } from './scroll-lock';
 import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
@@ -558,5 +563,120 @@ describe('the popup', () => {
 
     expect(reached).toHaveBeenCalledTimes(2);
     expect(reached.mock.calls[1]![0].key).toBe('Tab');
+  });
+});
+
+describe('the trigger guards', () => {
+  /** What C# renders: an outside button, the pre-guard, the trigger, the focus target, an after button and the portaled positioner. */
+  function renderGuards() {
+    const before = Object.assign(document.createElement('button'), { id: 'before', textContent: 'Before' });
+    const guard = (): HTMLElement => {
+      const span = document.createElement('span');
+      span.tabIndex = 0;
+      span.setAttribute('data-base-ui-focus-guard', '');
+      span.setAttribute('aria-hidden', 'true');
+      return span;
+    };
+    const preGuard = guard();
+    const trigger = Object.assign(document.createElement('button'), { id: 'trigger', textContent: 'Trigger' });
+    const focusTarget = guard();
+    const after = Object.assign(document.createElement('button'), { id: 'after', textContent: 'After' });
+    const positioner = document.createElement('div');
+    const contentGuard = guard();
+    const popup = Object.assign(document.createElement('div'), { id: 'popup' });
+    const inside = Object.assign(document.createElement('button'), { id: 'inside', textContent: 'Inside' });
+    popup.appendChild(inside);
+    positioner.append(contentGuard, popup);
+    document.body.append(before, preGuard, trigger, focusTarget, after, positioner);
+    return { before, preGuard, trigger, focusTarget, after, positioner, contentGuard, inside };
+  }
+
+  const triggerOptions: PopupOptions = { sessionToken: 'session', trigger: { guards: true, popupId: 'popup' } };
+
+  /** A WebAssembly twin: it records the handover and the decision, and C# closes inside the decision. */
+  function synchronousTwin(onDecide: () => void) {
+    const calls: { method: string; args: unknown[] }[] = [];
+    const twin = {
+      invokeMethod<T>(method: string, ...args: unknown[]): T {
+        calls.push({ method, args });
+        if (method === 'Decide') {
+          onDecide();
+          return 'run' as T;
+        }
+        return true as T;
+      },
+      invokeMethodAsync<T>(method: string, ...args: unknown[]): Promise<T> {
+        calls.push({ method, args });
+        return Promise.resolve(undefined as T);
+      },
+    };
+    return { twin, calls };
+  }
+
+  beforeEach(() => {
+    named.calls.length = 0;
+  });
+
+  it('port: on Server, focusing the pre-guard names it, focuses the tabbable before the trigger and reports the guard', () => {
+    const rendered = renderGuards();
+    const twin = createFakeTwin();
+    attachTo(rendered.trigger, triggerOptions, twin);
+
+    rendered.preGuard.focus();
+
+    expect(document.activeElement).toBe(rendered.before);
+    expect(named.calls).toEqual([{ token: 'session', element: rendered.preGuard }]);
+    const report = twin.reported<PopupGuardFocus>('OnGuardFocus').at(-1);
+    expect(report?.guard).toBe('before');
+    expect(report?.event.type).toBe('focusin');
+  });
+
+  it('port: on WebAssembly, the guard is handed over, the close commits inside the decision, then the tabbable after the trigger takes focus', () => {
+    const rendered = renderGuards();
+    rendered.inside.focus();
+    let decidedWhileFocused: Element | null = null;
+    const { twin, calls } = synchronousTwin(() => {
+      decidedWhileFocused = document.activeElement;
+    });
+    handles.push(attach(rendered.trigger, JSON.stringify(triggerOptions), twin));
+
+    rendered.focusTarget.focus();
+
+    const handover = calls.find((call) => call.method === 'OnGuardFocusing');
+    expect(JSON.parse(handover!.args[0] as string)).toEqual({ guard: 'after' });
+    expect(calls.some((call) => call.method === 'Decide' && call.args[0] === 'guard')).toBe(true);
+    expect(decidedWhileFocused).toBe(rendered.focusTarget);
+    expect(document.activeElement).toBe(rendered.after);
+    expect(named.calls.map((call) => call.element)).toEqual([rendered.focusTarget]);
+  });
+
+  it('port: Tab onto the focus target from outside the popup moves into the popup content, closing nothing', () => {
+    const rendered = renderGuards();
+    const twin = createFakeTwin();
+    attachTo(rendered.trigger, triggerOptions, twin);
+    rendered.trigger.focus();
+
+    rendered.focusTarget.focus();
+
+    expect(document.activeElement).toBe(rendered.contentGuard);
+    expect(twin.reported('OnGuardFocus')).toEqual([]);
+    expect(named.calls).toEqual([]);
+  });
+
+  it('port: the guards follow the option on update: released while off, listened to again once on', () => {
+    const rendered = renderGuards();
+    const twin = createFakeTwin();
+    const handle = attachTo(rendered.trigger, triggerOptions, twin);
+
+    handle.update(JSON.stringify({ ...triggerOptions, trigger: { guards: false, popupId: 'popup' } }));
+    rendered.preGuard.focus();
+    expect(document.activeElement).toBe(rendered.preGuard);
+
+    rendered.after.focus();
+    handle.update(JSON.stringify(triggerOptions));
+    rendered.preGuard.focus();
+
+    expect(document.activeElement).toBe(rendered.before);
+    expect(twin.reported('OnGuardFocus')).toHaveLength(1);
   });
 });
