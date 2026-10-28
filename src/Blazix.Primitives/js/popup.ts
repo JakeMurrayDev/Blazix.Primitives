@@ -20,6 +20,10 @@
 //   triggers once the positioner's animations finish (POP-ANI-07; C# writes `trigger-change`).
 // - The Popup (POP-KEY-12, DLG-KEY-09): the composite keys' `keydown` stops at the popup when the option says so.
 import { getCssDimensions, isShadowRoot, ownerDocument, ownerWindow, styleWriter, type Dimensions, type StyleLayer } from './dom';
+import { eventInfo, type EventInfo } from './event-info';
+import { getTabbableNearElement, isOutsideEvent } from './focus-manager';
+import { getSession, nameRelayTrigger } from './interactions';
+import { platform } from './platform';
 import { readPlacement } from './positioning';
 import { acquireScrollLock } from './scroll-lock';
 import { createAnimationsWatcher, createFrameSlot, type AnimationsWatcher } from './transitions';
@@ -30,6 +34,15 @@ export const VIEWPORT_REPORT = 'OnViewportChange';
 
 /** The report that a move between triggers has finished animating. */
 export const TRIGGER_CHANGE_REPORT = 'OnTriggerChangeSettled';
+
+/** The decision point a focused trigger guard asks on WebAssembly; C# closes the popup inside it. */
+export const GUARD_POINT = 'guard';
+
+/** The report a focused trigger guard sends on Server, after the module moved focus. */
+export const GUARD_REPORT = 'OnGuardFocus';
+
+/** The synchronous handover of the focused guard before {@link GUARD_POINT} on WebAssembly. */
+export const GUARD_HANDOVER = 'OnGuardFocusing';
 
 /** The options of a Viewport's handle; mirrors `PopupViewportOptions` in C#. */
 export interface PopupViewportOptions {
@@ -61,12 +74,27 @@ export interface PopupElementOptions {
   stopCompositeKeys?: boolean;
 }
 
+/** The options of the trigger role; mirrors `PopupTriggerOptions` in C#. */
+export interface PopupTriggerOptions {
+  /** Whether the trigger's focus guards render beside it (it owns the open popup outside focus-manager-modal mode). */
+  guards?: boolean;
+  /** The popup's id; its parent is the positioner the guards' destinations skip. */
+  popupId?: string | null;
+}
+
 /** The options of a `popup` handle; mirrors `PopupOptions` in C#. Exactly one role is set. */
 export interface PopupOptions extends TwinOptions {
   sessionToken?: string | null;
   viewport?: PopupViewportOptions | null;
   positioner?: PopupPositionerOptions | null;
+  trigger?: PopupTriggerOptions | null;
   popup?: PopupElementOptions | null;
+}
+
+/** The payload of {@link GUARD_REPORT}; mirrors `PopupGuardFocus` in C#. */
+export interface PopupGuardFocus {
+  guard: 'before' | 'after';
+  event: EventInfo;
 }
 
 /** The payload of {@link VIEWPORT_REPORT}; mirrors `PopupViewportReport` in C#. */
@@ -199,7 +227,9 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     ? attachViewport(element, options, channel)
     : options.positioner
       ? attachPositioner(element, options, channel)
-      : attachPopupElement(element, options);
+      : options.trigger
+        ? attachTrigger(element, options, channel, twinReference)
+        : attachPopupElement(element, options);
   role.update(options, references);
 
   let disposed = false;
@@ -705,3 +735,95 @@ function attachPopupElement(popup: HTMLElement, initial: PopupOptions): RoleHand
     },
   };
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// The Trigger
+// ---------------------------------------------------------------------------------------------------------------
+
+const FOCUS_GUARD = 'data-base-ui-focus-guard';
+
+// Design point 5 of M4 track 5 (settled by the orchestrator 2026-10-28); useTriggerFocusGuards.ts, FocusGuard.tsx. C#
+// renders the guards beside the trigger while it owns the open popup outside focus-manager-modal mode; the module listens
+// on them. A focused guard names itself as the close's trigger (interactions' `nameRelayTrigger`, design point 4's
+// sub-point), then: on WebAssembly it hands the guard over and asks `guard`, inside which C# closes the popup, and focuses
+// the tabbable beside the trigger; on Server it focuses at once and reports. Tab onto the focus target from outside the
+// popup moves into the popup's content instead.
+function attachTrigger(trigger: HTMLElement, initial: PopupOptions, channel: TwinChannel, twinReference: DotNetTwin): RoleHandle {
+  let options: PopupTriggerOptions = initial.trigger ?? {};
+  let sessionToken = initial.sessionToken ?? null;
+  let guards: (HTMLElement | null)[] = [null, null];
+  const swapped = new WeakSet<Element>();
+
+  const guardAt = (node: Element | null): HTMLElement | null => (node instanceof HTMLElement && node.hasAttribute(FOCUS_GUARD) ? node : null);
+
+  const positioner = (): HTMLElement | null => {
+    const popup = options.popupId ? findById(trigger, options.popupId) : null;
+    return popup?.parentElement ?? null;
+  };
+
+  // useTriggerFocusGuards.ts:42-58: the destination is resolved after the close, from the trigger if the guard left.
+  const closeAndFocus = (event: FocusEvent, guard: HTMLElement, name: 'before' | 'after', direction: 1 | -1): void => {
+    const session = sessionToken ? getSession(sessionToken) : undefined;
+    if (session) {
+      nameRelayTrigger(session, guard);
+    }
+    const destination = () => getTabbableNearElement(guard.isConnected ? guard : trigger, direction, positioner());
+    if (channel.synchronous) {
+      twinReference.invokeMethod<void>(GUARD_HANDOVER, JSON.stringify({ guard: name }));
+      channel.decide(GUARD_POINT, event, 'run');
+      destination()?.focus();
+      return;
+    }
+    destination()?.focus();
+    channel.report(GUARD_REPORT, { guard: name, event: eventInfo(event) } satisfies PopupGuardFocus);
+  };
+
+  const onBefore = (event: FocusEvent): void => closeAndFocus(event, event.currentTarget as HTMLElement, 'before', -1);
+
+  const onAfter = (event: FocusEvent): void => {
+    const container = positioner();
+    if (container !== null && isOutsideEvent(event, container)) {
+      container.querySelector<HTMLElement>(`[${FOCUS_GUARD}]`)?.focus();
+      return;
+    }
+    closeAndFocus(event, event.currentTarget as HTMLElement, 'after', 1);
+  };
+
+  const sync = (): void => {
+    const wanted = options.guards === true ? [guardAt(trigger.previousElementSibling), guardAt(trigger.nextElementSibling)] : [null, null];
+    if (wanted[0] === guards[0] && wanted[1] === guards[1]) {
+      return;
+    }
+    release();
+    guards = wanted;
+    // React's `onFocus` is `focusin`.
+    guards[0]?.addEventListener('focusin', onBefore);
+    guards[1]?.addEventListener('focusin', onAfter);
+    for (const element of guards) {
+      // FocusGuard.tsx:16-24: VoiceOver's virtual cursor fires focus only on a WebKit `role="button"` element.
+      if (element !== null && !swapped.has(element) && platform.screenReader.voiceOver && platform.engine.webkit) {
+        swapped.add(element);
+        element.setAttribute('role', 'button');
+        element.removeAttribute('aria-hidden');
+      }
+    }
+  };
+
+  const release = (): void => {
+    guards[0]?.removeEventListener('focusin', onBefore);
+    guards[1]?.removeEventListener('focusin', onAfter);
+  };
+
+  return {
+    update(next) {
+      options = next.trigger ?? {};
+      sessionToken = next.sessionToken ?? null;
+      sync();
+    },
+    dispose() {
+      release();
+      guards = [null, null];
+    },
+  };
+}
+
