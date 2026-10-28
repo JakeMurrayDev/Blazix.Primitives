@@ -417,5 +417,23 @@ public sealed class PopoverPartsTests : IDisposable
         Assert.False(backdrop.HasAttribute("hidden"));
     }
 
+    [Fact(DisplayName = "port: a detached trigger rendered before its root joins the root's session once the root attaches the handle")]
+    [Trait("Requirement", "POP-API-13")]
+    [Trait("Requirement", "POP-STR-12")]
+    public void A_detached_trigger_rendered_before_its_root_joins_the_root_session()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { DetachedTriggers = true, Handle = new PopoverHandle<int>() });
+        string token = cut.FindComponent<PopoverRoot<int>>().Instance.Store.SessionToken!;
+
+        // The press reaches the module's session only through a trigger handle attached under the root's token: one
+        // attached under the fallback store's missing token would stay outside the session, and its press would read as
+        // an outside press.
+        IReadOnlyList<string> triggerAttaches = [.. test.Interactions.Invocations["attach"]
+            .Select(attach => (string)attach.Arguments[1]!)
+            .Where(options => options.Contains("\"triggerId\":\"trigger-1\"", StringComparison.Ordinal))];
+        string attached = Assert.Single(triggerAttaches);
+        Assert.Contains($"\"sessionToken\":\"{token}\"", attached, StringComparison.Ordinal);
+    }
+
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }
