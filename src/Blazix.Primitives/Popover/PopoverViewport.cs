@@ -180,8 +180,11 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
         }
 
         await PopupPortalContext.WhenMoved(Portal);
+        // Design point 13.13 of M4 track 6 (ADR 04 Amendments 2026-10-28): the module reads the active trigger from the
+        // interactions session of this token.
         await module!.SyncAsync(element, new PopupOptions
         {
+            SessionToken = RootContext!.SessionToken,
             Viewport = new PopupViewportOptions
             {
                 Open = open!.Value,

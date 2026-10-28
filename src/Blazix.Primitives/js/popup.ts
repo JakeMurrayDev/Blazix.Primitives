@@ -22,7 +22,7 @@
 import { getCssDimensions, isShadowRoot, ownerDocument, ownerWindow, styleWriter, type Dimensions, type StyleLayer } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import { getTabbableNearElement, isOutsideEvent } from './focus-manager';
-import { getSession, nameRelayTrigger } from './interactions';
+import { acquireSession, getSession, nameRelayTrigger, releaseSession, type InteractionSession } from './interactions';
 import { platform } from './platform';
 import { readPlacement } from './positioning';
 import { acquireScrollLock } from './scroll-lock';
@@ -252,17 +252,11 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   return handle;
 }
 
-// Ids and the active trigger resolve from the node's own root first (its shadow root, else its document), then from its
-// document, as `composite` resolves its items (ADR 04 Amendments 2026-10-22 and 2026-10-26; track 5's early review
-// item 8).
+// An id resolves from the node's own root first (its shadow root, else its document), then from its document, as
+// `composite` resolves its items (ADR 04 Amendments 2026-10-22 and 2026-10-26; track 5's early review item 8).
 function findById(node: Node, id: string): Element | null {
   const scope = node.getRootNode();
   return (isShadowRoot(scope) ? scope.getElementById(id) : null) ?? ownerDocument(node).getElementById(id);
-}
-
-function findBySelector(node: Node, selector: string): Element | null {
-  const scope = node.getRootNode();
-  return (isShadowRoot(scope) ? scope.querySelector(selector) : null) ?? ownerDocument(node).querySelector(selector);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -302,16 +296,23 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     }
   };
 
-  // The applied batch's active trigger: the one whose aria-controls names the popup and whose aria-expanded is true (a
-  // hover family's trigger names it in aria-describedby while it renders data-popup-open).
-  const findTrigger = (): Element | null => {
-    const id = popup?.id || options.popupId;
-    if (!id) {
-      return null;
+  // The active trigger is the `interactions` session's reference element, acquired by the token as `positioning` does
+  // (design point 13.13 of M4 track 6, settled by the orchestrator 2026-10-28, ADR 04 Amendments 2026-10-28): every
+  // family's trigger, including Tooltip's and PreviewCard's, which render no aria-controls (usePopupViewport reads the
+  // store's activeTriggerElement).
+  let session: InteractionSession | null = null;
+  let sessionToken: string | null = null;
+  const useSession = (token: string | null): void => {
+    if (token === sessionToken) {
+      return;
     }
-    const quoted = id.replace(/["\\]/g, '\\$&');
-    return findBySelector(viewport, `[aria-expanded="true"][aria-controls~="${quoted}"],[data-popup-open][aria-describedby~="${quoted}"]`);
+    if (session !== null) {
+      releaseSession(session);
+    }
+    sessionToken = token;
+    session = token === null ? null : acquireSession(token);
   };
+  const findTrigger = (): Element | null => session?.domReferenceElement ?? null;
 
   // usePopupViewport.tsx:122-156: the starting-style choreography, then the previous container leaves once the current
   // container's animations finish. Re-run when the current container remounts mid-transition.
@@ -515,6 +516,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   let attached = false;
   return {
     update(next) {
+      useSession(next.sessionToken ?? null);
       // On WebAssembly C#'s after-render update runs in the task that applied the render batch, before the observer's
       // microtask: the removed `[data-current]` is only in the pending records, so they are handled first.
       const pending = observer.takeRecords();
@@ -554,6 +556,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       popupLayer?.clear();
       positionerLayer?.clear();
       viewport.removeAttribute(TRANSITIONING);
+      useSession(null);
     },
   };
 }
