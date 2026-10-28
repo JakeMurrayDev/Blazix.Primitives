@@ -70,6 +70,11 @@ async function freezeClock(page: Page): Promise<void> {
   frozenPages.add(page);
 }
 
+/** Runs one frame of a paused clock: a closed popup with no exit animation leaves on the next frame (TIP-ANI-01). */
+async function runFrame(page: Page): Promise<void> {
+  await page.clock.runFor(16);
+}
+
 /**
  * Presses and releases the real pointer where it rests, a click with no move before it: Playwright's `click()` moves to the
  * element first, and that move restarts a pending rest timer, where Base UI's titles dispatch the click alone.
@@ -480,6 +485,9 @@ for (const variant of trio) {
         await expect(popup(page)).toBeVisible();
 
         await clickInPlace(page);
+        // Base UI's jsdom removes the popup in the click's commit; a browser removes it on the next frame (TIP-ANI-01),
+        // which the paused clock runs here.
+        await runFrame(page);
 
         await expect(popup(page)).toHaveCount(0);
         // The pointerdown closes; on Server the click that follows reaches the module before the commit, as one during an
@@ -647,6 +655,8 @@ test.describe('<Tooltip.Provider />', () => {
       await expect(popup(page, 1)).toHaveText('Content One');
 
       await trigger(page, 2).hover();
+      // Base UI's `tick(0)`; the first popup's removal is on the next frame (TIP-ANI-01).
+      await runFrame(page);
 
       await expect(popup(page, 2)).toHaveText('Content Two');
       await expect(popup(page, 1)).toHaveCount(0);
