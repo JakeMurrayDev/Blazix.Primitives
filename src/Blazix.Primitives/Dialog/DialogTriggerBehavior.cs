@@ -8,7 +8,7 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives;
 
 // The trigger half every dialog-family trigger composes (dialog/trigger/DialogTrigger.tsx; ADR 08 Amendments 2026-10-27, the
-// Input/FieldControl precedent). Three behaviours on the trigger's own element (issue 115: the bag's id is the trigger id):
+// Input/FieldControl precedent). Three behaviors on the trigger's own element (issue 115: the bag's id is the trigger id):
 // - PopupTriggerBehavior: the store (the handle's, else the root's), registration by id at parameter set, the payload,
 //   aria-expanded, aria-haspopup="dialog", aria-controls (DLG-ARIA-01..03, PSH-STR-02);
 // - ButtonBehavior in the CollapsibleTrigger configuration (DLG §11: native, no focusable-when-disabled, not composite);

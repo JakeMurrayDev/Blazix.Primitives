@@ -3,7 +3,7 @@ import { expect, test } from '../helpers';
 import { gotoPopupFixture, openChanges } from './popupFixture';
 
 // Base UI's dialogRootSharedTests (packages/react/test/dialogRootSharedTests.tsx at v1.9.0), titles verbatim, as a
-// Playwright helper (ADR 09 Amendments 2026-10-27; M4 track 8). Root behaviour Dialog and AlertDialog share: the alert mode
+// Playwright helper (ADR 09 Amendments 2026-10-27; M4 track 8). Root behavior Dialog and AlertDialog share: the alert mode
 // only changes modality, pointer dismissal and the popup role. The family's fixture page plays Base UI's trees by `case`:
 // `trigger-close`, `prevent-unmount`, `prevent-once`, `close-method` and `payload`, with the buttons `[data-unmount]`,
 // `[data-close]`, `[data-open-with-payload]` and `[data-handle-close]` standing for the actions ref and the handle, and the

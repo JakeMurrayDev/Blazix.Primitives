@@ -9,7 +9,7 @@ namespace Blazix.Primitives;
 // dialog-family root owns, over the shared popup store, and the context its non-generic parts and a nested root read.
 // - DLG-STA-15: the shared sequence (PopupStore.RequestOpenAsync) with Dialog's back-fill of a close's trigger (step 2,
 //   EVD-EVT-16) in PrepareOpenChange; Dialog writes no instant phase.
-// - DLG-EVT-05 (ADR 05 Amendments 2026-10-27, DLG §16 Q1 resolved as observed): PreventUnmountOnClose() is honoured even
+// - DLG-EVT-05 (ADR 05 Amendments 2026-10-27, DLG §16 Q1 resolved as observed): PreventUnmountOnClose() is honored even
 //   when the same callback cancels, and acts on the next close that is not canceled (UnmountPreventionAtCall).
 // - DLG-STA-02: the root's props are synced in its OnParametersSet (ApplyRootSettings), with the mode's forced values
 //   (alert mode: modal, no pointer dismissal, the alertdialog role; ADL §3.5).
