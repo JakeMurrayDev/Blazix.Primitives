@@ -2,7 +2,7 @@ namespace Blazix.Primitives;
 
 // PSH-FOC-08; utils/closePart.tsx:12-37 (useClosePartCount, useClosePartRegistration). The Popup cascades it fixed (ADR 16
 // rule 9); every Close inside the Popup registers once and unregisters when it leaves, and the count never goes below 0.
-// Dialog's Popup composes the same count (ADR 04 Amendments 2026-10-27: closePart is track 5's, track 8 does not build it).
+// Only Popover composes it in Base UI (closePart.tsx's users are PopoverPopup and PopoverClose), so it lives here.
 /// <summary>Counts the close parts mounted inside a popup, which decides whether the popup traps focus.</summary>
 /// <param name="changed">Called after the count crosses zero in either direction.</param>
 internal sealed class PopoverClosePartCount(Action changed)

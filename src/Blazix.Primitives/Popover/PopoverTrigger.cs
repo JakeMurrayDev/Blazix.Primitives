@@ -369,12 +369,18 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
         Store.StoreSelection<PopoverStoreState<TPayload>, bool, bool> touchPressOpen,
         Store.StoreSelection<PopoverStoreState<TPayload>, string?, bool> focusGuards)
     {
+        /// <summary>Gets a value indicating whether this trigger opened the popup by a press.</summary>
         public readonly bool PressOpened => pressOpened?.Value ?? false;
 
+        /// <summary>Gets a value indicating whether a touch press opened the popup while hover opening is on.</summary>
         public readonly bool TouchPressOpen => touchPressOpen?.Value ?? false;
 
+        /// <summary>Gets a value indicating whether this trigger renders the focus guards around itself.</summary>
         public readonly bool HasFocusGuards => focusGuards?.Value ?? false;
 
+        /// <summary>Sets the selections' arguments from the trigger's parameters.</summary>
+        /// <param name="id">The trigger's id.</param>
+        /// <param name="openOnHover">Whether the trigger opens the popup on hover.</param>
         public readonly void SetArgs(string? id, bool openOnHover)
         {
             if (pressOpened is null)
