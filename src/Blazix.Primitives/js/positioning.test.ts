@@ -763,6 +763,32 @@ describe('positioning module: the session (FLT-STA-08)', () => {
     expect((spies.computePosition.mock.lastCall?.[0] as { contextElement?: Element }).contextElement).toBe(anchor);
     releaseSession(session);
   });
+
+  it('port: the trigger case follows the session\'s reference element while it has one, so a hand-off re-anchors at once', async () => {
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6; ADR 01's hand-off row): the session's
+    // `domReferenceElement` is the trigger a hand-off named before C# commits it, and C#'s `triggerId` otherwise.
+    const session = acquireSession('base-ui-1');
+    const subscribe = vi.spyOn(session, 'subscribePositionReference');
+    const other = document.createElement('button');
+    stubRect(other, 300, 100, 72, 36);
+    document.body.append(other);
+    let reference: Element | null = null;
+    Object.defineProperty(session, 'domReferenceElement', { configurable: true, get: () => reference });
+    const { trigger } = setup({ sessionToken: 'base-ui-1' });
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+
+    reference = other;
+    subscribe.mock.calls[0]![0]();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(other);
+
+    reference = null;
+    subscribe.mock.calls[0]![0]();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+    releaseSession(session);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------
