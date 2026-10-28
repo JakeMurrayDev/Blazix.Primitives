@@ -23,6 +23,7 @@ import {
   type PositioningOptions,
 } from './positioning';
 import { styleWriter } from './dom';
+import { acquireSession, getSession, releaseSession, resetInteractionsForTest, type SessionVirtualElement } from './interactions';
 import type { TwinHandle, TwinReferences } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
@@ -618,6 +619,57 @@ describe('positioning module: the anchor', () => {
     update({ triggerId: 'trigger' });
     await settle();
     expect(spies.computePosition).toHaveBeenCalled();
+  });
+});
+
+describe('positioning module: the session (FLT-STA-08)', () => {
+  afterEach(() => {
+    resetInteractionsForTest();
+  });
+
+  // The session is the real `interactions` one; its position reference is written as the client point writes it.
+  function setPositionReference(session: object, reference: SessionVirtualElement | null): void {
+    (session as { positionReference: SessionVirtualElement | null }).positionReference = reference;
+  }
+
+  it('takes the session of its token, publishes each committed placement to it, positions against its position reference while one is set, and releases it at dispose (FLT-STA-08)', async () => {
+    const session = acquireSession('base-ui-1');
+    const setPlacement = vi.spyOn(session, 'setPlacement');
+    const subscribe = vi.spyOn(session, 'subscribePositionReference');
+    const { trigger, handle, update } = setup({ sessionToken: 'base-ui-1', side: 'top' });
+    await settle();
+    expect(setPlacement).toHaveBeenLastCalledWith('top');
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    const notify = subscribe.mock.calls[0]![0];
+
+    const point: SessionVirtualElement = {
+      getBoundingClientRect: () => ({ x: 400, y: 300, width: 0, height: 0, top: 300, left: 400, right: 400, bottom: 300 }),
+    };
+    setPositionReference(session, point);
+    notify();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(point);
+
+    update({ side: 'bottom' });
+    await settle();
+    expect(setPlacement).toHaveBeenLastCalledWith('bottom');
+
+    setPositionReference(session, null);
+    notify();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+
+    // A new token moves the handle to that session; the previous one keeps only the test's reference.
+    update({ sessionToken: 'base-ui-2' });
+    await settle();
+    const next = getSession('base-ui-2');
+    expect(next).toBeDefined();
+    releaseSession(session);
+    expect(getSession('base-ui-1')).toBeUndefined();
+
+    handle.dispose();
+    expect(getSession('base-ui-2')).toBeUndefined();
   });
 });
 
