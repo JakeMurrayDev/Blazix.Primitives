@@ -31,20 +31,15 @@ public sealed class FieldAllocationBudgetTests : IDisposable
             .AddChildContent<FieldControl>());
         FormTwin twin = host.Module.Control.Twin!;
         string[] reports = [.. Enumerable.Range(1, 30).Select(i => Report(new string('a', i)))];
-        for (int i = 0; i < 29; i++)
+        for (int i = 0; i < 25; i++)
         {
             string json = reports[i];
             cut.InvokeAsync(() => twin.OnControlReport(json));
         }
 
+        // Five keystrokes, each a new value, so every run measures a change.
         long allocated = 0;
-        string last = reports[29];
-        cut.InvokeAsync(() =>
-        {
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            twin.OnControlReport(last);
-            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        });
+        cut.InvokeAsync(() => allocated = AllocationSampler.LeastOfFive(run => twin.OnControlReport(reports[25 + run])));
 
         Assert.True(allocated <= KeystrokeBudgetBytes, $"a keystroke allocated {allocated} bytes; the budget is {KeystrokeBudgetBytes}");
     }

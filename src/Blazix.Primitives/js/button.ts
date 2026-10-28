@@ -26,6 +26,8 @@ import {
   type TwinChannel,
   type TwinHandle,
   type TwinOptions,
+  type TwinCaptures,
+  type TwinReferences,
 } from './twin';
 
 /** How a click happened, as the enhanced click handler classifies it. */
@@ -387,10 +389,18 @@ function createPressAndHold(element: HTMLElement, twin: TwinChannel, current: ()
  * @param elementOrId The element, or its id when the part has no element reference.
  * @param optionsJson The `ButtonOptions` JSON.
  * @param twinReference The twin's object reference.
+ * @param _references The references, which this module names none of.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson)` and `dispose()`.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
-  const element = resolveElement(elementOrId);
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const element = resolveElement(elementOrId, captures?.[0]);
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<ButtonOptions>(optionsJson);
   let disposed = false;

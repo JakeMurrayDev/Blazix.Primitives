@@ -262,7 +262,7 @@ public sealed class PositionerBehaviorTests : IDisposable
         JsonElement unrendered = PositioningTestContext.Parse(host.AttachOptions);
         Assert.False(unrendered.TryGetProperty("anchorRef", out _));
         Assert.False(unrendered.TryGetProperty("boundaryRefs", out _));
-        Assert.Equal(3, host.Attaches[^1].Arguments.Count);
+        Assert.Null(host.Attaches[^1].Arguments[3]);
     }
 
     [Fact(DisplayName = "falls back to the clipping ancestors for a boundary element or a list of boundary elements not rendered yet")]
@@ -274,7 +274,7 @@ public sealed class PositionerBehaviorTests : IDisposable
         JsonElement list = PositioningTestContext.Parse(host.AttachOptions);
         Assert.Equal("clipping-ancestors", list.GetProperty("collisionBoundary").GetString());
         Assert.False(list.TryGetProperty("boundaryRefs", out _));
-        Assert.Equal(3, host.Attaches[^1].Arguments.Count);
+        Assert.Null(host.Attaches[^1].Arguments[3]);
 
         host.Context.Render<TestPositioner>(p => p.Add(x => x.CollisionBoundary, new CollisionBoundaryValue(default(ElementReference))));
         JsonElement single = PositioningTestContext.Parse(host.AttachOptions);

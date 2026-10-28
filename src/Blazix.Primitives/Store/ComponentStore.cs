@@ -19,6 +19,10 @@ public class ComponentStore<TState> : Store<TState>
     // The mode first seen per field by SyncControlledValue, kept only while development warnings are on (UTL-EDGE-25).
     private Dictionary<object, bool>? controlledModes;
 
+    // UTL-STA-20 in Blazor's order (fidelity correction 2026-10-28, M4 track 8): the SyncedValueWithCleanup that synced
+    // each member last, so a replaced part's cleanup, which Blazor runs after its replacement synced, leaves the member alone.
+    private Dictionary<object, object>? syncedOwners;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ComponentStore{TState}"/> class that holds <paramref name="state"/>, with no
     /// listeners and no <see cref="Logger"/>.
@@ -106,6 +110,26 @@ public class ComponentStore<TState> : Store<TState>
         {
             SetState(field.With(State, value));
         }
+    }
+
+    /// <summary>Records <paramref name="owner"/> as the last to sync the member <paramref name="field"/> names.</summary>
+    /// <param name="field">The key of the member.</param>
+    /// <param name="owner">The synced value that wrote it.</param>
+    internal void ClaimSynced(object field, object owner) => (syncedOwners ??= [])[field] = owner;
+
+    /// <summary>Forgets <paramref name="owner"/> as the member's last syncer, if it still is.</summary>
+    /// <param name="field">The key of the member.</param>
+    /// <param name="owner">The synced value that is cleaning up.</param>
+    /// <returns><see langword="true"/> when <paramref name="owner"/> synced the member last; otherwise, <see langword="false"/>.</returns>
+    internal bool ReleaseSynced(object field, object owner)
+    {
+        if (syncedOwners is null || !syncedOwners.TryGetValue(field, out object? current) || !ReferenceEquals(current, owner))
+        {
+            return false;
+        }
+
+        syncedOwners.Remove(field);
+        return true;
     }
 
     private void WarnOnModeSwitch<TValue>(StoreField<TState, TValue> field, bool controlled)

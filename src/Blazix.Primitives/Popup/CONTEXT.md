@@ -37,6 +37,7 @@ What JavaScript owns (not here): moving the portal node and its cleanup when Bla
 - `PopupRootBehavior`, `PopupTriggerBehavior`: PSH-STR-01/03/04, PSH-STA-16/18..25, PSH-ARIA-01..04/08.
 - `PopupPortalBehavior`, `PopupPortalContext`: FLT-API-13, FLT-DOM-11..14, FLT-ARIA-04/05, FLT-FOC-18, PSH-STR-11/12.
 - `PopupScrollLockBehavior`: UTL-DOM-11/12.
+- `PopupInternalBackdrop`: PSH-STR-09, PSH-DOM-14, PSH-ARIA-06; the markup Dialog's Portal and Popover's Positioner render (design point 3 (a) of M4 track 8, settled by the orchestrator 2026-10-28; ADR 04 Amendments 2026-10-28). No cut-out: Popover's `clip-path` is the `popup` module's write.
 
 ## Outputs
 

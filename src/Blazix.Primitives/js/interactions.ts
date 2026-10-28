@@ -22,7 +22,18 @@ import { decide } from './decide';
 import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
-import { attachTarget, createTwinChannel, type AttachTarget, parseOptions, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
+import {
+  attachTarget,
+  createTwinChannel,
+  type AttachTarget,
+  parseOptions,
+  type DotNetTwin,
+  type TwinChannel,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinReferences,
+  type TwinCaptures,
+} from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constants
@@ -4655,15 +4666,22 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
  * @param optionsJson The JSON of an `InteractionsOptions` with exactly one role set.
  * @param twinReference The twin's `DotNetObjectReference`.
  * @param _references The element-typed option values passed after the options; the module's options carry none.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle.
  */
-export function attach(elementOrId: AttachTarget, optionsJson: string, twinReference: DotNetTwin, _references?: TwinReferences): TwinHandle {
+export function attach(
+  elementOrId: AttachTarget,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
   const options = parseOptions<InteractionsOptions>(optionsJson);
   if (options.provider) {
     return attachProvider(options.provider.token ?? '', options, twinReference);
   }
   const token = options.sessionToken ?? '';
-  const element = attachTarget(elementOrId);
+  const element = attachTarget(elementOrId, captures);
   if (element === null) {
     return attachSession(token, options, twinReference);
   }
