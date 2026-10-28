@@ -401,7 +401,8 @@ describe('the outside guards and the focus inside a non-modal portal', () => {
     expect(app.beforeInside.getAttribute('tabindex')).toBe('0');
   });
 
-  it('port: a modal publication leaves the tabbables alone when focus leaves the node', () => {
+  // The contrast makes the title red where nothing is disabled at all (the red check).
+  it('port: a modal publication leaves the tabbables alone when focus leaves the node, where a non-modal one takes them out', () => {
     const app = renderRouted({ guards: false });
     app.publish(true);
 
@@ -410,6 +411,13 @@ describe('the outside guards and the focus inside a non-modal portal', () => {
 
     expect(app.content.hasAttribute('tabindex')).toBe(false);
     expect(app.content.hasAttribute('data-tabindex')).toBe(false);
+
+    app.publish(false);
+    app.content.focus();
+    app.next.focus();
+
+    expect(app.content.getAttribute('tabindex')).toBe('-1');
+    expect(app.content.getAttribute('data-tabindex')).toBe('');
   });
 
   it('port: an open publication restores the tabbables a focus-out made untabbable, before the focus manager focuses inside', () => {
