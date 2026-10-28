@@ -10,6 +10,8 @@
     `arrow-uncentered` (`ArrowPadding="40"`) and `arrow-centered` (`ArrowPadding="0"`, a 200 px trigger). The root is open
     from its first render, except `collision-padding`, opened by `[data-open-button]`. The suite's cases name the side
     `bottom` where Base UI's suite passes no side; Tooltip's default `top` would flip there anyway, from the viewport's origin.
+    With `viewport: true` (TooltipPositioner.test.tsx runs the suite so): `viewport`, a TooltipViewport in the popup;
+    `viewport-toggle`, `[data-viewport-toggle]` mounts and unmounts it.
 *@
 <FixtureContainer Name="tooltip-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
     <button type="button" data-sync-button style="position: fixed; right: 0; bottom: 0" data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
@@ -62,11 +64,24 @@
                 else
                 {
                     <TooltipPositioner data-testid="positioner" Side="Side.Bottom" SideOffset="SideOffsetFor(Case)" AlignOffset="AlignOffsetFor(Case)">
-                        <TooltipPopup data-popup style="width: 52px; height: 24px">Popup</TooltipPopup>
+                        <TooltipPopup data-popup style="width: 52px; height: 24px">
+                            @if (Case == "viewport" || (Case == "viewport-toggle" && viewport))
+                            {
+                                <TooltipViewport>Popup</TooltipViewport>
+                            }
+                            else
+                            {
+                                @("Popup")
+                            }
+                        </TooltipPopup>
                     </TooltipPositioner>
                 }
             </TooltipPortal>
         </TooltipRoot>
+        @if (Case == "viewport-toggle")
+        {
+            <button type="button" data-viewport-toggle data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => viewport = !viewport" @onkeydown="OnShift(() => viewport = !viewport)">Toggle Viewport</button>
+        }
     }
 </FixtureContainer>
 
@@ -76,6 +91,7 @@
     private TooltipRoot<NoPayload>? root;
     private TooltipTrigger<NoPayload>? trigger;
     private bool open;
+    private bool viewport;
 
     protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
 

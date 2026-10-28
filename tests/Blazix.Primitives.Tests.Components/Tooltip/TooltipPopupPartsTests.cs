@@ -21,6 +21,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Tooltip.Root>")]
     [Trait("Requirement", "TIP-EDGE-02")]
     [Trait("Requirement", "TIP-STR-05")]
+    [Trait("Requirement", "TIP-STR-08")]
     public void Throws_a_descriptive_error_when_rendered_outside_the_root()
     {
         const string message = "Blazix: `TooltipRootContext` is missing. Tooltip parts must be placed within `<TooltipRoot>`.";
@@ -29,6 +30,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipPortal>()).Message);
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipPopup>()).Message);
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipArrow>()).Message);
+        Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipViewport>()).Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Tooltip.Portal>")]
@@ -49,6 +51,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
     [Trait("Requirement", "TIP-EDGE-04")]
     [Trait("Requirement", "TIP-STR-06")]
     [Trait("Requirement", "TIP-STR-07")]
+    [Trait("Requirement", "TIP-STR-08")]
     public void Throws_a_descriptive_error_when_rendered_outside_the_positioner()
     {
         const string message = "Blazix: `TooltipPositionerContext` is missing. `TooltipPositioner` parts must be placed within `<TooltipPositioner>`.";
@@ -61,6 +64,11 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => RenderOpen(builder =>
         {
             builder.OpenComponent<TooltipArrow>(0);
+            builder.CloseComponent();
+        })).Message);
+        Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => RenderOpen(builder =>
+        {
+            builder.OpenComponent<TooltipViewport>(0);
             builder.CloseComponent();
         })).Message);
     }

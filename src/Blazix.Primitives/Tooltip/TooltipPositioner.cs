@@ -306,7 +306,7 @@ public sealed class TooltipPositioner : PartBase<TooltipPositionerState>
             Mounted = current.Mounted,
             KeepMounted = portalContext!.KeepMounted,
             TransitionStatus = current.TransitionStatus,
-            AdaptiveOrigin = false,
+            AdaptiveOrigin = current.AdaptiveOrigin,
             TriggerId = current.ActiveTriggerId,
             SessionToken = root!.SessionToken,
         });

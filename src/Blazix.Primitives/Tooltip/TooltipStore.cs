@@ -6,7 +6,8 @@ namespace Blazix.Primitives;
 // TIP §4.1 (tooltip/store/TooltipStore.ts:17-27, 120-141); ADR 05 Amendments 2026-10-27 (the composed store record, chosen
 // by the user 2026-10-27). The root's `disabled` is the shared record's Disabled (ADR 05 Amendments 2026-10-28, design
 // point 13.7 of M4 track 6, settled by the orchestrator 2026-10-28). Left out of C# state (issue 121): isInstantPhase, which the open request
-// carries from the `interactions` module's delay group (ADR 04 Amendments 2026-10-27), and adaptiveOrigin, the Viewport's.
+// carries from the `interactions` module's delay group (ADR 04 Amendments 2026-10-27). adaptiveOrigin is a flag here, as
+// Popover's (PSH-POS-02): the positioning module holds the middleware.
 /// <summary>Holds the state of one tooltip: the shared popup state and the tooltip's own fields.</summary>
 /// <typeparam name="TPayload">The type of the payload the tooltip's triggers carry.</typeparam>
 /// <param name="Popup">The shared popup state.</param>
@@ -16,6 +17,7 @@ namespace Blazix.Primitives;
 /// <param name="LastOpenChangeReason">The reason of the last applied open change, or <see langword="null"/> before the first.</param>
 /// <param name="CloseOnClick">Whether a press of the active trigger closes the tooltip.</param>
 /// <param name="CloseDelay">The active trigger's close delay in milliseconds, which the popup's own leave reads.</param>
+/// <param name="AdaptiveOrigin">Whether a viewport is mounted, so the positioner is placed by its far edge.</param>
 [StoreState]
 internal sealed partial record TooltipStoreState<TPayload>(
     PopupStoreState<TPayload> Popup,
@@ -24,7 +26,8 @@ internal sealed partial record TooltipStoreState<TPayload>(
     bool DisableHoverablePopup,
     EventReason? LastOpenChangeReason,
     bool CloseOnClick,
-    int CloseDelay)
+    int CloseDelay,
+    bool AdaptiveOrigin)
     : IStoreState<TooltipStoreState<TPayload>>, IPopupStoreState<TooltipStoreState<TPayload>, TPayload>
 {
     /// <inheritdoc />
@@ -39,7 +42,7 @@ internal sealed partial record TooltipStoreState<TPayload>(
     /// <param name="floatingId">The popup's generated id, or <see langword="null"/> for a fallback store.</param>
     /// <returns>The initial state.</returns>
     public static TooltipStoreState<TPayload> Initial(string? floatingId) =>
-        new(PopupStoreState<TPayload>.Initial(floatingId), null, TooltipTrackCursorAxis.None, false, null, true, 0);
+        new(PopupStoreState<TPayload>.Initial(floatingId), null, TooltipTrackCursorAxis.None, false, null, true, 0, false);
 
     /// <inheritdoc />
     public static TooltipStoreState<TPayload> WithPopup(TooltipStoreState<TPayload> state, PopupStoreState<TPayload> popup) => state with { Popup = popup };
@@ -107,6 +110,17 @@ internal sealed class TooltipStore<TPayload> : PopupStore<TooltipStoreState<TPay
         if (state.CloseOnClick != closeOnClick || state.CloseDelay != closeDelay)
         {
             Write(state with { CloseOnClick = closeOnClick, CloseDelay = closeDelay });
+        }
+    }
+
+    // TIP-POS-05, PSH-POS-02: a mounted Viewport positions the tooltip by its far edge.
+    /// <summary>Writes whether a viewport is mounted.</summary>
+    /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
+    public void SetAdaptiveOrigin(bool adaptiveOrigin)
+    {
+        if (State.AdaptiveOrigin != adaptiveOrigin)
+        {
+            Write(State with { AdaptiveOrigin = adaptiveOrigin });
         }
     }
 

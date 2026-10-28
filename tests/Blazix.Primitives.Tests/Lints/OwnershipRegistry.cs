@@ -157,5 +157,12 @@ internal static class OwnershipRegistry
         new("tooltip", "Arrow", "data-side", Writer.CsharpToJs, "TooltipArrowState.Side"),
         new("tooltip", "Arrow", "data-align", Writer.CsharpToJs, "TooltipArrowState.Align"),
         new("tooltip", "Arrow", "data-uncentered", Writer.CsharpToJs, "TooltipArrowState.Uncentered"),
+        // The Viewport (tooltip.md §5.6, at PR 137's re-merge): Popover's, the `popup` module writing its containers,
+        // direction and transitioning flag (mirrored in TooltipViewportState).
+        new("tooltip", "Viewport", "[data-previous] container", Writer.Js),
+        new("tooltip", "Viewport", "data-activation-direction", Writer.Js, "TooltipViewportState.ActivationDirection"),
+        new("tooltip", "Viewport", "data-transitioning", Writer.Js, "TooltipViewportState.Transitioning"),
+        new("tooltip", "Viewport", "--popup-width", Writer.Js),
+        new("tooltip", "Viewport", "--popup-height", Writer.Js),
     ];
 }

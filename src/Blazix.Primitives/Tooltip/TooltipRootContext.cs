@@ -37,6 +37,10 @@ internal abstract class TooltipRootContext
     /// <param name="selection">The selections.</param>
     /// <returns>The view; disposing it ends the subscription and a boundary registration.</returns>
     public abstract TooltipStoreView CreateView(Action changed, TooltipSelection selection);
+
+    /// <summary>Writes whether a viewport is mounted (TIP-POS-05).</summary>
+    /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
+    public abstract void SetAdaptiveOrigin(bool adaptiveOrigin);
 }
 
 /// <summary>The store selections a tooltip part reads.</summary>
@@ -58,11 +62,14 @@ internal enum TooltipSelection
     /// <summary>The instant type.</summary>
     InstantType = 8,
 
-    /// <summary>The positioner's inputs: the instant type it renders, the cursor axis, hoverability, the root's disabled state, the active trigger and the close delay.</summary>
+    /// <summary>The positioner's inputs: the instant type it renders, the cursor axis, hoverability, the root's disabled state, the active trigger, the close delay and whether a viewport is mounted.</summary>
     Positioner = 16,
 
     /// <summary>The count of unmount requests the popup's transitions handle reads.</summary>
     UnmountRequests = 32,
+
+    /// <summary>The viewport's inputs: the active trigger and the payload's version.</summary>
+    Viewport = 64,
 }
 
 /// <summary>A part's subscription to a tooltip store: the values it selected and the store calls it makes.</summary>
@@ -100,6 +107,12 @@ internal abstract class TooltipStoreView : IDisposable
 
     /// <summary>Gets the count of unmount requests.</summary>
     public abstract int UnmountRequests { get; }
+
+    /// <summary>Gets the counter that moves whenever the payload is written.</summary>
+    public abstract int PayloadVersion { get; }
+
+    /// <summary>Gets a value indicating whether a viewport is mounted.</summary>
+    public abstract bool AdaptiveOrigin { get; }
 
     /// <inheritdoc />
     public abstract void Dispose();
@@ -149,6 +162,9 @@ internal sealed class TooltipRootContext<TPayload>(TooltipStore<TPayload> store)
     /// <inheritdoc />
     public override TooltipStoreView CreateView(Action changed, TooltipSelection selection) => new View(store, changed, selection);
 
+    /// <inheritdoc />
+    public override void SetAdaptiveOrigin(bool adaptiveOrigin) => store.SetAdaptiveOrigin(adaptiveOrigin);
+
     private sealed class View : TooltipStoreView
     {
         private readonly TooltipStore<TPayload> store;
@@ -190,11 +206,18 @@ internal sealed class TooltipRootContext<TPayload>(TooltipStore<TPayload> store)
                 subscription.Select(TooltipSelectors<TPayload>.Disabled);
                 subscription.Select(PopupSelectors<TooltipStoreState<TPayload>, TPayload>.ActiveTriggerId);
                 subscription.Select(TooltipSelectors<TPayload>.CloseDelay);
+                subscription.Select(TooltipSelectors<TPayload>.AdaptiveOrigin);
             }
 
             if ((selection & TooltipSelection.UnmountRequests) != 0)
             {
                 subscription.Select(PopupSelectors<TooltipStoreState<TPayload>, TPayload>.UnmountRequests);
+            }
+
+            if ((selection & TooltipSelection.Viewport) != 0)
+            {
+                subscription.Select(PopupSelectors<TooltipStoreState<TPayload>, TPayload>.ActiveTriggerId);
+                subscription.Select(PopupSelectors<TooltipStoreState<TPayload>, TPayload>.PayloadVersion);
             }
         }
 
@@ -230,6 +253,12 @@ internal sealed class TooltipRootContext<TPayload>(TooltipStore<TPayload> store)
 
         /// <inheritdoc />
         public override int UnmountRequests => store.Popup.UnmountRequests;
+
+        /// <inheritdoc />
+        public override int PayloadVersion => store.Popup.PayloadVersion;
+
+        /// <inheritdoc />
+        public override bool AdaptiveOrigin => store.State.AdaptiveOrigin;
 
         /// <inheritdoc />
         public override void Dispose()
@@ -283,4 +312,7 @@ internal static class TooltipSelectors<TPayload>
 
     /// <summary>Selects the active trigger's close delay.</summary>
     public static readonly Func<TooltipStoreState<TPayload>, int> CloseDelay = static state => state.CloseDelay;
+
+    /// <summary>Selects whether a viewport is mounted.</summary>
+    public static readonly Func<TooltipStoreState<TPayload>, bool> AdaptiveOrigin = static state => state.AdaptiveOrigin;
 }

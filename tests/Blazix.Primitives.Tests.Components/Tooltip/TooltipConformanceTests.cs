@@ -162,3 +162,37 @@ public sealed class TooltipArrowConformanceTests : PartConformanceTests<TooltipA
         p.Add(x => x.ClassValue, (Func<TooltipArrowState, string?>)(_ => classValue()));
     }
 }
+
+// TooltipViewport.test.tsx: describeConformance(<Tooltip.Viewport />, () => ({ refInstanceof: HTMLDivElement, render inside
+// an open <Tooltip.Root><Tooltip.Portal><Tooltip.Positioner><Tooltip.Popup> })). TIP-STR-08.
+/// <summary>The conformance suite on <see cref="TooltipViewport"/> inside an open root's popup.</summary>
+public sealed class TooltipViewportConformanceTests : PartConformanceTests<TooltipViewport>
+{
+    public TooltipViewportConformanceTests()
+    {
+        Context.JSInterop.Mode = JSRuntimeMode.Loose;
+        Context.RenderTree.Add<TooltipRoot<NoPayload>>(p => p.Add(x => x.DefaultOpen, true));
+        Context.RenderTree.Add<TooltipPortal>();
+        Context.RenderTree.Add<TooltipPositioner>();
+        Context.RenderTree.Add<TooltipPopup>();
+        PopoverConformance.AddRenderedOnceForRefTitles(Context);
+    }
+
+    /// <inheritdoc />
+    protected override ConformanceOptions<TooltipViewport> Options { get; } = new("div");
+
+    /// <inheritdoc />
+    protected override ElementReference? ElementOf(TooltipViewport part) => part.Element;
+
+    /// <inheritdoc />
+    protected override void SetRenderFunction(ComponentParameterCollectionBuilder<TooltipViewport> p, Func<IReadOnlyDictionary<string, object>, RenderFragment> render)
+    {
+        p.Add(x => x.RenderFunction, (RenderFragment<RenderProps<TooltipViewportState>>)(props => render(props.Attributes)));
+    }
+
+    /// <inheritdoc />
+    protected override void SetClassValue(ComponentParameterCollectionBuilder<TooltipViewport> p, Func<string?> classValue)
+    {
+        p.Add(x => x.ClassValue, (Func<TooltipViewportState, string?>)(_ => classValue()));
+    }
+}

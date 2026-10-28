@@ -4,6 +4,7 @@ import { detachedTriggersConformanceTests } from './suites/detachedTriggersConfo
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPositionerCase, positionerConformanceTests } from './suites/positioner-conformance';
+import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
 // The [L4] rows of docs/components/tooltip.md (M4 track 6, issue 121) on the Tooltip fixtures, both render modes, Server
 // first. Base UI's titles verbatim; port titles start with "port:". The shared suites run with Tooltip's options
@@ -1313,11 +1314,10 @@ test.describe('<Tooltip.Root /> hand-off', () => {
 
 // ---------------------------------------------------------------------------------------------------------------------
 // TooltipPositioner.test.tsx's positionerConformanceTests (:55-75) and TooltipArrow.test.tsx (:20-60) on
-// `tooltip-positioner`. Base UI runs the suite with `viewport: true`; its three Viewport titles wait for the Viewport
-// (track 5's `popup` module, design point 13.2): TIP-POS-05.
+// `tooltip-positioner`, the suite with `viewport: true` as Base UI runs it (TIP-POS-05).
 // ---------------------------------------------------------------------------------------------------------------------
 
-positionerConformanceTests({ fixture: 'tooltip-positioner' });
+positionerConformanceTests({ fixture: 'tooltip-positioner', viewport: true });
 
 test.describe('<Tooltip.Arrow />', () => {
   const arrow = (page: Page) => page.locator('[data-testid="arrow"]');
@@ -1341,6 +1341,40 @@ test.describe('<Tooltip.Arrow />', () => {
 
     await expect(arrow(page)).toHaveAttribute('data-side', 'bottom');
     await expect(arrow(page)).not.toHaveAttribute('data-uncentered');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// TooltipViewport.test.tsx (:31-110) on `tooltip-viewport`: viewportConformanceTests with its config (`openOn: 'focus'`,
+// triggers with delay 0) and the two browser-only titles (TIP-DOM-16, TIP-ANI-10, TIP-POS-05).
+// ---------------------------------------------------------------------------------------------------------------------
+
+viewportConformanceTests({
+  fixture: 'tooltip-viewport',
+  openOn: 'focus',
+});
+
+test.describe('<Tooltip.Viewport />', () => {
+  test('anchors the positioner from the far edge while it transitions', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'far-edge' });
+
+    await page.getByRole('button', { name: 'Trigger', exact: true }).focus();
+
+    const positioner = page.getByTestId('positioner');
+    await expect(positioner).toHaveAttribute('data-side', 'left');
+
+    // A transitioning popup on the left side is positioned from the right edge so a size change keeps its far edge in
+    // place.
+    await expect.poll(() => positioner.evaluate((element) => (element as HTMLElement).style.right)).not.toBe('');
+    expect(await positioner.evaluate((element) => (element as HTMLElement).style.left)).toBe('');
+  });
+
+  test('should mirror the instant animation type of the tooltip', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'instant' });
+
+    await page.getByRole('button', { name: 'Trigger', exact: true }).focus();
+
+    await expect(page.getByTestId('viewport')).toHaveAttribute('data-instant', 'focus');
   });
 });
 
