@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { test, expect, fixtureUrl, Fixture, readDiagnostics, type Page, type RenderMode } from './helpers';
+import { test, expect, delayCircuit, fixtureUrl, Fixture, readDiagnostics, type Page, type RenderMode } from './helpers';
 
 // The [L4] rows of docs/components/accordion.md, and the L4 clauses of four [L2] rows (ACC-DOM-15, ACC-EDGE-04/05: the
 // `hidden="until-found"` literal; ACC-EVT-05: keyboard activation), on the Accordion parts over the `button` and
@@ -47,19 +47,6 @@ async function fireBeforeMatch(panel: Locator, options: { removeHidden?: boolean
       node.removeAttribute('hidden');
     }
   }, options.removeHidden ?? false);
-}
-
-/** Adds a one-way delay to the circuit's WebSocket in each direction (CDP emulation does not delay it). */
-async function delayCircuit(page: Page, oneWayMs: number): Promise<void> {
-  await page.routeWebSocket(/_blazor/, (socket) => {
-    const server = socket.connectToServer();
-    socket.onMessage((message) => {
-      setTimeout(() => server.send(message), oneWayMs);
-    });
-    server.onMessage((message) => {
-      setTimeout(() => socket.send(message), oneWayMs);
-    });
-  });
 }
 
 test.describe('<Accordion.Root />', () => {

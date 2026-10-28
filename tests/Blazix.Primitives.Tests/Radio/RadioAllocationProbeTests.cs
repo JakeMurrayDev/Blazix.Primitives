@@ -7,6 +7,7 @@ namespace Blazix.Primitives.Tests.Radio;
 // test, allocate nothing on CoreCLR for a string, an enum, an int, a record class and a record struct. The WebAssembly
 // interpreter is measured by the `wasm`-only L4 probe on the radio-group-allocation fixture (radio-group.spec.ts).
 /// <summary>The allocation probe of the radio's value comparisons on CoreCLR.</summary>
+[Collection(AllocationBudgetsCollection.Name)]
 public sealed class RadioAllocationProbeTests
 {
     private const int Calls = 1000;
