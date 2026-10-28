@@ -12,6 +12,7 @@
       `closeDelay` (milliseconds), `disabled`, `modal`, `keepMounted`, `triggerCount` (default 1; the triggers are detached
       on one handle), `nativeButton=false` (a `span` trigger), `defaultOpen`;
     - `open=true|false`: a controlled root that follows its OnOpenChange, `[data-set-open]` driving it from outside;
+    - `[data-handle-close]` calls the handle's CloseAsync;
     - `inputs`: text inputs `first-input` and `last-input` around the triggers;
     - `popupClass`: the popup's class, `fade` (a 1 ms opacity transition, PopoverRoot.test.tsx's `.popup`) or `reopen`
       (a 10 s animation while `[data-ending-style]`).
@@ -27,6 +28,7 @@
         @@keyframes popover-reopen-during-close { from { opacity: 1; } to { opacity: 0.01; } }
         .reopen[data-ending-style] { animation: popover-reopen-during-close 10000ms linear forwards; }
     </style>
+    <button type="button" data-handle-close data-key-control style="position: fixed; right: 0; bottom: 120px" @onclick="() => handle.CloseAsync()" @onkeydown="OnShift(() => handle.CloseAsync())">Handle shut</button>
     <button type="button" data-testid="outside" style="position: fixed; left: 0; bottom: 0">Outside</button>
 
     <div style="padding: 100px">

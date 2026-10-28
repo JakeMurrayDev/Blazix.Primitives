@@ -1244,3 +1244,358 @@ test.describe('<Popover.Root /> nested popup interactions', () => {
     await expect(childPopup).toBeVisible();
   });
 });
+
+// PopoverRoot.detached-triggers.test.tsx's "does not re-render inactive triggers": the render counts are L2 (POP-EDGE-09);
+// here the DOM each title asserts, on `popover-hover`'s three detached triggers.
+test.describe('<Popover.Root /> detached triggers, the active trigger', () => {
+  const expectOpenedBy = async (page: Page, trigger: Locator) => {
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  };
+  const expectClosed = async (page: Page, trigger: Locator) => {
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  };
+
+  touchTest('when a touch press opens and closes the popup', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { triggerCount: 3, openOnHover: false });
+    const trigger = page.getByTestId('trigger-1');
+
+    for (let round = 0; round < 2; round += 1) {
+      await trigger.tap();
+      await expectOpenedBy(page, trigger);
+      await trigger.tap();
+      await expectClosed(page, trigger);
+    }
+  });
+
+  test('when a modal popup closes from Popover.Close', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { triggerCount: 3, openOnHover: false, modal: true });
+    const trigger = page.getByTestId('trigger-1');
+
+    for (let round = 0; round < 2; round += 1) {
+      await trigger.click();
+      await expectOpenedBy(page, trigger);
+      await page.getByRole('button', { name: 'Close', exact: true, includeHidden: true } as never).click();
+      await expectClosed(page, trigger);
+    }
+  });
+
+  test('when the popup moves to another trigger', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { triggerCount: 3, openOnHover: false });
+    const trigger = page.getByTestId('trigger-1');
+    const trigger2 = page.getByTestId('trigger-2');
+    const isGuard = (locator: Locator, side: 'previous' | 'next') => locator.evaluate((element, which) => {
+      const sibling = which === 'previous' ? element.previousElementSibling : element.nextElementSibling;
+      return sibling === null ? null : sibling.hasAttribute('data-base-ui-focus-guard');
+    }, side);
+
+    await trigger.click();
+    await expectOpenedBy(page, trigger);
+    await trigger2.click();
+    await expectOpenedBy(page, trigger2);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(trigger).not.toHaveAttribute('data-pressed');
+    await expect(trigger2).toHaveAttribute('data-pressed');
+    expect(await isGuard(trigger, 'previous')).toBe(null);
+    expect(await isGuard(trigger2, 'previous')).toBe(true);
+    expect(await isGuard(trigger2, 'next')).toBe(true);
+
+    await trigger2.click();
+    await expectClosed(page, trigger2);
+  });
+
+  test('when a press takes over a hover-opened popup', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { triggerCount: 3, delay: 0, closeDelay: 0 });
+    await page.clock.install();
+    await page.clock.pauseAt(Date.now() + 1000);
+    try {
+      const trigger = page.getByTestId('trigger-1');
+
+      await trigger.hover();
+      await expect(page.getByTestId('popup')).toBeVisible();
+
+      // A press inside the patient-click window keeps it open and changes the open reason.
+      await trigger.click();
+      await expect(trigger).toHaveAttribute('data-pressed');
+
+      await page.mouse.move(5, 5);
+      await pressControl(fixture.locator('[data-handle-close]'));
+      await expect(page.getByTestId('popup')).toHaveCount(0);
+    } finally {
+      await page.clock.resume();
+    }
+  });
+});
+
+// The popup's `data-instant` while it ends (and, for a late commit, while the close is pending), recorded by a
+// MutationObserver on every popup attribute change: Base UI records the popup state of every closing render, and the port
+// renders that state onto the popup.
+async function recordInstants(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const instants = { ending: [] as (string | null)[], pending: [] as (string | null)[] };
+    (window as unknown as { instants: typeof instants }).instants = instants;
+    const snapshot = (popup: Element) => {
+      const instant = popup.getAttribute('data-instant');
+      if (popup.hasAttribute('data-ending-style')) {
+        instants.ending.push(instant);
+      } else if (document.querySelector('[data-close-requested="true"]')) {
+        instants.pending.push(instant);
+      }
+    };
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const target = record.target as Element;
+        if (target.getAttribute('data-testid') === 'popup') {
+          snapshot(target);
+        } else if (record.attributeName === 'data-close-requested') {
+          const popup = document.querySelector('[data-testid="popup"]');
+          if (popup) {
+            snapshot(popup);
+          }
+        }
+      }
+    }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-ending-style', 'data-instant', 'data-close-requested'] });
+  });
+}
+
+const instants = (page: Page) => page.evaluate(() => (window as unknown as { instants: { ending: (string | null)[]; pending: (string | null)[] } }).instants);
+const clearInstants = (page: Page) => page.evaluate(() => {
+  const recorded = (window as unknown as { instants: { ending: unknown[]; pending: unknown[] } }).instants;
+  recorded.ending.length = 0;
+  recorded.pending.length = 0;
+});
+
+// PopoverRoot.detached-triggers.test.tsx's multiple detached triggers and multiple triggers within Root, on
+// `popover-detached` (POP-ANI-07/09, DOM-18/28, EVT-02/05/09, FOC-05, POS-03, DIS-01, PTR-16).
+test.describe('<Popover.Root /> multiple detached triggers', () => {
+  async function renderHoverDetachedTriggers(page: Page, mode: RenderMode, options: { close?: boolean; settleTriggerChange?: boolean; switchDuration?: number; exitDuration?: number } = {}) {
+    const { close = false, settleTriggerChange = true, switchDuration = 120, exitDuration = 250 } = options;
+    const fixture = await gotoPopupFixture(page, mode, 'popover-detached', { case: 'hover-switch', animations: 1, close, switch: switchDuration, exit: exitDuration });
+    await recordInstants(page);
+    const trigger1 = page.getByRole('button', { name: 'Trigger 1' });
+    const trigger2 = page.getByRole('button', { name: 'Trigger 2' });
+
+    await trigger1.hover();
+    await expect(page.getByTestId('content')).toHaveText('1');
+    await trigger2.hover();
+    await expect(page.getByTestId('content')).toHaveText('2');
+    if (settleTriggerChange) {
+      await expect(page.getByTestId('popup')).toHaveAttribute('data-instant', 'trigger-change');
+    }
+
+    // The handoff itself legitimately renders `trigger-change` while closing the previous trigger's popup.
+    await clearInstants(page);
+    return { fixture, trigger1, trigger2, popup: page.getByTestId('popup') };
+  }
+
+  test('does not apply the trigger-change instant to a hover close after switching triggers', async ({ page, mode }) => {
+    const { popup } = await renderHoverDetachedTriggers(page, mode);
+
+    await page.mouse.move(390, 190);
+    await expect(popup).toHaveAttribute('data-ending-style');
+
+    // The recorder saw the closing render (Base UI's render callback always does).
+    expect((await instants(page)).ending.length).toBeGreaterThan(0);
+    expect((await instants(page)).ending).not.toContain('trigger-change');
+  });
+
+  test('does not apply the trigger-change instant to a non-hover close after switching triggers', async ({ page, mode }) => {
+    const { popup } = await renderHoverDetachedTriggers(page, mode, { close: true });
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(popup).toHaveAttribute('data-ending-style');
+
+    // The recorder saw the closing render (Base UI's render callback always does).
+    expect((await instants(page)).ending.length).toBeGreaterThan(0);
+    expect((await instants(page)).ending).not.toContain('trigger-change');
+  });
+
+  test('does not apply the trigger-change instant after switching back to the original trigger', async ({ page, mode }) => {
+    const { trigger1 } = await renderHoverDetachedTriggers(page, mode);
+
+    await trigger1.hover();
+    await expect(page.getByTestId('content')).toHaveText('1');
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-instant', 'trigger-change');
+    await clearInstants(page);
+
+    await page.mouse.move(390, 190);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-ending-style');
+
+    // The recorder saw the closing render (Base UI's render callback always does).
+    expect((await instants(page)).ending.length).toBeGreaterThan(0);
+    expect((await instants(page)).ending).not.toContain('trigger-change');
+  });
+
+  test('does not restore the trigger-change instant after a reopen on the same trigger', async ({ page, mode }) => {
+    // Leaving and returning mid-exit keeps the positioner mounted and the trigger unchanged; a slow switch keeps the
+    // pending switch callback across the reopen.
+    const { trigger2 } = await renderHoverDetachedTriggers(page, mode, { settleTriggerChange: false, switchDuration: 500, exitDuration: 400 });
+
+    await page.mouse.move(390, 190);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-ending-style');
+
+    await trigger2.hover();
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-ending-style');
+
+    await page.waitForTimeout(650);
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-instant');
+  });
+
+  test('does not restore the trigger-change instant after a hover close has started', async ({ page, mode }) => {
+    const { popup } = await renderHoverDetachedTriggers(page, mode, { settleTriggerChange: false });
+    const positioner = page.getByTestId('positioner');
+    await expect.poll(() => positioner.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);
+    await positioner.evaluate((element) => {
+      (window as unknown as { switchAnimations: Animation[] }).switchAnimations = element.getAnimations();
+    });
+    const popupHandle = await popup.elementHandle();
+
+    await page.mouse.move(390, 190);
+    await expect(popup).toHaveAttribute('data-ending-style');
+    await page.evaluate(() => Promise.all((window as unknown as { switchAnimations: Animation[] }).switchAnimations.map((animation) => animation.finished)));
+
+    // Still mid-exit: the stale callback must not have marked it instant and collapsed the transition.
+    expect(await popupHandle!.evaluate((element) => element.isConnected)).toBe(true);
+    await expect(popup).toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-instant');
+  });
+
+  test('does not apply the trigger-change instant to a prop-driven close after a switch', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-detached', { case: 'controlled-switch', animations: 1 });
+    await recordInstants(page);
+
+    await page.getByRole('button', { name: 'Trigger 1' }).click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await page.waitForTimeout(100);
+
+    await pressControl(fixture.locator('[data-set-trigger="t2"]'));
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-instant', 'trigger-change');
+
+    await clearInstants(page);
+    await pressControl(fixture.locator('[data-set-open="false"]'));
+    await expect.poll(async () => (await instants(page)).ending.length, { timeout: 2000 }).toBeGreaterThan(0);
+    expect((await instants(page)).ending).not.toContain('trigger-change');
+
+    // Reopening on the same trigger, again purely through props, must not inherit the stored trigger-change.
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await pressControl(fixture.locator('[data-set-open="true"]'));
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-instant');
+  });
+
+  test('does not restore the trigger-change instant when a controlled close commits late', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-detached', { case: 'late-commit', animations: 1 });
+    await recordInstants(page);
+
+    await page.getByRole('button', { name: 'Trigger 1' }).hover();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    // Let the first open settle so moving to trigger 2 is a real switch.
+    await page.waitForTimeout(100);
+
+    await page.getByRole('button', { name: 'Trigger 2' }).hover();
+    // Request the close while the switch is still animating.
+    await page.mouse.move(390, 190);
+
+    await expect.poll(async () => (await instants(page)).ending.length, { timeout: 2000 }).toBeGreaterThan(0);
+    await expect(fixture).toHaveAttribute('data-opened-triggers', 'trigger-1 trigger-2');
+    const recorded = await instants(page);
+    expect(recorded.pending).toContain('trigger-change');
+    expect(recorded.ending).not.toContain('trigger-change');
+  });
+
+  test('renders focus guards around the active detached trigger and reports it on close', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-detached', { case: 'guards' });
+    const trigger2 = page.getByRole('button', { name: 'Trigger 2' });
+    const guards = () => trigger2.evaluate((element) => [element.previousElementSibling, element.nextElementSibling]
+      .map((sibling) => sibling?.hasAttribute('data-base-ui-focus-guard') ?? false));
+
+    await trigger2.click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await guards()).toEqual([true, true]);
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await guards()).toEqual([false, false]);
+    // Closing with Popover.Close reports the active trigger.
+    expect(await openChanges(fixture)).toHaveLength(2);
+    expect((await openChanges(fixture))[1]).toMatch(/^false:/);
+    await expect(fixture).toHaveAttribute('data-close-trigger', 'trigger-2');
+  });
+
+  test('keeps positioning correct when conditional triggers unmount and the tree remounts', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-detached', { case: 'remount' });
+    const aligned = () => page.evaluate(() => {
+      const positioner = document.querySelector('[data-testid="positioner"]')!.getBoundingClientRect();
+      const trigger = document.getElementById('trigger-0')!.getBoundingClientRect();
+      return Math.abs(positioner.left - trigger.left);
+    });
+
+    await expect.poll(aligned).toBeLessThanOrEqual(1);
+
+    await page.getByRole('button', { name: 'Toggle' }).click();
+    await expect(page.getByRole('button', { name: 'Trigger 1' })).toHaveCount(0);
+    await expect.poll(aligned).toBeLessThanOrEqual(1);
+  });
+
+  test.describe('multiple triggers within Root', () => {
+    test('returns focus to the active trigger when opening programmatically from body focus', async ({ page, mode }) => {
+      await gotoPopupFixture(page, mode, 'popover-detached', { case: 'programmatic-body' });
+      const trigger1 = page.getByRole('button', { name: 'Trigger 1', exact: true });
+      const trigger2 = page.getByRole('button', { name: 'Trigger 2', exact: true });
+
+      await trigger1.click();
+      await page.getByRole('button', { name: 'Close' }).click();
+      await expect(trigger1).toBeFocused();
+
+      await trigger1.evaluate((element) => (element as HTMLElement).blur());
+      expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+
+      await page.getByRole('button', { name: 'Open Trigger 2 without focus' }).click();
+      await expect(page.getByTestId('content')).toBeVisible();
+
+      await page.getByRole('button', { name: 'Close' }).click();
+      await expect(trigger2).toBeFocused();
+    });
+
+    test('returns focus to the previous element when the trigger unmounts while open', async ({ page, mode }) => {
+      await gotoPopupFixture(page, mode, 'popover-detached', { case: 'disappearing' });
+      // Base UI's trigger default-prevents its mousedown (an onMouseDown prop); a Razor directive cannot sit on a
+      // component, so the page adds the listener.
+      await page.getByRole('button', { name: 'Disappearing trigger' }).evaluate((element) => {
+        element.addEventListener('mousedown', (event) => event.preventDefault());
+      });
+      const fallback = page.getByRole('button', { name: 'Focus fallback' });
+
+      await fallback.click();
+      await expect(fallback).toBeFocused();
+
+      await page.getByRole('button', { name: 'Disappearing trigger' }).click();
+      await expect(page.getByTestId('content')).toBeVisible();
+
+      await page.getByRole('button', { name: 'Close' }).click();
+      await expect(page.getByTestId('content')).toHaveCount(0);
+      await expect(fallback).toBeFocused();
+    });
+  });
+
+  touchTest('dismisses a keyboard-reopened popup on a virtual outside click after a touch session', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-detached', { case: 'touch-session' });
+    const trigger = page.getByRole('button', { name: 'Trigger' });
+
+    await trigger.click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await page.getByTestId('popup').tap();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('popup')).toBeVisible();
+
+    // A virtual click (assistive technology's, or element.click()) has no pointer events, so no pointerdown replaces the
+    // touch session's pointer type. Playwright has no real input that makes one, so it is dispatched as Base UI fires it.
+    await page.getByRole('button', { name: 'Outside' }).dispatchEvent('click', { detail: 0 });
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+});

@@ -167,6 +167,7 @@ public static class FixtureCatalog
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
         ["popover-conformance"] = new(typeof(PopoverConformanceFixture)),
         ["popover-focus"] = new(typeof(PopoverFocusFixture)),
+        ["popover-detached"] = new(typeof(PopoverDetachedFixture)),
         ["popover-hover"] = new(typeof(PopoverHoverFixture)),
         ["popover-nested"] = new(typeof(PopoverNestedFixture)),
         ["popover-root"] = new(typeof(PopoverRootFixture)),
