@@ -1,0 +1,90 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `dialog-popup` fixture (tests/browser/dialog.spec.ts): DialogPopup.test.tsx's own trees.
+    - `case=touch`: a non-modal dialog, trigger "Open", popup `dialog` holding an input `input`;
+    - `case=contents`: the popup `dialog-popup` inside a `<form style="display: contents">` in the portal, with an input
+      `dialog-input` (first input `first-input` and a button `second-button` under `modal=trap-focus`), between the page's
+      `outside-before` and `outside-after` buttons; `modal=trap-focus` with `defaultOpen`;
+    - `case=outside-initial`: a modal dialog with a backdrop whose popup's InitialFocus is the page's `initial-outside`
+      input and, with `final=true`, whose FinalFocus is `final-outside`.
+*@
+<FixtureContainer Name="dialog-popup" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        [data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; }
+        [data-fixture="dialog-popup"] input, [data-fixture="dialog-popup"] button { position: relative; z-index: 1; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-testid="outside-before">Outside before</button>
+    <input data-testid="initial-outside" @ref="initialOutside" />
+    @if (Case == "touch")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="root" Modal="false" OnOpenChange="RecordOpenChange">
+            <DialogTrigger @ref="trigger">Open</DialogTrigger>
+            <DialogPortal>
+                <DialogPopup data-testid="dialog">
+                    <input data-testid="input" />
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else if (Case == "contents")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="root" Modal="@modal" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange">
+            <DialogTrigger @ref="trigger">Open</DialogTrigger>
+            <DialogPortal>
+                <form style="display: contents">
+                    <DialogPopup data-testid="dialog-popup">
+                        @if (trapFocus)
+                        {
+                            <input data-testid="first-input" />
+                            <button type="button" data-testid="second-button">Second</button>
+                        }
+                        else
+                        {
+                            <input data-testid="dialog-input" />
+                            <button type="button">Close</button>
+                        }
+                    </DialogPopup>
+                </form>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else if (Case == "outside-initial")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+            <DialogBackdrop />
+            <DialogTrigger @ref="trigger">Open</DialogTrigger>
+            <DialogPortal>
+                <DialogPopup InitialFocus="@initialOutside" FinalFocus="@(QueryFlag("final") == true ? finalOutside : default(FocusTargetValue?))">
+                    <DialogClose>Close</DialogClose>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    <input data-testid="final-outside" @ref="finalOutside" />
+    <button type="button" data-testid="outside-after">Outside after</button>
+</FixtureContainer>
+
+@code {
+    private DialogRoot<NoPayload>? root;
+    private DialogTrigger<NoPayload>? trigger;
+    private ElementReference initialOutside;
+    private ElementReference finalOutside;
+    private ModalValue? modal;
+    private bool defaultOpen;
+    private bool trapFocus;
+
+    protected override IEnumerable<Task> Attachments => [trigger?.TwinAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        trapFocus = Query("modal") == "trap-focus";
+        modal = trapFocus ? ModalValue.TrapFocus : false;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+    }
+}
