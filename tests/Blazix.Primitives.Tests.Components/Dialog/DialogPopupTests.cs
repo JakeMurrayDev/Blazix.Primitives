@@ -1,5 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
+
+// The stalling runtime below is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -152,4 +157,65 @@ public sealed class DialogPopupTests : IDisposable
         string options = Assert.Single(DialogTestContext.AttachOptions(test.PopupModule))!;
         Assert.Contains("\"popup\":{\"stopCompositeKeys\":true}", options, StringComparison.Ordinal);
     }
+
+    // Issue 134's class on Server (run 40782584447): the Popup role attaches after the portal's move, behind a cold import of
+    // the `popup` module, so a close that unmounts the popup can remove its element before the attach answers, and the
+    // module then finds no element for the reference. The part has left, so the error is dropped, as the attachment drops
+    // an attach its part's disposal overtakes. The focus manager's dispose is held, as a Server round trip holds it.
+    [Fact(DisplayName = "port: a popup that unmounts before the popup module's attach answers drops the missing-element error")]
+    [Trait("Requirement", "DLG-KEY-09")]
+    public async Task A_popup_that_unmounts_before_the_popup_modules_attach_answers_drops_the_missing_element_error()
+    {
+        StalledPopupRuntime runtime = new(test.Context.JSInterop.JSRuntime);
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        JSRuntimeInvocationHandler focusDispose = test.FocusManagerHandle.SetupVoid("dispose", _ => true);
+        IRenderedComponent<DialogHarness> cut = test.Context.Render<DialogHarness>(p => p.Add(x => x.ControlledOpen, true).Add(x => x.Modal, false));
+        Assert.Equal(1, runtime.Attaches);
+
+        cut.Render(p => p.Add(x => x.ControlledOpen, false));
+        await test.CompletePopupTransitionAsync(cut, open: false);
+        Assert.Empty(cut.FindAll("[role=dialog]"));
+        runtime.FailAttach(new JSException("Blazix: no element for the reference"));
+
+        Task<Exception> unhandled = test.Context.Renderer.UnhandledException;
+        if (await Task.WhenAny(unhandled, Task.Delay(TimeSpan.FromMilliseconds(500), Xunit.TestContext.Current.CancellationToken)) == unhandled)
+        {
+            Exception caught = await unhandled;
+            Assert.Fail($"The renderer caught {caught.GetType().Name}: {caught.Message}");
+        }
+
+        focusDispose.SetVoidResult();
+    }
+
+    // `popup.js`'s attach waits until the test fails it; every other call goes to bUnit's runtime.
+    private sealed class StalledPopupRuntime(IJSRuntime inner) : IJSRuntime, IJSObjectReference
+    {
+        private readonly TaskCompletionSource<IJSObjectReference> attach = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Attaches { get; private set; }
+
+        public void FailAttach(Exception exception) => attach.SetException(exception);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            if (identifier == "import" && args is [string path] && path.EndsWith("/popup.js", StringComparison.Ordinal))
+            {
+                return ValueTask.FromResult((TValue)(object)this);
+            }
+
+            if (identifier == "attach")
+            {
+                Attaches++;
+                return new ValueTask<TValue>(attach.Task.ContinueWith(task => (TValue)task.GetAwaiter().GetResult(), TaskScheduler.Default));
+            }
+
+            return inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
 }
+
+#pragma warning restore BL0016
