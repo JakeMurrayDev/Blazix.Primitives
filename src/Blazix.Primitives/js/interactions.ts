@@ -589,9 +589,11 @@ interface SessionRecord extends InteractionSession {
   /** The answered-requests counter last applied. */
   answered: number;
   pending: PendingRequest | null;
+  /** The handles whose close request C# has not answered yet, each with the mark of that request (design point 13.9). */
+  closesInFlight: Map<HandleChannel, object>;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
-  channel: TwinChannel | null;
+  channel: HandleChannel | null;
   positionListeners: Set<() => void>;
   /** The hook regions' private per-session state (`sessionSlot`). */
   slots: Map<string, unknown>;
@@ -680,6 +682,7 @@ function createSessionRecord(token: string): SessionRecord {
     lastRevision: undefined,
     answered: 0,
     pending: null,
+    closesInFlight: new Map(),
     triggers,
     channel: null,
     positionListeners: new Set(),
@@ -853,6 +856,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
   if (relay !== null && relay.revision !== record.lastRevision) {
+    record.closesInFlight.clear();
     const first = record.lastRevision === undefined;
     const previousRevision = record.lastRevision ?? 0;
     record.lastRevision = relay.revision;
@@ -887,6 +891,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   // counter is what re-arms a session that requested a close.
   const answered = role.answered ?? 0;
   if (answered !== record.answered) {
+    record.closesInFlight.clear();
     record.answered = answered;
     rearmDismiss(record);
   }
@@ -979,20 +984,57 @@ function triggerIdOf(record: SessionRecord, element: Element): string | null {
  */
 function requestOpenChange(
   record: SessionRecord,
-  channel: TwinChannel,
+  channel: HandleChannel,
   open: boolean,
   reason: string,
   event: Event | undefined,
   trigger?: Element | null,
   extra?: Record<string, unknown>,
 ): void {
-  record.pending = { open, reason, event };
-  channel.report('OnRequest', {
+  // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28): one close
+  // request in flight per handle. Base UI's second close (the reference press's `click` after its `pointerdown`) is a
+  // no-op on a store the first closed; on Server it would reach the store a round trip later. The boundary: from the
+  // emission until C# answers, which is the first of a session update whose relay revision or answered counter moved
+  // (`applySessionOptions`) and the request's own invocation settling (a trigger's or the floating element's twin routes
+  // its request to the store directly, and a canceled one moves neither counter). Marked before the call, which
+  // WebAssembly answers inside it.
+  const payload = {
     open,
     reason,
     event: event === undefined ? null : eventInfo(event),
     triggerId: trigger ? triggerIdOf(record, trigger) : null,
     ...extra,
+  };
+  if (open) {
+    record.pending = { open, reason, event };
+    channel.report('OnRequest', payload);
+    return;
+  }
+  if (record.closesInFlight.has(channel)) {
+    return;
+  }
+  const mark = {};
+  record.closesInFlight.set(channel, mark);
+  record.pending = { open, reason, event };
+  void channel.request(payload).finally(() => {
+    if (record.closesInFlight.get(channel) === mark) {
+      record.closesInFlight.delete(channel);
+    }
+  });
+}
+
+/** A handle's channel to its twin, with the request path whose invocation settles once C# ran the request. */
+interface HandleChannel extends TwinChannel {
+  /**
+   * Sends a request to the twin's `OnRequest`, as `report` does.
+   * @returns The invocation, settled once C# ran the request, committed or canceled.
+   */
+  request(payload: unknown): Promise<void>;
+}
+
+function createHandleChannel(twin: DotNetTwin): HandleChannel {
+  return Object.assign(createTwinChannel(twin), {
+    request: (payload: unknown) => twin.invokeMethodAsync<void>('OnRequest', JSON.stringify(payload)),
   });
 }
 
@@ -1032,7 +1074,7 @@ interface HandleContext {
   readonly record: SessionRecord;
   /** The trigger or floating element; `null` for the session handle. */
   readonly element: HTMLElement | null;
-  readonly channel: TwinChannel;
+  readonly channel: HandleChannel;
   readonly twinReference: DotNetTwin;
   /** The options of the last `attach` or `update`. */
   readonly options: InteractionsOptions;
@@ -4433,7 +4475,7 @@ function composeHandle(
   onUpdate: (options: InteractionsOptions, previous: InteractionsOptions) => void,
   onDispose: () => void,
 ): TwinHandle {
-  const channel = createTwinChannel(twinReference);
+  const channel = createHandleChannel(twinReference);
   const context = { record, element, channel, twinReference, options: initialOptions };
   const controllers = factories.map((factory) => factory(context));
   let disposed = false;
@@ -4466,7 +4508,7 @@ function composeHandle(
 function attachSession(token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
   const record = acquireRecord(token);
   applySessionOptions(record, initialOptions);
-  let channel: TwinChannel | null = null;
+  let channel: HandleChannel | null = null;
   const handle = composeHandle(
     record,
     null,
