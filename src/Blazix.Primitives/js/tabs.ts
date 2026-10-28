@@ -27,7 +27,16 @@ import {
 } from './dom';
 import { decide } from './decide';
 import { eventInfo } from './event-info';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  type DotNetTwin,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinCaptures,
+  type TwinReferences,
+} from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constants and types
@@ -770,10 +779,18 @@ function attachIndicator(element: TabsElement, initialOptions: TabsOptions, twin
  * @param elementOrId The element, or its id when the part has no element reference.
  * @param optionsJson The `TabsOptions` JSON.
  * @param twinReference The twin's object reference.
+ * @param _references The references, which this module names none of.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson)` and `dispose()`; the live handle when the element is already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
-  const element = resolveElement(elementOrId) as TabsElement;
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const element = resolveElement(elementOrId, captures?.[0]) as TabsElement;
   const options = parseOptions<TabsOptions>(optionsJson);
   if (options.part === INDICATOR_PART) {
     return element[indicatorHandle]?.handle ?? attachIndicator(element, options, twinReference);

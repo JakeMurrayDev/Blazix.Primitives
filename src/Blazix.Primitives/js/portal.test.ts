@@ -30,6 +30,7 @@ vi.mock('./platform', async (importOriginal) => {
 });
 
 const { attach, getPortalState } = await import('./portal');
+const { attachTarget } = await import('./twin');
 
 interface RenderedPortal {
   host: HTMLElement;
@@ -229,6 +230,23 @@ describe('the move, the restore and the cleanup', () => {
     attach(innerNode, JSON.stringify({ containerRef: 0 }), createFakeTwin().twin, [outer.node]);
 
     expect(innerNode.parentElement).toBe(outer.node);
+  });
+
+  // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the parts inside the node attach after the move, and
+  // Blazor revives their references as null inside a shadow root, so the module registers the roots it moves nodes into.
+  it('port: a node moved into a shadow root registers the root, so a part inside resolves by its capture id until the node leaves', () => {
+    const shadowHost = document.createElement('div');
+    document.body.appendChild(shadowHost);
+    const root = shadowHost.attachShadow({ mode: 'closed' });
+    const { node, floating } = renderPortal();
+    floating.setAttribute('_bl_9', '');
+
+    const handle = attach(node, JSON.stringify({ containerRef: 0 }), createFakeTwin().twin, [root]);
+    expect(node.parentNode).toBe(root);
+    expect(attachTarget(null, ['9'])).toBe(floating);
+
+    handle.dispose();
+    expect(() => attachTarget(null, ['9'])).toThrow('Blazix: ');
   });
 
   it('port: a repeated attach of the same node returns the live handle', () => {

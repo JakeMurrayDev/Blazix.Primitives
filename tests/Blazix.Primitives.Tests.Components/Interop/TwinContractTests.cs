@@ -143,12 +143,16 @@ public sealed class TwinContractTests
         Assert.Equal(0, targetIndex);
         Assert.Equal(1, scriptHeldIndex);
         JSRuntimeInvocation attach = module.Invocations["attach"][0];
-        Assert.Equal(4, attach.Arguments.Count);
+        Assert.Equal(5, attach.Arguments.Count);
         Assert.Equal("""{"threshold":0,"targetRef":0}""", attach.Arguments[1]);
         object[] sent = Assert.IsType<object[]>(attach.Arguments[3]);
         Assert.Equal(2, sent.Length);
         Assert.Equal(target, sent[0]);
         Assert.Same(scriptHeld, sent[1]);
+
+        // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the capture ids follow, the attached element's first
+        // (none for an id), then one per reference (none for a script-held object).
+        Assert.Equal(new string?[] { null, "element-7", null }, Assert.IsType<string?[]>(attach.Arguments[4]));
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(2, update.Arguments.Count);
@@ -172,9 +176,38 @@ public sealed class TwinContractTests
 
         await attached.UpdateAsync(new TestTwinOptions { Threshold = 2 });
 
-        Assert.Equal(4, Assert.Single(module.Invocations["attach"]).Arguments.Count);
+        Assert.Equal(5, Assert.Single(module.Invocations["attach"]).Arguments.Count);
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal("""{"threshold":2}""", Assert.Single(update.Arguments));
+    }
+
+    // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8, settled by the orchestrator 2026-10-28): Blazor revives
+    // an ElementReference with a document query, which pierces no shadow root, so its capture id travels beside it and the
+    // module finds the element in the shadow roots the portal moved nodes into.
+    [Fact]
+    [Trait("Requirement", "ADR04-shadow-root-references")]
+    public async Task An_element_attach_sends_its_capture_id_after_a_null_references_argument_and_an_update_naming_an_element_sends_the_references_capture_ids()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        BunitJSModuleInterop handle = SetupHandle(module);
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+        Microsoft.AspNetCore.Components.ElementReference element = new("element-3");
+        Microsoft.AspNetCore.Components.ElementReference target = new("element-4");
+
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync(element, new TestTwinOptions());
+        TwinReferences references = new();
+        await attached.UpdateAsync(new TestTwinOptions { TargetRef = references.Add(target) }, references);
+
+        JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
+        Assert.Equal(element, attach.Arguments[0]);
+        Assert.Equal(5, attach.Arguments.Count);
+        Assert.Null(attach.Arguments[3]);
+        Assert.Equal(new string?[] { "element-3" }, Assert.IsType<string?[]>(attach.Arguments[4]));
+        JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
+        Assert.Equal(3, update.Arguments.Count);
+        Assert.Equal(target, Assert.Single(Assert.IsType<object[]>(update.Arguments[1])));
+        Assert.Equal(new string?[] { null, "element-4" }, Assert.IsType<string?[]>(update.Arguments[2]));
     }
 
     // ADR 04 Amendments 2026-10-27 (decision 3, the token form of attach; chosen by the user 2026-10-27).
@@ -201,6 +234,7 @@ public sealed class TwinContractTests
         Assert.Equal(2, module.Invocations["attach"].Count);
         Assert.Null(module.Invocations["attach"][1].Arguments[0]);
         Assert.Single(Assert.IsType<object[]>(module.Invocations["attach"][1].Arguments[3]));
+        Assert.Equal(new string?[] { null, "element-8" }, Assert.IsType<string?[]>(module.Invocations["attach"][1].Arguments[4]));
 
         await first.DisposeAsync();
         Assert.Single(handle.Invocations["dispose"]);

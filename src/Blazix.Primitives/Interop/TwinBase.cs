@@ -87,7 +87,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
     public ValueTask<TwinHandle<TOptions>> AttachAsync(ElementReference element, TOptions options, TwinReferences? references = null)
     {
-        return AttachAsync(element.Id, element, options, references);
+        return AttachAsync(element.Id, element, element.Id, options, references);
     }
 
     /// <summary>
@@ -104,7 +104,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
     public ValueTask<TwinHandle<TOptions>> AttachAsync(string elementId, TOptions options, TwinReferences? references = null)
     {
-        return AttachAsync(elementId, elementId, options, references);
+        return AttachAsync(elementId, elementId, elementCaptureId: null, options, references);
     }
 
     // ADR 04 Amendments 2026-10-27 (decision 3, the token form; chosen by the user 2026-10-27): a popup Root, a tooltip
@@ -124,7 +124,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <exception cref="ObjectDisposedException">The twin has been disposed.</exception>
     public ValueTask<TwinHandle<TOptions>> AttachTokenAsync(string token, TOptions options, TwinReferences? references = null)
     {
-        return AttachAsync<string?>(token, null, options, references);
+        return AttachAsync<string?>(token, null, elementCaptureId: null, options, references);
     }
 
     /// <summary>
@@ -168,7 +168,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     }
 
     // Generic over the target so an ElementReference reaches the interop argument array unboxed until that call.
-    private async ValueTask<TwinHandle<TOptions>> AttachAsync<TTarget>(string key, TTarget elementOrId, TOptions options, TwinReferences? references)
+    private async ValueTask<TwinHandle<TOptions>> AttachAsync<TTarget>(string key, TTarget elementOrId, string? elementCaptureId, TOptions options, TwinReferences? references)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -177,7 +177,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
             return existing;
         }
 
-        Task<IJSObjectReference?> reference = AttachCoreAsync(elementOrId, options, references?.ToArgument());
+        Task<IJSObjectReference?> reference = AttachCoreAsync(elementOrId, options, references?.ToArgument(), TwinReferences.CaptureIds(elementCaptureId, references));
         TwinHandle<TOptions> handle = new(key, reference, optionsTypeInfo, released => handles.Remove(released.Key));
         handles[key] = handle;
 
@@ -196,7 +196,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     // A JSDisconnectedException means the Server circuit is gone and the part is being torn down: the attach yields
     // a handle that is already a no-op rather than an exception in OnAfterRenderAsync (null = disconnected).
-    private async Task<IJSObjectReference?> AttachCoreAsync<TTarget>(TTarget elementOrId, TOptions options, object[]? references)
+    private async Task<IJSObjectReference?> AttachCoreAsync<TTarget>(TTarget elementOrId, TOptions options, object[]? references, string?[]? captures)
     {
         IJSObjectReference? imported = await ImportAsync().ConfigureAwait(false);
         if (imported is null)
@@ -208,9 +208,15 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
         try
         {
-            // ADR 04 Amendments 2026-10-27: the references follow the twin's reference only when there are some, so a module
-            // that names none receives the three arguments it always did.
+            // ADR 04 Amendments 2026-10-27: the references follow the twin's reference only when there are some. Amendments
+            // 2026-10-28 (design point 9 of M4 track 8): the capture ids follow them whenever an element crosses, the
+            // references argument then being null when there are none; an id or a token with no element sends three.
             string json = JsonSerializer.Serialize(options, optionsTypeInfo);
+            if (captures is not null)
+            {
+                return await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, json, selfReference, references, captures).ConfigureAwait(false);
+            }
+
             return references is null
                 ? await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, json, selfReference).ConfigureAwait(false)
                 : await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, json, selfReference, references).ConfigureAwait(false);

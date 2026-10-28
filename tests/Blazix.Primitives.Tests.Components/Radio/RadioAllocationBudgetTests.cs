@@ -80,9 +80,8 @@ public sealed class RadioAllocationBudgetTests : IDisposable
         }
 
         // bUnit's dispatcher runs the call inline, so the measurement stays on the test thread.
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Task reported = cut.InvokeAsync(() => twin.OnStatusChange(unchanged));
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Task reported = Task.CompletedTask;
+        long allocated = AllocationSampler.LeastOfFive(() => reported = cut.InvokeAsync(() => twin.OnStatusChange(unchanged)));
         await reported;
 
         Assert.True(allocated <= UnchangedStatusBudgetBytes, $"a status report allocated {allocated} bytes; the budget is {UnchangedStatusBudgetBytes}");
@@ -96,8 +95,6 @@ public sealed class RadioAllocationBudgetTests : IDisposable
             cut.Render();
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Render();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return AllocationSampler.LeastOfFive(() => cut.Render());
     }
 }

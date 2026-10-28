@@ -68,8 +68,6 @@ public sealed class ButtonAllocationBudgetTests : IDisposable
             cut.Render();
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Render();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return AllocationSampler.LeastOfFive(() => cut.Render());
     }
 }

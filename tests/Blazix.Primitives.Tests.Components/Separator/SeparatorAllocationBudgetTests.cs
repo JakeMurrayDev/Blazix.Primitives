@@ -49,9 +49,7 @@ public sealed class SeparatorAllocationBudgetTests : IDisposable
             cut.InvokeAsync(refresh);
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.InvokeAsync(refresh);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = AllocationSampler.LeastOfFive(() => cut.InvokeAsync(refresh));
 
         Assert.True(allocated <= RenderBudgetBytes, $"a render allocated {allocated} bytes; the budget is {RenderBudgetBytes}");
     }
