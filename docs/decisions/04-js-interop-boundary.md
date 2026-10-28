@@ -358,7 +358,7 @@ Tested by `js/collapsible.test.ts` ("writes the size variables the options name 
 *Decision 1's `positioning` row (notes):*
 - *The wrapper.* `js/floating-ui.ts` is the one importer of Floating UI: it carries the legal comment and re-exports ADR 03's eight functions, the `@floating-ui/utils` helpers and the engine's types. The module-graph lint skips it as a module, accepts its import from `positioning` alone and flags `@floating-ui/*` anywhere else.
 - *The options* (`PositioningOptions`):
-  - `SessionToken`, inert until `positioning.ts` acquires the session (track 2's follow-up; the `interactions` export is on `main` with M4 track 3's PR 129, 2026-10-28);
+  - `SessionToken`, inert until `positioning.ts` acquires the session (track 2's follow-up; the `interactions` export is on `main` with M4 track 3's PR 129, 2026-10-28). Dated 2026-10-28 (M4 track 2's follow-up): `positioning.ts` takes the session of the token at attach and on a change, calls `setPlacement` after each committed pass, follows `positionReference` through `subscribePositionReference`, and releases the session at dispose;
   - `OpenSelector` (design point 7: the open and mounted inputs come from the applied batch, `[data-open]` and the absence of `hidden`);
   - `KeepMounted`, `TransitionStatus`, `TriggerId`;
   - `AnchorId`, `VirtualAnchor` (and `AnchorRef`, with track 1's references array, design point 5);
