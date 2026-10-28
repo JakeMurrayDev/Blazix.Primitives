@@ -725,6 +725,44 @@ describe('positioning module: the session (FLT-STA-08)', () => {
     expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
     releaseSession(session);
   });
+
+  it('an anchor that does not resolve falls back to the session\'s position reference while one is set, then the trigger, as a null anchor does (FLT-API-11, FLT-STA-08)', async () => {
+    // Base UI registers `unwrappedElement || null` in useFloating's own position reference, and a null one leaves the
+    // store's reference in force: the session's position reference or else the trigger.
+    const session = acquireSession('base-ui-1');
+    const subscribe = vi.spyOn(session, 'subscribePositionReference');
+    const { trigger, update } = setup({ sessionToken: 'base-ui-1', anchorId: 'missing' });
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+
+    const point: SessionVirtualElement = {
+      getBoundingClientRect: () => ({ x: 400, y: 300, width: 0, height: 0, top: 300, left: 400, right: 400, bottom: 300 }),
+    };
+    setPositionReference(session, point);
+    subscribe.mock.calls[0]![0]();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(point);
+
+    // An anchor element the references carry as null falls back the same way.
+    update({ anchorId: null, anchorRef: 0 }, [null]);
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(point);
+
+    setPositionReference(session, null);
+    subscribe.mock.calls[0]![0]();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+
+    // The fallback holds only while the anchor does not resolve.
+    const anchor = document.createElement('span');
+    anchor.id = 'missing';
+    stubRect(anchor, 300, 40, 20, 10);
+    document.body.append(anchor);
+    update({ anchorId: 'missing', anchorRef: null }, []);
+    await settle();
+    expect((spies.computePosition.mock.lastCall?.[0] as { contextElement?: Element }).contextElement).toBe(anchor);
+    releaseSession(session);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------
