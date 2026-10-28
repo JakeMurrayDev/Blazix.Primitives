@@ -729,3 +729,263 @@ test.describe('<Popover.Trigger /> hover', () => {
   });
 });
 
+
+// The focus guards a key press visits, recorded by a capture `focusin` listener (PopoverRoot.test.tsx's trackFocusedGuards):
+// `unique` is false once one guard took focus twice.
+async function trackFocusedGuards(page: Page): Promise<() => Promise<{ count: number; unique: boolean }>> {
+  await page.evaluate(() => {
+    const guards: Element[] = [];
+    (window as unknown as { focusedGuards: Element[] }).focusedGuards = guards;
+    document.addEventListener('focusin', (event) => {
+      const target = event.target as Element;
+      if (target.hasAttribute('data-base-ui-focus-guard')) {
+        guards.push(target);
+      }
+    }, true);
+  });
+  return () => page.evaluate(() => {
+    const guards = (window as unknown as { focusedGuards: Element[] }).focusedGuards;
+    return { count: guards.length, unique: new Set(guards).size === guards.length };
+  });
+}
+
+// PopoverRoot.test.tsx's focus, modal and non-modal focus titles on `popover-root`, once per trigger layout as Base UI's
+// describe.for runs them (POP-KEY, POP-FOC and POP-DIS rows).
+for (const [variant, name] of [['contained', 'contained triggers'], ['detached', 'detached triggers'], ['multiple', 'multiple detached triggers']] as const) {
+  test.describe(`<Popover.Root /> when using ${name}`, () => {
+    const goto = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) =>
+      gotoPopupFixture(page, mode, 'popover-root', { variant, ...options });
+    // Base UI's titles focus an element inside a default-open popup with act(), after the open's initial focus has landed
+    // on it; here the titles wait for that initial focus instead, so it cannot land after the test's own keys.
+
+    test('focuses the trigger after the popover is closed but not unmounted', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'plain', after: 'plain', keepMounted: true, inside: 'close' });
+      const toggle = page.getByTestId('trigger');
+
+      await toggle.click();
+      await page.getByRole('button', { name: 'Close' }).click();
+
+      await expect(toggle).toBeFocused({ timeout: 1500 });
+    });
+
+    test('restores temporarily disabled focus before focusing a reopened keepMounted popover', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'plain', keepMounted: true, inside: 'button', afterTrigger: 'after' });
+      const trigger = page.getByTestId('trigger');
+      const inside = page.getByTestId('inside');
+
+      await trigger.click();
+      await expect(inside).toBeFocused();
+
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('after')).toBeFocused();
+      await expect(page.getByTestId('popover-popup')).not.toHaveAttribute('data-open');
+
+      await trigger.click();
+      await expect(inside).toBeFocused();
+    });
+
+    test('moves focus to the element following the trigger, excluding the popup, when tabbing forward from the open popup', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'plain', after: 'plain', defaultOpen: true, inside: 'input', afterTrigger: 'focus-target' });
+      await expect(page.getByTestId('input-inside')).toBeFocused();
+
+      await page.keyboard.press('Tab');
+
+      await expect(page.getByTestId('focus-target')).toBeFocused();
+      await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    });
+
+    test('moves focus to the trigger when tabbing backward from the open popup then to the popup when tabbing forward', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'plain', after: 'plain', defaultOpen: true, inside: 'input' });
+      await expect(page.getByTestId('input-inside')).toBeFocused();
+
+      await page.waitForTimeout(50);
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.getByTestId('trigger')).toBeFocused();
+      await expect(page.getByTestId('popover-popup')).toBeVisible();
+
+      await page.waitForTimeout(50);
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('input-inside')).toBeFocused();
+    });
+
+    test('closes and moves focus before the trigger when tabbing backward from the focused trigger', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'before', after: 'plain', defaultOpen: true, inside: 'input' });
+      // The open's initial focus lands first, as Base UI's act() flushes it before the test focuses the trigger.
+      await expect(page.getByTestId('input-inside')).toBeFocused();
+      await page.getByTestId('trigger').focus();
+
+      await page.keyboard.press('Shift+Tab');
+
+      await expect(page.getByTestId('before')).toBeFocused();
+      await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    });
+
+    test('moves focus to the element following the trigger when tabbing forward from the open popup', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'plain', after: 'plain', defaultOpen: true, inside: 'input', afterTrigger: 'focus-target' });
+      await expect(page.getByTestId('input-inside')).toBeFocused();
+
+      await page.keyboard.press('Tab');
+
+      await expect(page.getByTestId('focus-target')).toBeFocused();
+      await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    });
+
+    test('moves focus to the element preceding the trigger when tabbing backward from the trigger while open', async ({ page, mode }) => {
+      await goto(page, mode, { before: 'focus-target', afterTrigger: 'plain', after: 'plain', defaultOpen: true, inside: 'input', animations: 1 });
+      await expect(page.getByTestId('input-inside')).toBeFocused();
+
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.getByTestId('trigger')).toBeFocused();
+
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.getByTestId('focus-target')).toBeFocused();
+      await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    });
+
+    test('moves focus to the element following the trigger when tabbing forward from the trigger', async ({ page, mode }) => {
+      await goto(page, mode, { afterTrigger: 'focus-target', inside: 'input', popupClass: 'fade', animations: 1 });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popover-popup');
+
+      await trigger.click();
+      await expect(popup).toBeVisible();
+      await trigger.click();
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await expect(trigger).toBeFocused();
+
+      await page.keyboard.press('Tab');
+
+      await expect(page.getByTestId('focus-target')).toBeFocused();
+      await expect(popup).toHaveCount(0);
+      await expect(page.getByTestId('focus-target')).toBeFocused();
+    });
+
+    // Base UI's 'with no other tabbable element on the page' (skipped for multiple detached triggers, whose second trigger
+    // is one): a Tab out of the popup has nowhere to go but the trigger.
+    test.describe('with no other tabbable element on the page', () => {
+      test.skip(variant === 'multiple', 'Base UI skips it for multiple detached triggers');
+
+      test('does not loop focus between guards when tabbing out of the popup', async ({ page, mode }) => {
+        await goto(page, mode, { animations: 1 });
+        await page.getByTestId('trigger').click();
+        await expect(page.getByRole('dialog')).toBeFocused();
+
+        const focusedGuards = await trackFocusedGuards(page);
+        await page.keyboard.press('Tab');
+
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        expect((await focusedGuards()).unique).toBe(true);
+        await expect(page.getByTestId('trigger')).toBeFocused();
+      });
+
+      test('does not loop focus between guards when shift-tabbing out of the trigger', async ({ page, mode }) => {
+        await goto(page, mode, { animations: 1 });
+        const trigger = page.getByTestId('trigger');
+        await trigger.click();
+        await expect(page.getByRole('dialog')).toBeFocused();
+        await trigger.focus();
+
+        const focusedGuards = await trackFocusedGuards(page);
+        await page.keyboard.press('Shift+Tab');
+
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        expect((await focusedGuards()).unique).toBe(true);
+        await expect(trigger).toBeFocused();
+      });
+    });
+
+    test('closes as soon as focus leaves the popup on pointer down outside', async ({ page, mode }) => {
+      await goto(page, mode, { defaultOpen: true, inside: 'button', outside: 'after' });
+      await expect(page.getByTestId('inside')).toBeFocused();
+
+      await page.getByTestId('outside').hover();
+      await page.mouse.down();
+
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await page.mouse.up();
+    });
+
+    test('moves focus to the popup when a focused child is removed on pointerdown and outside press still dismisses', async ({ page, mode }) => {
+      await goto(page, mode, { defaultOpen: true, modal: 'trap-focus', inside: 'remove' });
+      await expect(page.getByTestId('remove')).toBeFocused();
+
+      await page.getByTestId('remove').hover();
+      await page.mouse.down();
+      await expect(page.getByTestId('popover-popup')).toBeFocused();
+      await page.mouse.up();
+
+      await page.mouse.click(5, 5);
+
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
+
+    test.describe('prop: modal', () => {
+      test('should only render focus guards inside the popup when `true`', async ({ page, mode }) => {
+        await goto(page, mode, { modal: true, inside: 'close' });
+        const trigger = page.getByTestId('trigger');
+
+        await trigger.click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        const siblings = await trigger.evaluate((element) => [element.previousElementSibling, element.nextElementSibling]
+          .map((sibling) => sibling?.hasAttribute('data-base-ui-focus-guard') ?? false));
+        expect(siblings).toEqual([false, false]);
+        await expect(page.locator('[data-base-ui-focus-guard][data-type="inside"]')).toHaveCount(2);
+      });
+
+      test('should keep trigger focus guards when `true` without a close part', async ({ page, mode }) => {
+        await goto(page, mode, { defaultOpen: true, modal: true, inside: 'input', afterTrigger: 'focus-target' });
+        const trigger = page.getByTestId('trigger');
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        const siblings = await trigger.evaluate((element) => [element.previousElementSibling, element.nextElementSibling]
+          .map((sibling) => sibling?.hasAttribute('data-base-ui-focus-guard') ?? false));
+        expect(siblings).toEqual([true, true]);
+
+        await expect(page.getByTestId('input-inside')).toBeFocused();
+        await page.keyboard.press('Tab');
+
+        await expect(page.getByTestId('focus-target')).toBeFocused();
+        await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+      });
+    });
+  });
+}
+
+// PopoverClose.test.tsx's modal titles and PopoverPopup.test.tsx's display:none title, on `popover-root`'s contained layout.
+test.describe('<Popover.Close /> modal focus management', () => {
+  const isElementOrAncestorInert = (locator: Locator) => locator.evaluate((element) => {
+    for (let current: Element | null = element; current; current = current.parentElement) {
+      if (current.getAttribute('aria-hidden') === 'true' || current.hasAttribute('inert')) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  for (const modal of [true, 'trap-focus'] as const) {
+    test(`enables modal focus management when \`modal=${modal}\` and close is rendered`, async ({ page, mode }) => {
+      await gotoPopupFixture(page, mode, 'popover-root', { outside: 'before', defaultOpen: true, modal, inside: 'close-labeled' });
+
+      await expect.poll(() => isElementOrAncestorInert(page.getByTestId('outside'))).toBe(true);
+    });
+  }
+
+  test('does not enable modal focus management when close is not rendered', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { outside: 'before', defaultOpen: true, modal: true });
+    await expect(page.getByText('Content', { exact: true })).toBeVisible();
+    await settle(fixture);
+
+    expect(await isElementOrAncestorInert(page.getByTestId('outside'))).toBe(false);
+  });
+});
+
+test.describe('<Popover.Popup /> focus', () => {
+  test('focuses the popup when the active element becomes display:none', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-root', { defaultOpen: true, inside: 'hide' });
+    await expect(page.getByTestId('hide-button')).toBeFocused();
+
+    await page.getByTestId('hide-button').click();
+
+    await expect(page.getByTestId('popover-popup')).toBeFocused();
+  });
+});

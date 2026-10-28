@@ -701,6 +701,44 @@ describe('the trigger guards', () => {
     expect(named.calls.map((call) => call.element)).toEqual([rendered.focusTarget]);
   });
 
+  it('port: on Server, the focus target resolves its destination as after the close, past the trigger\'s and the portal\'s outside guards', () => {
+    // No other tabbable element: the trigger's guards, then the portal's outside guards around its owner and the
+    // placeholder the portal leaves, the portal node (moved to the end of the body) holding the positioner.
+    const guard = (type?: string): HTMLElement => {
+      const span = document.createElement('span');
+      span.tabIndex = 0;
+      span.setAttribute('data-base-ui-focus-guard', '');
+      if (type) {
+        span.setAttribute('data-type', type);
+      }
+      return span;
+    };
+    const preGuard = guard();
+    const trigger = Object.assign(document.createElement('button'), { id: 'trigger', textContent: 'Trigger' });
+    const focusTarget = guard();
+    const outsideBefore = guard('outside');
+    const owner = document.createElement('span');
+    owner.setAttribute('aria-owns', 'portal-node');
+    const outsideAfter = guard('outside');
+    const portalNode = Object.assign(document.createElement('div'), { id: 'portal-node' });
+    const positioner = document.createElement('div');
+    const popup = Object.assign(document.createElement('div'), { id: 'popup', tabIndex: -1 });
+    positioner.append(guard('inside'), popup, guard('inside'));
+    portalNode.append(positioner);
+    const placeholder = document.createElement('div');
+    placeholder.style.display = 'contents';
+    document.body.append(preGuard, trigger, focusTarget, outsideBefore, owner, placeholder, outsideAfter, portalNode);
+    const twin = createFakeTwin();
+    attachTo(trigger, triggerOptions, twin);
+    popup.focus();
+
+    focusTarget.focus();
+
+    expect(document.activeElement).toBe(trigger);
+    expect([preGuard, focusTarget, outsideBefore, outsideAfter].map((element) => element.getAttribute('tabindex'))).toEqual(['0', '0', '0', '0']);
+    expect(twin.reported<PopupGuardFocus>('OnGuardFocus').at(-1)?.guard).toBe('after');
+  });
+
   it('port: Tab onto the focus target from outside the popup moves into the popup content, closing nothing', () => {
     const rendered = renderGuards();
     const twin = createFakeTwin();

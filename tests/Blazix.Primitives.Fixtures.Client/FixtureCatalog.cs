@@ -168,6 +168,7 @@ public static class FixtureCatalog
         ["popover-conformance"] = new(typeof(PopoverConformanceFixture)),
         ["popover-focus"] = new(typeof(PopoverFocusFixture)),
         ["popover-hover"] = new(typeof(PopoverHoverFixture)),
+        ["popover-root"] = new(typeof(PopoverRootFixture)),
         ["popover-positioner"] = new(typeof(PopoverPositionerFixture)),
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
