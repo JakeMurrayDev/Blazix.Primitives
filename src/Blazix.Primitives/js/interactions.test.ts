@@ -1195,6 +1195,31 @@ describe('useDismiss', () => {
       expect(popup.open).toBe(false);
     });
 
+    it('port: a close request from another handle of the session is dropped while one is in flight', async () => {
+      // ADR 04 Amendments 2026-10-29 (gap 14 of M4 track 5): design point 13.9's rule widens from the handle to the session.
+      // The trigger's reference press closes first; the session's outside press that follows is not sent while it is in flight.
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession({ session: { dismiss: {} } });
+      const reference = element('button');
+      popup.attachTrigger(reference, { trigger: { referencePress: true } });
+      popup.setReference(reference);
+      popup.attachFloating(element('div'));
+      const outside = element('button');
+      const closes = () => popup.requests.filter((request) => request.method === 'OnRequest' && request.payload.open === false);
+
+      pointer(reference, 'pointerdown');
+      userClick(outside);
+
+      expect(closes().map((request) => request.payload.reason)).toEqual(['trigger-press']);
+
+      // Once the first request's invocation settled, a close from any handle is sent again.
+      await Promise.resolve();
+      await Promise.resolve();
+      userClick(outside);
+
+      expect(closes().map((request) => request.payload.reason)).toEqual(['trigger-press', 'outside-press']);
+    });
+
     it('port: a handle sends no second close while its close is in flight, and sends again once C# answers it', async () => {
       // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6): the reference press closes on `pointerdown` and
       // on `click`; on Server the second request would reach the store a round trip after the first. `commit: false`
