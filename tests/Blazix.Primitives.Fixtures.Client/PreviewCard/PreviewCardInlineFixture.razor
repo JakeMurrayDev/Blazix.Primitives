@@ -1,0 +1,189 @@
+@namespace Blazix.Primitives.Fixtures.Client.PreviewCardFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `preview-card-inline` fixture (tests/browser/preview-card.spec.ts): PreviewCardPositioner.test.tsx's "multiline inline
+    trigger" trees (:123-800). The trigger `trigger` is an inline `a` (line height 20 px, `pointer-events: none`, as Base UI
+    keeps the real cursor off it while the titles dispatch pointer coordinates) in a 140 px wrapper, wrapping "This is a long
+    text that will wrap across multiple lines in the trigger element" over three or more lines; the positioner
+    `positioner` (bottom, side offset 5) holds an 80×40 popup `popup` "Preview Content". By `case`:
+    - `hovered` (the default): an uncontrolled root; `delay` (0) and `closeDelay` (300); `scroll` puts 1200 px spacers
+      around the wrapper; `animated` gives the popup a 1000 ms ending keyframe (open with `?animations=1`);
+    - `controlled-open`: a root open from its first render;
+    - `controlled-reopen`: a controlled root with its trigger id, a kept-mounted portal, `[data-open-button]` (opens with
+      `trigger`) and `[data-close-button]`;
+    - `switch`: two inline link triggers `trigger-1`, `trigger-2` in a controlled root and `[data-switch-button]` (opens with
+      `trigger-2`); the titles replace their client rects;
+    - `custom-anchor`: a link trigger "Trigger" the positioner takes as its anchor once it has rendered, a kept-mounted
+      portal in `portal-container`, the boundary rect 0, 0, 300, 120 and collision padding 0;
+    - `focus`: a focusable trigger (`tabindex="0"`) 100 px down, the positioner on top;
+    - `focus-controlled`: the same in a controlled root that follows only `trigger-focus` changes, kept mounted.
+*@
+<FixtureContainer Name="preview-card-inline" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes preview-card-inline-reentry-close-transition {
+            from { opacity: 1; }
+            to { opacity: 0.01; }
+        }
+        .preview-card-inline-animated[data-ending-style] {
+            animation: preview-card-inline-reentry-close-transition 1000ms linear forwards;
+        }
+        [data-fixture="preview-card-inline"] [data-inline] { display: inline; line-height: 20px; pointer-events: none; }
+    </style>
+    <div style="position: fixed; right: 0; top: 0; display: flex; gap: 4px">
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" data-open-button data-key-control @onclick='() => SetControlled(true, "trigger")' @onkeydown='OnShift(() => SetControlled(true, "trigger"))'>Open</button>
+        <button type="button" data-close-button data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Close</button>
+        <button type="button" data-switch-button data-key-control @onclick='() => SetControlled(true, "trigger-2")' @onkeydown='OnShift(() => SetControlled(true, "trigger-2"))'>Switch</button>
+    </div>
+
+    @if (Case == "switch")
+    {
+        <div>
+            <PreviewCardRoot TPayload="NoPayload" @ref="root" Open="@open" TriggerId="@triggerId" OnOpenChange="FollowOpenChange">
+                <PreviewCardTrigger TPayload="NoPayload" @ref="trigger" href="#" id="trigger-1" data-testid="trigger-1" Delay="0" style="display: inline; pointer-events: none">Trigger 1</PreviewCardTrigger>
+                <PreviewCardTrigger TPayload="NoPayload" @ref="secondTrigger" href="#" id="trigger-2" data-testid="trigger-2" Delay="0" style="display: inline; pointer-events: none">Trigger 2</PreviewCardTrigger>
+                @Popup(Side.Bottom, keepMounted: false)
+            </PreviewCardRoot>
+        </div>
+    }
+    else if (Case == "custom-anchor")
+    {
+        <div>
+            <div id="preview-card-inline-portal" data-testid="portal-container"></div>
+            <PreviewCardRoot TPayload="NoPayload" @ref="root">
+                <PreviewCardTrigger TPayload="NoPayload" @ref="trigger" href="#" Delay="0" data-testid="trigger" style="pointer-events: none">Trigger</PreviewCardTrigger>
+                <PreviewCardPortal KeepMounted="true" Container="@("#preview-card-inline-portal")">
+                    <PreviewCardPositioner Anchor="@anchor" CollisionBoundary="@(new Rect(0, 0, 300, 120))" CollisionPadding="0" data-testid="positioner" Side="Side.Bottom" SideOffset="5">
+                        <PreviewCardPopup data-testid="popup" style="width: 80px; height: 40px">Preview Content</PreviewCardPopup>
+                    </PreviewCardPositioner>
+                </PreviewCardPortal>
+            </PreviewCardRoot>
+        </div>
+    }
+    else
+    {
+        @if (scroll)
+        {
+            <div style="height: 1200px"></div>
+        }
+
+        <div style="@($"width: 140px{(Case is "focus" or "focus-controlled" ? "; margin-top: 100px" : string.Empty)}")">
+            @if (Case is "controlled-reopen" or "focus-controlled")
+            {
+                <PreviewCardRoot TPayload="NoPayload" @ref="root" Open="@open" TriggerId="@triggerId" OnOpenChange="FollowOpenChange">
+                    @InlineTrigger
+                    @Popup(Case == "focus-controlled" ? Side.Top : Side.Bottom, keepMounted: true)
+                </PreviewCardRoot>
+            }
+            else if (Case == "controlled-open")
+            {
+                <PreviewCardRoot TPayload="NoPayload" @ref="root" Open="true">
+                    @InlineTrigger
+                    @Popup(Side.Bottom, keepMounted: false)
+                </PreviewCardRoot>
+            }
+            else
+            {
+                <PreviewCardRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+                    @InlineTrigger
+                    @Popup(Case == "focus" ? Side.Top : Side.Bottom, keepMounted: false)
+                </PreviewCardRoot>
+            }
+        </div>
+
+        @if (scroll)
+        {
+            <div style="height: 1200px"></div>
+        }
+    }
+</FixtureContainer>
+
+@code {
+    private const string Text = "This is a long text that will wrap across multiple lines in the trigger element";
+
+    private PreviewCardRoot<NoPayload>? root;
+    private PreviewCardTrigger<NoPayload>? trigger;
+    private PreviewCardTrigger<NoPayload>? secondTrigger;
+    private AnchorValue? anchor;
+    private bool open;
+    private string? triggerId;
+    private bool scroll;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private Dictionary<string, object> popupAttributes = [];
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(trigger?.TwinAttached ?? Task.CompletedTask, secondTrigger?.TwinAttached ?? Task.CompletedTask);
+    }
+
+    protected override void OnInitialized()
+    {
+        scroll = QueryFlag("scroll") == true;
+        delay = int.TryParse(Query("delay"), out int openDelay) ? openDelay : 0;
+        closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
+        popupAttributes["data-testid"] = "popup";
+        popupAttributes["style"] = "width: 80px; height: 40px";
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "preview-card-inline-animated";
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // Base UI's anchor is the trigger's ref, set at its commit: the element from the next render on.
+        if (firstRender && Case == "custom-anchor" && trigger?.Element is { } element)
+        {
+            anchor = element;
+            StateHasChanged();
+        }
+    }
+
+    private RenderFragment InlineTrigger => @<text>
+        @if (Case is "focus" or "focus-controlled")
+        {
+            <PreviewCardTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger" tabindex="0" Delay="@delay" CloseDelay="@closeDelay" data-inline>@Text</PreviewCardTrigger>
+        }
+        else
+        {
+            <PreviewCardTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger" Delay="@delay" CloseDelay="@closeDelay" data-inline>@Text</PreviewCardTrigger>
+        }
+    </text>;
+
+    private RenderFragment Popup(Side side, bool keepMounted) => @<PreviewCardPortal KeepMounted="@keepMounted">
+        <PreviewCardPositioner data-testid="positioner" Side="@side" SideOffset="5">
+            <PreviewCardPopup @attributes="popupAttributes">Preview Content</PreviewCardPopup>
+        </PreviewCardPositioner>
+    </PreviewCardPortal>;
+
+    private void SetControlled(bool value, string? id)
+    {
+        open = value;
+        triggerId = id;
+    }
+
+    // Base UI's controlled roots follow every request with its trigger, except `focus-controlled`, which follows only
+    // `trigger-focus` changes.
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (Case == "focus-controlled" && args.Details.Reason != EventReason.TriggerFocus)
+        {
+            return;
+        }
+
+        open = args.Value;
+        triggerId = args.Details.Trigger?.Id;
+    }
+}

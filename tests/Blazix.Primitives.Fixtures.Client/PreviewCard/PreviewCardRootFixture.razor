@@ -1,0 +1,131 @@
+@namespace Blazix.Primitives.Fixtures.Client.PreviewCardFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `preview-card-root` fixture (tests/browser/preview-card.spec.ts): PreviewCardRoot.test.tsx's three test cards
+    (ContainedTriggerPreviewCard, DetachedTriggerPreviewCard, MultipleDetachedTriggersPreviewCard, :797-896) by
+    `case=contained|detached|multiple`, the link trigger "Link" (`data-testid="trigger"`, `href="#"`), the second detached
+    trigger "Another link" (`trigger-2`), the positioner (`positioner`) and the popup "Content" (`popup`). The query sets:
+    - the root: `open=true|false` (controlled, its OnOpenChange following the request; `[data-set-open]` changes it, the
+      upstream "Show" button), `defaultOpen`, `cancelOpen`, `cancelClose`, `preventUnmount` (the first close calls
+      PreventUnmountOnClose);
+    - the first trigger: `delay`, `closeDelay`;
+    - `keepMounted`, `animated` (200 ms keyframes; open with `?animations=1`), `showTrigger=false` (`[data-toggle-trigger]`
+      mounts or unmounts the first trigger);
+    - buttons: `[data-close]` and `[data-unmount]` call the root's CloseAsync and Unmount.
+    The container renders `data-open-changes`, `data-open-change-completes`, `data-attached` and `data-sync`.
+*@
+<FixtureContainer Name="preview-card-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes preview-card-root-enter { from { opacity: 0; } }
+        @@keyframes preview-card-root-exit { to { opacity: 0; } }
+        .preview-card-animated[data-open] { animation: preview-card-root-enter 200ms; }
+        .preview-card-animated[data-ending-style] { animation: preview-card-root-exit 200ms; }
+        .preview-card-root-popup { width: 120px; height: 40px; }
+    </style>
+    <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Show</button>
+        <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+        <button type="button" data-toggle-trigger @onclick="() => showTrigger = !showTrigger">Toggle trigger</button>
+        <button type="button" data-close @onclick="() => root!.CloseAsync()">Close</button>
+        <button type="button" data-unmount @onclick="() => root!.Unmount()">Unmount</button>
+    </div>
+
+    <div style="position: fixed; top: 200px; left: 200px; display: flex; gap: 40px">
+        @if (Case == "contained")
+        {
+            <PreviewCardRoot TPayload="NoPayload" @ref="root" @attributes="RootAttributes" DefaultOpen="@defaultOpen" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @if (showTrigger)
+                {
+                    <PreviewCardTrigger TPayload="NoPayload" @ref="trigger" href="#" data-testid="trigger" Delay="@delay" CloseDelay="@closeDelay">Link</PreviewCardTrigger>
+                }
+                @Popup
+            </PreviewCardRoot>
+        }
+        else
+        {
+            @if (showTrigger)
+            {
+                <PreviewCardTrigger Handle="handle" @ref="trigger" href="#" data-testid="trigger" Delay="@delay" CloseDelay="@closeDelay">Link</PreviewCardTrigger>
+            }
+
+            @if (Case == "multiple")
+            {
+                <PreviewCardTrigger Handle="handle" @ref="secondTrigger" href="#" data-testid="trigger-2">Another link</PreviewCardTrigger>
+            }
+
+            <PreviewCardRoot Handle="handle" @ref="root" @attributes="RootAttributes" DefaultOpen="@defaultOpen" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Popup
+            </PreviewCardRoot>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly PreviewCardHandle<NoPayload> handle = new();
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private bool showTrigger = true;
+    private bool preventUnmount;
+    private bool prevented;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private Dictionary<string, object> popupAttributes = [];
+    private PreviewCardRoot<NoPayload>? root;
+    private PreviewCardTrigger<NoPayload>? trigger;
+    private PreviewCardTrigger<NoPayload>? secondTrigger;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    // A detached trigger renders against the handle's fallback store until its root attaches to the handle, after the
+    // fixture's first render: its handle attaches only then, so it is awaited after the root's session.
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(trigger?.TwinAttached ?? Task.CompletedTask, secondTrigger?.TwinAttached ?? Task.CompletedTask);
+    }
+
+    // A controlled root receives Open only when the query names it, so an uncontrolled root never sees the parameter.
+    private Dictionary<string, object> RootAttributes => controlled ? new() { ["Open"] = open } : [];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        showTrigger = QueryFlag("showTrigger") != false;
+        preventUnmount = QueryFlag("preventUnmount") == true;
+        delay = int.TryParse(Query("delay"), out int openDelay) ? openDelay : null;
+        closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
+        popupAttributes["data-testid"] = "popup";
+        popupAttributes["class"] = QueryFlag("animated") == true ? "preview-card-root-popup preview-card-animated" : "preview-card-root-popup";
+    }
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && preventUnmount && !prevented)
+        {
+            prevented = true;
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        if (controlled && !args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private RenderFragment Popup => @<PreviewCardPortal KeepMounted="@keepMounted">
+        <PreviewCardPositioner data-testid="positioner">
+            <PreviewCardPopup @attributes="popupAttributes">Content</PreviewCardPopup>
+        </PreviewCardPositioner>
+    </PreviewCardPortal>;
+}

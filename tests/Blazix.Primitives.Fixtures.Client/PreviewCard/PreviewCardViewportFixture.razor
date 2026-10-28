@@ -1,0 +1,164 @@
+@namespace Blazix.Primitives.Fixtures.Client.PreviewCardFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `preview-card-viewport` fixture (tests/browser/preview-card.spec.ts, M4 track 7): viewportConformanceTests
+    (tests/browser/suites/) on PreviewCard's parts, PreviewCardViewport.test.tsx's createComponent (:25-47): link triggers
+    `trigger-1`.. (`href="#"`, payload N, text "Trigger N", delay 0), then Portal > Positioner > Popup (`popup`) > Viewport
+    (`viewport`) holding `<div data-testid="content">Content[ <payload>]</div>`. The query is the suite's contract (open,
+    defaultOpen, defaultTriggerId, keepMounted, side with collision avoidance side none, direction,
+    case=controlled|retained|lagging, strict, triggerCount); `[data-unmount]` unmounts the whole root. The controls carry
+    `data-key-control` and act on a Shift keydown beside their click (`OnShift`), which the suites dispatch: a click would
+    move focus off the trigger that opened the card (tests/browser/CONTEXT.md).
+*@
+<FixtureContainer Name="preview-card-viewport" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-remount-trigger data-key-control @onclick="RemountAsync" @onkeydown="OnShift(RemountAsync)">Remount trigger</button>
+    <button type="button" data-set-payload data-key-control @onclick='() => laggingPayload = "ready"' @onkeydown='OnShift(() => laggingPayload = "ready")'>Set payload</button>
+    <button type="button" data-unmount data-key-control @onclick="() => mounted = false" @onkeydown="OnShift(() => mounted = false)">Unmount</button>
+
+    @if (!mounted)
+    {
+    }
+    else if (direction == TextDirection.Rtl)
+    {
+        <DirectionProvider Direction="TextDirection.Rtl">@Root</DirectionProvider>
+    }
+    else
+    {
+        @Root
+    }
+</FixtureContainer>
+
+@code {
+    private readonly PreviewCardTrigger<string>?[] triggerRefs = new PreviewCardTrigger<string>?[8];
+    private PreviewCardRoot<string>? root;
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private string? defaultTriggerId;
+    private bool keepMounted;
+    private Side? side;
+    private TextDirection direction;
+    private int triggerCount = 2;
+    private int triggerKey;
+    private bool strict;
+    private string? laggingPayload;
+    private bool mounted = true;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    // The triggers' handles attach once the root's session has a token.
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(triggerRefs.Take(triggerCount).Select(trigger => trigger?.TwinAttached ?? Task.CompletedTask));
+    }
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null || Case == "controlled";
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        defaultTriggerId = Query("defaultTriggerId");
+        keepMounted = QueryFlag("keepMounted") == true;
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
+        strict = QueryFlag("strict") == true;
+        direction = Query("direction") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+        side = Query("side") switch
+        {
+            "top" => Side.Top,
+            "bottom" => Side.Bottom,
+            "left" => Side.Left,
+            "right" => Side.Right,
+            "inline-start" => Side.InlineStart,
+            "inline-end" => Side.InlineEnd,
+            _ => null,
+        };
+    }
+
+    private RenderFragment Root => @<text>
+        @if (controlled)
+        {
+            <PreviewCardRoot TPayload="string" @ref="root" Open="@open" DefaultTriggerId="@defaultTriggerId" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+                @Triggers
+            </PreviewCardRoot>
+        }
+        else
+        {
+            <PreviewCardRoot TPayload="string" @ref="root" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId" OnOpenChange="RetainOrRecord" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+                @Triggers
+            </PreviewCardRoot>
+        }
+    </text>;
+
+    private RenderFragment Triggers => @<text>
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            int index = number - 1;
+            string id = $"trigger-{number}";
+            string text = $"Trigger {number}";
+            string key = $"{id}-{triggerKey}";
+            // A lone trigger carries no payload (the suite's default content, `Content`); the lagging case's first trigger
+            // never does and its second only once `[data-set-payload]` gave it one.
+            if (triggerCount == 1 || (Case == "lagging" && (number == 1 || laggingPayload is null)))
+            {
+                <PreviewCardTrigger TPayload="string" @key="key" @ref="triggerRefs[index]" href="#" Delay="0" id="@id" data-testid="@id">@text</PreviewCardTrigger>
+            }
+            else
+            {
+                string payload = Case == "lagging" ? laggingPayload! : number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                <PreviewCardTrigger TPayload="string" @key="key" @ref="triggerRefs[index]" href="#" Delay="0" id="@id" data-testid="@id" Payload="@payload">@text</PreviewCardTrigger>
+            }
+        }
+    </text>;
+
+    private RenderFragment<string?> Content => payload => @<text>
+        <PreviewCardPortal KeepMounted="@keepMounted">
+            <PreviewCardPositioner Side="@side" CollisionAvoidance="@(side is null ? null : new CollisionAvoidance(Side: CollisionAvoidanceMode.None))">
+                <PreviewCardPopup data-testid="popup">
+                    <PreviewCardViewport data-testid="viewport">
+                        <div data-testid="content">@(payload is null ? "Content" : $"Content {payload}")</div>
+                    </PreviewCardViewport>
+                </PreviewCardPopup>
+            </PreviewCardPositioner>
+        </PreviewCardPortal>
+    </text>;
+
+    // `open=true` stays open; case=controlled follows the request.
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (Case == "controlled")
+        {
+            open = args.Value;
+        }
+    }
+
+    // case=retained: Base UI's preventUnmountOnClose() keeps the closed popup mounted.
+    private void RetainOrRecord(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value && Case == "retained")
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        RecordOpenChange(args);
+    }
+
+    // The trigger remounts with a new key and the same id; strict=true remounts it twice, a render between (the handler's
+    // first yield renders).
+    private async Task RemountAsync()
+    {
+        triggerKey++;
+        if (strict)
+        {
+            await Task.Yield();
+            triggerKey++;
+        }
+    }
+}

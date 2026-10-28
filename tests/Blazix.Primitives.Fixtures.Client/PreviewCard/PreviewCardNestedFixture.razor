@@ -1,0 +1,67 @@
+@namespace Blazix.Primitives.Fixtures.Client.PreviewCardFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `preview-card-nested` fixture (tests/browser/preview-card.spec.ts): PreviewCardRoot.test.tsx's nested cards
+    (:501-787). A parent card (link trigger "Parent", `parent-trigger`; positioner `parent-positioner`, popup `parent-popup`
+    with "Parent content") holds a child card in its popup (link trigger "Child", `child-trigger`; positioner
+    `child-positioner`, popup `child-popup` "Child content"), with an `outside` button before both. The query sets
+    `parentOpen` (the parent's DefaultOpen) and `childOpen` (the child's). Each card sits below its trigger, aligned to its
+    start, so the parent's own content stays uncovered by the child card. The triggers carry no `href`: Base UI's `"#"`
+    resolves against the host's `<base href="/">`, and the hash navigation a click starts re-renders the fixture.
+*@
+<FixtureContainer Name="preview-card-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        .preview-card-nested-popup { box-sizing: border-box; padding: 8px; border: 1px solid; background: white; }
+    </style>
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-testid="outside" style="position: fixed; left: 0; bottom: 0">Outside</button>
+
+    <div style="position: fixed; top: 100px; left: 100px">
+        <PreviewCardRoot TPayload="NoPayload" @ref="parent" DefaultOpen="@parentOpen" OnOpenChange="RecordOpenChange">
+            <PreviewCardTrigger TPayload="NoPayload" @ref="parentTrigger" data-testid="parent-trigger">Parent</PreviewCardTrigger>
+            <PreviewCardPortal>
+                <PreviewCardPositioner data-testid="parent-positioner" Side="Side.Bottom" Align="Align.Start">
+                    <PreviewCardPopup data-testid="parent-popup" class="preview-card-nested-popup" style="width: 200px">
+                        <div>Parent content</div>
+                        <PreviewCardRoot TPayload="NoPayload" @ref="child" DefaultOpen="@childOpen">
+                            <PreviewCardTrigger TPayload="NoPayload" @ref="childTrigger" data-testid="child-trigger">Child</PreviewCardTrigger>
+                            <PreviewCardPortal>
+                                <PreviewCardPositioner data-testid="child-positioner" Side="Side.Bottom" Align="Align.Start">
+                                    <PreviewCardPopup data-testid="child-popup" class="preview-card-nested-popup" style="width: 140px">Child content</PreviewCardPopup>
+                                </PreviewCardPositioner>
+                            </PreviewCardPortal>
+                        </PreviewCardRoot>
+                    </PreviewCardPopup>
+                </PreviewCardPositioner>
+            </PreviewCardPortal>
+        </PreviewCardRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private PreviewCardRoot<NoPayload>? parent;
+    private PreviewCardRoot<NoPayload>? child;
+    private PreviewCardTrigger<NoPayload>? parentTrigger;
+    private PreviewCardTrigger<NoPayload>? childTrigger;
+    private bool parentOpen;
+    private bool childOpen;
+
+    // The child's root and trigger render only inside the open parent popup.
+    protected override IEnumerable<Task> Attachments =>
+    [
+        parent?.SessionAttached ?? Task.CompletedTask,
+        parentTrigger?.TwinAttached ?? Task.CompletedTask,
+        child?.SessionAttached ?? Task.CompletedTask,
+        childTrigger?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        parentOpen = QueryFlag("parentOpen") == true;
+        childOpen = QueryFlag("childOpen") == true;
+    }
+}
