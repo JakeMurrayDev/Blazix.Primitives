@@ -1824,6 +1824,31 @@ test.describe('<Popover.Root /> port: floating mechanics on Popover', () => {
     await expect(page.getByTestId('parent-popup')).toHaveCount(0);
   });
 
+  test('port: a kept-mounted positioner takes pointer-events none while closed, and drops it when opened', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-root', { keepMounted: true });
+    const positioner = page.getByTestId('positioner');
+    const pointerEvents = () => positioner.evaluate((element) => (element as HTMLElement).style.pointerEvents);
+
+    await page.getByTestId('trigger').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect.poll(pointerEvents).not.toBe('none');
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popover-popup')).toBeHidden();
+    await expect.poll(pointerEvents).toBe('none');
+  });
+
+  test('port: the popup carries the positioner\'s data-side and data-align', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-root', {});
+    await page.getByTestId('trigger').click();
+    const positioner = page.getByTestId('positioner');
+    const popup = page.getByTestId('popover-popup');
+    await expect(positioner).toHaveAttribute('data-side', /.+/);
+
+    await expect(popup).toHaveAttribute('data-side', (await positioner.getAttribute('data-side'))!);
+    await expect(popup).toHaveAttribute('data-align', (await positioner.getAttribute('data-align'))!);
+  });
+
   test('port: the positioner is marked anchor-hidden once its anchor scrolls out of view', async ({ page, mode }) => {
     await gotoPopupFixture(page, mode, 'popover-positioner', { case: 'anchor-hidden' });
     const positioner = page.getByTestId('positioner');

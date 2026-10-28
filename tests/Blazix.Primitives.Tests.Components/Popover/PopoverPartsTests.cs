@@ -435,5 +435,14 @@ public sealed class PopoverPartsTests : IDisposable
         Assert.Contains($"\"sessionToken\":\"{token}\"", attached, StringComparison.Ordinal);
     }
 
+    [Fact(DisplayName = "port: the arrow is aria-hidden")]
+    [Trait("Requirement", "POP-ARIA-07")]
+    public void The_arrow_is_aria_hidden()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { DefaultOpen = true, Arrow = true });
+
+        Assert.Equal("true", cut.Find("[data-testid=\"arrow\"]").GetAttribute("aria-hidden"));
+    }
+
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }
