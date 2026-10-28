@@ -715,7 +715,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   // anchor is registered in useFloating's own position reference, which overrides the root store's reference, and the
   // store's reference is its position reference (the client point, the hovered line) or else the trigger. So: a virtual
   // anchor as given, a custom anchor element (from the references, or by id) wrapped so its own rect is measured, then
-  // the session's position reference while one is set, else the active trigger itself.
+  // the session's position reference while one is set, else the active trigger itself. An anchor that does not resolve
+  // is Base UI's null anchor: the next slot is in force.
   const resolvePositionReference = (): { key: unknown; value: ReferenceElement | null } => {
     const doc = ownerDocument(element);
     const virtual = options.virtualAnchor;
@@ -733,11 +734,8 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
         ? resolveReference<Element>(references, options.anchorRef)
         : options.anchorId
           ? doc.getElementById(options.anchorId)
-          : undefined;
-    if (anchor !== undefined) {
-      if (anchor === null) {
-        return { key: null, value: null };
-      }
+          : null;
+    if (anchor) {
       if (anchor === referenceKey) {
         return { key: anchor, value: reference };
       }
