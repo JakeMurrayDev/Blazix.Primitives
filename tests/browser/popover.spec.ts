@@ -425,6 +425,60 @@ test.describe('<Popover.Trigger /> hover', () => {
     await expect(content).toBeVisible();
   });
 
+  test('reopens on hover after an impatient click is followed by a close button press', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { delay: 100 });
+    await pausedClock(page);
+    const trigger = page.getByTestId('trigger-1');
+    const dialog = page.getByRole('dialog');
+
+    await trigger.hover();
+    await page.clock.runFor(100);
+    await expect(dialog).toBeVisible();
+    await page.clock.runFor(patientClickThreshold - 1);
+    await trigger.click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await page.mouse.move(5, 5);
+    await trigger.hover();
+    await page.clock.runFor(100);
+    await expect(dialog).toBeVisible();
+  });
+
+  test('closes after hovering out of a popup opened by its trigger', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-hover', { open: false, delay: 0 });
+    await page.getByTestId('trigger-1').hover();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    await page.getByTestId('popup').hover();
+    await page.mouse.move(5, 5);
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('does not close after hovering out of a popup opened externally', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { open: false, delay: 0 });
+    await pressControl(fixture.locator('[data-set-open="true"]'));
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    await page.getByTestId('popup').hover();
+    await page.mouse.move(5, 5);
+    await settle(fixture);
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+  });
+
+  test('does not close after hovering out of a popup opened without trigger hover', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { defaultOpen: true });
+    await expect(page.getByText('Content', { exact: true })).toBeVisible();
+
+    await page.getByTestId('popup').hover();
+    await page.mouse.move(5, 5);
+    await settle(fixture);
+
+    await expect(page.getByText('Content', { exact: true })).toBeVisible();
+  });
+
   test('should close after delay', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { closeDelay: 100 });
     await pausedClock(page);

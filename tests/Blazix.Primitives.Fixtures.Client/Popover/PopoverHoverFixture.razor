@@ -9,7 +9,7 @@
     portaled popup holding "Content" and a close labeled "Close", an outside button `outside`. The query:
     `openOnHover` (default true), `delay`, `closeDelay` (milliseconds), `disabled`, `modal`, `keepMounted`,
     `triggerCount` (default 1; detached triggers share one handle when more than one), `nativeButton=false` (a `span`
-    trigger), `open=true|false` (a controlled
+    trigger), `defaultOpen`, `open=true|false` (a controlled
     root that follows its OnOpenChange, `[data-set-open]` driving it from outside).
 *@
 <FixtureContainer Name="popover-hover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -36,7 +36,7 @@
     }
     else
     {
-        <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
             @Popup
         </PopoverRoot>
     }
@@ -55,6 +55,7 @@
     private bool modal;
     private bool keepMounted;
     private bool controlled;
+    private bool defaultOpen;
     private bool open;
     private int triggerCount = 1;
     private bool nativeButton = true;
@@ -84,6 +85,7 @@
         triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 1;
         nativeButton = QueryFlag("nativeButton") != false;
         controlled = QueryFlag("open") is not null;
+        defaultOpen = QueryFlag("defaultOpen") == true;
         this.open = QueryFlag("open") == true;
     }
 
