@@ -34,7 +34,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
-| components/dialog.md | DLG | approved | 191 reqs; revised 2026-10-28, M4 track 8 (implementation in progress; `implemented` is proposed by track 9); open: the closed-shadow-root titles (DP9), Popover-, Menu-, Select-, Drawer- and AlertDialog-rendering clauses, DLG-KEY-09, DLG-EDGE-14 (withdrawal pending the user) |
+| components/dialog.md | DLG | approved | 191 reqs (1 withdrawn for the port); revised 2026-10-28, M4 track 8 (implementation in progress; `implemented` is proposed by track 9); open: the closed-shadow-root titles (DP9), Popover-, Menu-, Select-, Drawer- and AlertDialog-rendering clauses, DLG-KEY-09 |
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
 | components/field.md | FLD | implemented | 143 reqs; owns normative Field.Control text; revised 2026-10-23, PR 1c; rows open to tracks 4–8 and M5/M6 listed in PR 1c |
 | components/fieldset.md | FST | implemented | 32 reqs; revised 2026-10-23, PR 1c; rows open to tracks 5–8 and M5 listed in PR 1c | |
