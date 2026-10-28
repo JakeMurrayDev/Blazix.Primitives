@@ -164,6 +164,7 @@ public static class FixtureCatalog
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
         ["popover-conformance"] = new(typeof(PopoverConformanceFixture)),
+        ["popover-focus"] = new(typeof(PopoverFocusFixture)),
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),

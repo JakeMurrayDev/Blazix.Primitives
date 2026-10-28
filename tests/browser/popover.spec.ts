@@ -1,5 +1,6 @@
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
+import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
 // The [L4] rows of docs/components/popover.md (M4 track 5, issue 125) on the `popover-*` fixtures, every title on both
@@ -33,4 +34,9 @@ detachedTriggersConformanceTests({
 viewportConformanceTests({
   fixture: 'popover-viewport',
   openOn: 'click',
+});
+
+// The first run of popupFocusPropsTests (track 1 wrote it for the families): PopoverPopup.test.tsx's config.
+popupFocusPropsTests({
+  fixture: 'popover-focus',
 });
