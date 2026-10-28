@@ -81,6 +81,11 @@ internal sealed class DialogTriggerBehavior<TPayload> : IAsyncDisposable
     public async Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id, bool disabled)
     {
         button.Disabled = disabled;
+
+        // The interactions handle attaches once the trigger's store has a session (track 5's fidelity correction of the
+        // shared behavior, settled by the orchestrator 2026-10-28): a detached trigger rendered before its root takes the
+        // root's store through a render no parameter set precedes, so the token is read from the current store here.
+        interactions.SessionToken = trigger.Store.SessionToken;
         Task pressed = interactions.AfterRenderAsync(enabled, element, id);
         await button.AfterRenderAsync(enabled, element, id, composite: false);
         await pressed;
