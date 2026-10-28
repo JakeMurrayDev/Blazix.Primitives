@@ -361,7 +361,9 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     }
 
     // ADR 04 Amendments 2026-10-18 (handover at attach): before attach C# renders `transition: none` while starting
-    // (TRN-DOM-05, POP-DOM-29) before the consumer's style; from attach the style is frozen and the modules own it.
+    // (TRN-DOM-05, POP-DOM-29) before the consumer's style; from attach the style is frozen and the modules own it: the
+    // transitions module writes `transition: none` on each starting frame and the consumer's style through its writer
+    // (ADR 04 Amendments 2026-10-28).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes)
     {
@@ -398,6 +400,11 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
             ReportOpenComplete = true,
             OpenSelector = OpenSelector,
             UnmountRequests = unmountRequests!.Value,
+
+            // TRN-DOM-05, POP-DOM-29 (ADR 04 Amendments 2026-10-28): the module writes transition: none on the starting frame
+            // from the handover on, under the consumer's style, which it applies as its writer's consumer band.
+            DisableTransitionWhileStarting = true,
+            Style = consumerStyle ?? string.Empty,
         };
         if (transitions is null)
         {

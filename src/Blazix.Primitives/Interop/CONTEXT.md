@@ -25,7 +25,8 @@ The twins: the C# half of each JavaScript module (ADR 04 §3). Internal to the l
     - the machine options `EnableIdleState` and `DeferEndingState`, fixed per part;
     - `KeepMounted`, `HiddenUntilFound`, `HiddenWhenUnmounted` (a container is hidden at exit end; an indicator is not), `SuppressEndingStyle` (a kept element plays no exit), `ReportOpenComplete`, `RevealOnBeforeMatch`, `UnmountRequests` (a count C# raises to end an exit itself), and `ExternalExit` (no exit watcher: the exit ends only when `UnmountRequests` increases; the Collapsible Root and Trigger, whose exit ends with the panel's);
     - `OpenSelector`, the selector the element matches while rendered open (`[data-open]`, `[data-panel-open]`, `:not([aria-hidden])`): when set, the module reads the open input from the DOM after every render, before paint;
-    - `Style`, applied only when set.
+    - `Style`, applied only when set, as the consumer band of `dom`'s layered writer (2026-10-29, ADR 04 Amendments 2026-10-28), so another module's layers on the element stay;
+    - `DisableTransitionWhileStarting` (written only when `true`; 2026-10-29, ADR 04 Amendments 2026-10-28, gap 13 of M4 track 5): the module writes `transition: none` into its `transitions` band while the status is starting and removes it on the clearing frame (TRN-DOM-05); Popover's Popup sets it.
   - There is no `AnimateInitialOpen` field: C# renders the initial status and sends it as `Status`.
   - Events, each raised once per message:
     - `StatusChanged` (`TransitionStatusChange(TransitionStatus? Status, bool Mounted)`);

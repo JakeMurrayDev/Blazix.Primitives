@@ -94,4 +94,14 @@ internal sealed record TransitionsOptions : TwinOptions
     /// <c>attach</c>; <see langword="null"/>, the default, takes the open state from <see cref="Open"/>.
     /// </value>
     public string? OpenSelector { get; init; }
+
+    // TRN-DOM-05; ADR 04 Amendments 2026-10-28 (gap 13 of M4 track 5, option (b), settled by the orchestrator): written only
+    // when set, so the record of a part that does not ask is unchanged.
+    /// <summary>Gets a value indicating whether the element carries <c>transition: none</c> while its status is starting.</summary>
+    /// <value>
+    /// <see langword="true"/> for the parts whose popup or positioner drops its transition for the starting frame, under the
+    /// consumer's style, so a consumer <c>transition</c> wins; the default is <see langword="false"/>.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool DisableTransitionWhileStarting { get; init; }
 }
