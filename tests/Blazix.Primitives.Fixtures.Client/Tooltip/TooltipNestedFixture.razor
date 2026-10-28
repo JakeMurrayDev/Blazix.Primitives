@@ -9,19 +9,21 @@
     tooltip's trigger (`inner-trigger`, a `button`); with `siblings`, a second inner trigger (`inner-trigger-2`); with
     `depth=3`, the inner trigger is a `span` holding a third-level trigger (`deep-trigger`). Popups: `outer-popup`,
     `inner-popup`, `inner-popup-2`, `deep-popup`. The query sets `outerDelay` and `innerDelay`, `outerDisabled`,
-    `innerDisabled` (the inner trigger), `outerOpen=true` (the outer root controlled open), `detached` (the outer trigger
-    detached through a handle), `provider` (a TooltipProvider with `delay=0` around everything). The container records the
-    outer root's open changes.
+    `innerDisabled` (the inner trigger), `outerOpen=true` (the outer root controlled open), `outerControlled` (the outer
+    root controlled, following its open changes; `[data-open-outer]` opens it from outside), `detached` (the outer trigger
+    detached through a handle), `provider` (a TooltipProvider with `delay=0` around everything) or `providerDelay` (one
+    with that delay). The container records the outer root's open changes.
 *@
 <FixtureContainer Name="tooltip-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges">
     <div style="position: fixed; top: 0; left: 0">
         <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+        <button type="button" data-open-outer @onclick="() => controlledOpen = true">Open outer</button>
     </div>
     <div style="position: fixed; top: 200px; left: 100px">
-        @if (provider)
+        @if (providerDelay is not null)
         {
-            <TooltipProvider Delay="0">@Tree</TooltipProvider>
+            <TooltipProvider Delay="@providerDelay">@Tree</TooltipProvider>
         }
         else
         {
@@ -40,7 +42,9 @@
     private bool? innerDisabled;
     private bool outerOpen;
     private bool detached;
-    private bool provider;
+    private Duration? providerDelay;
+    private bool outerControlled;
+    private bool controlledOpen;
     private bool siblings;
     private int depth = 2;
 
@@ -54,7 +58,16 @@
         innerDisabled = QueryFlag("innerDisabled");
         outerOpen = QueryFlag("outerOpen") == true;
         detached = QueryFlag("detached") == true;
-        provider = QueryFlag("provider") == true;
+        if (int.TryParse(Query("providerDelay"), out int group))
+        {
+            providerDelay = group;
+        }
+        else if (QueryFlag("provider") == true)
+        {
+            providerDelay = 0;
+        }
+
+        outerControlled = QueryFlag("outerControlled") == true;
         siblings = QueryFlag("siblings") == true;
         depth = int.TryParse(Query("depth"), out int levels) ? levels : 2;
     }
@@ -83,7 +96,11 @@
 
     private static RenderFragment Span => @<span style="display: inline-block; padding: 30px; border: 1px solid gray" />;
 
-    private Dictionary<string, object> OuterRootAttributes => outerOpen ? new() { ["Open"] = true } : [];
+    private Dictionary<string, object> OuterRootAttributes => outerOpen
+        ? new() { ["Open"] = true }
+        : outerControlled
+            ? new() { ["Open"] = controlledOpen, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, open => controlledOpen = open) }
+            : [];
 
     private RenderFragment Tree => @<text>
         @if (detached)

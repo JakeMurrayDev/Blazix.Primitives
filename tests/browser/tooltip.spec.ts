@@ -28,6 +28,12 @@ detachedTriggersConformanceTests({
     // is a press outside an open tooltip (TIP-PTR-14). The port title below runs the same steps with a click that has no
     // pointer press.
     [OVERLAP_TITLE]: 'TIP-PTR-14: the phase button is an outside press; restated as the port title of this spec',
+    // Run 40707988387 (172f72f), browser-server (2), reproduced at 4x CPU throttling: the root attaches its store to the
+    // handle after its render (PSH-STR-03), so a trigger declared after it renders on the fallback store and its
+    // `interactions` handle attaches under no session; the module keeps that binding when the session token arrives, and
+    // the hover open closes at once. Open until track 5's fix of `Floating/InteractionsTriggerBehavior` is on `main`.
+    'registers a detached trigger declared after the root':
+      'PSH-STR-03 with a late session token: open until the session rebinding of InteractionsTriggerBehavior (track 5) is on main',
   },
 });
 
@@ -70,10 +76,26 @@ test.afterEach(async ({ page }) => {
 
 const frozenPages = new WeakSet<Page>();
 
-/** Pauses the page's clock: its timers fire only when the test runs it forward. */
+const FREEZE_MARGIN = 50;
+
+/**
+ * Pauses the page's clock: its timers fire only when the test runs it forward. The page's clock runs on while the target
+ * travels to the browser, so the target sits a margin ahead, read again if the clock passed it on a slow runner; the
+ * titles freeze right after the fixture attached, when no timer a title watches is pending.
+ */
 async function freezeClock(page: Page): Promise<void> {
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(now + 1);
+  for (let attempt = 1; ; attempt += 1) {
+    const now = await page.evaluate(() => Date.now());
+    try {
+      await page.clock.pauseAt(now + FREEZE_MARGIN);
+      break;
+    } catch (error) {
+      if (attempt === 3 || !String(error).includes('Cannot fast-forward to the past')) {
+        throw error;
+      }
+    }
+  }
+
   frozenPages.add(page);
 }
 
@@ -87,14 +109,19 @@ async function clickInPlace(page: Page): Promise<void> {
 }
 
 /**
- * Moves the real pointer away from the trigger, below it, which leaves it from the side opposite a top popup. Under a
- * paused clock the frames run first, so the positioning pass has published the placement the safe polygon reads.
+ * Moves the real pointer away from the trigger, below it, which leaves it from the side opposite a top popup. The safe
+ * polygon decides on the leave only once the session holds the floating element and its placement; on Server they
+ * arrive after C#'s render, and until then it waits for a later move. The first positioning pass removes the
+ * positioner's `opacity: 0` and publishes the placement in one step (FLT-STA-08, FLT-ANI-02), after the root's session
+ * update and the floating element's attach, so no open positioner may still carry it. Under a paused clock the frames
+ * run first.
  */
 async function moveAway(page: Page): Promise<void> {
   if (frozenPages.has(page)) {
     await page.clock.runFor(32);
   }
 
+  await expect(page.locator('[role="presentation"][data-open][style*="opacity: 0"]')).toHaveCount(0);
   await page.mouse.move(400, 600);
 }
 
@@ -666,6 +693,8 @@ test.describe('<Tooltip.Provider />', () => {
       await expect(popup(page, 1)).toBeVisible();
 
       await trigger(page, 2).hover();
+      // Base UI's `tick(0)`: the first trigger's leave closes it through a zero-delay timer.
+      await page.clock.runFor(0);
       await expect(popup(page, 2)).toBeVisible();
       await expect(popup(page, 1)).toHaveCount(0);
 
@@ -1007,6 +1036,94 @@ test.describe('nested tooltips', () => {
 
     await expect(byTestId(page, 'outer-popup')).toBeVisible();
   });
+
+  test('should restart the parent delay when moving from a nested trigger to the parent area', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 100, innerDelay: 1000 });
+    await freezeClock(page);
+    await moveTo(page, 'outer-area');
+    await page.clock.runFor(50);
+
+    await moveTo(page, 'inner-trigger');
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+
+    await moveTo(page, 'outer-area');
+    await page.clock.runFor(50);
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    await page.clock.runFor(50);
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+  });
+
+  // Listed open (TIP-PTR-20, tooltip.md's dated note 2026-10-28): the real pointer reaching the parent area also moves
+  // over it, which starts the hover hook's rest timer (useHoverReferenceInteraction.ts:426-497; Tooltip's `restMs` is the
+  // open delay). That timer's open is not gated by the open state while the popup has no active trigger
+  // (`isOverInactiveTrigger` is true for no reference), so Base UI's own code announces the outside-opened tooltip again
+  // in a browser; Base UI's title fires no `mousemove` on the parent area. The local reopen's own guard is an L3 title in
+  // `interactions.test.ts`.
+  test('should not re-announce an open outer tooltip when the pending reopen fires', async ({ page, mode }) => {
+    test.skip(true, 'TIP-PTR-20: the real move over the parent area starts the hover rest timer, which Base UI does not gate; proven at L3');
+    const fixture = await open(page, mode, { providerDelay: 100, innerDelay: 1000, outerControlled: true });
+    await freezeClock(page);
+    await moveTo(page, 'inner-trigger');
+    await moveTo(page, 'outer-area');
+
+    await fixture.locator('[data-open-outer]').evaluate((element) => (element as HTMLElement).click());
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    await page.clock.runFor(100);
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  // React bubbles the nested popup's mouseover to the outer trigger through the portal; the DOM does not (tooltip.md §16,
+  // "Portals"), so the title holds through the real pointer's path from the inner trigger to its popup.
+  test('should not reopen the outer tooltip when hovering the nested tooltip popup', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 100, innerDelay: 0 });
+    await moveTo(page, 'inner-trigger');
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+
+    await moveTo(page, 'inner-popup');
+    await page.waitForTimeout(100);
+    await settle(fixture);
+
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  test('should not open the outer tooltip when moving from the outer popup to a nested trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 0, innerDelay: OPEN_DELAY * 10 });
+    await moveTo(page, 'outer-area');
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    await moveTo(page, 'outer-popup');
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+
+    await moveTo(page, 'inner-trigger');
+
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-hover false:trigger-hover');
+  });
+
+  test('should suppress the safePolygon-driven open while a nested trigger is hovered', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { innerDelay: OPEN_DELAY * 10 });
+    await freezeClock(page);
+    await moveTo(page, 'inner-trigger');
+    const box = (await byTestId(page, 'inner-trigger').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2 + 1, box.y + box.height / 2);
+    await page.mouse.move(box.x + box.width / 2 + 2, box.y + box.height / 2);
+
+    await page.clock.runFor(OPEN_DELAY);
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1312,5 +1429,299 @@ test.describe('<Tooltip.Root /> prerendered', () => {
     await expect(fixture).toHaveAttribute('data-handle-open-state', 'true');
     await expect(page.locator('[data-testid="popup"]')).toBeVisible();
     expect(await openChanges(fixture)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The Server relaxations of tooltip.md §9 (ADR 01's relaxation table), asserted per mode with latency added to the
+// circuit's WebSocket (`page.routeWebSocket`; CDP emulation does not delay it). Each witness is a record the page takes
+// (a MutationObserver, a listener added last), never a poll of a short-lived state (ADR 06 §2).
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Delays every circuit message by `oneWayMs` each way (Server latency). */
+async function delayCircuit(page: Page, oneWayMs: number): Promise<void> {
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    socket.onMessage((message) => {
+      setTimeout(() => server.send(message), oneWayMs);
+    });
+    server.onMessage((message) => {
+      setTimeout(() => socket.send(message), oneWayMs);
+    });
+  });
+}
+
+const LATENCY = 250;
+
+test.describe('Server relaxations (tooltip.md §9)', () => {
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+
+  // TIP-STA-06/07, TIP-ANI-03 (chosen by the user 2026-10-27, ADR 04 Amendments 2026-10-27): the group's phase travels on
+  // the open request, so the popup is created with data-instant="delay" in the batch that renders data-open, on both modes.
+  test('port: data-instant="delay" renders in the batch of data-open on both modes', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'tooltip-provider', { triggerDelay: 0, timeout: 400 });
+    await page.evaluate(() => {
+      const records: { instant: string | null; open: boolean }[] = [];
+      (window as unknown as { popupRecords: typeof records }).popupRecords = records;
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            const popup = node instanceof HTMLElement ? (node.matches('[data-testid="popup-2"]') ? node : node.querySelector('[data-testid="popup-2"]')) : null;
+            if (popup) {
+              records.push({ instant: popup.getAttribute('data-instant'), open: popup.hasAttribute('data-open') });
+            }
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+    await byTestId(page, 'trigger-1').hover();
+    await expect(byTestId(page, 'popup-1')).toBeVisible();
+
+    await byTestId(page, 'trigger-2').hover();
+
+    await expect(byTestId(page, 'popup-2')).toBeVisible();
+    const records = await page.evaluate(() => (window as unknown as { popupRecords: { instant: string | null; open: boolean }[] }).popupRecords);
+    expect(records[0]).toEqual({ instant: 'delay', open: true });
+  });
+
+  // TIP-PTR-03, TIP-EVT-02 (EVD-EVT-18, PSH-ANI-03): the hover open is decided in the module and commits a round trip
+  // later on Server; on WebAssembly it commits with no round trip.
+  test('port: a hover open commits a round trip after the hover on Server and with none on WebAssembly', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'tooltip-root', { case: 'contained', delay: 0 });
+    await page.evaluate(() => {
+      const times: { enter?: number; open?: number } = {};
+      (window as unknown as { hoverTimes: typeof times }).hoverTimes = times;
+      document.querySelector('[data-testid="trigger"]')!.addEventListener('mouseenter', () => {
+        times.enter ??= performance.now();
+      });
+      new MutationObserver(() => {
+        if (times.open === undefined && document.querySelector('[data-testid="popup"]')) {
+          times.open = performance.now();
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    const { enter, open } = await page.evaluate(() => (window as unknown as { hoverTimes: { enter: number; open: number } }).hoverTimes);
+    if (mode === 'server') {
+      expect(open - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(open - enter).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // TIP-STA-12, TIP-STA-13, TIP-POS-07 (RND-STA-01 for mirrored fields): the module writes data-side; the side C# mirrors
+  // (the positioner's class) follows a round trip later on Server, and within the module's report on WebAssembly.
+  test('port: the mirrored side follows the data-side the module writes', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'tooltip-root', { case: 'contained', delay: 0, topEdge: true });
+    await page.evaluate(() => {
+      const records: { side: string | null; className: string }[] = [];
+      (window as unknown as { sideRecords: typeof records }).sideRecords = records;
+      new MutationObserver(() => {
+        const positioner = document.querySelector('[data-testid="positioner"]');
+        if (positioner) {
+          records.push({ side: positioner.getAttribute('data-side'), className: positioner.className });
+        }
+      }).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['data-side', 'class'] });
+    });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'positioner')).toHaveAttribute('data-side', 'bottom');
+    await expect(byTestId(page, 'positioner')).toHaveClass('mirrored-bottom');
+    const records = await page.evaluate(() => (window as unknown as { sideRecords: { side: string | null; className: string }[] }).sideRecords);
+    const lagging = records.some((record) => record.side === 'bottom' && record.className === 'mirrored-top');
+    // On WebAssembly the report runs .NET inside the module's observer callback, so the class lands in the same task.
+    expect(lagging).toBe(mode === 'server');
+  });
+
+  // TIP-KEY-01, TIP-EVT-03 (EVD-EVT-11, EVD-DIS-01, FLT-KEY-01): a consumer's cancel of an Escape close holds on both
+  // modes, and the keydown stops at the document on both (no allowPropagation call). On WebAssembly the cancel is read
+  // inside the keydown, so the key's default stays; on Server it arrives a round trip later and the module prevents the
+  // key per the innermost-popup fallback (ADR 04 §3).
+  test('port: a canceled Escape close keeps the tooltip open on both modes and keeps the key\'s default only on WebAssembly', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'tooltip-root', { case: 'contained', defaultOpen: true, cancelClose: true });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await page.evaluate(() => {
+      const record: { prevented?: boolean; reached: boolean } = { reached: false };
+      (window as unknown as { escapeRecord: typeof record }).escapeRecord = record;
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          record.reached = true;
+        }
+      });
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Escape') {
+            setTimeout(() => {
+              record.prevented = event.defaultPrevented;
+            });
+          }
+        },
+        { capture: true },
+      );
+    });
+
+    await page.keyboard.press('Escape');
+    await settle(fixture);
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:escape-key');
+    const record = await page.evaluate(() => (window as unknown as { escapeRecord: { prevented: boolean; reached: boolean } }).escapeRecord);
+    expect(record).toEqual({ prevented: mode === 'server', reached: false });
+  });
+
+  /**
+   * Records when the popup with `testId` gets the convergent `hidden` (ADR 04 §2), when its exit animation or transition
+   * ends or is canceled, when it leaves the DOM, and when the fixture's `data-open-change-completes` gains a `false`.
+   */
+  async function recordExit(page: Page, testId: string): Promise<void> {
+    await page.evaluate((id) => {
+      const times: { ended?: number; hidden?: number; removed?: number; completed?: number } = {};
+      (window as unknown as { exitTimes: typeof times }).exitTimes = times;
+      const isPopup = (node: Node) => node instanceof Element && node.matches(`[data-testid="${id}"]`);
+      for (const type of ['animationend', 'transitionend', 'transitioncancel']) {
+        document.addEventListener(
+          type,
+          (event) => {
+            if (isPopup(event.target as Node)) {
+              times.ended ??= performance.now();
+            }
+          },
+          { capture: true },
+        );
+      }
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          const target = mutation.target as Element;
+          if (mutation.attributeName === 'hidden' && isPopup(target) && target.hasAttribute('hidden')) {
+            times.hidden ??= performance.now();
+          }
+          if (mutation.attributeName === 'data-open-change-completes' && /false$/.test(target.getAttribute('data-open-change-completes') ?? '')) {
+            times.completed ??= performance.now();
+          }
+          for (const node of mutation.removedNodes) {
+            if (isPopup(node) || (node instanceof Element && node.querySelector(`[data-testid="${id}"]`))) {
+              times.removed ??= performance.now();
+            }
+          }
+        }
+      }).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['hidden', 'data-open-change-completes'] });
+    }, testId);
+  }
+
+  const exitTimes = (page: Page) =>
+    page.evaluate(() => (window as unknown as { exitTimes: { ended?: number; hidden?: number; removed?: number; completed?: number } }).exitTimes);
+
+  // TIP-ANI-01, TIP-EVT-05 (TRN-ANI-03, TRN-ANI-09/10): after the exit animation the module writes the convergent `hidden`
+  // at once on both modes; the removal and onOpenChangeComplete(false) wait for the completion message, a round trip
+  // later on Server.
+  test('port: an animated close hides the popup at animation end and removes it a round trip later on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await gotoPopupFixture(page, mode, 'tooltip-root', { case: 'contained', defaultOpen: true, animated: true, animations: 1 });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(byTestId(page, 'popup')).not.toHaveAttribute('data-starting-style');
+    await recordExit(page, 'popup');
+
+    await page.keyboard.press('Escape');
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-change-completes', /false$/);
+    const { ended, hidden, removed, completed } = await exitTimes(page);
+    expect(hidden).toBeDefined();
+    if (mode === 'server') {
+      expect(Math.abs(hidden! - ended!)).toBeLessThan(LATENCY);
+      expect(removed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+      expect(completed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      // The completion runs .NET in the animation's finished microtask, so the popup is gone before animationend.
+      expect(ended).toBeUndefined();
+      expect(removed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+      expect(completed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // TIP-ANI-04 (TRN-ANI-09): the exiting grouped tooltip's transition is canceled by its data-instant="delay" when the next
+  // one opens; the module hides it at once and it leaves the DOM a round trip later on Server.
+  test('port: an exiting grouped tooltip is hidden when the next opens and leaves the DOM a round trip later on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'tooltip-provider', { css: 'exit', triggerDelay: 0, timeout: 30_000, animations: 1 });
+    await byTestId(page, 'trigger-1').hover();
+    await expect(byTestId(page, 'popup-1')).toBeVisible();
+    await moveAway(page);
+    await expect.poll(() => byTestId(page, 'popup-1').evaluate((element) => element.getAnimations().length)).toBe(1);
+    await recordExit(page, 'popup-1');
+
+    await byTestId(page, 'trigger-2').hover();
+
+    await expect(byTestId(page, 'popup-2')).toBeVisible();
+    await expect(byTestId(page, 'popup-1')).toHaveCount(0);
+    const { hidden, removed } = await exitTimes(page);
+    expect(hidden).toBeDefined();
+    if (mode === 'server') {
+      expect(removed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(removed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // TIP-DIS-05 (PSH-STA-23): the close for a lost active trigger runs at the render-batch boundary, after paint plus a
+  // round trip on Server, during which the popup stays.
+  test('port: the trigger-unmount close lands a round trip after the trigger leaves on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await gotoPopupFixture(page, mode, 'tooltip-root', { case: 'detached', defaultOpen: true });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(byTestId(page, 'trigger')).toHaveAttribute('data-popup-open', '');
+    await page.evaluate(() => {
+      const times: { trigger?: number; popup?: number } = {};
+      (window as unknown as { removalTimes: typeof times }).removalTimes = times;
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.removedNodes) {
+            if (node instanceof HTMLElement && node.matches('[data-testid="trigger"]')) {
+              times.trigger ??= performance.now();
+            }
+            if (node instanceof HTMLElement && (node.matches('[data-testid="popup"]') || node.querySelector('[data-testid="popup"]'))) {
+              times.popup ??= performance.now();
+            }
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await fixture.locator('[data-toggle-trigger]').evaluate((element) => (element as HTMLElement).click());
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:none');
+    const { trigger, popup } = await page.evaluate(() => (window as unknown as { removalTimes: { trigger: number; popup: number } }).removalTimes);
+    if (mode === 'server') {
+      expect(popup - trigger).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(popup - trigger).toBeLessThan(2 * LATENCY - 20);
+    }
   });
 });

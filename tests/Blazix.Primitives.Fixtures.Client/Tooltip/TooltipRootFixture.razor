@@ -13,10 +13,11 @@
       `preventUnmount` (the first close calls PreventUnmountOnClose);
     - the first trigger: `delay`, `closeDelay`, `closeOnClick=false`, `triggerDisabled=true|false`;
     - `keepMounted`, `animated` (200 ms keyframes; open with `?animations=1`), `showTrigger=false` (`[data-toggle-trigger]`
-      mounts or unmounts the first trigger);
+      mounts or unmounts the first trigger), `topEdge` (the triggers 4 px below the top, so a top popup flips to the bottom);
     - buttons: `[data-toggle-disabled]` flips the root's disabled state, `[data-close]` and `[data-unmount]` call the
       root's CloseAsync and Unmount, `[data-toggle-axis]` sets the cursor axis to none.
-    The container renders `data-open-changes`, `data-open-change-completes`, `data-attached` and `data-sync`.
+    The positioner's class is the side C# mirrors (`mirrored-top`, `mirrored-bottom`). The container renders
+    `data-open-changes`, `data-open-change-completes`, `data-attached` and `data-sync`.
 *@
 <FixtureContainer Name="tooltip-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
@@ -38,7 +39,7 @@
         <button type="button" data-unmount @onclick="() => root!.Unmount()">Unmount</button>
     </div>
 
-    <div style="position: fixed; top: 200px; left: 200px; display: flex; gap: 40px">
+    <div style="@($"position: fixed; top: {(topEdge ? 4 : 200)}px; left: 200px; display: flex; gap: 40px")">
         @if (Case == "contained")
         {
             <TooltipRoot TPayload="NoPayload" @ref="root" @attributes="RootAttributes" Disabled="@disabled" DisableHoverablePopup="@disableHoverablePopup"
@@ -92,6 +93,7 @@
     private TooltipRoot<NoPayload>? root;
     private TooltipTrigger<NoPayload>? trigger;
     private TooltipTrigger<NoPayload>? secondTrigger;
+    private bool topEdge;
 
     protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
 
@@ -118,6 +120,7 @@
         closeOnClick = QueryFlag("closeOnClick") != false;
         triggerDisabled = QueryFlag("triggerDisabled");
         preventUnmount = QueryFlag("preventUnmount") == true;
+        topEdge = QueryFlag("topEdge") == true;
         delay = int.TryParse(Query("delay"), out int openDelay) ? openDelay : null;
         closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
         axis = Query("trackCursorAxis") switch
@@ -149,8 +152,11 @@
         }
     }
 
+    // The placement as C# mirrors it, rendered as the positioner's class (the RND-STA-01 row's witness).
+    private static string PositionerClass(TooltipPositionerState state) => state.Side == Side.Bottom ? "mirrored-bottom" : "mirrored-top";
+
     private RenderFragment Popup => @<TooltipPortal KeepMounted="@keepMounted">
-        <TooltipPositioner data-testid="positioner">
+        <TooltipPositioner data-testid="positioner" ClassValue="PositionerClass">
             <TooltipPopup @attributes="popupAttributes">Content</TooltipPopup>
         </TooltipPositioner>
     </TooltipPortal>;
