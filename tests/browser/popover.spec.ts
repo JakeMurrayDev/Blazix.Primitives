@@ -248,3 +248,47 @@ test.describe('attach order', () => {
   });
 });
 
+// POP-DOM-29 (TRN-DOM-05; ADR 04 Amendments 2026-10-28): from the handover on, the transitions module writes
+// `transition: none` on the popup's starting frame and drops it with data-starting-style. Witnessed by a mutation record
+// on a reopen, after the handle attached and C#'s style froze.
+test.describe('<Popover.Popup /> starting frame', () => {
+  test('port: a reopened popup carries transition: none with data-starting-style and drops both on the clearing frame', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-conformance');
+    const trigger = page.getByTestId('trigger');
+    await trigger.click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+
+    await page.evaluate(() => {
+      const records: { starting: boolean; transition: string }[] = [];
+      (window as unknown as { startingRecords: typeof records }).startingRecords = records;
+      new MutationObserver(() => {
+        const popup = document.querySelector<HTMLElement>('[data-testid="popup"]');
+        if (popup !== null) {
+          records.push({ starting: popup.hasAttribute('data-starting-style'), transition: popup.style.getPropertyValue('transition-property') });
+        }
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'data-starting-style'] });
+    });
+    await trigger.click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+
+    // The popup shows from C#'s render before its transitions handle attaches (on WebAssembly the visible check can pass
+    // first), so the title waits for the module's starting record and then for the settled style.
+    const read = () => page.evaluate(() => (window as unknown as { startingRecords: { starting: boolean; transition: string }[] }).startingRecords);
+    await expect.poll(async () => (await read()).some((record) => record.starting)).toBe(true);
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-starting-style');
+    await expect.poll(() => page.getByTestId('popup').evaluate((element) => (element as HTMLElement).style.getPropertyValue('transition-property'))).toBe('');
+
+    const records = await read();
+    // Before the handle attaches C# renders the declaration alone (data-starting-style is the module's attribute); from the
+    // module's first starting record the two arrive and leave together.
+    const from = records.findIndex((record) => record.starting);
+    expect(from).toBeGreaterThanOrEqual(0);
+    const owned = records.slice(from);
+    expect(owned.filter((record) => record.starting).every((record) => record.transition === 'none')).toBe(true);
+    expect(owned.filter((record) => !record.starting).every((record) => record.transition === '')).toBe(true);
+    expect(owned.at(-1)).toEqual({ starting: false, transition: '' });
+  });
+});
+
