@@ -2894,8 +2894,10 @@ describe('FloatingFocusManager', () => {
       document.body.append(reference);
       popup.attachTrigger(reference, { trigger: { click: { event: 'mousedown' } } });
 
-      // A screen reader press is a `mousedown` with `detail: 0`.
+      // A screen reader press is a `mousedown` with `detail: 0`; with no `pointerdown` before it, the click region opens
+      // on the next frame, as Base UI's does.
       mouse(reference, 'mousedown', { detail: 0 });
+      await nextFrame();
       expect(popup.open).toBe(true);
 
       // C#'s opening batch, then the manager's attach.
