@@ -7,7 +7,7 @@ namespace Blazix.Primitives;
 // own steps of the open-change sequence (PopoverStore.setOpen, POP §16 Q11):
 // - the `close-press` trigger back-filled before the consumer's callback (POP-EVT-06): the registered element of the active
 //   trigger id, else the active trigger element;
-// - the shared sequence: OnOpenChange, a cancel honoured (POP-EVT-03), the relay;
+// - the shared sequence: OnOpenChange, a cancel honored (POP-EVT-03), the relay;
 // - one write with the reason (POP-STA-06) and the instant type (POP-STA-07). A C# reason is never null, so §16 Q2's
 //   null-reason branch is unreachable (a dated resolution in popover.md).
 // The patient-click flag and its timer (POP-STA-11) are the `interactions` module's (ADR 04 Amendments 2026-10-27).

@@ -441,6 +441,7 @@ Props: `id` (optional; otherwise generated), `className`, `style`, `render`, nat
   Source: `popover/close/PopoverClose.tsx:26,30-34`. Test: [L2] `PopoverClose.test.tsx` describeConformance (`button: true`, `testRenderPropWith: 'button'`).
 - **POP-API-25** — MUST. `disabled` defaults to `false`; when `true` the close button is disabled per UBT (native `disabled` attribute; `aria-disabled` + `tabindex="-1"` when non-native) and clicks do not close.
   Source: `popover/close/PopoverClose.tsx:25,30-34`. Test: none.
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): proven by `PopoverPartsTests` "port: a disabled close button does not close" (L2).
 
 State: `{}`. Data attributes / CSS variables: none (the Close has no state-derived attributes). Source: `popover/close/PopoverClose.tsx:55-63`.
 
@@ -674,6 +675,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Source: `popover/backdrop/PopoverBackdrop.tsx:39`. Test: [L2] `PopoverRoot.test.tsx` "uses intentional outside press with user backdrop (mouse): closes on click, not on mousedown".
 - **POP-DOM-34** — MUST. The Backdrop element has the boolean `hidden` attribute iff the popup is not mounted.
   Source: `popover/backdrop/PopoverBackdrop.tsx:40`. Test: none.
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): proven by `PopoverPartsTests` "does not set `pointer-events: none` style on backdrop if opened by click" (L2), which also asserts the Backdrop's `hidden` while the popup is not mounted.
 - **POP-DOM-35** — MUST. The Backdrop element's inline style has `user-select: none; -webkit-user-select: none` always, and `pointer-events: none` iff the last applied open reason is `trigger-hover` (so a hover-opened popover's backdrop does not swallow the pointer); the consumer's `style` is merged over these.
   Source: `popover/backdrop/PopoverBackdrop.tsx:41-45`. Test: [L2] `PopoverBackdrop.test.tsx` "sets `pointer-events: none` style on backdrop if opened by hover", "does not set `pointer-events: none` style on backdrop if opened by click". Docs: CHANGELOG.md v1.0.0-alpha.7 "Set `pointer-events: none` style on backdrops when hoverable (#1351)".
 - **POP-DOM-36** — MUST. The Backdrop element has `data-open`/`data-closed` (exactly one) and `data-starting-style`/`data-ending-style` per its `transitionStatus` (PSH-DOM-05); it never has `data-anchor-hidden` (not in its state).
@@ -699,6 +701,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 - **POP-DOM-40** — MUST. The Viewport element has `data-instant="<value>"` iff the public instant type is defined.
   Source: `popover/viewport/PopoverViewport.tsx:26,37`. Test: none.
   Port note 2026-10-28 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): `data-instant` is C#'s, projected from `PopoverViewportState.Instant`; §5.7's Writer table names the Viewport's other writers (the containers, the direction and `data-transitioning` are the `popup` module's).
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): proven by `PopoverModuleWiringTests` "port: the trigger-change report writes the instant on the positioner, the popup and the viewport while open" (L2).
 - **POP-DOM-41** — MUST. The `[data-previous]` container's inline style carries `--popup-width`/`--popup-height` equal to the popup size when the previous content was rendered (PSH-DOM-09).
   Source: `popover/viewport/PopoverViewportCssVars.ts:6-12`; `utils/usePopupViewport.tsx:244-254`. Test: [L4] viewportConformanceTests "creates morphing containers during transitions" (`/^\d+(?:\.\d+)?px$/`).
 
@@ -771,7 +774,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 - **POP-KEY-06** — MUST. In non-modal mode, <kbd>Shift</kbd>+<kbd>Tab</kbd> from the first tabbable inside the Popup (or from the Popup element) lands on the before-content guard, which focuses the active trigger element; the popup stays open and focus moving to the trigger is not treated as focus leaving (FLT-KEY-06 with `previousFocusableElement` = active trigger).
   Source: `popover/popup/PopoverPopup.tsx:117-119`; `floating-ui-react/components/FloatingFocusManager.tsx:1017-1024`. Test: [L4] `PopoverRoot.test.tsx` "moves focus to the trigger when tabbing backward from the open popup then to the popup when tabbing forward"; "closes a nested combobox popup when tabbing backward to the trigger".
   Open to M5 (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); settled by the orchestrator 2026-10-29): the titles that nest a family not yet ported wait for it (Combobox "closes a nested combobox popup when tabbing backward to the trigger"); the row's other titles run in `popover.spec.ts`, both modes.
-- **POP-KEY-07** — MUST. In non-modal mode, <kbd>Tab</kbd> from the last tabbable inside the Popup (or from the Popup element) lands on the after-content guard, which focuses the trigger's focus target guard; because focus arrived from inside the positioner, the popup closes synchronously with reason `focus-out` and `trigger` = the guard element, and focus then moves to the next tabbable after the guard (or after the trigger) in the current tab order, skipping the positioner subtree (PSH-KEY-02, PSH-KEY-04).
+- **POP-KEY-07** — MUST. In non-modal mode, <kbd>Tab</kbd> from the last tabbable inside the Popup (or from the Popup element) lands on the after-content guard, which focuses the trigger's focus target guard; because focus arrived from inside the positioner, the popup closes synchronously with reason `focus-out` and `trigger` = the guard element, and focus then moves to the next tabbable after the guard (or after the trigger) in the current tab order, skipping the positioner subtree (PSH-KEY-02, PSH-KEY-04). Server: relaxed, see §9.
   Source: `popover/popup/PopoverPopup.tsx:120`; `floating-ui-react/components/FloatingFocusManager.tsx:1034-1050`; `utils/popups/useTriggerFocusGuards.ts:38-69`. Test: [L4] `PopoverRoot.test.tsx` "moves focus to the element following the trigger, excluding the popup, when tabbing forward from the open popup" (two placements), "moves focus to the element following the trigger when tabbing forward from the open popup", "closes a nested combobox popup when tabbing out of the popover".
   Open to M5 (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); settled by the orchestrator 2026-10-29): the titles that nest a family not yet ported wait for it (Combobox "closes a nested combobox popup when tabbing out of the popover"); the row's other titles run in `popover.spec.ts`, both modes.
 - **POP-KEY-08** — MUST. In non-modal mode, <kbd>Shift</kbd>+<kbd>Tab</kbd> from the trigger while the popup is open lands on the trigger's pre-guard, which closes the popup synchronously with reason `focus-out` (`trigger` = the guard) and focuses the previous tabbable before the guard/trigger, skipping the positioner subtree (PSH-KEY-03). Server: relaxed, see §9.
@@ -979,7 +982,7 @@ Vocabulary: *post-commit, pre-paint*, *next frame*, *microtask* and *on animatio
 - **POP-ANI-06** — MUST. When `preventUnmountOnClose()` was called for the applied close, automatic unmounting is suspended: the popup stays mounted with `data-ending-style` and `aria-expanded="false"` on the trigger until `unmount()` is called (TRN-ANI-23); the opt-out belongs to that close cycle only — the next open (including a controlled reopen, or a Root remount with `defaultOpen`) clears it, so a later ordinary close unmounts automatically (TRN-ANI-24); an opt-out recorded for a controlled close that commits later (e.g. in a low-priority transition) survives until that close commits (TRN-ANI-26).
   Source: `popover/store/PopoverStore.ts:121-123,147-159`; `utils/popups/popupStoreUtils.ts:195-201`. Test: [L2] `PopoverRoot.test.tsx` "unmounts on a normal close after preventUnmountOnClose and external reopen", "unmounts on a later normal close after a preventUnmountOnClose cycle and reopen", "keeps the opt-out when a controlled close is applied in a transition", "preventUnmountOnClose()" › "unmounts on a normal close after a prevented close and initially open remount". (L4 for the `data-ending-style` clause)
   Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): "keeps the opt-out when a controlled close is applied in a transition" is restated as `PopoverRootTests` "port: keeps the opt-out when a controlled close is applied after the callback returns" (L2, per trigger layout): React's `startTransition` commits the consumer's close in a later render, and Blazor has no transitions, so the consumer applies the close after its callback.
-- **POP-ANI-07** — MUST. Trigger switch transition (TRN-ANI-28/29/31): when the popup is open and the active trigger element changes to a different element, `instantType` is cleared in that commit (so the Positioner may transition to the new anchor), and once the Positioner's finite animations finish (next-frame inspection) it is set to `'trigger-change'` provided the popup is still open; a close by any route (including a controlled `open={false}`) aborts a pending restoration and clears a stored `'trigger-change'`; a trigger element change while closed never schedules a restoration; the public value hides `'trigger-change'` while closed. Consequently `data-instant="trigger-change"` is never present during a close that follows a switch, nor after a reopen on the same trigger.
+- **POP-ANI-07** — MUST. Trigger switch transition (TRN-ANI-28/29/31): when the popup is open and the active trigger element changes to a different element, `instantType` is cleared in that commit (so the Positioner may transition to the new anchor), and once the Positioner's finite animations finish (next-frame inspection) it is set to `'trigger-change'` provided the popup is still open; a close by any route (including a controlled `open={false}`) aborts a pending restoration and clears a stored `'trigger-change'`; a trigger element change while closed never schedules a restoration; the public value hides `'trigger-change'` while closed. Consequently `data-instant="trigger-change"` is never present during a close that follows a switch, nor after a reopen on the same trigger. Server: relaxed, see §9.
   Source: `popover/positioner/PopoverPositioner.tsx:89-96`; `internals/useTriggerSwitchTransition.ts:49-112`; `popover/store/PopoverStore.ts:54-57`. Test: [L4] `PopoverRoot.detached-triggers.test.tsx` "does not apply the trigger-change instant to a hover close after switching triggers", "… to a non-hover close after switching triggers", "… after switching back to the original trigger", "does not restore the trigger-change instant after a reopen on the same trigger", "does not apply the trigger-change instant to a prop-driven close after a switch", "does not restore the trigger-change instant when a controlled close commits late", "does not restore the trigger-change instant after a hover close has started". Docs: CHANGELOG.md v1.9.0 "Fix hover-out animations when switching between detached triggers (#4261)".
 - **POP-ANI-08** — MUST. `onOpenChangeComplete` timing is as in POP-EVT-07; with animations disabled (`BASE_UI_ANIMATIONS_DISABLED`, TRN-EDGE-01) both completions are synchronous.
   Source: `popover/popup/PopoverPopup.tsx:56-64`. Test: [L4] popupConformanceTests "is called on open once the enter animation finishes", "is called on close once the exit animation finishes".
@@ -995,7 +998,8 @@ Vocabulary: *post-commit, pre-paint*, *next frame*, *microtask* and *on animatio
 - POP-ANI-01 — via TRN-ANI-03, TRN-ANI-09 (adopted by this section): the unmount commit (`mounted` cleared, store cleanup, `onOpenChangeComplete(false)`) lands in the first render batch after the `transitions` module's completion message, about two round trips after the exit animation ends; the optimistic convergent write lets JS set `hidden` at animation end so the element is not visible meanwhile.
 - POP-EVT-07 — via TRN-ANI-09: `onOpenChangeComplete(false)` runs with that unmount commit, about two round trips after the exit animation ends, not in the same microtask.
 - POP-PTR-17, POP-EVT-12 — EVD-EVT-18, PSH-ANI-03: the `trigger-hover` open commit lands a round trip later; same-task animation queries do not see it.
-- POP-KEY-08 — PSH-KEY-07: the focus-guard `focus-out` close is committed a round trip later instead of synchronously.
+- POP-KEY-07, POP-KEY-08 — PSH-KEY-07: the focus-guard `focus-out` close is committed a round trip later instead of synchronously.
+- POP-ANI-07 — ADR 01's mapping row "on animations finished" (added 2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); design point 7 of the track, settled by the orchestrator 2026-10-28): the `trigger-change` instant comes from the `popup` module's `OnTriggerChangeSettled` report once the Positioner's animations finish, so it lands a round trip after them; the clear on the switch itself is written at commit on both modes.
 - POP-KEY-02, POP-EVT-03 (Escape clause) — EVD-EVT-11, EVD-DIS-01, FLT-KEY-01: the consumer's `cancel()` / `allowPropagation()` decision arrives a round trip after dispatch ends; JS applies the ADR 04 §3 fallback (prevent and stop whenever this popover is the innermost open popup); WebAssembly meets the spec through the synchronous `decide()` path.
 - POP-STA-13 — RND-STA-01 for mirrored fields: `data-side`, `data-align`, `data-anchor-hidden`, `data-uncentered` and the transition attributes are JS-written at frame timing; the state objects' `side`, `align`, `anchorHidden`, `uncentered` and `transitionStatus` (and so `ClassValue`/`StyleValue`) update one round trip later.
 
@@ -1323,6 +1327,65 @@ Top-level `preventUnmountOnClose()`:
 ### `root/PopoverRoot.spec.tsx`, `positioner/PopoverPositioner.spec.tsx`
 
 Type-level only: `Popover.createHandle<number>()` types the `payload` of triggers and of the Root's function-as-child (`number | undefined`), a mismatched payload is a type error (POP-API-10, POP-API-14, §3.13); `Popover.Positioner` rejects `keepMounted` (POP-EDGE-10).
+
+
+### Port titles (`tests/Blazix.Primitives.Tests/Popover/`, `tests/Blazix.Primitives.Tests.Components/Popover/`, `tests/browser/popover.spec.ts`)
+
+Added 2026-10-29 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): the port's own titles, each with its layer and the requirements it proves.
+
+| Test | Layer | Requirements |
+|---|---|---|
+| "port: the instant type follows the reason and the press's detail" | L1 | POP-STA-07 |
+| "port: an applied open change writes its reason and instant type in one write, and a canceled one writes nothing" | L1 | POP-STA-06, POP-STA-07, POP-EVT-03 |
+| "port: the close event is the one that closed the popover; a later close while closed keeps it" | L1 | POP-API-22 |
+| "port: the stored trigger-change instant reads as none once closed, and is dropped when closed" | L1 | POP-STA-07, POP-ANI-07 |
+| "port: the selectors of the triggers derive from the reason, the open method and the focus trap" | L1 | POP-STA-12 |
+| "port: a close press without a trigger reports the registered active trigger" | L1 | POP-EVT-06 |
+| "port: the positioner takes no KeepMounted parameter; the portal's is read" | L1 | POP-EDGE-10 |
+| "port: the popup's focus manager takes Popover's props: not trapped, restoring to the popup, anchored at the active trigger" | L2 | POP-FOC-01, POP-STA-10 |
+| "port: the focus manager traps focus only for a modal popover with a close part" | L2 | POP-STA-10, POP-FOC-02 |
+| "port: a hover-opened popover disables the focus manager" | L2 | POP-FOC-08 |
+| "port: a touch open focuses the popup itself by default" | L2 | POP-FOC-03 |
+| "port: the initial focus resolver gets the open interaction type, and no target moves no focus" | L2 | POP-API-21 |
+| "port: the final focus resolver gets the close interaction type and names the element focus returns to" | L2 | POP-API-22 |
+| "port: the trigger asks the popup module to watch its guards while it owns the open, untrapped popover" | L2 | POP-STR-14, POP-FOC-04 |
+| "port: a focused trigger guard closes the popover with focus-out, its event and the guard as the trigger" | L2 | POP-FOC-04, POP-EVT-05 |
+| "port: the viewport mirrors the module's direction and transitioning flag in its state" | L2 | POP-DOM-38, POP-DOM-39, POP-STA-13 |
+| "port: the trigger-change report writes the instant on the positioner, the popup and the viewport while open" | L2 | POP-ANI-07, POP-DOM-18, POP-DOM-28, POP-DOM-40 |
+| "port: a keyboard press that moves the popover to another trigger clears the instant type in the render that applies it" | L2 | POP-ANI-07, POP-DOM-28 |
+| "port: a controlled trigger id that moves the open popover clears the instant type in the render that applies it" | L2 | POP-ANI-07, POP-DOM-28 |
+| "port: the positioner sends the cut-out and the anchored lock for a modal press, not for a hover, and the touch open" | L2 | POP-STR-13, POP-PTR-19 |
+| "port: inside a toolbar the popup asks the module to stop the composite keys, outside it does not" | L2 | POP-KEY-12 |
+| "port: the popup's transitions handle asks for transition: none while starting" | L2 | POP-DOM-29 |
+| "port: a press within the patient-click window after a hover open adds data-pressed" | L2 | POP-DOM-02 |
+| "port: the trigger renders its ARIA attributes and the click-trigger marker" | L2 | POP-ARIA-01, POP-ARIA-02, POP-ARIA-03, POP-DOM-04, POP-DOM-05, POP-DOM-06 |
+| "port: a disabled close button does not close" | L2 | POP-API-25 |
+| "port: the popup is a dialog with the floating id, an unmanaged tabindex and no label without a title" | L2 | POP-ARIA-04, POP-DOM-23, POP-DOM-24, POP-DOM-25 |
+| "port: a detached trigger rendered before its root joins the root's session once the root attaches the handle" | L2 | POP-API-13, POP-STR-12 |
+| "port: the arrow is aria-hidden" | L2 | POP-ARIA-07 |
+| "port: a trigger that becomes active again writes its payload again, after a move or a reopen" | L2 | POP-API-14, POP-STA-05 |
+| "port: the trigger focus guards render without replacing the trigger element, and leave with the close" | L2 | POP-STR-14 |
+| "port: keeps the opt-out when a controlled close is applied after the callback returns (restates "keeps the opt-out when a controlled close is applied in a transition")" | L2 | POP-ANI-06, POP-EVT-04 |
+| "port: opens by trigger from a descendant's first render on initial mount (restates "opens by trigger from a descendant layout effect on initial mount")" | L2 | POP-API-09, POP-API-26, POP-EDGE-06 |
+| "port: a C# re-render keeps [data-previous] before [data-current], and a dispose removes both" | L4 | POP-API-23, POP-DOM-37 |
+| "port: with js/$module.js stalled the trigger attaches its other handles first, and opens the popover once when the module arrives ($module: button, interactions, popup)" | L4 | issue 133's attach-order rule; POP-PTR-01 |
+| "port: with js/popup.js stalled the popover opens and closes, and its handles attach once the module arrives" | L4 | issue 133's attach-order rule; POP-STA-01 |
+| "port: with js/interactions.js stalled a default-open popover positions at its trigger once the session joins (FLT-STA-08)" | L4 | FLT-STA-08; POP-POS-01 |
+| "port: with js/focus-manager.js stalled a default-open popover attaches its other handles first, and focus moves in and returns once the module arrives" | L4 | issue 133's attach-order rule; POP-FOC-02, POP-FOC-05 |
+| "port: with js/portal.js stalled the portaled handles wait for the move, and focus moves in once the popup is in place" | L4 | issue 133's attach-order rule; POP-STR-04, POP-FOC-02 |
+| "port: a reopened popup carries transition: none with data-starting-style and drops both on the clearing frame" | L4 | POP-DOM-29 |
+| "port: a modal popover cuts its trigger out of the internal backdrop" | L4 | POP-DOM-22 |
+| "port: a trigger mouseleave before the hover delay ends cancels the open and requests no close" | L4 | POP-PTR-06; §16 Q12 |
+| "port: an Escape close that allows propagation calls onOpenChange once" | L4 | POP-KEY-02; §16 Q7 |
+| "port: a real press on a focusable outside element closes once, with focus-out" | L4 | POP-DIS-07, POP-EVT-01 (gap 14; open on Server to PR 137's re-merge) |
+| "port: an open non-modal popover renders the outside guards and the aria-owns owner at the portal's position" | L4 | POP-DOM-11 |
+| "port: every focus guard of an open popover is aria-hidden" | L4 | POP-ARIA-10 |
+| "port: a right press neither toggles the popover nor counts as an outside press inside it" | L4 | POP-PTR-15 |
+| "port: Escape closes one nesting level at a time" | L4 | POP-KEY-04 |
+| "port: a kept-mounted positioner takes pointer-events none while closed, and drops it when opened" | L4 | POP-DOM-14 |
+| "port: the popup carries the positioner's data-side and data-align" | L4 | POP-DOM-27 |
+| "port: the positioner is marked anchor-hidden once its anchor scrolls out of view" | L4 | POP-DOM-17 |
+| "port: a popover closed right after it opens raises no renderer error" | L4 | ADR 04 Amendments 2026-10-29 (gap 17) |
 
 ## 14. React-specific notes and porting considerations
 

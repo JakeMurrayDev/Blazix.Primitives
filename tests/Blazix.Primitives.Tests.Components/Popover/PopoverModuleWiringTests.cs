@@ -6,7 +6,8 @@ namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
 /// L2: the C# half of the <c>popup</c> module's roles in Popover (ADR 04 Amendments 2026-10-27; design points 5-8 of
-/// M4 track 5, pending the user): what the Viewport, the Positioner and the Popup send, and what their reports change.
+/// M4 track 5, settled by the orchestrator 2026-10-28): what the Viewport, the Positioner and the Popup send, and what
+/// their reports change.
 /// </summary>
 public sealed class PopoverModuleWiringTests : IDisposable
 {

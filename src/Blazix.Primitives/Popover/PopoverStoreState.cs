@@ -12,7 +12,7 @@ namespace Blazix.Primitives;
 /// <summary>Represents the state of one popover: the shared popup state and the fields only Popover has.</summary>
 /// <typeparam name="TPayload">The type of the payload the popover's triggers carry.</typeparam>
 /// <param name="Popup">The shared popup state.</param>
-/// <param name="Disabled">The active trigger's <c>Disabled</c>.</param>
+/// <param name="Disabled">The active trigger's <c>Disabled</c>, not the Root's gate that <c>PopupStoreState.Disabled</c> holds.</param>
 /// <param name="InstantType">The stored instant type, before the public value hides <see cref="PopoverInstantType.TriggerChange"/> while closed.</param>
 /// <param name="Modal">The root's <c>Modal</c>.</param>
 /// <param name="FocusManagerModal">Whether focus is trapped: <c>Modal</c> is not off and a close part is mounted inside the popup.</param>
@@ -198,7 +198,7 @@ internal interface IPopoverState
     /// <summary>Gets the relay of the last committed open change.</summary>
     OpenChangeRelay? OpenChange { get; }
 
-    /// <summary>Gets the active trigger's <c>Disabled</c>.</summary>
+    /// <summary>Gets the active trigger's <c>Disabled</c>, not the Root's gate that <c>PopupStoreState.Disabled</c> holds.</summary>
     bool Disabled { get; }
 
     /// <summary>Gets the stored instant type.</summary>
