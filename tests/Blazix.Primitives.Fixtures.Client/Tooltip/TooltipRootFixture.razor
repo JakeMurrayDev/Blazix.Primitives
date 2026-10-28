@@ -1,0 +1,150 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-root` fixture (tests/browser/tooltip.spec.ts): TooltipRoot.test.tsx's three test tooltips
+    (ContainedTriggerTooltip, DetachedTriggerTooltip, MultipleDetachedTriggersTooltip, :2724-2850) by `case=contained|
+    detached|multiple`, the trigger "Toggle" (`data-testid="trigger"`), the second detached trigger "Toggle another"
+    (`trigger-2`), the positioner (`positioner`) and the popup "Content" (`popup`). The query sets:
+    - the root: `open=true|false` (controlled; `[data-set-open]` changes it), `defaultOpen`, `disabled`,
+      `disableHoverablePopup`, `trackCursorAxis=x|y|both`, `cancelOpen`, `cancelClose`, `allowPropagation`,
+      `preventUnmount` (the first close calls PreventUnmountOnClose);
+    - the first trigger: `delay`, `closeDelay`, `closeOnClick=false`, `triggerDisabled=true|false`;
+    - `keepMounted`, `animated` (200 ms keyframes; open with `?animations=1`), `showTrigger=false` (`[data-toggle-trigger]`
+      mounts or unmounts the first trigger);
+    - buttons: `[data-toggle-disabled]` flips the root's disabled state, `[data-close]` and `[data-unmount]` call the
+      root's CloseAsync and Unmount, `[data-toggle-axis]` sets the cursor axis to none.
+    The container renders `data-open-changes`, `data-open-change-completes`, `data-attached` and `data-sync`.
+*@
+<FixtureContainer Name="tooltip-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes tooltip-root-enter { from { opacity: 0; } }
+        @@keyframes tooltip-root-exit { to { opacity: 0; } }
+        .tooltip-animated[data-open] { animation: tooltip-root-enter 200ms; }
+        .tooltip-animated[data-ending-style] { animation: tooltip-root-exit 200ms; }
+        [data-fixture="tooltip-root"] [data-testid="popup"] { width: 120px; height: 40px; }
+    </style>
+    <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
+        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+        <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
+        <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+        <button type="button" data-toggle-disabled @onclick="() => disabled = !disabled">Toggle disabled</button>
+        <button type="button" data-toggle-trigger @onclick="() => showTrigger = !showTrigger">Toggle trigger</button>
+        <button type="button" data-toggle-axis @onclick="() => axis = TooltipTrackCursorAxis.None">Stop tracking</button>
+        <button type="button" data-close @onclick="() => root!.CloseAsync()">Close</button>
+        <button type="button" data-unmount @onclick="() => root!.Unmount()">Unmount</button>
+    </div>
+
+    <div style="position: fixed; top: 200px; left: 200px; display: flex; gap: 40px">
+        @if (Case == "contained")
+        {
+            <TooltipRoot TPayload="NoPayload" @ref="root" @attributes="RootAttributes" Disabled="@disabled" DisableHoverablePopup="@disableHoverablePopup"
+                         TrackCursorAxis="@axis" DefaultOpen="@defaultOpen" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @if (showTrigger)
+                {
+                    <TooltipTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" Delay="@delay" CloseDelay="@closeDelay"
+                                    CloseOnClick="@closeOnClick" Disabled="@triggerDisabled">Toggle</TooltipTrigger>
+                }
+                @Popup
+            </TooltipRoot>
+        }
+        else
+        {
+            @if (showTrigger)
+            {
+                <TooltipTrigger Handle="handle" @ref="trigger" data-testid="trigger" Delay="@delay" CloseDelay="@closeDelay"
+                                CloseOnClick="@closeOnClick" Disabled="@triggerDisabled">Toggle</TooltipTrigger>
+            }
+
+            @if (Case == "multiple")
+            {
+                <TooltipTrigger Handle="handle" @ref="secondTrigger" data-testid="trigger-2">Toggle another</TooltipTrigger>
+            }
+
+            <TooltipRoot Handle="handle" @ref="root" @attributes="RootAttributes" Disabled="@disabled" DisableHoverablePopup="@disableHoverablePopup"
+                         TrackCursorAxis="@axis" DefaultOpen="@defaultOpen" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Popup
+            </TooltipRoot>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly TooltipHandle<NoPayload> handle = new();
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool disabled;
+    private bool disableHoverablePopup;
+    private bool keepMounted;
+    private bool showTrigger = true;
+    private bool closeOnClick = true;
+    private bool? triggerDisabled;
+    private bool preventUnmount;
+    private bool prevented;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private TooltipTrackCursorAxis axis;
+    private Dictionary<string, object> popupAttributes = [];
+    private TooltipRoot<NoPayload>? root;
+    private TooltipTrigger<NoPayload>? trigger;
+    private TooltipTrigger<NoPayload>? secondTrigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask, secondTrigger?.TwinAttached ?? Task.CompletedTask];
+
+    // A controlled root receives Open only when the query names it, so an uncontrolled root never sees the parameter.
+    private Dictionary<string, object> RootAttributes => controlled ? new() { ["Open"] = open } : [];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        disabled = QueryFlag("disabled") == true;
+        disableHoverablePopup = QueryFlag("disableHoverablePopup") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        showTrigger = QueryFlag("showTrigger") != false;
+        closeOnClick = QueryFlag("closeOnClick") != false;
+        triggerDisabled = QueryFlag("triggerDisabled");
+        preventUnmount = QueryFlag("preventUnmount") == true;
+        delay = int.TryParse(Query("delay"), out int openDelay) ? openDelay : null;
+        closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
+        axis = Query("trackCursorAxis") switch
+        {
+            "x" => TooltipTrackCursorAxis.X,
+            "y" => TooltipTrackCursorAxis.Y,
+            "both" => TooltipTrackCursorAxis.Both,
+            _ => TooltipTrackCursorAxis.None,
+        };
+        popupAttributes["data-testid"] = "popup";
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "tooltip-animated";
+        }
+    }
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && preventUnmount && !prevented)
+        {
+            prevented = true;
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        if (controlled && !args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private RenderFragment Popup => @<TooltipPortal KeepMounted="@keepMounted">
+        <TooltipPositioner data-testid="positioner">
+            <TooltipPopup @attributes="popupAttributes">Content</TooltipPopup>
+        </TooltipPositioner>
+    </TooltipPortal>;
+}

@@ -164,5 +164,6 @@ public static class FixtureCatalog
         ["positioning-prerender"] = new(typeof(PositioningPrerenderFixture), Prerender: true),
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
+        ["tooltip-root"] = new(typeof(TooltipRootFixture)),
     };
 }
