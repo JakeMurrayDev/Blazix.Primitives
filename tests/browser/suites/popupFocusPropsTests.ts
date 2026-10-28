@@ -74,7 +74,10 @@ export function popupFocusPropsTests(config: PopupFocusPropsConfig): void {
 
   // A combobox trigger is named by its label rather than its content, so find it by role alone.
   const getTrigger = (page: Page) =>
-    triggerRole === 'combobox' ? page.getByRole('combobox') : page.getByRole('button', { name: 'Open', exact: true });
+    // After a modal open the page is `aria-hidden`, and the locator resolves on each use (track 8).
+    triggerRole === 'combobox'
+      ? page.getByRole('combobox', { includeHidden: true })
+      : page.getByRole('button', { name: 'Open', exact: true, includeHidden: true });
   const getClose = (page: Page) => page.getByText('Close', { exact: true });
   const getByTestId = (page: Page, testId: string) => page.locator(`[data-testid="${testId}"]`);
 

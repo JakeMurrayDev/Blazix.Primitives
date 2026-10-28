@@ -27,14 +27,12 @@ export async function gotoPopupFixture(page: Page, mode: RenderMode, name: strin
   return fixture;
 }
 
-/**
- * A barrier: clicks the fixture's sync button and waits for C# to count it. Server processes one circuit's events in
- * order (ADR-04/1) and WebAssembly synchronously, so every event dispatched before has reached C# afterwards.
- */
-// A click on a fixture's own control (the barrier, a phase, the root's mount, the handle's calls) is an outside press, which
-// a family's dismissal answers by closing, where Base UI changes the same things through `rerender` and direct handle calls.
-// A control carrying `data-key-control` counts a neutral keydown (Shift) instead, which no dismissal reads; track 1's
-// test-only host, whose dismissal ignores outside presses, keeps the click.
+// A click on a family's fixture control (the barrier, a controlled `open`, a phase, the root's mount, the handle's calls)
+// is an outside press, which the family's dismissal answers by closing: under intentional mode (FLT-PTR-28) even a
+// press-less `detail: 1` click counts once a primary `pointerdown` happened while open. Base UI changes the same things
+// through `rerender` and direct handle calls, which touch no DOM. A control carrying `data-key-control` takes a dispatched
+// Shift keydown instead, which no dismissal mode reads and which moves no focus (gap 11 of M4 track 5, settled by the
+// orchestrator 2026-10-28); track 1's test-only host, whose dismissal ignores outside presses, keeps the click.
 function activateControl(element: Element): void {
   if (element.hasAttribute('data-key-control')) {
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', code: 'ShiftLeft', bubbles: true }));
@@ -43,7 +41,7 @@ function activateControl(element: Element): void {
   }
 }
 
-/** Activates a fixture control: a neutral keydown when it carries `data-key-control`, else Playwright's click. */
+/** Activates a fixture control: a Shift keydown when it carries `data-key-control`, else Playwright's click. */
 export async function pressControl(control: Locator): Promise<void> {
   if ((await control.getAttribute('data-key-control')) !== null) {
     await control.evaluate(activateControl);
@@ -52,11 +50,15 @@ export async function pressControl(control: Locator): Promise<void> {
   }
 }
 
-/** Activates a fixture control in the page, never moving focus: a neutral keydown when it carries `data-key-control`, else a DOM click. */
+/** Activates a fixture control in the page, never moving focus: a Shift keydown when it carries `data-key-control`, else a DOM click. */
 export async function pressInPage(control: Locator): Promise<void> {
   await control.evaluate(activateControl);
 }
 
+/**
+ * A barrier: presses the fixture's sync button and waits for C# to count it. Server processes one circuit's events in
+ * order (ADR-04/1) and WebAssembly synchronously, so every event dispatched before has reached C# afterwards.
+ */
 export async function settle(fixture: Locator): Promise<void> {
   const before = Number(await fixture.getAttribute('data-sync'));
   await fixture.locator('[data-sync-button]').evaluate(activateControl);
@@ -75,7 +77,7 @@ export async function openChangeCompletes(fixture: Locator): Promise<string[]> {
 
 /** Sets a controlled root's `open` through the fixture's `[data-set-open]` buttons, as the suite's rerender does. */
 export async function setRootOpen(fixture: Locator, open: boolean): Promise<void> {
-  await fixture.locator(`[data-set-open="${open}"]`).click();
+  await pressControl(fixture.locator(`[data-set-open="${open}"]`));
 }
 
 /** What the page saw when an animation started on an element: the marker the animation titles assert (ADR 06 §2). */

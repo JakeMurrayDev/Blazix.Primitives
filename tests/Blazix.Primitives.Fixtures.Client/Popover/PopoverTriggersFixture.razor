@@ -5,8 +5,9 @@
 
 @*
     The controls (the barrier, the root's mount, the nesting, a new handle, the handle's calls, the phases) carry
-    `data-key-control` and answer a keydown: a click on them would be an outside press, where Base UI drives the same
-    changes through rerender and direct handle calls (tests/browser/suites/popupFixture.ts, pressControl).
+    `data-key-control` and act on a Shift keydown beside their click (`OnShift`): the suites' `pressControl` dispatches
+    that key, because a click on them would be an outside press, where Base UI drives the same changes through rerender
+    and direct handle calls (tests/browser/CONTEXT.md).
     The `popover-triggers` fixture (tests/browser/popover.spec.ts, M4 track 5): detachedTriggersConformanceTests
     (tests/browser/suites/) on Popover's parts, the suite's Fixture as a page, with a positioner (`positioner`) and a
     viewport around the content (PopoverRoot.detached-triggers.test.tsx's config: Positioner, Viewport, Close). Triggers `trigger-1`.. carry their number as payload; the
@@ -26,22 +27,22 @@
 <FixtureContainer Name="popover-triggers" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
                   data-handle-open-state="@(handle?.IsOpen == true ? "true" : "false")" data-handle-error="@handleError">
-    <button type="button" data-sync-button data-key-control @onkeydown="() => Sync++">Sync</button>
-    <button type="button" data-toggle-root data-key-control @onkeydown="() => rootMounted = !rootMounted">Toggle root</button>
-    <button type="button" data-recreate-handle data-key-control @onkeydown="RecreateHandle">Recreate handle</button>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-toggle-root data-key-control @onclick="() => rootMounted = !rootMounted" @onkeydown="OnShift(() => rootMounted = !rootMounted)">Toggle root</button>
+    <button type="button" data-recreate-handle data-key-control @onclick="RecreateHandle" @onkeydown="OnShift(RecreateHandle)">Recreate handle</button>
     @for (int level = 0; level <= 3; level++)
     {
         int value = level;
-        <button type="button" data-set-nesting="@value" data-key-control @onkeydown="() => nesting = value">Nesting @value</button>
+        <button type="button" data-set-nesting="@value" data-key-control @onclick="() => nesting = value" @onkeydown="OnShift(() => nesting = value)">Nesting @value</button>
     }
-    <button type="button" data-handle-open="trigger-1" data-key-control @onkeydown='() => HandleOpenAsync("trigger-1")'>Handle open 1</button>
-    <button type="button" data-handle-open="trigger-2" data-key-control @onkeydown='() => HandleOpenAsync("trigger-2")'>Handle open 2</button>
-    <button type="button" data-handle-open="missing" data-key-control @onkeydown='() => HandleOpenAsync("missing")'>Handle open missing</button>
-    <button type="button" data-handle-close data-key-control @onkeydown="HandleCloseAsync">Handle close</button>
+    <button type="button" data-handle-open="trigger-1" data-key-control @onclick='() => HandleOpenAsync("trigger-1")' @onkeydown='OnShift(() => HandleOpenAsync("trigger-1"))'>Handle open 1</button>
+    <button type="button" data-handle-open="trigger-2" data-key-control @onclick='() => HandleOpenAsync("trigger-2")' @onkeydown='OnShift(() => HandleOpenAsync("trigger-2"))'>Handle open 2</button>
+    <button type="button" data-handle-open="missing" data-key-control @onclick='() => HandleOpenAsync("missing")' @onkeydown='OnShift(() => HandleOpenAsync("missing"))'>Handle open missing</button>
+    <button type="button" data-handle-close data-key-control @onclick="HandleCloseAsync" @onkeydown="OnShift(HandleCloseAsync)">Handle close</button>
 
     @foreach (string value in new[] { "outgoing", "overlap", "incoming" })
     {
-        <button type="button" data-set-phase="@value" data-key-control @onkeydown="() => phase = value">Phase @value</button>
+        <button type="button" data-set-phase="@value" data-key-control @onclick="() => phase = value" @onkeydown="OnShift(() => phase = value)">Phase @value</button>
     }
 
     <div style="margin: 50px">

@@ -212,9 +212,11 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           it('allows controlling the open state and active trigger programmatically', async ({ page, mode }) => {
             await render(page, mode, { mode: triggerMode, case: 'controlled' });
 
-            const openTrigger1 = page.getByRole('button', { name: 'Open Trigger 1' });
-            const openTrigger2 = page.getByRole('button', { name: 'Open Trigger 2' });
-            const closeExternally = page.getByRole('button', { name: 'Close externally' });
+            // A modal popup hides the page (`aria-hidden`), and these locators resolve on each use where Base UI queried
+            // the buttons up front (track 8).
+            const openTrigger1 = page.getByRole('button', { name: 'Open Trigger 1', includeHidden: true });
+            const openTrigger2 = page.getByRole('button', { name: 'Open Trigger 2', includeHidden: true });
+            const closeExternally = page.getByRole('button', { name: 'Close externally', includeHidden: true });
 
             await openTrigger1.click();
             await waitForContent(page, '1');

@@ -21,7 +21,7 @@
         .popup-animated[data-open] { animation: popover-conformance-enter 200ms; }
         .popup-animated[data-ending-style] { animation: popover-conformance-exit 200ms; }
     </style>
-    <button type="button" data-sync-button data-key-control @onkeydown="() => Sync++">Sync</button>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
     <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
 

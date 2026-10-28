@@ -9,15 +9,15 @@
     N, text "Trigger N"), then Portal > Positioner > Popup (`popup`) > Viewport (`viewport`) holding
     `<div data-testid="content">Content[ <payload>]</div>`. The query is the suite's contract (open, defaultOpen,
     defaultTriggerId, keepMounted, side with collision avoidance side none, direction, case=controlled|retained|lagging,
-    strict, triggerCount). The controls carry `data-key-control` and answer a keydown: a click would be an outside press
-    (tests/browser/suites/popupFixture.ts).
+    strict, triggerCount). The controls carry `data-key-control` and act on a Shift keydown beside their click
+    (`OnShift`), which the suites dispatch: a click would be an outside press (tests/browser/CONTEXT.md).
 *@
 <FixtureContainer Name="popover-viewport" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
-    <button type="button" data-sync-button data-key-control @onkeydown="() => Sync++">Sync</button>
-    <button type="button" data-set-open="false" data-key-control @onkeydown="() => open = false">Set closed</button>
-    <button type="button" data-remount-trigger data-key-control @onkeydown="RemountAsync">Remount trigger</button>
-    <button type="button" data-set-payload data-key-control @onkeydown='() => laggingPayload = "ready"'>Set payload</button>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-remount-trigger data-key-control @onclick="RemountAsync" @onkeydown="OnShift(RemountAsync)">Remount trigger</button>
+    <button type="button" data-set-payload data-key-control @onclick='() => laggingPayload = "ready"' @onkeydown='OnShift(() => laggingPayload = "ready")'>Set payload</button>
 
     @if (direction == TextDirection.Rtl)
     {
