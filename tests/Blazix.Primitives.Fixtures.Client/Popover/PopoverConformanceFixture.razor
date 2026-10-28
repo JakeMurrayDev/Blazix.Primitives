@@ -1,0 +1,86 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-conformance` fixture (tests/browser/popover.spec.ts, M4 track 5): popupConformanceTests
+    (tests/browser/suites/) on Popover's parts, as PopoverRoot.test.tsx renders them: a trigger, a portal, a positioner
+    and a popup holding its content and a close. The query sets the root's props:
+    - `open=true|false`: a controlled root (the `[data-set-open]` buttons change it, as the suite's rerender does);
+      absent, the root is uncontrolled;
+    - `defaultOpen`, `cancelOpen`, `cancelClose`, `allowPropagation`, `popupId`, `keepMounted`; `modal` (the root's
+      `Modal="true"`, its internal backdrop);
+    - `animated`: the popup takes the `popup-animated` class, 200 ms keyframes on `[data-open]` and `[data-ending-style]`
+      (open the page with `?animations=1`).
+*@
+<FixtureContainer Name="popover-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes popover-conformance-enter { from { opacity: 0; } }
+        @@keyframes popover-conformance-exit { to { opacity: 0; } }
+        .popup-animated[data-open] { animation: popover-conformance-enter 200ms; }
+        .popup-animated[data-ending-style] { animation: popover-conformance-exit 200ms; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
+    <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+
+    @if (controlled)
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </PopoverRoot>
+    }
+    else
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </PopoverRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private bool modal;
+    private Dictionary<string, object> popupAttributes = [];
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        modal = QueryFlag("modal") == true;
+        popupAttributes["data-testid"] = "popup";
+        if (Query("popupId") is { } id)
+        {
+            popupAttributes["id"] = id;
+        }
+
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "popup-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <PopoverTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Trigger</PopoverTrigger>
+        <PopoverPortal KeepMounted="@keepMounted">
+            <PopoverPositioner data-testid="positioner">
+                <PopoverPopup @attributes="popupAttributes">
+                    <span>Popup content</span>
+                    <PopoverClose data-testid="close">Close popup</PopoverClose>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </text>;
+}

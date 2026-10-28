@@ -449,6 +449,7 @@ Keys handled by this mechanism (all others pass through to FLT/UBT/the component
   Source: `utils/popups/useTriggerFocusGuards.ts:45-55`. Test: [L4] `useTriggerFocusGuards.test.tsx` "uses the current tab order when an adjacent control is %s during close", "preserves the tab destination … trigger tabIndex=%s".
 - **PSH-KEY-05** — MUST. When no tabbable element exists in the requested direction, focus ends on the trigger after the close (the FLT focus manager's focus return), and the popup still closes.
   Source: `utils/popups/useTriggerFocusGuards.ts:51-55` (`?.focus()` no-op), FLT return focus. Test: [L4] `useTriggerFocusGuards.test.tsx` "returns focus to the trigger when no outside element is tabbable and trigger tabIndex=%s".
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the clause through `PopoverRoot.test.tsx`'s two "does not loop focus between guards" titles (POP-KEY-11, contained and detached triggers, both modes): with no other tabbable element, Tab out of the popup and Shift+Tab out of the trigger each close it once and leave focus on the trigger. On Server the `popup` module resolves the destination as the closed document gives it (POP-KEY-11's port note).
 - **PSH-KEY-06** — MUST. Closing through the trigger focus guards inside a modal Dialog keeps the Dialog's focus trap intact: the destination is the next/previous tabbable inside the dialog.
   Source: `utils/popups/useTriggerFocusGuards.ts:51-55` (tabbable search is document-wide; the dialog's trap, FLT, constrains it). Test: [L4] `useTriggerFocusGuards.test.tsx` "preserves the surrounding modal dialog focus trap".
 - **PSH-KEY-07** — MUST. The focus-guard close is applied synchronously (flushed before the handler returns) so that the destination resolution in PSH-KEY-04 observes the closed state. Server: see ADR 01 relaxation table.
@@ -478,6 +479,7 @@ Keys handled by this mechanism (all others pass through to FLT/UBT/the component
   Source: `utils/InternalBackdrop.tsx:22-24`, `floating-ui-react/utils/markOthers.ts:13`, `floating-ui-react/hooks/useDismiss.ts:405-411`. Test: none.
 - **PSH-PTR-07** — MUST. Anchored scroll lock: when `enabled` is `true` and the popup was not opened by touch, page scroll is locked (UTL `useScrollLock` with the trigger as the reference element); when it was opened by touch, scroll is locked only if `positioner.offsetWidth >= documentElement.clientWidth − 20` (both widths > 0), measured post-commit, pre-paint whenever `enabled`, the touch flag or the positioner element changes; otherwise scroll stays free so the user can swipe outside to dismiss.
   Source: `utils/useAnchoredPopupScrollLock.ts:11,26-42`; consumers `popover/positioner/PopoverPositioner.tsx:100-105`, `menu/positioner/MenuPositioner.tsx:248-253`, `select/positioner/SelectPositioner.tsx:89-94`, `combobox/positioner/ComboboxPositioner.tsx:91-96`. Test: none. Docs: `popover/root/PopoverRoot.tsx:169` JSDoc ("On touch devices, a `true` modal blocks outside taps but leaves the page scrollable unless the popup spans nearly the full viewport width").
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the row through `popover.spec.ts` "applies scroll lock when a touch-opened popup covers the viewport width" and "does not apply scroll lock when a touch-opened popup is narrower than the viewport" (L4, both modes); `popup.test.ts` "port: the anchored lock holds while enabled, and for a touch open only when the popup spans the viewport" (L3); `PopoverModuleWiringTests` "port: the positioner sends the cut-out and the anchored lock for a modal press, not for a hover, and the touch open" (L2).
 
 #### 4.7.4 Inline-rect trigger tracking (PreviewCard)
 
@@ -553,6 +555,7 @@ The focus trap, initial focus and focus return are implemented by the FLT focus 
   Source: `popover/store/PopoverStore.ts:67-68`, `popover/trigger/PopoverTrigger.tsx:80,157-168`, `menu/trigger/MenuTrigger.tsx:272,288-306`. Test: [L4] `useTriggerFocusGuards.test.tsx` (all cases render `modal={false}`).
 - **PSH-FOC-08** — MUST. Popover's focus-manager-modal flag is `true` iff `modal !== false` **and** at least one Popover.Close part is currently mounted inside the Popup; Close parts register post-commit, pre-paint on mount and unregister on unmount, and the count never goes below 0.
   Source: `utils/closePart.tsx:12-37`, `popover/popup/PopoverPopup.tsx:37,71-72,123`, `popover/close/PopoverClose.tsx:37`. Test: none here (see POP). Docs: `popover/root/PopoverRoot.tsx:171-173` JSDoc.
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the row through `PopoverFocusTests` "port: the focus manager traps focus only for a modal popover with a close part" (L2); `popover.spec.ts` "enables modal focus management when `modal=true` and close is rendered", "… `modal=trap-focus` …" and "does not enable modal focus management when close is not rendered" (L4, both modes).
 - **PSH-FOC-09** — MUST. The before-trigger guard is reported to the focus manager as an "inside" element, so moving focus from the trigger onto it is not treated as focus leaving the popup before the guard's own handler runs.
   Source: `popover/popup/PopoverPopup.tsx:116`, `menu/popup/MenuPopup.tsx:205`, `utils/popups/useTriggerFocusGuards.ts:16-20`. Test: [L4] `useTriggerFocusGuards.test.tsx` "preserves the tab destination after the exit transition…" (backward).
 
@@ -892,6 +895,7 @@ activationDirection(offset) = offset ? label(offset.h, 5, 'right', 'left') + ' '
 ```
 
   Source: `utils/usePopupViewport.tsx:310-365`. Test: [L3] `usePopupViewport.test.tsx` "returns undefined without an offset", "returns [$expected] for $offset.horizontal, $offset.vertical", "$name" (calculateRelativePosition cases).
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the row through viewportConformanceTests on Popover in `popover.spec.ts`, "sets `data-activation-direction` from the previous to the new trigger" (L4, both modes); `popup.test.ts` "port: a move between triggers while open clones the removed content into [data-previous] and reports the direction" (L3).
 
 - **PSH-ALG-14** — MUST. The implementation reproduces the following procedure exactly for the viewport content key (post-commit, pre-paint when the active trigger id or payload changed).
 
@@ -903,6 +907,7 @@ key = (activeTriggerId ?? 'current') + '-' + counter
 ```
 
   Source: `utils/usePopupViewport.tsx:370-399`. Test: [L4] `viewportConformanceTests.tsx` "remounts the `current` container when the active trigger changes", "cleans up the transition when a lagging payload remounts the current container".
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the row through viewportConformanceTests on Popover in `popover.spec.ts`, "remounts the `current` container when the active trigger changes" and "shows the latest content after rapid trigger changes" (L4, both modes); "port: a C# re-render keeps [data-previous] before [data-current], and a dispose removes both" (L4).
 
 - **PSH-ALG-15** — MUST. The implementation reproduces the following procedure exactly for auto-resize (post-commit, pre-paint when `mounted`, the popup/positioner elements, the content key, side or direction change).
 
@@ -922,6 +927,7 @@ cleanup: abort pending watcher, cancel frame, remove anchoring styles
 ```
 
   Source: `utils/usePopupAutoResize.ts:43-136`. Test: [L4] `viewportConformanceTests.tsx` "creates morphing containers during transitions" (previous container `--popup-*` set).
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the row through `popup.test.ts` "auto-resize" ("port: the first measurement sizes the positioner, leaves the popup at auto, and restores every override", "port: a content change animates from the previous size to the new one, then returns to auto", L3); viewportConformanceTests on Popover, "anchors the popup for side=$side in $direction mode" (L4, both modes).
 
 - **PSH-ALG-16** — MUST. The implementation reproduces the following procedure exactly for inline-rect line grouping and reference-rect selection.
 
@@ -982,6 +988,7 @@ onAfterGuardFocus(e):
 ```
 
   Source: `utils/popups/useTriggerFocusGuards.ts:38-71`. Test: [L4] `useTriggerFocusGuards.test.tsx` (all cases).
+  Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): Popover proves the row through `popup.test.ts` "the trigger guards" (L3); `popover.spec.ts` "does not loop focus between guards when tabbing out of the popup", "does not loop focus between guards when shift-tabbing out of the trigger" and "renders focus guards around the active detached trigger and reports it on close" (L4, both modes).
 
 - **PSH-ALG-19** — MUST. The implementation reproduces the following procedure exactly for the open interaction type (trigger-level variant).
 

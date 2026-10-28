@@ -12,12 +12,16 @@ function session(token) {
 }
 
 // A node a consumer's script holds and C# receives as an IJSObjectReference (the portal's `container`; Dialog's titles):
-// a closed shadow root, which no selector or element reference reaches. The last one is kept for the tests to read.
+// a closed shadow root, which no selector or element reference reaches. The last one is kept for the tests to read. An
+// open one (Popover's shadow-root titles, as Base UI's tests attach it) is reached by Playwright's locators.
 globalThis.blazixFixtureDom = {
   createClosedShadowRoot(host) {
     const root = host.attachShadow({ mode: 'closed' });
     globalThis.blazixFixtureDom.lastClosedShadowRoot = root;
     return root;
+  },
+  createOpenShadowRoot(host) {
+    return host.attachShadow({ mode: 'open' });
   },
   lastClosedShadowRoot: null,
 };

@@ -111,5 +111,34 @@ internal static class OwnershipRegistry
         // TabsPanelState.TransitionStatus; C# renders data-starting-style once, on an element it creates open.
         new("tabs", "Panel", "data-starting-style", Writer.Js, "TabsPanelState.TransitionStatus"),
         new("tabs", "Panel", "data-ending-style", Writer.Js, "TabsPanelState.TransitionStatus"),
+        // Popover (M4 track 5, issue 125; ADR 04 §2 and Amendments 2026-10-27, chosen by the user 2026-10-27). The
+        // positioning module writes the Positioner's style, placement and anchor-hidden attributes from attach (C# renders
+        // the requested values and the pre-position style under the handover; the placement is mirrored in the state), and
+        // the Arrow's; the transitions module writes the Popup's and the Backdrop's transition attributes and the Popup's
+        // `transition: none`; the popup module writes the internal backdrop's clip-path, the Popup's auto-resize variables
+        // and the Viewport's containers, direction and transitioning flag (mirrored in PopoverViewportState).
+        new("popover", "Positioner", "pointer-events", Writer.CsharpToJs),
+        new("popover", "Positioner", "data-side", Writer.CsharpToJs, "PopoverPositionerState.Side"),
+        new("popover", "Positioner", "data-align", Writer.CsharpToJs, "PopoverPositionerState.Align"),
+        new("popover", "Positioner", "data-anchor-hidden", Writer.Js, "PopoverPositionerState.AnchorHidden"),
+        new("popover", "Positioner", "transition", Writer.Js),
+        new("popover", "Positioner", "positioning styles and CSS variables", Writer.CsharpToJs),
+        new("popover", "Positioner", "clip-path", Writer.Js),
+        new("popover", "Popup", "data-starting-style", Writer.Js, "PopoverPopupState.TransitionStatus"),
+        new("popover", "Popup", "data-ending-style", Writer.Js, "PopoverPopupState.TransitionStatus"),
+        new("popover", "Popup", "transition", Writer.Js),
+        new("popover", "Popup", "--popup-width", Writer.Js),
+        new("popover", "Popup", "--popup-height", Writer.Js),
+        new("popover", "Arrow", "data-side", Writer.CsharpToJs, "PopoverArrowState.Side"),
+        new("popover", "Arrow", "data-align", Writer.CsharpToJs, "PopoverArrowState.Align"),
+        new("popover", "Arrow", "data-uncentered", Writer.CsharpToJs, "PopoverArrowState.Uncentered"),
+        new("popover", "Arrow", "style", Writer.CsharpToJs),
+        new("popover", "Backdrop", "data-starting-style", Writer.Js, "PopoverBackdropState.TransitionStatus"),
+        new("popover", "Backdrop", "data-ending-style", Writer.Js, "PopoverBackdropState.TransitionStatus"),
+        new("popover", "Viewport", "[data-previous] container", Writer.Js),
+        new("popover", "Viewport", "data-activation-direction", Writer.Js, "PopoverViewportState.ActivationDirection"),
+        new("popover", "Viewport", "data-transitioning", Writer.Js, "PopoverViewportState.Transitioning"),
+        new("popover", "Viewport", "--popup-width", Writer.Js),
+        new("popover", "Viewport", "--popup-height", Writer.Js),
     ];
 }

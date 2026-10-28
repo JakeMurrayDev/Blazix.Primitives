@@ -31,6 +31,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     private readonly InteractionsAttachment attachment;
     private AttributeValue consumerClick;
     private ClickKey? decidedClick;
+    private string? attachedToken;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="InteractionsTriggerBehavior"/> class.</summary>
@@ -138,19 +139,35 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         return consumerClick.InvokeAsync(e);
     }
 
-    /// <summary>Attaches the trigger's handle after the first render that showed its element, then sends the options that changed.</summary>
+    // The module keys a trigger handle by the session it attached under (a fidelity correction of track 3's behaviour,
+    // found by track 5 on detached triggers; settled by the orchestrator 2026-10-28): a trigger whose store has no session
+    // yet (a detached trigger in its handle's fallback store) attaches once a root's store gives it a token, and attaches
+    // again under another root's token. A token missing for a batch (a recreated handle before its root attaches) keeps
+    // the live handle and its token, so a press right after still reaches the session.
+    /// <summary>
+    /// Attaches the trigger's handle after the first render that showed its element once the trigger has a session token,
+    /// attaches it again under a different token, then sends the options that changed.
+    /// </summary>
     /// <param name="enabled">Whether the part rendered its element.</param>
     /// <param name="element">The element, or <see langword="null"/> under a substitute callback.</param>
     /// <param name="id">The id the part rendered on its own element.</param>
     /// <returns>A task that completes when the module has the options.</returns>
-    public Task AfterRenderAsync(bool enabled, ElementReference? element, string? id)
+    public async Task AfterRenderAsync(bool enabled, ElementReference? element, string? id)
     {
-        if (!enabled)
+        if (SessionToken is { } token && attachedToken is not null && !string.Equals(attachedToken, token, StringComparison.Ordinal))
         {
-            return attachment.DetachAsync();
+            await attachment.DetachAsync();
+            attachedToken = null;
         }
 
-        return attachment.SyncAsync(new InteractionsTarget(element, element is null ? id : null, null), Unchanged, BuildOptions);
+        attachedToken ??= SessionToken;
+        if (!enabled || attachedToken is null)
+        {
+            await attachment.DetachAsync();
+            return;
+        }
+
+        await attachment.SyncAsync(new InteractionsTarget(element, element is null ? id : null, null), Unchanged, BuildOptions);
     }
 
     private static bool IsClick(string name) => string.Equals(name, "onclick", StringComparison.OrdinalIgnoreCase);
@@ -167,9 +184,9 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     };
 
     private bool Unchanged(InteractionsOptions sent) =>
-        string.Equals(sent.SessionToken, SessionToken, StringComparison.Ordinal) && Equals(sent.Trigger, Options);
+        string.Equals(sent.SessionToken, attachedToken, StringComparison.Ordinal) && Equals(sent.Trigger, Options);
 
-    private InteractionsOptions BuildOptions() => new() { SessionToken = SessionToken, Trigger = Options };
+    private InteractionsOptions BuildOptions() => new() { SessionToken = attachedToken, Trigger = Options };
 
     // Runs the consumer's onclick for the click a press is about, once, and returns whether it vetoed the press.
     private bool RunConsumerClick(EventSnapshot snapshot)

@@ -1,0 +1,249 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-detached` fixture (tests/browser/popover.spec.ts, M4 track 5): PopoverRoot.detached-triggers.test.tsx's
+    own setups, one per `case`. Triggers read "Trigger 1".. with ids `trigger-1`.. unless stated; the popup is `popup`.
+    - `hover-switch`: renderHoverDetachedTriggers. Two detached hover triggers (delay 0, payloads 1 and 2) placed 200 px
+      apart, a positioner `positioner` whose top, left and transform transition over `switch` ms (120) and a popup that
+      fades out over `exit` ms (250), both without transitions while `[data-instant]`; the popup shows the payload in
+      `content`, and a close "Close" with `close=true`.
+    - `controlled-switch`: a controlled root with contained triggers `t1` and `t2` that follows OnOpenChange (an open
+      takes the request's trigger), the same transitions at 300 and 400 ms; `[data-set-trigger="t2"]` and
+      `[data-set-open]` drive it through its props.
+    - `late-commit`: a controlled root with contained hover triggers whose OnOpenChange opens at once and commits a close
+      400 ms later; the container renders `data-close-requested` from the request and `data-opened-triggers` (the ids
+      opens named).
+    - `guards`: detached triggers 1 and 2, a span "After", a root whose popup holds a close; the container renders
+      `data-close-trigger`, the id the last close request named.
+    - `remount`: a "Toggle" button that hides `trigger-1` and remounts the tree under a new key; detached triggers 0 and 1
+      in a column, an open root on `trigger-0` whose positioner aligns start 4 px away.
+    - `programmatic-body`: a controlled root with contained triggers 1 and 2 and a close; "Open Trigger 2 without focus"
+      (its mousedown default-prevented) opens it on `trigger-2` through the props.
+    - `disappearing`: a button "Focus fallback", then a controlled root whose open hides its only trigger, "Disappearing
+      trigger"; the popup holds `content` and a close.
+    - `touch-session`: a button "Outside", a detached trigger "Trigger" (`trigger`), a root whose popup reads "Content".
+    Controls carry `data-key-control` and act on Shift (`pressControl`).
+*@
+<FixtureContainer Name="popover-detached" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-close-requested="@(closeRequested ? "true" : null)"
+                  data-opened-triggers="@string.Join(' ', openedTriggers)" data-close-trigger="@closeTrigger">
+    <style>
+        .positioner { transition: top @(switchMs)ms linear, left @(switchMs)ms linear, transform @(switchMs)ms linear; }
+        .popup { opacity: 1; transition: opacity @(exitMs)ms linear; }
+        .popup[data-ending-style] { opacity: 0; }
+        .positioner[data-instant], .popup[data-instant] { transition: none; }
+    </style>
+    @switch (Case)
+    {
+        case "hover-switch":
+            <div style="position: relative; width: 400px; height: 200px">
+                <PopoverTrigger TPayload="int" @ref="first" Handle="@handle" id="trigger-1" Payload="1" OpenOnHover="true" Delay="@s_zero"
+                                style="position: absolute; top: 20px; left: 20px">Trigger 1</PopoverTrigger>
+                <PopoverTrigger TPayload="int" @ref="second" Handle="@handle" id="trigger-2" Payload="2" OpenOnHover="true" Delay="@s_zero"
+                                style="position: absolute; top: 20px; left: 220px">Trigger 2</PopoverTrigger>
+                <PopoverRoot TPayload="int" @ref="root" Handle="@handle" PayloadContent="@TransitionPopup" />
+            </div>
+            break;
+        case "controlled-switch":
+            <div style="position: relative; width: 400px; height: 240px">
+                <PopoverRoot TPayload="int" @ref="root" Open="@open" TriggerId="@triggerId" OnOpenChange="FollowOpenChange" PayloadContent="@TransitionPopup">
+                    <PopoverTrigger TPayload="int" @ref="first" id="t1" style="position: absolute; top: 80px; left: 20px">Trigger 1</PopoverTrigger>
+                    <PopoverTrigger TPayload="int" @ref="second" id="t2" style="position: absolute; top: 80px; left: 220px">Trigger 2</PopoverTrigger>
+                </PopoverRoot>
+            </div>
+            <button type="button" data-set-trigger="t2" data-key-control @onclick='() => triggerId = "t2"' @onkeydown='OnShift(() => triggerId = "t2")'>Trigger t2</button>
+            <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set open false</button>
+            <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+            break;
+        case "late-commit":
+            <div style="position: relative; width: 400px; height: 200px">
+                <PopoverRoot TPayload="int" @ref="root" Open="@open" TriggerId="@triggerId" OnOpenChange="CommitLate" PayloadContent="@TransitionPopup">
+                    <PopoverTrigger TPayload="int" @ref="first" id="trigger-1" Payload="1" OpenOnHover="true" Delay="@s_zero"
+                                    style="position: absolute; top: 20px; left: 20px">Trigger 1</PopoverTrigger>
+                    <PopoverTrigger TPayload="int" @ref="second" id="trigger-2" Payload="2" OpenOnHover="true" Delay="@s_zero"
+                                    style="position: absolute; top: 20px; left: 220px">Trigger 2</PopoverTrigger>
+                </PopoverRoot>
+            </div>
+            break;
+        case "guards":
+            <PopoverTrigger TPayload="int" @ref="first" Handle="@handle" id="trigger-1">Trigger 1</PopoverTrigger>
+            <PopoverTrigger TPayload="int" @ref="second" Handle="@handle" id="trigger-2">Trigger 2</PopoverTrigger>
+            <span>After</span>
+            <PopoverRoot TPayload="int" @ref="root" Handle="@handle" OnOpenChange="RecordWithTrigger">
+                <PopoverPortal>
+                    <PopoverPositioner>
+                        <PopoverPopup data-testid="popup">Content<PopoverClose>Close</PopoverClose></PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            break;
+        case "remount":
+            <div @key="remountKey">
+                <button type="button" @onclick="Remount">Toggle</button>
+                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 48px; margin: 50px">
+                    <PopoverTrigger TPayload="int" @ref="first" Handle="@handle" id="trigger-0">Trigger 0</PopoverTrigger>
+                    @if (showSecond)
+                    {
+                        <PopoverTrigger TPayload="int" @ref="second" Handle="@handle" id="trigger-1">Trigger 1</PopoverTrigger>
+                    }
+                </div>
+                <PopoverRoot TPayload="int" @ref="root" Handle="@handle" TriggerId="trigger-0" Open="true">
+                    <PopoverPortal>
+                        <PopoverPositioner data-testid="positioner" SideOffset="4" Align="Align.Start">
+                            <PopoverPopup data-testid="popup">Content</PopoverPopup>
+                        </PopoverPositioner>
+                    </PopoverPortal>
+                </PopoverRoot>
+            </div>
+            break;
+        case "programmatic-body":
+            <PopoverRoot TPayload="int" @ref="root" Open="@open" TriggerId="@triggerId" OnOpenChange="FollowOpenChange">
+                <PopoverTrigger TPayload="int" @ref="first" id="trigger-1" Payload="1">Trigger 1</PopoverTrigger>
+                <PopoverTrigger TPayload="int" @ref="second" id="trigger-2" Payload="2">Trigger 2</PopoverTrigger>
+                <PopoverPortal>
+                    <PopoverPositioner>
+                        <PopoverPopup data-testid="popup"><span data-testid="content">Content</span><PopoverClose>Close</PopoverClose></PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            <button type="button" @onmousedown:preventDefault="true" @onclick='() => { open = true; triggerId = "trigger-2"; }'>Open Trigger 2 without focus</button>
+            break;
+        case "disappearing":
+            <button type="button">Focus fallback</button>
+            <PopoverRoot TPayload="int" @ref="root" Open="@open" OnOpenChange="HideTriggerOnOpen">
+                @if (showFirst)
+                {
+                    <PopoverTrigger TPayload="int" @ref="first" data-testid="trigger">Disappearing trigger</PopoverTrigger>
+                }
+                <PopoverPortal>
+                    <PopoverPositioner>
+                        <PopoverPopup data-testid="popup"><span data-testid="content">Content</span><PopoverClose>Close</PopoverClose></PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            break;
+        default:
+            <button type="button">Outside</button>
+            <PopoverTrigger TPayload="int" @ref="first" Handle="@handle" id="trigger" data-testid="trigger">Trigger</PopoverTrigger>
+            <PopoverRoot TPayload="int" @ref="root" Handle="@handle">
+                <PopoverPortal>
+                    <PopoverPositioner>
+                        <PopoverPopup data-testid="popup">Content</PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            break;
+    }
+    <button type="button" tabindex="-1" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private static readonly Duration s_zero = new(0);
+
+    private readonly PopoverHandle<int> handle = new();
+    private readonly List<string> openedTriggers = [];
+    private PopoverRoot<int>? root;
+    private PopoverTrigger<int>? first;
+    private PopoverTrigger<int>? second;
+    private bool open;
+    private string? triggerId;
+    private bool closeRequested;
+    private string? closeTrigger;
+    private bool showFirst = true;
+    private bool showSecond = true;
+    private int remountKey = 1;
+    private int switchMs = 120;
+    private int exitMs = 250;
+    private bool closePart;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        first?.TwinsAttached ?? Task.CompletedTask,
+        second?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private RenderFragment<int> TransitionPopup => payload => @<PopoverPortal>
+        <PopoverPositioner data-testid="positioner" class="positioner">
+            <PopoverPopup data-testid="popup" class="popup">
+                <span data-testid="content">@payload</span>
+                @if (closePart)
+                {
+                    <PopoverClose>Close</PopoverClose>
+                }
+            </PopoverPopup>
+        </PopoverPositioner>
+    </PopoverPortal>;
+
+    protected override void OnInitialized()
+    {
+        (switchMs, exitMs) = Case switch
+        {
+            "controlled-switch" => (300, 400),
+            "late-commit" => (200, 250),
+            _ => (120, 250),
+        };
+        switchMs = int.TryParse(Query("switch"), out int switching) ? switching : switchMs;
+        exitMs = int.TryParse(Query("exit"), out int exiting) ? exiting : exitMs;
+        closePart = QueryFlag("close") == true;
+    }
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (args.Value)
+        {
+            triggerId = args.Details.Trigger?.Id;
+        }
+
+        open = args.Value;
+    }
+
+    // The consumer accepts a close but commits it later, as Base UI's setTimeout(() => setOpen(false), 400).
+    private void CommitLate(ValueChangeEventArgs<bool> args)
+    {
+        if (args.Value)
+        {
+            openedTriggers.Add(args.Details.Trigger?.Id ?? "none");
+            triggerId = args.Details.Trigger?.Id;
+            open = true;
+            return;
+        }
+
+        closeRequested = true;
+        _ = InvokeAsync(async () =>
+        {
+            await Task.Delay(400);
+            open = false;
+            StateHasChanged();
+        });
+    }
+
+    private void RecordWithTrigger(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value)
+        {
+            closeTrigger = args.Details.Trigger?.Id;
+        }
+    }
+
+    private void HideTriggerOnOpen(ValueChangeEventArgs<bool> args)
+    {
+        if (args.Value)
+        {
+            showFirst = false;
+        }
+
+        open = args.Value;
+    }
+
+    private void Remount()
+    {
+        showSecond = !showSecond;
+        remountKey++;
+    }
+}

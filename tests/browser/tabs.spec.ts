@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, fixtureUrl, type Page, type RenderMode } from './helpers';
+import { gotoPopupFixture } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/tabs.md, on TabsList over the `composite` module, TabsTab over the `button` module,
 // TabsPanel over the `transitions` module and the `tabs` component module's two handles (ADR 04 Amendments 2026-10-26).
@@ -1723,3 +1724,20 @@ test.describe('<Tabs /> (relaxations per mode)', () => {
     await expect(panel(1)).toHaveAttribute('data-activation-direction', 'right');
   });
 });
+
+// TAB-FOC-10's Popover title (M4 track 5): Tabs inside a popover's popup take the focus manager's initial focus on the
+// highlighted tab, a microtask after the popover's own focus work, and navigate normally.
+test.describe('<Tabs.Root /> (inside a popup)', () => {
+  test('works inside Popover', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tabs-popover');
+
+    await page.getByRole('button', { name: 'Open' }).click();
+
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+
+    await expect(page.getByRole('tab', { name: 'Projects' })).toBeFocused();
+  });
+});
+

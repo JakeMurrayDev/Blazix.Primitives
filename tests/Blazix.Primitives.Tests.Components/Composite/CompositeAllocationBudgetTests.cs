@@ -30,7 +30,11 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
     // (a part that does not opt in reads one virtual property and allocates nothing); the harness's grew. `PartBase` gained
     // the protected `HostWrapperTagName`, and `Expression.Property` copies the public and non-public properties, 8 bytes
     // each: a second protected probe property moved the figure to 4072, measured the same day.
-    private const long RerenderBudgetBytes = 4064;
+    // 2026-10-29 (M4 track 5, ADR 16 Amendments 2026-10-27's issue-112 rule, settled by the orchestrator 2026-10-29): CI
+    // run 40736179291 measured 4176 against 4064 on the least of five, the CI runner's +112 bytes floor shift for the state
+    // earlier tests leave in the process; over 25 full runs of the project in Release the figure was 4064 in 24 and 4176
+    // in 1. The budget is that full-run envelope, 4176.
+    private const long RerenderBudgetBytes = 4176;
 
     private readonly CompositeTestContext host = new();
 

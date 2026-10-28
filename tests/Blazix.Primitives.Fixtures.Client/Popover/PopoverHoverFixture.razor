@@ -1,0 +1,122 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-hover` fixture (tests/browser/popover.spec.ts, M4 track 5): PopoverRoot.test.tsx's and
+    PopoverTrigger.test.tsx's TestPopover for the pointer and hover titles: triggers labeled "Toggle" (`trigger-1`..) carrying
+    their number as payload, a portaled popup holding "Content", the payload (`payload`) and a close labeled "Close", an
+    outside button `outside`. The query:
+    - `openOnHover` (default true), `hoverTriggers` (how many of the first triggers open on hover, default all), `delay`,
+      `closeDelay` (milliseconds), `disabled`, `modal`, `keepMounted`, `triggerCount` (default 1; the triggers are detached
+      on one handle), `nativeButton=false` (a `span` trigger), `defaultOpen`;
+    - `open=true|false`: a controlled root that follows its OnOpenChange, `[data-set-open]` driving it from outside;
+    - `[data-handle-close]` calls the handle's CloseAsync;
+    - `inputs`: text inputs `first-input` and `last-input` around the triggers;
+    - `popupClass`: the popup's class, `fade` (a 1 ms opacity transition, PopoverRoot.test.tsx's `.popup`) or `reopen`
+      (a 10 s animation while `[data-ending-style]`).
+*@
+<FixtureContainer Name="popover-hover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control style="position: fixed; right: 0; bottom: 40px" @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control style="position: fixed; right: 0; bottom: 80px" @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set open false</button>
+    <style>
+        .fade { width: 100px; height: 100px; opacity: 1; transition: opacity 1ms; }
+        .fade[data-exiting] { opacity: 0; }
+        @@keyframes popover-reopen-during-close { from { opacity: 1; } to { opacity: 0.01; } }
+        .reopen[data-ending-style] { animation: popover-reopen-during-close 10000ms linear forwards; }
+    </style>
+    <button type="button" data-handle-close data-key-control style="position: fixed; right: 0; bottom: 120px" @onclick="() => handle.CloseAsync()" @onkeydown="OnShift(() => handle.CloseAsync())">Handle shut</button>
+    <button type="button" data-testid="outside" style="position: fixed; left: 0; bottom: 0">Outside</button>
+
+    <div style="padding: 100px">
+        @if (inputs)
+        {
+            <input type="text" data-testid="first-input" />
+        }
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            int index = number - 1;
+            string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            <PopoverTrigger TPayload="string" @ref="triggers[index]" Handle="@handle" id="@($"trigger-{number}")" data-testid="@($"trigger-{number}")" Payload="@payload"
+                            OpenOnHover="@(openOnHover && number <= hoverTriggers)" Delay="@delay" CloseDelay="@closeDelay" Disabled="@disabled" NativeButton="@nativeButton"
+                            Render="@(nativeButton ? null : s_span)" style="margin-right: 40px">Toggle</PopoverTrigger>
+        }
+        @if (inputs)
+        {
+            <input type="text" data-testid="last-input" />
+        }
+    </div>
+
+    @if (controlled)
+    {
+        <PopoverRoot TPayload="string" @ref="root" Handle="@handle" Open="@open" Modal="@modal" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup" />
+    }
+    else
+    {
+        <PopoverRoot TPayload="string" @ref="root" Handle="@handle" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup" />
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment s_span = @<span style="display: inline-block; padding: 4px">Toggle</span>;
+
+    private readonly PopoverTrigger<string>?[] triggers = new PopoverTrigger<string>?[4];
+    private readonly PopoverHandle<string> handle = new();
+    private PopoverRoot<string>? root;
+    private bool openOnHover = true;
+    private int hoverTriggers;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private bool disabled;
+    private bool modal;
+    private bool keepMounted;
+    private bool controlled;
+    private bool defaultOpen;
+    private bool open;
+    private int triggerCount = 1;
+    private bool nativeButton = true;
+    private bool inputs;
+    private string? popupClass;
+
+    protected override IEnumerable<Task> Attachments =>
+        [.. triggers.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];
+
+    private RenderFragment<string?> Popup => payload => @<text>
+        <PopoverPortal KeepMounted="@keepMounted">
+            <PopoverPositioner data-testid="positioner">
+                <PopoverPopup data-testid="popup" class="@popupClass" style="position: relative; z-index: 1">
+                    <span>Content</span>
+                    <span data-testid="payload">@payload</span>
+                    <PopoverClose data-testid="close">Close</PopoverClose>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </text>;
+
+    protected override void OnInitialized()
+    {
+        openOnHover = QueryFlag("openOnHover") != false;
+        delay = int.TryParse(Query("delay"), out int open) ? new Duration(open) : null;
+        closeDelay = int.TryParse(Query("closeDelay"), out int close) ? new Duration(close) : null;
+        disabled = QueryFlag("disabled") == true;
+        modal = QueryFlag("modal") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 1;
+        hoverTriggers = int.TryParse(Query("hoverTriggers"), out int hovering) ? hovering : triggerCount;
+        inputs = QueryFlag("inputs") == true;
+        popupClass = Query("popupClass");
+        nativeButton = QueryFlag("nativeButton") != false;
+        controlled = QueryFlag("open") is not null;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        this.open = QueryFlag("open") == true;
+    }
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        open = args.Value;
+    }
+}
