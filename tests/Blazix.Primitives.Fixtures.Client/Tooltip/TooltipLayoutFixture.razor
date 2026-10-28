@@ -1,0 +1,129 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-layout` fixture (tests/browser/tooltip.spec.ts): TooltipRoot.test.tsx's titles that measure or move between
+    sized elements, by `case`:
+    - `cursor` (:1104-1262): a 300×40 trigger `trigger` with `delay=100` at (40, 100) inside the page's offset, a root
+      tracking `axis=x|y|both` (default x), a bottom positioner `positioner` and a 40×20 popup; `[data-disable-tracking]`
+      sets the axis to none;
+    - `hoverable` (:1263-1332): a 120×40 trigger with `delay=0` and `closeDelay=0`, a bottom positioner with no offset, a
+      120×40 popup `popup` and an `Outside` button; `disableHoverablePopup` from the query;
+    - `spaced` (:1334-1390): a provider (`timeout=400`) around three detached triggers `trigger-1`..`trigger-3` 32 px apart
+      with `delay=0` and one popup;
+    - `opacity` (:592-638): a trigger with `delay=0` and a popup with `transition: opacity 200ms` (open with `?animations=1`);
+    - `unmount` (:42-77): a trigger the `[data-toggle-trigger]` button removes, with the default delay.
+    The container records the root's open changes.
+*@
+<FixtureContainer Name="tooltip-layout" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <style>
+        [data-fixture="tooltip-layout"] .opacity-popup { transition: opacity 200ms; opacity: 1; }
+    </style>
+    <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
+        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+        <button type="button" data-disable-tracking @onclick="() => axis = TooltipTrackCursorAxis.None">Disable tracking</button>
+        <button type="button" data-toggle-trigger @onclick="() => showTrigger = !showTrigger">Toggle trigger</button>
+    </div>
+
+    <div style="position: fixed; top: 100px; left: 40px">
+        @switch (Case)
+        {
+            case "cursor":
+                <TooltipRoot TPayload="NoPayload" @ref="root" TrackCursorAxis="@axis" OnOpenChange="RecordOpenChange">
+                    <TooltipTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" Delay="100" style="width: 300px; height: 40px">Trigger</TooltipTrigger>
+                    <TooltipPortal>
+                        <TooltipPositioner data-testid="positioner" Side="Side.Bottom">
+                            <TooltipPopup data-testid="popup" style="width: 40px; height: 20px">Tooltip</TooltipPopup>
+                        </TooltipPositioner>
+                    </TooltipPortal>
+                </TooltipRoot>
+                break;
+            case "hoverable":
+                <TooltipRoot TPayload="NoPayload" @ref="root" DisableHoverablePopup="@disableHoverablePopup" OnOpenChange="RecordOpenChange">
+                    <TooltipTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" Delay="0" CloseDelay="0" style="width: 120px; height: 40px">Trigger</TooltipTrigger>
+                    <TooltipPortal>
+                        <TooltipPositioner data-testid="positioner" Side="Side.Bottom" SideOffset="0">
+                            <TooltipPopup data-testid="popup" style="width: 120px; height: 40px">Content</TooltipPopup>
+                        </TooltipPositioner>
+                    </TooltipPortal>
+                </TooltipRoot>
+                <button type="button" data-testid="outside" style="margin-top: 120px">Outside</button>
+                break;
+            case "spaced":
+                <TooltipProvider @ref="provider" Timeout="400">
+                    <div style="display: flex; gap: 32px">
+                        @for (int number = 1; number <= 3; number++)
+                        {
+                            string id = $"trigger-{number}";
+                            <TooltipTrigger Handle="handle" @key="number" @ref="spacedTriggers[id]" data-testid="@id" Delay="0">Trigger @number</TooltipTrigger>
+                        }
+                    </div>
+                    <TooltipRoot Handle="handle" @ref="root" OnOpenChange="RecordOpenChange">
+                        <TooltipPortal>
+                            <TooltipPositioner>
+                                <TooltipPopup data-testid="popup">Tooltip Content</TooltipPopup>
+                            </TooltipPositioner>
+                        </TooltipPortal>
+                    </TooltipRoot>
+                </TooltipProvider>
+                break;
+            case "opacity":
+                <TooltipRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+                    <TooltipTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" Delay="0">Trigger</TooltipTrigger>
+                    <TooltipPortal>
+                        <TooltipPositioner>
+                            <TooltipPopup class="opacity-popup" data-testid="popup">Tooltip</TooltipPopup>
+                        </TooltipPositioner>
+                    </TooltipPortal>
+                </TooltipRoot>
+                break;
+            default:
+                <TooltipRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+                    @if (showTrigger)
+                    {
+                        <TooltipTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Toggle</TooltipTrigger>
+                    }
+                    <TooltipPortal>
+                        <TooltipPositioner>
+                            <TooltipPopup data-testid="popup">Content</TooltipPopup>
+                        </TooltipPositioner>
+                    </TooltipPortal>
+                </TooltipRoot>
+                break;
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly TooltipHandle<NoPayload> handle = new();
+    private readonly Dictionary<string, TooltipTrigger<NoPayload>> spacedTriggers = [];
+    private TooltipRoot<NoPayload>? root;
+    private TooltipTrigger<NoPayload>? trigger;
+    private TooltipProvider? provider;
+    private TooltipTrackCursorAxis axis = TooltipTrackCursorAxis.X;
+    private bool disableHoverablePopup;
+    private bool showTrigger = true;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    protected override void OnInitialized()
+    {
+        axis = Query("axis") switch
+        {
+            "y" => TooltipTrackCursorAxis.Y,
+            "both" => TooltipTrackCursorAxis.Both,
+            _ => TooltipTrackCursorAxis.X,
+        };
+        disableHoverablePopup = QueryFlag("disableHoverablePopup") == true;
+    }
+
+    private async Task HandlesAttachedAsync()
+    {
+        await (provider?.TwinAttached ?? Task.CompletedTask);
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll([trigger?.TwinAttached ?? Task.CompletedTask, .. spacedTriggers.Values.Select(item => item.TwinAttached)]);
+    }
+}

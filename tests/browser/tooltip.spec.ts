@@ -947,3 +947,142 @@ test.describe('nested tooltips', () => {
     await expect(byTestId(page, 'outer-popup')).toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The titles that measure or move between sized elements (TooltipRoot.test.tsx:42-77, 592-638, 1104-1390) on
+// `tooltip-layout`. Cursor anchoring is the `interactions` module's virtual anchor, which `positioning` follows through
+// the session (FLT-STA-08, PR 135).
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<Tooltip.Root /> layout', () => {
+  const open = (page: Page, mode: RenderMode, options: PopupFixtureOptions) => gotoPopupFixture(page, mode, 'tooltip-layout', options);
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+
+  async function centerX(page: Page, id: string): Promise<number> {
+    const box = (await byTestId(page, id).boundingBox())!;
+    return box.x + box.width / 2;
+  }
+
+  test('does not open once the hovered trigger has unmounted', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { case: 'unmount' });
+    await freezeClock(page);
+    await byTestId(page, 'trigger').hover();
+    await page.clock.runFor(1);
+
+    await fixture.locator('[data-toggle-trigger]').evaluate((element) => (element as HTMLElement).click());
+    await expect(byTestId(page, 'trigger')).toHaveCount(0);
+    await page.clock.runFor(OPEN_DELAY);
+    await settle(fixture);
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  test('tracks the cursor on the first delayed hover when trackCursorAxis is x', async ({ page, mode }) => {
+    await open(page, mode, { case: 'cursor' });
+    const box = (await byTestId(page, 'trigger').boundingBox())!;
+    const cursorX = box.x + 240;
+
+    await page.mouse.move(cursorX, box.y + 20, { steps: 4 });
+
+    await expect(byTestId(page, 'positioner')).toBeVisible();
+    await expect.poll(async () => Math.abs((await centerX(page, 'positioner')) - cursorX)).toBeLessThanOrEqual(2);
+    await expect(byTestId(page, 'positioner')).toHaveAttribute('data-instant', 'tracking-cursor');
+  });
+
+  test('stops tracking the cursor after trackCursorAxis is disabled while closed', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { case: 'cursor' });
+    const box = (await byTestId(page, 'trigger').boundingBox())!;
+    const cursorX = box.x + 240;
+    await page.mouse.move(cursorX, box.y + 20, { steps: 4 });
+    await expect.poll(async () => Math.abs((await centerX(page, 'positioner')) - cursorX)).toBeLessThanOrEqual(2);
+    await page.mouse.move(cursorX, box.y - 60, { steps: 2 });
+    await expect(byTestId(page, 'positioner')).toHaveCount(0);
+
+    await fixture.locator('[data-disable-tracking]').evaluate((element) => (element as HTMLElement).click());
+    await settle(fixture);
+    await page.mouse.move(cursorX, box.y + 20, { steps: 4 });
+
+    await expect(byTestId(page, 'positioner')).toBeVisible();
+    await expect.poll(async () => Math.abs((await centerX(page, 'positioner')) - (box.x + box.width / 2))).toBeLessThanOrEqual(2);
+  });
+
+  test('updates the tracked cursor position after closing and reopening', async ({ page, mode }) => {
+    await open(page, mode, { case: 'cursor' });
+    const box = (await byTestId(page, 'trigger').boundingBox())!;
+    const firstCursorX = box.x + 240;
+    const secondCursorX = box.x + 60;
+    await page.mouse.move(firstCursorX, box.y + 20, { steps: 4 });
+    await expect.poll(async () => Math.abs((await centerX(page, 'positioner')) - firstCursorX)).toBeLessThanOrEqual(2);
+    await page.mouse.move(firstCursorX, box.y - 60, { steps: 2 });
+    await expect(byTestId(page, 'positioner')).toHaveCount(0);
+
+    await page.mouse.move(secondCursorX, box.y + 20, { steps: 4 });
+
+    await expect(byTestId(page, 'positioner')).toBeVisible();
+    await expect.poll(async () => Math.abs((await centerX(page, 'positioner')) - secondCursorX)).toBeLessThanOrEqual(2);
+  });
+
+  test.describe('hoverable popup', () => {
+    test('survives the trip from the trigger to the popup, then closes after leaving it', async ({ page, mode }) => {
+      const fixture = await open(page, mode, { case: 'hoverable' });
+      await byTestId(page, 'trigger').hover();
+      await expect(byTestId(page, 'popup')).toBeVisible();
+
+      await byTestId(page, 'popup').hover();
+      await settle(fixture);
+      await expect(byTestId(page, 'popup')).toBeVisible();
+
+      await byTestId(page, 'outside').hover();
+
+      await expect(byTestId(page, 'popup')).toHaveCount(0);
+    });
+
+    test('closes on that same trip when `disableHoverablePopup` is set', async ({ page, mode }) => {
+      await open(page, mode, { case: 'hoverable', disableHoverablePopup: true });
+      await byTestId(page, 'trigger').hover();
+      await expect(byTestId(page, 'popup')).toBeVisible();
+
+      const popupBox = (await byTestId(page, 'popup').boundingBox())!;
+      await page.mouse.move(popupBox.x + popupBox.width / 2, popupBox.y + popupBox.height / 2, { steps: 4 });
+
+      await expect(byTestId(page, 'popup')).toHaveCount(0);
+    });
+  });
+
+  test('keeps the tooltip open when moving across spaced triggers without a closeDelay', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { case: 'spaced' });
+    await byTestId(page, 'trigger-1').hover();
+    await expect(byTestId(page, 'popup')).toBeVisible();
+
+    await byTestId(page, 'trigger-2').hover();
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await byTestId(page, 'trigger-3').hover();
+    await expect(byTestId(page, 'popup')).toBeVisible();
+
+    // Base UI dispatches one mousemove on the body; here the pointer moves within the third trigger, which the safe polygon
+    // left running from the second one must not read as a leave.
+    const box = (await byTestId(page, 'trigger-3').boundingBox())!;
+    await page.mouse.move(box.x + 2, box.y + 2, { steps: 3 });
+    await settle(fixture);
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    expect((await openChanges(fixture)).filter((entry) => entry.startsWith('false'))).toEqual([]);
+  });
+
+  test('inline opacity: 0 is removed before user CSS transitions run', async ({ page, mode }) => {
+    await open(page, mode, { case: 'opacity', animations: 1 });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect
+      .poll(() =>
+        byTestId(page, 'popup').evaluate((element) => ({
+          opacity: Number(getComputedStyle(element).opacity),
+          opacityAnimationCount: element.getAnimations().filter((animation) => (animation as CSSTransition).transitionProperty === 'opacity').length,
+        })),
+      )
+      .toEqual({ opacity: 1, opacityAnimationCount: 0 });
+  });
+});
