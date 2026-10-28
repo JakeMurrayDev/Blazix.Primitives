@@ -6,7 +6,8 @@
 //
 // --clean removes that directory first, so a Release build leaves no Debug sourcemaps behind (the library passes
 // its whole wwwroot/, which is generated; the fixture client passes its wwwroot/js/). --manifest writes the list of
-// emitted files (relative to root, one per line) for MSBuild to register as static web assets without globbing.
+// emitted files (relative to root, one per line) for MSBuild to register as static web assets without globbing, and
+// beside it (`<name>.inputs.json` for `<name>.manifest.txt`) each output with its inputs, which the pack check reads.
 //
 // One ESM entry per module into the output directory, shared code as chunks under js/chunks/, legal comments
 // kept inline so the `/*! … */` banner of js/floating-ui.ts survives in js/positioning.js (the vendored engine has none of
@@ -85,4 +86,12 @@ if (options.manifest !== undefined) {
   const manifest = resolve(options.root, options.manifest);
   await mkdir(dirname(manifest), { recursive: true });
   await writeFile(manifest, `${Object.keys(result.metafile.outputs).sort().join('\n')}\n`);
+  // ADR 07 Amendments 2026-10-28: each output with its inputs, beside the list, so the pack check finds the output that
+  // bundles the Floating UI engine wherever esbuild's splitting puts it.
+  const inputs = Object.fromEntries(
+    Object.entries(result.metafile.outputs)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([output, meta]) => [output, Object.keys(meta.inputs).sort()]),
+  );
+  await writeFile(manifest.replace(/\.manifest\.txt$|$/, '.inputs.json'), `${JSON.stringify(inputs, null, 2)}\n`);
 }
