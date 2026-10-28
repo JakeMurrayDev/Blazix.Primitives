@@ -45,6 +45,10 @@ One Opus 5.5 reviewer per document or small group applied the marks of conventio
 - popup-store-and-handles §4.3.1 (2026-10-27, M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): the `floatingRootContext` row pointed at PSH-STA-37 (the inert fallback store) for the sync of the floating root state, which is PSH-STA-46's (`utils/popups/popupStoreUtils.ts`, `useSyncedFloatingRootContext`). The pointer is corrected in the row with its date.
 - Implementation findings of M4 track 1 for the families (2026-10-27, no document change): (1) `TwinBase.AttachAsync` hands a repeated attach of the same element the pending handle at once, so a "first attach completed" signal must come from the attach that started it (the portal's move, a fixture's readiness); (2) `PartBase` reads `State` before `AddPartAttributes`, so a part updates its state record in its `State` getter, or a part that renders once keeps a stale data attribute; (3) the library's module URLs carry the static-asset fingerprint (`js/portal.<hash>.js`), so a route that stalls a module matches `/js/<module>(\.[0-9a-z]+)?\.js/`, not `**/js/<module>.js`.
 
+## Deliberate deviations (chosen by the user)
+
+- tooltip TIP-STA-02 (2026-10-28, M4 track 6, [issue 121](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/121); design point 13.7, chosen by the user 2026-10-28, ADR 05 Amendments 2026-10-28): a disabled Tooltip is closed everywhere in the port. Base UI's `open` selector (`utils/popups/store.ts:150`) and `handle.isOpen` read the plain `openProp ?? open`, and only the transitions take `!disabled` (`tooltip/root/TooltipRoot.tsx:69,82`), so for a controlled `Open=true` with `Disabled` Base UI keeps `data-popup-open` on the trigger and `isOpen` true while the popup is unmounted. The row's Source citation is corrected with it.
+
 ## Global consistency checks (script)
 
 
