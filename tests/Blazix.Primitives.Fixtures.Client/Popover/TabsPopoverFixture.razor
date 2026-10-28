@@ -1,0 +1,39 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tabs-popover` fixture (tests/browser/tabs.spec.ts, M4 track 5): TabsRoot.test.tsx's "works inside Popover", Tabs
+    inside a popover's popup (TAB-FOC-10): a trigger labeled "Open", then Overview, Projects and Account tabs.
+*@
+<FixtureContainer Name="tabs-popover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <PopoverRoot TPayload="NoPayload" @ref="root">
+        <PopoverTrigger TPayload="NoPayload" @ref="trigger">Open</PopoverTrigger>
+        <PopoverPortal>
+            <PopoverPositioner SideOffset="8">
+                <PopoverPopup>
+                    <TabsRoot TValue="string" DefaultValue="@("overview")">
+                        <TabsList>
+                            <TabsTab TValue="string" Value="@("overview")">Overview</TabsTab>
+                            <TabsTab TValue="string" Value="@("projects")">Projects</TabsTab>
+                            <TabsTab TValue="string" Value="@("account")">Account</TabsTab>
+                        </TabsList>
+                        <TabsPanel TValue="string" Value="@("overview")" />
+                        <TabsPanel TValue="string" Value="@("projects")" />
+                        <TabsPanel TValue="string" Value="@("account")" />
+                    </TabsRoot>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </PopoverRoot>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

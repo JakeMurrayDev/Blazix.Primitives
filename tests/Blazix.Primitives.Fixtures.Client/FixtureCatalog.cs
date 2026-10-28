@@ -153,6 +153,7 @@ public static class FixtureCatalog
         ["tabs-panels"] = new(typeof(TabsPanelsFixture)),
         ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
         ["tabs-focus"] = new(typeof(TabsFocusFixture)),
+        ["tabs-popover"] = new(typeof(TabsPopoverFixture)),
         ["toolbar-orientation"] = new(typeof(ToolbarOrientationFixture)),
         ["toolbar-keys"] = new(typeof(ToolbarKeysFixture)),
         ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
