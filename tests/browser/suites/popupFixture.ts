@@ -52,6 +52,11 @@ export async function pressControl(control: Locator): Promise<void> {
   }
 }
 
+/** Activates a fixture control in the page, never moving focus: a neutral keydown when it carries `data-key-control`, else a DOM click. */
+export async function pressInPage(control: Locator): Promise<void> {
+  await control.evaluate(activateControl);
+}
+
 export async function settle(fixture: Locator): Promise<void> {
   const before = Number(await fixture.getAttribute('data-sync'));
   await fixture.locator('[data-sync-button]').evaluate(activateControl);
