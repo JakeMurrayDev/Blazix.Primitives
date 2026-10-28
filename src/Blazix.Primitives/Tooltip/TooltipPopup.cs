@@ -1,0 +1,219 @@
+using Blazix.Primitives.Interop;
+using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
+
+namespace Blazix.Primitives;
+
+// TIP §3.6 (tooltip/popup/TooltipPopup.tsx:55-61, 78-99); ADR 08 Amendments 2026-10-27 ("State records"). The placement
+// is the positioner's mirror, rendered by C# (TIP-STA-13's relaxation); the transition status is the `transitions`
+// module's (TRN-DOM-01/02).
+/// <summary>Represents the state of a tooltip popup, which the part exposes as data attributes and passes to its class and style functions.</summary>
+/// <param name="Open">Whether the tooltip is open; rendered as <c>data-open</c> or <c>data-closed</c>.</param>
+/// <param name="Side">The side of the anchor the popup is placed on; rendered as <c>data-side</c>.</param>
+/// <param name="Align">The alignment of the popup against the anchor; rendered as <c>data-align</c>.</param>
+/// <param name="Instant">Why transitions are skipped, or <see langword="null"/> when they play; rendered as <c>data-instant</c>.</param>
+/// <param name="TransitionStatus">The transition status, whose attributes the browser-side behavior writes.</param>
+[PartState]
+public sealed partial record TooltipPopupState(
+    bool Open,
+    Side? Side,
+    Align? Align,
+    TooltipInstantType? Instant,
+    [property: MirroredField] TransitionStatus? TransitionStatus);
+
+// TIP §3.6; tooltip/popup/TooltipPopupDataAttributes.ts, in its order.
+/// <summary>Provides the names of the data attributes a tooltip popup renders.</summary>
+public static class TooltipPopupDataAttributes
+{
+    /// <summary>Represents the attribute present while the tooltip is open: <c>data-open</c>.</summary>
+    public const string Open = PopupDataAttributes.Open;
+
+    /// <summary>Represents the attribute present while the tooltip is closed: <c>data-closed</c>.</summary>
+    public const string Closed = PopupDataAttributes.Closed;
+
+    /// <summary>Represents the attribute present while the popup is animating in: <c>data-starting-style</c>.</summary>
+    public const string StartingStyle = PopupDataAttributes.StartingStyle;
+
+    /// <summary>Represents the attribute present while the popup is animating out: <c>data-ending-style</c>.</summary>
+    public const string EndingStyle = PopupDataAttributes.EndingStyle;
+
+    /// <summary>Represents the attribute whose value is the side the popup is placed on: <c>data-side</c>.</summary>
+    public const string Side = PopupDataAttributes.Side;
+
+    /// <summary>Represents the attribute whose value is the popup's alignment: <c>data-align</c>.</summary>
+    public const string Align = PopupDataAttributes.Align;
+
+    /// <summary>Represents the attribute whose value says why transitions are skipped: <c>data-instant</c>.</summary>
+    public const string Instant = "data-instant";
+}
+
+// Base UI's Tooltip.Popup (tooltip/popup/TooltipPopup.tsx); the contract is docs/components/tooltip.md §3.6, §5.4.
+// - `tabindex="-1"` and data-base-ui-focusable (TIP-DOM-11), no role (TIP-ARIA-01; TIP §16 Q1 resolved as written).
+// - The popup's `transitions` handle (OpenSelector "[data-open]", ReportOpenComplete): the status mirrored into the store,
+//   the completion running onOpenChangeComplete and the unmount (TIP-EVT-05, TIP-ANI-01). It selects the open and mounted
+//   state, so it brings the render-batch boundary (ADR 16 Amendments 2026-10-27).
+// - The hover and dismiss listeners are the session's floating element's, the Positioner (TIP-DOM-14; M4 track 3).
+/// <summary>
+/// The container of the tooltip's content: Base UI's <c>Tooltip.Popup</c>, rendered as a <c>div</c>.
+/// </summary>
+/// <remarks>The part must be placed within a <see cref="TooltipPositioner"/>.</remarks>
+public sealed class TooltipPopup : PartBase<TooltipPopupState>
+{
+    private static readonly StateAttributesMapping<TooltipPopupState> s_mapping = PopupStateMapping.CreateOpen<TooltipPopupState>();
+
+    private readonly Action mirrorChanged;
+    private TooltipStoreView? view;
+    private TooltipPositionerContext? positioner;
+    private TooltipPortalContext? portalContext;
+    private TooltipPopupState? state;
+    private TransitionsTwin? transitions;
+    private TwinHandle<TransitionsOptions>? transitionsHandle;
+    private TransitionsOptions? sentTransitions;
+
+    /// <summary>Initializes a new instance of the <see cref="TooltipPopup"/> class.</summary>
+    public TooltipPopup()
+    {
+        mirrorChanged = OnMirrorChanged;
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [CascadingParameter]
+    private TooltipRootContext? RootContext { get; set; }
+
+    [CascadingParameter]
+    private TooltipPositionerContext? PositionerContext { get; set; }
+
+    [CascadingParameter]
+    private TooltipPortalContext? PortalContext { get; set; }
+
+    /// <inheritdoc />
+    protected override string DefaultTagName => "div";
+
+    // The pipeline reads the state before the part's attributes, so the record follows the store and the mirror here.
+    /// <inheritdoc />
+    protected override TooltipPopupState State
+    {
+        get
+        {
+            PositionerMirror mirror = positioner!.Mirror;
+            TooltipStoreView current = view!;
+            if (state is null
+                || state.Open != current.Open
+                || state.Side != mirror.Side
+                || state.Align != mirror.Align
+                || state.Instant != current.InstantType
+                || state.TransitionStatus != current.TransitionStatus)
+            {
+                state = new TooltipPopupState(current.Open, mirror.Side, mirror.Align, current.InstantType, current.TransitionStatus);
+            }
+
+            return state;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override StateAttributesMapping<TooltipPopupState>? StateAttributesMapping => s_mapping;
+
+    // ADR 02 decision 1: under a substitute callback the twin finds the element by id.
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => RenderFunction is not null;
+
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">The popup is placed outside a <see cref="TooltipRoot{TPayload}"/> or a <see cref="TooltipPositioner"/>.</exception>
+    protected override void OnInitialized()
+    {
+        // TIP-EDGE-02, then TIP-EDGE-04.
+        TooltipRootContext root = TooltipRootContext.Require(RootContext);
+        positioner = TooltipPositionerContext.Require(PositionerContext);
+        positioner.Positioner.AddListener(mirrorChanged);
+        view = root.CreateView(StateHasChanged, TooltipSelection.Open | TooltipSelection.Mounted | TooltipSelection.TransitionStatus | TooltipSelection.InstantType | TooltipSelection.UnmountRequests);
+        base.OnInitialized();
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet() => portalContext = PortalContext;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        TooltipStoreView current = view!;
+        if (Element is { } element)
+        {
+            current.SetPopupElement(element);
+            await SyncTransitionsAsync(element, current);
+        }
+
+        await current.AtBatchBoundaryAsync();
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            positioner?.Positioner.RemoveListener(mirrorChanged);
+            view?.ClearPopupElement();
+            view?.Dispose();
+            view = null;
+            if (transitions is not null)
+            {
+                _ = transitions.DisposeAsync().AsTask();
+                transitions = null;
+            }
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        // TIP-DOM-11 (FOCUSABLE_POPUP_PROPS, popupStoreUtils.ts:27-30).
+        attributes.Set("tabindex", "-1");
+        attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
+    }
+
+    private void OnMirrorChanged()
+    {
+        PositionerMirror mirror = positioner!.Mirror;
+        if (state is not null && (state.Side != mirror.Side || state.Align != mirror.Align))
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task SyncTransitionsAsync(ElementReference element, TooltipStoreView current)
+    {
+        TransitionsOptions options = new()
+        {
+            Open = current.Open,
+            Mounted = current.Mounted,
+            Status = current.TransitionStatus,
+            KeepMounted = portalContext?.KeepMounted ?? false,
+            ReportOpenComplete = true,
+            OpenSelector = "[data-open]",
+            UnmountRequests = current.UnmountRequests,
+        };
+        if (transitions is null)
+        {
+            transitions = new TransitionsTwin(JSRuntime);
+            transitions.StatusChanged += change => view?.MirrorStatus(change.Status);
+            transitions.TransitionCompleted += opened => _ = view?.CompleteTransitionAsync(opened);
+        }
+
+        if (transitionsHandle is null)
+        {
+            sentTransitions = options;
+            transitionsHandle = await transitions.AttachAsync(element, options);
+        }
+        else if (options != sentTransitions)
+        {
+            sentTransitions = options;
+            await transitionsHandle.UpdateAsync(options);
+        }
+    }
+}
