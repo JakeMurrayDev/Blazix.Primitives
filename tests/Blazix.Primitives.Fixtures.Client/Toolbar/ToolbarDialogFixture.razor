@@ -9,7 +9,8 @@
     2026-10-27 item 4). Dialog reads no toolbar context: the substitution is the pipeline's (SubstituteParameters).
     - `renders`: "renders a dialog trigger"; `interactions`: "handles interactions"; `disabled`: "disabled state" (a
       disabled ToolbarButton); `composite`: "prevents composite keydowns from escaping", a second plain ToolbarButton
-      "empty" after the dialog trigger.
+      "empty" after the dialog trigger; `composite-inside`: the same, with the portal's container `[data-portal-target]`
+      inside the ToolbarRoot, so the popup's keydowns bubble into the toolbar unless the popup stops them (DLG-KEY-09).
     The container records the root's open changes (`data-open-changes`).
 *@
 <FixtureContainer Name="toolbar-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
@@ -18,23 +19,27 @@
     <button type="button" data-before>Before</button>
     <ToolbarRoot @ref="root" data-root>
         <DialogRoot TPayload="NoPayload" Modal="false" OnOpenChange="RecordOpenChange">
-            <ToolbarButton @ref="button" Disabled="@(Case == "disabled")" Render="Trigger" data-item="button">@(Case == "composite" ? "dialog" : null)</ToolbarButton>
-            <DialogPortal>
-                @if (Case != "composite")
+            <ToolbarButton @ref="button" Disabled="@(Case == "disabled")" Render="Trigger" data-item="button">@(Composite ? "dialog" : null)</ToolbarButton>
+            <DialogPortal Container="@PortalContainer">
+                @if (!Composite)
                 {
                     <DialogBackdrop />
                 }
                 <DialogPopup>
-                    @if (Case != "composite")
+                    @if (!Composite)
                     {
                         <DialogTitle>title text</DialogTitle>
                     }
                 </DialogPopup>
             </DialogPortal>
         </DialogRoot>
-        @if (Case == "composite")
+        @if (Composite)
         {
             <ToolbarButton data-item="empty">empty</ToolbarButton>
+        }
+        @if (Inside)
+        {
+            <div data-portal-target></div>
         }
     </ToolbarRoot>
 </FixtureContainer>
@@ -43,6 +48,12 @@
     private ToolbarRoot? root;
     private ToolbarButton? button;
     private DialogTrigger<NoPayload>? trigger;
+
+    private bool Composite => Case is "composite" or "composite-inside";
+
+    private bool Inside => Case == "composite-inside";
+
+    private PortalContainerValue? PortalContainer => Inside ? (PortalContainerValue)"[data-portal-target]" : (PortalContainerValue?)null;
 
     protected override IEnumerable<Task> Attachments =>
     [

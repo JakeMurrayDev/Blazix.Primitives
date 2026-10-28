@@ -1041,6 +1041,23 @@ test.describe('<Toolbar.Button />', () => {
         await expect(page.getByRole('dialog')).toBeFocused();
         await expect(page.getByRole('button', { name: 'empty', includeHidden: true })).not.toBeFocused();
       });
+
+      // DLG-KEY-09, the port title the stop needs (issue 123): with the popup portaled into a container inside the
+      // ToolbarRoot its keydowns bubble into the toolbar, so only the popup's own stop (the popup module's
+      // StopCompositeKeys) keeps the toolbar's focus where it is.
+      test('port: a dialog popup portaled into a container inside the toolbar stops the composite keydowns', async ({ page, mode }) => {
+        await dialogCase(page, mode, 'composite-inside');
+        const trigger = page.getByRole('button', { name: 'dialog', exact: true });
+
+        await trigger.click();
+        const popup = page.locator('[data-portal-target] [role="dialog"]');
+        await expect(popup).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('End');
+
+        await expect(popup).toBeFocused();
+        await expect(page.getByRole('button', { name: 'empty', includeHidden: true })).not.toBeFocused();
+      });
     });
 
     test.describe('Switch', () => {
