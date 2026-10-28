@@ -584,7 +584,9 @@ test.describe('external scroll lock handoff', () => {
           const samples = await page.evaluate(() => (window as unknown as { lockSamples: { at: number; locked: boolean; open: boolean }[] }).lockSamples);
           expect(samples.filter((s) => !s.locked).map((s) => Math.round(s.at))).toEqual([]);
 
-          await page.getByRole('button', { name: 'Close' }).click();
+          // The popup's own Close, by exact name: the fixture's "Set closed" control matches "Close" as a substring
+          // until the modal's outside marking hides it (run 40719682511).
+          await page.getByTestId('dialog-popup').getByRole('button', { name: 'Close', exact: true }).click();
           await expect(page.getByRole('dialog')).toHaveCount(0);
           await expect.poll(async () => `after close: ${await isPageLocked(page)}`).toBe('after close: false');
         });
@@ -604,7 +606,9 @@ test.describe('external scroll lock handoff', () => {
 
     // hasOwnScrollLock: Base UI hides <html>'s overflow-x itself; an external <body> lock never touches <html>.
     await expect.poll(() => page.evaluate(() => document.documentElement.style.overflowX === 'hidden')).toBe(true);
-    await page.getByRole('button', { name: 'Close' }).click();
+    // The popup's own Close, by exact name: the fixture's "Set closed" control matches "Close" as a substring until the
+    // modal's outside marking hides it, which lands when the focus manager attaches (run 40719682511, WebAssembly).
+    await page.getByTestId('dialog-popup').getByRole('button', { name: 'Close', exact: true }).click();
     await expect.poll(() => page.evaluate(() => document.documentElement.style.overflowX === 'hidden')).toBe(false);
   });
 });
