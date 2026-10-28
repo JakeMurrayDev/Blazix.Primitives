@@ -772,20 +772,58 @@ function attachTrigger(trigger: HTMLElement, initial: PopupOptions, channel: Twi
     return popup?.parentElement ?? null;
   };
 
-  // useTriggerFocusGuards.ts:42-58: the destination is resolved after the close, from the trigger if the guard left.
+  // The guards a close unmounts: the trigger's own, and the portal's outside guards around its owner (the element whose
+  // aria-owns names the portal node around the positioner) and the placeholder the portal leaves after it.
+  const closingGuards = (): HTMLElement[] => {
+    const closing = guards.filter((element): element is HTMLElement => element !== null);
+    for (let node = positioner()?.parentElement ?? null; node !== null; node = node.parentElement) {
+      const owner = node.id ? node.ownerDocument.querySelector(`[aria-owns="${CSS.escape(node.id)}"]`) : null;
+      if (owner !== null) {
+        const placeholder = owner.nextElementSibling;
+        for (const sibling of [owner.previousElementSibling, placeholder, placeholder?.nextElementSibling ?? null]) {
+          const guard = guardAt(sibling);
+          if (guard !== null && guard.getAttribute('data-type') === 'outside') {
+            closing.push(guard);
+          }
+        }
+        break;
+      }
+    }
+    return closing;
+  };
+
+  // useTriggerFocusGuards.ts:42-58: the destination is resolved after the close, from the trigger if the guard left. On
+  // WebAssembly the close commits inside the decision; on Server it lands after a round trip, so the destination is
+  // resolved as the closed document would give it: from the trigger, with the guards the close unmounts out of the tab
+  // order for the lookup only (else the next one takes focus and bounces it back into the popup).
   const closeAndFocus = (event: FocusEvent, guard: HTMLElement, name: 'before' | 'after', direction: 1 | -1): void => {
     const session = sessionToken ? getSession(sessionToken) : undefined;
     if (session) {
       nameRelayTrigger(session, guard);
     }
-    const destination = () => getTabbableNearElement(guard.isConnected ? guard : trigger, direction, positioner());
     if (channel.synchronous) {
       twinReference.invokeMethod<void>(GUARD_HANDOVER, JSON.stringify({ guard: name }));
       channel.decide(GUARD_POINT, event, 'run');
-      destination()?.focus();
+      getTabbableNearElement(guard.isConnected ? guard : trigger, direction, positioner())?.focus();
       return;
     }
-    destination()?.focus();
+    const closing = closingGuards().map((element) => [element, element.getAttribute('tabindex')] as const);
+    let destination: ReturnType<typeof getTabbableNearElement>;
+    try {
+      for (const [element] of closing) {
+        element.setAttribute('tabindex', '-1');
+      }
+      destination = getTabbableNearElement(trigger, direction, positioner());
+    } finally {
+      for (const [element, tabIndex] of closing) {
+        if (tabIndex === null) {
+          element.removeAttribute('tabindex');
+        } else {
+          element.setAttribute('tabindex', tabIndex);
+        }
+      }
+    }
+    destination?.focus();
     channel.report(GUARD_REPORT, { guard: name, event: eventInfo(event) } satisfies PopupGuardFocus);
   };
 
