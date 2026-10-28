@@ -18,7 +18,7 @@
 //   resize; the anchored scroll lock with its 20 px width test for a touch open; the watch that reports a move between
 //   triggers once the positioner's animations finish (POP-ANI-07; C# writes `trigger-change`).
 // - The Popup (POP-KEY-12, DLG-KEY-09): the composite keys' `keydown` stops at the popup when the option says so.
-import { getCssDimensions, ownerDocument, ownerWindow, styleWriter, type Dimensions, type StyleLayer } from './dom';
+import { getCssDimensions, isShadowRoot, ownerDocument, ownerWindow, styleWriter, type Dimensions, type StyleLayer } from './dom';
 import { readPlacement } from './positioning';
 import { acquireScrollLock } from './scroll-lock';
 import { createAnimationsWatcher, createFrameSlot, type AnimationsWatcher } from './transitions';
@@ -221,6 +221,19 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   return handle;
 }
 
+// Ids and the active trigger resolve from the node's own root first (its shadow root, else its document), then from its
+// document, as `composite` resolves its items (ADR 04 Amendments 2026-10-22 and 2026-10-26; track 5's early review
+// item 8).
+function findById(node: Node, id: string): Element | null {
+  const scope = node.getRootNode();
+  return (isShadowRoot(scope) ? scope.getElementById(id) : null) ?? ownerDocument(node).getElementById(id);
+}
+
+function findBySelector(node: Node, selector: string): Element | null {
+  const scope = node.getRootNode();
+  return (isShadowRoot(scope) ? scope.querySelector(selector) : null) ?? ownerDocument(node).querySelector(selector);
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // The Viewport
 // ---------------------------------------------------------------------------------------------------------------
@@ -266,7 +279,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       return null;
     }
     const quoted = id.replace(/["\\]/g, '\\$&');
-    return doc.querySelector(`[aria-expanded="true"][aria-controls~="${quoted}"],[data-popup-open][aria-describedby~="${quoted}"]`);
+    return findBySelector(viewport, `[aria-expanded="true"][aria-controls~="${quoted}"],[data-popup-open][aria-describedby~="${quoted}"]`);
   };
 
   // usePopupViewport.tsx:122-156: the starting-style choreography, then the previous container leaves once the current
@@ -561,7 +574,7 @@ function attachPositioner(positioner: HTMLElement, initial: PopupOptions, channe
   let disposed = false;
   let attached = false;
 
-  const trigger = (): Element | null => (options.activeTriggerId ? doc.getElementById(options.activeTriggerId) : null);
+  const trigger = (): Element | null => (options.activeTriggerId ? findById(positioner, options.activeTriggerId) : null);
 
   // InternalBackdrop.tsx:13-16: the backdrop is the positioner's previous sibling, found by position.
   const cut = () => {
