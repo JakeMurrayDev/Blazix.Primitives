@@ -210,7 +210,8 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         {
             // ADR 04 Amendments 2026-10-27: the references follow the twin's reference only when there are some. Amendments
             // 2026-10-28 (design point 9 of M4 track 8): the capture ids follow them whenever an element crosses, the
-            // references argument then being null when there are none; an id or a token with no element sends three.
+            // references argument then being null when there are none. An id or a token whose references hold no element sends
+            // three arguments, or four with script-held references.
             string json = JsonSerializer.Serialize(options, optionsTypeInfo);
             if (captures is not null)
             {
