@@ -600,6 +600,8 @@ interface SessionRecord extends InteractionSession {
   /** The answered-requests counter last applied. */
   answered: number;
   pending: PendingRequest | null;
+  /** A press's open event recorded on its request, with the one it replaced, until C# commits or cancels the request. */
+  optimisticOpenEvent: { request: PendingRequest; previous: Event | undefined } | null;
   /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
   namedTrigger: Element | null;
   triggers: Map<string, Element>;
@@ -693,6 +695,7 @@ function createSessionRecord(token: string): SessionRecord {
     lastRevision: undefined,
     answered: 0,
     pending: null,
+    optimisticOpenEvent: null,
     namedTrigger: null,
     triggers,
     channel: null,
@@ -888,6 +891,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
       record.pending = null;
+      record.optimisticOpenEvent = null;
       syncOpenEvent(record, open, event);
       const details: SessionOpenChangeDetails = {
         open,
@@ -914,9 +918,27 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.answered = answered;
     // A canceled close moves no revision: the name it was given does not wait for a later close.
     record.namedTrigger = null;
+    rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
   }
   notifySessionChange(record);
+}
+
+// ADR 04 Amendments 2026-10-29 (gap 16 of M4 track 5): Base UI's `useClick` writes the open event in its click handler, so
+// a press records its click-like open event on its request, as a hover open awaiting its commit already counts as open;
+// the relay's commit confirms it, and an answer that leaves the request pending (C# canceled it) restores the previous.
+function recordOptimisticOpenEvent(record: SessionRecord, request: PendingRequest): void {
+  const previous = record.dataRef.current.openEvent;
+  syncOpenEvent(record, true, request.event);
+  record.optimisticOpenEvent = record.dataRef.current.openEvent === previous ? null : { request, previous };
+}
+
+function rollBackOptimisticOpenEvent(record: SessionRecord): void {
+  const optimistic = record.optimisticOpenEvent;
+  record.optimisticOpenEvent = null;
+  if (optimistic !== null && record.pending === optimistic.request && record.dataRef.current.openEvent === optimistic.request.event) {
+    record.dataRef.current.openEvent = optimistic.previous;
+  }
 }
 
 // Design point 4's sub-point of M4 track 5 (settled by the orchestrator 2026-10-28): the element `nameRelayTrigger` named
@@ -1959,7 +1981,11 @@ function createClickController(context: HandleContext): Controller {
     const options = clickOptions();
     const reason = options?.reason ?? 'trigger-press';
     const payload = { open: nextOpen, reason, triggerId: triggerIdOf(record, target === element ? element : target), interactionType: classify(event) };
-    record.pending = { open: nextOpen, reason, event };
+    const request: PendingRequest = { open: nextOpen, reason, event };
+    record.pending = request;
+    if (nextOpen) {
+      recordOptimisticOpenEvent(record, request);
+    }
     if (channel.synchronous) {
       twinReference.invokeMethod<void>('OnPressing', JSON.stringify(payload));
       decide(channel, PRESS_POINT, event, 'run');
