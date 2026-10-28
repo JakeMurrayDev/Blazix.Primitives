@@ -1,0 +1,38 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `toolbar-popover` fixture (tests/browser/toolbar.spec.ts, M4 track 5): ToolbarButton.test.tsx's Popover block, a
+    PopoverTrigger substituted into a ToolbarButton inside a Popover root, the popup's content "Content". `disabled=true`
+    disables the toolbar button. The root's open changes are recorded on the container; the sync button comes after the
+    toolbar, so the first Tab from the page reaches the trigger.
+*@
+<FixtureContainer Name="toolbar-popover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <ToolbarRoot data-root>
+        <PopoverRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+            <ToolbarButton Disabled="@disabled" Render="@Trigger" />
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup>Content</PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    </ToolbarRoot>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private bool disabled;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private RenderFragment Trigger => @<PopoverTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" />;
+
+    protected override void OnInitialized() => disabled = QueryFlag("disabled") == true;
+}

@@ -160,6 +160,7 @@ public static class FixtureCatalog
         ["toolbar-switch"] = new(typeof(ToolbarSwitchFixture)),
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
+        ["toolbar-popover"] = new(typeof(ToolbarPopoverFixture)),
         ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
