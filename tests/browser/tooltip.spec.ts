@@ -1633,8 +1633,8 @@ test.describe('Server relaxations (tooltip.md §9)', () => {
       expect(removed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
       expect(completed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
     } else {
-      // The completion runs .NET in the animation's finished microtask, so the popup is gone before animationend.
-      expect(ended).toBeUndefined();
+      // TRN-ANI-09 on WebAssembly: the completion commits the removal with no round trip. Whether `animationend` is
+      // dispatched before it is the browser's frame order, which run 40722564761 saw either way.
       expect(removed! - hidden!).toBeLessThan(2 * LATENCY - 20);
       expect(completed! - hidden!).toBeLessThan(2 * LATENCY - 20);
     }
