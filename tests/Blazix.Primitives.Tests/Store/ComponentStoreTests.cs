@@ -217,6 +217,42 @@ public sealed class ComponentStoreTests
         Assert.Equal("node", secondStore.State.Node);
     }
 
+    // UTL-STA-20 in Blazor's order (fidelity correction 2026-10-28): a keyed replacement syncs before the replaced part is
+    // disposed, where React runs the cleanup first.
+    [Fact(DisplayName = "port: useSyncedValueWithCleanup's cleanup after a replacement has synced leaves the replacement's value")]
+    [Trait("Requirement", "UTL-STA-20")]
+    public void UseSyncedValueWithCleanup_cleanup_after_a_replacement_has_synced_leaves_its_value()
+    {
+        ComponentStore<ShapeState> store = new(new ShapeState(new Point(0, 0), 0, null));
+        SyncedValueWithCleanup<ShapeState, string> replaced = new(ShapeState.NodeField);
+        SyncedValueWithCleanup<ShapeState, string> replacement = new(ShapeState.NodeField);
+
+        replaced.Sync(store, "first-node");
+        replacement.Sync(store, "second-node");
+        replaced.Dispose();
+        Assert.Equal("second-node", store.State.Node);
+
+        replacement.Dispose();
+        Assert.Null(store.State.Node);
+    }
+
+    [Fact(DisplayName = "port: useSyncedValueWithCleanup's cleanup after a replacement synced the same value leaves it")]
+    [Trait("Requirement", "UTL-STA-20")]
+    public void UseSyncedValueWithCleanup_cleanup_after_a_replacement_synced_the_same_value_leaves_it()
+    {
+        ComponentStore<ShapeState> store = new(new ShapeState(new Point(0, 0), 0, null));
+        SyncedValueWithCleanup<ShapeState, string> replaced = new(ShapeState.NodeField);
+        SyncedValueWithCleanup<ShapeState, string> replacement = new(ShapeState.NodeField);
+
+        replaced.Sync(store, "node");
+        replacement.Sync(store, "node");
+        replaced.Dispose();
+        Assert.Equal("node", store.State.Node);
+
+        replacement.Dispose();
+        Assert.Null(store.State.Node);
+    }
+
     [Fact(DisplayName = "supports nested stores as state values")]
     [Trait("Requirement", "UTL-STA-12")]
     [Trait("Requirement", "UTL-STA-17")]
