@@ -72,7 +72,6 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
     private PopoverSelection<string?>? activeTriggerId;
     private PopoverSelection<int>? payloadVersion;
     private PopoverSelection<bool>? open;
-    private PopoverSelection<bool>? mounted;
     private PopoverSelection<string?>? popupId;
     private PopoverViewportState? state;
     private RenderFragment? consumerContent;
@@ -101,9 +100,6 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
 
     [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
-
-    [CascadingParameter]
-    private DirectionProviderContext? DirectionContext { get; set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -152,7 +148,6 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
         activeTriggerId = subscription.Select(PopoverSelectors.ActiveTriggerId);
         payloadVersion = subscription.Select(PopoverSelectors.PayloadVersion);
         open = subscription.Select(PopoverSelectors.Open);
-        mounted = subscription.Select(PopoverSelectors.Mounted);
         popupId = subscription.Select(PopoverSelectors.PopupId);
         module = new PopupModuleAttachment(JSRuntime);
         module.Twin.ViewportChanged += report => _ = InvokeAsync(() => Mirror(report.ActivationDirection, report.Transitioning));
@@ -190,11 +185,8 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
             Viewport = new PopupViewportOptions
             {
                 Open = open!.Value,
-                Mounted = mounted!.Value,
                 PopupId = popupId!.Value,
-                ActiveTriggerId = activeTriggerId!.Value,
                 ContentVersion = payloadVersion!.Value,
-                Direction = DirectionProviderContext.Read(DirectionContext) == TextDirection.Rtl ? "rtl" : null,
             },
         });
     }

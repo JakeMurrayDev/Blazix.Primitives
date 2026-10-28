@@ -19,6 +19,7 @@
 //   triggers once the positioner's animations finish (POP-ANI-07; C# writes `trigger-change`).
 // - The Popup (POP-KEY-12, DLG-KEY-09): the composite keys' `keydown` stops at the popup when the option says so.
 import { getCssDimensions, ownerDocument, ownerWindow, styleWriter, type Dimensions, type StyleLayer } from './dom';
+import { readPlacement } from './positioning';
 import { acquireScrollLock } from './scroll-lock';
 import { createAnimationsWatcher, createFrameSlot, type AnimationsWatcher } from './transitions';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
@@ -31,24 +32,18 @@ export const TRIGGER_CHANGE_REPORT = 'OnTriggerChangeSettled';
 
 /** The options of a Viewport's handle; mirrors `PopupViewportOptions` in C#. */
 export interface PopupViewportOptions {
-  /** Whether the popup is open. */
+  /** Whether the popup is open; a closed popup resets the measurement. */
   open?: boolean;
-  /** Whether the popup is mounted. */
-  mounted?: boolean;
   /** The popup's rendered id, which the active trigger names. */
   popupId?: string | null;
-  /** The id of the active trigger, the fallback when no trigger names the popup. */
-  activeTriggerId?: string | null;
   /** The payload's version, whose change re-measures the popup. */
   contentVersion?: number;
-  /** The text direction C# reads from the direction provider. */
-  direction?: 'ltr' | 'rtl' | null;
 }
 
 /** The options of a Positioner's handle; mirrors `PopupPositionerOptions` in C#. */
 export interface PopupPositionerOptions {
-  /** Whether the popup is open. */
-  open?: boolean;
+  /** Whether a move between triggers is watched: the popup is open. */
+  watchTriggerChange?: boolean;
   /** Whether the internal backdrop cuts out the active trigger (it is rendered). */
   cutout?: boolean;
   /** Whether the anchored scroll lock is enabled. */
@@ -138,27 +133,6 @@ export function getPopupAnchoringStyles(side: PhysicalSide): Record<string, stri
     return {};
   }
   return { position: 'absolute', [top ? 'bottom' : 'top']: '0', [left ? 'right' : 'left']: '0' };
-}
-
-/**
- * Resolves the physical side of a logical side.
- * @param side The rendered side, `top`, `bottom`, `left`, `right`, `inline-start` or `inline-end`.
- * @param direction The text direction.
- * @returns The physical side.
- */
-export function physicalSideOf(side: string | null, direction: 'ltr' | 'rtl'): PhysicalSide {
-  switch (side) {
-    case 'top':
-    case 'left':
-    case 'right':
-      return side;
-    case 'inline-start':
-      return direction === 'rtl' ? 'right' : 'left';
-    case 'inline-end':
-      return direction === 'rtl' ? 'left' : 'right';
-    default:
-      return 'bottom';
-  }
 }
 
 // InternalBackdrop.tsx:13-16.
@@ -283,16 +257,15 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     }
   };
 
+  // The applied batch's active trigger: the one whose aria-controls names the popup and whose aria-expanded is true (a
+  // hover family's trigger names it in aria-describedby while it renders data-popup-open).
   const findTrigger = (): Element | null => {
     const id = popup?.id || options.popupId;
-    if (id) {
-      const quoted = id.replace(/["\\]/g, '\\$&');
-      const named = doc.querySelector(`[data-popup-open][aria-controls~="${quoted}"],[data-popup-open][aria-describedby~="${quoted}"]`);
-      if (named !== null) {
-        return named;
-      }
+    if (!id) {
+      return null;
     }
-    return options.activeTriggerId ? doc.getElementById(options.activeTriggerId) : null;
+    const quoted = id.replace(/["\\]/g, '\\$&');
+    return doc.querySelector(`[aria-expanded="true"][aria-controls~="${quoted}"],[data-popup-open][aria-describedby~="${quoted}"]`);
   };
 
   // usePopupViewport.tsx:122-156: the starting-style choreography, then the previous container leaves once the current
@@ -362,7 +335,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   const measure = () => {
     resizeCleanup?.abort();
     resizeFrame.cancel();
-    if (!options.mounted) {
+    if (!options.open) {
       committed = null;
       return;
     }
@@ -370,7 +343,8 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       return;
     }
 
-    const side = physicalSideOf(positioner.getAttribute('data-side'), options.direction === 'rtl' ? 'rtl' : 'ltr');
+    // Design point 3 (settled by the orchestrator 2026-10-28): the rendered physical side, from `positioning`'s reader.
+    const side = readPlacement(positioner)?.physicalSide ?? 'bottom';
     resetAnchoring();
     anchoring = getPopupAnchoringStyles(side);
     for (const [property, value] of Object.entries(anchoring)) {
@@ -429,7 +403,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   const process = (removed: HTMLElement | null, remounted: boolean) => {
     currentContainer = findCurrent(viewport);
     const open = options.open === true;
-    if (!open || !options.mounted) {
+    if (!open) {
       lastHandledTrigger = null;
     }
     const trigger = open ? findTrigger() : null;
@@ -495,7 +469,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
         report();
         return;
       }
-      if (version !== contentVersion || previousOptions.mounted !== options.mounted || previousOptions.direction !== options.direction) {
+      if (version !== contentVersion || previousOptions.open !== options.open) {
         contentVersion = version;
         process(null, false);
         measure();
@@ -609,7 +583,7 @@ function attachPositioner(positioner: HTMLElement, initial: PopupOptions, channe
 
   // useTriggerSwitchTransition.ts: a move between triggers while open reports once the positioner's animations finish.
   const watchSwitch = (previousId: string | null | undefined) => {
-    if (options.open !== true) {
+    if (options.watchTriggerChange !== true) {
       switching?.abort();
       switching = null;
       return;

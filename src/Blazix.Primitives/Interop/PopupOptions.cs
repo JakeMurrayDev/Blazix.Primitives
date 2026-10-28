@@ -27,42 +27,31 @@ internal sealed record PopupOptions : TwinOptions
     public PopupElementOptions? Popup { get; init; }
 }
 
-// PSH-ALG-13..15 (usePopupViewport, usePopupAutoResize).
+// PSH-ALG-13..15 (usePopupViewport, usePopupAutoResize). ContentVersion is the implementing pull request's addition to the
+// settled record: Base UI re-measures on every payload change, not only on the content's remount.
 /// <summary>The options of a viewport's handle: what the snapshot, the direction and the auto-resize read.</summary>
 internal sealed record PopupViewportOptions
 {
     /// <summary>Gets a value indicating whether the popup is open.</summary>
-    /// <value>The effective open state.</value>
+    /// <value>The effective open state; a closed popup resets the measurement.</value>
     public bool Open { get; init; }
-
-    /// <summary>Gets a value indicating whether the popup is mounted.</summary>
-    /// <value><see langword="false"/> resets the auto-resize measurement.</value>
-    public bool Mounted { get; init; }
 
     /// <summary>Gets the popup's rendered id, which the active trigger names.</summary>
     /// <value>The id, or <see langword="null"/> before the popup rendered.</value>
     public string? PopupId { get; init; }
 
-    /// <summary>Gets the id of the active trigger, which the module falls back to when no trigger names the popup.</summary>
-    /// <value>The id, or <see langword="null"/>.</value>
-    public string? ActiveTriggerId { get; init; }
-
     /// <summary>Gets the payload's version, whose change re-measures the popup.</summary>
     /// <value>The store's payload version.</value>
     public int ContentVersion { get; init; }
-
-    /// <summary>Gets the text direction the direction provider gives.</summary>
-    /// <value><c>ltr</c> or <c>rtl</c>; <see langword="null"/> for <c>ltr</c>.</value>
-    public string? Direction { get; init; }
 }
 
 // PSH-ALG-17, PSH-ALG-21, POP-ANI-07.
 /// <summary>The options of a positioner's handle: the cut-out, the anchored lock and the trigger-change watch.</summary>
 internal sealed record PopupPositionerOptions
 {
-    /// <summary>Gets a value indicating whether the popup is open.</summary>
-    /// <value>The effective open state; a move between triggers is watched only while open.</value>
-    public bool Open { get; init; }
+    /// <summary>Gets a value indicating whether a move between triggers is watched.</summary>
+    /// <value><see langword="true"/> while the popup is open.</value>
+    public bool WatchTriggerChange { get; init; }
 
     /// <summary>Gets a value indicating whether the internal backdrop is rendered, so the active trigger is cut out of it.</summary>
     /// <value><see langword="true"/> while the backdrop renders.</value>

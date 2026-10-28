@@ -394,7 +394,7 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
         {
             Positioner = new PopupPositionerOptions
             {
-                Open = isOpen,
+                WatchTriggerChange = isOpen,
                 Cutout = mounted!.Value && trueModalNonHover,
                 ScrollLock = isOpen && trueModalNonHover,
                 TouchOpen = openMethod!.Value == InteractionType.Touch,
