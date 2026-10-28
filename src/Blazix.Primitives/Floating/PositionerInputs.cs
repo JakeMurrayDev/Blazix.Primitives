@@ -75,6 +75,10 @@ internal sealed record PositionerInputs
     /// <value><see langword="true"/> to position a transitioning popup from the far edges.</value>
     public bool AdaptiveOrigin { get; init; }
 
+    /// <summary>Gets a value indicating whether a wrapping anchor is narrowed to one of its line boxes.</summary>
+    /// <value><see langword="true"/> to position against the hovered line, else the line on the popup's side.</value>
+    public bool HoveredLine { get; init; }
+
     /// <summary>Gets the id of the active trigger.</summary>
     /// <value>The trigger element's id, or <see langword="null"/> for none.</value>
     public string? TriggerId { get; init; }

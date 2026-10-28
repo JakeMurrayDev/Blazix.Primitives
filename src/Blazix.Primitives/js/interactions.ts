@@ -4419,7 +4419,8 @@ interface HoveredLineRef {
   current: HoveredLine | undefined;
 }
 
-interface LineRect {
+/** A line box of a trigger: the union of the client rects whose tops lie within half a line of each other. */
+export interface LineRect {
   left: number;
   top: number;
   right: number;
@@ -4433,7 +4434,12 @@ function hoveredLineRef(record: SessionRecord): HoveredLineRef {
 }
 
 // inlineRect.ts:62-94: the line boxes of a trigger's client rects, those whose tops are within half a line merged.
-function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
+/**
+ * Merges a trigger's client rects into line boxes, top to bottom; positioning's inline middleware reads the same lines.
+ * @param rects The client rects.
+ * @returns The line boxes, new objects.
+ */
+export function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
   const lines: LineRect[] = [];
   let previousRect: LineRect | undefined;
 
@@ -4463,7 +4469,14 @@ function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
 }
 
 // inlineRect.ts:96-104: the line box under a point, with a 2px tolerance.
-function findLineIndex(lines: LineRect[], x: number, y: number): number {
+/**
+ * Finds the line box under a client point, with a 2 px tolerance.
+ * @param lines The line boxes.
+ * @param x The x position in viewport coordinates.
+ * @param y The y position in viewport coordinates.
+ * @returns The index of the line box, or -1 when the point is on none.
+ */
+export function findLineIndex(lines: LineRect[], x: number, y: number): number {
   return lines.findIndex(
     (lineRect) => x > lineRect.left - 2 && x < lineRect.right + 2 && y > lineRect.top - 2 && y < lineRect.bottom + 2,
   );
