@@ -16,7 +16,8 @@ internal static class CloseTypeClassifier
     /// <see cref="InteractionType.Keyboard"/>; for a pointer event, its pointer type, else <see cref="InteractionType.Keyboard"/>
     /// for a virtual click, else the recorded type, else <see cref="InteractionType.Mouse"/>; <see cref="InteractionType.Touch"/>
     /// for a touch event; for another mouse event, the recorded type, else <see cref="InteractionType.Keyboard"/> when its
-    /// detail is 0, else <see cref="InteractionType.Mouse"/>; otherwise <see cref="InteractionType.Unknown"/>.
+    /// detail is 0, else <see cref="InteractionType.Mouse"/>; otherwise <see cref="InteractionType.Unknown"/>, the empty
+    /// interaction type (never <see langword="null"/>).
     /// </returns>
     public static InteractionType Classify(EventSnapshot? closeEvent, InteractionType? recorded)
     {
