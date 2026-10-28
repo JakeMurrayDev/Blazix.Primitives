@@ -1447,3 +1447,33 @@ describe('positioning module: the inline middleware', () => {
   });
 });
 
+describe('positioning module: a reopen while still mounted', () => {
+  // ADR 04 Amendments 2026-10-29, design point 11.5 of M4 track 7 (PreviewCardPositioner.tsx:82-86, PRV-ANI-05): a
+  // reopen while still mounted, during the exit or kept mounted, runs one pass, as Base UI's layout effect does.
+  it('port: with positionOnOpen, a reopen while still mounted runs one pass before paint', async () => {
+    const { positioner } = setup({ positionOnOpen: true });
+    await settle();
+    positioner.removeAttribute('data-open');
+    await settle();
+    spies.computePosition.mockClear();
+
+    positioner.setAttribute('data-open', '');
+    await settle();
+
+    expect(spies.computePosition).toHaveBeenCalledTimes(1);
+  });
+
+  it('port: without positionOnOpen, a reopen while still mounted runs no pass of its own', async () => {
+    const { positioner } = setup();
+    await settle();
+    positioner.removeAttribute('data-open');
+    await settle();
+    spies.computePosition.mockClear();
+
+    positioner.setAttribute('data-open', '');
+    await settle();
+
+    expect(spies.computePosition).not.toHaveBeenCalled();
+  });
+});
+
