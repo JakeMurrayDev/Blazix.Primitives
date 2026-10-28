@@ -11,6 +11,17 @@
 import { isElementVisible } from './composite';
 import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoot, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
+import {
+  acquireSession,
+  getNodeAncestors,
+  getNodeChildren,
+  isVirtualClick,
+  isVirtualPointerEvent,
+  releaseSession,
+  type InteractionSession,
+  type SessionData,
+  type SessionOpenChangeDetails,
+} from './interactions';
 import { cancelFrame, observeOpenInput, requestFrame } from './transitions';
 import {
   createTwinChannel,
@@ -720,8 +731,13 @@ export interface FocusManagerOptions extends TwinOptions {
   insideElements?: number[] | null | undefined;
   /** Elements outside the popup that count as inside it, by element id. */
   insideElementIds?: string[] | null | undefined;
-  /** The last committed open change; the module acts when its revision moves. */
+  /** The last committed open change; the module acts when its revision moves. Unused while a session is joined. */
   relay?: OpenChangeRelay | null | undefined;
+  /**
+   * The popup's interactions session token: the manager then reads the session's `openchange`, `dataRef`, anchor,
+   * registered triggers and tree (M4 track 3's export).
+   */
+  sessionToken?: string | null | undefined;
   /** How many of the module's requests C# has answered, canceled or not; the module asks again when it moves. */
   answered?: number | undefined;
 }
@@ -740,13 +756,13 @@ export interface InteractionTypeChange {
   type: InteractionTypeLiteral;
 }
 
-/** The payload of the internal `openchange` listener (Base UI's `FloatingUIOpenChangeDetails`). */
-interface OpenChangeDetails {
-  reason: string;
-  nativeEvent: { type: string; pointerType: string | null } | undefined;
-  nested: boolean;
-  triggerElement: Element | undefined;
-}
+/**
+ * The payload of the internal `openchange` listener (Base UI's `FloatingUIOpenChangeDetails`): the session's, or one
+ * built from the relay when no session is joined.
+ */
+type OpenChangeDetails = Pick<SessionOpenChangeDetails, 'reason' | 'nested' | 'triggerElement'> & {
+  nativeEvent: Event | { type: string; pointerType: string | null } | undefined;
+};
 
 /** The report a focus-out close sends. */
 export const FOCUS_OUT_CLOSE_REPORT = 'OnFocusOutClose';
@@ -923,8 +939,24 @@ export function attach(
   let pointerDownTimeout: ReturnType<typeof setTimeout> | undefined;
   let blurTimeout: ReturnType<typeof setTimeout> | undefined;
   let restoreFocusFrame = 0;
-  // Base UI's `dataRef.current.insideReactTree`; the session's once the interactions export is on `main`.
-  const dataRef: { current: { insideReactTree?: boolean } } = { current: {} };
+  // The popup's interactions session, joined by `sessionToken` (M4 track 3): Base UI's root store context. Without one,
+  // the manager keeps its own `dataRef` and reads the relay.
+  let session: InteractionSession | null = null;
+  let sessionToken: string | null = null;
+  const ownData: { current: SessionData } = { current: {} };
+  const dataRef = (): { current: SessionData } => session?.dataRef ?? ownData;
+  const joinSession = (): void => {
+    const token = disposed ? null : (options.sessionToken ?? null);
+    if (token === sessionToken) {
+      return;
+    }
+    if (session) {
+      releaseSession(session);
+    }
+    session = token ? acquireSession(token) : null;
+    sessionToken = token;
+  };
+  joinSession();
   // A focus-out close is a request: the module disarms after sending one until the next open (ADR 04 Amendments
   // 2026-10-27, "a module disarms itself after requesting a close until the next open arrives").
   let closeRequested = false;
@@ -966,7 +998,11 @@ export function attach(
 
   const floatingElement = (): HTMLElement | null =>
     options.treatPopupAsFloatingElement ? popup : isHTMLElement(popup.parentElement) ? popup.parentElement : popup;
-  const domReferenceElement = (): HTMLElement | null => resolveId(options.domReferenceId);
+  // The session's anchor (its active trigger), else the id C# sends.
+  const domReferenceElement = (): HTMLElement | null => {
+    const anchor = session?.domReferenceElement ?? null;
+    return isHTMLElement(anchor) ? anchor : resolveId(options.domReferenceId);
+  };
   const beforeGuard = (): HTMLElement | null => (isInsideGuard(popup.previousElementSibling) ? popup.previousElementSibling : null);
   const afterGuard = (): HTMLElement | null => (isInsideGuard(popup.nextElementSibling) ? popup.nextElementSibling : null);
   // Popover's trigger focus guards (PSH-FOC-09, FLT-KEY-06), found by position around the anchor.
@@ -990,6 +1026,26 @@ export function attach(
   const outsideGuards = (portal: HTMLElement | null): (HTMLElement | null)[] => {
     const guards = portalState(portal)?.outsideGuards();
     return [guards?.before ?? null, guards?.after ?? null];
+  };
+
+  // FLT-ALG-22's tree clause: a descendant node's floating element or anchor, or an ancestor node's floating element,
+  // floating focus element or anchor.
+  const isInTree = (target: Element | null): boolean => {
+    if (!session || !target) {
+      return false;
+    }
+    const nodes = session.tree.nodesRef.current;
+    return (
+      getNodeChildren(nodes, session.token).some(
+        (node) => contains(node.context?.elements?.floating, target) || contains(node.context?.elements?.domReference, target),
+      ) ||
+      getNodeAncestors(nodes, session.token).some(
+        (node) =>
+          [node.context?.elements?.floating, getFloatingFocusElement(node.context?.elements?.floating ?? null)].includes(
+            target as HTMLElement,
+          ) || node.context?.elements?.domReference === target,
+      )
+    );
   };
 
   const getTabbableContent = (container: Element | null): FocusableElement[] => (container ? tabbable(container) : []);
@@ -1129,7 +1185,9 @@ export function attach(
           contains(relatedTarget, floating) ||
           contains(portal, relatedTarget) ||
           inside.some((element) => element === relatedTarget || contains(element, relatedTarget)) ||
-          isRelatedFocusGuard
+          (session?.triggerElements.hasMatchingElement((trigger) => contains(trigger, relatedTarget)) ?? false) ||
+          isRelatedFocusGuard ||
+          isInTree(relatedTarget)
         );
 
         if (currentTarget === reference && floatingFocusElement) {
@@ -1169,8 +1227,8 @@ export function attach(
           }
         }
 
-        if (dataRef.current.insideReactTree) {
-          dataRef.current.insideReactTree = false;
+        if (dataRef().current.insideReactTree) {
+          dataRef().current.insideReactTree = false;
           return;
         }
 
@@ -1192,10 +1250,10 @@ export function attach(
       if (pointerDownOutside) {
         return;
       }
-      dataRef.current.insideReactTree = true;
+      dataRef().current.insideReactTree = true;
       clearTimeout(blurTimeout);
       blurTimeout = setTimeout(() => {
-        dataRef.current.insideReactTree = false;
+        dataRef().current.insideReactTree = false;
       }, 0);
     };
 
@@ -1274,9 +1332,10 @@ export function attach(
         watchLateTabStop(floatingFocusElement, elToFocus, previouslyFocusedElement);
       }
 
-      // The interactions session's recorded open event decides FLT-A11Y-04's synchronous focus; until it is on
-      // `main` no open is a virtual press.
-      const openedByVirtualPress = false;
+      // Screen readers re-sync focus to their cursor right after a synthesized press, so a focus a frame later reads as
+      // a stray move (FLT-A11Y-04): the session's recorded open event decides.
+      const openEvent = dataRef().current.openEvent;
+      const openedByVirtualPress = openEvent?.type === 'mousedown' && isVirtualClick(openEvent as MouseEvent);
 
       enqueueFocus(elToFocus, {
         sync: openedByVirtualPress,
@@ -1384,15 +1443,19 @@ export function attach(
         return;
       }
 
+      const event = details.nativeEvent;
       if (details.nested) {
+        preventReturnFocus = false;
+      } else if (event instanceof Event && (isVirtualClick(event as MouseEvent) || isVirtualPointerEvent(event as PointerEvent))) {
         preventReturnFocus = false;
       } else {
         // An outside press returns focus only where `focus({ preventScroll })` is supported; elsewhere restoring
-        // focus scrolls the page (Chrome on Android, Samsung Internet). The virtual-press branch reads the
-        // interactions session's event once it is on `main`.
+        // focus scrolls the page (Chrome on Android, Samsung Internet).
         preventReturnFocus = !supportsPreventScroll(ownerDocument(floatingFocusElement));
       }
     };
+    const joined = session;
+    joined?.events.on('openchange', onOpenChangeLocal);
 
     const getReturnElement = (): Element | null => {
       if (options.returnFocus === false) {
@@ -1422,12 +1485,19 @@ export function attach(
 
     return () => {
       removal.disconnect();
+      if (onOpenChangeLocal) {
+        joined?.events.off('openchange', onOpenChangeLocal);
+      }
       onOpenChangeLocal = null;
 
       const activeEl = activeElement(doc);
       const isFocusInsideFloatingTree =
         contains(floating, activeEl) ||
-        insideElements(reference).some((element) => element === activeEl || contains(element, activeEl));
+        insideElements(reference).some((element) => element === activeEl || contains(element, activeEl)) ||
+        (joined !== null &&
+          getNodeChildren(joined.tree.nodesRef.current, joined.token, false).some((node) =>
+            contains(node.context?.elements?.floating, activeEl),
+          ));
 
       const returnFocusEnabled = options.returnFocus !== false;
       const closeType = options.closeInteractionType ?? '';
@@ -1531,7 +1601,7 @@ export function attach(
     runEffect('initialFocus', open && !disabled && isHTMLElement(floatingFocusElement), [floatingFocusElement], () =>
       initialFocusEffect(floatingFocusElement!),
     );
-    runEffect('returnFocus', !disabled && !!floatingFocusElement, [floating, floatingFocusElement, reference], () =>
+    runEffect('returnFocus', !disabled && !!floatingFocusElement, [floating, floatingFocusElement, reference, session], () =>
       returnFocusEffect(floating, floatingFocusElement!, reference),
     );
     runEffect('webkitBlur', !disposed && !removed && platform.engine.webkit && !open && !!floating, [floating], () => webkitBlurEffect(floating!));
@@ -1623,7 +1693,8 @@ export function attach(
   // The relay (ADR 04 Amendments 2026-10-27): the internal `openchange` runs once per committed change.
   const applyRelay = (): void => {
     const relay = options.relay;
-    if (!relay || relay.revision === relayRevision) {
+    // A joined session emits its own `openchange`, with the real event.
+    if (session || !relay || relay.revision === relayRevision) {
       return;
     }
     relayRevision = relay.revision;
@@ -1660,6 +1731,7 @@ export function attach(
         answered = options.answered ?? 0;
         closeRequested = false;
       }
+      joinSession();
       applyRelay();
       // The batch decides open and closed after attach; `update` never changes it.
       sync();
@@ -1671,6 +1743,7 @@ export function attach(
       disposed = true;
       stopObserving();
       sync();
+      joinSession();
       for (const { element, listener } of guardListeners) {
         element.removeEventListener('focusin', listener);
       }
