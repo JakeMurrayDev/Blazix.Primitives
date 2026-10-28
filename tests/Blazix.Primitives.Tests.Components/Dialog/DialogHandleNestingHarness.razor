@@ -1,0 +1,93 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, the four nested-state titles: one tree per Shape.
+   - "topmost": a help root on a handle encloses a section root, whose popup holds the help's detached trigger;
+   - "reset": a help root on a handle encloses a section root on another handle;
+   - "child": an open parent whose popup holds a handle-backed child root and its detached trigger;
+   - "siblings": an open parent whose popup holds an open nested root, then a closed handle-backed one. *@
+@switch (Shape)
+{
+    case "topmost":
+        <DialogRoot TPayload="NoPayload" @ref="HelpRoot" Handle="Help">
+            <DialogPortal>
+                <DialogBackdrop data-testid="help-backdrop" />
+                <DialogPopup data-testid="help">Help</DialogPopup>
+            </DialogPortal>
+            <DialogRoot TPayload="NoPayload">
+                <DialogTrigger TPayload="NoPayload" id="section-trigger">Open section</DialogTrigger>
+                <DialogPortal>
+                    <DialogPopup data-testid="section">
+                        <DialogTrigger TPayload="NoPayload" Handle="Help" id="help-trigger">Open help</DialogTrigger>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+        </DialogRoot>
+        break;
+    case "reset":
+        <DialogRoot TPayload="NoPayload" @ref="HelpRoot" Handle="Help">
+            <DialogPortal>
+                <DialogPopup data-testid="help">Help</DialogPopup>
+            </DialogPortal>
+            <DialogRoot TPayload="NoPayload" Handle="Section">
+                <DialogPortal>
+                    <DialogPopup data-testid="section">Section</DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+        </DialogRoot>
+        break;
+    case "child":
+        <DialogRoot TPayload="NoPayload" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup data-testid="parent">
+                    <DialogTrigger TPayload="NoPayload" Handle="Child" id="child-trigger">Open child</DialogTrigger>
+                    <DialogRoot TPayload="NoPayload" @ref="ChildRoot" Handle="Child">
+                        <DialogPortal>
+                            <DialogPopup data-testid="child">
+                                <DialogClose data-testid="close-child">Close child</DialogClose>
+                            </DialogPopup>
+                        </DialogPortal>
+                    </DialogRoot>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+        break;
+    case "siblings":
+        <DialogRoot TPayload="NoPayload" DefaultOpen="true" OnOpenChange="RecordParentOpenChange">
+            <DialogPortal>
+                <DialogBackdrop data-testid="parent-backdrop" />
+                <DialogPopup data-testid="parent">
+                    <DialogRoot TPayload="NoPayload" DefaultOpen="true">
+                        <DialogPortal>
+                            <DialogPopup data-testid="nested">Nested</DialogPopup>
+                        </DialogPortal>
+                    </DialogRoot>
+                    @* Must come after the open sibling, so its parameter set runs last. *@
+                    <DialogRoot TPayload="NoPayload" Handle="Closed">
+                        <DialogPortal>
+                            <DialogPopup>Closed</DialogPopup>
+                        </DialogPortal>
+                    </DialogRoot>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+        break;
+}
+
+@code {
+    [Parameter] public string Shape { get; set; } = "topmost";
+
+    public DialogHandle<NoPayload> Help { get; } = new();
+
+    public DialogHandle<NoPayload> Section { get; } = new();
+
+    public DialogHandle<NoPayload> Child { get; } = new();
+
+    public DialogHandle<NoPayload> Closed { get; } = new();
+
+    public DialogRoot<NoPayload>? HelpRoot { get; private set; }
+
+    public DialogRoot<NoPayload>? ChildRoot { get; private set; }
+
+    public List<bool> ParentOpenChanges { get; } = [];
+
+    private void RecordParentOpenChange(ValueChangeEventArgs<bool> args) => ParentOpenChanges.Add(args.Value);
+}

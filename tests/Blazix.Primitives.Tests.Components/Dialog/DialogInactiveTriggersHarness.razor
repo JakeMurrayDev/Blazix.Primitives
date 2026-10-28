@@ -1,0 +1,26 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, describe "does not re-render inactive triggers": three detached triggers on one
+   handle, then the root. A trigger's ClassValue runs once per render of the part, so a counting ClassValue counts its
+   renders (the render-count rule, ADR 06 §1 amendment 2026-10-18). *@
+<div>
+    <DialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger-1" ClassValue="Trigger1ClassValue">Trigger 1</DialogTrigger>
+    <DialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger-2" ClassValue="Trigger2ClassValue">Trigger 2</DialogTrigger>
+    <DialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger-3" ClassValue="Trigger3ClassValue">Trigger 3</DialogTrigger>
+    <DialogRoot TPayload="NoPayload" @ref="Root" Handle="Handle">
+        <DialogPortal>
+            <DialogPopup data-testid="popup">Content</DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+</div>
+
+@code {
+    public DialogHandle<NoPayload> Handle { get; } = new();
+
+    public DialogRoot<NoPayload>? Root { get; private set; }
+
+    [Parameter] public Func<DialogTriggerState, string?>? Trigger1ClassValue { get; set; }
+
+    [Parameter] public Func<DialogTriggerState, string?>? Trigger2ClassValue { get; set; }
+
+    [Parameter] public Func<DialogTriggerState, string?>? Trigger3ClassValue { get; set; }
+}

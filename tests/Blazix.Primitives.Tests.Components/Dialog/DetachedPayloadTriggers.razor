@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, describe "multiple detached triggers", "keeps the payload reactive": the triggers
+   in a component of their own, so the payloads are its state and updating them does not render the root. Each payload is
+   an accessor over this render's values, a new one per render, as Base UI's `() => payloads[0]`. *@
+@{
+    int first = payloads[0];
+    int second = payloads[1];
+}
+<div>
+    <DialogTrigger TPayload="Func<int>" id="trigger-1" Payload="@(() => first)" Handle="Handle">Dialog 1</DialogTrigger>
+    <DialogTrigger TPayload="Func<int>" id="trigger-2" Payload="@(() => second)" Handle="Handle">Dialog 2</DialogTrigger>
+    <button type="button" data-testid="update" @onclick="() => payloads = [8, 16]">Update payloads</button>
+</div>
+
+@code {
+    private int[] payloads = [1, 2];
+
+    [Parameter] public DialogHandle<Func<int>>? Handle { get; set; }
+}

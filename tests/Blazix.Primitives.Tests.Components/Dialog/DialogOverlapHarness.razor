@@ -1,0 +1,44 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, describe "multiple roots sharing one handle": an outgoing and an incoming root on
+   one handle, by Phase. With Then set, the overlap phase moves on to Then from the after-render phase of the batch that
+   mounted the incoming root, so the move lands in the batch the handle's overlap check runs at (the incoming root's next
+   render), as Base UI's two setProps land before its deferred check. *@
+@if (phase is "outgoing" or "overlap")
+{
+    <DialogRoot @key="@("outgoing")" TPayload="NoPayload" Handle="Handle">
+        <DialogPortal>
+            <DialogPopup>Outgoing</DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+}
+@if (phase is "overlap" or "incoming")
+{
+    <DialogRoot @key="@("incoming")" TPayload="NoPayload" Handle="Handle">
+        <DialogPortal>
+            <DialogPopup>Incoming</DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+}
+@if (phase == "overlap" && Then is not null)
+{
+    <RunAfterFirstRender Run="MoveOnAsync" />
+}
+
+@code {
+    private string phase = "outgoing";
+
+    public DialogHandle<NoPayload> Handle { get; } = new();
+
+    [Parameter] public string Phase { get; set; } = "outgoing";
+
+    [Parameter] public string? Then { get; set; }
+
+    protected override void OnParametersSet() => phase = Phase;
+
+    private Task MoveOnAsync()
+    {
+        phase = Then!;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}
