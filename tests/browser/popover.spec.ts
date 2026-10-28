@@ -1760,6 +1760,45 @@ test.describe('<Popover.Positioner /> anchoring', () => {
   });
 });
 
+// PopoverClose.test.tsx's and PopoverPositioner.test.tsx's titles whose close renders a Tooltip.Trigger through its
+// callback (M4 track 6, written at PR 137's re-merge), on `popover-tooltip-close`.
+test.describe('<Popover.Close /> rendering a tooltip trigger', () => {
+  test('keeps the trigger when closing with a tooltip trigger close button', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-tooltip-close', { case: 'close' });
+    await expect(page.getByRole('dialog')).toContainText('Content');
+
+    await page.getByTestId('close').click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:close-press']);
+    await expect(fixture).toHaveAttribute('data-close-trigger', 'trigger-1');
+  });
+
+  test('remains anchored to the trigger when closing from a tooltip trigger close', async ({ page, mode }) => {
+    // Gap 18 (raised 2026-10-29 by track 6, settled by the orchestrator 2026-10-29): a retained close still ends its exit
+    // in the transitions module, which drops data-ending-style and hides the popup, so the positioner collapses and
+    // re-centres under the trigger (53 px on this layout). The fix is issue 147's.
+    test.skip(true, 'open to issue 147: a close kept mounted by PreventUnmountOnClose loses data-ending-style at its exit end (POP-ANI-06, POP-POS-03)');
+    await gotoPopupFixture(page, mode, 'popover-tooltip-close', { case: 'anchored' });
+    const positioner = page.getByTestId('positioner');
+    const rect = () => positioner.evaluate((element) => {
+      const { x, y } = element.getBoundingClientRect();
+      return { x, y };
+    });
+    const triggerBottom = await page.locator('#trigger-1').evaluate((element) => element.getBoundingClientRect().bottom);
+    await expect.poll(async () => Math.abs((await rect()).y - triggerBottom)).toBeLessThanOrEqual(1);
+    const initial = await rect();
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-ending-style');
+    const closing = await rect();
+    expect(Math.abs(closing.x - initial.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(closing.y - initial.y)).toBeLessThanOrEqual(1);
+  });
+});
+
 // Port titles for rows Base UI tests only in its floating modules (POP-DOM-11, DOM-17, KEY-04, PTR-15, ARIA-10).
 test.describe('<Popover.Root /> port: floating mechanics on Popover', () => {
   test('port: an open non-modal popover renders the outside guards and the aria-owns owner at the portal\'s position', async ({ page, mode }) => {

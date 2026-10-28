@@ -1,0 +1,99 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Blazix.Primitives.Rendering
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-tooltip-close` fixture (tests/browser/popover.spec.ts, M4 track 6 at PR 137's re-merge): a PopoverClose
+    whose substitute callback renders a TooltipRoot and hands the close's attributes to its TooltipTrigger "Close", whose
+    tooltip reads "Tooltip". One setup per `case`:
+    - `close`: PopoverClose.test.tsx's, an open root with a contained trigger `trigger-1` and a popup "Content"; the close
+      carries the test id `close`.
+    - `anchored`: PopoverPositioner.test.tsx's, a 100 px square detached trigger `trigger-1` and a controlled root on it
+      whose OnOpenChange keeps a close mounted (`PreventUnmountOnClose`) and follows the request; the positioner is
+      `positioner`, the 160 by 120 px popup `popup`.
+    The container renders `data-close-trigger`, the id the last close request named.
+*@
+<FixtureContainer Name="popover-tooltip-close" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-close-trigger="@closeTrigger">
+    @switch (Case)
+    {
+        case "close":
+            <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" OnOpenChange="RecordWithTrigger">
+                <PopoverTrigger TPayload="NoPayload" @ref="trigger" id="trigger-1">Trigger</PopoverTrigger>
+                <PopoverPortal>
+                    <PopoverPositioner>
+                        <PopoverPopup>
+                            Content
+                            <PopoverClose data-testid="close" RenderFunction="@TooltipClose" />
+                        </PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            break;
+        case "anchored":
+            <PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" id="trigger-1" style="width: 100px; height: 100px">Trigger</PopoverTrigger>
+            <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" Open="@open" TriggerId="trigger-1" OnOpenChange="KeepMountedOnClose">
+                <PopoverPortal>
+                    <PopoverPositioner data-testid="positioner">
+                        <PopoverPopup data-testid="popup" style="width: 160px; height: 120px">
+                            <PopoverClose RenderFunction="@TooltipClose" />
+                        </PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            break;
+    }
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private readonly PopoverHandle<NoPayload> handle = new();
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private TooltipRoot<NoPayload>? tooltipRoot;
+    private TooltipTrigger<NoPayload>? tooltipTrigger;
+    private bool open = true;
+    private string? closeTrigger;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    private RenderFragment<RenderProps<EmptyState>> TooltipClose => props =>
+        @<TooltipRoot TPayload="NoPayload" @ref="tooltipRoot">
+            <TooltipTrigger TPayload="NoPayload" @ref="tooltipTrigger" @attributes="props.Attributes">Close</TooltipTrigger>
+            <TooltipPortal>
+                <TooltipPositioner>
+                    <TooltipPopup>Tooltip</TooltipPopup>
+                </TooltipPositioner>
+            </TooltipPortal>
+        </TooltipRoot>;
+
+    // The popover's trigger and session first, then the tooltip's, whose root renders inside the open popup.
+    private async Task HandlesAttachedAsync()
+    {
+        await Task.WhenAll(trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask);
+        await (tooltipRoot?.SessionAttached ?? Task.CompletedTask);
+        await (tooltipTrigger?.TwinAttached ?? Task.CompletedTask);
+    }
+
+    private void RecordWithTrigger(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value)
+        {
+            closeTrigger = args.Details.Trigger?.Id;
+        }
+    }
+
+    private void KeepMountedOnClose(ValueChangeEventArgs<bool> args)
+    {
+        RecordWithTrigger(args);
+        if (!args.Value)
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        open = args.Value;
+    }
+}

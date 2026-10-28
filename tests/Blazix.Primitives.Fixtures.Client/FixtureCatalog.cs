@@ -174,6 +174,7 @@ public static class FixtureCatalog
         ["popover-root"] = new(typeof(PopoverRootFixture)),
         ["popover-positioner"] = new(typeof(PopoverPositionerFixture)),
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
+        ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
