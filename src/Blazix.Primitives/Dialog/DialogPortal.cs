@@ -42,6 +42,11 @@ public sealed class DialogPortal : PartBase<EmptyState>
     /// script holds such as a shadow root, or a selector; <see cref="PortalContainerValue.Pending"/> to render nothing until
     /// the container is known.
     /// </value>
+    /// <remarks>
+    /// Blazor does not dispatch C# event handlers to elements inside a shadow root, so inside a container in one no
+    /// <c>@onclick</c> runs, a <see cref="DialogClose"/>'s included; the dialog still opens from its trigger and closes on
+    /// <c>Escape</c> and on a press outside it.
+    /// </remarks>
     [Parameter]
     public PortalContainerValue? Container { get; set; }
 

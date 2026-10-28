@@ -49,6 +49,10 @@ One Opus 5.5 reviewer per document or small group applied the marks of conventio
 - popup-store-and-handles §4.3.1 (2026-10-27, M4 track 1, [issue 117](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/117)): the `floatingRootContext` row pointed at PSH-STA-37 (the inert fallback store) for the sync of the floating root state, which is PSH-STA-46's (`utils/popups/popupStoreUtils.ts`, `useSyncedFloatingRootContext`). The pointer is corrected in the row with its date.
 - Implementation findings of M4 track 1 for the families (2026-10-27, no document change): (1) `TwinBase.AttachAsync` hands a repeated attach of the same element the pending handle at once, so a "first attach completed" signal must come from the attach that started it (the portal's move, a fixture's readiness); (2) `PartBase` reads `State` before `AddPartAttributes`, so a part updates its state record in its `State` getter, or a part that renders once keeps a stale data attribute; (3) the library's module URLs carry the static-asset fingerprint (`js/portal.<hash>.js`), so a route that stalls a module matches `/js/<module>(\.[0-9a-z]+)?\.js/`, not `**/js/<module>.js`.
 
+## Deliberate deviations (documented port departures)
+
+- dialog DLG-STR-04, DLG-API-18, DLG-DIS-06 and floating-and-positioning FLT-API-13 (2026-10-29, M4 track 8, [issue 123](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/123); design point 10, settled by the orchestrator 2026-10-29; ADR 04 Amendments 2026-10-29; the platform followed in [issue 146](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/146)): inside a portal container in a shadow root, C# event handlers do not fire, because Blazor's event delegation walks up from the event's target at the document, which is the shadow host for an event raised inside a shadow root (`composedPath` appears in blazor.web.js 11.0.0-rc.2 only for link navigation). React's root inside the shadow root dispatches there; the port's modules' paths work there. Dated deviation notes on the four rows; the six affected "closed shadow root" titles are port titles asserting Escape and the outside press.
+
 ## Global consistency checks (script)
 
 
