@@ -307,6 +307,29 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         Assert.Equal(0, allocated);
     }
 
+    // ADR 16 rule 7 (the PopupPortalBehavior precedent, ade21f2): the options are built at attach and when an input
+    // changed, never for a render that changed nothing.
+    [Fact(DisplayName = "port: a render after attach with unchanged inputs builds no options and allocates nothing")]
+    [Trait("Requirement", "ADR16-7")]
+    public async Task A_render_after_attach_with_unchanged_inputs_builds_no_options_and_allocates_nothing()
+    {
+        IRenderedComponent<TestFocusManaged> managed = await RenderAttachedAsync();
+        FocusManagerBehavior behavior = managed.Instance.Behavior;
+        ElementReference? element = managed.Instance.Element;
+        for (int i = 0; i < 20; i++)
+        {
+            await behavior.AfterRenderAsync(element, null);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        Task rendered = behavior.AfterRenderAsync(element, null);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        await rendered;
+
+        Assert.Empty(handle.Invocations["update"]);
+        Assert.Equal(0, allocated);
+    }
+
     // Found at L4 on a cold Server host: a popup closed before its module loaded is gone when `attach` reaches the
     // browser, and the module's JSException would end the circuit from OnAfterRenderAsync (the CollapsiblePanelBehavior
     // precedent).
