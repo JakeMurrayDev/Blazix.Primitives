@@ -789,6 +789,28 @@ describe('positioning module: the session (FLT-STA-08)', () => {
     expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
     releaseSession(session);
   });
+
+  it('port: with a Viewport mounted, the trigger case reads C#\'s trigger only, so the anchor moves with the content', async () => {
+    // Gap 19 of M4 track 6 (settled by the orchestrator 2026-10-29, the as-built form of design point 13.4 (1)): a
+    // Viewport's morph starts on positioning's write, so with `adaptiveOrigin` on, an early re-anchor to the session's
+    // reference would start it a round trip before C# renders the new content on Server.
+    const session = acquireSession('base-ui-1');
+    const subscribe = vi.spyOn(session, 'subscribePositionReference');
+    const other = document.createElement('button');
+    stubRect(other, 300, 100, 72, 36);
+    document.body.append(other);
+    let reference: Element | null = null;
+    Object.defineProperty(session, 'domReferenceElement', { configurable: true, get: () => reference });
+    const { trigger } = setup({ sessionToken: 'base-ui-1', adaptiveOrigin: true });
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+
+    reference = other;
+    subscribe.mock.calls[0]?.[0]();
+    await settle();
+    expect(spies.computePosition.mock.lastCall?.[0]).toBe(trigger);
+    releaseSession(session);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------
