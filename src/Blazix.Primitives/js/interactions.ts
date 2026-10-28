@@ -2810,6 +2810,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
 
   // An open the trigger reports: the hovered line recomputed first, the delay group's instant phase carried with it.
   const requestHoverOpen = (event: MouseEvent, trigger: Element | null) => {
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (3) of M4 track 6; TIP-PTR-23): a timer whose trigger left the
+    // document reports nothing. On Server the element leaves in C#'s render batch, before this handle's dispose arrives.
+    if (!(trigger ?? element)?.isConnected) {
+      return;
+    }
     recordHoveredLineBeforeOpen(context, event);
     const token = hoverOptions()?.delayGroupToken;
     const instant = token != null && delayGroupInstantPhase(record, token);
