@@ -12,7 +12,8 @@
     after the first render and hands C# as an IJSObjectReference (`blazixFixtureDom.lastClosedShadowRoot`).
     - `kind=modal|non-modal`: the nested dialog (with a Backdrop when modal), inside an initially open outer dialog of the
       same modality (with a Backdrop when modal); the outer popup is `outer`, the nested trigger `open-nested`, the nested
-      popup `nested`, its Close `close-nested` and its Backdrop `nested-backdrop`;
+      popup `nested` and its Close `close-nested` (a nested root's Backdrop renders only with `ForceRender`, so a modal
+      nested dialog's own backdrop is the internal one in its portal node);
     - `outer=shadow`, `nested=shadow|body`: each portal's container, the shadow root or the body; absent, the portal's
       default (the enclosing portal's node, else the body);
     - `case=outside`: no nested dialog, a non-modal outer popup, and a page element `outside`.
@@ -41,7 +42,7 @@
                             <DialogPortal Container="@ContainerOf(Query("nested"))">
                                 @if (modal)
                                 {
-                                    <DialogBackdrop data-testid="nested-backdrop" />
+                                    <DialogBackdrop />
                                 }
                                 <DialogPopup data-testid="nested">
                                     <DialogClose data-testid="close-nested">Close</DialogClose>

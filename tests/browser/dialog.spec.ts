@@ -835,10 +835,19 @@ test.describe('closed shadow root', () => {
           await expect.poll(() => exists(page, 'nested')).toBe(false);
           expect(await exists(page, 'outer')).toBe(true);
 
-          // A modal dialog's outside press closes it only on its own backdrop (DLG-PTR-10); a non-modal one on any element.
+          // A modal dialog's outside press closes it only on its own backdrop (DLG-PTR-10), here the internal backdrop in its
+          // portal node (a nested root's Backdrop renders only with ForceRender, DLG-STR-05); a non-modal one on any element.
           await click(page, 'open-nested');
           await expect.poll(() => exists(page, 'nested')).toBe(true);
-          await click(page, kind === 'modal' ? 'nested-backdrop' : 'outside');
+          if (kind === 'modal') {
+            await page.evaluate(() => {
+              const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;
+              const node = root.querySelector('[data-testid="nested"]')!.closest('[data-base-ui-portal]')!;
+              (node.querySelector(':scope > [role="presentation"][data-base-ui-inert]') as HTMLElement).click();
+            });
+          } else {
+            await click(page, 'outside');
+          }
           await expect.poll(() => exists(page, 'nested')).toBe(false);
           expect(await exists(page, 'outer')).toBe(true);
 
