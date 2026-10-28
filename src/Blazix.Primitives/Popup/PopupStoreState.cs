@@ -61,9 +61,15 @@ internal sealed partial record PopupStoreState<TPayload>(
     // PSH-ALG-22; store.ts:146-213. The selectors of the shared state; PopupSelectors<TState, TPayload> lifts them to a
     // family's record.
 
-    // PSH-STA-02.
-    /// <summary>Gets the effective open state: the controlled value when controlled, else the internal one.</summary>
-    public bool EffectiveOpen => OpenProp ?? Open;
+    // TIP-STA-02 (tooltip/root/TooltipRoot.tsx:68-82: the transitions run on `!disabled && openState`); design point 13.7 of
+    // M4 track 6, ADR 05 Amendments 2026-10-28 (pending the user). A family whose root has a `disabled` prop (Tooltip; Menu
+    // in M5) sets it through PopupStore.SetDisabled; the stored open state is left to the family's disabled close.
+    /// <summary>Gets a value indicating whether the popup's root is disabled, which keeps it effectively closed.</summary>
+    public bool Disabled { get; init; }
+
+    // PSH-STA-02, TIP-STA-02.
+    /// <summary>Gets the effective open state: the controlled value when controlled, else the internal one, while the root is not disabled.</summary>
+    public bool EffectiveOpen => !Disabled && (OpenProp ?? Open);
 
     // PSH-STA-03.
     /// <summary>Gets the effective active trigger id: the controlled value when controlled, else the internal one.</summary>
