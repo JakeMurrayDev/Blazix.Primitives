@@ -1252,3 +1252,43 @@ test.describe('<Tooltip.Arrow />', () => {
     await expect(arrow(page)).not.toHaveAttribute('data-uncentered');
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// TooltipTrigger.test.tsx's Toolbar title (:107-132) on `tooltip-toolbar`, and the attach order of the two modules'
+// handles on that one element, pinned by a title that stalls one module's load (the standing rule; issue 133's
+// fingerprinted route).
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<Tooltip.Trigger /> in a toolbar', () => {
+  const trigger = (page: Page) => page.locator('[data-testid="trigger"]');
+  const popup = (page: Page) => page.locator('[data-testid="popup"]');
+
+  test('opens on delayed hover when rendered as a disabled toolbar button', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tooltip-toolbar');
+    await expect(trigger(page)).not.toHaveAttribute('disabled');
+    await expect(trigger(page)).toHaveAttribute('aria-disabled', 'true');
+
+    await trigger(page).hover();
+
+    await expect(popup(page)).toBeVisible();
+  });
+
+  for (const stalled of ['interactions', 'button'] as const) {
+    test(`port: the disabled toolbar button trigger opens on delayed hover when the ${stalled} module loads last`, async ({ page, mode }) => {
+      let hit = false;
+      await page.route(new RegExp(`/js/${stalled}(\\.[0-9a-z]+)?\\.js`), (route) => {
+        hit = true;
+        setTimeout(() => void route.continue(), 1000);
+      });
+
+      await gotoPopupFixture(page, mode, 'tooltip-toolbar');
+      expect(hit).toBe(true);
+      await expect(trigger(page)).toHaveAttribute('aria-disabled', 'true');
+      await expect(trigger(page)).toHaveAttribute('data-base-ui-tooltip-trigger', '');
+
+      await trigger(page).hover();
+
+      await expect(popup(page)).toBeVisible();
+    });
+  }
+});

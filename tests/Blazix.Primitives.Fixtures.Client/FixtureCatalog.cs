@@ -170,5 +170,6 @@ public static class FixtureCatalog
         ["tooltip-layout"] = new(typeof(TooltipLayoutFixture)),
         ["tooltip-handoff"] = new(typeof(TooltipHandoffFixture)),
         ["tooltip-positioner"] = new(typeof(TooltipPositionerFixture)),
+        ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
     };
 }

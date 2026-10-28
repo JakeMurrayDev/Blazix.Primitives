@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-toolbar` fixture (tests/browser/tooltip.spec.ts): TooltipTrigger.test.tsx's "opens on delayed hover when
+    rendered as a disabled toolbar button" (:107-132), a trigger with `delay=20` substituted with a disabled
+    `ToolbarButton` (`trigger`) inside a `ToolbarRoot`, so two modules' handles (`interactions` for the trigger, `button`
+    and `composite` for the toolbar button) attach to one element.
+*@
+<FixtureContainer Name="tooltip-toolbar" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <div style="position: fixed; top: 0; left: 0">
+        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    </div>
+    <div style="position: fixed; top: 200px; left: 100px">
+        <ToolbarRoot>
+            <TooltipRoot TPayload="NoPayload" @ref="root">
+                <TooltipTrigger TPayload="NoPayload" @ref="trigger" Delay="20" Render="DisabledToolbarButton">Push</TooltipTrigger>
+                <TooltipPortal>
+                    <TooltipPositioner>
+                        <TooltipPopup data-testid="popup">Nothing to push</TooltipPopup>
+                    </TooltipPositioner>
+                </TooltipPortal>
+            </TooltipRoot>
+        </ToolbarRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private TooltipRoot<NoPayload>? root;
+    private TooltipTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    private static RenderFragment DisabledToolbarButton => @<ToolbarButton Disabled="true" data-testid="trigger" />;
+}
