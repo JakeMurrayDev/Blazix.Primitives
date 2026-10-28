@@ -3123,6 +3123,34 @@ describe('useHoverReferenceInteraction', () => {
       ]);
     });
 
+    it('port: a hand-off makes the new trigger the session reference at once, and a canceled one reverts when its request settles', async () => {
+      // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6): ADR 01's hand-off row, where the module
+      // re-anchors at once and C#'s active trigger follows. `commit: false` plays a commit that never comes (a cancel).
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession();
+      const hover: HoverTestOptions = { move: false };
+      const first = element('button');
+      const second = element('button');
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      popup.setReference(first);
+      const session = getSession(popup.token)!;
+      const references: (Element | null)[] = [];
+      session.subscribePositionReference(() => references.push(session.domReferenceElement));
+
+      hoverMouse(second, 'mouseenter');
+
+      expect(popup.requests.at(-1)?.payload).toMatchObject({ open: true, reason: 'trigger-hover', triggerId: second.id });
+      expect(session.domReferenceElement).toBe(second);
+      expect(references).toEqual([second]);
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(session.domReferenceElement).toBe(first);
+      expect(references).toEqual([second, first]);
+    });
+
     it('port: a pointerdown on an interactive element with aria-haspopup inside the floating element makes the open click-like, so leaving the trigger keeps it open', () => {
       const { popup, button, tooltip } = render();
       const menuTrigger = document.createElement('button');
