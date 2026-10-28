@@ -13,7 +13,7 @@ namespace Blazix.Primitives;
 //   no element (TIP-STR-02) and cascades, fixed, its store (for the triggers) and the non-generic TooltipRootContext (for
 //   the parts below it).
 // - The root's `disabled` keeps the tooltip effectively closed (TIP-STA-02; the shared record's Disabled, ADR 05 Amendments
-//   2026-10-28, pending the user), written before the open parameters so a root disabled from its first render never
+//   2026-10-28, settled by the orchestrator 2026-10-28), written before the open parameters so a root disabled from its first render never
 //   mounts (TIP-EDGE-10); the disabled close runs at the batch boundary (TIP-DIS-06; ADR 01 decision 4's C# state row).
 // - The session (M4 track 3, design point 8: InteractionsSessionBehavior in Floating/) joins the store's token and holds
 //   Escape and the sloppy outside press while TIP-STA-15's condition holds (no handle term; PSH-STA-43's Tooltip

@@ -5,7 +5,7 @@ namespace Blazix.Primitives;
 
 // TIP §4.1 (tooltip/store/TooltipStore.ts:17-27, 120-141); ADR 05 Amendments 2026-10-27 (the composed store record, chosen
 // by the user 2026-10-27). The root's `disabled` is the shared record's Disabled (ADR 05 Amendments 2026-10-28, design
-// point 13.7 of M4 track 6, pending the user). Left out of C# state (issue 121): isInstantPhase, which the open request
+// point 13.7 of M4 track 6, settled by the orchestrator 2026-10-28). Left out of C# state (issue 121): isInstantPhase, which the open request
 // carries from the `interactions` module's delay group (ADR 04 Amendments 2026-10-27), and adaptiveOrigin, the Viewport's.
 /// <summary>Holds the state of one tooltip: the shared popup state and the tooltip's own fields.</summary>
 /// <typeparam name="TPayload">The type of the payload the tooltip's triggers carry.</typeparam>

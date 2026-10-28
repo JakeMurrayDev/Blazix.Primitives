@@ -395,7 +395,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
     }
 
     // TIP-STA-02, TIP-STA-16 (useSyncedValues: the root's `disabled`, post-commit); design point 13.7 of M4 track 6
-    // (pending the user). The write that flips the effective open state runs the transition evaluation, so disabling an
+    // (settled by the orchestrator 2026-10-28). The write that flips the effective open state runs the transition evaluation, so disabling an
     // open popup starts its exit; the stored open state stays for the family's disabled close (TIP-DIS-06).
     /// <summary>Records whether the popup's root is disabled, which keeps the popup effectively closed.</summary>
     /// <param name="disabled">Whether the root is disabled.</param>

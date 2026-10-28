@@ -5,7 +5,7 @@ namespace Blazix.Primitives.Tests;
 /// A family root's disabled state on the shared store (TIP-STA-02, TIP-API-09, TIP-DIS-06; tooltip/root/TooltipRoot.tsx:68-82:
 /// the transitions run on <c>!disabled &amp;&amp; openState</c>): the effective open state is the stored or controlled one
 /// and not disabled, so a disabled store reports closed, does not mount, and starts its exit when disabled while open,
-/// while the stored open state is left to the family's disabled close. Design point 13.7 of M4 track 6 (pending the user).
+/// while the stored open state is left to the family's disabled close. Design point 13.7 of M4 track 6 (settled by the orchestrator 2026-10-28).
 /// </summary>
 public sealed class PopupDisabledTests
 {
