@@ -61,6 +61,8 @@ public static class TooltipPopupDataAttributes
 /// <remarks>The part must be placed within a <see cref="TooltipPositioner"/>.</remarks>
 public sealed class TooltipPopup : PartBase<TooltipPopupState>
 {
+    private const string TransitionNone = "transition: none";
+
     private static readonly StateAttributesMapping<TooltipPopupState> s_mapping = PopupStateMapping.CreateOpen<TooltipPopupState>();
 
     private readonly Action mirrorChanged;
@@ -72,6 +74,8 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
     private TwinHandle<TransitionsOptions>? transitionsHandle;
     private TransitionsOptions? sentTransitions;
     private Task? attaching;
+    private string? consumerStyle;
+    private string? frozenStyle;
 
     /// <summary>Initializes a new instance of the <see cref="TooltipPopup"/> class.</summary>
     public TooltipPopup()
@@ -181,6 +185,36 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
         attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
     }
 
+    // TIP-ANI-02's TRN-DOM-05 clause (ADR 04 Amendments 2026-10-18, handover at attach; Amendments 2026-10-28, gap 13 of
+    // M4 track 5): before attach C# renders `transition: none` while starting, ahead of the consumer's style; from attach the
+    // style is frozen and the transitions module writes `transition: none` on each starting frame in its own band, under
+    // the consumer's style, which it applies as its writer's consumer band.
+    /// <inheritdoc />
+    protected override void FinishAttributes(AttributeList attributes)
+    {
+        consumerStyle = attributes.TryGetValue(MergeProps.StyleAttribute, out AttributeValue merged) && merged.TryGetValue(out string text) && text.Length > 0 ? text : null;
+        if (frozenStyle is null)
+        {
+            string? own = view!.TransitionStatus == TransitionStatus.Starting ? TransitionNone : null;
+            string? style = own is null ? consumerStyle : consumerStyle is null ? own : own + "; " + consumerStyle;
+            if (style is null)
+            {
+                attributes.Remove(MergeProps.StyleAttribute);
+                return;
+            }
+
+            attributes.Set(MergeProps.StyleAttribute, style);
+            if (transitionsHandle is not null || attaching is not null)
+            {
+                frozenStyle = style;
+            }
+
+            return;
+        }
+
+        attributes.Set(MergeProps.StyleAttribute, frozenStyle);
+    }
+
     private void OnMirrorChanged()
     {
         PositionerMirror mirror = positioner!.Mirror;
@@ -201,6 +235,8 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
             ReportOpenComplete = true,
             OpenSelector = "[data-open]",
             UnmountRequests = current.UnmountRequests,
+            DisableTransitionWhileStarting = true,
+            Style = consumerStyle ?? string.Empty,
         };
         if (transitions is null)
         {
