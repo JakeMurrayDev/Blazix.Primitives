@@ -12,17 +12,18 @@
       and Last, the popup holding a button "Inside" or an input "ab". The portal's container is inside the toolbar root,
       so a keydown in the popup bubbles to the toolbar as React's portaled events do in Base UI's test.
     The root's open changes are recorded on the container; the sync button comes after the toolbar, so the first Tab from
-    the page reaches the toolbar.
+    the page reaches the toolbar. `data-attached` waits for the toolbar's composite and its buttons as well, as
+    ToolbarFixtureBase does, so the roving tabindex is in place before a title presses Tab.
 *@
 <FixtureContainer Name="toolbar-popover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges">
-    <ToolbarRoot data-root>
+    <ToolbarRoot @ref="toolbar" data-root>
         @if (inside is not null)
         {
-            <ToolbarButton>First</ToolbarButton>
+            <ToolbarButton @ref="first">First</ToolbarButton>
         }
         <PopoverRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
-            <ToolbarButton Disabled="@disabled" Render="@Trigger">@(inside is null ? null : "Open")</ToolbarButton>
+            <ToolbarButton @ref="open" Disabled="@disabled" Render="@Trigger">@(inside is null ? null : "Open")</ToolbarButton>
             <PopoverPortal Container="@container">
                 <PopoverPositioner>
                     <PopoverPopup>
@@ -44,7 +45,7 @@
         </PopoverRoot>
         @if (inside is not null)
         {
-            <ToolbarButton>Last</ToolbarButton>
+            <ToolbarButton @ref="last">Last</ToolbarButton>
             <div id="toolbar-popup-host"></div>
         }
     </ToolbarRoot>
@@ -54,12 +55,23 @@
 @code {
     private PopoverRoot<NoPayload>? root;
     private PopoverTrigger<NoPayload>? trigger;
+    private ToolbarRoot? toolbar;
+    private ToolbarButton? first;
+    private ToolbarButton? open;
+    private ToolbarButton? last;
     private bool disabled;
     private string? inside;
     private PortalContainerValue? container;
 
     protected override IEnumerable<Task> Attachments =>
-        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        toolbar?.TwinAttached ?? Task.CompletedTask,
+        first?.TwinAttached ?? Task.CompletedTask,
+        open?.TwinAttached ?? Task.CompletedTask,
+        last?.TwinAttached ?? Task.CompletedTask,
+    ];
 
     private RenderFragment Trigger => @<PopoverTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" />;
 

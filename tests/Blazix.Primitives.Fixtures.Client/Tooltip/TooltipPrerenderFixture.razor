@@ -1,0 +1,42 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-prerender` fixture (tests/browser/tooltip.spec.ts; prerendered): TIP-EDGE-12's case restated for Blazor
+    (Base UI's hydration titles are React SSR's): a detached trigger `trigger-1` declared before a root that opens from
+    `DefaultOpen` with `DefaultTriggerId="trigger-1"`. The root attaches to the handle at its first interactive render,
+    after the trigger's first render, so the trigger registers with it later; the container records the root's open changes.
+*@
+<FixtureContainer Name="tooltip-prerender" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-handle-open-state="@(handle.IsOpen ? "true" : "false")">
+    <div style="position: fixed; top: 0; left: 0">
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    </div>
+    <div style="position: fixed; top: 200px; left: 100px">
+        <TooltipTrigger Handle="handle" @ref="trigger" id="trigger-1" data-testid="trigger-1">Trigger 1</TooltipTrigger>
+        <TooltipRoot Handle="handle" @ref="root" DefaultOpen="true" DefaultTriggerId="trigger-1" OnOpenChange="RecordOpenChange">
+            <TooltipPortal>
+                <TooltipPositioner>
+                    <TooltipPopup data-testid="popup">Content</TooltipPopup>
+                </TooltipPositioner>
+            </TooltipPortal>
+        </TooltipRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly TooltipHandle<NoPayload> handle = new();
+    private TooltipRoot<NoPayload>? root;
+    private TooltipTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await (trigger?.TwinAttached ?? Task.CompletedTask);
+        StateHasChanged();
+    }
+}

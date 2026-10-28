@@ -199,8 +199,8 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         {
             rootApplied = true;
             // The store is seeded before any part subscribes, so an initially open root is mounted with no enter
-            // transition (PSH-ANI-02, TRN-STA-02).
-            bool initialOpen = openProp ?? defaultOpen;
+            // transition (PSH-ANI-02, TRN-STA-02); a root disabled from its first render is not (TIP-STA-02, TIP-EDGE-10).
+            bool initialOpen = PopupStoreState<TPayload>.IsEffectivelyOpen(current.Disabled, openProp, defaultOpen);
             (bool mounted, TransitionStatus? status) = TransitionStatusRules.Initial(initialOpen, enableIdleState: false, animateInitialOpen: false);
             SetState(TState.WithPopup(State, current with
             {
@@ -392,6 +392,20 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         payload = default;
         hasPayload = false;
         WritePopup(State.Popup with { PayloadVersion = State.Popup.PayloadVersion + 1 });
+    }
+
+    // TIP-STA-02, TIP-STA-16 (useSyncedValues: the root's `disabled`, post-commit); design point 13.7 of M4 track 6
+    // (settled by the orchestrator 2026-10-28). The write that flips the effective open state runs the transition evaluation, so disabling an
+    // open popup starts its exit; the stored open state stays for the family's disabled close (TIP-DIS-06).
+    /// <summary>Records whether the popup's root is disabled, which keeps the popup effectively closed.</summary>
+    /// <param name="disabled">Whether the root is disabled.</param>
+    public void SetDisabled(bool disabled)
+    {
+        PopupStoreState<TPayload> state = State.Popup;
+        if (state.Disabled != disabled)
+        {
+            WritePopup(state with { Disabled = disabled });
+        }
     }
 
     // PSH-STA-04.

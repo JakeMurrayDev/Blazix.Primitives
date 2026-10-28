@@ -1,0 +1,98 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Detached triggers sharing one handle (TooltipRoot.detached-triggers.test.tsx): two triggers with payloads, rendered
+    before and after the root, the root's payload template, and the switches a test flips to mount, unmount or disable a
+    trigger, or to remount the root.
+*@
+
+@if (ShowTrigger1)
+{
+    <TooltipTrigger Handle="Handle" id="trigger-1" Payload="1" Disabled="Trigger1Disabled" @ref="Trigger1">Trigger 1</TooltipTrigger>
+}
+
+@if (ShowRoot)
+{
+    <TooltipRoot Handle="Handle" @ref="Root" DefaultOpen="DefaultOpen" DefaultTriggerId="@DefaultTriggerId" OnOpenChange="onOpenChange">
+        <PayloadContent>
+            <span data-testid="payload">@context</span>
+            <TooltipPortal>
+                <TooltipPositioner>
+                    <TooltipPopup data-testid="popup">Payload @context</TooltipPopup>
+                </TooltipPositioner>
+            </TooltipPortal>
+        </PayloadContent>
+    </TooltipRoot>
+}
+
+@if (ShowTrigger2)
+{
+    <TooltipTrigger Handle="Handle" id="trigger-2" Payload="2" @ref="Trigger2">Trigger 2</TooltipTrigger>
+}
+
+@for (int i = 3; i < 3 + Bystanders; i++)
+{
+    int index = i;
+    <TooltipTrigger Handle="Handle" id="@($"trigger-{index}")" Payload="index" ClassValue="state => Count(index)">Trigger @index</TooltipTrigger>
+}
+
+@code {
+    [Parameter]
+    public TooltipHandle<int> Handle { get; set; } = new();
+
+    [Parameter]
+    public bool ShowTrigger1 { get; set; } = true;
+
+    [Parameter]
+    public bool ShowTrigger2 { get; set; } = true;
+
+    [Parameter]
+    public bool ShowRoot { get; set; } = true;
+
+    [Parameter]
+    public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public string? DefaultTriggerId { get; set; }
+
+    [Parameter]
+    public bool? Trigger1Disabled { get; set; }
+
+    [Parameter]
+    public bool Cancel { get; set; }
+
+    [Parameter]
+    public int Bystanders { get; set; }
+
+    // A callback with no receiver, as Base UI's tests pass a plain function: the host does not render after it.
+    private readonly EventCallback<ValueChangeEventArgs<bool>> onOpenChange;
+
+    public TooltipDetachedHost()
+    {
+        onOpenChange = new EventCallback<ValueChangeEventArgs<bool>>(null, (Action<ValueChangeEventArgs<bool>>)HandleOpenChange);
+    }
+
+    internal TooltipRoot<int>? Root { get; private set; }
+
+    internal TooltipTrigger<int>? Trigger1 { get; private set; }
+
+    internal TooltipTrigger<int>? Trigger2 { get; private set; }
+
+    internal List<(bool Open, EventReason Reason)> Calls { get; } = [];
+
+    internal Dictionary<int, int> ClassCalls { get; } = [];
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        Calls.Add((args.Value, args.Details.Reason));
+        if (Cancel)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private string? Count(int index)
+    {
+        ClassCalls[index] = ClassCalls.GetValueOrDefault(index) + 1;
+        return null;
+    }
+}

@@ -1,0 +1,41 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Two tooltips in one provider (TooltipProvider.test.tsx): the provider's delays, a trigger delay on the first.
+*@
+
+<TooltipProvider Delay="Delay" CloseDelay="CloseDelay" Timeout="Timeout">
+    <TooltipRoot TPayload="NoPayload" @ref="First">
+        <TooltipTrigger id="trigger-1" Delay="TriggerDelay">First</TooltipTrigger>
+        <TooltipPortal>
+            <TooltipPositioner>
+                <TooltipPopup data-testid="popup-1">First tooltip</TooltipPopup>
+            </TooltipPositioner>
+        </TooltipPortal>
+    </TooltipRoot>
+    <TooltipRoot TPayload="NoPayload" @ref="Second">
+        <TooltipTrigger id="trigger-2">Second</TooltipTrigger>
+        <TooltipPortal>
+            <TooltipPositioner>
+                <TooltipPopup data-testid="popup-2">Second tooltip</TooltipPopup>
+            </TooltipPositioner>
+        </TooltipPortal>
+    </TooltipRoot>
+</TooltipProvider>
+
+@code {
+    [Parameter]
+    public Duration? Delay { get; set; }
+
+    [Parameter]
+    public Duration? CloseDelay { get; set; }
+
+    [Parameter]
+    public Duration? Timeout { get; set; }
+
+    [Parameter]
+    public Duration? TriggerDelay { get; set; }
+
+    internal TooltipRoot<NoPayload>? First { get; private set; }
+
+    internal TooltipRoot<NoPayload>? Second { get; private set; }
+}

@@ -986,9 +986,11 @@ export function attach(
     }
   };
 
+  // `hidden` first: an element shown again in this pass is displayed when the attribute writer computes its style with
+  // the starting style, so a transition runs from it (found by track 6 at PR 137's re-merge, 2026-10-29).
   const pass = (state: TransitionState) => {
-    writeAttributes(state);
     writeHidden(state);
+    writeAttributes(state);
     report(state);
     armWatchers(state);
   };

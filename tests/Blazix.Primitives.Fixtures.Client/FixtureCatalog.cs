@@ -31,6 +31,7 @@ using Blazix.Primitives.Fixtures.Client.TabsFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
+using Blazix.Primitives.Fixtures.Client.TooltipFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -173,6 +174,7 @@ public static class FixtureCatalog
         ["popover-root"] = new(typeof(PopoverRootFixture)),
         ["popover-positioner"] = new(typeof(PopoverPositionerFixture)),
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
+        ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
@@ -181,5 +183,16 @@ public static class FixtureCatalog
         ["positioning-origin"] = new(typeof(PositioningOriginFixture)),
         ["positioning-lifecycle"] = new(typeof(PositioningLifecycleFixture)),
         ["positioning-prerender"] = new(typeof(PositioningPrerenderFixture), Prerender: true),
+        ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
+        ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
+        ["tooltip-root"] = new(typeof(TooltipRootFixture)),
+        ["tooltip-provider"] = new(typeof(TooltipProviderFixture)),
+        ["tooltip-nested"] = new(typeof(TooltipNestedFixture)),
+        ["tooltip-layout"] = new(typeof(TooltipLayoutFixture)),
+        ["tooltip-handoff"] = new(typeof(TooltipHandoffFixture)),
+        ["tooltip-positioner"] = new(typeof(TooltipPositionerFixture)),
+        ["tooltip-viewport"] = new(typeof(TooltipViewportFixture)),
+        ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
+        ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
     };
 }

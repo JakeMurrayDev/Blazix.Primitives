@@ -295,7 +295,13 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
                 attaching = AttachAsync(node, options, references);
             }
 
-            await attaching;
+            Task pending = attaching;
+            await pending;
+            if (handle is null && ReferenceEquals(attaching, pending))
+            {
+                // A dropped attach (issue 134) leaves no handle: the next render attaches again.
+                attaching = null;
+            }
         }
 
         if (handle is not null && !SameInputs(container, enclosing))
@@ -315,7 +321,24 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     {
         int attachedGeneration = generation;
         attachedNode = node;
-        TwinHandle<PortalOptions> attached = await twin.AttachAsync(node, options, references);
+        TwinHandle<PortalOptions> attached;
+        try
+        {
+            attached = await twin.AttachAsync(node, options, references);
+        }
+        catch (JSException)
+        {
+            // Issue 134 (design point 13.11 of M4 track 6, settled by the orchestrator 2026-10-28): the node left the document
+            // before the attach arrived (the popup closed while the module loaded): nothing moved, so the move stays
+            // pending; a later render attaches again (the FocusManagerBehavior precedent).
+            if (attachedGeneration == generation)
+            {
+                attachedNode = null;
+            }
+
+            return;
+        }
+
         if (attachedGeneration != generation)
         {
             // The node went while the module loaded: the handle is not this portal's any more.

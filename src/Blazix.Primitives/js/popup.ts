@@ -292,6 +292,8 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   let reported: PopupViewportReport | null = null;
   let contentVersion = options.contentVersion ?? 0;
   let placementPending = false;
+  // A side change that landed while a morph ran, measured at the morph's cleanup.
+  let measureAfterMorph = false;
   let disposed = false;
   const currentWatcher = createAnimationsWatcher(() => currentContainer, true);
   const popupWatcher: AnimationsWatcher = createAnimationsWatcher(popup, true);
@@ -346,6 +348,10 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
         previousContainer = null;
         viewport.removeAttribute(TRANSITIONING);
         report();
+        if (measureAfterMorph) {
+          measureAfterMorph = false;
+          measure();
+        }
       }, controller.signal);
     });
   };
@@ -385,6 +391,23 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     anchoring = {};
   };
 
+  // The anchoring styles of the rendered side, from `positioning`'s reader.
+  const applyAnchoring = () => {
+    if (positioner === null || popupLayer === null) {
+      return;
+    }
+    // Design point 3 (settled by the orchestrator 2026-10-28): the rendered physical side, from `positioning`'s reader. A
+    // Positioner whose handle has not attached yet reads nothing; its first write re-measures (the side observer).
+    const placement = readPlacement(positioner);
+    placementPending = placement === null;
+    const side = placement?.physicalSide ?? 'bottom';
+    resetAnchoring();
+    anchoring = getPopupAnchoringStyles(side);
+    for (const [property, value] of Object.entries(anchoring)) {
+      popupLayer.set(property, value);
+    }
+  };
+
   // One measurement; its own writes on the positioner are not the positioning handle's, so the side observer drops them.
   const measure = () => {
     measureNow();
@@ -403,16 +426,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       return;
     }
 
-    // Design point 3 (settled by the orchestrator 2026-10-28): the rendered physical side, from `positioning`'s reader. A
-    // Positioner whose handle has not attached yet reads nothing; its first write re-measures (the side observer).
-    const placement = readPlacement(positioner);
-    placementPending = placement === null;
-    const side = placement?.physicalSide ?? 'bottom';
-    resetAnchoring();
-    anchoring = getPopupAnchoringStyles(side);
-    for (const [property, value] of Object.entries(anchoring)) {
-      popupLayer.set(property, value);
-    }
+    applyAnchoring();
     setSize(popupLayer, '--popup', 'auto');
 
     const restore = [
@@ -512,8 +526,18 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
 
   // A flip of the side re-anchors the popup (the anchoring styles follow the side, usePopupAutoResize's effect), and so
   // does the positioning handle's first write when the reader had nothing yet.
+  // Gap 19's residual (M4 track 6, settled by the orchestrator 2026-10-29, option (i')): a side change that lands while a
+  // morph runs re-anchors at once, a plain style write, and is measured at the morph's cleanup. The flip lands after the
+  // morph started on both modes (on Server it comes in the Positioner's update, a message after the content batch), and
+  // the measurement's overrides on the containers would cut the morph short; the measurement does not change with the
+  // side, and Base UI resolves the side in the switching commit, before the morph runs.
   const sideObserver = new MutationObserver((records) => {
     if (!disposed && records.some((record) => record.attributeName === 'data-side' || placementPending)) {
+      if (previousContainer !== null) {
+        applyAnchoring();
+        measureAfterMorph = true;
+        return;
+      }
       measure();
     }
   });

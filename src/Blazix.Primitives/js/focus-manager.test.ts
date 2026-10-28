@@ -2943,6 +2943,35 @@ describe('FloatingFocusManager', () => {
       pointer(target, 'click', { pointerType: 'mouse', button: 0, detail: 1 });
     };
 
+    it('port: a press outside a non-modal popup requests one close of the session, the focus-out or the outside press', async () => {
+      // ADR 04 Amendments 2026-10-29 (gap 14 of M4 track 5): on Server a real press on a focusable element outside a
+      // non-modal popup raised the focus manager's focus-out and the dismiss handle's outside-press before the first
+      // commit returned, so the consumer's callback ran twice. Whichever comes first claims the session's close in flight
+      // (jsdom delivers the deferred focus-out after the click; a browser's focusin comes before it); `commit: false`
+      // holds the first unanswered.
+      const popup = sessionPopup({ open: true, commit: false });
+      popup.attachSession({ session: { dismiss: { outsidePressEvent: { mouse: 'intentional' } } } });
+      const reference = element('button', 'reference', { id: 'reference' });
+      const floating = element('div', 'floating', { role: 'dialog', tabindex: '-1', 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      const outside = element('button', 'outside');
+      document.body.append(reference, floating, outside);
+      popup.attachTrigger(reference);
+      popup.setReference(reference);
+      popup.attachFloating(floating);
+      const manager = attachManager(floating, { modal: false, sessionToken: popup.token });
+      await Promise.resolve();
+      inside.focus();
+
+      userClick(outside);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const focusOut = manager.fake.reported(FOCUS_OUT_CLOSE_REPORT).length;
+      const outsidePress = popup.requests.filter((request) => request.method === 'OnRequest' && request.payload.open === false).length;
+      expect(focusOut + outsidePress).toBe(1);
+    });
+
     it('focuses without a frame delay when a screen reader press opens it', async () => {
       const popup = sessionPopup();
       popup.attachSession();
