@@ -6,7 +6,8 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>
 /// PSH-STA-28/30 (useTriggerDataForwarding, popupStoreUtils.ts:339-394): a trigger writes its forwarded state whenever it
 /// comes to own the mounted popup, so a trigger that takes the popup back after another one owned it writes its payload
-/// again. Found by M4 track 6 (Tooltip's hover hand-off, TIP-API-19); design point 13.8 of that track, pending the user.
+/// again. Found by M4 track 6 (Tooltip's hover hand-off, TIP-API-19); design point 13.8 of that track, settled by the
+/// orchestrator 2026-10-28.
 /// </summary>
 public sealed class PopupTriggerForwardingTests : IDisposable
 {
@@ -18,6 +19,7 @@ public sealed class PopupTriggerForwardingTests : IDisposable
     [Fact(DisplayName = "port: a trigger that takes the popup back from another trigger writes its payload again")]
     [Trait("Requirement", "PSH-STA-28")]
     [Trait("Requirement", "PSH-STA-30")]
+    [Trait("Requirement", "PSH-STA-31")]
     public async Task A_trigger_that_takes_the_popup_back_writes_its_payload_again()
     {
         IRenderedComponent<PopupTestHost> cut = test.Render((builder, _) =>
