@@ -870,8 +870,8 @@ test.describe('closed shadow root', () => {
 });
 
 // DLG-STA-07's gate is the nested count, not the page's latest open popup (ADR 04 Amendments 2026-10-28, a fidelity
-// correction of the 2026-10-27 settlement): two non-nested dialogs each answer an outside press of their own. The third
-// case, a Popover inside a modal Dialog, waits for Popover (M4 track 5).
+// correction of the 2026-10-27 settlement): two non-nested dialogs each answer an outside press of their own, and a
+// Popover open inside a modal Dialog does not shield the Dialog's own backdrop.
 test.describe('the topmost gate of non-nested dialogs', () => {
   test("port: a press on the first modal dialog's own backdrop, outside a later non-nested modal dialog's confined backdrop, closes only the first", async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'dialog-root', { case: 'siblings', confine: true });
@@ -886,6 +886,20 @@ test.describe('the topmost gate of non-nested dialogs', () => {
     await expect(page.getByTestId('level-1')).toHaveCount(0);
     await expect(page.getByTestId('level-2')).toBeVisible();
     expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:outside-press']);
+  });
+
+  test('port: a press on a modal dialog\'s own backdrop closes it and the popover open inside it', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'dialog-popover', { case: 'popover-in-dialog' });
+    await expect(page.getByTestId('dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Popover trigger' }).click();
+    await expect(page.getByTestId('popover')).toBeVisible();
+
+    const height = page.viewportSize()!.height;
+    await page.mouse.click(10, height - 10);
+
+    await expect(page.getByTestId('popover')).toHaveCount(0);
+    await expect(page.getByTestId('dialog')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
   });
 
   test('port: an outside press that moves no focus closes both of two open non-nested non-modal dialogs', async ({ page, mode }) => {
@@ -928,6 +942,25 @@ test("port: a trap-focus dialog with a backdrop closes on the backdrop's click, 
   await page.mouse.up();
   await expect(page.getByTestId('dialog-popup')).toHaveCount(0);
   expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+});
+
+// DialogRoot.detached-triggers.test.tsx (DLG-KEY-01, DLG-ANI-09; §16 Q11): an inactive detached trigger inside an open
+// popover; Escape from it closes the non-modal dialog on every open, and the popover stays open (the interactions
+// module's per-keydown mark: the dialog's session handles the keydown once and the popover's skips it).
+test('closes a nonmodal dialog on Escape from an inactive trigger inside a popover on every open', async ({ page, mode }) => {
+  await gotoPopupFixture(page, mode, 'dialog-popover', { case: 'popover-triggers' });
+  await expect(page.getByTestId('popover')).toBeVisible();
+
+  for (let open = 0; open < 3; open++) {
+    await page.getByRole('button', { name: 'Dialog trigger 1' }).click();
+    await expect(page.getByTestId('dialog')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Dialog trigger 2' }).focus();
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('dialog')).toHaveCount(0);
+    await expect(page.getByTestId('popover')).toBeVisible();
+  }
 });
 
 // DialogRoot.detached-triggers.test.tsx's browser-only title (DLG-KEY-01), on the `dialog-root` fixture's two detached
