@@ -88,3 +88,32 @@ The C# half of the `interactions` module (`../js/interactions.ts`, twin `../Inte
 ### Human check
 
 - No family adds its own dismissal, hover or group timer, tree, session map or C# press-to-toggle: they compose these behaviours.
+
+## The focus manager's behaviour (M4 track 4, issue 120)
+
+The C# half of the `focus-manager` module (`../js/focus-manager.ts`, twin `../Interop/FocusManagerTwin.cs`), every type internal. Design point 6 of M4 track 4 (option (a), `Floating/`) was settled by the orchestrator 2026-10-27; this section follows track 3's.
+
+### Inputs
+
+- FLT §4.4 (FLT-DOM-13..15), §4.8 (FLT-FOC-06..22), FLT-API-05, FLT-KEY-06; §10 item 17.
+- ADR 01 Amendments 2026-10-27: the commit-path `update` (design point 1 of M4 track 4, chosen by the user 2026-10-27).
+- ADR 04 §1 (the `focus-manager` row) and Amendments 2026-10-27: the focus targets, element-typed option values (`../Interop/TwinReferences.cs`), the relay, the answered counter, the portal's published state (`../Popup/PopupPortalContext.cs`, `PortalFocusPublication`).
+- ADR 16 rule 7 (allocation budgets), rule 10 (behaviours composed into parts) and Amendments 2026-10-27 (options value equality).
+
+### Job
+
+| File | Role |
+|---|---|
+| `FocusManagerBehavior.cs` | The focus manager of one Popup part, composed as `ButtonBehavior` is. It owns the `FocusManagerTwin`; `SetInputs(FocusManagerInputs)` on every parameter set sends changed options at once to an attached module, before the render that applies them; `BuildBeforeElement`/`BuildAfterElement` render the inside guards iff `!Disabled && (Modal \|\| InsidePortal)` (FLT-DOM-15, DOM-13); `Portal` (the cascaded `PopupPortalContext`) receives `PortalFocusPublication(Modal, Open, CloseOnFocusOut)` while enabled and `null` otherwise (FLT-FOC-18); `AfterRenderAsync(element, id)` attaches after `PopupPortalContext.WhenMoved(portal)` and drops an attach whose popup left the document; the focus-out request goes to the part's `requestClose` and raises `Answered` for every request; the close type is classified when `CloseEvent` changes. The options are built at attach and when an input, `Answered` or the close type changed, never for an unchanged render (ADR 16 rule 7). |
+| `FocusManagerInputs.cs` | The inputs of one parameter set: `Open`, `Modal`, `Disabled`, `InitialFocus`/`ReturnFocus` (`FocusTargetValue?`, resolved by the family), `ExplicitReturnFocus`, `RestoreFocus`, `CloseOnFocusOut`, `OpenInteractionType` (`null` for a programmatic open), `CloseEvent`, `OpenSelector`, `TreatPopupAsFloatingElement`, `DomReferenceId`, `TriggerFocusGuards`, `PreviousFocusableElement`, `NextFocusableElement`, `InsideElements`, `InsideElementIds`, `Relay`, `SessionToken` (the popup store's, PSH-STR-01). Value equality allocates nothing. |
+| `CloseTypeClassifier.cs` | `Classify(EventSnapshot?, InteractionType?) : InteractionType`, FLT-FOC-10's `getEventType` over the close's snapshot and the recorded type; `Unknown` is Base UI's empty literal. |
+
+### Outputs
+
+- Consumers: Popover (track 5) and Dialog (track 8) Popup parts. Tests: `tests/Blazix.Primitives.Tests/Floating/CloseTypeClassifierTests.cs` (L1), `tests/Blazix.Primitives.Tests.Components/Floating/FocusManagerBehaviorTests.cs` over `TestFocusManaged` (L2), `tests/browser/focus-manager.spec.ts` over `FixtureFocusManaged` (L4).
+
+### Human check
+
+- A family's Popup calls `SetInputs` from `OnParametersSet` (after setting `Portal`), never only from `OnAfterRender`, or a kept-mounted or hover-opened popup marks the page for a round trip on Server.
+- A `FocusTargetValue?` built in a conditional with `null` takes the implicit string conversion: return `default(FocusTargetValue?)` instead.
+- An element target the opening render creates is uncaptured at that render's parameter set and names nothing (the default target); the family sets its inputs again after that render, with the captured reference.
