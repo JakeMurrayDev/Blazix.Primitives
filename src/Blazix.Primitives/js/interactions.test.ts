@@ -1195,6 +1195,37 @@ describe('useDismiss', () => {
       expect(popup.open).toBe(false);
     });
 
+    it('port: a handle sends no second close while its close is in flight, and sends again once C# answers it', async () => {
+      // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6): the reference press closes on `pointerdown` and
+      // on `click`; on Server the second request would reach the store a round trip after the first. `commit: false`
+      // holds the first in flight.
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession({ session: { dismiss: {} } });
+      const reference = element('button');
+      popup.attachTrigger(reference, { trigger: { referencePress: true } });
+      popup.setReference(reference);
+      const closes = () => popup.requests.filter((request) => request.method === 'OnRequest' && request.payload.open === false);
+
+      pointer(reference, 'pointerdown');
+      mouse(reference, 'click');
+
+      expect(closes()).toHaveLength(1);
+
+      // C#'s answer to a request it did not commit (a canceled close) re-arms the handle.
+      popup.updateSession({ session: { answered: 1 } });
+      mouse(reference, 'click');
+      mouse(reference, 'click');
+
+      expect(closes()).toHaveLength(2);
+
+      // So does the request's own invocation settling: a trigger's twin routes it to the store directly.
+      await Promise.resolve();
+      await Promise.resolve();
+      mouse(reference, 'click');
+
+      expect(closes()).toHaveLength(3);
+    });
+
     it('outsidePress function guard', () => {
       // `outsidePress={() => false}`: `topmost` vetoes the press while a popup opened later is open.
       const { popup } = renderApp({ outsidePress: true, topmost: true });
