@@ -17,7 +17,8 @@ public sealed class PopoverAllocationBudgetTests : IDisposable
     // passing the same child content again to a closed root with one trigger. The root and its fixed cascade render; the
     // trigger and the portal, whose parameters are the same fragments, are skipped by Blazor's change detection, and the
     // positioner and popup are not mounted. The session behaviour compares its inputs with the options last sent, so
-    // nothing is sent.
+    // nothing is sent. 2026-10-29 (PR 144's sampler on main): the least of five runs, AllocationSampler.LeastOfFive, as every
+    // budget in the collection measures; 1544 in 3 of 3 runs.
     private const long RerenderBudgetBytes = 1544;
 
     private readonly PopoverTestContext test = new();
@@ -39,9 +40,7 @@ public sealed class PopoverAllocationBudgetTests : IDisposable
         }
 
         int updates = test.InteractionsHandle.Invocations["update"].Count;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Render(parameters);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Equal(updates, test.InteractionsHandle.Invocations["update"].Count);
         Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
