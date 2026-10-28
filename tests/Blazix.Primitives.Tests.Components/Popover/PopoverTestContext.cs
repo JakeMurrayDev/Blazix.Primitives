@@ -18,6 +18,8 @@ internal sealed class PopoverTestContext : IDisposable
 {
     public const string InteractionsPath = "./_content/Blazix.Primitives/js/interactions.js";
 
+    public const string PopupPath = "./_content/Blazix.Primitives/js/popup.js";
+
     private const string ClickTemplate = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
          "metaKey":false,"shiftKey":false,"pointerType":"{0}","detail":{1},"buttons":0,
@@ -38,6 +40,10 @@ internal sealed class PopoverTestContext : IDisposable
         InteractionsHandle = Interactions.SetupModule("attach", _ => true);
         InteractionsHandle.SetupVoid("update", _ => true).SetVoidResult();
         InteractionsHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        Popup = Context.JSInterop.SetupModule(PopupPath);
+        PopupHandle = Popup.SetupModule("attach", _ => true);
+        PopupHandle.SetupVoid("update", _ => true).SetVoidResult();
+        PopupHandle.SetupVoid("dispose", _ => true).SetVoidResult();
     }
 
     public BunitContext Context { get; } = new();
@@ -45,6 +51,43 @@ internal sealed class PopoverTestContext : IDisposable
     public BunitJSModuleInterop Interactions { get; }
 
     public BunitJSModuleInterop InteractionsHandle { get; }
+
+    public BunitJSModuleInterop Popup { get; }
+
+    public BunitJSModuleInterop PopupHandle { get; }
+
+    /// <summary>Gets the options JSON the <c>popup</c> handle of a role sent last: its attach's, or its latest update's.</summary>
+    /// <param name="role">The role's JSON key: <c>viewport</c>, <c>positioner</c> or <c>popup</c>.</param>
+    public string? LastPopupOptions(string role)
+    {
+        string marker = "\"" + role + "\":";
+        string? options = null;
+        foreach (JSRuntimeInvocation attach in Popup.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in PopupHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        return options;
+    }
+
+    /// <summary>Gets the <c>popup</c> twin of the attach whose options name <paramref name="role"/>.</summary>
+    public PopupTwin PopupTwinOf(string role)
+    {
+        string marker = "\"" + role + "\":";
+        JSRuntimeInvocation attach = Popup.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal));
+        return ((DotNetObjectReference<PopupTwin>)attach.Arguments[2]!).Value;
+    }
 
     /// <summary>Gets the snapshot JSON of a click, as the module snapshots it.</summary>
     /// <param name="pointerType">The pointer type, such as <c>mouse</c>.</param>
