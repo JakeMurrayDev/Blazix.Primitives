@@ -23,7 +23,16 @@ import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from '
 import { decide } from './decide';
 import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument } from './dom';
 import { eventInfo } from './event-info';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  type DotNetTwin,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinCaptures,
+  type TwinReferences,
+} from './twin';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constants (CMP §6.11)
@@ -833,10 +842,18 @@ function sameIndices(a: ReadonlyArray<number> | null | undefined, b: ReadonlyArr
  * @param elementOrId The root element, or its id when the part has no element reference.
  * @param optionsJson The `CompositeOptions` JSON.
  * @param twinReference The twin's object reference.
+ * @param _references The references, which this module names none of.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson)` and `dispose()`; the live handle when the element is already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
-  const root = resolveElement(elementOrId) as AttachedElement;
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const root = resolveElement(elementOrId, captures?.[0]) as AttachedElement;
   const existing = root[attachedHandle];
   if (existing) {
     return existing;

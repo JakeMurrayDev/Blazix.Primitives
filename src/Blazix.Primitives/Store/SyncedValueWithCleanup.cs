@@ -1,6 +1,8 @@
 namespace Blazix.Primitives.Store;
 
-// UTL-STA-20
+// UTL-STA-20. In Blazor's order a keyed replacement's new part syncs in its parameter set before the replaced part is
+// disposed, where React runs the cleanup first; the dispose therefore resets the member only while this instance synced
+// it last (fidelity correction 2026-10-28, M4 track 8; DLG-STA-09's "a replacement part overwrites the value").
 /// <summary>
 /// Represents the copy of one parameter into a member of a store's record that resets the member when the part goes
 /// away or the store changes (Base UI's <c>useSyncedValueWithCleanup</c>).
@@ -30,10 +32,17 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
     }
 
     /// <inheritdoc />
-    /// <remarks>Sets the member to <see langword="default"/> in the last store passed to <see cref="Sync"/>, then forgets that store, so a second call does nothing.</remarks>
+    /// <remarks>
+    /// Sets the member to <see langword="default"/> in the last store passed to <see cref="Sync"/>, unless another instance
+    /// has synced the member since, then forgets that store, so a second call does nothing.
+    /// </remarks>
     public void Dispose()
     {
-        store?.Set(field, default);
+        if (store is not null && store.ReleaseSynced(field, this))
+        {
+            store.Set(field, default);
+        }
+
         store = null;
     }
 
@@ -64,6 +73,7 @@ public sealed class SyncedValueWithCleanup<TState, TValue> : IDisposable
 
         this.store = store;
         this.value = value;
+        store.ClaimSynced(field, this);
         store.SyncValue(field, value);
     }
 }

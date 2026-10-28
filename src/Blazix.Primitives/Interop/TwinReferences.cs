@@ -17,6 +17,8 @@ namespace Blazix.Primitives.Interop;
 internal sealed class TwinReferences
 {
     private List<object>? references;
+    private List<string?>? captures;
+    private bool hasElement;
 
     /// <summary>Gets the number of references collected.</summary>
     /// <value>The count; 0 for a new instance.</value>
@@ -31,7 +33,7 @@ internal sealed class TwinReferences
         // Blazor's interop serializes each entry by its runtime type, as it does the entries of an invocation's own
         // argument array. This is the array's one boxing site; it runs once per attach or update that names an element.
 #pragma warning disable BLZX2005
-        return Append(element);
+        return Append(element, element.Id);
 #pragma warning restore BLZX2005
     }
 
@@ -42,17 +44,39 @@ internal sealed class TwinReferences
     public int Add(IJSObjectReference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
-        return Append(reference);
+        return Append(reference, captureId: null);
     }
 
     /// <summary>Gets the interop argument that follows the options string.</summary>
     /// <returns>A new array of the references in the order they were added, or <see langword="null"/> when there are none.</returns>
     internal object[]? ToArgument() => references is { Count: > 0 } ? [.. references] : null;
 
-    private int Append(object reference)
+    // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): Blazor revives an element with a document query, which
+    // pierces no shadow root, so the module finds an element inside one by its capture id.
+    /// <summary>Gets the capture ids that follow the references: <paramref name="elementCaptureId"/>, then one per reference.</summary>
+    /// <param name="elementCaptureId">The attached element's capture id, or <see langword="null"/> for none.</param>
+    /// <param name="references">The references, or <see langword="null"/>.</param>
+    /// <returns>A new array, or <see langword="null"/> when neither the element nor any reference is an element.</returns>
+    internal static string?[]? CaptureIds(string? elementCaptureId, TwinReferences? references)
+    {
+        if (elementCaptureId is null && references is not { hasElement: true })
+        {
+            return null;
+        }
+
+        string?[] ids = new string?[1 + (references?.Count ?? 0)];
+        ids[0] = elementCaptureId;
+        references?.captures?.CopyTo(ids, 1);
+        return ids;
+    }
+
+    private int Append(object reference, string? captureId)
     {
         references ??= [];
+        captures ??= [];
         references.Add(reference);
+        captures.Add(captureId);
+        hasElement |= captureId is not null;
         return references.Count - 1;
     }
 }
