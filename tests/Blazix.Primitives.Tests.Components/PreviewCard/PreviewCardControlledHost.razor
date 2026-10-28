@@ -1,0 +1,35 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    A preview card whose open state the host controls (PreviewCardRoot.test.tsx "prop: onOpenChange"): OnOpenChange records
+    each request and applies it unless Accept is false; Open is supplied at the first render.
+*@
+
+<PreviewCardRoot TPayload="NoPayload" @ref="Root" Open="Open" OnOpenChange="HandleOpenChange">
+    <PreviewCardTrigger id="trigger" href="#">Link</PreviewCardTrigger>
+    <PreviewCardPortal>
+        <PreviewCardPositioner data-testid="positioner">
+            <PreviewCardPopup data-testid="popup">Content</PreviewCardPopup>
+        </PreviewCardPositioner>
+    </PreviewCardPortal>
+</PreviewCardRoot>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public bool Accept { get; set; } = true;
+
+    internal PreviewCardRoot<NoPayload>? Root { get; private set; }
+
+    internal List<(bool Open, EventReason Reason, bool WasOpen)> Calls { get; } = [];
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        Calls.Add((args.Value, args.Details.Reason, Root!.Store.IsOpen));
+        if (Accept)
+        {
+            Open = args.Value;
+        }
+    }
+}

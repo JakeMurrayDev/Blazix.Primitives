@@ -1,0 +1,42 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The preview card of PreviewCardRoot.test.tsx (a Root around a Trigger with `href="#"` and a Portal, Positioner and
+    Popup), with wrapper slots between the parts and every root and trigger parameter a test sets.
+*@
+
+<PreviewCardRoot TPayload="NoPayload" @ref="Root" DefaultOpen="DefaultOpen" OnOpenChange="OnOpenChange" OnOpenChangeComplete="OnOpenChangeComplete">
+    <span data-testid="before-trigger"></span>
+    <PreviewCardTrigger id="trigger" href="#" Delay="Delay" CloseDelay="CloseDelay">Link</PreviewCardTrigger>
+    <span data-testid="between-trigger-and-portal"></span>
+    <PreviewCardPortal KeepMounted="KeepMounted">
+        <PreviewCardPositioner data-testid="positioner">
+            <PreviewCardPopup data-testid="popup">
+                Content
+                <PreviewCardArrow data-testid="arrow" />
+            </PreviewCardPopup>
+        </PreviewCardPositioner>
+    </PreviewCardPortal>
+    <span data-testid="after-portal"></span>
+</PreviewCardRoot>
+
+@code {
+    [Parameter]
+    public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public Duration? Delay { get; set; }
+
+    [Parameter]
+    public Duration? CloseDelay { get; set; }
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<bool>> OnOpenChange { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnOpenChangeComplete { get; set; }
+
+    internal PreviewCardRoot<NoPayload>? Root { get; private set; }
+}
