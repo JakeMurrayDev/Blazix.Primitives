@@ -33,7 +33,9 @@ public sealed class DialogAllocationBudgetTests : IDisposable
     {
         Action<ComponentParameterCollectionBuilder<DialogHarness>> parameters = p => p.Add(x => x.DefaultOpen, true).Add(x => x.WithClose, true).Add(x => x.WithTitle, true);
         IRenderedComponent<DialogHarness> cut = test.Context.Render(parameters);
-        long allocated = LeastOfFive(() => cut.Render(parameters));
+        Action render = () => cut.Render(parameters);
+        WarmUp(render);
+        long allocated = AllocationSampler.LeastOfFive(render);
         int sends = Sends();
 
         cut.Render(parameters);
@@ -130,25 +132,18 @@ public sealed class DialogAllocationBudgetTests : IDisposable
         IPopupStore<TPayload> store = handle.Store;
         int writes = 0;
         await cut.InvokeAsync(() => store.SetPayload(second));
-        return LeastOfFive(() => cut.InvokeAsync(() => store.SetPayload(writes++ % 2 == 0 ? first : second)).GetAwaiter().GetResult());
+        Action write = () => cut.InvokeAsync(() => store.SetPayload(writes++ % 2 == 0 ? first : second)).GetAwaiter().GetResult();
+        WarmUp(write);
+        return AllocationSampler.LeastOfFive(write);
     }
 
-    private static long LeastOfFive(Action render)
+    // Twenty runs before the shared sampler's five, as the budgets were first measured.
+    private static void WarmUp(Action operation)
     {
         for (int i = 0; i < 20; i++)
         {
-            render();
+            operation();
         }
-
-        long least = long.MaxValue;
-        for (int i = 0; i < 5; i++)
-        {
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            render();
-            least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
-        }
-
-        return least;
     }
 
     private static AngleSharp.Dom.IElement Popup(IRenderedComponent<IComponent> cut) => cut.Find("[role=dialog]");
