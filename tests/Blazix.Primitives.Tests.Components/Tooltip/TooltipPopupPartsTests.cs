@@ -172,6 +172,40 @@ public sealed class TooltipPopupPartsTests : IDisposable
         return JsonDocument.Parse(last).RootElement;
     }
 
+    [Fact(DisplayName = "port: a portal and a positioner without child content keep one cascade across parameter sets")]
+    [Trait("Requirement", "TIP-STR-04")]
+    [Trait("Requirement", "TIP-STR-05")]
+    public void A_portal_and_a_positioner_without_child_content_keep_one_cascade()
+    {
+        // Each part renders its own cascade as its ChildContent, which a parameter set that does not supply ChildContent
+        // leaves in place; the count attribute makes every root render a parameter set of both parts.
+        int count = 0;
+        RenderFragment content = builder =>
+        {
+            builder.OpenComponent<TooltipPortal>(0);
+            builder.AddAttribute(1, "data-count", count);
+            builder.AddAttribute(2, nameof(TooltipPortal.ChildContent), (RenderFragment)(portal =>
+            {
+                portal.OpenComponent<TooltipPositioner>(0);
+                portal.AddAttribute(1, "data-count", count);
+                portal.CloseComponent();
+            }));
+            builder.CloseComponent();
+            builder.OpenComponent<TooltipPortal>(3);
+            builder.AddAttribute(4, "data-count", count);
+            builder.CloseComponent();
+        };
+        IRenderedComponent<TooltipRoot<NoPayload>> cut = RenderOpen(content);
+
+        for (count = 1; count <= 2; count++)
+        {
+            cut.Render(p => p.Add(x => x.ChildContent, content));
+        }
+
+        Assert.Equal(2, cut.FindComponents<CascadingValue<TooltipPortalContext>>().Count);
+        Assert.Single(cut.FindComponents<CascadingValue<TooltipPositionerContext>>());
+    }
+
     private IRenderedComponent<TooltipRoot<NoPayload>> RenderOpen(RenderFragment content) =>
         host.Context.Render<TooltipRoot<NoPayload>>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.ChildContent, content));
 }
