@@ -54,6 +54,22 @@ public sealed class PopoverStoreTests
         Assert.Equal(PopoverInstantType.Click, store.State.InstantType);
     }
 
+    [Fact(DisplayName = "port: the close event is the one that closed the popover; a later close while closed keeps it")]
+    [Trait("Requirement", "POP-API-22")]
+    public async Task The_close_event_is_the_one_that_closed_the_popover()
+    {
+        PopoverStore<NoPayload> store = new("popup", "token");
+        store.ApplyRootParameters(defaultOpen: false, defaultTriggerId: null);
+        await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerPress, Click(1)));
+        EventSnapshot press = Click(1);
+
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, press));
+        // On Server the focus manager's focus-out close can arrive a round trip after the press closed the popover.
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut, KeyDown("Tab")));
+
+        Assert.Same(press, store.State.CloseEvent);
+    }
+
     [Fact(DisplayName = "port: the stored trigger-change instant reads as none once closed, and is dropped when closed")]
     [Trait("Requirement", "POP-STA-07")]
     [Trait("Requirement", "POP-ANI-07")]
