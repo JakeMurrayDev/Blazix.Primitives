@@ -124,6 +124,36 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.All(renders, Assert.Null);
     }
 
+    [Fact(DisplayName = "port: a controlled trigger id that moves the open popover clears the instant type in the render that applies it")]
+    [Trait("Requirement", "POP-ANI-07")]
+    [Trait("Requirement", "POP-DOM-28")]
+    public async Task A_controlled_move_between_triggers_clears_the_instant_type_at_commit()
+    {
+        List<PopoverInstantType?> renders = [];
+        IRenderedComponent<PopupTestHost> cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, new PopoverSpec
+            {
+                Open = true,
+                TriggerIdSupplied = true,
+                TriggerId = host.Get<string>("triggerId"),
+                Triggers = 2,
+                PopupClass = state =>
+                {
+                    renders.Add(state.Instant);
+                    return null;
+                },
+            }),
+            new() { ["triggerId"] = "trigger-1" });
+        await cut.InvokeAsync(() => test.PopupTwinOf("positioner").OnTriggerChangeSettled("{}"));
+        Assert.Equal(PopoverInstantType.TriggerChange, renders[^1]);
+        renders.Clear();
+
+        await cut.Instance.SetAsync("triggerId", "trigger-2");
+
+        Assert.NotEmpty(renders);
+        Assert.All(renders, Assert.Null);
+    }
+
     [Theory(DisplayName = "port: the positioner sends the cut-out and the anchored lock for a modal press, not for a hover, and the touch flag")]
     [InlineData("press", "mouse", true, false)]
     [InlineData("press", "touch", true, true)]
