@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, describe "multiple detached triggers", "keeps the payload reactive": the triggers
+   (DetachedPayloadTriggers) and a non-modal handle-backed root whose popup calls the accessor payload. *@
+<div>
+    <DetachedPayloadTriggers Handle="Handle" />
+    <DialogRoot TPayload="Func<int>" Modal="false" DisablePointerDismissal="true" Handle="Handle">
+        <PayloadContent Context="payload">
+            <DialogPortal>
+                <DialogPopup>
+                    <span data-testid="content">@(payload?.Invoke())</span>
+                </DialogPopup>
+            </DialogPortal>
+        </PayloadContent>
+    </DialogRoot>
+</div>
+
+@code {
+    public DialogHandle<Func<int>> Handle { get; } = new();
+}

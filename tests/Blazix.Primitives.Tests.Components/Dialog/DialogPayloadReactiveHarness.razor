@@ -1,0 +1,21 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, describe "multiple triggers within Root", "keeps the payload reactive": two
+   contained triggers whose payloads the popup's button replaces. *@
+<div>
+    <DialogRoot TPayload="int?">
+        <PayloadContent Context="payload">
+            <DialogTrigger TPayload="int?" id="trigger-1" Payload="payloads[0]">Dialog 1</DialogTrigger>
+            <DialogTrigger TPayload="int?" id="trigger-2" Payload="payloads[1]">Dialog 2</DialogTrigger>
+            <DialogPortal>
+                <DialogPopup>
+                    <span data-testid="content">@payload</span>
+                    <button type="button" data-testid="update" @onclick="() => payloads = [8, 16]">Update payloads</button>
+                </DialogPopup>
+            </DialogPortal>
+        </PayloadContent>
+    </DialogRoot>
+</div>
+
+@code {
+    private int[] payloads = [1, 2];
+}

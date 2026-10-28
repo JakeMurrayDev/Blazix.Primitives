@@ -1,0 +1,9 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Base UI's descendant layout effect in the Dialog harnesses: runs `Run` from its first OnAfterRenderAsync, in the render
+   batch that mounted it (PopupStoreUtilsTests' AfterFirstRender, which Razor markup cannot name because it is internal). *@
+
+@code {
+    [Parameter] public Func<Task>? Run { get; set; }
+
+    protected override Task OnAfterRenderAsync(bool firstRender) => firstRender && Run is not null ? Run() : Task.CompletedTask;
+}

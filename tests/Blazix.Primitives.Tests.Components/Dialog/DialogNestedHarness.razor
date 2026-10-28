@@ -1,0 +1,49 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Base UI's nested-dialog trees (DialogBackdrop.test.tsx, DialogPopup.test.tsx "nested dialog count" and "style hooks"): an
+   open level-1 dialog whose popup holds a level-2 dialog, whose popup holds a level-3 dialog. Each level renders a backdrop
+   `level-N-backdrop` and a popup `level-N-popup`; levels 2 and 3 are controlled and can be unmounted. *@
+<DialogRoot TPayload="NoPayload" Open="true" Modal="Modal">
+    <DialogBackdrop data-testid="level-1-backdrop" ForceRender="ForceRender" />
+    <DialogPortal>
+        <DialogPopup data-testid="level-1-popup">
+            Level 1 dialog
+            @if (Levels >= 2 && Level2Mounted)
+            {
+                <DialogRoot TPayload="NoPayload" Open="Level2Open" OpenChanged="v => Level2Open = v" Modal="Modal">
+                    <DialogTrigger data-testid="level-2-trigger">Open level 2</DialogTrigger>
+                    <DialogBackdrop data-testid="level-2-backdrop" ForceRender="ForceRender" />
+                    <DialogPortal>
+                        <DialogPopup data-testid="level-2-popup">
+                            Level 2 dialog
+                            @if (Levels >= 3 && Level3Mounted)
+                            {
+                                <DialogRoot TPayload="NoPayload" Open="Level3Open" OpenChanged="v => Level3Open = v" Modal="Modal">
+                                    <DialogBackdrop data-testid="level-3-backdrop" ForceRender="ForceRender" />
+                                    <DialogPortal>
+                                        <DialogPopup data-testid="level-3-popup">Level 3 dialog</DialogPopup>
+                                    </DialogPortal>
+                                </DialogRoot>
+                            }
+                        </DialogPopup>
+                    </DialogPortal>
+                </DialogRoot>
+            }
+        </DialogPopup>
+    </DialogPortal>
+</DialogRoot>
+
+@code {
+    [Parameter] public int Levels { get; set; } = 2;
+
+    [Parameter] public bool ForceRender { get; set; }
+
+    [Parameter] public ModalValue? Modal { get; set; }
+
+    [Parameter] public bool Level2Open { get; set; } = true;
+
+    [Parameter] public bool Level3Open { get; set; } = true;
+
+    [Parameter] public bool Level2Mounted { get; set; } = true;
+
+    [Parameter] public bool Level3Mounted { get; set; } = true;
+}

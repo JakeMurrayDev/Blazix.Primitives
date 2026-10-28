@@ -1,0 +1,41 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx "attaches a fresh root store when the handle prop changes to a previously dirtied
+   handle": a first root dirties handle B with a payload and unmounts, then a trigger and a root on handle A switch to B. *@
+@if (phase == "dirty")
+{
+    <DialogRoot TPayload="int?" Handle="HandleB">
+        <PayloadContent Context="payload">
+            <span data-testid="dirty-payload">@(payload?.ToString() ?? "No payload")</span>
+            <DialogPortal>
+                <DialogPopup>
+                    Dirty dialog
+                    <button type="button" data-testid="unmount-dirty" @onclick='() => phase = "main"'>Unmount dirty root</button>
+                </DialogPopup>
+            </DialogPortal>
+        </PayloadContent>
+    </DialogRoot>
+}
+else
+{
+    <DialogTrigger TPayload="int?" Handle="handle" id="trigger" Payload="1">Trigger</DialogTrigger>
+    <button type="button" data-testid="switch" @onclick="() => handle = HandleB">Switch to handle B</button>
+    <DialogRoot TPayload="int?" Handle="handle">
+        <PayloadContent Context="payload">
+            <span data-testid="payload">@(payload?.ToString() ?? "No payload")</span>
+            <DialogPortal>
+                <DialogPopup>Dialog Content</DialogPopup>
+            </DialogPortal>
+        </PayloadContent>
+    </DialogRoot>
+}
+
+@code {
+    private string phase = "dirty";
+    private DialogHandle<int?>? handle;
+
+    public DialogHandle<int?> HandleA { get; } = new();
+
+    public DialogHandle<int?> HandleB { get; } = new();
+
+    protected override void OnInitialized() => handle = HandleA;
+}

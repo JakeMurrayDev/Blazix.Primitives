@@ -1,0 +1,43 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, the two controlled/uncontrolled remount titles: a detached trigger, a root that
+   starts in mode First (controlled open with the trigger active, or uncontrolled), is unmounted, and is remounted in mode
+   Then. *@
+<div>
+    <DialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger">Trigger</DialogTrigger>
+    <button type="button" data-testid="unmount" @onclick='() => mode = "unmounted"'>Unmount root</button>
+    @if (mode == "unmounted")
+    {
+        <button type="button" data-testid="remount" @onclick="() => mode = Then">Remount root</button>
+    }
+    @if (mode == "controlled")
+    {
+        <DialogRoot TPayload="NoPayload" Handle="Handle" Open="true" TriggerId="trigger">
+            <DialogPortal>
+                <DialogPopup>
+                    Dialog Content
+                    <button type="button" data-testid="unmount-inside" @onclick='() => mode = "unmounted"'>Unmount root</button>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    @if (mode == "uncontrolled")
+    {
+        <DialogRoot TPayload="NoPayload" Handle="Handle">
+            <DialogPortal>
+                <DialogPopup>Dialog Content</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+</div>
+
+@code {
+    private string mode = string.Empty;
+
+    public DialogHandle<NoPayload> Handle { get; } = new();
+
+    [Parameter] public string First { get; set; } = "controlled";
+
+    [Parameter] public string Then { get; set; } = "uncontrolled";
+
+    protected override void OnInitialized() => mode = First;
+}
