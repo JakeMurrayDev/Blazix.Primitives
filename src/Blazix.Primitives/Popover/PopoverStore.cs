@@ -112,7 +112,8 @@ internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPay
         }
     }
 
-    // POP-ANI-07 (useTriggerSwitchTransition.ts): a move between triggers clears the instant type while it animates, and
+    // POP-ANI-07 (useTriggerSwitchTransition.ts): a move between triggers clears the instant type while it animates (a
+    // controlled `TriggerId` move, from the Root's parameter set; a request's move in ApplyOpenChange), and
     // `trigger-change` is written once it settles, only while still open (TRN-ANI-31's live check).
     /// <summary>Clears the instant type when the popover starts moving to another trigger while open.</summary>
     public void BeginTriggerChange()
@@ -166,7 +167,12 @@ internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPay
     /// <inheritdoc />
     protected override PopoverStoreState<TPayload> ApplyOpenChange(PopoverStoreState<TPayload> state, bool open, OpenChangeEventDetails details)
     {
-        PopoverInstantType? instantType = InstantTypeFor(open, details);
+        // POP-ANI-07 (useTriggerSwitchTransition.ts): a request that moves the open popover to another trigger clears the
+        // instant type in the write that applies the move, as Base UI's layout effect does at commit.
+        PopupStoreState<TPayload> popup = state.Popup;
+        bool switches = open && popup.EffectiveOpen && details.Trigger?.Id is { } next
+            && popup.EffectiveActiveTriggerId is { } previous && !string.Equals(previous, next, StringComparison.Ordinal);
+        PopoverInstantType? instantType = switches ? null : InstantTypeFor(open, details);
         return state.OpenChangeReason == details.Reason && state.InstantType == instantType
             ? state
             : state with { OpenChangeReason = details.Reason, InstantType = instantType };

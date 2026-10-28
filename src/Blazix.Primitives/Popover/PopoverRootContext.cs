@@ -91,9 +91,6 @@ internal abstract class PopoverRootContext
     /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
     public abstract void SetAdaptiveOrigin(bool adaptiveOrigin);
 
-    /// <summary>Clears the instant type as the popover starts moving between triggers.</summary>
-    public abstract void BeginTriggerChange();
-
     /// <summary>Writes the trigger-change instant type once the move has finished, if still open.</summary>
     public abstract void CompleteTriggerChange();
 
@@ -196,9 +193,6 @@ internal sealed class PopoverRootContext<TPayload>(PopoverStore<TPayload> store)
 
     /// <inheritdoc />
     public override void SetAdaptiveOrigin(bool adaptiveOrigin) => store.SetAdaptiveOrigin(adaptiveOrigin);
-
-    /// <inheritdoc />
-    public override void BeginTriggerChange() => store.BeginTriggerChange();
 
     /// <inheritdoc />
     public override void CompleteTriggerChange() => store.CompleteTriggerChange();

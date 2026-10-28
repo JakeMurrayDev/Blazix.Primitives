@@ -104,7 +104,6 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     private PopoverSelection<bool>? hoverOpened;
     private PopoverSelection<InteractionType?>? openMethod;
     private PopoverPositionerState? state;
-    private string? switchedFrom;
     private RenderFragment? cascadedContent;
     private RenderFragment? cascade;
 
@@ -252,7 +251,6 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
         openMethod = subscription.Select(PopoverSelectors.OpenMethod);
         module = new PopupModuleAttachment(JSRuntime);
         module.Twin.TriggerChangeSettled += () => _ = InvokeAsync(root.CompleteTriggerChange);
-        switchedFrom = activeTriggerId.Value;
         base.OnInitialized();
     }
 
@@ -283,16 +281,6 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
         if (!isOpen)
         {
             root.ClearTriggerChangeWhenClosed();
-        }
-        else if (switchedFrom is not null && triggerId is not null && !string.Equals(switchedFrom, triggerId, StringComparison.Ordinal))
-        {
-            // useTriggerSwitchTransition.ts: the instant type is cleared while the popup moves between triggers.
-            root.BeginTriggerChange();
-        }
-
-        if (triggerId is not null)
-        {
-            switchedFrom = triggerId;
         }
 
         // The three handles start in the same render; the positioning one awaits the portal's move inside its behavior.

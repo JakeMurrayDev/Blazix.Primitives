@@ -184,6 +184,7 @@ public sealed class PopoverRoot<TPayload> : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        PopupStoreState<TPayload> before = behavior.Store.State.Popup;
         behavior.ApplyParameters(new PopupRootParameters<TPayload>(
             DefaultOpen,
             DefaultTriggerId,
@@ -195,6 +196,17 @@ public sealed class PopoverRoot<TPayload> : ComponentBase, IAsyncDisposable
             ChildContent,
             PayloadContent));
         context!.Handled = Handle is not null;
+
+        // POP-ANI-07 (useTriggerSwitchTransition.ts): a controlled `TriggerId` that moves the open popover to another
+        // trigger clears the instant type in this parameter set, before the parts render; a request's move clears it in
+        // the store's write (PopoverStore.ApplyOpenChange).
+        PopupStoreState<TPayload> after = behavior.Store.State.Popup;
+        if (before.EffectiveOpen && after.EffectiveOpen && before.EffectiveActiveTriggerId is { } previous
+            && after.EffectiveActiveTriggerId is { } next && !string.Equals(previous, next, StringComparison.Ordinal))
+        {
+            behavior.Store.BeginTriggerChange();
+        }
+
         behavior.Store.SetModal(ModalKind(Modal));
         session!.ParentToken = EnclosingRoot?.SessionToken;
     }
