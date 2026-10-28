@@ -59,6 +59,8 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.NotNull(options);
         Assert.Contains("\"open\":true", options, StringComparison.Ordinal);
         Assert.Contains("\"popupId\":", options, StringComparison.Ordinal);
+        // Design point 13.13: the module reads the active trigger from the interactions session of this token.
+        Assert.Contains("\"sessionToken\":\"base-ui-", options, StringComparison.Ordinal);
 
         await cut.InvokeAsync(() => test.PopupTwinOf("viewport").OnViewportChange("""{"activationDirection":"right down","transitioning":true}"""));
 

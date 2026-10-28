@@ -263,7 +263,7 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     // WebAssembly applies the render batches and C#'s after-render update in one task, before the observer's microtask.
     activate(rendered, 1);
     remount(rendered, 'Two');
-    handle.update(JSON.stringify({ viewport: { open: true, popupId: 'popup', contentVersion: 1 } }));
+    handle.update(JSON.stringify({ sessionToken: 'session', viewport: { open: true, popupId: 'popup', contentVersion: 1 } }));
     await settle();
 
     expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
@@ -319,7 +319,7 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     const twin = createFakeTwin({ synchronous });
     const handle = attachTo(rendered.viewport, openViewport, twin);
 
-    handle.update(JSON.stringify({ viewport: { ...openViewport.viewport, open: false } }));
+    handle.update(JSON.stringify({ ...openViewport, viewport: { ...openViewport.viewport, open: false } }));
     activate(rendered, 1);
     rendered.triggers[1]!.setAttribute('aria-expanded', 'false');
     remount(rendered, 'Two');
