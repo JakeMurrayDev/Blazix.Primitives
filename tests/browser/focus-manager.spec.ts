@@ -285,10 +285,11 @@ test.describe('focus manager', () => {
       await expect(fixture.locator('[data-popup]')).toHaveAttribute('data-open', '');
     });
 
-    // M4 track 5's Gap 12 (settled by the orchestrator 2026-10-28): a press moves focus with the body active until the
-    // pressed element's focus, and WebAssembly answers the request inside the call. The switch makes the page clear the
-    // reference as it closes and remove the popup a render later (Popover's controlled `TriggerId`).
+    // M4 track 5's Gap 12 (ADR 01 Amendments 2026-10-29): a press moves focus with the body active until the pressed
+    // element's focus, and WebAssembly answers the request inside the call. The switch makes the page clear the reference
+    // as it closes and remove the popup a render later (Popover's controlled `TriggerId`).
     test('port: a focus-out close that clears the reference leaves focus on the pressed element', async ({ page, mode }) => {
+      test.skip(mode !== 'wasm', "the report runs .NET inside the browser's focus move on WebAssembly only; Server's arrives a round trip later (ADR 01 Amendments 2026-10-29)");
       const fixture = await gotoFocusManager(page, mode, 'focus-manager-non-modal');
       await fixture.locator('[data-clear-reference-switch]').click();
       await fixture.locator('[data-reference]').click();
