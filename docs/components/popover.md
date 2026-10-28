@@ -566,10 +566,11 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 | `data-open` / `data-closed` | open / closed | POP-DOM-15 | C# |
 | `data-side`, `data-align` | resolved placement | POP-DOM-16 | C# → JS |
 | `data-anchor-hidden` | anchor hidden | POP-DOM-17 | JS |
-| `data-instant` | public instant type | POP-DOM-18 | JS |
+| `data-instant` | public instant type | POP-DOM-18 | C# |
 | inline `transition: none` | `transitionStatus === 'starting'` | POP-DOM-19 | JS |
 | positioning styles and CSS variables | FLT | POP-DOM-20, POP-DOM-21 | C# → JS |
 | internal backdrop sibling | POP-STR-13 | POP-DOM-22 | C# |
+| internal backdrop `clip-path` | cut-out of the active trigger | POP-DOM-22 | JS |
 
 - **POP-DOM-12** — MUST. The Positioner element has `role="presentation"` (consumer `role` overrides).
   Source: `utils/usePositioner.tsx:36`; see FLT-DOM-01. Test: [L2] `PopoverRoot.test.tsx` "uses intentional outside press with internal backdrop (modal=true)…" (`[role="presentation"]` query also matches the internal backdrop).
@@ -585,6 +586,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Source: `popover/positioner/PopoverPositioner.tsx:113`; `utils/popupStateMapping.ts:55-60`. Test: none in Popover (FLT positioner conformance).
 - **POP-DOM-18** — MUST. The Positioner element has `data-instant="<value>"` iff the public instant type (POP-STA-07) is defined (TRN-DOM-10).
   Source: `popover/positioner/PopoverPositioner.tsx:114`. Test: [L4] `PopoverRoot.detached-triggers.test.tsx` "does not apply the trigger-change instant to a prop-driven close after a switch" (CSS `.positioner[data-instant]`).
+  Port note 2026-10-28 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): `data-instant` is C#'s, projected from `PopoverPositionerState.Instant`; `trigger-change` is written by C# when the `popup` module reports that the Positioner's animations after a switch have finished (POP-ANI-07), so the Writer cell reads `C#`.
 - **POP-DOM-19** — MUST. While `transitionStatus` is `'starting'` the Positioner element has inline `transition: none` (TRN-DOM-05), removed once the status leaves `'starting'`.
   Source: `popover/positioner/PopoverPositioner.tsx:119`; `utils/usePositioner.tsx:37`; `internals/getDisabledMountTransitionStyles.ts:5-9`. Test: none in Popover. Docs: CHANGELOG.md v1.0.0 "Fix mount transitions on `Positioner` in Firefox (#3424)".
 - **POP-DOM-20** — MUST. The Positioner element's inline style carries `--anchor-width`, `--anchor-height`, `--available-width`, `--available-height` (FLT-DOM-05/06) and `--transform-origin` (FLT-DOM-07) on every positioning pass, and `--positioner-width`/`--positioner-height` while a Viewport is mounted (PSH-DOM-11).
@@ -593,6 +595,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Source: `popover/positioner/PopoverPositioner.tsx:69-87,118`. Test: [L4] positionerConformanceTests "uses transform positioning without Viewport", "uses top/left positioning with Viewport", "updates positioning when Viewport mounts and unmounts".
 - **POP-DOM-22** — MUST. The internal backdrop (POP-STR-13) is `<div role="presentation" data-base-ui-inert="">` with inline `position: fixed; inset: 0; user-select: none; -webkit-user-select: none` and a `clip-path` polygon that cuts out the active trigger's bounding rectangle (PSH-DOM-14, PSH-PTR-05); it carries the `inert` attribute while the effective open state is `false`.
   Source: `popover/positioner/PopoverPositioner.tsx:128-130`; `utils/InternalBackdrop.tsx:6-35`. Test: [L2] `PopoverRoot.test.tsx` "should render an internal backdrop when `true`". (L4 for the `clip-path` clause) Docs: CHANGELOG.md v1.0.0-beta.1 "Cut out internal backdrop to allow interacting with triggers (#2141)".
+  Port note 2026-10-28 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): the markup is C#'s, the `clip-path` cut-out of the active trigger is the `popup` module's write (PSH-ALG-21), hence the `JS` row in §5.3.
 
 ### 5.4 Popup element
 
@@ -605,9 +608,9 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 | `data-open` / `data-closed` | open / closed | POP-DOM-25 | C# |
 | `data-starting-style` / `data-ending-style` | transition status | POP-DOM-26 | JS |
 | `data-side`, `data-align` | resolved placement | POP-DOM-27 | C# |
-| `data-instant` | public instant type | POP-DOM-28 | JS |
+| `data-instant` | public instant type | POP-DOM-28 | C# |
 | inline `transition: none` | `'starting'` | POP-DOM-29 | JS |
-| `--popup-width`, `--popup-height` | Viewport mounted | POP-DOM-30 | C# |
+| `--popup-width`, `--popup-height` | Viewport mounted | POP-DOM-30 | JS |
 | inside focus guards (siblings) | POP-STR-15 | POP-DOM-31 | C# |
 
 - **POP-DOM-23** — MUST. The Popup element's `id` is the Root's generated floating id unless the consumer supplies an `id`; the Trigger's `aria-controls` references whichever is rendered (PSH-STA-04, PSH-ARIA-03).
@@ -622,19 +625,37 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Source: `popover/popup/PopoverPopup.tsx:78-79`. Test: none in Popover (positioner conformance covers the values).
 - **POP-DOM-28** — MUST. The Popup element has `data-instant="<value>"` iff the public instant type is defined; the value set is `click`, `dismiss`, `focus`, `trigger-change`.
   Source: `popover/popup/PopoverPopup.tsx:80`; `popover/popup/PopoverPopupDataAttributes.ts:29-33`. Test: [L4] `PopoverRoot.detached-triggers.test.tsx` "does not apply the trigger-change instant to a hover close after switching triggers" (and the five sibling tests), "does not restore the trigger-change instant after a reopen on the same trigger".
+  Port note 2026-10-28 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): `data-instant` is C#'s, projected from `PopoverPopupState.Instant`, so the Writer cell reads `C#`.
 - **POP-DOM-29** — MUST. While `transitionStatus` is `'starting'` the Popup element has inline `transition: none` (TRN-DOM-05).
   Source: `popover/popup/PopoverPopup.tsx:101`. Test: none.
 - **POP-DOM-30** — MUST. While a Viewport is mounted, the Popup element's inline style carries `--popup-width`/`--popup-height` per PSH-DOM-11 (`auto` at rest, `px` sizes during a content switch) and the inline anchoring styles of PSH-DOM-12; without a Viewport neither is written.
   Source: `popover/popup/PopoverPopupCssVars.ts:4-8`; `utils/usePopupViewport.tsx:280-289`. Test: [L4] viewportConformanceTests "creates morphing containers during transitions", `it.each` side/direction cases (inline anchoring styles); detachedTriggersConformanceTests "does not leave an inline scale style on the popup after switching triggers".
+  Port note 2026-10-28 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): the variables and the anchoring styles are the `popup` module's auto-resize layer of the `dom` style writer, so the Writer cell reads `JS`.
 - **POP-DOM-31** — MUST. The inside focus guards (POP-STR-15) are `<span tabindex="0" data-base-ui-focus-guard="" data-type="inside" aria-hidden="true">` elements (FLT-DOM-13/15).
   Source: `floating-ui-react/components/FloatingFocusManager.tsx:1008-1052`. Test: [L2] `PopoverRoot.test.tsx` "should only render focus guards inside the popup when `true`".
 
 ### 5.5 Arrow element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"` | always (consumer overrides) | POP-ARIA-07 | C# |
+| `data-open` / `data-closed` | open / closed | POP-DOM-32 | C# |
+| `data-side`, `data-align` | resolved placement | POP-DOM-32 | C# → JS |
+| `data-uncentered` | arrow not centered on the anchor | POP-DOM-32 | C# → JS |
+| `style` | arrow position | POP-DOM-32 | C# → JS |
+
 - **POP-DOM-32** — MUST. The Arrow element has `data-open`/`data-closed` (exactly one), `data-side` and `data-align` (resolved placement), and `data-uncentered=""` iff the arrow could not be centered on the anchor (FLT-DOM-08 `arrowUncentered`); its inline style is the arrow position (`position: absolute` with `top`/`left`, FLT-DOM-09) merged before the consumer's `style`.
   Source: `popover/arrow/PopoverArrow.tsx:24-38`; `popover/arrow/PopoverArrowDataAttributes.ts:6-24`. Test: [L4] `PopoverArrow.test.tsx` describeConformance; `PopoverPositioner.test.tsx` "points to the arrow when present regardless of alignment".
 
 ### 5.6 Backdrop element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="presentation"` | always (consumer overrides) | POP-DOM-33 | C# |
+| `hidden` | not mounted | POP-DOM-34 | C# |
+| inline `user-select`, `pointer-events` | always; hover-opened | POP-DOM-35 | C# |
+| `data-open` / `data-closed` | open / closed | POP-DOM-36 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | POP-DOM-36 | JS |
 
 - **POP-DOM-33** — MUST. The Backdrop element has `role="presentation"` (consumer `role` overrides).
   Source: `popover/backdrop/PopoverBackdrop.tsx:39`. Test: [L2] `PopoverRoot.test.tsx` "uses intentional outside press with user backdrop (mouse): closes on click, not on mousedown".
@@ -647,6 +668,15 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 
 ### 5.7 Viewport element and containers
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `[data-current]` container | always, keyed by the active trigger and the late payload | POP-DOM-37 | C# |
+| `[data-previous]` container | during a content transition | POP-DOM-37 | JS |
+| `data-activation-direction` | while a direction exists | POP-DOM-38 | JS |
+| `data-transitioning` | `[data-previous]` rendered | POP-DOM-39 | JS |
+| `data-instant` | public instant type | POP-DOM-40 | C# |
+| `--popup-width` / `--popup-height` on `[data-previous]` | the previous content's popup size | POP-DOM-41 | JS |
+
 - **POP-DOM-37** — MUST. The Viewport element's children are `<div data-current>` (always) and, during a content transition, a preceding `<div data-previous inert style="position: absolute; …">` holding a clone of the outgoing content (PSH-STR-07, PSH-DOM-09/10).
   Source: `utils/usePopupViewport.tsx:229-268`. Test: [L4] viewportConformanceTests "renders children in the `current` container by default", "creates morphing containers during transitions".
 - **POP-DOM-38** — MUST. The Viewport element has `data-activation-direction="<h> <v>"` only while a direction exists (`<h>` ∈ `left`, `right`, empty; `<v>` ∈ `down`, `up`, empty; computed from the previous and new trigger centers with a 5 px tolerance, PSH-DOM-07).
@@ -655,6 +685,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Source: `popover/viewport/PopoverViewport.tsx:36`; `utils/CommonViewportDataAttributes.ts`. Test: [L4] viewportConformanceTests "creates morphing containers during transitions".
 - **POP-DOM-40** — MUST. The Viewport element has `data-instant="<value>"` iff the public instant type is defined.
   Source: `popover/viewport/PopoverViewport.tsx:26,37`. Test: none.
+  Port note 2026-10-28 (M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): `data-instant` is C#'s, projected from `PopoverViewportState.Instant`; §5.7's Writer table names the Viewport's other writers (the containers, the direction and `data-transitioning` are the `popup` module's).
 - **POP-DOM-41** — MUST. The `[data-previous]` container's inline style carries `--popup-width`/`--popup-height` equal to the popup size when the previous content was rendered (PSH-DOM-09).
   Source: `popover/viewport/PopoverViewportCssVars.ts:6-12`; `utils/usePopupViewport.tsx:244-254`. Test: [L4] viewportConformanceTests "creates morphing containers during transitions" (`/^\d+(?:\.\d+)?px$/`).
 
