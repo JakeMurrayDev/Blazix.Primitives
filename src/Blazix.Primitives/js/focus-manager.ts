@@ -32,6 +32,7 @@ import {
   type TwinHandle,
   type TwinOptions,
   type TwinReferences,
+  type TwinCaptures,
 } from './twin';
 
 /** An element that can take focus. */
@@ -907,16 +908,18 @@ function supportsPreventScroll(doc: Document): boolean {
  * @param optionsJson The `FocusManagerOptions` JSON.
  * @param twinReference The twin's object reference.
  * @param references The elements the options name by index, revived by Blazor.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson, references)` and `dispose()`; the live handle when the element is
  * already attached.
  */
 export function attach(
-  elementOrId: Element | string,
+  elementOrId: Element | string | null,
   optionsJson: string,
   twinReference: DotNetTwin,
   references?: TwinReferences,
+  captures?: TwinCaptures,
 ): TwinHandle {
-  const popup = resolveElement(elementOrId) as AttachedElement;
+  const popup = resolveElement(elementOrId, captures?.[0]) as AttachedElement;
   const existing = popup[attachedHandle];
   if (existing) {
     return existing;
@@ -925,6 +928,7 @@ export function attach(
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<FocusManagerOptions>(optionsJson);
   let optionReferences: TwinReferences = references;
+  let optionCaptures: TwinCaptures = captures;
   let disposed = false;
   const doc = ownerDocument(popup);
 
@@ -988,7 +992,7 @@ export function attach(
   };
 
   const resolveReference = (index: number | null | undefined): HTMLElement | null => {
-    const element = resolveTwinReference<Element>(optionReferences, index);
+    const element = resolveTwinReference<Element>(optionReferences, index, optionCaptures);
     return isHTMLElement(element) ? element : null;
   };
 
@@ -1721,12 +1725,13 @@ export function attach(
   sync();
 
   const handle: TwinHandle = {
-    update(nextOptionsJson: string, nextReferences?: TwinReferences) {
+    update(nextOptionsJson: string, nextReferences?: TwinReferences, nextCaptures?: TwinCaptures) {
       if (disposed) {
         return;
       }
       options = parseOptions<FocusManagerOptions>(nextOptionsJson);
       optionReferences = nextReferences;
+      optionCaptures = nextCaptures;
       // A request C# answered, canceled or not, re-arms the focus-out close (ADR 04 Amendments 2026-10-27).
       if ((options.answered ?? 0) !== answered) {
         answered = options.answered ?? 0;

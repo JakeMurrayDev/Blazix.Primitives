@@ -10,7 +10,16 @@
 // The Floating UI DOM predicates Base UI imports are re-implemented here with the same semantics, so this module and
 // the button module stay out of `js/positioning.js`, which bundles the engine (ADR 04 §4, Amendments 2026-10-27).
 import { platform } from './platform';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  type DotNetTwin,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinCaptures,
+  type TwinReferences,
+} from './twin';
 
 export { detectPlatform, platform, type NavigatorData, type Platform } from './platform';
 
@@ -879,10 +888,18 @@ function imageKey(image: ImageLoadOptions | null | undefined): string | null {
  * @param elementOrId The element, or its id when the part has no element reference.
  * @param optionsJson The `DomOptions` JSON.
  * @param twinReference The twin's object reference.
+ * @param _references The references, which this module names none of.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson)` and `dispose()`.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
-  const element = resolveElement(elementOrId);
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const element = resolveElement(elementOrId, captures?.[0]);
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<DomOptions>(optionsJson);
   let disposed = false;

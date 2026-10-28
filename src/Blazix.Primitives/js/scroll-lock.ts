@@ -12,7 +12,15 @@
 import { isOverflowElement, ownerDocument, ownerWindow } from './dom';
 import { platform } from './platform';
 import { cancelFrame, requestFrame } from './transitions';
-import { parseOptions, resolveElement, type DotNetTwin, type TwinHandle, type TwinOptions } from './twin';
+import {
+  parseOptions,
+  resolveElement,
+  type DotNetTwin,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinCaptures,
+  type TwinReferences,
+} from './twin';
 
 /** The options of a `scroll-lock` handle; mirrors `ScrollLockOptions` in C#. */
 export interface ScrollLockOptions extends TwinOptions {
@@ -336,10 +344,18 @@ interface AttachedElement extends HTMLElement {
  * @param elementOrId The reference element, or its id.
  * @param optionsJson The `ScrollLockOptions` JSON.
  * @param _twinReference The twin; this module neither reports nor asks a decision point.
+ * @param _references The references, which this module names none of.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson)` and `dispose()`; the live handle when the element is already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, _twinReference: DotNetTwin): TwinHandle {
-  const element: AttachedElement = resolveElement(elementOrId);
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  _twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const element: AttachedElement = resolveElement(elementOrId, captures?.[0]);
   const existing = element[attachedHandle];
   if (existing) {
     return existing;

@@ -7,7 +7,17 @@ import { findHiddenInput } from './button';
 import { activeElement, closest, getTarget, ownerDocument, ownerWindow } from './dom';
 import { decide } from './decide';
 import { eventInfo, type EventInfo } from './event-info';
-import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions } from './twin';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  type DotNetTwin,
+  type TwinChannel,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinCaptures,
+  type TwinReferences,
+} from './twin';
 
 /** The options of an attached control; mirrors `FormControlOptions` in C#. */
 export interface FormControlOptions {
@@ -465,10 +475,18 @@ function focusWithVisible(element: HTMLElement): void {
  * @param elementOrId The element, or its id.
  * @param optionsJson The options.
  * @param twinReference The twin's object reference.
+ * @param _references The references, which this module names none of.
+ * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update` and `dispose`; a repeated attach of the same element returns the live handle.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin): TwinHandle {
-  const element = resolveElement(elementOrId) as HandleHost;
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  _references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const element = resolveElement(elementOrId, captures?.[0]) as HandleHost;
   const existing = element[liveHandle];
   if (existing) {
     return existing;
