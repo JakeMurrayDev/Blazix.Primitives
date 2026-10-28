@@ -245,6 +245,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   let direction: string | null = null;
   let reported: PopupViewportReport | null = null;
   let contentVersion = options.contentVersion ?? 0;
+  let placementPending = false;
   let disposed = false;
   const currentWatcher = createAnimationsWatcher(() => currentContainer, true);
   const popupWatcher: AnimationsWatcher = createAnimationsWatcher(popup, true);
@@ -331,8 +332,14 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     anchoring = {};
   };
 
-  // usePopupAutoResize.ts:42-121.
+  // One measurement; its own writes on the positioner are not the positioning handle's, so the side observer drops them.
   const measure = () => {
+    measureNow();
+    sideObserver.takeRecords();
+  };
+
+  // usePopupAutoResize.ts:42-121.
+  const measureNow = () => {
     resizeCleanup?.abort();
     resizeFrame.cancel();
     if (!options.open) {
@@ -343,8 +350,11 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       return;
     }
 
-    // Design point 3 (settled by the orchestrator 2026-10-28): the rendered physical side, from `positioning`'s reader.
-    const side = readPlacement(positioner)?.physicalSide ?? 'bottom';
+    // Design point 3 (settled by the orchestrator 2026-10-28): the rendered physical side, from `positioning`'s reader. A
+    // Positioner whose handle has not attached yet reads nothing; its first write re-measures (the side observer).
+    const placement = readPlacement(positioner);
+    placementPending = placement === null;
+    const side = placement?.physicalSide ?? 'bottom';
     resetAnchoring();
     anchoring = getPopupAnchoringStyles(side);
     for (const [property, value] of Object.entries(anchoring)) {
@@ -422,7 +432,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     }
   };
 
-  const observer = new MutationObserver((records) => {
+  const onMutations = (records: MutationRecord[]) => {
     if (disposed) {
       return;
     }
@@ -443,22 +453,30 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     if (removed !== null || remounted) {
       process(removed, remounted);
     }
-  });
+  };
+  const observer = new MutationObserver(onMutations);
   observer.observe(viewport, { childList: true });
 
-  // A flip of the side re-anchors the popup (the anchoring styles follow the side, usePopupAutoResize's effect).
-  const sideObserver = new MutationObserver(() => {
-    if (!disposed) {
+  // A flip of the side re-anchors the popup (the anchoring styles follow the side, usePopupAutoResize's effect), and so
+  // does the positioning handle's first write when the reader had nothing yet.
+  const sideObserver = new MutationObserver((records) => {
+    if (!disposed && records.some((record) => record.attributeName === 'data-side' || placementPending)) {
       measure();
     }
   });
   if (positioner !== null) {
-    sideObserver.observe(positioner, { attributes: true, attributeFilter: ['data-side'] });
+    sideObserver.observe(positioner, { attributes: true, attributeFilter: ['data-side', 'style'] });
   }
 
   let attached = false;
   return {
     update(next) {
+      // On WebAssembly C#'s after-render update runs in the task that applied the render batch, before the observer's
+      // microtask: the removed `[data-current]` is only in the pending records, so they are handled first.
+      const pending = observer.takeRecords();
+      if (pending.length > 0) {
+        onMutations(pending);
+      }
       const previousOptions = options;
       options = next.viewport ?? {};
       const version = options.contentVersion ?? 0;
