@@ -123,14 +123,18 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
             context.ClearPopupElement();
         }
 
-        // The Popup role's attach can still be in flight behind the module's import (issue 134's class): its attachment is
-        // disposed with the part, before the other handles' round trips, so an attach the close overtook finds no element
-        // and is dropped instead of failing a twin those round trips would keep live.
+        // An attach can still be in flight behind its module's import or the portal's move (issue 134's class): every
+        // handle's disposal starts with the part, so an attach the close overtook finds its twin disposed and its missing
+        // element is dropped, instead of failing a twin that the earlier handles' round trips would keep live.
+        ValueTask focusDisposed = focus.DisposeAsync();
+        ValueTask floatingDisposed = floating.DisposeAsync();
+        ValueTask scrollLockDisposed = scrollLock.DisposeAsync();
+        ValueTask transitionsDisposed = transitions.DisposeAsync();
         ValueTask keysDisposed = keys.DisposeAsync();
-        await focus.DisposeAsync();
-        await floating.DisposeAsync();
-        await scrollLock.DisposeAsync();
-        await transitions.DisposeAsync();
+        await focusDisposed;
+        await floatingDisposed;
+        await scrollLockDisposed;
+        await transitionsDisposed;
         await keysDisposed;
     }
 
