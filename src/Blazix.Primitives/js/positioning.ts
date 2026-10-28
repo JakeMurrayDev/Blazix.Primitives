@@ -45,6 +45,7 @@ import {
   type VirtualElement,
 } from './floating-ui';
 import { ownerDocument, ownerWindow, styleWriter, type StyleLayer } from './dom';
+import { acquireSession, releaseSession, type InteractionSession } from './interactions';
 import { observeOpenInput } from './transitions';
 import {
   createTwinChannel,
@@ -93,7 +94,7 @@ export interface PositioningRect {
 // FLT-DOM-09/10 (design point 6).
 /** The options of a `positioning` handle; mirrors `PositioningOptions` in C#. */
 export interface PositioningOptions extends TwinOptions {
-  /** The popup's session token; looked up through the `interactions` export once it exists. */
+  /** The popup's session token: the handle takes the session of the `interactions` module with this token. */
   sessionToken?: string | null;
   /** The selector the Positioner matches while C# renders it open; `[data-open]` when absent. Mounted is `:not([hidden])`. */
   openSelector?: string | null;
@@ -685,10 +686,38 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   const alignOffsetOf = (state: MiddlewareState): number =>
     evaluateOffset(options.alignOffsetFunction ?? options.alignOffset, getOffsetData(state, sideParam(), isRtl()));
 
-  // The position reference (FLT-STA-07, FLT-POS-13, FLT-API-11): a virtual anchor as given, a custom anchor element (from
-  // the references, or by id) wrapped so its own rect is measured, else the active trigger itself (the root store's
-  // reference element).
+  // FLT-STA-08 (ADR 04 Amendments 2026-10-27, the session through the `interactions` export): the handle takes a reference
+  // on the popup's session by its token, publishes each committed placement to it (the safe polygon reads it), and
+  // follows the session's position reference. Released at dispose and when the token changes.
+  let session: InteractionSession | null = null;
+  let stopFollowing: (() => void) | null = null;
+  const syncSession = () => {
+    const token = options.sessionToken || null;
+    if ((session?.token ?? null) === token) {
+      return;
+    }
+    stopFollowing?.();
+    stopFollowing = null;
+    if (session !== null) {
+      releaseSession(session);
+    }
+    session = token === null ? null : acquireSession(token);
+    if (session !== null) {
+      stopFollowing = session.subscribePositionReference(() => {
+        refresh();
+      });
+    }
+  };
+
+  // The position reference (FLT-STR-02, FLT-STA-07, FLT-POS-13, FLT-API-11): the session's position reference while one
+  // is set (the client point and the hovered line write it on every move, after the anchor's registration, so it is
+  // Base UI's last writer), a virtual anchor as given, a custom anchor element (from the references, or by id) wrapped
+  // so its own rect is measured, else the active trigger itself (the root store's reference element).
   const resolvePositionReference = (): { key: unknown; value: ReferenceElement | null } => {
+    const sessionReference = session?.positionReference;
+    if (sessionReference) {
+      return { key: sessionReference, value: sessionReference as VirtualElement };
+    }
     const doc = ownerDocument(element);
     const virtual = options.virtualAnchor;
     if (virtual) {
@@ -1045,6 +1074,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       data = next;
       isPositioned = positioned;
       render();
+      session?.setPlacement(next.placement);
       report();
       lockPlacement();
     });
@@ -1144,6 +1174,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       options = parseOptions<PositioningOptions>(nextJson);
       references = nextReferences;
       writer.setConsumer(options.style);
+      syncSession();
       observe();
       refresh();
     },
@@ -1166,6 +1197,12 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
       stopTracking = null;
       stopObserving?.();
       stopObserving = null;
+      stopFollowing?.();
+      stopFollowing = null;
+      if (session !== null) {
+        releaseSession(session);
+        session = null;
+      }
       arrowLayer?.clear();
       positionerLayer.clear();
       transitionLayer.clear();
@@ -1175,6 +1212,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   element[attachedHandle] = handle;
+  syncSession();
   observe();
   refresh();
   return handle;
