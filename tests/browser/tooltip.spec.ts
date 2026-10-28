@@ -711,3 +711,239 @@ test.describe('<Tooltip.Root /> animations', () => {
     await expect(popup(page, 1)).toHaveCount(0);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Nested tooltips (TooltipRoot.test.tsx:1392-2700) on `tooltip-nested`: the nested-trigger detection is the
+// `interactions` module's (`Hover.NestedTooltipTriggers`, ADR 04 Amendments 2026-10-18 item 4), reached here with the real
+// pointer and keyboard.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('nested tooltips', () => {
+  const open = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) => gotoPopupFixture(page, mode, 'tooltip-nested', options);
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+
+  /** Moves the real pointer to the center of an element in steps, so `mouseover`, `mouseenter` and `mousemove` fire. */
+  async function moveTo(page: Page, id: string): Promise<void> {
+    const box = (await byTestId(page, id).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
+  }
+
+  test('should not open the outer tooltip when hovering over a nested tooltip trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode);
+    await freezeClock(page);
+
+    await moveTo(page, 'inner-trigger');
+    await page.clock.runFor(OPEN_DELAY);
+
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should not open the outer tooltip when moving between sibling nested triggers', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { siblings: true });
+    await freezeClock(page);
+
+    await moveTo(page, 'inner-trigger');
+    await page.clock.runFor(OPEN_DELAY);
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await moveTo(page, 'inner-trigger-2');
+    await page.clock.runFor(OPEN_DELAY);
+
+    await expect(byTestId(page, 'inner-popup-2')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should not open ancestor tooltips when hovering over a third-level nested trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { depth: 3 });
+    await freezeClock(page);
+
+    await moveTo(page, 'deep-trigger');
+    await page.clock.runFor(OPEN_DELAY);
+
+    await expect(byTestId(page, 'deep-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'inner-popup')).toHaveCount(0);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should open the outer tooltip when moving from a nested trigger to the parent area with zero delay', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 0 });
+    await moveTo(page, 'inner-trigger');
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+
+    await moveTo(page, 'outer-area');
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+  });
+
+  test('should not open a disabled outer tooltip when moving from a nested trigger to the parent area with zero delay', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 0, outerDisabled: true });
+    await moveTo(page, 'inner-trigger');
+
+    await moveTo(page, 'outer-area');
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should reopen the delayed outer tooltip when moving from a nested trigger to the parent area', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 100 });
+    await freezeClock(page);
+    await moveTo(page, 'inner-trigger');
+    await page.clock.runFor(100);
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+
+    await moveTo(page, 'outer-area');
+    await page.clock.runFor(99);
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    await page.clock.runFor(1);
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+  });
+
+  test('should cancel the pending parent reopen when the pointer leaves the parent trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 100 });
+    await freezeClock(page);
+    await moveTo(page, 'inner-trigger');
+    await moveTo(page, 'outer-area');
+
+    await moveAway(page);
+    await page.clock.runFor(200);
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should not reopen the outer tooltip when rapidly moving back to a nested trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 100 });
+    await freezeClock(page);
+    await moveTo(page, 'inner-trigger');
+    await moveTo(page, 'outer-area');
+
+    await moveTo(page, 'inner-trigger');
+    await page.clock.runFor(200);
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should close the outer tooltip when the pointer moves from outer area onto a nested trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerDelay: 0 });
+    await moveTo(page, 'outer-area');
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+
+    await moveTo(page, 'inner-trigger');
+
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-hover false:trigger-hover');
+  });
+
+  test('should keep a focus-opened outer tooltip open when hovering over a nested trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { detached: false });
+    // The outer trigger is a `span`, which takes no focus by itself (TIP §16 Q10); the inner trigger's focus does not open
+    // the outer one (TIP-FOC-05), so the outer is focused through a tabindex the page gives it.
+    await byTestId(page, 'outer-trigger').evaluate((element) => element.setAttribute('tabindex', '0'));
+    await byTestId(page, 'outer-trigger').focus();
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+
+    await moveTo(page, 'inner-trigger');
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-focus']);
+  });
+
+  test('should keep a controlled-open outer tooltip open when hovering over a nested trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { outerOpen: true });
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+
+    await moveTo(page, 'inner-trigger');
+    await settle(fixture);
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  test('should not open the outer tooltip when focusing a nested tooltip trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode);
+
+    await byTestId(page, 'inner-trigger').focus();
+
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should close a focus-opened inner tooltip when the inner trigger loses focus', async ({ page, mode }) => {
+    const fixture = await open(page, mode);
+    await byTestId(page, 'inner-trigger').focus();
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+
+    await byTestId(page, 'inner-trigger').blur();
+
+    await expect(byTestId(page, 'inner-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should allow the parent tooltip to open when a nested trigger is disabled', async ({ page, mode }) => {
+    await open(page, mode, { outerDelay: 0, innerDisabled: true });
+    await expect(byTestId(page, 'inner-trigger')).not.toHaveAttribute('data-base-ui-tooltip-trigger');
+
+    await moveTo(page, 'inner-trigger');
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+  });
+
+  test('should open the outer tooltip when hovering over the non-nested area', async ({ page, mode }) => {
+    await open(page, mode);
+    await freezeClock(page);
+
+    await moveTo(page, 'outer-area');
+    await page.clock.runFor(OPEN_DELAY);
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+  });
+
+  test('should not open the outer tooltip when the pointer moves onto a nested trigger before the delay expires', async ({ page, mode }) => {
+    const fixture = await open(page, mode);
+    await freezeClock(page);
+    await moveTo(page, 'outer-area');
+    await page.clock.runFor(OPEN_DELAY / 2);
+
+    await moveTo(page, 'inner-trigger');
+    await page.clock.runFor(OPEN_DELAY);
+
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should support nested triggers with a Provider delay={0}', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { provider: true });
+
+    await moveTo(page, 'inner-trigger');
+
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+  });
+
+  test('should support nested triggers inside a detached parent trigger', async ({ page, mode }) => {
+    const fixture = await open(page, mode, { detached: true, outerDelay: 0 });
+
+    await moveTo(page, 'inner-trigger');
+    await expect(byTestId(page, 'inner-popup')).toBeVisible();
+    await settle(fixture);
+    await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
+
+    await moveTo(page, 'outer-area');
+
+    await expect(byTestId(page, 'outer-popup')).toBeVisible();
+  });
+});

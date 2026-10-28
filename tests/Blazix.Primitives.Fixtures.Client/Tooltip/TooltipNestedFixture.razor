@@ -1,0 +1,145 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-nested` fixture (tests/browser/tooltip.spec.ts): TooltipRoot.test.tsx's nested tooltips (:1392-2700). An
+    outer tooltip whose trigger is a `span` (`Render`, `outer-trigger`) holding an area (`outer-area`) and an inner
+    tooltip's trigger (`inner-trigger`, a `button`); with `siblings`, a second inner trigger (`inner-trigger-2`); with
+    `depth=3`, the inner trigger is a `span` holding a third-level trigger (`deep-trigger`). Popups: `outer-popup`,
+    `inner-popup`, `inner-popup-2`, `deep-popup`. The query sets `outerDelay` and `innerDelay`, `outerDisabled`,
+    `innerDisabled` (the inner trigger), `outerOpen=true` (the outer root controlled open), `detached` (the outer trigger
+    detached through a handle), `provider` (a TooltipProvider with `delay=0` around everything). The container records the
+    outer root's open changes.
+*@
+<FixtureContainer Name="tooltip-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <div style="position: fixed; top: 0; left: 0">
+        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    </div>
+    <div style="position: fixed; top: 200px; left: 100px">
+        @if (provider)
+        {
+            <TooltipProvider Delay="0">@Tree</TooltipProvider>
+        }
+        else
+        {
+            @Tree
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly TooltipHandle<NoPayload> handle = new();
+    private readonly List<TooltipRoot<NoPayload>> roots = [];
+    private readonly List<TooltipTrigger<NoPayload>> triggers = [];
+    private Duration? outerDelay;
+    private Duration? innerDelay;
+    private bool outerDisabled;
+    private bool? innerDisabled;
+    private bool outerOpen;
+    private bool detached;
+    private bool provider;
+    private bool siblings;
+    private int depth = 2;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    protected override void OnInitialized()
+    {
+        outerDelay = int.TryParse(Query("outerDelay"), out int outer) ? outer : null;
+        innerDelay = int.TryParse(Query("innerDelay"), out int inner) ? inner : null;
+        outerDisabled = QueryFlag("outerDisabled") == true;
+        innerDisabled = QueryFlag("innerDisabled");
+        outerOpen = QueryFlag("outerOpen") == true;
+        detached = QueryFlag("detached") == true;
+        provider = QueryFlag("provider") == true;
+        siblings = QueryFlag("siblings") == true;
+        depth = int.TryParse(Query("depth"), out int levels) ? levels : 2;
+    }
+
+    private async Task HandlesAttachedAsync()
+    {
+        await Task.WhenAll(roots.Select(root => root.SessionAttached));
+        await Task.WhenAll(triggers.Select(trigger => trigger.TwinAttached));
+    }
+
+    private void Root(TooltipRoot<NoPayload> root)
+    {
+        if (!roots.Contains(root))
+        {
+            roots.Add(root);
+        }
+    }
+
+    private void Trigger(TooltipTrigger<NoPayload> trigger)
+    {
+        if (!triggers.Contains(trigger))
+        {
+            triggers.Add(trigger);
+        }
+    }
+
+    private static RenderFragment Span => @<span style="display: inline-block; padding: 30px; border: 1px solid gray" />;
+
+    private Dictionary<string, object> OuterRootAttributes => outerOpen ? new() { ["Open"] = true } : [];
+
+    private RenderFragment Tree => @<text>
+        @if (detached)
+        {
+            <TooltipTrigger Handle="handle" @ref="OuterTriggerRef" data-testid="outer-trigger" Render="Span" Delay="@outerDelay" Disabled="@(outerDisabled ? true : null)">@OuterContent</TooltipTrigger>
+            <TooltipRoot Handle="handle" @ref="OuterRootRef" @attributes="OuterRootAttributes" Disabled="@outerDisabled" OnOpenChange="RecordOpenChange">
+                @Popup("outer-popup", "Outer tooltip")
+            </TooltipRoot>
+        }
+        else
+        {
+            <TooltipRoot TPayload="NoPayload" @ref="OuterRootRef" @attributes="OuterRootAttributes" Disabled="@outerDisabled" OnOpenChange="RecordOpenChange">
+                <TooltipTrigger TPayload="NoPayload" @ref="OuterTriggerRef" data-testid="outer-trigger" Render="Span" Delay="@outerDelay">@OuterContent</TooltipTrigger>
+                @Popup("outer-popup", "Outer tooltip")
+            </TooltipRoot>
+        }
+    </text>;
+
+    private TooltipRoot<NoPayload>? OuterRootRef { set { if (value is not null) Root(value); } }
+
+    private TooltipTrigger<NoPayload>? OuterTriggerRef { set { if (value is not null) Trigger(value); } }
+
+    private TooltipRoot<NoPayload>? InnerRootRef { set { if (value is not null) Root(value); } }
+
+    private TooltipTrigger<NoPayload>? InnerTriggerRef { set { if (value is not null) Trigger(value); } }
+
+    private RenderFragment OuterContent => @<text>
+        <span data-testid="outer-area" style="display: inline-block; width: 120px; height: 30px">Outer</span>
+        @Inner("inner-trigger", "inner-popup", "Inner tooltip")
+        @if (siblings)
+        {
+            @Inner("inner-trigger-2", "inner-popup-2", "Inner tooltip 2")
+        }
+    </text>;
+
+    private RenderFragment Inner(string trigger, string popup, string text) => @<TooltipRoot TPayload="NoPayload" @ref="InnerRootRef">
+        @if (depth >= 3 && trigger == "inner-trigger")
+        {
+            <TooltipTrigger TPayload="NoPayload" @ref="InnerTriggerRef" data-testid="@trigger" Render="Span" Delay="@innerDelay" Disabled="@innerDisabled">
+                Inner
+                <TooltipRoot TPayload="NoPayload" @ref="InnerRootRef">
+                    <TooltipTrigger TPayload="NoPayload" @ref="InnerTriggerRef" data-testid="deep-trigger" Delay="@innerDelay">Deep</TooltipTrigger>
+                    @Popup("deep-popup", "Deep tooltip")
+                </TooltipRoot>
+            </TooltipTrigger>
+        }
+        else
+        {
+            <TooltipTrigger TPayload="NoPayload" @ref="InnerTriggerRef" data-testid="@trigger" Delay="@innerDelay" Disabled="@innerDisabled" style="margin: 10px">Inner</TooltipTrigger>
+        }
+        @Popup(popup, text)
+    </TooltipRoot>;
+
+    private static RenderFragment Popup(string testId, string text) => @<TooltipPortal>
+        <TooltipPositioner>
+            <TooltipPopup data-testid="@testId">@text</TooltipPopup>
+        </TooltipPositioner>
+    </TooltipPortal>;
+}
