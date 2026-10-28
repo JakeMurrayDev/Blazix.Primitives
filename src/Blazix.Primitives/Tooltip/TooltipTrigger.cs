@@ -160,8 +160,8 @@ public sealed class TooltipTrigger<TPayload> : PartBase<TooltipTriggerState>
     protected override StateAttributesMapping<TooltipTriggerState>? StateAttributesMapping => s_mapping;
 
     // For the fixtures (tests/Blazix.Primitives.Fixtures.Client).
-    /// <summary>Gets a task that completes when the trigger's interactions handle is attached.</summary>
-    internal Task TwinAttached => interactions?.TwinAttached ?? Task.CompletedTask;
+    /// <summary>Gets a task that completes when the trigger's interactions handle is attached, or at once while no root is attached to its handle.</summary>
+    internal Task TwinAttached => interactions is null || popup.Store.SessionToken is null ? Task.CompletedTask : interactions.TwinAttached;
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
