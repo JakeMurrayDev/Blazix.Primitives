@@ -83,6 +83,13 @@ public sealed class TransitionsTwinContractTests
             """{"open":false,"mounted":false,"enableIdleState":false,"deferEndingState":false,"keepMounted":false,"hiddenUntilFound":false,"hiddenWhenUnmounted":false,"suppressEndingStyle":false,"reportOpenComplete":false,"revealOnBeforeMatch":false,"unmountRequests":0,"externalExit":false}""",
             JsonSerializer.Serialize(new TransitionsOptions(), BlazixJsonContext.Default.TransitionsOptions));
 
+        // TRN-DOM-05's flag (ADR 04 Amendments 2026-10-28): left out at its default, so every other part's record is
+        // unchanged, and written when a part asks for transition: none while starting.
+        Assert.Contains(
+            "\"disableTransitionWhileStarting\":true",
+            JsonSerializer.Serialize(new TransitionsOptions { DisableTransitionWhileStarting = true }, BlazixJsonContext.Default.TransitionsOptions),
+            StringComparison.Ordinal);
+
         foreach ((TransitionStatus status, string literal) in new[] { (TransitionStatus.Starting, "starting"), (TransitionStatus.Ending, "ending"), (TransitionStatus.Idle, "idle") })
         {
             string json = JsonSerializer.Serialize(new TransitionsOptions { Status = status }, BlazixJsonContext.Default.TransitionsOptions);

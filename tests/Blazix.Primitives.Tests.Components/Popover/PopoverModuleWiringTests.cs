@@ -200,5 +200,20 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.Equal("""{"popup":{"stopCompositeKeys":true}}""", test.LastPopupOptions("popup"));
     }
 
+    [Fact(DisplayName = "port: the popup's transitions handle asks for transition: none while starting")]
+    [Trait("Requirement", "POP-DOM-29")]
+    public void The_popups_transitions_handle_asks_for_transition_none_while_starting()
+    {
+        // TRN-DOM-05 (ADR 04 Amendments 2026-10-28): the module writes it from the handover on, on the starting frame.
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        transitions.SetupModule("attach", _ => true);
+
+        Render(new PopoverSpec { DefaultOpen = true });
+
+        Assert.Contains(
+            transitions.Invocations["attach"],
+            attach => attach.Arguments[1] is string json && json.Contains("\"disableTransitionWhileStarting\":true", StringComparison.Ordinal));
+    }
+
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }
