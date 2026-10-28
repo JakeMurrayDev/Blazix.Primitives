@@ -31,6 +31,7 @@ public static class DemoCatalog
         new("toolbar", "Toolbar", "A set of buttons, toggles, an input and a link that the arrow keys move between.", typeof(ToolbarDemo)),
         new("popover", "Popover", "An accessible popup anchored to a button, here the notifications of an account.", typeof(PopoverDemo)),
         new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
+        new("preview-card", "Preview Card", "A card that previews a link's content when the pointer rests on it or the keyboard focuses it.", typeof(PreviewCardDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
