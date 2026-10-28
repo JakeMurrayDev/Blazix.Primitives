@@ -4,7 +4,13 @@
 // trigger-change report and the composite keys' stop. Each case builds the DOM C# renders and attaches as the twin would.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
-import {
+
+// `positioning`'s reader stands in for an attached Positioner: the rendered physical side is the attribute the test sets.
+vi.mock('./positioning', () => ({
+  readPlacement: (element: Element) => ({ physicalSide: element.getAttribute('data-physical-side') ?? 'bottom', isPositioned: true }),
+}));
+
+const {
   TRIGGER_CHANGE_REPORT,
   VIEWPORT_REPORT,
   attach,
@@ -13,10 +19,8 @@ import {
   getActivationDirection,
   getPopupAnchoringStyles,
   touchOpenLocksScroll,
-  type Offset,
-  type PopupOptions,
-  type PopupViewportReport,
-} from './popup';
+} = await import('./popup');
+import type { Offset, PopupOptions, PopupViewportReport } from './popup';
 import { resetScrollLockForTest, scrollLockCount } from './scroll-lock';
 import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
@@ -113,14 +117,16 @@ function current(text: string): HTMLElement {
   return container;
 }
 
-/** Opens the popup on a trigger as C# renders it: `data-popup-open` and `aria-controls` on the active trigger only. */
+/** Opens the popup on a trigger as C# renders it: `aria-expanded` and `aria-controls` on the active trigger only. */
 function activate(rendered: RenderedViewport, index: number): void {
   rendered.triggers.forEach((trigger, i) => {
     if (i === index) {
       trigger.setAttribute('data-popup-open', '');
+      trigger.setAttribute('aria-expanded', 'true');
       trigger.setAttribute('aria-controls', 'popup');
     } else {
       trigger.removeAttribute('data-popup-open');
+      trigger.setAttribute('aria-expanded', 'false');
       trigger.removeAttribute('aria-controls');
     }
   });
@@ -134,7 +140,7 @@ function remount(rendered: RenderedViewport, text: string): HTMLElement {
   return next;
 }
 
-const openViewport = { viewport: { open: true, mounted: true, popupId: 'popup', direction: 'ltr' as const } };
+const openViewport = { viewport: { open: true, popupId: 'popup' } };
 
 describe('getActivationDirection', () => {
   it('returns undefined without an offset', () => {
@@ -250,7 +256,7 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
 
     handle.update(JSON.stringify({ viewport: { ...openViewport.viewport, open: false } }));
     activate(rendered, 1);
-    rendered.triggers[1]!.removeAttribute('data-popup-open');
+    rendered.triggers[1]!.setAttribute('aria-expanded', 'false');
     remount(rendered, 'Two');
     await settle();
     handle.update(JSON.stringify(openViewport));
@@ -311,16 +317,14 @@ describe('auto-resize', () => {
   });
 
   it.each([
-    { side: 'top', direction: 'ltr', expected: { position: 'absolute', bottom: '0px', left: '0px' } },
-    { side: 'left', direction: 'ltr', expected: { position: 'absolute', top: '0px', right: '0px' } },
-    { side: 'inline-start', direction: 'ltr', expected: { position: 'absolute', top: '0px', right: '0px' } },
-    { side: 'inline-start', direction: 'rtl', expected: {} },
-    { side: 'inline-end', direction: 'rtl', expected: { position: 'absolute', top: '0px', right: '0px' } },
-    { side: 'bottom', direction: 'ltr', expected: {} },
-  ] as const)('port: anchors the popup on the $side side in $direction', ({ side, direction, expected }) => {
+    { side: 'top', expected: { position: 'absolute', bottom: '0px', left: '0px' } },
+    { side: 'left', expected: { position: 'absolute', top: '0px', right: '0px' } },
+    { side: 'right', expected: {} },
+    { side: 'bottom', expected: {} },
+  ] as const)('port: anchors the popup on the rendered physical $side side', ({ side, expected }) => {
     const rendered = renderViewport();
-    rendered.positioner.setAttribute('data-side', side);
-    attachTo(rendered.viewport, { viewport: { ...openViewport.viewport, direction } }, createFakeTwin());
+    rendered.positioner.setAttribute('data-physical-side', side);
+    attachTo(rendered.viewport, openViewport, createFakeTwin());
 
     for (const property of ['position', 'top', 'bottom', 'left', 'right']) {
       expect(rendered.popup.style.getPropertyValue(property)).toBe((expected as Record<string, string>)[property] ?? '');
@@ -332,6 +336,7 @@ describe('auto-resize', () => {
     attachTo(rendered.viewport, openViewport, createFakeTwin());
     expect(rendered.popup.style.position).toBe('');
 
+    rendered.positioner.setAttribute('data-physical-side', 'top');
     rendered.positioner.setAttribute('data-side', 'top');
     await settle();
 
@@ -362,7 +367,7 @@ describe('the positioner', () => {
 
   it('port: cuts the active trigger out of the internal backdrop, and follows each positioning pass', async () => {
     const { positioner, backdrop, trigger } = renderPositioner();
-    attachTo(positioner, { positioner: { open: true, cutout: true, activeTriggerId: 'trigger' } }, createFakeTwin());
+    attachTo(positioner, { positioner: { watchTriggerChange: true, cutout: true, activeTriggerId: 'trigger' } }, createFakeTwin());
 
     expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 10, top: 20, right: 40, bottom: 60 }));
     expect(backdrop.style.position).toBe('fixed');
@@ -376,7 +381,7 @@ describe('the positioner', () => {
   it('port: a backdrop inserted after attach is cut out in the same batch', async () => {
     const { positioner, backdrop, trigger } = renderPositioner();
     backdrop.remove();
-    attachTo(positioner, { positioner: { open: true, cutout: true, activeTriggerId: trigger.id } }, createFakeTwin());
+    attachTo(positioner, { positioner: { watchTriggerChange: true, cutout: true, activeTriggerId: trigger.id } }, createFakeTwin());
 
     positioner.before(backdrop);
     await settle();
@@ -402,17 +407,17 @@ describe('the positioner', () => {
     Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, get: () => 400 });
     const size = { width: 300, height: 10 };
     withSize(positioner, size);
-    const handle = attachTo(positioner, { positioner: { open: true, scrollLock: true, activeTriggerId: trigger.id } }, createFakeTwin());
+    const handle = attachTo(positioner, { positioner: { watchTriggerChange: true, scrollLock: true, activeTriggerId: trigger.id } }, createFakeTwin());
     expect(scrollLockCount()).toBe(1);
 
-    handle.update(JSON.stringify({ positioner: { open: true, scrollLock: true, touchOpen: true, activeTriggerId: trigger.id } }));
+    handle.update(JSON.stringify({ positioner: { watchTriggerChange: true, scrollLock: true, touchOpen: true, activeTriggerId: trigger.id } }));
     expect(scrollLockCount()).toBe(0);
 
     size.width = 390;
-    handle.update(JSON.stringify({ positioner: { open: true, scrollLock: true, touchOpen: true, activeTriggerId: trigger.id } }));
+    handle.update(JSON.stringify({ positioner: { watchTriggerChange: true, scrollLock: true, touchOpen: true, activeTriggerId: trigger.id } }));
     expect(scrollLockCount()).toBe(1);
 
-    handle.update(JSON.stringify({ positioner: { open: false, activeTriggerId: trigger.id } }));
+    handle.update(JSON.stringify({ positioner: { watchTriggerChange: false, activeTriggerId: trigger.id } }));
     expect(scrollLockCount()).toBe(0);
   });
 
@@ -421,16 +426,16 @@ describe('the positioner', () => {
     const { positioner } = renderPositioner();
     positioner.getAnimations = () => [];
     const twin = createFakeTwin();
-    const handle = attachTo(positioner, { positioner: { open: true, activeTriggerId: 'a' } }, twin);
+    const handle = attachTo(positioner, { positioner: { watchTriggerChange: true, activeTriggerId: 'a' } }, twin);
 
-    handle.update(JSON.stringify({ positioner: { open: true, activeTriggerId: 'b' } }));
+    handle.update(JSON.stringify({ positioner: { watchTriggerChange: true, activeTriggerId: 'b' } }));
     expect(twin.reported(TRIGGER_CHANGE_REPORT)).toHaveLength(0);
     flushFrames();
     await settle();
     expect(twin.reported(TRIGGER_CHANGE_REPORT)).toHaveLength(1);
 
-    handle.update(JSON.stringify({ positioner: { open: true, activeTriggerId: 'a' } }));
-    handle.update(JSON.stringify({ positioner: { open: false, activeTriggerId: 'a' } }));
+    handle.update(JSON.stringify({ positioner: { watchTriggerChange: true, activeTriggerId: 'a' } }));
+    handle.update(JSON.stringify({ positioner: { watchTriggerChange: false, activeTriggerId: 'a' } }));
     flushFrames();
     await settle();
     expect(twin.reported(TRIGGER_CHANGE_REPORT)).toHaveLength(1);

@@ -58,7 +58,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
         string? options = test.LastPopupOptions("viewport");
         Assert.NotNull(options);
         Assert.Contains("\"open\":true", options, StringComparison.Ordinal);
-        Assert.Contains("\"mounted\":true", options, StringComparison.Ordinal);
+        Assert.Contains("\"popupId\":", options, StringComparison.Ordinal);
 
         await cut.InvokeAsync(() => test.PopupTwinOf("viewport").OnViewportChange("""{"activationDirection":"right down","transitioning":true}"""));
 

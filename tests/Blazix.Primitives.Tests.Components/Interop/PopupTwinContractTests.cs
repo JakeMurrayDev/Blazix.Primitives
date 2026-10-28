@@ -28,12 +28,12 @@ public sealed class PopupTwinContractTests
 
         TwinHandle<PopupOptions> viewport = await twin.AttachAsync("viewport", new PopupOptions
         {
-            Viewport = new PopupViewportOptions { Open = true, Mounted = true, PopupId = "base-ui-1", ActiveTriggerId = "trigger-1", ContentVersion = 2, Direction = "rtl" },
+            Viewport = new PopupViewportOptions { Open = true, PopupId = "base-ui-1", ContentVersion = 2 },
         });
         Assert.Same(viewport, await twin.AttachAsync("viewport", new PopupOptions()));
         TwinHandle<PopupOptions> positioner = await twin.AttachAsync("positioner", new PopupOptions
         {
-            Positioner = new PopupPositionerOptions { Open = true, Cutout = true, ScrollLock = true, TouchOpen = true, ActiveTriggerId = "trigger-1" },
+            Positioner = new PopupPositionerOptions { WatchTriggerChange = true, Cutout = true, ScrollLock = true, TouchOpen = true, ActiveTriggerId = "trigger-1" },
         });
         TwinHandle<PopupOptions> popup = await twin.AttachAsync("popup", new PopupOptions { Popup = new PopupElementOptions { StopCompositeKeys = true } });
         await viewport.UpdateAsync(new PopupOptions { SessionToken = "base-ui-2", Viewport = new PopupViewportOptions() });
@@ -44,16 +44,16 @@ public sealed class PopupTwinContractTests
         Assert.Equal(3, attaches.Count);
         Assert.Equal("viewport", attaches[0].Arguments[0]);
         Assert.Equal(
-            """{"viewport":{"open":true,"mounted":true,"popupId":"base-ui-1","activeTriggerId":"trigger-1","contentVersion":2,"direction":"rtl"}}""",
+            """{"viewport":{"open":true,"popupId":"base-ui-1","contentVersion":2}}""",
             attaches[0].Arguments[1]);
         Assert.IsType<DotNetObjectReference<PopupTwin>>(attaches[0].Arguments[2]);
         Assert.Equal(
-            """{"positioner":{"open":true,"cutout":true,"scrollLock":true,"touchOpen":true,"activeTriggerId":"trigger-1"}}""",
+            """{"positioner":{"watchTriggerChange":true,"cutout":true,"scrollLock":true,"touchOpen":true,"activeTriggerId":"trigger-1"}}""",
             attaches[1].Arguments[1]);
         Assert.Equal("""{"popup":{"stopCompositeKeys":true}}""", attaches[2].Arguments[1]);
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"sessionToken":"base-ui-2","viewport":{"open":false,"mounted":false,"contentVersion":0}}""",
+            """{"sessionToken":"base-ui-2","viewport":{"open":false,"contentVersion":0}}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
