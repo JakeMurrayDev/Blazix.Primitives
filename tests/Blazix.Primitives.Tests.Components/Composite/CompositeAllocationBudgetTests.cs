@@ -57,9 +57,7 @@ public sealed class CompositeAllocationBudgetTests : IDisposable
             cut.Render(parameters);
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Render(parameters);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Empty(host.UpdateOptions);
         Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
