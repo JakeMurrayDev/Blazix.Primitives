@@ -78,6 +78,7 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
     private bool payloadSupplied;
     private ElementReference? preGuard;
     private ElementReference? focusTarget;
+    private string? attachedToken;
 
     /// <summary>Initializes a new instance of the <see cref="PopoverTrigger{TPayload}"/> class.</summary>
     public PopoverTrigger()
@@ -234,9 +235,26 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
             behavior.Store.ForwardTriggerState(Disabled, OpenOnHover, CloseDelayMilliseconds);
         }
 
-        // Both handles start attaching in the same render (the FixtureInteractionsTrigger shape).
+        // The interactions module keys a trigger handle by the session it attached under, so a detached trigger that
+        // registered with its handle's fallback store (no session) attaches once a root's store gives it a token, and
+        // attaches again under another root's token. A token that is missing for a batch (a recreated handle before its
+        // root attaches) keeps the live handle, so a press right after still reaches the session.
         SyncInteractions();
-        Task interactionsSync = interactions!.AfterRenderAsync(Enabled, Element, Id);
+        string? token = behavior.Store.SessionToken;
+        if (token is not null && attachedToken is not null && !string.Equals(attachedToken, token, StringComparison.Ordinal))
+        {
+            await interactions!.AfterRenderAsync(false, Element, Id);
+            attachedToken = null;
+        }
+
+        attachedToken ??= token;
+        if (token is null && attachedToken is not null)
+        {
+            interactions!.SessionToken = attachedToken;
+        }
+
+        // Both handles start attaching in the same render (the FixtureInteractionsTrigger shape).
+        Task interactionsSync = interactions!.AfterRenderAsync(Enabled && attachedToken is not null, Element, Id);
         await button!.AfterRenderAsync(Enabled, Element, Id, composite: false);
         await interactionsSync;
     }
