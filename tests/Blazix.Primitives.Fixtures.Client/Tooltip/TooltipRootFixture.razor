@@ -93,8 +93,15 @@
     private TooltipTrigger<NoPayload>? trigger;
     private TooltipTrigger<NoPayload>? secondTrigger;
 
-    protected override IEnumerable<Task> Attachments =>
-        [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask, secondTrigger?.TwinAttached ?? Task.CompletedTask];
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    // A detached trigger renders against the handle's fallback store until its root attaches to the handle, after the
+    // fixture's first render: its handle attaches only then, so it is awaited after the root's session.
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(trigger?.TwinAttached ?? Task.CompletedTask, secondTrigger?.TwinAttached ?? Task.CompletedTask);
+    }
 
     // A controlled root receives Open only when the query names it, so an uncontrolled root never sees the parameter.
     private Dictionary<string, object> RootAttributes => controlled ? new() { ["Open"] = open } : [];

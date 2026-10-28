@@ -485,10 +485,9 @@ for (const variant of trio) {
       });
 
       test('reopens on hover after the trigger is clicked closed', async ({ page, mode }) => {
+        // The clock runs: the title needs no frozen time, only the order of the hover, the press and the second hover.
         const fixture = await open(page, mode, { delay: 100 });
-        await freezeClock(page);
         await trigger(page).hover();
-        await page.clock.runFor(100);
         await expect(popup(page)).toBeVisible();
         await clickInPlace(page);
         await expect(popup(page)).toHaveCount(0);
@@ -498,7 +497,6 @@ for (const variant of trio) {
 
         await moveAway(page);
         await trigger(page).hover();
-        await page.clock.runFor(100);
 
         await expect(popup(page)).toBeVisible();
       });

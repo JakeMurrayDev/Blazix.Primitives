@@ -120,7 +120,15 @@
     private string? handleError;
     private string phase = "outgoing";
 
-    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, .. triggerRefs.Values.Select(trigger => trigger.TwinAttached)];
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    // A detached trigger renders against the handle's fallback store until its root attaches to the handle, after the
+    // fixture's first render: its handle attaches only then, so it is awaited after the root's session.
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(triggerRefs.Values.Select(trigger => trigger.TwinAttached));
+    }
 
     protected override void OnInitialized()
     {
