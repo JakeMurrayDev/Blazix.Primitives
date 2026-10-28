@@ -27,9 +27,9 @@ detachedTriggersConformanceTests({
   viewport: true,
   open: {
     'allows controlling the open state and active trigger programmatically':
-      'POP-API-07, POP-FOC-05: with the focus manager wired it passes on Server; on WebAssembly focus does not return to the ' +
-      'external "Open Trigger 2" after a programmatic switch and close (the return target the focus-manager module records ' +
-      'on WebAssembly\'s synchronous update), under investigation in track 5',
+      'POP-API-07 (its focus clause) and POP-FOC-05 on WebAssembly: focus returns to the external "Open Trigger 1" instead ' +
+      'of "Open Trigger 2" after a programmatic switch and close (gap 12 of track 5, settled by the orchestrator 2026-10-28: ' +
+      'track 4 fixes the focus manager\'s return target on a reference switch; un-skip at the main merge after it)',
   },
 });
 
