@@ -56,6 +56,7 @@ import {
   type TwinHandle,
   type TwinOptions,
   type TwinReferences,
+  type TwinCaptures,
 } from './twin';
 
 /** A side of the anchor, physical or logical; Base UI's `Side`. */
@@ -638,8 +639,14 @@ function normalizePadding(options: PositioningOptions): SideObject {
  * @param initialReferences The anchor and boundary elements the options name by index, or nothing when they name none.
  * @returns The handle with `update(optionsJson, references)` and `dispose()`; the live handle when the element is already attached.
  */
-export function attach(elementOrId: Element | string, optionsJson: string, twinReference: DotNetTwin, initialReferences?: TwinReferences): TwinHandle {
-  const element = resolveElement(elementOrId) as AttachedElement;
+export function attach(
+  elementOrId: Element | string | null,
+  optionsJson: string,
+  twinReference: DotNetTwin,
+  initialReferences?: TwinReferences,
+  initialCaptures?: TwinCaptures,
+): TwinHandle {
+  const element = resolveElement(elementOrId, initialCaptures?.[0]) as AttachedElement;
   const existing = element[attachedHandle];
   if (existing) {
     return existing;
@@ -648,6 +655,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<PositioningOptions>(optionsJson);
   let references = initialReferences;
+  let captures = initialCaptures;
   let disposed = false;
 
   const writer = styleWriter(element);
@@ -731,7 +739,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
     const anchor =
       options.anchorRef != null
-        ? resolveReference<Element>(references, options.anchorRef)
+        ? resolveReference<Element>(references, options.anchorRef, captures)
         : options.anchorId
           ? doc.getElementById(options.anchorId)
           : null;
@@ -787,7 +795,7 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
   const resolveBoundary = (): Boundary => {
     if (options.boundaryRefs) {
-      return options.boundaryRefs.map((index) => resolveReference<Element>(references, index)).filter((entry): entry is Element => entry !== null);
+      return options.boundaryRefs.map((index) => resolveReference<Element>(references, index, captures)).filter((entry): entry is Element => entry !== null);
     }
     return options.boundaryRect ?? 'clippingAncestors';
   };
@@ -1168,12 +1176,13 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   };
 
   const handle: PositioningHandle = {
-    update(nextJson: string, nextReferences?: TwinReferences) {
+    update(nextJson: string, nextReferences?: TwinReferences, nextCaptures?: TwinCaptures) {
       if (disposed) {
         return;
       }
       options = parseOptions<PositioningOptions>(nextJson);
       references = nextReferences;
+      captures = nextCaptures;
       writer.setConsumer(options.style);
       syncSession();
       observe();

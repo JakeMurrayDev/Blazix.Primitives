@@ -57,9 +57,7 @@ public sealed class ToolbarRenderBudgetTests : IDisposable
 
         int compositeSends = test.CompositeAttaches.Count + test.CompositeUpdates.Count;
         int buttonSends = test.ButtonAttaches.Count + test.ButtonUpdates.Count;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Render();
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = AllocationSampler.LeastOfFive(() => cut.Render());
 
         Assert.Equal(compositeSends, test.CompositeAttaches.Count + test.CompositeUpdates.Count);
         Assert.Equal(buttonSends, test.ButtonAttaches.Count + test.ButtonUpdates.Count);

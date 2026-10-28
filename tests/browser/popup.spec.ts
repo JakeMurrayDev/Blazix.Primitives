@@ -126,3 +126,33 @@ test.describe('PSH-STA-23 at the render-batch boundary', () => {
     await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-press');
   });
 });
+
+// ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8, settled by the orchestrator 2026-10-28): Blazor revives an
+// ElementReference with a document query, which pierces no shadow root, and the parts inside a portal attach after the
+// move; the twins send the capture ids and the modules find the elements in the shadow roots the portal registered. The
+// popup's own `transitions` handle reports its open and its close completion, which it cannot do without its element.
+test.describe('a portal moved into a closed shadow root', () => {
+  test('port: the popup inside it attaches its handles after the move, reports its completions, and Escape closes it', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popup-conformance', { container: 'shadow' });
+    const shadowRoot = () =>
+      page.evaluate(() => (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot != null);
+    const insideShadowRoot = () =>
+      page.evaluate(() => {
+        const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+        return root?.querySelector('[data-testid="popup"]') != null;
+      });
+    await expect.poll(shadowRoot).toBe(true);
+    await settle(fixture);
+
+    await page.getByTestId('trigger').click();
+    await expect.poll(insideShadowRoot).toBe(true);
+    await expect(page.locator('[data-testid="popup"]')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true');
+
+    await page.keyboard.press('Escape');
+
+    await expect.poll(insideShadowRoot).toBe(false);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-press false:escape-key');
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+  });
+});

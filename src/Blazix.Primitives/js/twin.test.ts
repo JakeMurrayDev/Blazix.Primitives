@@ -2,7 +2,7 @@
 // (WebAssembly) form. Port titles: Base UI has no counterpart.
 import { describe, expect, it } from 'vitest';
 import { createFakeTwin } from './test-support/fake-twin';
-import { attachTarget, createTwinChannel, decisionPolicies, resolveReference, type DotNetTwin } from './twin';
+import { attachTarget, createTwinChannel, decisionPolicies, registerShadowRoot, resolveElement, resolveReference, type DotNetTwin } from './twin';
 
 /** Wraps a fake twin so the test can count the synchronous invocations the channel makes. */
 function counting(twin: DotNetTwin): { twin: DotNetTwin; calls: string[] } {
@@ -76,5 +76,45 @@ describe('attachTarget', () => {
     expect(attachTarget(element)).toBe(element);
     expect(() => attachTarget('missing')).toThrow('Blazix: ');
     element.remove();
+  });
+});
+
+// ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): Blazor revives an ElementReference with a document query
+// for its capture attribute (`[_bl_<id>]`), which pierces no shadow root, so an element the portal moved into one arrives
+// as null; the twin sends the capture ids beside the element and the references, and the lookup searches the shadow
+// roots the portal registered.
+describe('elements inside a shadow root', () => {
+  it('port: an element revived as null resolves by its capture id in a registered shadow root, and the token form stays null', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = host.attachShadow({ mode: 'closed' });
+    const element = document.createElement('div');
+    element.setAttribute('_bl_7', '');
+    root.append(element);
+    const unregister = registerShadowRoot(root);
+
+    expect(attachTarget(null, ['7'])).toBe(element);
+    expect(attachTarget(null)).toBeNull();
+    expect(resolveReference([null], 0, [null, '7'])).toBe(element);
+
+    unregister();
+    expect(() => attachTarget(null, ['7'])).toThrow('Blazix: ');
+    expect(resolveReference([null], 0, [null, '7'])).toBeNull();
+    host.remove();
+  });
+
+  it('port: an id that no document element carries resolves inside a registered shadow root', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = host.attachShadow({ mode: 'closed' });
+    const element = document.createElement('div');
+    element.id = 'inside';
+    root.append(element);
+    const unregister = registerShadowRoot(root);
+
+    expect(resolveElement('inside')).toBe(element);
+
+    unregister();
+    host.remove();
   });
 });

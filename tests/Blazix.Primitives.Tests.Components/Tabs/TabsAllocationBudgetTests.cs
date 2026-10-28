@@ -31,7 +31,11 @@ public sealed class TabsAllocationBudgetTests : IDisposable
     // 2616 on 2026-10-27 (M4 track 1, the host wrapper of ADR 02 Amendments 2026-10-27): the same harness share again.
     // `PartBase` gained the protected `HostWrapperTagName`, 8 bytes in Expression.Property's copy; the library's share is
     // unchanged (CompositeAllocationBudgetTests' note of the same day has the probe).
-    private const long RerenderBudgetBytes = 2616;
+    // 2026-10-28 (M4 track 8's shared-gaps PR; PR 127's rule, settled by the orchestrator 2026-10-28): a single sample
+    // measured 2728 against 2616 in 1 of 30 full runs of `main` and 3 of 75 on the Dialog branch, always +112 bytes, the
+    // floor the Positioner budget records for the state earlier tests leave in the process. The re-render now takes the
+    // least of five (the Switch toggle budget's precedent) and the budget is that full-run envelope, 2728.
+    private const long RerenderBudgetBytes = 2728;
     private const long ActivationBudgetBytes = 48184;
 
     private readonly TabsTestContext test = new();
@@ -58,9 +62,13 @@ public sealed class TabsAllocationBudgetTests : IDisposable
             cut.Render(p => p.Add(x => x.DefaultValue, 1).AddUnmatched("class", "consumer").AddChildContent(content));
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        cut.Render(p => p.Add(x => x.DefaultValue, 1).AddUnmatched("class", "consumer").AddChildContent(content));
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = long.MaxValue;
+        for (int i = 0; i < 5; i++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            cut.Render(p => p.Add(x => x.DefaultValue, 1).AddUnmatched("class", "consumer").AddChildContent(content));
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
 
         Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
     }
