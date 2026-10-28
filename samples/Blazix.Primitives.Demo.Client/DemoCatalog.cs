@@ -29,6 +29,7 @@ public static class DemoCatalog
         new("toggle-group", "Toggle Group", "A set of toggles that share one value, here the text alignment.", typeof(ToggleGroupDemo)),
         new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
         new("toolbar", "Toolbar", "A set of buttons, toggles, an input and a link that the arrow keys move between.", typeof(ToolbarDemo)),
+        new("dialog", "Dialog", "A popup that opens on top of the page and keeps focus inside it until it closes.", typeof(DialogDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
