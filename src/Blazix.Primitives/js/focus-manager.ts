@@ -13,6 +13,7 @@ import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoo
 import { eventInfo, type EventInfo } from './event-info';
 import {
   acquireSession,
+  claimSessionClose,
   getNodeAncestors,
   getNodeChildren,
   isVirtualClick,
@@ -967,6 +968,9 @@ export function attach(
   // A focus-out close is a request: the module disarms after sending one until the next open (ADR 04 Amendments
   // 2026-10-27, "a module disarms itself after requesting a close until the next open arrives").
   let closeRequested = false;
+  // ADR 04 Amendments 2026-10-29 (gap 14 of M4 track 5): the session's close in flight this module claimed, released when
+  // C# answers the request; the session clears it when the commit's relay arrives.
+  let releaseSessionClose: (() => void) | null = null;
   let relayRevision = options.relay?.revision ?? null;
   let answered = options.answered ?? 0;
   let onOpenChangeLocal: ((details: OpenChangeDetails) => void) | null = null;
@@ -1069,6 +1073,12 @@ export function attach(
     if (closeRequested || disposed) {
       return;
     }
+    // One close request in flight per session: another module's close (the dismiss handle's outside press) is in flight.
+    const release = session === null ? () => {} : claimSessionClose(session);
+    if (release === null) {
+      return;
+    }
+    releaseSessionClose = release;
     closeRequested = true;
     twin.report(FOCUS_OUT_CLOSE_REPORT, { event: snapshot, interactionType: lastInteractionType } satisfies FocusOutCloseRequest);
   };
@@ -1763,6 +1773,8 @@ export function attach(
       if ((options.answered ?? 0) !== answered) {
         answered = options.answered ?? 0;
         closeRequested = false;
+        releaseSessionClose?.();
+        releaseSessionClose = null;
       }
       joinSession();
       applyRelay();
