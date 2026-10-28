@@ -267,7 +267,7 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(late.hasAttribute('data-starting-style')).toBe(true);
   });
 
-  it('port: a reopen on another trigger, or a remount while closed, starts no transition', async () => {
+  it('port: a reopen on another trigger starts no transition and becomes the trigger the next move starts from', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
     const twin = createFakeTwin({ synchronous });
@@ -285,6 +285,14 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
 
     expect(rendered.viewport.querySelector('[data-previous]')).toBe(null);
     expect(rendered.viewport.hasAttribute('data-activation-direction')).toBe(false);
+
+    // The reopened trigger is the one the next move starts from: its content is cloned, the direction is from it.
+    activate(rendered, 0);
+    remount(rendered, 'One again');
+    await settle();
+
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('Two again');
+    expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('left up');
   });
 });
 
@@ -507,19 +515,23 @@ describe('the popup', () => {
     expect(event.defaultPrevented).toBe(false);
   });
 
-  it('port: without the stop, or for another key, keydown reaches the toolbar', () => {
+  it('port: the stop follows its option on update and leaves every other key to the toolbar', () => {
     const toolbar = document.createElement('div');
     const popup = document.createElement('div');
     toolbar.appendChild(popup);
     document.body.appendChild(toolbar);
     const reached = vi.fn();
     toolbar.addEventListener('keydown', reached);
-    const handle = attachTo(popup, { popup: { stopCompositeKeys: true } }, createFakeTwin());
+    const handle = attachTo(popup, { popup: { stopCompositeKeys: false } }, createFakeTwin());
 
-    popup.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
-    handle.update(JSON.stringify({ popup: { stopCompositeKeys: false } }));
     popup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(reached).toHaveBeenCalledTimes(1);
+
+    handle.update(JSON.stringify({ popup: { stopCompositeKeys: true } }));
+    popup.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    popup.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
 
     expect(reached).toHaveBeenCalledTimes(2);
+    expect(reached.mock.calls[1]![0].key).toBe('Tab');
   });
 });

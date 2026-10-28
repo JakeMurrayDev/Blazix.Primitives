@@ -219,13 +219,36 @@ public sealed class PopoverRootTests : IDisposable
     public async Task Ignores_unmount_while_the_popup_is_open()
     {
         PopoverRoot<int>? root = null;
-        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { DefaultOpen = true, CaptureRoot = r => root = r });
+        List<bool> completes = [];
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            DefaultOpen = true,
+            CaptureRoot = r => root = r,
+            OnOpenChangeComplete = EventCallback.Factory.Create<bool>(this, completes.Add),
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }),
+        });
+        string? popupId = cut.Find("[data-testid=\"popup\"]").Id;
 
         await cut.InvokeAsync(root!.Unmount);
 
         IElement popup = cut.Find("[data-testid=\"popup\"]");
+        Assert.Equal(popupId, popup.Id);
         Assert.True(popup.HasAttribute("data-open"));
         Assert.False(popup.HasAttribute("data-starting-style"));
+        Assert.DoesNotContain(false, completes);
+
+        // The same call is live once the popup is closed and kept mounted: it unmounts the popup.
+        await cut.InvokeAsync(root.CloseAsync);
+        await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popup\"]"));
+        await cut.InvokeAsync(root.Unmount);
+        Assert.Empty(cut.FindAll("[data-testid=\"popup\"]"));
     }
 
     [Fact(DisplayName = "does not repeat closing completion when `unmount` is called after the automatic unmount")]
