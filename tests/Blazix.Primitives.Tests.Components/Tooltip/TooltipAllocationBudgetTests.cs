@@ -48,13 +48,7 @@ public sealed class TooltipAllocationBudgetTests : IDisposable
         }
 
         int updates = host.InteractionsUpdates.Count;
-        long allocated = long.MaxValue;
-        for (int i = 0; i < 5; i++)
-        {
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            cut.Render(parameters);
-            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
-        }
+        long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Equal(updates, host.InteractionsUpdates.Count);
         Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
