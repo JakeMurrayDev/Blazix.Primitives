@@ -17,6 +17,7 @@ using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
@@ -31,6 +32,7 @@ using Blazix.Primitives.Fixtures.Client.TabsFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleFixtures;
 using Blazix.Primitives.Fixtures.Client.ToggleGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
+using Blazix.Primitives.Fixtures.Client.TooltipFixtures;
 
 namespace Blazix.Primitives.Fixtures.Client;
 
@@ -154,6 +156,7 @@ public static class FixtureCatalog
         ["tabs-indicator"] = new(typeof(TabsIndicatorFixture)),
         ["tabs-focus"] = new(typeof(TabsFocusFixture)),
         ["tabs-dialog"] = new(typeof(TabsDialogFixture)),
+        ["tabs-popover"] = new(typeof(TabsPopoverFixture)),
         ["toolbar-orientation"] = new(typeof(ToolbarOrientationFixture)),
         ["toolbar-keys"] = new(typeof(ToolbarKeysFixture)),
         ["toolbar-input"] = new(typeof(ToolbarInputFixture)),
@@ -162,9 +165,20 @@ public static class FixtureCatalog
         ["toolbar-disabled"] = new(typeof(ToolbarDisabledFixture)),
         ["toolbar-toggle"] = new(typeof(ToolbarToggleFixture)),
         ["toolbar-dialog"] = new(typeof(ToolbarDialogFixture)),
+        ["toolbar-popover"] = new(typeof(ToolbarPopoverFixture)),
         ["popup-conformance"] = new(typeof(PopupConformanceFixture)),
         ["popup-triggers"] = new(typeof(PopupTriggersFixture)),
         ["popup-unmount"] = new(typeof(PopupUnmountFixture)),
+        ["popover-conformance"] = new(typeof(PopoverConformanceFixture)),
+        ["popover-focus"] = new(typeof(PopoverFocusFixture)),
+        ["popover-detached"] = new(typeof(PopoverDetachedFixture)),
+        ["popover-hover"] = new(typeof(PopoverHoverFixture)),
+        ["popover-nested"] = new(typeof(PopoverNestedFixture)),
+        ["popover-root"] = new(typeof(PopoverRootFixture)),
+        ["popover-positioner"] = new(typeof(PopoverPositionerFixture)),
+        ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
+        ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
+        ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
         ["scroll-lock-basic"] = new(typeof(ScrollLockBasicFixture)),
@@ -180,5 +194,16 @@ public static class FixtureCatalog
         ["dialog-popup"] = new(typeof(DialogPopupFixture)),
         ["dialog-shared"] = new(typeof(DialogSharedFixture)),
         ["dialog-shadow"] = new(typeof(DialogShadowFixture)),
+        ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
+        ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
+        ["tooltip-root"] = new(typeof(TooltipRootFixture)),
+        ["tooltip-provider"] = new(typeof(TooltipProviderFixture)),
+        ["tooltip-nested"] = new(typeof(TooltipNestedFixture)),
+        ["tooltip-layout"] = new(typeof(TooltipLayoutFixture)),
+        ["tooltip-handoff"] = new(typeof(TooltipHandoffFixture)),
+        ["tooltip-positioner"] = new(typeof(TooltipPositionerFixture)),
+        ["tooltip-viewport"] = new(typeof(TooltipViewportFixture)),
+        ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
+        ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
     };
 }

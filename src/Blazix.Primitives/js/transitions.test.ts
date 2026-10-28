@@ -21,6 +21,7 @@ import {
   type TransitionStatusLiteral,
   type TransitionsOptions,
 } from './transitions';
+import { styleWriter } from './dom';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
@@ -672,6 +673,32 @@ describe('attach', () => {
     }
   });
 
+  // A kept-mounted element the module hid at its exit end is shown again in the opening pass: the style computed with
+  // the starting style must be the shown element's, or a transition from `display: none` never runs (found by track 6
+  // at PR 137's re-merge, Popover's "starts each opening once when the popup is kept mounted" on Server).
+  it('computes the starting style of a kept-mounted element after showing it again', () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true });
+    expect(element.hasAttribute('hidden')).toBe(true);
+    const original = window.getComputedStyle.bind(window);
+    const hiddenWhenComputed: boolean[] = [];
+    const computed = vi.spyOn(window, 'getComputedStyle').mockImplementation((target, pseudo) => {
+      hiddenWhenComputed.push((target as Element).hasAttribute('hidden'));
+      return original(target, pseudo);
+    });
+
+    try {
+      update(handle, { open: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+      expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+      expect(hiddenWhenComputed).toEqual([false]);
+    } finally {
+      computed.mockRestore();
+    }
+  });
+
   it('does not request a frame or write a transition attribute for an element attached open', () => {
     const fake = createFakeTwin();
     const element = createElement();
@@ -881,7 +908,9 @@ describe('attach', () => {
     ]);
   });
 
-  it('applies the consumer style only when the part hands it over', () => {
+  // ADR 04 Amendments 2026-10-28 (gap 13 of M4 track 5, option (b)): the handed-over style is the dom writer's consumer
+  // band, so another module's layer on the same element stays.
+  it('applies the consumer style only when the part hands it over, as the writer\'s consumer band beside another module\'s layer', () => {
     const fake = createFakeTwin();
     const kept = createElement();
     kept.style.color = 'red';
@@ -889,12 +918,44 @@ describe('attach', () => {
     expect(kept.style.color).toBe('red');
 
     const owned = createElement();
-    owned.style.color = 'red';
+    styleWriter(owned).layer('auto-resize').set('--popup-width', '10px');
     const handle = attachTo(owned, fake, { style: 'margin: 1px' });
-    expect(owned.getAttribute('style')).toBe('margin: 1px;');
+    expect(owned.style.margin).toBe('1px');
+    expect(owned.style.getPropertyValue('--popup-width')).toBe('10px');
 
     update(handle, { style: 'margin: 2px' });
-    expect(owned.getAttribute('style')).toBe('margin: 2px;');
+    expect(owned.style.margin).toBe('2px');
+    expect(owned.style.getPropertyValue('--popup-width')).toBe('10px');
+  });
+
+  // TRN-DOM-05: the parts that ask for it carry `transition: none` while starting, under the consumer's style, and drop it
+  // with data-starting-style on the next frame.
+  it('writes transition: none while starting when the part asks, under the consumer\'s style, and removes it on the clearing frame', () => {
+    // jsdom keeps the `transition` shorthand as one property, which a browser expands into its longhands.
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { keepMounted: true, disableTransitionWhileStarting: true, style: 'color: red' });
+
+    update(handle, { open: true, keepMounted: true, disableTransitionWhileStarting: true, style: 'color: red' });
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+    expect(element.style.getPropertyValue('transition')).toBe('none');
+    expect(element.style.color).toBe('red');
+
+    runFrame();
+    expect(element.hasAttribute(STARTING_STYLE)).toBe(false);
+    expect(element.style.getPropertyValue('transition')).toBe('');
+
+    const consumer = createElement();
+    const consumerHandle = attachTo(consumer, fake, { keepMounted: true, disableTransitionWhileStarting: true, style: 'transition: opacity 1s' });
+    update(consumerHandle, { open: true, keepMounted: true, disableTransitionWhileStarting: true, style: 'transition: opacity 1s' });
+    expect(consumer.hasAttribute(STARTING_STYLE)).toBe(true);
+    expect(consumer.style.getPropertyValue('transition')).toBe('opacity 1s');
+
+    const unasked = createElement();
+    const unaskedHandle = attachTo(unasked, fake, { keepMounted: true });
+    update(unaskedHandle, { open: true, keepMounted: true });
+    expect(unasked.hasAttribute(STARTING_STYLE)).toBe(true);
+    expect(unasked.style.getPropertyValue('transition')).toBe('');
   });
 
   it('a repeated attach of the same element returns the live handle, and dispose is idempotent', () => {

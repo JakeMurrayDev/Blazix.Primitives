@@ -129,5 +129,58 @@ internal static class OwnershipRegistry
         // dialog.md §5.8's focus guards (ADR 04 Amendments 2026-10-27, the VoiceOver swap as a JavaScript write after
         // attach): under VoiceOver on WebKit the modules swap `aria-hidden` for `role="button"`; C# renders `aria-hidden`.
         new("dialog", "ARIA", "role", Writer.Js),
+        // Popover (M4 track 5, issue 125; ADR 04 §2 and Amendments 2026-10-27, chosen by the user 2026-10-27). The
+        // positioning module writes the Positioner's style, placement and anchor-hidden attributes from attach (C# renders
+        // the requested values and the pre-position style under the handover; the placement is mirrored in the state), and
+        // the Arrow's; the transitions module writes the Popup's and the Backdrop's transition attributes and the Popup's
+        // `transition: none`; the popup module writes the internal backdrop's clip-path, the Popup's auto-resize variables
+        // and the Viewport's containers, direction and transitioning flag (mirrored in PopoverViewportState).
+        new("popover", "Positioner", "pointer-events", Writer.CsharpToJs),
+        new("popover", "Positioner", "data-side", Writer.CsharpToJs, "PopoverPositionerState.Side"),
+        new("popover", "Positioner", "data-align", Writer.CsharpToJs, "PopoverPositionerState.Align"),
+        new("popover", "Positioner", "data-anchor-hidden", Writer.Js, "PopoverPositionerState.AnchorHidden"),
+        new("popover", "Positioner", "transition", Writer.Js),
+        new("popover", "Positioner", "positioning styles and CSS variables", Writer.CsharpToJs),
+        new("popover", "Positioner", "clip-path", Writer.Js),
+        new("popover", "Popup", "data-starting-style", Writer.Js, "PopoverPopupState.TransitionStatus"),
+        new("popover", "Popup", "data-ending-style", Writer.Js, "PopoverPopupState.TransitionStatus"),
+        new("popover", "Popup", "transition", Writer.Js),
+        new("popover", "Popup", "--popup-width", Writer.Js),
+        new("popover", "Popup", "--popup-height", Writer.Js),
+        new("popover", "Arrow", "data-side", Writer.CsharpToJs, "PopoverArrowState.Side"),
+        new("popover", "Arrow", "data-align", Writer.CsharpToJs, "PopoverArrowState.Align"),
+        new("popover", "Arrow", "data-uncentered", Writer.CsharpToJs, "PopoverArrowState.Uncentered"),
+        new("popover", "Arrow", "style", Writer.CsharpToJs),
+        new("popover", "Backdrop", "data-starting-style", Writer.Js, "PopoverBackdropState.TransitionStatus"),
+        new("popover", "Backdrop", "data-ending-style", Writer.Js, "PopoverBackdropState.TransitionStatus"),
+        new("popover", "Viewport", "[data-previous] container", Writer.Js),
+        new("popover", "Viewport", "data-activation-direction", Writer.Js, "PopoverViewportState.ActivationDirection"),
+        new("popover", "Viewport", "data-transitioning", Writer.Js, "PopoverViewportState.Transitioning"),
+        new("popover", "Viewport", "--popup-width", Writer.Js),
+        new("popover", "Viewport", "--popup-height", Writer.Js),
+        // Tooltip (M4 track 6, issue 121; ADR 04 §2 as amended 2026-10-27, tooltip.md §5): the interactions module attaches
+        // the trigger's and the floating element's listeners; positioning writes the Positioner's and the Arrow's style and
+        // placement from attach (mirrored in the state records); transitions writes the Popup's transition attributes and
+        // its style. data-instant is C#'s on every part.
+        new("tooltip", "Trigger", "handlers", Writer.Js),
+        new("tooltip", "Positioner", "style", Writer.CsharpToJs),
+        new("tooltip", "Positioner", "data-side", Writer.CsharpToJs, "TooltipPositionerState.Side"),
+        new("tooltip", "Positioner", "data-align", Writer.CsharpToJs, "TooltipPositionerState.Align"),
+        new("tooltip", "Positioner", "data-anchor-hidden", Writer.Js, "TooltipPositionerState.AnchorHidden"),
+        new("tooltip", "Popup", "data-starting-style", Writer.Js, "TooltipPopupState.TransitionStatus"),
+        new("tooltip", "Popup", "data-ending-style", Writer.Js, "TooltipPopupState.TransitionStatus"),
+        new("tooltip", "Popup", "style", Writer.Js),
+        new("tooltip", "Popup", "handlers", Writer.Js),
+        new("tooltip", "Arrow", "style", Writer.CsharpToJs),
+        new("tooltip", "Arrow", "data-side", Writer.CsharpToJs, "TooltipArrowState.Side"),
+        new("tooltip", "Arrow", "data-align", Writer.CsharpToJs, "TooltipArrowState.Align"),
+        new("tooltip", "Arrow", "data-uncentered", Writer.CsharpToJs, "TooltipArrowState.Uncentered"),
+        // The Viewport (tooltip.md §5.6, at PR 137's re-merge): Popover's, the `popup` module writing its containers,
+        // direction and transitioning flag (mirrored in TooltipViewportState).
+        new("tooltip", "Viewport", "[data-previous] container", Writer.Js),
+        new("tooltip", "Viewport", "data-activation-direction", Writer.Js, "TooltipViewportState.ActivationDirection"),
+        new("tooltip", "Viewport", "data-transitioning", Writer.Js, "TooltipViewportState.Transitioning"),
+        new("tooltip", "Viewport", "--popup-width", Writer.Js),
+        new("tooltip", "Viewport", "--popup-height", Writer.Js),
     ];
 }

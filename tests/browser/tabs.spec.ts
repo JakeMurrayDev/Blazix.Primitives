@@ -1738,3 +1738,20 @@ test.describe('<Tabs /> (relaxations per mode)', () => {
     await expect(panel(1)).toHaveAttribute('data-activation-direction', 'right');
   });
 });
+
+// TAB-FOC-10's Popover title (M4 track 5): Tabs inside a popover's popup take the focus manager's initial focus on the
+// highlighted tab, a microtask after the popover's own focus work, and navigate normally.
+test.describe('<Tabs.Root /> (inside a popup)', () => {
+  test('works inside Popover', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tabs-popover');
+
+    await page.getByRole('button', { name: 'Open' }).click();
+
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+
+    await expect(page.getByRole('tab', { name: 'Projects' })).toBeFocused();
+  });
+});
+

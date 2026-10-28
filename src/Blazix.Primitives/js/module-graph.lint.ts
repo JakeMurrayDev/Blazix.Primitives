@@ -25,6 +25,7 @@ export const moduleKinds: Record<string, ModuleKind> = {
   dom: 'mechanism',
   swipe: 'mechanism',
   form: 'mechanism',
+  popup: 'mechanism',
   // Component modules.
   slider: 'component',
   'scroll-area': 'component',

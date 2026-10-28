@@ -225,7 +225,7 @@ jobs:
       - name: Assert the package content
         run: |
           ls -l artifacts/packages
-          node .github/scripts/assert-package.mjs artifacts/packages/*.nupkg
+          node .github/scripts/assert-package.mjs artifacts/packages/*.nupkg --inputs src/Blazix.Primitives/obj/Release/net11.0/blazix-js.inputs.json
       - uses: actions/upload-artifact@v6
         with:
           name: packages

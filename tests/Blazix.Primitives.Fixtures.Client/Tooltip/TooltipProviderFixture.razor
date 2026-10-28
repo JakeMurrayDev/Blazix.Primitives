@@ -1,0 +1,78 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-provider` fixture (tests/browser/tooltip.spec.ts): TooltipProvider.test.tsx's trees and the two
+    animation titles of TooltipRoot.test.tsx (:456-590), a provider around `count` tooltips (1 or 2, default 2): triggers
+    `trigger-1` "One" and `trigger-2` "Two", popups `popup-1` "Content One" and `popup-2` "Content Two". The query sets the
+    provider's `delay`, `closeDelay` and `timeout`, every trigger's `triggerDelay`, and `css=instant|exit`, the stylesheet
+    of "toggles instant animations for adjacent tooltips only while opening" or of "unmounts an exiting tooltip when
+    another tooltip opens" (open with `?animations=1`). `[data-set-close-delay]` sets the provider's close delay to 1000 ms.
+*@
+<FixtureContainer Name="tooltip-provider" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    @if (css == "instant")
+    {
+        <style>
+            .tooltip { transition: opacity 10s; }
+            .tooltip[data-starting-style], .tooltip[data-ending-style] { opacity: 0; }
+            .tooltip[data-instant] { transition: none; }
+        </style>
+    }
+    else if (css == "exit")
+    {
+        <style>
+            .tooltip[data-ending-style] { transition: opacity 10s; opacity: 0; }
+            .tooltip[data-instant] { transition: none; }
+        </style>
+    }
+    <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" data-set-close-delay @onclick="() => closeDelay = 1000">Close delay 1000</button>
+    </div>
+
+    <div style="position: fixed; top: 200px; left: 200px; display: flex; gap: 40px">
+        <TooltipProvider @ref="provider" Delay="@delay" CloseDelay="@closeDelay" Timeout="@timeout">
+            @for (int number = 1; number <= count; number++)
+            {
+                string name = number == 1 ? "One" : "Two";
+                string trigger = $"trigger-{number}";
+                string popup = $"popup-{number}";
+                <TooltipRoot TPayload="NoPayload" @key="number" @ref="roots[trigger]">
+                    <TooltipTrigger TPayload="NoPayload" @ref="triggers[trigger]" data-testid="@trigger" Delay="@triggerDelay">@name</TooltipTrigger>
+                    <TooltipPortal>
+                        <TooltipPositioner>
+                            <TooltipPopup class="tooltip" data-testid="@popup">Content @name</TooltipPopup>
+                        </TooltipPositioner>
+                    </TooltipPortal>
+                </TooltipRoot>
+            }
+        </TooltipProvider>
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, TooltipRoot<NoPayload>> roots = [];
+    private readonly Dictionary<string, TooltipTrigger<NoPayload>> triggers = [];
+    private TooltipProvider? provider;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private Duration? timeout;
+    private Duration? triggerDelay;
+    private int count = 2;
+    private string? css;
+
+    protected override IEnumerable<Task> Attachments =>
+        [provider?.TwinAttached ?? Task.CompletedTask, .. roots.Values.Select(root => root.SessionAttached), .. triggers.Values.Select(trigger => trigger.TwinAttached)];
+
+    protected override void OnInitialized()
+    {
+        delay = int.TryParse(Query("delay"), out int open) ? open : null;
+        closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
+        timeout = int.TryParse(Query("timeout"), out int grace) ? grace : null;
+        triggerDelay = int.TryParse(Query("triggerDelay"), out int own) ? own : null;
+        count = int.TryParse(Query("count"), out int tooltips) ? tooltips : 2;
+        css = Query("css");
+    }
+}

@@ -1,0 +1,119 @@
+<DemoFrame Slug="popover" Note="Three triggers share one popover through a handle, each with its own content as the payload: moving between them slides the content and resizes the popup. Escape or a press outside closes it. Focus does not move into the popup or back to the trigger yet; that arrives with the focus manager.">
+    <Hero>
+        <PopoverRoot TPayload="NoPayload">
+            <PopoverTrigger class="@TriggerClass">Notifications</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner SideOffset="8">
+                    <PopoverPopup class="@PopupClass">
+                        <PopoverArrow class="@ArrowClass" />
+                        <PopoverTitle class="text-sm font-bold">Notifications</PopoverTitle>
+                        <PopoverDescription class="text-sm text-neutral-600 dark:text-neutral-400">
+                            You are all caught up. Good job!
+                        </PopoverDescription>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <div class="flex gap-2">
+                <PopoverTrigger class="@TriggerClass" Handle="handle" Payload="s_notifications">Notifications</PopoverTrigger>
+                <PopoverTrigger class="@TriggerClass" Handle="handle" Payload="s_activity">Activity</PopoverTrigger>
+                <PopoverTrigger class="@TriggerClass" Handle="handle" Payload="s_profile">Profile</PopoverTrigger>
+            </div>
+            <PopoverRoot Handle="handle">
+                <PayloadContent Context="payload">
+                    <PopoverPortal>
+                        <PopoverPositioner SideOffset="8" class="@MorphingPositionerClass">
+                            <PopoverPopup class="@MorphingPopupClass">
+                                <PopoverArrow class="@MorphingArrowClass" />
+                                <PopoverViewport class="@ViewportClass">@payload</PopoverViewport>
+                            </PopoverPopup>
+                        </PopoverPositioner>
+                    </PopoverPortal>
+                </PayloadContent>
+            </PopoverRoot>
+            <span class="VariantName">Detached triggers: one handle, a payload per trigger and a viewport that morphs between them</span>
+        </div>
+        <div class="Variant">
+            <PopoverRoot TPayload="NoPayload">
+                <PopoverTrigger class="@TriggerClass" OpenOnHover="true">Notifications</PopoverTrigger>
+                <PopoverPortal>
+                    <PopoverPositioner SideOffset="8">
+                        <PopoverPopup class="@PopupClass">
+                            <PopoverArrow class="@ArrowClass" />
+                            <PopoverTitle class="text-sm font-bold">Notifications</PopoverTitle>
+                            <PopoverDescription class="text-sm text-neutral-600 dark:text-neutral-400">
+                                You are all caught up. Good job!
+                            </PopoverDescription>
+                        </PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            <span class="VariantName">OpenOnHover="true": resting the pointer on the trigger opens it, and a press still toggles it</span>
+        </div>
+        <div class="Variant">
+            <PopoverRoot TPayload="NoPayload" Modal="true">
+                <PopoverTrigger class="@TriggerClass">Settings</PopoverTrigger>
+                <PopoverPortal>
+                    <PopoverBackdrop class="fixed inset-0 bg-black/20 transition-opacity duration-100 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+                    <PopoverPositioner SideOffset="8">
+                        <PopoverPopup class="@PopupClass">
+                            <PopoverArrow class="@ArrowClass" />
+                            <PopoverTitle class="text-sm font-bold">Settings</PopoverTitle>
+                            <PopoverDescription class="text-sm text-neutral-600 dark:text-neutral-400">
+                                The page behind cannot scroll while this is open.
+                            </PopoverDescription>
+                            <PopoverClose class="@CloseClass">Done</PopoverClose>
+                        </PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            <span class="VariantName">Modal="true" with a backdrop and a close button: the page's scroll is locked while open</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string TriggerClass = "flex h-8 items-center justify-center border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 px-3 text-sm font-normal whitespace-nowrap text-neutral-950 dark:text-white select-none hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:bg-neutral-200 dark:active:not-data-disabled:bg-neutral-700 data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400 data-pressed:bg-neutral-100 dark:data-pressed:bg-neutral-800 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string PopupClass = "relative flex h-[var(--popup-height,auto)] w-[var(--popup-width,auto)] max-w-[500px] flex-col gap-1 origin-[var(--transform-origin)] bg-white dark:bg-neutral-950 p-3 text-neutral-950 dark:text-white outline-none border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0";
+    private const string ArrowClass = "relative block w-3 h-1.5 overflow-clip data-[side=bottom]:top-[-6px] data-[side=left]:right-[-9px] data-[side=left]:rotate-90 data-[side=right]:left-[-9px] data-[side=right]:-rotate-90 data-[side=top]:bottom-[-6px] data-[side=top]:rotate-180 before:content-[''] before:absolute before:bottom-0 before:left-1/2 before:w-[calc(6px*sqrt(2))] before:h-[calc(6px*sqrt(2))] before:bg-white dark:before:bg-neutral-950 before:border before:border-neutral-950 dark:before:border-white before:[transform:translate(-50%,50%)_rotate(45deg)]";
+
+    // The documentation's detached-triggers demo: the positioner, popup and arrow follow the move between triggers, and the
+    // viewport slides the previous content out and the current one in.
+    private const string MorphingPositionerClass = "h-[var(--positioner-height)] w-[var(--positioner-width)] max-w-[var(--available-width)] transition-[top,left,right,bottom,transform] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-instant:transition-none";
+    private const string MorphingPopupClass = "relative flex h-[var(--popup-height,auto)] w-[var(--popup-width,auto)] max-w-[31.25rem] flex-col gap-1 origin-[var(--transform-origin)] bg-white dark:bg-neutral-950 text-neutral-950 dark:text-white outline-none border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[width,height,opacity,scale] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-ending-style:scale-90 data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-90 data-starting-style:opacity-0";
+    private const string MorphingArrowClass = ArrowClass + " transition-[left] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)]";
+    private const string ViewportClass = "relative h-full w-full overflow-clip p-2 [&_[data-current]]:w-[calc(var(--popup-width)-1rem)] [&_[data-current]]:translate-x-0 [&_[data-current]]:opacity-100 [&_[data-current]]:transition-[translate,opacity] [&_[data-current]]:duration-[350ms,175ms] [&_[data-current]]:ease-[cubic-bezier(0.22,1,0.36,1)] data-[activation-direction~='left']:[&_[data-current][data-starting-style]]:-translate-x-1/2 data-[activation-direction~='left']:[&_[data-current][data-starting-style]]:opacity-0 data-[activation-direction~='right']:[&_[data-current][data-starting-style]]:translate-x-1/2 data-[activation-direction~='right']:[&_[data-current][data-starting-style]]:opacity-0 [&_[data-previous]]:w-[calc(var(--popup-width)-1rem)] [&_[data-previous]]:translate-x-0 [&_[data-previous]]:opacity-100 [&_[data-previous]]:transition-[translate,opacity] [&_[data-previous]]:duration-[350ms,175ms] [&_[data-previous]]:ease-[cubic-bezier(0.22,1,0.36,1)] data-[activation-direction~='left']:[&_[data-previous][data-ending-style]]:translate-x-1/2 data-[activation-direction~='left']:[&_[data-previous][data-ending-style]]:opacity-0 data-[activation-direction~='right']:[&_[data-previous][data-ending-style]]:-translate-x-1/2 data-[activation-direction~='right']:[&_[data-previous][data-ending-style]]:opacity-0";
+    private const string LinkClass = "text-neutral-950 dark:text-white underline underline-offset-[0.16em] decoration-[1px] hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string CloseClass = "mt-2 flex h-8 w-fit items-center justify-center border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 px-3 text-sm text-neutral-950 dark:text-white select-none hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+
+    // Base UI's createHandle<React.ComponentType>(): the payload is the panel the trigger shows.
+    private readonly PopoverHandle<RenderFragment> handle = new();
+
+    private static readonly RenderFragment s_notifications =
+        @<div class="flex flex-col gap-1">
+            <PopoverTitle class="text-sm font-bold">Notifications</PopoverTitle>
+            <PopoverDescription class="text-sm text-neutral-600 dark:text-neutral-400">You are all caught up. Good job!</PopoverDescription>
+        </div>;
+
+    private static readonly RenderFragment s_activity =
+        @<div class="flex flex-col gap-1">
+            <PopoverTitle class="text-sm font-bold">Activity</PopoverTitle>
+            <PopoverDescription class="text-sm text-neutral-600 dark:text-neutral-400">Nothing interesting happened recently.</PopoverDescription>
+        </div>;
+
+    private static readonly RenderFragment s_profile =
+        @<div class="grid w-max grid-cols-[auto_auto] gap-x-2">
+            <PopoverTitle class="col-start-2 col-end-3 row-start-1 row-end-2 text-sm font-bold">Jason Eventon</PopoverTitle>
+            <AvatarRoot class="col-start-1 col-end-2 row-start-1 row-end-3 inline-flex h-12 w-12 items-center justify-center overflow-hidden bg-neutral-200 dark:bg-neutral-800 align-middle text-sm leading-none font-bold text-neutral-950 dark:text-white select-none">
+                <AvatarImage Src="https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=128&h=128&dpr=2&q=80" width="48" height="48" class="h-full w-full object-cover" />
+            </AvatarRoot>
+            <span class="col-start-2 col-end-3 row-start-2 row-end-3 text-sm text-neutral-600 dark:text-neutral-400">Pro plan</span>
+            <div class="col-start-1 col-end-3 row-start-3 row-end-4 flex flex-col gap-2 pt-2 text-sm">
+                <a href="#" class="@LinkClass">Profile settings</a>
+                <a href="#" class="@LinkClass">Log out</a>
+            </div>
+        </div>;
+}

@@ -1,0 +1,74 @@
+@namespace Blazix.Primitives.Fixtures.Client.TooltipFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `tooltip-handoff` fixture (tests/browser/tooltip.spec.ts): TooltipRoot.detached-triggers.test.tsx's hand-off titles
+    (:308-341, :408-456, :574-613, :665-780), two triggers with the payloads 1 and 2 (`trigger-1`, `trigger-2`) and the
+    payload rendered as `content`, by `case`:
+    - `pressed`: detached triggers, a root tracking both axes; `[data-handle-open]` opens it on `trigger-1`;
+    - `own-id`: contained triggers with `delay=0` and `closeDelay=0`, the second substituted with `<button id="custom-button">`;
+    - `disabled`: detached triggers with `delay=0`, the second disabled (`Disabled="true"`);
+    - `native-disabled`: detached triggers with `delay=0`, the second substituted with a natively disabled `<button>`.
+    The container records the root's open changes.
+*@
+<FixtureContainer Name="tooltip-handoff" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <div style="position: fixed; top: 0; left: 0; display: flex; gap: 4px">
+        <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" data-handle-open data-key-control @onclick='() => handle.OpenAsync("trigger-1")' @onkeydown='OnShift(() => handle.OpenAsync("trigger-1"))'>Open</button>
+    </div>
+    <div style="position: fixed; top: 200px; left: 100px; display: flex; gap: 40px">
+        @if (Case == "own-id")
+        {
+            <TooltipRoot TPayload="int" @ref="root" OnOpenChange="RecordOpenChange">
+                <ChildContent>
+                    <TooltipTrigger TPayload="int" @ref="first" data-testid="trigger-1" Payload="1" Delay="0" CloseDelay="0">Trigger 1</TooltipTrigger>
+                    <TooltipTrigger TPayload="int" @ref="second" data-testid="trigger-2" Payload="2" Delay="0" CloseDelay="0" Render="CustomButton">Trigger 2</TooltipTrigger>
+                </ChildContent>
+                <PayloadContent>@Popup(context)</PayloadContent>
+            </TooltipRoot>
+        }
+        else
+        {
+            <TooltipTrigger Handle="handle" @ref="first" id="trigger-1" data-testid="trigger-1" Payload="1" Delay="0">Trigger 1</TooltipTrigger>
+            @if (Case == "native-disabled")
+            {
+                <TooltipTrigger Handle="handle" @ref="second" id="trigger-2" data-testid="trigger-2" Payload="2" Delay="0" Render="DisabledButton">Trigger 2</TooltipTrigger>
+            }
+            else
+            {
+                <TooltipTrigger Handle="handle" @ref="second" id="trigger-2" data-testid="trigger-2" Payload="2" Delay="0" Disabled="@(Case == "disabled" ? true : null)">Trigger 2</TooltipTrigger>
+            }
+            <TooltipRoot Handle="handle" @ref="root" TrackCursorAxis="@(Case == "pressed" ? TooltipTrackCursorAxis.Both : TooltipTrackCursorAxis.None)" OnOpenChange="RecordOpenChange">
+                <PayloadContent>@Popup(context)</PayloadContent>
+            </TooltipRoot>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly TooltipHandle<int> handle = new();
+    private TooltipRoot<int>? root;
+    private TooltipTrigger<int>? first;
+    private TooltipTrigger<int>? second;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    private static RenderFragment CustomButton => @<button id="custom-button" type="button" />;
+
+    private static RenderFragment DisabledButton => @<button type="button" disabled />;
+
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(first?.TwinAttached ?? Task.CompletedTask, second?.TwinAttached ?? Task.CompletedTask);
+    }
+
+    private static RenderFragment Popup(int payload) => @<TooltipPortal>
+        <TooltipPositioner>
+            <TooltipPopup data-testid="popup"><span data-testid="content">@payload</span></TooltipPopup>
+        </TooltipPositioner>
+    </TooltipPortal>;
+}

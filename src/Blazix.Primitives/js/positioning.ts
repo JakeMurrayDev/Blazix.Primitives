@@ -760,7 +760,12 @@ export function attach(
     if (sessionReference) {
       return { key: sessionReference, value: sessionReference as VirtualElement };
     }
-    const trigger = options.triggerId ? doc.getElementById(options.triggerId) : null;
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6; ADR 01's hand-off row): the session's reference
+    // element, which is a hand-off's trigger before C# commits it, else C#'s trigger. With a Viewport mounted
+    // (`adaptiveOrigin`), C#'s trigger only: its morph starts on this module's write, so the anchor moves in the render
+    // that brings the new content, as Base UI moves both in one commit (gap 19, settled by the orchestrator 2026-10-29).
+    const sessionTrigger = options.adaptiveOrigin ? null : session?.domReferenceElement;
+    const trigger = sessionTrigger ?? (options.triggerId ? doc.getElementById(options.triggerId) : null);
     return { key: trigger, value: trigger };
   };
 

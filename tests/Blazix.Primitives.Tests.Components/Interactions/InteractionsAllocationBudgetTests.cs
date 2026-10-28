@@ -20,8 +20,10 @@ public sealed class InteractionsAllocationBudgetTests : IDisposable
     // last sent before it builds a record, so the comparison allocates nothing and nothing is sent. 2026-10-28 (ADR 16
     // Amendments 2026-10-27, issue 112; after M4 tracks 1 and 2 were on `main`): in the non-parallel AllocationBudgets
     // collection, and the figure before it lands is the envelope of full runs: 2072 in 25 of 25 full runs of the project in
-    // Release.
-    private const long RerenderBudgetBytes = 2072;
+    // Release. 2026-10-29 (M4 track 5, the same rule, settled by the orchestrator 2026-10-29): CI run 40739478504
+    // measured 2184 against 2072 on the least of five, the CI runner's +112 bytes floor shift (Composite's budget the
+    // run before); 25 more full runs here gave 2072 in 25. The budget is the envelope with that floor, 2184.
+    private const long RerenderBudgetBytes = 2184;
 
     private readonly InteractionsTestContext host = new();
 

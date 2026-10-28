@@ -13,6 +13,7 @@ import {
   getNodeChildren,
   getSession,
   isTopmostOpenSession,
+  nameRelayTrigger,
   releaseSession,
   resetInteractionsForTest,
   type SessionNode,
@@ -20,7 +21,7 @@ import {
 } from './interactions';
 import { resetFrameScheduler } from './transitions';
 import { createFakeTwin } from './test-support/fake-twin';
-import { createPopupHarness, type PopupHarness } from './test-support/interactions-harness';
+import { createPopupHarness, type HarnessChangeDetails, type PopupHarness } from './test-support/interactions-harness';
 
 const harnesses: PopupHarness[] = [];
 
@@ -363,6 +364,29 @@ describe('the session', () => {
     expect(seen[0]?.details.nested).toBe(false);
     expect(session.open).toBe(false);
     expect(session.dataRef.current.openEvent).toBeUndefined();
+  });
+
+  it('port: a named element is the trigger element of the next relayed focus-out close without a trigger, and of that close only', () => {
+    const popup = harness();
+    popup.attachSession();
+    popup.attachTrigger(element('button', 'trigger'));
+    const session = getSession(popup.token)!;
+    const guard = element('span', 'guard');
+    const seen: SessionOpenChangeDetails[] = [];
+    session.events.on('openchange', (details: SessionOpenChangeDetails) => seen.push(details));
+    popup.setOpen(true, 'trigger-press', 'trigger');
+
+    nameRelayTrigger(session, guard);
+    popup.setOpen(false, 'focus-out');
+    popup.setOpen(true, 'trigger-press', 'trigger');
+    popup.setOpen(false, 'focus-out');
+
+    expect(seen.map((details) => [details.open, details.reason, details.triggerElement?.id])).toEqual([
+      [true, 'trigger-press', 'trigger'],
+      [false, 'focus-out', 'guard'],
+      [true, 'trigger-press', 'trigger'],
+      [false, 'focus-out', undefined],
+    ]);
   });
 
   it('port: a canceled request moves no revision and emits nothing, and a committed one carries its own event', () => {
@@ -765,6 +789,46 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
 
     expect(popup.open).toBe(true);
     expect(getSession(popup.token)?.dataRef.current.openEvent?.type).toBe('click');
+  });
+
+  // Gap 16 (ADR 04 Amendments 2026-10-29): Base UI's useClick writes the open event in its click handler; the port records
+  // the click-like open event on the press's request, before C# commits it, and rolls it back on a cancellation answer.
+  function hoverOpened(options: { synchronous: boolean; commit?: boolean; onOpenChange?: (open: boolean, details: HarnessChangeDetails) => void }) {
+    const popup = harness(options);
+    popup.attachSession();
+    const reference = element('button');
+    popup.attachTrigger(reference, { trigger: { click: { stickIfOpen: true } } });
+    popup.setReference(reference);
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    return { popup, reference, openEvent: () => getSession(popup.token)?.dataRef.current.openEvent?.type };
+  }
+
+  it('port: a press on a hover-opened popup records the click as the open event on its request, before the commit', () => {
+    const options = { synchronous, commit: true };
+    const { reference, openEvent } = hoverOpened(options);
+    options.commit = false;
+
+    click(reference);
+
+    expect(openEvent()).toBe('click');
+  });
+
+  it('port: a press whose request C# cancels rolls the recorded open event back', () => {
+    let duringRequest: string | undefined;
+    const { popup, reference, openEvent } = hoverOpened({
+      synchronous,
+      onOpenChange: (_open, details) => {
+        if (details.reason === 'trigger-press') {
+          duringRequest = getSession(popup.token)?.dataRef.current.openEvent?.type;
+          details.cancel();
+        }
+      },
+    });
+
+    click(reference);
+
+    expect(duringRequest).toBe('click');
+    expect(openEvent()).toBe('mouseenter');
   });
 
   it('stickIfOpen false closes a hover-opened popup on first click', () => {
@@ -1193,6 +1257,62 @@ describe('useDismiss', () => {
       const { popup, reference } = renderApp({ referencePress: true });
       mouse(reference, 'click');
       expect(popup.open).toBe(false);
+    });
+
+    it('port: a close request from another handle of the session is dropped while one is in flight', async () => {
+      // ADR 04 Amendments 2026-10-29 (gap 14 of M4 track 5): design point 13.9's rule widens from the handle to the session.
+      // The trigger's reference press closes first; the session's outside press that follows is not sent while it is in flight.
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession({ session: { dismiss: {} } });
+      const reference = element('button');
+      popup.attachTrigger(reference, { trigger: { referencePress: true } });
+      popup.setReference(reference);
+      popup.attachFloating(element('div'));
+      const outside = element('button');
+      const closes = () => popup.requests.filter((request) => request.method === 'OnRequest' && request.payload.open === false);
+
+      pointer(reference, 'pointerdown');
+      userClick(outside);
+
+      expect(closes().map((request) => request.payload.reason)).toEqual(['trigger-press']);
+
+      // Once the first request's invocation settled, a close from any handle is sent again.
+      await Promise.resolve();
+      await Promise.resolve();
+      userClick(outside);
+
+      expect(closes().map((request) => request.payload.reason)).toEqual(['trigger-press', 'outside-press']);
+    });
+
+    it('port: a handle sends no second close while its close is in flight, and sends again once C# answers it', async () => {
+      // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6): the reference press closes on `pointerdown` and
+      // on `click`; on Server the second request would reach the store a round trip after the first. `commit: false`
+      // holds the first in flight.
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession({ session: { dismiss: {} } });
+      const reference = element('button');
+      popup.attachTrigger(reference, { trigger: { referencePress: true } });
+      popup.setReference(reference);
+      const closes = () => popup.requests.filter((request) => request.method === 'OnRequest' && request.payload.open === false);
+
+      pointer(reference, 'pointerdown');
+      mouse(reference, 'click');
+
+      expect(closes()).toHaveLength(1);
+
+      // C#'s answer to a request it did not commit (a canceled close) re-arms the handle.
+      popup.updateSession({ session: { answered: 1 } });
+      mouse(reference, 'click');
+      mouse(reference, 'click');
+
+      expect(closes()).toHaveLength(2);
+
+      // So does the request's own invocation settling: a trigger's twin routes it to the store directly.
+      await Promise.resolve();
+      await Promise.resolve();
+      mouse(reference, 'click');
+
+      expect(closes()).toHaveLength(3);
     });
 
     it('outsidePress function guard', () => {
@@ -2859,6 +2979,21 @@ describe('useHoverReferenceInteraction', () => {
         expect(popup.open).toBe(true);
       });
 
+      it('port: a hover timer whose trigger left the document requests nothing', async () => {
+        // ADR 04 Amendments 2026-10-28 (design point 13.4 (3) of M4 track 6; TIP-PTR-23): on Server Blazor removes the
+        // trigger's element in its render batch and the handle's dispose is a later message, so a pending timer of
+        // either kind can fire in between; C# would then find no registered trigger.
+        const { popup, button } = render({ delayOpen: 100, restMs: 100 });
+        hoverMouse(button, 'mouseenter');
+        hoverMouse(button, 'mousemove', { movementX: 10, movementY: 10 });
+        button.remove();
+
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(popup.requests.filter((request) => request.method === 'OnRequest')).toEqual([]);
+        expect(popup.open).toBe(false);
+      });
+
       it('restMs + nullish open delay should respect restMs', async () => {
         const { popup, button } = render({ restMs: 100, delayClose: 100 });
 
@@ -3090,6 +3225,34 @@ describe('useHoverReferenceInteraction', () => {
         'auto',
         '',
       ]);
+    });
+
+    it('port: a hand-off makes the new trigger the session reference at once, and a canceled one reverts when its request settles', async () => {
+      // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6): ADR 01's hand-off row, where the module
+      // re-anchors at once and C#'s active trigger follows. `commit: false` plays a commit that never comes (a cancel).
+      const popup = harness({ open: true, commit: false });
+      popup.attachSession();
+      const hover: HoverTestOptions = { move: false };
+      const first = element('button');
+      const second = element('button');
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      popup.setReference(first);
+      const session = getSession(popup.token)!;
+      const references: (Element | null)[] = [];
+      session.subscribePositionReference(() => references.push(session.domReferenceElement));
+
+      hoverMouse(second, 'mouseenter');
+
+      expect(popup.requests.at(-1)?.payload).toMatchObject({ open: true, reason: 'trigger-hover', triggerId: second.id });
+      expect(session.domReferenceElement).toBe(second);
+      expect(references).toEqual([second]);
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(session.domReferenceElement).toBe(first);
+      expect(references).toEqual([second, first]);
     });
 
     it('port: a pointerdown on an interactive element with aria-haspopup inside the floating element makes the open click-like, so leaving the trigger keeps it open', () => {

@@ -564,7 +564,7 @@ export interface InteractionSession {
   readonly triggerElements: SessionTriggerMap;
   readonly positionReference: SessionVirtualElement | null;
   /**
-   * Subscribes to changes of `positionReference`.
+   * Subscribes to changes of `positionReference` and of `domReferenceElement`, the references a position follows.
    * @param listener Called after each change.
    * @returns The unsubscribe function.
    */
@@ -596,13 +596,23 @@ interface SessionRecord extends InteractionSession {
   hasNode: boolean;
   placement: string | undefined;
   positionReference: SessionVirtualElement | null;
+  /** The trigger a hand-off request named, the reference until C# answers that request (design point 13.4 (1)). */
+  pendingAnchor: Element | null;
+  /** The mark of the request that set `pendingAnchor`. */
+  pendingAnchorMark: object | null;
   lastRevision: number | undefined;
   /** The answered-requests counter last applied. */
   answered: number;
   pending: PendingRequest | null;
+  /** The mark of the session's close request C# has not answered yet, or `null` (design point 13.9, gap 14). */
+  closeInFlight: object | null;
+  /** A press's open event recorded on its request, with the one it replaced, until C# commits or cancels the request. */
+  optimisticOpenEvent: { request: PendingRequest; previous: Event | undefined } | null;
+  /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
+  namedTrigger: Element | null;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
-  channel: TwinChannel | null;
+  channel: HandleChannel | null;
   positionListeners: Set<() => void>;
   /** The hook regions' private per-session state (`sessionSlot`). */
   slots: Map<string, unknown>;
@@ -688,9 +698,14 @@ function createSessionRecord(token: string): SessionRecord {
     hasNode: false,
     placement: undefined,
     positionReference: null,
+    pendingAnchor: null,
+    pendingAnchorMark: null,
     lastRevision: undefined,
     answered: 0,
     pending: null,
+    closeInFlight: null,
+    optimisticOpenEvent: null,
+    namedTrigger: null,
     triggers,
     channel: null,
     positionListeners: new Set(),
@@ -705,6 +720,9 @@ function createSessionRecord(token: string): SessionRecord {
       return record.parentToken !== null;
     },
     get domReferenceElement() {
+      if (record.pendingAnchor !== null) {
+        return record.pendingAnchor;
+      }
       return record.activeTriggerId === null ? null : (triggers.get(record.activeTriggerId) ?? null);
     },
     get node(): SessionNode {
@@ -811,6 +829,16 @@ export function getSession(token: string): InteractionSession | undefined {
 }
 
 /**
+ * Names the element the next relayed `focus-out` close without a trigger carries as its trigger element, such as a
+ * popup trigger's focus guard, which the guard's own close names; a canceled close clears it.
+ * @param session The session.
+ * @param element The element.
+ */
+export function nameRelayTrigger(session: InteractionSession, element: Element): void {
+  (session as SessionRecord).namedTrigger = element;
+}
+
+/**
  * Determines whether no open session was opened later than this one (the topmost gate of nested popups).
  * @param session The session.
  * @returns `true` when the session is open and topmost.
@@ -860,10 +888,14 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   const role = options.session ?? {};
   const open = role.open === true;
   const relay = options.relay ?? null;
+  const reference = record.domReferenceElement;
+  const answered = role.answered ?? 0;
+  const answeredRequest = (relay !== null && relay.revision !== record.lastRevision) || answered !== record.answered;
   record.parentToken = role.parentToken ?? null;
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
   if (relay !== null && relay.revision !== record.lastRevision) {
+    record.closeInFlight = null;
     const first = record.lastRevision === undefined;
     const previousRevision = record.lastRevision ?? 0;
     record.lastRevision = relay.revision;
@@ -875,13 +907,14 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
       record.pending = null;
+      record.optimisticOpenEvent = null;
       syncOpenEvent(record, open, event);
       const details: SessionOpenChangeDetails = {
         open,
         reason: relay.reason,
         nativeEvent: event,
         nested: record.nested,
-        triggerElement: relay.triggerId != null ? record.triggers.get(relay.triggerId) : undefined,
+        triggerElement: relay.triggerId != null ? record.triggers.get(relay.triggerId) : namedTrigger(record, open, relay.reason),
       };
       record.events.emit('openchange', details);
     }
@@ -893,15 +926,52 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.openOrder = 0;
   }
   record.open = open;
+  // Design point 13.4 (1): C#'s answer replaces a hand-off's pending anchor with the active trigger it committed, or
+  // reverts it when the hand-off was canceled.
+  if (answeredRequest) {
+    record.pendingAnchor = null;
+    record.pendingAnchorMark = null;
+  }
   record.activeTriggerId = role.activeTriggerId ?? null;
   // Design point 10 (settled by the orchestrator 2026-10-27): a canceled request moves no revision, so the answered
   // counter is what re-arms a session that requested a close.
-  const answered = role.answered ?? 0;
   if (answered !== record.answered) {
+    record.closeInFlight = null;
     record.answered = answered;
+    // A canceled close moves no revision: the name it was given does not wait for a later close.
+    record.namedTrigger = null;
+    rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
   }
+  if (record.domReferenceElement !== reference) {
+    notifyPositionListeners(record);
+  }
   notifySessionChange(record);
+}
+
+// ADR 04 Amendments 2026-10-29 (gap 16 of M4 track 5): Base UI's `useClick` writes the open event in its click handler, so
+// a press records its click-like open event on its request, as a hover open awaiting its commit already counts as open;
+// the relay's commit confirms it, and an answer that leaves the request pending (C# canceled it) restores the previous.
+function recordOptimisticOpenEvent(record: SessionRecord, request: PendingRequest): void {
+  const previous = record.dataRef.current.openEvent;
+  syncOpenEvent(record, true, request.event);
+  record.optimisticOpenEvent = record.dataRef.current.openEvent === previous ? null : { request, previous };
+}
+
+function rollBackOptimisticOpenEvent(record: SessionRecord): void {
+  const optimistic = record.optimisticOpenEvent;
+  record.optimisticOpenEvent = null;
+  if (optimistic !== null && record.pending === optimistic.request && record.dataRef.current.openEvent === optimistic.request.event) {
+    record.dataRef.current.openEvent = optimistic.previous;
+  }
+}
+
+// Design point 4's sub-point of M4 track 5 (settled by the orchestrator 2026-10-28): the element `nameRelayTrigger` named
+// is the trigger of the next relayed `focus-out` close that names none, once.
+function namedTrigger(record: SessionRecord, open: boolean, reason: string): Element | undefined {
+  const named = record.namedTrigger;
+  record.namedTrigger = null;
+  return !open && reason === 'focus-out' && named !== null ? named : undefined;
 }
 
 // The coalesced close's dispatch: its `openchange` (with the session's own request event when it was that close), then
@@ -987,23 +1057,101 @@ function triggerIdOf(record: SessionRecord, element: Element): string | null {
 /**
  * A request a handle sends: recorded for the relay's pairing, then reported on the
  * handle's own twin. Nothing is emitted here: `openchange` follows the commit the relay brings.
+ * @returns `false` when a close is dropped because a close request of the session is in flight; otherwise `true`.
  */
 function requestOpenChange(
   record: SessionRecord,
-  channel: TwinChannel,
+  channel: HandleChannel,
   open: boolean,
   reason: string,
   event: Event | undefined,
   trigger?: Element | null,
   extra?: Record<string, unknown>,
-): void {
-  record.pending = { open, reason, event };
-  channel.report('OnRequest', {
+): boolean {
+  // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28), widened from
+  // the handle to the session by ADR 04 Amendments 2026-10-29 (gap 14): one close request in flight per session. Base UI's
+  // second close (the reference press's `click` after its `pointerdown`, or the outside press after a focus-out close) is
+  // a no-op on a store the first closed; on Server it would reach the store a round trip later. The boundary: from the
+  // emission until C# answers, which is the first of a session update whose relay revision or answered counter moved
+  // (`applySessionOptions`) and the request's own invocation settling (a trigger's or the floating element's twin routes
+  // its request to the store directly, and a canceled one moves neither counter). Marked before the call, which
+  // WebAssembly answers inside it.
+  const payload = {
     open,
     reason,
     event: event === undefined ? null : eventInfo(event),
     triggerId: trigger ? triggerIdOf(record, trigger) : null,
     ...extra,
+  };
+  if (open) {
+    record.pending = { open, reason, event };
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6, settled by the orchestrator 2026-10-28; ADR 01's
+    // hand-off row): an open naming another trigger while open makes that trigger the session's reference at once, as
+    // Base UI's store does inside `setOpen`, until C# answers the request (the boundary of a close in flight above).
+    if (!trigger || !record.open || trigger === record.domReferenceElement) {
+      channel.report('OnRequest', payload);
+      return true;
+    }
+    const anchor = {};
+    record.pendingAnchor = trigger;
+    record.pendingAnchorMark = anchor;
+    notifyPositionListeners(record);
+    void channel.request(payload).finally(() => {
+      if (record.pendingAnchorMark === anchor) {
+        const reference = record.domReferenceElement;
+        record.pendingAnchor = null;
+        record.pendingAnchorMark = null;
+        if (record.domReferenceElement !== reference) {
+          notifyPositionListeners(record);
+        }
+      }
+    });
+    return true;
+  }
+  const release = claimSessionClose(record);
+  if (release === null) {
+    // Dropped: the caller does not disarm for a request it did not send.
+    return false;
+  }
+  record.pending = { open, reason, event };
+  void channel.request(payload).finally(release);
+  return true;
+}
+
+/**
+ * Claims the session's one close request in flight (design point 13.9 of M4 track 6, widened to the session by ADR 04
+ * Amendments 2026-10-29, gap 14): a module that sends a close through its own twin (the focus manager's focus-out) claims
+ * it before the report, so the session's handles send no second close while C# has not answered the first. A session
+ * update whose relay revision or answered counter moved clears the claim.
+ * @param session The session.
+ * @returns The release to call once C# answered the request, canceled or not, or `null` while a close is in flight.
+ */
+export function claimSessionClose(session: InteractionSession): (() => void) | null {
+  const record = session as SessionRecord;
+  if (record.closeInFlight !== null) {
+    return null;
+  }
+  const mark = {};
+  record.closeInFlight = mark;
+  return () => {
+    if (record.closeInFlight === mark) {
+      record.closeInFlight = null;
+    }
+  };
+}
+
+/** A handle's channel to its twin, with the request path whose invocation settles once C# ran the request. */
+interface HandleChannel extends TwinChannel {
+  /**
+   * Sends a request to the twin's `OnRequest`, as `report` does.
+   * @returns The invocation, settled once C# ran the request, committed or canceled.
+   */
+  request(payload: unknown): Promise<void>;
+}
+
+function createHandleChannel(twin: DotNetTwin): HandleChannel {
+  return Object.assign(createTwinChannel(twin), {
+    request: (payload: unknown) => twin.invokeMethodAsync<void>('OnRequest', JSON.stringify(payload)),
   });
 }
 
@@ -1043,7 +1191,7 @@ interface HandleContext {
   readonly record: SessionRecord;
   /** The trigger or floating element; `null` for the session handle. */
   readonly element: HTMLElement | null;
-  readonly channel: TwinChannel;
+  readonly channel: HandleChannel;
   readonly twinReference: DotNetTwin;
   /** The options of the last `attach` or `update`. */
   readonly options: InteractionsOptions;
@@ -1246,8 +1394,9 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   // the session, so the disarm below applies only when none arrived (design point 10).
   const answeredBefore = record.answered;
   const verdict = decide(channel, ESCAPE_POINT, event, 'prevent-and-stop');
+  let sent = true;
   if (!channel.lastDecisionWasSynchronous) {
-    requestOpenChange(record, channel, false, 'escape-key', event);
+    sent = requestOpenChange(record, channel, false, 'escape-key', event);
   }
   const accepted = verdict === 'prevent-and-stop' || verdict === 'prevent';
   if (accepted) {
@@ -1258,7 +1407,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   }
   // A close is pending until the relay brings the next open or C# answers the request; a cancel the verdict reports
   // leaves the session armed.
-  if (accepted && record.answered === answeredBefore) {
+  if (accepted && sent && record.answered === answeredBefore) {
     state.disarmed = true;
   }
 }
@@ -1541,8 +1690,7 @@ function createSessionDismissController(context: HandleContext): Controller {
       // so a press's compatibility `mousedown` does not request again before the commit arrives.
       if (!state.disarmed) {
         const answeredBefore = record.answered;
-        requestOpenChange(record, context.channel, false, 'outside-press', event);
-        if (record.answered === answeredBefore) {
+        if (requestOpenChange(record, context.channel, false, 'outside-press', event) && record.answered === answeredBefore) {
           state.disarmed = true;
         }
       }
@@ -1936,7 +2084,11 @@ function createClickController(context: HandleContext): Controller {
     const options = clickOptions();
     const reason = options?.reason ?? 'trigger-press';
     const payload = { open: nextOpen, reason, triggerId: triggerIdOf(record, target === element ? element : target), interactionType: classify(event) };
-    record.pending = { open: nextOpen, reason, event };
+    const request: PendingRequest = { open: nextOpen, reason, event };
+    record.pending = request;
+    if (nextOpen) {
+      recordOptimisticOpenEvent(record, request);
+    }
     if (channel.synchronous) {
       twinReference.invokeMethod<void>('OnPressing', JSON.stringify(payload));
       decide(channel, PRESS_POINT, event, 'run');
@@ -2739,6 +2891,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
 
   // An open the trigger reports: the hovered line recomputed first, the delay group's instant phase carried with it.
   const requestHoverOpen = (event: MouseEvent, trigger: Element | null) => {
+    // ADR 04 Amendments 2026-10-28 (design point 13.4 (3) of M4 track 6; TIP-PTR-23): a timer whose trigger left the
+    // document reports nothing. On Server the element leaves in C#'s render batch, before this handle's dispose arrives.
+    if (!(trigger ?? element)?.isConnected) {
+      return;
+    }
     recordHoveredLineBeforeOpen(context, event);
     const token = hoverOptions()?.delayGroupToken;
     const instant = token != null && delayGroupInstantPhase(record, token);
@@ -3933,6 +4090,10 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
     return;
   }
   record.positionReference = reference;
+  notifyPositionListeners(record);
+}
+
+function notifyPositionListeners(record: SessionRecord): void {
   for (const listener of [...record.positionListeners]) {
     listener();
   }
@@ -4444,7 +4605,7 @@ function composeHandle(
   onUpdate: (options: InteractionsOptions, previous: InteractionsOptions) => void,
   onDispose: () => void,
 ): TwinHandle {
-  const channel = createTwinChannel(twinReference);
+  const channel = createHandleChannel(twinReference);
   const context = { record, element, channel, twinReference, options: initialOptions };
   const controllers = factories.map((factory) => factory(context));
   let disposed = false;
@@ -4477,7 +4638,7 @@ function composeHandle(
 function attachSession(token: string, initialOptions: InteractionsOptions, twinReference: DotNetTwin): TwinHandle {
   const record = acquireRecord(token);
   applySessionOptions(record, initialOptions);
-  let channel: TwinChannel | null = null;
+  let channel: HandleChannel | null = null;
   const handle = composeHandle(
     record,
     null,

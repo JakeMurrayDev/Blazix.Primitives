@@ -195,11 +195,13 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     }
 
     // A JSDisconnectedException means the Server circuit is gone and the part is being torn down: the attach yields
-    // a handle that is already a no-op rather than an exception in OnAfterRenderAsync (null = disconnected).
+    // a handle that is already a no-op rather than an exception in OnAfterRenderAsync (null = disconnected). ADR 04
+    // Amendments 2026-10-29 (gap 17 of M4 track 5): so does an attach whose twin was disposed while it was in flight,
+    // since the part that left took its element with it ("no element for the reference").
     private async Task<IJSObjectReference?> AttachCoreAsync<TTarget>(TTarget elementOrId, TOptions options, object[]? references, string?[]? captures)
     {
         IJSObjectReference? imported = await ImportAsync().ConfigureAwait(false);
-        if (imported is null)
+        if (imported is null || disposed)
         {
             return null;
         }
@@ -223,6 +225,10 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
                 : await imported.InvokeAsync<IJSObjectReference>("attach", elementOrId, json, selfReference, references).ConfigureAwait(false);
         }
         catch (JSDisconnectedException)
+        {
+            return null;
+        }
+        catch (JSException) when (disposed)
         {
             return null;
         }

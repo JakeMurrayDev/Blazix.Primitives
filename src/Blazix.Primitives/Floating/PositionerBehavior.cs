@@ -258,6 +258,14 @@ internal sealed class PositionerBehavior : IDisposable
         {
             handle = element is { } attached ? await twin.AttachAsync(attached, options, references) : await twin.AttachAsync(id!, options, references);
         }
+        catch (JSException)
+        {
+            // Issue 134 (design point 13.11 of M4 track 6, settled by the orchestrator 2026-10-28): the positioner left the
+            // document before the attach arrived (closed while the module loaded, or on Server a round trip after its
+            // render): nothing to position; a later render attaches again (the FocusManagerBehavior precedent).
+            Forget();
+            return;
+        }
         finally
         {
             attaching = false;
@@ -488,6 +496,13 @@ internal sealed class PositionerBehavior : IDisposable
         }
 
         handle = null;
+        Forget();
+        await released.DisposeAsync();
+    }
+
+    // What an attach sent and froze, so the next attach starts afresh.
+    private void Forget()
+    {
         sentOptions = null;
         sentAnchor = null;
         sentBoundary = null;
@@ -496,7 +511,6 @@ internal sealed class PositionerBehavior : IDisposable
         frozenStyle = null;
         frozenSide = null;
         frozenAlign = null;
-        await released.DisposeAsync();
     }
 
     // A change of direction changes nothing C# renders (data-side is the requested or the frozen literal), only the
