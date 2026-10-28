@@ -175,8 +175,9 @@ internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPay
             && popup.EffectiveActiveTriggerId is { } previous && !string.Equals(previous, next, StringComparison.Ordinal);
         PopoverInstantType? instantType = switches ? null : InstantTypeFor(open, details);
 
-        // FLT-FOC-10: the focus manager classifies the close type from the event that caused the close (PopoverPopup).
-        EventSnapshot? closeEvent = open ? state.CloseEvent : details.Event;
+        // FLT-FOC-10: the focus manager classifies the close type from the event that caused the close (PopoverPopup); a
+        // close request applied while already closed (on Server a focus-out a round trip late) closed nothing.
+        EventSnapshot? closeEvent = open || !popup.EffectiveOpen ? state.CloseEvent : details.Event;
         return state.OpenChangeReason == details.Reason && state.InstantType == instantType && ReferenceEquals(state.CloseEvent, closeEvent)
             ? state
             : state with { OpenChangeReason = details.Reason, InstantType = instantType, CloseEvent = closeEvent };
