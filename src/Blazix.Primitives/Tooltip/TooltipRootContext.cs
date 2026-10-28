@@ -12,6 +12,7 @@ namespace Blazix.Primitives;
 internal abstract class TooltipRootContext
 {
     // TIP-EDGE-02 (tooltip/root/TooltipRootContext.ts:11-19), with the port's prefix and code quoting (issue 121).
+    /// <summary>The message thrown when a tooltip part is placed outside a <c>TooltipRoot</c>.</summary>
     internal const string MissingMessage = "Blazix: `TooltipRootContext` is missing. Tooltip parts must be placed within `<TooltipRoot>`.";
 
     /// <summary>Gets the session token the tooltip's browser-side behaviors share; it is never rendered.</summary>

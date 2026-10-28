@@ -52,6 +52,9 @@ internal sealed class TooltipProviderContext(string token)
     /// <param name="listener">The listener.</param>
     public void RemoveListener(Action listener) => listeners.Remove(listener);
 
+    /// <summary>Gets the fragment that cascades this context to <paramref name="content"/>.</summary>
+    /// <param name="content">The content that receives the context.</param>
+    /// <returns>The fragment.</returns>
     internal RenderFragment Cascade(RenderFragment? content) => builder =>
     {
         builder.OpenComponent<CascadingValue<TooltipProviderContext>>(0);

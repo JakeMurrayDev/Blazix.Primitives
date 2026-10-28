@@ -80,6 +80,7 @@ public static class TooltipPositionerCssVars
 internal sealed class TooltipPositionerContext(PositionerContext positioner)
 {
     // TIP-EDGE-04, with the port's prefix and code quoting (issue 121).
+    /// <summary>The message thrown when a tooltip arrow is placed outside a <c>TooltipPositioner</c>.</summary>
     internal const string MissingMessage = "Blazix: `TooltipPositionerContext` is missing. `TooltipPositioner` parts must be placed within `<TooltipPositioner>`.";
 
     /// <summary>Gets the positioning context the arrow's behavior registers with.</summary>

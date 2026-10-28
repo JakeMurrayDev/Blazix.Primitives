@@ -11,6 +11,7 @@ namespace Blazix.Primitives;
 internal sealed record TooltipPortalContext(bool KeepMounted)
 {
     // TIP-EDGE-03, with the port's prefix and code quoting (issue 121).
+    /// <summary>The message thrown when a tooltip positioner is placed outside a <c>TooltipPortal</c>.</summary>
     internal const string MissingMessage = "Blazix: `<TooltipPortal>` is missing.";
 
     /// <summary>Returns <paramref name="context"/>, or throws when the positioner is placed outside a tooltip portal.</summary>
