@@ -21,14 +21,6 @@ detachedTriggersConformanceTests({
   throwOnMissingTrigger: true,
   close: false,
   positioner: true,
-  open: {
-    // Run 40707988387 (172f72f), browser-server (2), reproduced at 4x CPU throttling: the root attaches its store to the
-    // handle after its render (PSH-STR-03), so a trigger declared after it renders on the fallback store and its
-    // `interactions` handle attaches under no session; the module keeps that binding when the session token arrives, and
-    // the hover open closes at once. Open until PR 136 (track 5) lands with its fix of `Floating/InteractionsTriggerBehavior`.
-    'registers a detached trigger declared after the root':
-      'TIP-EDGE-15, TIP-STR-09, PSH-STR-03 with a late session token: open until PR 136 lands the session rebinding of InteractionsTriggerBehavior',
-  },
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

@@ -8,10 +8,11 @@
     with TooltipRoot.detached-triggers.test.tsx's parts, the suite's Fixture as a page (the `popup-triggers` page of M4
     track 1 with Tooltip parts). Triggers `trigger-1`.. carry their number as payload and open at once on hover (`delay: 0`;
     Base UI's `pointerEvents: 'none'` is left out, since the suite hovers with the real pointer); the root's payload template
-    renders `root-payload` and the portaled positioner and popup with its `content`. The positioner sits below its trigger
-    (the suite's `positionerProps` of the controlled case, `side: 'bottom', align: 'start'`, with the side kept for every
-    case), so the suite's one-step move to the page's origin leaves the trigger from the side opposite the popup and the
-    safe polygon closes at once (FLT-ALG-15), as Base UI's dispatched `mouseleave` does.
+    renders `root-payload` on a line of its own, so a payload's text never moves a trigger from under the pointer (with
+    `rootFirst` it precedes the triggers), and the portaled positioner and popup with its `content`. The positioner sits
+    below its trigger (the suite's `positionerProps` of the controlled case, `side: 'bottom', align: 'start'`, with the
+    side kept for every case), so the suite's one-step move to the page's origin leaves the trigger from the side opposite
+    the popup and the safe polygon closes at once (FLT-ALG-15), as Base UI's dispatched `mouseleave` does.
     - `mode=contained|detached`, `triggerCount` (2), `rootFirst`, `nesting` (wrappers around the triggers);
     - `open` and `triggerId` (a controlled root), `defaultOpen`, `defaultTriggerId`; Tooltip's handle always throws for an
       unregistered trigger id (TIP-EDGE-05);
@@ -161,7 +162,7 @@
     </text>;
 
     private RenderFragment<string?> Popup => payload => @<text>
-        <span data-testid="root-payload">@(payload ?? "No payload")</span>
+        <span data-testid="root-payload" style="display: block">@(payload ?? "No payload")</span>
         <TooltipPortal>
             <TooltipPositioner data-testid="positioner" Side="Side.Bottom" Align="@(Case == "controlled" ? Align.Start : Align.Center)">
                 <TooltipPopup data-testid="popup">
