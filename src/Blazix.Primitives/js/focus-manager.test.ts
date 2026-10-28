@@ -3189,6 +3189,66 @@ describe('FloatingFocusManager', () => {
       expect(outerManager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
     });
 
+    // FLT-FOC-07's tree clause: focus inside a descendant node's floating element counts as inside the floating tree.
+    it('port: closing a popup while focus is inside its nested popup returns focus to the reference', async () => {
+      const outer = sessionPopup();
+      const inner = sessionPopup();
+      outer.attachSession();
+      inner.attachSession({ session: { parentToken: outer.token } });
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      outer.attachTrigger(reference, { trigger: { click: {} } });
+      userClick(reference);
+      const outerFloating = element('div', 'outer-floating', { tabindex: '-1', 'data-open': '' });
+      outerFloating.append(element('button', 'outer-inside'));
+      document.body.append(outerFloating);
+      outer.attachFloating(outerFloating);
+      const outerManager = attachManager(outerFloating, { modal: false, sessionToken: outer.token });
+      await settle();
+
+      // The nested popup renders elsewhere in the document; focus moves into it.
+      inner.setOpen(true);
+      const innerFloating = element('div', 'inner-floating', { tabindex: '-1', 'data-open': '' });
+      const innerInside = element('button', 'inner-inside');
+      innerFloating.append(innerInside);
+      document.body.append(innerFloating);
+      inner.attachFloating(innerFloating);
+      innerInside.focus();
+      await settle();
+
+      await unmount(outerManager);
+
+      expect(document.activeElement).toBe(reference);
+    });
+
+    // FLT-ALG-22's ancestor clause: an ancestor node's floating element is related.
+    it("port: focus moving from a nested non-modal popup to its parent's floating element asks for no close", async () => {
+      const outer = sessionPopup();
+      const inner = sessionPopup();
+      outer.attachSession();
+      inner.attachSession({ session: { parentToken: outer.token } });
+      outer.setOpen(true);
+      const outerFloating = element('div', 'outer-floating', { tabindex: '-1', 'data-open': '' });
+      document.body.append(outerFloating);
+      outer.attachFloating(outerFloating);
+      const innerReference = element('button', 'inner-reference', { id: 'inner-reference' });
+      outerFloating.append(innerReference);
+      inner.attachTrigger(innerReference, { trigger: { click: {} } });
+      userClick(innerReference);
+      const innerFloating = element('div', 'inner-floating', { tabindex: '-1', 'data-open': '' });
+      innerFloating.append(element('button', 'inner-inside'));
+      document.body.append(innerFloating);
+      inner.attachFloating(innerFloating);
+      const innerManager = attachManager(innerFloating, { modal: false, sessionToken: inner.token, domReferenceId: 'inner-reference' });
+      await settle();
+      expect(document.activeElement).toBe(byTestId('inner-inside'));
+
+      outerFloating.focus();
+      await settle();
+
+      expect(innerManager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+    });
+
     it('port: focus moving from a non-modal popup to another of its registered triggers asks for no close', async () => {
       const popup = sessionPopup();
       popup.attachSession();
