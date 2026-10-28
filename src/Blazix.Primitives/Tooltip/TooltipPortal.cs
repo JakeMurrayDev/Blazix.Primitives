@@ -90,15 +90,18 @@ public sealed class TooltipPortal : PartBase<EmptyState>
     {
         portal!.Enclosing = EnclosingPortal;
         portal.NodeId = Id;
+
+        // A parameter set that does not supply ChildContent leaves this part's own cascade in it.
+        RenderFragment? supplied = cascade is not null && ReferenceEquals(ChildContent, cascade) ? cascadedContent : ChildContent;
         if (context is null || context.KeepMounted != KeepMounted)
         {
             context = new TooltipPortalContext(KeepMounted);
             cascade = null;
         }
 
-        if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))
+        if (cascade is null || !ReferenceEquals(cascadedContent, supplied))
         {
-            cascadedContent = ChildContent;
+            cascadedContent = supplied;
             RenderFragment? content = cascadedContent;
             TooltipPortalContext current = context;
             cascade = portal.CascadeContent(builder =>

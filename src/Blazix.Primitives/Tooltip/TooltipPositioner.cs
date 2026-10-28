@@ -263,7 +263,8 @@ public sealed class TooltipPositioner : PartBase<TooltipPositionerState>
         behavior!.SetDirectionContext(DirectionContext);
         behavior.SetPortalContext(Portal);
         floating!.PortalContext = Portal;
-        if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))
+        // A parameter set that does not supply ChildContent leaves this part's own cascade in it.
+        if (cascade is null || (!ReferenceEquals(ChildContent, cascade) && !ReferenceEquals(cascadedContent, ChildContent)))
         {
             cascadedContent = ChildContent;
             RenderFragment? content = cascadedContent;
