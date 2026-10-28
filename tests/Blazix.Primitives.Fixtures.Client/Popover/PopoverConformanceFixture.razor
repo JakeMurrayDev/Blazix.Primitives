@@ -9,7 +9,8 @@
     and a popup holding its content and a close. The query sets the root's props:
     - `open=true|false`: a controlled root (the `[data-set-open]` buttons change it, as the suite's rerender does);
       absent, the root is uncontrolled;
-    - `defaultOpen`, `cancelOpen`, `cancelClose`, `allowPropagation`, `popupId`, `keepMounted`;
+    - `defaultOpen`, `cancelOpen`, `cancelClose`, `allowPropagation`, `popupId`, `keepMounted`; `modal` (the root's
+      `Modal="true"`, its internal backdrop);
     - `animated`: the popup takes the `popup-animated` class, 200 ms keyframes on `[data-open]` and `[data-ending-style]`
       (open the page with `?animations=1`).
 *@
@@ -27,13 +28,13 @@
 
     @if (controlled)
     {
-        <PopoverRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <PopoverRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
             @Content
         </PopoverRoot>
     }
     else
     {
-        <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
             @Content
         </PopoverRoot>
     }
@@ -44,6 +45,7 @@
     private bool open;
     private bool defaultOpen;
     private bool keepMounted;
+    private bool modal;
     private Dictionary<string, object> popupAttributes = [];
     private PopoverRoot<NoPayload>? root;
     private PopoverTrigger<NoPayload>? trigger;
@@ -57,6 +59,7 @@
         open = QueryFlag("open") == true;
         defaultOpen = QueryFlag("defaultOpen") == true;
         keepMounted = QueryFlag("keepMounted") == true;
+        modal = QueryFlag("modal") == true;
         popupAttributes["data-testid"] = "popup";
         if (Query("popupId") is { } id)
         {

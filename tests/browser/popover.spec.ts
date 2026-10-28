@@ -292,3 +292,32 @@ test.describe('<Popover.Popup /> starting frame', () => {
   });
 });
 
+// POP-DOM-22's clip-path clause (L4; PSH-DOM-14, PSH-ALG-21): a modal popover's internal backdrop, rendered by track 8's
+// shared writer before the positioner, has the active trigger cut out of it by the popup module.
+test.describe('<Popover.Positioner /> internal backdrop', () => {
+  test('port: a modal popover cuts its trigger out of the internal backdrop', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'popover-conformance', { modal: true });
+    const trigger = page.getByTestId('trigger');
+    await trigger.click();
+    const backdrop = page.getByTestId('positioner').locator('xpath=preceding-sibling::*[1]');
+    await expect(backdrop).toHaveAttribute('role', 'presentation');
+
+    // The polygon's hole: the four pixel corners after the five percentage points of the outer rectangle.
+    const box = (await trigger.boundingBox())!;
+    const hole = async () => {
+      const clipPath = await backdrop.evaluate((element) => (element as HTMLElement).style.clipPath);
+      return [...clipPath.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].slice(0, 4).map((match) => [Number(match[1]), Number(match[2])]);
+    };
+    await expect.poll(async () => (await hole()).length).toBe(4);
+    const expected = [[box.x, box.y], [box.x, box.y + box.height], [box.x + box.width, box.y + box.height], [box.x + box.width, box.y]];
+    (await hole()).forEach(([x, y], index) => {
+      expect(x).toBeCloseTo(expected[index]![0]!, 0);
+      expect(y).toBeCloseTo(expected[index]![1]!, 0);
+    });
+
+    // The cut-out lets a press reach the trigger, which closes the popover.
+    await trigger.click();
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+});
+

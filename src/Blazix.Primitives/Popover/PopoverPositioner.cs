@@ -1,6 +1,7 @@
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
@@ -328,6 +329,18 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
 
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes) => positioner!.FinishAttributes(attributes);
+
+    // POP-STR-13, POP-DOM-22 (PopoverPositioner.tsx:98,128-130): while modal, mounted and not opened by hover, the internal
+    // backdrop is the positioner's previous sibling, inert while closing; track 8's shared writer renders it (PR 144) and
+    // the `popup` module's positioner role writes its `clip-path` cut-out of the active trigger.
+    /// <inheritdoc />
+    protected override void BuildBeforeElement(RenderTreeBuilder builder)
+    {
+        if (mounted!.Value && modal!.Value == PopoverModalKind.Modal && !hoverOpened!.Value)
+        {
+            PopupInternalBackdrop.Render(builder, RootContext!.State.FloatingId + "-backdrop", inert: !open!.Value);
+        }
+    }
 
     private void SetInputs()
     {
