@@ -1686,6 +1686,60 @@ test.describe('Server relaxations (tooltip.md §9)', () => {
     }
   });
 
+  // ADR 01's hand-off row (chosen by the user 2026-10-27; ADR 04 Amendments 2026-10-28, design point 13.4 (1)); TIP-PTR-07,
+  // TIP-FOC-04's at-once clause: the module re-anchors the popup to the new trigger as soon as it requests the hand-off;
+  // the active trigger (`data-popup-open`), which C# commits, follows a round trip later on Server, and the payload a
+  // further one, since the trigger forwards it from OnAfterRender (PSH-STA-30), which on Server runs after the batch's
+  // acknowledgement. Measured locally at 250 ms each way: anchor 0 ms, active 510 ms, payload 950 ms; WebAssembly 0 ms.
+  test('port: a hover hand-off re-anchors at once; on Server the active trigger follows a round trip later and the payload a further one', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'tooltip-triggers', { mode: 'contained' });
+    await byTestId(page, 'trigger-1').hover();
+    await expect(byTestId(page, 'content')).toHaveText('1');
+    await expect(page.locator('[role="presentation"][data-open][style*="opacity: 0"]')).toHaveCount(0);
+    const target = (await byTestId(page, 'trigger-2').boundingBox())!;
+    await page.evaluate((left) => {
+      const times: { enter?: number; anchor?: number; active?: number; content?: number } = {};
+      (window as unknown as { handoffTimes: typeof times }).handoffTimes = times;
+      document.querySelector('[data-testid="trigger-2"]')!.addEventListener('mouseenter', () => {
+        times.enter ??= performance.now();
+      });
+      new MutationObserver(() => {
+        const now = performance.now();
+        const positioner = document.querySelector('[data-testid="positioner"]');
+        if (times.anchor === undefined && positioner && Math.abs(positioner.getBoundingClientRect().left - left) < 40) {
+          times.anchor = now;
+        }
+        if (times.active === undefined && document.querySelector('[data-testid="trigger-2"]')?.hasAttribute('data-popup-open')) {
+          times.active = now;
+        }
+        if (times.content === undefined && document.querySelector('[data-testid="content"]')?.textContent === '2') {
+          times.content = now;
+        }
+      }).observe(document.body, { attributes: true, childList: true, characterData: true, subtree: true });
+    }, target.x);
+
+    await byTestId(page, 'trigger-2').hover();
+
+    await expect(byTestId(page, 'trigger-2')).toHaveAttribute('data-popup-open');
+    await expect(byTestId(page, 'content')).toHaveText('2');
+    const { enter, anchor, active, content } = await page.evaluate(
+      () => (window as unknown as { handoffTimes: { enter: number; anchor: number; active: number; content: number } }).handoffTimes,
+    );
+    test.info().annotations.push({ type: 'hand-off', description: `${mode}: anchor ${Math.round(anchor - enter)} ms, active ${Math.round(active - enter)} ms, payload ${Math.round(content - enter)} ms after mouseenter` });
+    expect(anchor - enter).toBeLessThan(LATENCY);
+    if (mode === 'server') {
+      expect(active - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+      expect(content - active).toBeGreaterThanOrEqual(LATENCY);
+    } else {
+      expect(active - enter).toBeLessThan(2 * LATENCY - 20);
+      expect(content - enter).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
   // TIP-DIS-05 (PSH-STA-23): the close for a lost active trigger runs at the render-batch boundary, after paint plus a
   // round trip on Server, during which the popup stays.
   test('port: the trigger-unmount close lands a round trip after the trigger leaves on Server', async ({ page, mode }) => {
