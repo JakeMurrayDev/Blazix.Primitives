@@ -2890,6 +2890,21 @@ describe('useHoverReferenceInteraction', () => {
         expect(popup.open).toBe(true);
       });
 
+      it('port: a hover timer whose trigger left the document requests nothing', async () => {
+        // ADR 04 Amendments 2026-10-28 (design point 13.4 (3) of M4 track 6; TIP-PTR-23): on Server Blazor removes the
+        // trigger's element in its render batch and the handle's dispose is a later message, so a pending timer of
+        // either kind can fire in between; C# would then find no registered trigger.
+        const { popup, button } = render({ delayOpen: 100, restMs: 100 });
+        hoverMouse(button, 'mouseenter');
+        hoverMouse(button, 'mousemove', { movementX: 10, movementY: 10 });
+        button.remove();
+
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(popup.requests.filter((request) => request.method === 'OnRequest')).toEqual([]);
+        expect(popup.open).toBe(false);
+      });
+
       it('restMs + nullish open delay should respect restMs', async () => {
         const { popup, button } = render({ restMs: 100, delayClose: 100 });
 
