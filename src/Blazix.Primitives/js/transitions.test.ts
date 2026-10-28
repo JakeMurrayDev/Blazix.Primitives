@@ -673,6 +673,32 @@ describe('attach', () => {
     }
   });
 
+  // A kept-mounted element the module hid at its exit end is shown again in the opening pass: the style computed with
+  // the starting style must be the shown element's, or a transition from `display: none` never runs (found by track 6
+  // at PR 137's re-merge, Popover's "starts each opening once when the popup is kept mounted" on Server).
+  it('computes the starting style of a kept-mounted element after showing it again', () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true });
+    expect(element.hasAttribute('hidden')).toBe(true);
+    const original = window.getComputedStyle.bind(window);
+    const hiddenWhenComputed: boolean[] = [];
+    const computed = vi.spyOn(window, 'getComputedStyle').mockImplementation((target, pseudo) => {
+      hiddenWhenComputed.push((target as Element).hasAttribute('hidden'));
+      return original(target, pseudo);
+    });
+
+    try {
+      update(handle, { open: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+      expect(element.hasAttribute(STARTING_STYLE)).toBe(true);
+      expect(hiddenWhenComputed).toEqual([false]);
+    } finally {
+      computed.mockRestore();
+    }
+  });
+
   it('does not request a frame or write a transition attribute for an element attached open', () => {
     const fake = createFakeTwin();
     const element = createElement();
