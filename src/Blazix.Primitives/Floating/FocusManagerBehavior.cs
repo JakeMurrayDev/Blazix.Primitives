@@ -13,7 +13,10 @@ namespace Blazix.Primitives;
 //   that applies them (design point 1 (d), chosen by the user 2026-10-27; ADR 01 Amendments 2026-10-27, the commit-path
 //   update), so the batch finds this change's Disabled, targets and relay;
 // - sends element targets through TwinReferences (ADR 04 Amendments 2026-10-27, element-typed option values); an element
-//   the render has not captured yet names nothing, so the module takes the default, and it is sent once captured;
+//   the render has not captured yet names nothing, so the module takes the default, and it is sent by the next SetInputs
+//   that carries it captured (a family whose target the opening render creates sets its inputs again after that render);
+// - builds the options at attach and when an input, the answered count or the close type changed, never for a render
+//   that changed nothing (ADR 16 rule 7, the PopupPortalBehavior precedent);
 // - renders the inside guards beside the popup while enabled and modal or inside a portal (FLT-DOM-15, FLT-DOM-13; the
 //   untrapped typeable combobox's clause is M5's);
 // - publishes the manager's state to the enclosing portal while enabled (FLT-FOC-18), from which the portal renders its
@@ -42,6 +45,9 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
     private ElementReference[] sentElements = [];
     private string? closeInteractionType;
     private bool attaching;
+    // Whether an input, the answered count or the close type changed since the options were last built (ADR 16 rule 7,
+    // the PopupPortalBehavior precedent): a render that changed nothing builds and sends nothing.
+    private bool changed = true;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="FocusManagerBehavior"/> class.</summary>
@@ -141,6 +147,7 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
         }
 
         inputs = next;
+        changed = true;
         Publish();
         if (handle is not null)
         {
@@ -195,7 +202,7 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
 
         if (handle is not null)
         {
-            // An element target the render captured just now.
+            // SetInputs sent every change already; only what changed since (none for an unchanged render) is sent.
             await PushAsync();
             return;
         }
@@ -213,6 +220,7 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
         }
 
         twin ??= CreateTwin();
+        changed = false;
         (FocusManagerOptions options, TwinReferences? references, ElementReference[] elements) = Build();
         TwinHandle<FocusManagerOptions> attached;
         try
@@ -321,17 +329,19 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
         }
 
         Answered++;
+        changed = true;
         await requestClose(request.Event);
         await PushAsync();
     }
 
     private async Task PushAsync()
     {
-        if (handle is null || disposed)
+        if (handle is null || disposed || !changed)
         {
             return;
         }
 
+        changed = false;
         (FocusManagerOptions options, TwinReferences? references, ElementReference[] elements) = Build();
         if (options.Equals(sentOptions) && SameElements(elements, sentElements))
         {
