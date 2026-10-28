@@ -703,21 +703,20 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
     }
     session = token === null ? null : acquireSession(token);
     if (session !== null) {
+      // The placement of the last committed pass, so a new session does not wait for the next pass.
+      session.setPlacement(data?.placement);
       stopFollowing = session.subscribePositionReference(() => {
         refresh();
       });
     }
   };
 
-  // The position reference (FLT-STR-02, FLT-STA-07, FLT-POS-13, FLT-API-11): the session's position reference while one
-  // is set (the client point and the hovered line write it on every move, after the anchor's registration, so it is
-  // Base UI's last writer), a virtual anchor as given, a custom anchor element (from the references, or by id) wrapped
-  // so its own rect is measured, else the active trigger itself (the root store's reference element).
+  // The position reference (FLT-STR-02, FLT-STA-07, FLT-POS-13, FLT-API-11). Base UI keeps two slots: the Positioner's
+  // anchor is registered in useFloating's own position reference, which overrides the root store's reference, and the
+  // store's reference is its position reference (the client point, the hovered line) or else the trigger. So: a virtual
+  // anchor as given, a custom anchor element (from the references, or by id) wrapped so its own rect is measured, then
+  // the session's position reference while one is set, else the active trigger itself.
   const resolvePositionReference = (): { key: unknown; value: ReferenceElement | null } => {
-    const sessionReference = session?.positionReference;
-    if (sessionReference) {
-      return { key: sessionReference, value: sessionReference as VirtualElement };
-    }
     const doc = ownerDocument(element);
     const virtual = options.virtualAnchor;
     if (virtual) {
@@ -750,6 +749,10 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
           contextElement: anchor,
         } satisfies VirtualElement,
       };
+    }
+    const sessionReference = session?.positionReference;
+    if (sessionReference) {
+      return { key: sessionReference, value: sessionReference as VirtualElement };
     }
     const trigger = options.triggerId ? doc.getElementById(options.triggerId) : null;
     return { key: trigger, value: trigger };
