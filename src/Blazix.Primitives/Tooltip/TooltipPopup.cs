@@ -71,6 +71,7 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
     private TransitionsOptions? sentTransitions;
+    private Task? attaching;
 
     /// <summary>Initializes a new instance of the <see cref="TooltipPopup"/> class.</summary>
     public TooltipPopup()
@@ -89,6 +90,9 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
 
     [CascadingParameter]
     private TooltipPortalContext? PortalContext { get; set; }
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -202,18 +206,29 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
         {
             transitions = new TransitionsTwin(JSRuntime);
             transitions.StatusChanged += change => view?.MirrorStatus(change.Status);
-            transitions.TransitionCompleted += opened => _ = view?.CompleteTransitionAsync(opened);
+            transitions.TransitionCompleted += opened => _ = InvokeAsync(() => view?.CompleteTransitionAsync(opened) ?? Task.CompletedTask);
         }
 
         if (transitionsHandle is null)
         {
-            sentTransitions = options;
-            transitionsHandle = await transitions.AttachAsync(element, options);
+            // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
+            attaching ??= AttachTransitionsAsync(element, options);
+            await attaching;
         }
         else if (options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
+    }
+
+    // Design point 3 of M4 track 1: the portal node is `display: none` in place until the portal module moves it, so the
+    // first attach waits for the move, or the module reads no animation on an element not rendered yet.
+    private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
+    {
+        await PopupPortalContext.WhenMoved(Portal);
+        sentTransitions = options;
+        transitionsHandle = await transitions!.AttachAsync(element, options);
+        attaching = null;
     }
 }
