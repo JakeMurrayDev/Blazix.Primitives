@@ -116,6 +116,10 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private PopoverSelection<PopupTriggerElement?>? activeTrigger;
     private PopoverSelection<EventSnapshot?>? closeEvent;
     private PopoverSelection<OpenChangeRelay?>? relay;
+    private bool initialResolved;
+    private FocusTargetValue? resolvedInitial;
+    private EventSnapshot? finalResolvedFor;
+    private FocusTargetValue? resolvedFinal;
     private bool warnedInitialFocus;
     private bool warnedFinalFocus;
 
@@ -470,12 +474,26 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         };
     }
 
-    // ADR 08 Amendments 2026-10-28: the resolver wins; its `null` moves no focus, `true` is the default target.
+    // ADR 08 Amendments 2026-10-28: the resolver wins; its `null` moves no focus, `true` is the default target. Base UI
+    // calls it once per open, as the focus manager opens (FloatingFocusManager's initial focus), so the result is kept
+    // until the popover closes.
     private FocusTargetValue? ResolveInitialFocus(InteractionType type)
     {
         if (InitialFocusResolver is { } resolver)
         {
-            return resolver(type) ?? new FocusTargetValue(false);
+            if (!open!.Value)
+            {
+                initialResolved = false;
+                return resolvedInitial;
+            }
+
+            if (!initialResolved)
+            {
+                initialResolved = true;
+                resolvedInitial = resolver(type) ?? new FocusTargetValue(false);
+            }
+
+            return resolvedInitial;
         }
 
         if (InitialFocus is { } value)
@@ -486,17 +504,25 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         return type == InteractionType.Touch && Element is { } popup ? new FocusTargetValue(popup) : default(FocusTargetValue?);
     }
 
-    // The close interaction type as the focus manager classifies it (FLT-FOC-10), from the event that caused the close.
+    // The close interaction type as the focus manager classifies it (FLT-FOC-10), from the event that caused the close;
+    // called once per committed close, while closed, as Base UI's return focus calls it once (a popup mounted by a
+    // reopen never resolves the previous close).
     private FocusTargetValue? ResolveFinalFocus()
     {
         if (FinalFocusResolver is { } resolver)
         {
-            if (closeEvent!.Value is not { } snapshot)
+            if (open!.Value || closeEvent!.Value is not { } snapshot)
             {
                 return default(FocusTargetValue?);
             }
 
-            return resolver(CloseTypeClassifier.Classify(snapshot, focus!.RecordedInteractionType)) ?? new FocusTargetValue(false);
+            if (!ReferenceEquals(finalResolvedFor, snapshot))
+            {
+                finalResolvedFor = snapshot;
+                resolvedFinal = resolver(CloseTypeClassifier.Classify(snapshot, focus!.RecordedInteractionType)) ?? new FocusTargetValue(false);
+            }
+
+            return resolvedFinal;
         }
 
         return FinalFocus;
