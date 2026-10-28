@@ -1,7 +1,8 @@
-import { expect, test } from './helpers';
+import { type Locator, type Route } from '@playwright/test';
+import { expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
-import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
+import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
@@ -113,6 +114,130 @@ test.describe('<Popover.Viewport /> mid-switch', () => {
     await expect(page.locator('[data-previous]')).toHaveCount(0);
     await expect(page.getByTestId('viewport')).toHaveCount(0);
     expect(errors).toEqual([]);
+  });
+});
+
+// The attach-order rule (ADR 04 Amendments 2026-10-27, the portal's move; settled for Popover by the orchestrator
+// 2026-10-28): where a handle depends on another's attach, it awaits it, pinned by a title that stalls the module that must
+// go first. Three orders on Popover: (1) the trigger's button, interactions and popup handles; (2) the Positioner's session
+// join before its positioning handle reads the session's reference (FLT-STA-08); (3) every portaled handle after the
+// portal's move. Each title holds one module's script back (the regular-expression route and its hit assertion of issue
+// 133), asserts what the page already does without it, then releases it and asserts the full outcome (PR 143's shape).
+test.describe('attach order', () => {
+  async function stall(page: Page, module: string): Promise<{ hits: () => number; release: () => Promise<void> }> {
+    const held: Route[] = [];
+    let hits = 0;
+    let released = false;
+    await page.route(new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[0-9a-z]+)?\\.js$`), (route) => {
+      hits += 1;
+      return released ? route.continue() : held.push(route);
+    });
+    return {
+      hits: () => hits,
+      release: async () => {
+        released = true;
+        for (const route of held.splice(0)) {
+          await route.continue();
+        }
+      },
+    };
+  }
+
+  async function gotoUnready(page: Page, mode: RenderMode, options: PopupFixtureOptions): Promise<Locator> {
+    const query = new URLSearchParams(Object.entries(options).map(([key, value]) => [key, String(value)]));
+    await page.goto(`${fixtureUrl(mode, 'popover-conformance')}?${query}`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await page.locator(Fixture.interactive('popover-conformance')).first().waitFor({ state: 'attached' });
+    return page.locator(Fixture.container('popover-conformance'));
+  }
+
+  const inside = (page: Page) => () => page.getByRole('dialog').evaluate((element) => element.contains(document.activeElement));
+
+  for (const module of ['button', 'interactions']) {
+    test(`port: with js/${module}.js stalled the trigger attaches its other handles first, and opens the popover once when the module arrives`, async ({ page, mode }) => {
+      const stalled = await stall(page, module);
+      const fixture = await gotoUnready(page, mode, {});
+      await expect.poll(stalled.hits).toBeGreaterThan(0);
+
+      await stalled.release();
+      await expect(fixture).toHaveAttribute('data-attached', 'true');
+      await page.getByTestId('trigger').click();
+
+      await expect(page.getByTestId('popup')).toBeVisible();
+      await settle(fixture);
+      expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+    });
+  }
+
+  // The popup module loads with the first popup handle (the open popover's, and the trigger's once its guards render), so
+  // it is held back from the first open.
+  test('port: with js/popup.js stalled the popover opens and closes, and its handles attach once the module arrives', async ({ page, mode }) => {
+    const popupModule = await stall(page, 'popup');
+    const fixture = await gotoPopupFixture(page, mode, 'popover-conformance');
+    const trigger = page.getByTestId('trigger');
+
+    await trigger.click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await expect.poll(popupModule.hits).toBeGreaterThan(0);
+
+    await popupModule.release();
+    await expect.poll(inside(page)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+  });
+
+  test('port: with js/interactions.js stalled a default-open popover positions at its trigger once the session joins (FLT-STA-08)', async ({ page, mode }) => {
+    const interactions = await stall(page, 'interactions');
+    const fixture = await gotoUnready(page, mode, { defaultOpen: true });
+    await expect.poll(interactions.hits).toBeGreaterThan(0);
+    await expect(fixture).toHaveAttribute('data-attached', 'false');
+
+    await interactions.release();
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    const trigger = (await page.getByTestId('trigger').boundingBox())!;
+    await expect
+      .poll(async () => (await page.getByTestId('positioner').boundingBox())?.y ?? -1)
+      .toBeGreaterThanOrEqual(Math.floor(trigger.y + trigger.height));
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:escape-key']);
+  });
+
+  test('port: with js/focus-manager.js stalled a default-open popover attaches its other handles first, and focus moves in and returns once the module arrives', async ({ page, mode }) => {
+    const focusManager = await stall(page, 'focus-manager');
+    const fixture = await gotoPopupFixture(page, mode, 'popover-conformance', { defaultOpen: true });
+    await expect.poll(focusManager.hits).toBeGreaterThan(0);
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await inside(page)()).toBe(false);
+
+    await focusManager.release();
+    await expect.poll(inside(page)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+
+    const trigger = page.getByTestId('trigger');
+    await trigger.click();
+    await expect.poll(inside(page)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect(await openChanges(fixture)).toEqual(['false:escape-key', 'true:trigger-press', 'false:escape-key']);
+  });
+
+  test('port: with js/portal.js stalled the portaled handles wait for the move, and focus moves in once the popup is in place', async ({ page, mode }) => {
+    const portal = await stall(page, 'portal');
+    const fixture = await gotoUnready(page, mode, { defaultOpen: true });
+    await expect.poll(portal.hits).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[role=dialog]') == null)).toBe(true);
+
+    await portal.release();
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await expect.poll(inside(page)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
   });
 });
 
