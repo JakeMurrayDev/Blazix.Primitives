@@ -19,7 +19,6 @@
 //   triggers once the positioner's animations finish (POP-ANI-07; C# writes `trigger-change`).
 // - The Popup (POP-KEY-12, DLG-KEY-09): the composite keys' `keydown` stops at the popup when the option says so.
 import { getCssDimensions, ownerDocument, ownerWindow, styleWriter, type Dimensions, type StyleLayer } from './dom';
-import { readPlacement } from './positioning';
 import { acquireScrollLock } from './scroll-lock';
 import { createAnimationsWatcher, createFrameSlot, type AnimationsWatcher } from './transitions';
 import { createTwinChannel, parseOptions, resolveElement, type DotNetTwin, type TwinChannel, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
@@ -38,6 +37,8 @@ export interface PopupViewportOptions {
   popupId?: string | null;
   /** The payload's version, whose change re-measures the popup. */
   contentVersion?: number;
+  /** The text direction C# reads from the direction provider; the physical side of a logical one depends on it. */
+  direction?: 'ltr' | 'rtl' | null;
 }
 
 /** The options of a Positioner's handle; mirrors `PopupPositionerOptions` in C#. */
@@ -133,6 +134,27 @@ export function getPopupAnchoringStyles(side: PhysicalSide): Record<string, stri
     return {};
   }
   return { position: 'absolute', [top ? 'bottom' : 'top']: '0', [left ? 'right' : 'left']: '0' };
+}
+
+/**
+ * Resolves the physical side of a logical side, as `positioning` does for its rendered placement.
+ * @param side The rendered side, `top`, `bottom`, `left`, `right`, `inline-start` or `inline-end`.
+ * @param direction The text direction.
+ * @returns The physical side.
+ */
+export function physicalSideOf(side: string | null, direction: 'ltr' | 'rtl'): PhysicalSide {
+  switch (side) {
+    case 'top':
+    case 'left':
+    case 'right':
+      return side;
+    case 'inline-start':
+      return direction === 'rtl' ? 'right' : 'left';
+    case 'inline-end':
+      return direction === 'rtl' ? 'left' : 'right';
+    default:
+      return 'bottom';
+  }
 }
 
 // InternalBackdrop.tsx:13-16.
@@ -343,8 +365,10 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       return;
     }
 
-    // Design point 3 (settled by the orchestrator 2026-10-28): the rendered physical side, from `positioning`'s reader.
-    const side = readPlacement(positioner)?.physicalSide ?? 'bottom';
+    // Design point 3: the rendered physical side, from the side `positioning` writes and the direction C# sends (an import
+    // of `positioning`'s reader would move the Floating UI engine and its notice out of js/positioning.js; raised
+    // 2026-10-28, pending the orchestrator).
+    const side = physicalSideOf(positioner.getAttribute('data-side'), options.direction === 'rtl' ? 'rtl' : 'ltr');
     resetAnchoring();
     anchoring = getPopupAnchoringStyles(side);
     for (const [property, value] of Object.entries(anchoring)) {
@@ -469,7 +493,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
         report();
         return;
       }
-      if (version !== contentVersion || previousOptions.open !== options.open) {
+      if (version !== contentVersion || previousOptions.open !== options.open || previousOptions.direction !== options.direction) {
         contentVersion = version;
         process(null, false);
         measure();

@@ -101,6 +101,9 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
     [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
 
+    [CascadingParameter]
+    private DirectionProviderContext? DirectionContext { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
@@ -187,6 +190,7 @@ public sealed class PopoverViewport : PartBase<PopoverViewportState>
                 Open = open!.Value,
                 PopupId = popupId!.Value,
                 ContentVersion = payloadVersion!.Value,
+                Direction = DirectionProviderContext.Read(DirectionContext) == TextDirection.Rtl ? "rtl" : null,
             },
         });
     }
