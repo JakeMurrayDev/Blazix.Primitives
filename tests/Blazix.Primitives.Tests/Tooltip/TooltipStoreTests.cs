@@ -136,14 +136,15 @@ public sealed class TooltipStoreTests
         Assert.Equal(TooltipInstantType.Focus, store.State.InstantType);
     }
 
-    [Fact(DisplayName = "port: a close with reason none of a tooltip that renders nothing more does not render delay")]
+    [Fact(DisplayName = "port: a close with reason none of an unmounted tooltip keeps its instant type unset and records the reason")]
     [Trait("Requirement", "TIP-STA-06")]
-    public async Task A_close_with_reason_none_of_an_unmounted_tooltip_does_not_render_delay()
+    public async Task A_close_with_reason_none_of_an_unmounted_tooltip_keeps_its_instant_type_unset()
     {
         TooltipStore<NoPayload> store = Store();
 
         await Request(store, false, EventReason.None);
 
+        Assert.False(store.Popup.Mounted);
         Assert.Null(store.State.InstantType);
         Assert.Equal(EventReason.None, store.State.LastOpenChangeReason);
     }
