@@ -710,6 +710,37 @@ test.describe('<Popover.Trigger /> hover', () => {
     await expect(popup).toBeVisible();
   });
 
+  // popover.md §16 Q12, resolved by FLT §10 item 12 (ADR 04 Amendments 2026-10-27): Base UI's leave on a closed trigger
+  // cancels the pending open and fires onOpenChange(false); the port cancels the open and requests no close.
+  test('port: a trigger mouseleave before the hover delay ends cancels the open and requests no close', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { delay: 100 });
+    await pausedClock(page);
+
+    await page.getByTestId('trigger-1').hover();
+    await page.clock.runFor(50);
+    await page.mouse.move(5, 5);
+    await page.clock.runFor(100);
+    await settle(fixture);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  // popover.md §16 Q7, resolved by FLT §10 item 11 (ADR 04 Amendments 2026-10-27): an Escape whose close lets the keydown
+  // propagate requests one close, not a second from the document listener.
+  test('port: an Escape close that allows propagation calls onOpenChange once', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { openOnHover: false, allowPropagation: true });
+
+    await page.getByTestId('trigger-1').click();
+    await expect(page.getByTestId('popup')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-testid="popup"]') != null)).toBe(true);
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await settle(fixture);
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+  });
+
   test('should close after delay', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'popover-hover', { closeDelay: 100 });
     await pausedClock(page);
