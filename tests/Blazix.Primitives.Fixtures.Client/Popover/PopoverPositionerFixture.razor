@@ -1,0 +1,127 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-positioner` fixture (tests/browser/popover.spec.ts, M4 track 5): the positioner conformance suite's cases
+    (tests/browser/suites/positioner-conformance.ts, Base UI's test/positionerConformanceTests.tsx) on Popover's parts, as
+    PopoverPositioner.test.tsx runs it with `viewport: true`. One case per page, named by `?case=`: a default-open root whose
+    72×36 trigger sits at the viewport origin, and a portaled positioner holding a 52×24 popup.
+    - `default`; `sideOffset-number`, `alignOffset-number` (7); `sideOffset-function` (anchor width plus positioner
+      width), `alignOffset-function` (positioner width);
+    - `<prop>-override-<n>`: the four callback-data cases (1: side left, keyed right; 2: right/start, keyed end;
+      3: inline-start, keyed inline-end; 4: inline-start under an rtl DirectionProvider, keyed inline-start);
+    - `collision-padding`: the trigger fixed at bottom 8px, left 16px, a 200×1000 popup capped by --available-height,
+      side bottom, sideOffset 8, collisionPadding 12, fallbackAxisSide none, opened by `[data-open-button]` after mount;
+    - `viewport`: a PopoverViewport in the popup; `viewport-toggle`: `[data-viewport-toggle]` mounts and unmounts it.
+*@
+<FixtureContainer Name="popover-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @if (Case == "collision-padding")
+    {
+        <PopoverRoot TPayload="NoPayload" @ref="root" Open="@open">
+            <div style="position: fixed; bottom: 8px; left: 16px">
+                <PopoverTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger" style="@AnchorSize">Trigger</PopoverTrigger>
+            </div>
+            <PopoverPortal Container="@s_host">
+                <PopoverPositioner data-testid="positioner" Side="Side.Bottom" SideOffset="8" CollisionPadding="12" CollisionAvoidance="s_noFallback">
+                    <PopoverPopup style="width: 200px; height: 1000px; max-height: var(--available-height); padding: 0; border: 0">Popup</PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+        <button type="button" data-open-button data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Open</button>
+    }
+    else
+    {
+        <DirectionProvider Direction="@direction">
+            <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="true">
+                <PopoverTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger" style="@("position: fixed; top: 0; left: 0; " + AnchorSize)">Trigger</PopoverTrigger>
+                <PopoverPortal Container="@s_host">
+                    <PopoverPositioner @ref="positioner" data-testid="positioner" Side="@side" Align="@align" SideOffset="@sideOffset" AlignOffset="@alignOffset">
+                        <PopoverPopup style="width: 52px; height: 24px; padding: 0; border: 0; box-sizing: border-box">
+                            @if (Case == "viewport" || (Case == "viewport-toggle" && viewport))
+                            {
+                                <PopoverViewport>Popup</PopoverViewport>
+                            }
+                            else
+                            {
+                                @("Popup")
+                            }
+                        </PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+        </DirectionProvider>
+        @if (Case == "viewport-toggle")
+        {
+            <button type="button" data-viewport-toggle data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => viewport = !viewport" @onkeydown="OnShift(() => viewport = !viewport)">Toggle Viewport</button>
+        }
+    }
+    @* The suite finds the positioner in the container: the portal moves it into this static host, so the positioner's
+       containing block is still the initial one. *@
+    <div id="popover-positioner-host"></div>
+</FixtureContainer>
+
+@code {
+    private static readonly CollisionAvoidance s_noFallback = new(FallbackAxisSide: FallbackAxisSide.None);
+    private static readonly PortalContainerValue s_host = new("#popover-positioner-host");
+    private const string AnchorSize = "width: 72px; height: 36px; box-sizing: border-box; margin: 0; padding: 0; border: 0";
+
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private PopoverPositioner? positioner;
+    private bool open;
+    private bool viewport;
+    private Side? side;
+    private Align? align;
+    private TextDirection direction = TextDirection.Ltr;
+    private OffsetValue? sideOffset;
+    private OffsetValue? alignOffset;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        positioner?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        sideOffset = Case switch
+        {
+            "sideOffset-number" => 7,
+            "sideOffset-function" => new Offset(AnchorWidth: 1, PositionerWidth: 1),
+            _ => null,
+        };
+        alignOffset = Case switch
+        {
+            "alignOffset-number" => 7,
+            "alignOffset-function" => new Offset(PositionerWidth: 1),
+            _ => null,
+        };
+        if (Case.StartsWith("sideOffset-override-", StringComparison.Ordinal) || Case.StartsWith("alignOffset-override-", StringComparison.Ordinal))
+        {
+            bool sideCase = Case.StartsWith("sideOffset-", StringComparison.Ordinal);
+            int number = Case[^1] - '0';
+            OffsetOverride keyed = number switch
+            {
+                1 => new OffsetOverride(Primitives.Side.Right, null, Constant: 5),
+                2 => new OffsetOverride(null, Primitives.Align.End, Constant: 5),
+                3 => new OffsetOverride(Primitives.Side.InlineEnd, null, Constant: 5),
+                _ => new OffsetOverride(Primitives.Side.InlineStart, null, Constant: 5),
+            };
+            OffsetValue offset = new Offset { Overrides = [keyed] };
+            (side, align, direction) = number switch
+            {
+                1 => (Primitives.Side.Left, (Align?)null, TextDirection.Ltr),
+                2 => (Primitives.Side.Right, Primitives.Align.Start, TextDirection.Ltr),
+                3 => (Primitives.Side.InlineStart, null, TextDirection.Ltr),
+                _ => (Primitives.Side.InlineStart, null, TextDirection.Rtl),
+            };
+            sideOffset = sideCase ? offset : null;
+            alignOffset = sideCase ? null : offset;
+        }
+    }
+}
