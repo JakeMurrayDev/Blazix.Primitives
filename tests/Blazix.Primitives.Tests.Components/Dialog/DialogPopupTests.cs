@@ -158,18 +158,32 @@ public sealed class DialogPopupTests : IDisposable
         Assert.Contains("\"popup\":{\"stopCompositeKeys\":true}", options, StringComparison.Ordinal);
     }
 
-    // Issue 134's class on Server (run 40782584447): the Popup role attaches after the portal's move, behind a cold import of
-    // the `popup` module, so a close that unmounts the popup can remove its element before the attach answers, and the
-    // module then finds no element for the reference. The part has left, so the error is dropped, as the attachment drops
-    // an attach its part's disposal overtakes. The focus manager's dispose is held, as a Server round trip holds it.
+    // Issue 134's class on Server (run 40782584447): the popup's handles attach after its render (the Popup role and the
+    // floating handle after the portal's move), each behind its module's import, so a close that unmounts the popup can
+    // remove its element before an attach answers, and the module then finds no element for the reference. The part has
+    // left, so the error is dropped, as a twin drops an attach its disposal overtook. The focus manager's dispose is held,
+    // as a Server round trip holds it.
     [Fact(DisplayName = "port: a popup that unmounts before the popup module's attach answers drops the missing-element error")]
     [Trait("Requirement", "DLG-KEY-09")]
-    public async Task A_popup_that_unmounts_before_the_popup_modules_attach_answers_drops_the_missing_element_error()
+    public Task A_popup_that_unmounts_before_the_popup_modules_attach_answers_drops_the_missing_element_error() =>
+        AssertUnmountDropsTheStalledAttachAsync("popup.js", optionsFragment: null, modal: false);
+
+    [Fact(DisplayName = "port: a popup that unmounts before its floating handle's attach answers drops the missing-element error")]
+    [Trait("Requirement", "DLG-ANI-07")]
+    public Task A_popup_that_unmounts_before_its_floating_handles_attach_answers_drops_the_missing_element_error() =>
+        AssertUnmountDropsTheStalledAttachAsync("interactions.js", "\"floating\":", modal: false);
+
+    [Fact(DisplayName = "port: a modal popup that unmounts before its scroll lock's attach answers drops the missing-element error")]
+    [Trait("Requirement", "DLG-ANI-07")]
+    public Task A_modal_popup_that_unmounts_before_its_scroll_locks_attach_answers_drops_the_missing_element_error() =>
+        AssertUnmountDropsTheStalledAttachAsync("scroll-lock.js", optionsFragment: null, modal: true);
+
+    private async Task AssertUnmountDropsTheStalledAttachAsync(string module, string? optionsFragment, bool modal)
     {
-        StalledPopupRuntime runtime = new(test.Context.JSInterop.JSRuntime);
+        StalledAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, module, optionsFragment);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         JSRuntimeInvocationHandler focusDispose = test.FocusManagerHandle.SetupVoid("dispose", _ => true);
-        IRenderedComponent<DialogHarness> cut = test.Context.Render<DialogHarness>(p => p.Add(x => x.ControlledOpen, true).Add(x => x.Modal, false));
+        IRenderedComponent<DialogHarness> cut = test.Context.Render<DialogHarness>(p => p.Add(x => x.ControlledOpen, true).Add(x => x.Modal, modal));
         Assert.Equal(1, runtime.Attaches);
 
         cut.Render(p => p.Add(x => x.ControlledOpen, false));
@@ -187,8 +201,9 @@ public sealed class DialogPopupTests : IDisposable
         focusDispose.SetVoidResult();
     }
 
-    // `popup.js`'s attach waits until the test fails it; every other call goes to bUnit's runtime.
-    private sealed class StalledPopupRuntime(IJSRuntime inner) : IJSRuntime, IJSObjectReference
+    // One module's attach (those whose options hold the fragment, when given) waits until the test fails it; every other
+    // call goes to bUnit's runtime and its module.
+    private sealed class StalledAttachRuntime(IJSRuntime inner, string module, string? optionsFragment) : IJSRuntime
     {
         private readonly TaskCompletionSource<IJSObjectReference> attach = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -200,21 +215,35 @@ public sealed class DialogPopupTests : IDisposable
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
         {
-            if (identifier == "import" && args is [string path] && path.EndsWith("/popup.js", StringComparison.Ordinal))
-            {
-                return ValueTask.FromResult((TValue)(object)this);
-            }
-
-            if (identifier == "attach")
-            {
-                Attaches++;
-                return new ValueTask<TValue>(attach.Task.ContinueWith(task => (TValue)task.GetAwaiter().GetResult(), TaskScheduler.Default));
-            }
-
-            return inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            ValueTask<TValue> invocation = inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            return identifier == "import" && args is [string path] && path.EndsWith("/" + module, StringComparison.Ordinal)
+                ? new ValueTask<TValue>(WrapAsync(invocation))
+                : invocation;
         }
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        private async Task<TValue> WrapAsync<TValue>(ValueTask<TValue> import) =>
+            (TValue)(object)new StalledModule(this, (IJSObjectReference)(await import)!);
+
+        private ValueTask<TValue>? Stall<TValue>(string identifier, object?[]? args)
+        {
+            if (identifier != "attach" || (optionsFragment is not null && !(args is [_, string options, ..] && options.Contains(optionsFragment, StringComparison.Ordinal))))
+            {
+                return null;
+            }
+
+            Attaches++;
+            return new ValueTask<TValue>(attach.Task.ContinueWith(task => (TValue)task.GetAwaiter().GetResult(), TaskScheduler.Default));
+        }
+
+        private sealed class StalledModule(StalledAttachRuntime runtime, IJSObjectReference inner) : IJSObjectReference
+        {
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+                runtime.Stall<TValue>(identifier, args) ?? inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
+        }
     }
 }
 
