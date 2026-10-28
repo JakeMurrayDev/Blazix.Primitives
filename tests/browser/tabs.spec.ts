@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, fixtureUrl, type Page, type RenderMode } from './helpers';
+import { gotoPopupFixture } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/tabs.md, on TabsList over the `composite` module, TabsTab over the `button` module,
 // TabsPanel over the `transitions` module and the `tabs` component module's two handles (ADR 04 Amendments 2026-10-26).
@@ -488,6 +489,20 @@ test.describe('<Tabs.Root /> (tab order)', () => {
       { kind: 'tab-stop', tabStop: '1', focused: '0' },
       { kind: 'focus', tabStop: '1', focused: '1' },
     ]);
+  });
+});
+
+// TAB-FOC-10's Dialog title (M4 track 8; ADR 12 Amendments 2026-10-27 item 4): Tabs inside a Dialog's popup receive initial
+// focus on the highlighted Tab and navigate normally.
+test.describe('<Tabs.Root /> (focus management)', () => {
+  test('works inside Dialog', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tabs-dialog');
+
+    await page.getByRole('button', { name: 'Open' }).click();
+
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Projects' })).toBeFocused();
   });
 });
 

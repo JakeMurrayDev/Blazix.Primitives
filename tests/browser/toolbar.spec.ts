@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, gotoFixture, readDiagnostics, type Page, type RenderMode } from './helpers';
+import { gotoPopupFixture, openChanges, settle as settlePopup } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/toolbar.md and the L4 clauses of its [L2] rows, on ToolbarRoot over the `composite`
 // module and ToolbarButton and ToolbarInput over the `button` module. Titles are Base UI's (toolbar/*/*.test.tsx);
@@ -12,7 +13,7 @@ import { test, expect, gotoFixture, readDiagnostics, type Page, type RenderMode 
 const MISMATCH_MESSAGE =
   'Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.';
 
-type FixtureName = 'toolbar-orientation' | 'toolbar-keys' | 'toolbar-disabled' | 'toolbar-input' | 'toolbar-button' | 'toolbar-switch' | 'toolbar-toggle';
+type FixtureName = 'toolbar-orientation' | 'toolbar-keys' | 'toolbar-disabled' | 'toolbar-input' | 'toolbar-button' | 'toolbar-switch' | 'toolbar-toggle' | 'toolbar-dialog';
 
 /** Opens a Toolbar fixture and waits until every toolbar and item has its behaviors attached. */
 async function gotoToolbar(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
@@ -932,6 +933,73 @@ test.describe('<Toolbar.Button />', () => {
           await expect(item(label)).toBeFocused();
         }
         await expect(container.locator('[data-item][tabindex="0"]')).toHaveCount(1);
+      });
+    });
+
+    test.describe('Dialog', () => {
+      // TLB-STR-05, API-09, DOM-08, KEY-12, KEY-13, PTR-01, KEY-15, FOC-06: the Dialog clauses (M4 track 8; ADR 12
+      // Amendments 2026-10-27 item 4), on the `toolbar-dialog` fixture: a ToolbarButton whose Render is a DialogTrigger,
+      // in a non-modal DialogRoot. Dialog reads no toolbar context.
+      const dialogCase = (page: Page, mode: RenderMode, name: string) => gotoPopupFixture(page, mode, 'toolbar-dialog', { case: name });
+
+      test('renders a dialog trigger', async ({ page, mode }) => {
+        await dialogCase(page, mode, 'renders');
+
+        await expect(page.getByRole('button', { name: /^(Before|Sync)$/ })).toHaveCount(2);
+        const trigger = page.getByTestId('trigger');
+        await expect(trigger).toHaveCount(1);
+        await expect(page.locator('[data-root] button')).toHaveCount(1);
+        await expect(page.locator('[data-root] button')).toHaveAttribute('data-testid', 'trigger');
+      });
+
+      test('handles interactions', async ({ page, mode }) => {
+        const fixture = await dialogCase(page, mode, 'interactions');
+        await expect(page.getByText('title text')).toHaveCount(0);
+        const trigger = page.getByTestId('trigger');
+
+        await tabIn(page, fixture.locator('[data-before]'));
+        await expect(trigger).toBeFocused();
+        expect(await openChanges(fixture)).toEqual([]);
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByText('title text')).toHaveCount(1);
+        await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press']);
+
+        await page.keyboard.press('Escape');
+        await expect(page.getByText('title text')).toHaveCount(0);
+        await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+        await expect(trigger).toBeFocused();
+      });
+
+      test('disabled state', async ({ page, mode }) => {
+        const fixture = await dialogCase(page, mode, 'disabled');
+        await expect(page.getByText('title text')).toHaveCount(0);
+        const trigger = page.getByTestId('trigger');
+
+        await expect(trigger).not.toHaveAttribute('disabled');
+        await expect(trigger).toHaveAttribute('data-disabled');
+        await expect(trigger).toHaveAttribute('aria-disabled', 'true');
+        await tabIn(page, fixture.locator('[data-before]'));
+        await expect(trigger).toBeFocused();
+
+        for (const key of ['Enter', 'Space', 'ArrowUp', 'ArrowDown']) {
+          await page.keyboard.press(key);
+        }
+        await settlePopup(fixture);
+        expect(await openChanges(fixture)).toEqual([]);
+      });
+
+      test('prevents composite keydowns from escaping', async ({ page, mode }) => {
+        await dialogCase(page, mode, 'composite');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        const trigger = page.getByRole('button', { name: 'dialog', exact: true });
+
+        await trigger.click();
+        await expect(page.getByRole('dialog')).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+
+        await expect(page.getByRole('dialog')).toBeFocused();
+        await expect(page.getByRole('button', { name: 'empty', includeHidden: true })).not.toBeFocused();
       });
     });
 
