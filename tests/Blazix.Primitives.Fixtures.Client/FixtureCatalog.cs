@@ -10,6 +10,7 @@ using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
 using Blazix.Primitives.Fixtures.Client.FloatingFixtures;
+using Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
 using Blazix.Primitives.Fixtures.Client.FormFixtures;
 using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
@@ -85,6 +86,13 @@ public static class FixtureCatalog
         ["composite-flags"] = new(typeof(CompositeFlagsFixture)),
         ["composite-follow"] = new(typeof(CompositeFollowFixture)),
         ["composite-registration"] = new(typeof(CompositeRegistrationFixture)),
+        ["focus-manager-modal"] = new(typeof(FocusManagerModalFixture)),
+        ["focus-manager-kept-mounted"] = new(typeof(FocusManagerKeptMountedFixture)),
+        ["focus-manager-empty"] = new(typeof(FocusManagerEmptyFixture)),
+        ["focus-manager-restore"] = new(typeof(FocusManagerRestoreFixture)),
+        ["focus-manager-non-modal"] = new(typeof(FocusManagerNonModalFixture)),
+        ["focus-manager-composite"] = new(typeof(FocusManagerCompositeFixture)),
+        ["focus-manager-portal"] = new(typeof(FocusManagerPortalFixture)),
         ["field-basic"] = new(typeof(FieldBasicFixture)),
         ["field-validation"] = new(typeof(FieldValidationFixture)),
         ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),

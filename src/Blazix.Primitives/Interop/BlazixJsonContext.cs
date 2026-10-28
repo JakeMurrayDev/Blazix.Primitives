@@ -48,4 +48,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(InteractionsRequest))]
 [JsonSerializable(typeof(InteractionsPress))]
 [JsonSerializable(typeof(InteractionsPressing))]
+[JsonSerializable(typeof(FocusManagerOptions))]
+[JsonSerializable(typeof(FocusOutCloseRequest))]
+[JsonSerializable(typeof(InteractionTypeChange))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

@@ -1,0 +1,46 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@using Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives.Fixtures.Client.PortalFixtures
+@inherits FocusManagerFixtureBase
+
+@*
+    The `focus-manager-portal` fixture (tests/browser/focus-manager.spec.ts): FloatingFocusManager.test.tsx's
+    "non-modal + FloatingPortal" App. A first tabbable, the reference with two siblings in a wrapper, the test-only portal
+    holding a non-modal popup the opening render creates (`{open && …}`) with one tabbable, and a last tabbable. The
+    `portal` module moves the node to the end of the body; the popup's FocusManagerBehavior waits for that move before
+    it attaches, renders the inside guards (FLT-DOM-15's portaled clause) and publishes to the portal, which renders the
+    outside guards and the owner (FLT-FOC-18, DOM-14) and routes them (FLT-KEY-07, FOC-17). `?composite=true` puts a
+    composite group in the popup instead (FLT-DOM-18 with design point 4).
+*@
+<FixtureContainer Name="focus-manager-portal" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" @onkeydown="OnKeyDown">
+    <span tabindex="0" data-first>first</span>
+    <div data-reference-wrapper>
+        <button type="button" id="fm-reference" data-reference @onclick="Toggle">Open</button>
+        <span data-reference-sibling="1"></span>
+        <span data-reference-sibling="2"></span>
+    </div>
+    <FixturePortal>
+        @if (IsOpen)
+        {
+            <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" Open="IsOpen" Modal="false" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" data-popup>
+                @if (Composite == "true")
+                {
+                    <FixtureCompositeRoot data-root>
+                        <FixtureCompositeItem data-item="1">1</FixtureCompositeItem>
+                        <FixtureCompositeItem data-item="2">2</FixtureCompositeItem>
+                    </FixtureCompositeRoot>
+                }
+                else
+                {
+                    <span tabindex="0" data-inside>inside</span>
+                }
+            </FixtureFocusManaged>
+        }
+    </FixturePortal>
+    <span tabindex="0" data-last>last</span>
+</FixtureContainer>
+
+@code {
+    [SupplyParameterFromQuery(Name = "composite")]
+    public string? Composite { get; set; }
+}

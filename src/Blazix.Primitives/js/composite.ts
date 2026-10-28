@@ -900,15 +900,18 @@ export function attach(elementOrId: Element | string, optionsJson: string, twinR
   const disabledIndicesOf = (current: CompositeOptions): ReadonlyArray<number> | null | undefined =>
     current.deriveDisabledIndices ? derivedDisabledIndices : current.disabledIndices;
 
-  // CMP-DOM-01: "0" on the highlighted index, "-1" elsewhere, never over a consumer's value (RAD-DOM-16).
+  // CMP-DOM-01: "0" on the highlighted index, "-1" elsewhere, never over a consumer's value (RAD-DOM-16). While an item
+  // carries a non-modal portal's `data-tabindex` stash (FLT-DOM-18), the value goes into the stash, which restores it
+  // (ADR 04 Amendments 2026-10-27, the composite's precedence; the focus-manager track's design point 4).
   const writeTabIndexes = (): void => {
     registry.elements.forEach((element, index) => {
       if (!element || consumerTabIndexes.has(element)) {
         return;
       }
       const value = index === highlightedIndex ? '0' : '-1';
-      if (element.getAttribute('tabindex') !== value) {
-        element.setAttribute('tabindex', value);
+      const attribute = element.hasAttribute('data-tabindex') ? 'data-tabindex' : 'tabindex';
+      if (element.getAttribute(attribute) !== value) {
+        element.setAttribute(attribute, value);
       }
     });
   };

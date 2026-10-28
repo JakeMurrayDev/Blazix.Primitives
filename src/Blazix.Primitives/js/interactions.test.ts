@@ -866,8 +866,9 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
 // - An absence-only title ends with a `// Port:` step that needs the behaviour, so each title fails without it.
 // - Left out: "dismisses with escape key", "calls preventDefault on escape key dismiss", "does not call preventDefault on
 //   escape key if close is canceled" (FLT-KEY-01, FLT-EVT-05: L4, the worker's; the verdicts are proven here by port
-//   titles); "dismisses when clicking outside a shared shadow root while focus is managed" (the focus manager, track 4;
-//   without it the title is the one before it). FLT-DIS-07 (the scrollbar press) needs layout and has no title.
+//   titles); "dismisses when clicking outside a shared shadow root while focus is managed" (it runs with the focus manager
+//   in `focus-manager.test.ts` "with the interactions session", M4 track 4, 2026-10-28). FLT-DIS-07 (the scrollbar press)
+//   needs layout and has no title.
 // ---------------------------------------------------------------------------------------------------------------
 import { normalizeBubbles as normalizeDismissBubbles, type DismissOptions as DismissProps } from './interactions';
 

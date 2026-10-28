@@ -1626,6 +1626,30 @@ describe('composite root (port)', () => {
 
 // --- port titles: the RadioGroup options (RDG-STA-06, RDG-KEY-03, RAD-FOC-05, RDG-FOC-04/05) ---------------------------
 
+// FLT-DOM-18 against the roving tab stop (ADR 04 Amendments 2026-10-27, the composite's precedence; the focus-manager
+// track's design point 4, settled by the orchestrator 2026-10-27): while an item carries the `data-tabindex` stash of a
+// non-modal portal, the module writes its roving value into the stash, so restoring it yields one tab stop.
+describe('composite tab stop under the focus stash (port)', () => {
+  it('writes the roving value into data-tabindex while an item carries the stash', async () => {
+    mountItems(['1', '2', '3']);
+    const item1 = byTestId('1');
+    const item2 = byTestId('2');
+    expect(item1.getAttribute('tabindex')).toBe('0');
+
+    // `disableFocusInside` stashes the tab stop and takes it out of the tab order.
+    item1.setAttribute('data-tabindex', '0');
+    item1.setAttribute('tabindex', '-1');
+    item1.focus();
+    keyDown(item1, 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(item2);
+    expect(item2.getAttribute('tabindex')).toBe('0');
+    expect(item1.getAttribute('data-tabindex')).toBe('-1');
+    expect(item1.getAttribute('tabindex')).toBe('-1');
+  });
+});
+
 describe('composite selection on navigation (port)', () => {
   /** A radio as Radio renders it: the item element, then its hidden input as the next sibling (RAD-STR-01). */
   function radio(testId: string, input: Partial<Pick<HTMLInputElement, 'disabled' | 'readOnly'>> = {}): Node[] {
