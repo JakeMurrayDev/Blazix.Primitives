@@ -139,6 +139,34 @@ public sealed class PopoverRootTests : IDisposable
         Assert.Equal((false, EventReason.ClosePress, "trigger-1"), calls[^1]);
     }
 
+    [Theory(DisplayName = "port: a trigger that becomes active again writes its payload again, after a move or a reopen")]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Requirement", "POP-API-14")]
+    [Trait("Requirement", "POP-STA-05")]
+    public async Task A_trigger_that_becomes_active_again_writes_its_payload_again(bool reopen)
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec { DetachedTriggers = true, Handle = new PopoverHandle<int>(), Triggers = 3, KeepMounted = true });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        await test.PressAsync(cut, "trigger-2", open: true);
+        Assert.Equal("2", cut.Find("[data-testid=\"root-payload\"]").TextContent);
+        if (reopen)
+        {
+            await test.PressAsync(cut, "trigger-2", open: false);
+            await PopoverTestContext.CompleteTransitionAsync<int>(cut, opened: false);
+        }
+        else
+        {
+            await test.PressAsync(cut, "trigger-3", open: true);
+        }
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+
+        Assert.Equal("true", cut.Find("[data-testid=\"trigger-1\"]").GetAttribute("aria-expanded"));
+        Assert.Equal("1", cut.Find("[data-testid=\"root-payload\"]").TextContent);
+    }
+
     [Fact(DisplayName = "closes the popover when the `close` method is called")]
     [Trait("Requirement", "POP-API-05")]
     [Trait("Requirement", "POP-EVT-11")]
