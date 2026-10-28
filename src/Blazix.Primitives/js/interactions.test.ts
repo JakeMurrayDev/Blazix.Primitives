@@ -21,7 +21,7 @@ import {
 } from './interactions';
 import { resetFrameScheduler } from './transitions';
 import { createFakeTwin } from './test-support/fake-twin';
-import { createPopupHarness, type PopupHarness } from './test-support/interactions-harness';
+import { createPopupHarness, type HarnessChangeDetails, type PopupHarness } from './test-support/interactions-harness';
 
 const harnesses: PopupHarness[] = [];
 
@@ -789,6 +789,46 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
 
     expect(popup.open).toBe(true);
     expect(getSession(popup.token)?.dataRef.current.openEvent?.type).toBe('click');
+  });
+
+  // Gap 16 (ADR 04 Amendments 2026-10-29): Base UI's useClick writes the open event in its click handler; the port records
+  // the click-like open event on the press's request, before C# commits it, and rolls it back on a cancellation answer.
+  function hoverOpened(options: { synchronous: boolean; commit?: boolean; onOpenChange?: (open: boolean, details: HarnessChangeDetails) => void }) {
+    const popup = harness(options);
+    popup.attachSession();
+    const reference = element('button');
+    popup.attachTrigger(reference, { trigger: { click: { stickIfOpen: true } } });
+    popup.setReference(reference);
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    return { popup, reference, openEvent: () => getSession(popup.token)?.dataRef.current.openEvent?.type };
+  }
+
+  it('port: a press on a hover-opened popup records the click as the open event on its request, before the commit', () => {
+    const options = { synchronous, commit: true };
+    const { reference, openEvent } = hoverOpened(options);
+    options.commit = false;
+
+    click(reference);
+
+    expect(openEvent()).toBe('click');
+  });
+
+  it('port: a press whose request C# cancels rolls the recorded open event back', () => {
+    let duringRequest: string | undefined;
+    const { popup, reference, openEvent } = hoverOpened({
+      synchronous,
+      onOpenChange: (_open, details) => {
+        if (details.reason === 'trigger-press') {
+          duringRequest = getSession(popup.token)?.dataRef.current.openEvent?.type;
+          details.cancel();
+        }
+      },
+    });
+
+    click(reference);
+
+    expect(duringRequest).toBe('click');
+    expect(openEvent()).toBe('mouseenter');
   });
 
   it('stickIfOpen false closes a hover-opened popup on first click', () => {
