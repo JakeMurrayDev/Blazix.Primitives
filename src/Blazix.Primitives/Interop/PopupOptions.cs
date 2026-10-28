@@ -1,0 +1,91 @@
+namespace Blazix.Primitives.Interop;
+
+// ADR 04 Amendments 2026-10-27 (the `popup` row, chosen by the user 2026-10-27); design point 5 of M4 track 5 (one role
+// sub-record per handle, the InteractionsOptions precedent; pending the user). Records compare by value, so an unchanged
+// render sends nothing (ADR 16 rule 7). The module owns the parts' styles through the dom style writer, so a part leaves
+// TwinOptions.Style unset.
+/// <summary>
+/// The options of the <c>popup</c> module, sent on <c>attach</c> and on every <c>update</c>. Exactly one role is set per
+/// handle: a viewport, a positioner or a popup.
+/// </summary>
+internal sealed record PopupOptions : TwinOptions
+{
+    /// <summary>Gets the token of the popup session the handle belongs to.</summary>
+    /// <value>The token the popup root drew; it is never rendered.</value>
+    public string? SessionToken { get; init; }
+
+    /// <summary>Gets the options of a viewport's handle.</summary>
+    /// <value>The viewport options, or <see langword="null"/> for another role.</value>
+    public PopupViewportOptions? Viewport { get; init; }
+
+    /// <summary>Gets the options of a positioner's handle.</summary>
+    /// <value>The positioner options, or <see langword="null"/> for another role.</value>
+    public PopupPositionerOptions? Positioner { get; init; }
+
+    /// <summary>Gets the options of a popup element's handle.</summary>
+    /// <value>The popup options, or <see langword="null"/> for another role.</value>
+    public PopupElementOptions? Popup { get; init; }
+}
+
+// PSH-ALG-13..15 (usePopupViewport, usePopupAutoResize).
+/// <summary>The options of a viewport's handle: what the snapshot, the direction and the auto-resize read.</summary>
+internal sealed record PopupViewportOptions
+{
+    /// <summary>Gets a value indicating whether the popup is open.</summary>
+    /// <value>The effective open state.</value>
+    public bool Open { get; init; }
+
+    /// <summary>Gets a value indicating whether the popup is mounted.</summary>
+    /// <value><see langword="false"/> resets the auto-resize measurement.</value>
+    public bool Mounted { get; init; }
+
+    /// <summary>Gets the popup's rendered id, which the active trigger names.</summary>
+    /// <value>The id, or <see langword="null"/> before the popup rendered.</value>
+    public string? PopupId { get; init; }
+
+    /// <summary>Gets the id of the active trigger, which the module falls back to when no trigger names the popup.</summary>
+    /// <value>The id, or <see langword="null"/>.</value>
+    public string? ActiveTriggerId { get; init; }
+
+    /// <summary>Gets the payload's version, whose change re-measures the popup.</summary>
+    /// <value>The store's payload version.</value>
+    public int ContentVersion { get; init; }
+
+    /// <summary>Gets the text direction the direction provider gives.</summary>
+    /// <value><c>ltr</c> or <c>rtl</c>; <see langword="null"/> for <c>ltr</c>.</value>
+    public string? Direction { get; init; }
+}
+
+// PSH-ALG-17, PSH-ALG-21, POP-ANI-07.
+/// <summary>The options of a positioner's handle: the cut-out, the anchored lock and the trigger-change watch.</summary>
+internal sealed record PopupPositionerOptions
+{
+    /// <summary>Gets a value indicating whether the popup is open.</summary>
+    /// <value>The effective open state; a move between triggers is watched only while open.</value>
+    public bool Open { get; init; }
+
+    /// <summary>Gets a value indicating whether the internal backdrop is rendered, so the active trigger is cut out of it.</summary>
+    /// <value><see langword="true"/> while the backdrop renders.</value>
+    public bool Cutout { get; init; }
+
+    /// <summary>Gets a value indicating whether the anchored scroll lock is enabled.</summary>
+    /// <value><see langword="true"/> while open, modal and not opened by hover.</value>
+    public bool ScrollLock { get; init; }
+
+    /// <summary>Gets a value indicating whether a touch opened the popup.</summary>
+    /// <value><see langword="true"/> locks only a popup that spans the viewport's width.</value>
+    public bool TouchOpen { get; init; }
+
+    /// <summary>Gets the id of the active trigger: the cut-out, the lock's reference and the watched move.</summary>
+    /// <value>The id, or <see langword="null"/>.</value>
+    public string? ActiveTriggerId { get; init; }
+}
+
+// POP-KEY-12, DLG-KEY-09.
+/// <summary>The options of a popup element's handle.</summary>
+internal sealed record PopupElementOptions
+{
+    /// <summary>Gets a value indicating whether the arrow keys, Home and End stop at the popup.</summary>
+    /// <value><see langword="true"/> inside a toolbar (Popover) or always (Dialog).</value>
+    public bool StopCompositeKeys { get; init; }
+}
