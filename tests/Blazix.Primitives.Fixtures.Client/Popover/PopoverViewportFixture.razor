@@ -1,0 +1,152 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-viewport` fixture (tests/browser/popover.spec.ts, M4 track 5): viewportConformanceTests
+    (tests/browser/suites/) on Popover's parts, PopoverViewport.test.tsx's createComponent: triggers `trigger-1`.. (payload
+    N, text "Trigger N"), then Portal > Positioner > Popup (`popup`) > Viewport (`viewport`) holding
+    `<div data-testid="content">Content[ <payload>]</div>`. The query is the suite's contract (open, defaultOpen,
+    defaultTriggerId, keepMounted, side with collision avoidance side none, direction, case=controlled|retained|lagging,
+    strict, triggerCount). The controls carry `data-key-control` and answer a keydown: a click would be an outside press
+    (tests/browser/suites/popupFixture.ts).
+*@
+<FixtureContainer Name="popover-viewport" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control @onkeydown="() => Sync++">Sync</button>
+    <button type="button" data-set-open="false" data-key-control @onkeydown="() => open = false">Set closed</button>
+    <button type="button" data-remount-trigger data-key-control @onkeydown="RemountAsync">Remount trigger</button>
+    <button type="button" data-set-payload data-key-control @onkeydown='() => laggingPayload = "ready"'>Set payload</button>
+
+    @if (direction == TextDirection.Rtl)
+    {
+        <DirectionProvider Direction="TextDirection.Rtl">@Root</DirectionProvider>
+    }
+    else
+    {
+        @Root
+    }
+</FixtureContainer>
+
+@code {
+    private readonly PopoverTrigger<string>?[] triggerRefs = new PopoverTrigger<string>?[8];
+    private PopoverRoot<string>? root;
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private string? defaultTriggerId;
+    private bool keepMounted;
+    private Side? side;
+    private TextDirection direction;
+    private int triggerCount = 2;
+    private int triggerKey;
+    private bool strict;
+    private string? laggingPayload;
+
+    protected override IEnumerable<Task> Attachments =>
+        [.. triggerRefs.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null || Case == "controlled";
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        defaultTriggerId = Query("defaultTriggerId");
+        keepMounted = QueryFlag("keepMounted") == true;
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
+        strict = QueryFlag("strict") == true;
+        direction = Query("direction") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+        side = Query("side") switch
+        {
+            "top" => Side.Top,
+            "bottom" => Side.Bottom,
+            "left" => Side.Left,
+            "right" => Side.Right,
+            "inline-start" => Side.InlineStart,
+            "inline-end" => Side.InlineEnd,
+            _ => null,
+        };
+    }
+
+    private RenderFragment Root => @<text>
+        @if (controlled)
+        {
+            <PopoverRoot TPayload="string" @ref="root" Open="@open" DefaultTriggerId="@defaultTriggerId" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+                @Triggers
+            </PopoverRoot>
+        }
+        else
+        {
+            <PopoverRoot TPayload="string" @ref="root" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId" OnOpenChange="RetainOrRecord" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+                @Triggers
+            </PopoverRoot>
+        }
+    </text>;
+
+    private RenderFragment Triggers => @<text>
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            int index = number - 1;
+            string id = $"trigger-{number}";
+            string text = $"Trigger {number}";
+            string key = $"{id}-{triggerKey}";
+            // A lone trigger carries no payload (the suite's default content, `Content`); the lagging case's first trigger
+            // never does and its second only once `[data-set-payload]` gave it one.
+            if (triggerCount == 1 || (Case == "lagging" && (number == 1 || laggingPayload is null)))
+            {
+                <PopoverTrigger TPayload="string" @key="key" @ref="triggerRefs[index]" id="@id" data-testid="@id">@text</PopoverTrigger>
+            }
+            else
+            {
+                string payload = Case == "lagging" ? laggingPayload! : number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                <PopoverTrigger TPayload="string" @key="key" @ref="triggerRefs[index]" id="@id" data-testid="@id" Payload="@payload">@text</PopoverTrigger>
+            }
+        }
+    </text>;
+
+    private RenderFragment<string?> Content => payload => @<text>
+        <PopoverPortal KeepMounted="@keepMounted">
+            <PopoverPositioner Side="@side" CollisionAvoidance="@(side is null ? null : new CollisionAvoidance(Side: CollisionAvoidanceMode.None))">
+                <PopoverPopup data-testid="popup">
+                    <PopoverViewport data-testid="viewport">
+                        <div data-testid="content">@(payload is null ? "Content" : $"Content {payload}")</div>
+                    </PopoverViewport>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </text>;
+
+    // `open=true` stays open; case=controlled follows the request.
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (Case == "controlled")
+        {
+            open = args.Value;
+        }
+    }
+
+    // case=retained: Base UI's preventUnmountOnClose() keeps the closed popup mounted.
+    private void RetainOrRecord(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value && Case == "retained")
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        RecordOpenChange(args);
+    }
+
+    // The trigger remounts with a new key and the same id; strict=true remounts it twice, a render between (the handler's
+    // first yield renders).
+    private async Task RemountAsync()
+    {
+        triggerKey++;
+        if (strict)
+        {
+            await Task.Yield();
+            triggerKey++;
+        }
+    }
+}
