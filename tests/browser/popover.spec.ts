@@ -1254,10 +1254,6 @@ test.describe('<Popover.Root /> nested popup interactions', () => {
   });
 
   test('keeps the parent popover open when press starts in nested popover and ends outside', async ({ page, mode }) => {
-    // Gap 15 (M4 track 5, raised 2026-10-29): the parent closes with outside-press on both modes. Base UI's child popup
-    // is in the parent's React tree, so its pointerdown reaches the parent's capture handlers and sets FLT-PTR-29's
-    // press-started-inside marker; the interactions module listens on the DOM, where the child's portal is outside it.
-    test.skip(true, 'gap 15: a press that starts in a nested popover\'s popup is not one that started inside the parent (interactions)');
     const fixture = await gotoPopupFixture(page, mode, 'popover-nested', { case: 'press' });
     await expect(page.getByTestId('parent-popup')).toBeVisible();
     await expect(fixture).toHaveAttribute('data-child-attached', 'true');
@@ -1265,12 +1261,19 @@ test.describe('<Popover.Root /> nested popup interactions', () => {
     await page.getByRole('button', { name: 'Child', exact: true }).click();
     const childPopup = page.getByTestId('child-popup');
     await expect(childPopup).toBeVisible();
+    await settle(fixture);
 
-    // A real press starts in the child popup and is released on the outside button.
-    await childPopup.hover();
-    await page.mouse.down();
-    await page.getByTestId('outside').hover();
-    await page.mouse.up();
+    // Base UI counts only presses inside a popup's own floating DOM subtree as starting inside, on purpose
+    // (useDismiss.ts:239-258); its title passes because the child's pointerdown reaches the parent's capture handlers,
+    // whose inside mark lasts 0 ms, and the outside click arrives in the same tick. A real drag outlasts that window (and
+    // closes the parent in Base UI as in the port), so the same-tick sequence is dispatched as Base UI fires it: an
+    // exception to the real-input rule, like the touch session's virtual click (gap 15, withdrawn 2026-10-29).
+    await page.evaluate(() => {
+      const child = document.querySelector('[data-testid="child-popup"]')!;
+      const outside = document.querySelector('[data-testid="outside"]')!;
+      child.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', button: 0 }));
+      outside.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+    });
     await settle(fixture);
 
     await expect(page.getByTestId('parent-popup')).toBeVisible();
