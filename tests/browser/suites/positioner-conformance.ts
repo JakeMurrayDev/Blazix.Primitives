@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, Fixture, fixtureUrl, type Page, type RenderMode } from '../helpers';
+import { pressControl } from './popupFixture';
 
 // Base UI's test/positionerConformanceTests.tsx as one helper (ADR 06 §1, the shared positioner suite; M4 track 2): the
 // anchor positioning every `*.Positioner` shares through the `positioning` module, browser-only in Base UI too. Titles
@@ -184,11 +185,12 @@ export function positionerConformanceTests(config: PositionerConformanceConfig):
 
         await expect.poll(() => inlineStyle(positioner, 'transform')).toBe(`translate(${baselineX}px, ${baselineY}px)`);
 
-        await toggle.click();
+        // A fixture's own control (Base UI rerenders): a popup family's toggle would be an outside press.
+        await pressControl(toggle);
         await expect.poll(() => inlineStyle(positioner, 'transform')).toBe('');
         await expect.poll(() => inlineStyle(positioner, 'top')).toBe(`${baselineY}px`);
 
-        await toggle.click();
+        await pressControl(toggle);
         await expect.poll(() => inlineStyle(positioner, 'transform')).toBe(`translate(${baselineX}px, ${baselineY}px)`);
       });
     }
