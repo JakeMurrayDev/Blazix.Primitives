@@ -28,7 +28,7 @@ public sealed class PopupTwinContractTests
 
         TwinHandle<PopupOptions> viewport = await twin.AttachAsync("viewport", new PopupOptions
         {
-            Viewport = new PopupViewportOptions { Open = true, PopupId = "base-ui-1", ContentVersion = 2, Direction = "rtl" },
+            Viewport = new PopupViewportOptions { Open = true, PopupId = "base-ui-1", ContentVersion = 2 },
         });
         Assert.Same(viewport, await twin.AttachAsync("viewport", new PopupOptions()));
         TwinHandle<PopupOptions> positioner = await twin.AttachAsync("positioner", new PopupOptions
@@ -44,7 +44,7 @@ public sealed class PopupTwinContractTests
         Assert.Equal(3, attaches.Count);
         Assert.Equal("viewport", attaches[0].Arguments[0]);
         Assert.Equal(
-            """{"viewport":{"open":true,"popupId":"base-ui-1","contentVersion":2,"direction":"rtl"}}""",
+            """{"viewport":{"open":true,"popupId":"base-ui-1","contentVersion":2}}""",
             attaches[0].Arguments[1]);
         Assert.IsType<DotNetObjectReference<PopupTwin>>(attaches[0].Arguments[2]);
         Assert.Equal(
