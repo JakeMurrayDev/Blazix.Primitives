@@ -1020,6 +1020,33 @@ async function unmount(manager: Manager, next: Partial<FocusManagerOptions> = {}
   await settle();
 }
 
+/** Plays C#'s answer to a report inside the call, as WebAssembly runs it. */
+function answerInside(manager: Manager, method: string, answer: () => void): void {
+  const twin = manager.fake.twin;
+  const send = twin.invokeMethodAsync.bind(twin);
+  twin.invokeMethodAsync = <T>(methodName: string, ...args: unknown[]): Promise<T> => {
+    const sent = send<T>(methodName, ...args);
+    if (methodName === method) {
+      answer();
+    }
+    return sent;
+  };
+}
+
+/**
+ * A focus move the browser makes for a press or Tab: `focusout` while the body is the active element, the microtask
+ * checkpoint, then focus on the new element unless a handler moved focus meanwhile. jsdom's `focus()` keeps the old
+ * element active through `focusout`, so the order is played by hand; `blur()`'s own `focusout` has no related target.
+ */
+async function browserFocusMove(from: HTMLElement, to: HTMLElement): Promise<void> {
+  from.blur();
+  from.dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true, relatedTarget: to }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  if (document.activeElement === document.body) {
+    to.focus();
+  }
+}
+
 /** userEvent.tab(): a cancelable Tab keydown on the focused element, then the browser's sequential focus move. */
 async function tab({ shift = false, doc = document } = {}): Promise<void> {
   const active = (doc.activeElement ?? doc.body) as HTMLElement;
@@ -2575,6 +2602,35 @@ describe('FloatingFocusManager', () => {
         expect.objectContaining({ interactionType: 'keyboard', event: expect.objectContaining({ type: 'focusout' }) }),
       ]);
       expect(manager.fake.decisions).toEqual([]);
+    });
+
+    // M4 track 5's Gap 12 (settled by the orchestrator 2026-10-28): WebAssembly answers the focus-out close inside the
+    // request. A consumer that clears the anchor as it closes (Popover's controlled `TriggerId`) then sends the
+    // commit-path update and the batch that removes the popup while the browser is still moving focus, with the body as
+    // the active element: the re-arm's cancelled job cleared the suppression, and return focus took focus back.
+    it('port: a focus-out close answered inside the request leaves focus where the browser moved it', async () => {
+      const opener = element('button', 'opener');
+      const reference = element('button', 'reference', { id: 'reference' });
+      const outside = element('button', 'outside');
+      const floating = element('div', 'floating', { tabindex: '-1', 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      document.body.append(opener, reference, outside, floating);
+      opener.focus();
+      const manager = attachManager(floating, { modal: false, openInteractionType: null }, { synchronous: true });
+      await settle();
+      expect(document.activeElement).toBe(inside);
+
+      answerInside(manager, FOCUS_OUT_CLOSE_REPORT, () => {
+        manager.update({ domReferenceId: null });
+        floating.removeAttribute('data-open');
+        floating.remove();
+      });
+      await browserFocusMove(inside, outside);
+      await settle();
+
+      expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+      expect(document.activeElement).toBe(outside);
     });
   });
 
