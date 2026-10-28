@@ -1,9 +1,10 @@
-using Blazix.Primitives.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Blazix.Primitives.Interop;
 
+// ADR 09: the twin-attachment helper every popup family's parts share (tracks 6, 7 and 8), in Interop/ beside its twin
+// (settled by the orchestrator 2026-10-28, track 5's early review item 7).
 // ADR 04 Amendments 2026-10-27 (the `popup` row): one PopupTwin per part, attached after the render that created the part's
 // element and, under a portal, after the portal's move (design point 3 of M4 track 1); an unchanged options record sends
 // nothing (ADR 16 rule 7). A render during the pending first attach awaits it, as TwinBase hands a repeated attach the
