@@ -1838,13 +1838,12 @@ test.describe('<Popover.Root /> port: floating mechanics on Popover', () => {
   });
 });
 
-// Gap 17 (M4 track 5, raised 2026-10-29): a popover that closes while a part's first attach is in flight (Escape right
-// after the open) unmounts the element the attach names, and the module throws "no element for the reference". The
-// `popup` handles drop that error (PopupModuleAttachment); the positioning handle's (Floating/PositionerBehavior) does not,
-// so on WebAssembly the renderer logs an unhandled exception and shows Blazor's error UI.
+// Gap 17 (M4 track 5; ADR 04 Amendments 2026-10-29): a popover that closes while a part's first attach is in flight
+// (Escape right after the open) unmounts the element the attach names, and the module throws "no element for the
+// reference"; TwinBase yields a no-op handle for an attach whose twin was disposed in flight, so no renderer exception is
+// logged and Blazor's error UI stays hidden.
 test.describe('<Popover.Root /> a close during the first attach', () => {
   test('port: a popover closed right after it opens raises no renderer error', async ({ page, mode }) => {
-    test.skip(mode === 'wasm', 'gap 17: the positioning handle\'s attach throws once its element is gone (Floating/PositionerBehavior)');
     const errors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') {

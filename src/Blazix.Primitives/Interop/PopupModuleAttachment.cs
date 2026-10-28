@@ -43,14 +43,7 @@ internal sealed class PopupModuleAttachment : IAsyncDisposable
         }
 
         disposed = true;
-        try
-        {
-            await Twin.DisposeAsync();
-        }
-        catch (JSException) when (handle is null)
-        {
-            // The first attach failed with the element gone (AttachAsync): no handle was made, so none is released.
-        }
+        await Twin.DisposeAsync();
     }
 
     /// <summary>Attaches the handle to <paramref name="element"/>, or sends <paramref name="options"/> when they changed.</summary>
@@ -78,20 +71,12 @@ internal sealed class PopupModuleAttachment : IAsyncDisposable
         }
     }
 
-    // A part that leaves while its first attach is in flight (a popup closed in the batch after the one that opened it) took
-    // its element with it, so the module finds no element for the reference: nothing is left to attach to.
+    // A part that leaves while its first attach is in flight gets a no-op handle from TwinBase (ADR 04 Amendments
+    // 2026-10-29, gap 17 of M4 track 5).
     private async Task AttachAsync(ElementReference element, PopupOptions options)
     {
         sent = options;
-        try
-        {
-            handle = await Twin.AttachAsync(element, options);
-        }
-        catch (JSException) when (disposed)
-        {
-            return;
-        }
-
+        handle = await Twin.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();
     }
