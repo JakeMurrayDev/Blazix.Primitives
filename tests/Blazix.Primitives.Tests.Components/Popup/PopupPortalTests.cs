@@ -1,3 +1,4 @@
+using Microsoft.JSInterop;
 using AngleSharp.Dom;
 using Blazix.Primitives.Utilities;
 using Bunit;
@@ -276,4 +277,47 @@ public sealed class PopupPortalTests : IDisposable
         builder.AddComponentParameter(5, nameof(TestPopupPortal.ChildContent), host.Get<bool>("open") ? Publisher(modal: false, open: true) : null);
         builder.CloseComponent();
     });
+
+    // Issue 134 (design point 13.11 of M4 track 6, settled by the orchestrator 2026-10-28): a popup closed while the portal
+    // module loads is gone when `attach` reaches the browser; the module's JSException would end the Server circuit from
+    // OnAfterRenderAsync (the CollapsiblePanelBehavior and FocusManagerBehavior precedent).
+    [Fact(DisplayName = "port: an attach that fails because the portal node left the document before it arrived is dropped, and a later render attaches again")]
+    [Trait("Requirement", "PSH-STR-11")]
+    public async Task An_attach_that_fails_because_the_portal_node_left_is_dropped_and_a_later_render_attaches_again()
+    {
+        GoneElementRuntime runtime = new();
+        await using PopupPortalBehavior behavior = new(runtime, () => { });
+
+        await behavior.OnAfterRenderAsync(new ElementReference("gone"), null);
+        await behavior.OnAfterRenderAsync(new ElementReference("gone"), null);
+
+        Assert.Equal(2, runtime.Attaches);
+        Assert.False(behavior.Context.Moved.IsCompleted);
+    }
+
+    /// <summary>A runtime whose module's <c>attach</c> fails as the module does for an element no longer in the document.</summary>
+    /// <remarks>BL0016 asks callers of JS interop to guard the call; this is the runtime itself, which only answers.</remarks>
+#pragma warning disable BL0016
+    private sealed class GoneElementRuntime : IJSRuntime, IJSObjectReference
+    {
+        public int Attaches { get; private set; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private ValueTask<TValue> Answer<TValue>(string identifier)
+        {
+            if (identifier == "import")
+            {
+                return ValueTask.FromResult((TValue)(object)this);
+            }
+
+            Attaches++;
+            return ValueTask.FromException<TValue>(new JSException("Blazix: no element for the reference"));
+        }
+    }
+#pragma warning restore BL0016
 }
