@@ -208,6 +208,21 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: true });
   });
 
+  it('port: a move between triggers inside a shadow root clones the removed content', async () => {
+    const rendered = renderViewport();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    host.attachShadow({ mode: 'open' }).append(...rendered.triggers, rendered.positioner);
+    activate(rendered, 0);
+    attachTo(rendered.viewport, openViewport, createFakeTwin({ synchronous }));
+
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
+  });
+
   it('port: an update that arrives before the mutation records (WebAssembly) still clones the removed content', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
@@ -430,6 +445,16 @@ describe('the positioner', () => {
     positioner.style.setProperty('transform', 'translate(1px, 2px)');
     await settle();
     expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 15, top: 25, right: 45, bottom: 65 }));
+  });
+
+  it('port: a trigger inside a shadow root is found by its id and cut out of the backdrop', () => {
+    const { positioner, backdrop, trigger } = renderPositioner();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    host.attachShadow({ mode: 'open' }).append(trigger, backdrop, positioner);
+    attachTo(positioner, { positioner: { watchTriggerChange: true, cutout: true, activeTriggerId: 'trigger' } }, createFakeTwin());
+
+    expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 10, top: 20, right: 40, bottom: 60 }));
   });
 
   it('port: a backdrop inserted after attach is cut out in the same batch', async () => {
