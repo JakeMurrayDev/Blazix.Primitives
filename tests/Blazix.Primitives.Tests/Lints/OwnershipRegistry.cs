@@ -111,5 +111,22 @@ internal static class OwnershipRegistry
         // TabsPanelState.TransitionStatus; C# renders data-starting-style once, on an element it creates open.
         new("tabs", "Panel", "data-starting-style", Writer.Js, "TabsPanelState.TransitionStatus"),
         new("tabs", "Panel", "data-ending-style", Writer.Js, "TabsPanelState.TransitionStatus"),
+        // Tooltip (M4 track 6, issue 121; ADR 04 §2 as amended 2026-10-27, tooltip.md §5): the interactions module attaches
+        // the trigger's and the floating element's listeners; positioning writes the Positioner's and the Arrow's style and
+        // placement from attach (mirrored in the state records); transitions writes the Popup's transition attributes and
+        // its style. data-instant is C#'s on every part.
+        new("tooltip", "Trigger", "handlers", Writer.Js),
+        new("tooltip", "Positioner", "style", Writer.CsharpToJs),
+        new("tooltip", "Positioner", "data-side", Writer.CsharpToJs, "TooltipPositionerState.Side"),
+        new("tooltip", "Positioner", "data-align", Writer.CsharpToJs, "TooltipPositionerState.Align"),
+        new("tooltip", "Positioner", "data-anchor-hidden", Writer.Js, "TooltipPositionerState.AnchorHidden"),
+        new("tooltip", "Popup", "data-starting-style", Writer.Js, "TooltipPopupState.TransitionStatus"),
+        new("tooltip", "Popup", "data-ending-style", Writer.Js, "TooltipPopupState.TransitionStatus"),
+        new("tooltip", "Popup", "style", Writer.Js),
+        new("tooltip", "Popup", "handlers", Writer.Js),
+        new("tooltip", "Arrow", "style", Writer.CsharpToJs),
+        new("tooltip", "Arrow", "data-side", Writer.CsharpToJs, "TooltipArrowState.Side"),
+        new("tooltip", "Arrow", "data-align", Writer.CsharpToJs, "TooltipArrowState.Align"),
+        new("tooltip", "Arrow", "data-uncentered", Writer.CsharpToJs, "TooltipArrowState.Uncentered"),
     ];
 }
