@@ -1451,7 +1451,7 @@ describe('positioning module: a reopen while still mounted', () => {
   // ADR 04 Amendments 2026-10-29, design point 11.5 of M4 track 7 (PreviewCardPositioner.tsx:82-86, PRV-ANI-05): a
   // reopen while still mounted, during the exit or kept mounted, runs one pass, as Base UI's layout effect does.
   it('port: with positionOnOpen, a reopen while still mounted runs one pass before paint', async () => {
-    const { positioner } = setup({ positionOnOpen: true });
+    const { positioner, update } = setup({ positionOnOpen: true });
     await settle();
     positioner.removeAttribute('data-open');
     await settle();
@@ -1461,10 +1461,9 @@ describe('positioning module: a reopen while still mounted', () => {
     await settle();
 
     expect(spies.computePosition).toHaveBeenCalledTimes(1);
-  });
 
-  it('port: without positionOnOpen, a reopen while still mounted runs no pass of its own', async () => {
-    const { positioner } = setup();
+    // Without the option the reopen runs no pass of its own (a control, in the red title: ADR 11 §3).
+    update({ positionOnOpen: false });
     await settle();
     positioner.removeAttribute('data-open');
     await settle();
