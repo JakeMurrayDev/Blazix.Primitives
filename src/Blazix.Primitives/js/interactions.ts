@@ -120,6 +120,8 @@ export interface SessionRoleOptions {
   // FLT-PTR-13
   /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`). */
   ending?: boolean | null;
+  /** Whether the popup is mounted (PreviewCard); its fall from `true` clears the hovered line. */
+  mounted?: boolean | null;
   /** The number of requests C# answered, canceled ones included; a move re-arms a session that requested a close. */
   answered?: number | null;
   /** Dismissal; `null` turns it off. */
@@ -589,6 +591,7 @@ interface SessionRecord extends InteractionSession {
   open: boolean;
   openOrder: number;
   ending: boolean;
+  mounted: boolean;
   activeTriggerId: string | null;
   parentToken: string | null;
   floatingId: string | undefined;
@@ -691,6 +694,7 @@ function createSessionRecord(token: string): SessionRecord {
     open: false,
     openOrder: 0,
     ending: false,
+    mounted: false,
     activeTriggerId: null,
     parentToken: null,
     floatingId: undefined,
@@ -894,6 +898,13 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   record.parentToken = role.parentToken ?? null;
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
+  // ADR 04 Amendments 2026-10-29 (design point 11.2 of M4 track 7): PreviewCardStore.ts resets the hovered-line record when
+  // the card unmounts, so a controlled reopen of the same trigger positions against the side-aligned line.
+  const mounted = role.mounted === true;
+  if (record.mounted && !mounted) {
+    hoveredLineRef(record).current = undefined;
+  }
+  record.mounted = mounted;
   if (relay !== null && relay.revision !== record.lastRevision) {
     record.closeInFlight = null;
     const first = record.lastRevision === undefined;

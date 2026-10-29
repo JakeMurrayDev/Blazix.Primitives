@@ -253,6 +253,8 @@ public sealed class PreviewCardRoot<TPayload> : ComponentBase, IAsyncDisposable
         session.ActiveTriggerId = popup.Mounted ? popup.EffectiveActiveTriggerId : null;
         session.FloatingId = popup.PopupId;
         session.Ending = popup.DerivedTransitionStatus == TransitionStatus.Ending;
+        // ADR 04 Amendments 2026-10-29 (design point 11.2 of M4 track 7): the unmount clears the session's hovered line.
+        session.Mounted = popup.Mounted;
         session.Relay = popup.OpenChange;
 
         // PRV-STA-16 (PreviewCardRoot.tsx:84-109): Escape and the outside press while open, mounted or given a Handle.

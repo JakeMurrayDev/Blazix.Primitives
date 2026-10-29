@@ -67,6 +67,11 @@ internal sealed record InteractionsSessionOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Ending { get; init; }
 
+    /// <summary>Gets a value indicating whether the popup is mounted, which a preview card's root sends so the session clears its hovered line at the unmount.</summary>
+    /// <value><see langword="true"/> while mounted; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Mounted { get; init; }
+
     /// <summary>Gets the number of requests the popup answered, canceled ones included.</summary>
     /// <value>A counter that moves once per request the session routed; the default 0 is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
