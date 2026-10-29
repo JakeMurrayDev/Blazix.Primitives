@@ -1639,7 +1639,12 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
 // from its render prop; the port renders them as data-open and data-starting-style/data-ending-style, recorded on every
 // change and deduplicated as Base UI's onState does.
 test.describe('Popover popup transition state', () => {
-  test('starts each opening once when the popup is kept mounted', async ({ page, mode }) => {
+  // Quarantined (ADR 11 §4) until 2026-11-12, issue 153: intermittent on Server on main too (an extra leading
+  // { open: true, transitionStatus: undefined } sample; 4 of 8 local repeats on main).
+  test.fixme('starts each opening once when the popup is kept mounted', {
+    tag: '@quarantine',
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/153' },
+  }, async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'popover-root', { keepMounted: true, popupClass: 'transition-state', animations: 1 });
     await page.evaluate(() => {
       const states: { open: boolean; transitionStatus: string | undefined }[] = [];

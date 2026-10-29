@@ -549,7 +549,12 @@ test.describe('external scroll lock handoff', () => {
   test.describe('when a third-party overlay is still unlocking', () => {
     for (const { name, lock } of lockers) {
       test.describe(`'${name}'`, () => {
-        test('keeps the page locked until it takes over, and unlocks on close', async ({ page, mode }) => {
+        // Quarantined (ADR 11 §4) until 2026-11-12, issue 154: an unlocked sample on WebAssembly in three runs (the
+        // react-remove-scroll, silk-hq and Ariakit variants).
+        test.fixme('keeps the page locked until it takes over, and unlocks on close', {
+          tag: '@quarantine',
+          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/154' },
+        }, async ({ page, mode }) => {
           const fixture = await gotoPopupFixture(page, mode, 'dialog-root', { open: false });
           expect(`initial: ${await isPageLocked(page)}`).toBe('initial: false');
 
