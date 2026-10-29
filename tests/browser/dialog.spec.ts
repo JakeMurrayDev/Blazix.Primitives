@@ -1330,3 +1330,37 @@ test.describe('the Server gap of a newly created modal popup (ADR 01, M4 track 8
     expect(summary.ariaHidden!.medianMs).toBeLessThan(150);
   });
 });
+
+// Issue 147 (DLG-EVT-05's 'ending' clause, TRN-ANI-23; ADR 04 Amendments 2026-10-29, (B1) with issue 148): a close kept
+// mounted by PreventUnmountOnClose keeps the popup's ending phase until Unmount(). The popup announces it through the
+// transitions module's export at the call, so it holds on Server under the circuit's latency, for a close inside the popup's
+// first attach round trip too.
+test.describe('<Dialog.Root /> a retained close', () => {
+  for (const latency of [0, 250]) {
+    const suffix = latency === 0 ? '' : ', within the first attach round trip under circuit latency on Server';
+    test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'dialog-shared', { case: 'prevent-unmount' });
+      const trigger = page.getByRole('button', { name: 'Open', exact: true, includeHidden: true });
+      // Scoped to the portal: a hidden-role query of the page also finds Blazor's own reconnect <dialog>.
+      const popup = page.locator('[data-base-ui-portal] [role="dialog"]');
+      await trigger.click();
+      await expect(popup).toBeVisible();
+
+      // At once: under latency the popup's transitions attach is still answering.
+      await trigger.click();
+
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await settle(fixture);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await expect(popup).not.toHaveAttribute('hidden');
+
+      await fixture.locator('[data-unmount]').click();
+      await expect(popup).toHaveCount(0);
+    });
+  }
+});
