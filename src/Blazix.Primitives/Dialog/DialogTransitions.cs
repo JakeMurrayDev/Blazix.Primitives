@@ -173,6 +173,12 @@ internal sealed class DialogTransitions : IAsyncDisposable
             await ready;
         }
 
+        // Issue 149's residual: the portal's move can complete after the part was disposed, which must create no twin.
+        if (disposed)
+        {
+            return;
+        }
+
         if (twin is null)
         {
             twin = new TransitionsTwin(jsRuntime);

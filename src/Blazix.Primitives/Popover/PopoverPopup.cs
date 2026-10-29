@@ -406,6 +406,12 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
 
     private async Task SyncTransitionsAsync(ElementReference element)
     {
+        // Issue 149's residual: the portal's move can complete after the part was disposed, which must create no twin.
+        if (disposed)
+        {
+            return;
+        }
+
         if (transitions is null)
         {
             transitions = new TransitionsTwin(JSRuntime);
