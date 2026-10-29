@@ -78,7 +78,8 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
 
     /// <summary>
     /// Records the root's open change; cancels an open when the case asks (<c>cancelOpen=true</c>), cancels a close
-    /// (<c>cancelClose=true</c>) or lets a close's keydown propagate (<c>allowPropagation=true</c>).
+    /// (<c>cancelClose=true</c>), lets a close's keydown propagate (<c>allowPropagation=true</c>) or keeps every close
+    /// mounted until the root's unmount action (<c>retainEveryClose=true</c>).
     /// </summary>
     /// <param name="args">The root's callback arguments.</param>
     protected void RecordOpenChange(ValueChangeEventArgs<bool> args)
@@ -101,8 +102,9 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
             args.Details.AllowPropagation();
         }
 
-        // Issue 147's titles (M4 track 6): every close is kept mounted until the root's unmount action runs.
-        if (!args.Value && QueryFlag("preventUnmount") == true && args.Details is OpenChangeEventDetails details)
+        // Issue 147's titles (M4 track 6): every close is kept mounted until the root's unmount action runs. A fixture with
+        // its own `preventUnmount` (Tooltip's first close only) keeps it.
+        if (!args.Value && QueryFlag("retainEveryClose") == true && args.Details is OpenChangeEventDetails details)
         {
             details.PreventUnmountOnClose();
         }

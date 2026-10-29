@@ -1797,33 +1797,57 @@ test.describe('<Popover.Close /> rendering a tooltip trigger', () => {
   });
 });
 
-// Issue 147 (POP-ANI-06, TRN-ANI-23; ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29): a close kept
-// mounted by PreventUnmountOnClose keeps its ending phase until Unmount(). The popup announces the opt-out to its
-// transitions handle ahead of the close's batch, so it holds on Server under circuit latency as well.
+// Issue 147 (POP-ANI-06, TRN-ANI-23; ADR 04 Amendments 2026-10-29, (B1) with issue 148, chosen by the user 2026-10-29): a
+// close kept mounted by PreventUnmountOnClose keeps its ending phase until Unmount(). The popup announces it through the
+// transitions module's export at the call, ahead of any render of the close, so it holds on Server under the circuit's
+// latency, for a close inside the popup's first attach round trip, and for a controlled close whose callback renders the
+// new value and then awaits (issue 148).
 test.describe('<Popover.Root /> a retained close', () => {
+  const expectRetainedUntilUnmount = async (page: Page, fixture: Locator, popup: Locator) => {
+    await expect(popup).toHaveAttribute('data-ending-style');
+    await settle(fixture);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(popup).toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('hidden');
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await expect(popup).toHaveCount(0);
+  };
+
   for (const latency of [0, 250]) {
-    const suffix = latency === 0 ? '' : ', under circuit latency on Server';
+    const suffix = latency === 0 ? '' : ', within the first attach round trip under circuit latency on Server';
     test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
       if (latency > 0 && mode === 'server') {
         await delayCircuit(page, latency);
       }
-      const fixture = await gotoPopupFixture(page, mode, 'popover-root', { preventUnmount: true });
+      const fixture = await gotoPopupFixture(page, mode, 'popover-root', { retainEveryClose: true });
       const trigger = page.getByTestId('trigger');
       const popup = page.getByTestId('popover-popup');
       await trigger.click();
       await expect(popup).toBeVisible();
 
+      // At once: under latency the popup's transitions attach is still answering.
       await trigger.click();
 
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
-      await expect(popup).toHaveAttribute('data-ending-style');
-      await settle(fixture);
-      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-      await expect(popup).toHaveAttribute('data-ending-style');
-      await expect(popup).not.toHaveAttribute('hidden');
+      await expectRetainedUntilUnmount(page, fixture, popup);
+    });
 
-      await pressControl(fixture.locator('[data-unmount]'));
-      await expect(popup).toHaveCount(0);
+    test(`port: a controlled close whose callback renders and then awaits keeps data-ending-style until Unmount()${latency === 0 ? '' : ', under circuit latency on Server'}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'popover-root', { open: false, retainEveryClose: true, awaitInCallback: true });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popover-popup');
+      await trigger.click();
+      await expect(popup).toBeVisible();
+      await settle(fixture);
+
+      await trigger.click();
+
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expectRetainedUntilUnmount(page, fixture, popup);
     });
   }
 });
