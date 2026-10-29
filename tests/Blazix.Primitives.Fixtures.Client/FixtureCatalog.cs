@@ -1,4 +1,5 @@
 using Blazix.Primitives.Fixtures.Client.AccordionFixtures;
+using Blazix.Primitives.Fixtures.Client.AlertDialogFixtures;
 using Blazix.Primitives.Fixtures.Client.Allocation;
 using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
@@ -195,6 +196,10 @@ public static class FixtureCatalog
         ["dialog-shared"] = new(typeof(DialogSharedFixture)),
         ["dialog-shadow"] = new(typeof(DialogShadowFixture)),
         ["dialog-popover"] = new(typeof(DialogPopoverFixture)),
+        ["alert-dialog-conformance"] = new(typeof(AlertDialogConformanceFixture)),
+        ["alert-dialog-shared"] = new(typeof(AlertDialogSharedFixture)),
+        ["alert-dialog-triggers"] = new(typeof(AlertDialogTriggersFixture)),
+        ["alert-dialog-root"] = new(typeof(AlertDialogRootFixture)),
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
         ["tooltip-root"] = new(typeof(TooltipRootFixture)),
