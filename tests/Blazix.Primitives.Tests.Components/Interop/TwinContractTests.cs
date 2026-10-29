@@ -52,6 +52,32 @@ public sealed class TwinContractTests
         Assert.Equal(2, module.Invocations["attach"].Count);
     }
 
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): a part awaits the import before building its first attach's
+    // options, so they are read right before the attach is sent, which then goes over that import at once.
+    [Fact(DisplayName = "port: PrepareAsync imports the module once, the attach after it reuses the import, and a disposed twin imports nothing")]
+    [Trait("Requirement", "TRN-ANI-23")]
+    public async Task PrepareAsync_imports_the_module_once_and_the_attach_reuses_it()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        SetupHandle(module);
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+
+        await twin.PrepareAsync();
+        await twin.PrepareAsync();
+        Assert.Single(context.JSInterop.Invocations["import"]);
+        Assert.Empty(module.Invocations["attach"]);
+
+        await twin.AttachAsync("base-ui-1", new TestTwinOptions());
+        Assert.Single(context.JSInterop.Invocations["import"]);
+        Assert.Single(module.Invocations["attach"]);
+
+        await using TestTwin disposed = new(context.JSInterop.JSRuntime);
+        await disposed.DisposeAsync();
+        await disposed.PrepareAsync();
+        Assert.Single(context.JSInterop.Invocations["import"]);
+    }
+
     [Fact]
     public async Task A_repeated_attach_of_the_same_element_is_a_no_op_that_returns_the_same_handle()
     {

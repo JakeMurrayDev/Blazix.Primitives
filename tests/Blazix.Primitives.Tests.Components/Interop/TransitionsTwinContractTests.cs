@@ -278,6 +278,26 @@ public sealed class TransitionsTwinContractTests
             }));
     }
 
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): a popup awaits its twin's import, then builds its first
+    // attach's options, which carry a retained close the store recorded meanwhile.
+    [Fact(DisplayName = "port: the first attach after PrepareAsync sends the options built after the import, a retained close included")]
+    [Trait("Requirement", "TRN-ANI-23")]
+    public async Task The_first_attach_after_PrepareAsync_sends_the_options_built_after_the_import()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        SetupHandle(module);
+        await using TransitionsTwin twin = new(context.JSInterop.JSRuntime);
+        bool retained = false;
+
+        await twin.PrepareAsync();
+        retained = true;
+        await twin.AttachAsync("base-ui-7", new TransitionsOptions { Open = false, Mounted = true, RetainExit = retained });
+
+        Assert.Single(context.JSInterop.Invocations["import"]);
+        Assert.Contains("\"retainExit\":true", (string)Assert.Single(module.Invocations["attach"]).Arguments[1]!, StringComparison.Ordinal);
+    }
+
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
