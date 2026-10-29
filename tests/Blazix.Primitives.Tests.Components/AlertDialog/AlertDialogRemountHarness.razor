@@ -1,0 +1,22 @@
+@namespace Blazix.Primitives.Tests.Components
+@* AlertDialogRoot.test.tsx "rewires the trigger and keeps pointer dismissal disabled after the root remounts while open": a
+   detached trigger on a handle, and a root the test unmounts while open and mounts again. *@
+<div>
+    <AlertDialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger">Trigger</AlertDialogTrigger>
+    @if (Mounted)
+    {
+        <AlertDialogRoot TPayload="NoPayload" @ref="Root" Handle="Handle">
+            <AlertDialogPortal>
+                <AlertDialogPopup data-testid="popup">Alert dialog content</AlertDialogPopup>
+            </AlertDialogPortal>
+        </AlertDialogRoot>
+    }
+</div>
+
+@code {
+    public AlertDialogHandle<NoPayload> Handle { get; } = new();
+
+    public AlertDialogRoot<NoPayload>? Root { get; private set; }
+
+    [Parameter] public bool Mounted { get; set; } = true;
+}

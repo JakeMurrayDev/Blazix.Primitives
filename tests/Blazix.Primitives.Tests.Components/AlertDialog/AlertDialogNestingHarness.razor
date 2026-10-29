@@ -1,0 +1,47 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogPopup.test.tsx's two cross-family trees. `cross-type`: a Dialog whose popup holds an AlertDialog with its own
+   trigger and Close ("increments for nested alert dialog and decrements on close (cross-type)"). `parent-alert`: an open
+   AlertDialog whose portal holds an open Dialog, whose popup holds a closed Dialog ("adds the `nested` and
+   `nested-dialog-open` style hooks if a dialog has a parent alert dialog"). *@
+@if (Shape == "cross-type")
+{
+    <DialogRoot TPayload="NoPayload">
+        <DialogTrigger id="open-dialog">Open Dialog</DialogTrigger>
+        <DialogPortal>
+            <DialogPopup data-testid="parent-dialog">
+                <AlertDialogRoot TPayload="NoPayload">
+                    <AlertDialogTrigger id="open-alert">Open Alert</AlertDialogTrigger>
+                    <AlertDialogPortal>
+                        <AlertDialogPopup data-testid="nested-alert">
+                            <AlertDialogClose data-testid="close-alert">Close Alert</AlertDialogClose>
+                        </AlertDialogPopup>
+                    </AlertDialogPortal>
+                </AlertDialogRoot>
+                <DialogClose>Close Dialog</DialogClose>
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+}
+else
+{
+    <AlertDialogRoot TPayload="NoPayload" Open="true">
+        <AlertDialogPortal>
+            <AlertDialogPopup data-testid="parent-dialog" />
+            <DialogRoot TPayload="NoPayload" Open="true">
+                <DialogPortal>
+                    <DialogPopup data-testid="nested-dialog">
+                        <DialogRoot TPayload="NoPayload">
+                            <DialogPortal>
+                                <DialogPopup />
+                            </DialogPortal>
+                        </DialogRoot>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+        </AlertDialogPortal>
+    </AlertDialogRoot>
+}
+
+@code {
+    [Parameter] public string Shape { get; set; } = "cross-type";
+}

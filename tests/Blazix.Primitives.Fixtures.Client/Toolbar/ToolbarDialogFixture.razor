@@ -10,7 +10,10 @@
     - `renders`: "renders a dialog trigger"; `interactions`: "handles interactions"; `disabled`: "disabled state" (a
       disabled ToolbarButton); `composite`: "prevents composite keydowns from escaping", a second plain ToolbarButton
       "empty" after the dialog trigger; `composite-inside`: the same, with the portal's container `[data-portal-target]`
-      inside the ToolbarRoot, so the popup's keydowns bubble into the toolbar unless the popup stops them (DLG-KEY-09).
+      inside the ToolbarRoot, so the popup's keydowns bubble into the toolbar unless the popup stops them (DLG-KEY-09);
+    - `alert-interactions`, `alert-composite`: the AlertDialog block (M4 track 9), the same shapes over the AlertDialog parts,
+      always modal: an AlertDialogTrigger in the ToolbarButton, a Backdrop and a Title "title text" in the first, a second
+      ToolbarButton "empty" in the second.
     The container records the root's open changes (`data-open-changes`).
 *@
 <FixtureContainer Name="toolbar-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
@@ -18,28 +21,53 @@
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-before>Before</button>
     <ToolbarRoot @ref="root" data-root>
-        <DialogRoot TPayload="NoPayload" Modal="false" OnOpenChange="RecordOpenChange">
-            <ToolbarButton @ref="button" Disabled="@(Case == "disabled")" Render="Trigger" data-item="button">@(Composite ? "dialog" : null)</ToolbarButton>
-            <DialogPortal Container="@PortalContainer">
-                @if (!Composite)
-                {
-                    <DialogBackdrop />
-                }
-                <DialogPopup>
+        @if (Alert)
+        {
+            <AlertDialogRoot TPayload="NoPayload" OnOpenChange="RecordOpenChange">
+                <ToolbarButton @ref="button" Render="AlertTrigger" data-item="button">@(Case == "alert-composite" ? "dialog" : null)</ToolbarButton>
+                <AlertDialogPortal>
+                    @if (Case == "alert-interactions")
+                    {
+                        <AlertDialogBackdrop />
+                    }
+                    <AlertDialogPopup>
+                        @if (Case == "alert-interactions")
+                        {
+                            <AlertDialogTitle>title text</AlertDialogTitle>
+                        }
+                    </AlertDialogPopup>
+                </AlertDialogPortal>
+            </AlertDialogRoot>
+            @if (Case == "alert-composite")
+            {
+                <ToolbarButton data-item="empty">empty</ToolbarButton>
+            }
+        }
+        else
+        {
+            <DialogRoot TPayload="NoPayload" Modal="false" OnOpenChange="RecordOpenChange">
+                <ToolbarButton @ref="button" Disabled="@(Case == "disabled")" Render="Trigger" data-item="button">@(Composite ? "dialog" : null)</ToolbarButton>
+                <DialogPortal Container="@PortalContainer">
                     @if (!Composite)
                     {
-                        <DialogTitle>title text</DialogTitle>
+                        <DialogBackdrop />
                     }
-                </DialogPopup>
-            </DialogPortal>
-        </DialogRoot>
-        @if (Composite)
-        {
-            <ToolbarButton data-item="empty">empty</ToolbarButton>
-        }
-        @if (Inside)
-        {
-            <div data-portal-target></div>
+                    <DialogPopup>
+                        @if (!Composite)
+                        {
+                            <DialogTitle>title text</DialogTitle>
+                        }
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            @if (Composite)
+            {
+                <ToolbarButton data-item="empty">empty</ToolbarButton>
+            }
+            @if (Inside)
+            {
+                <div data-portal-target></div>
+            }
         }
     </ToolbarRoot>
 </FixtureContainer>
@@ -48,6 +76,9 @@
     private ToolbarRoot? root;
     private ToolbarButton? button;
     private DialogTrigger<NoPayload>? trigger;
+    private AlertDialogTrigger<NoPayload>? alertTrigger;
+
+    private bool Alert => Case is "alert-interactions" or "alert-composite";
 
     private bool Composite => Case is "composite" or "composite-inside";
 
@@ -60,7 +91,10 @@
         root?.TwinAttached ?? Task.CompletedTask,
         button?.TwinAttached ?? Task.CompletedTask,
         trigger?.TwinAttached ?? Task.CompletedTask,
+        alertTrigger?.TwinAttached ?? Task.CompletedTask,
     ];
 
     private RenderFragment Trigger => @<DialogTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" />;
+
+    private RenderFragment AlertTrigger => @<AlertDialogTrigger TPayload="NoPayload" @ref="alertTrigger" data-testid="trigger" />;
 }

@@ -155,7 +155,7 @@ public sealed class DialogPopup : PartBase<DialogPopupState>
             throw DialogParts.MissingRoot("Dialog");
         }
 
-        behavior = new DialogPopupBehavior("DialogPopup", JSRuntime, Logger, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
+        behavior = new DialogPopupBehavior("Dialog", JSRuntime, Logger, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
         base.OnInitialized();
     }
 

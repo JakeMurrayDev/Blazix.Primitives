@@ -1,0 +1,23 @@
+@namespace Blazix.Primitives.Tests.Components
+@* AlertDialogRoot.test.tsx "does not re-render inactive detached triggers when the popup opens and closes": two detached
+   triggers on one handle, then the root, whose popup holds a Close. Trigger 2 is the bystander; a trigger's ClassValue
+   runs once per render of the part, so a counting ClassValue counts its renders (the issue 110 rule). *@
+<div>
+    <AlertDialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger-1">Trigger 1</AlertDialogTrigger>
+    <AlertDialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger-2" ClassValue="BystanderClassValue">Trigger 2</AlertDialogTrigger>
+    <AlertDialogRoot TPayload="NoPayload" @ref="Root" Handle="Handle">
+        <AlertDialogPortal>
+            <AlertDialogPopup data-testid="popup">
+                <AlertDialogClose data-testid="close">Close</AlertDialogClose>
+            </AlertDialogPopup>
+        </AlertDialogPortal>
+    </AlertDialogRoot>
+</div>
+
+@code {
+    public AlertDialogHandle<NoPayload> Handle { get; } = new();
+
+    public AlertDialogRoot<NoPayload>? Root { get; private set; }
+
+    [Parameter] public Func<AlertDialogTriggerState, string?>? BystanderClassValue { get; set; }
+}

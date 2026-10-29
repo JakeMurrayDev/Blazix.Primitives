@@ -1,0 +1,77 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `dialog-confirmation` fixture (tests/browser/dialog.spec.ts): DialogRoot.test.tsx's two close-confirmation titles,
+    whose confirmation is a controlled AlertDialog (track 8 left them open to M4 track 9).
+    - `case=outside-press`: a controlled modal dialog (trigger `trigger` "Tweet", a Backdrop `backdrop`, a textarea
+      `textarea`) whose owner cancels a close while the textarea holds text and opens the confirmation instead; the
+      confirmation, nested in the dialog's root, holds a Close `go-back` "Go back";
+    - `case=no-leak`: a non-focusable surface `surface` that opens the confirmation on click, a non-modal dialog held open
+      with a textarea `nonmodal-field`, and the confirmation beside it.
+    The container records the dialog's open changes.
+*@
+<FixtureContainer Name="dialog-confirmation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @if (Case == "no-leak")
+    {
+        <div data-testid="surface" style="width: 100px; height: 100px" @onclick="() => confirmationOpen = true">surface</div>
+        <DialogRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false">
+            <DialogPortal>
+                <DialogPopup style="position: fixed; top: 200px; left: 200px">
+                    <textarea data-testid="nonmodal-field"></textarea>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+        @Confirmation
+    }
+    else
+    {
+        <DialogRoot TPayload="NoPayload" @ref="root" Open="@open" OnOpenChange="ConfirmBeforeClose">
+            <DialogTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Tweet</DialogTrigger>
+            <DialogPortal>
+                <DialogBackdrop data-testid="backdrop" style="position: fixed; inset: 0" />
+                <DialogPopup style="position: fixed; top: 200px; left: 200px">
+                    <textarea data-testid="textarea" @bind="text" @bind:event="oninput"></textarea>
+                </DialogPopup>
+            </DialogPortal>
+            @Confirmation
+        </DialogRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private DialogRoot<NoPayload>? root;
+    private DialogTrigger<NoPayload>? trigger;
+    private bool open;
+    private bool confirmationOpen;
+    private string text = string.Empty;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private RenderFragment Confirmation => @<AlertDialogRoot TPayload="NoPayload" Open="@confirmationOpen" OpenChanged="v => confirmationOpen = v">
+        <AlertDialogPortal>
+            <AlertDialogPopup style="position: fixed; top: 240px; left: 240px">
+                <AlertDialogClose data-testid="go-back">Go back</AlertDialogClose>
+            </AlertDialogPopup>
+        </AlertDialogPortal>
+    </AlertDialogRoot>;
+
+    private void ConfirmBeforeClose(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && text.Length > 0)
+        {
+            args.Details.Cancel();
+            confirmationOpen = true;
+            return;
+        }
+
+        open = args.Value;
+    }
+}
