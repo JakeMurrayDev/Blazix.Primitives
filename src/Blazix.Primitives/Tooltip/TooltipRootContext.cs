@@ -38,12 +38,12 @@ internal abstract class TooltipRootContext
     /// <returns>The view; disposing it ends the subscription and a boundary registration.</returns>
     public abstract TooltipStoreView CreateView(Action changed, TooltipSelection selection);
 
-    // TIP-POS-05.
     /// <summary>Registers a listener for a change of whether the current close keeps the popup mounted, called before the write is published.</summary>
     /// <param name="listener">The listener, called with the new value.</param>
     /// <returns>The registration; disposing it unregisters the listener.</returns>
     public abstract IDisposable OnUnmountPreventionChanging(Action<bool> listener);
 
+    // TIP-POS-05.
     /// <summary>Writes whether a viewport is mounted.</summary>
     /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
     public abstract void SetAdaptiveOrigin(bool adaptiveOrigin);
