@@ -14,6 +14,8 @@
       same modality (with a Backdrop when modal); the outer popup is `outer`, the nested trigger `open-nested`, the nested
       popup `nested` and its Close `close-nested` (a nested root's Backdrop renders only with `ForceRender`, so a modal
       nested dialog's own backdrop is the internal one in its portal node);
+    - `kind=alert`: the nested dialog is an AlertDialog with its Backdrop, inside a modal outer dialog (Base UI's "nested
+      alert dialog" kind; M4 track 9);
     - `outer=shadow`, `nested=shadow|body`: each portal's container, the shadow root or the body; absent, the portal's
       default (the enclosing portal's node, else the body);
     - `case=outside`: no nested dialog, a non-modal outer popup, and a page element `outside`.
@@ -35,7 +37,19 @@
                     <DialogBackdrop />
                 }
                 <DialogPopup data-testid="outer">
-                    @if (Case != "outside")
+                    @if (Case != "outside" && Query("kind") == "alert")
+                    {
+                        <AlertDialogRoot TPayload="NoPayload">
+                            <AlertDialogTrigger TPayload="NoPayload" @ref="nestedAlertTrigger" data-testid="open-nested">Open nested</AlertDialogTrigger>
+                            <AlertDialogPortal Container="@ContainerOf(Query("nested"))">
+                                <AlertDialogBackdrop />
+                                <AlertDialogPopup data-testid="nested">
+                                    <AlertDialogClose data-testid="close-nested">Close</AlertDialogClose>
+                                </AlertDialogPopup>
+                            </AlertDialogPortal>
+                        </AlertDialogRoot>
+                    }
+                    else if (Case != "outside")
                     {
                         <DialogRoot TPayload="NoPayload" Modal="@nestedModal">
                             <DialogTrigger TPayload="NoPayload" @ref="nestedTrigger" data-testid="open-nested">Open nested</DialogTrigger>
@@ -61,6 +75,7 @@
     private IJSObjectReference? shadowRoot;
     private DialogRoot<NoPayload>? root;
     private DialogTrigger<NoPayload>? nestedTrigger;
+    private AlertDialogTrigger<NoPayload>? nestedAlertTrigger;
     private bool modal;
     private ModalValue? outerModal;
     private ModalValue? nestedModal;
@@ -95,7 +110,7 @@
             if (shadowRoot is not null && root is not null && !ready && !waiting)
             {
                 waiting = true;
-                await Task.WhenAll(root.SessionAttached, nestedTrigger?.TwinAttached ?? Task.CompletedTask);
+                await Task.WhenAll(root.SessionAttached, nestedTrigger?.TwinAttached ?? Task.CompletedTask, nestedAlertTrigger?.TwinAttached ?? Task.CompletedTask);
                 ready = true;
                 StateHasChanged();
             }
