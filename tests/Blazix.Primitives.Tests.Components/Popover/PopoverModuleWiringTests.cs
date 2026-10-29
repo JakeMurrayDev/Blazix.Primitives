@@ -1,6 +1,8 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -274,6 +276,28 @@ public sealed class PopoverModuleWiringTests : IDisposable
         await test.PressAsync(cut, "trigger-1", open: false);
 
         Assert.Equal([true, false], RetainExitAnnouncements());
+    }
+
+    // Issue 149's residual (its comment of 2026-10-29): the popup creates its transitions twin after the portal's move, which
+    // on Server can complete after the part was disposed; a disposed popup creates none, so no twin outlives it.
+    [Fact(DisplayName = "port: a popup disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_popup_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        Render(new PopoverSpec { DefaultOpen = true });
+        int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await test.Context.DisposeComponentsAsync();
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
 
     private bool[] RetainExitAnnouncements() =>
