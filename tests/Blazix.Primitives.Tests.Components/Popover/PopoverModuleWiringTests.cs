@@ -307,7 +307,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
     [Trait("Requirement", "POP-ANI-06")]
     public async Task A_close_retained_while_the_module_is_imported_rides_in_the_first_attach()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", holdImport: true);
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", holdImport: true, dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         bool closed = false;
         IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
@@ -333,13 +333,19 @@ public sealed class PopoverModuleWiringTests : IDisposable
 #pragma warning restore BL0016
         await Task.WhenAll(opening, closing);
 
-        // No render follows the attach, and bUnit's waits check on renders: the record is polled.
-        for (int poll = 0; poll < 200 && PopupAttachOptions() is null; poll++)
+        // No render follows the attach, and bUnit's waits check on renders: the record is polled, on the renderer, where the
+        // held module's calls are recorded.
+        string? attach = null;
+        for (int poll = 0; poll < 200 && attach is null; poll++)
         {
-            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+            attach = await cut.InvokeAsync(PopupAttachOptions);
+            if (attach is null)
+            {
+                await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+            }
         }
 
-        string attach = Assert.IsType<string>(PopupAttachOptions());
+        Assert.NotNull(attach);
         Assert.Contains("\"open\":false", attach, StringComparison.Ordinal);
         Assert.Contains("\"retainExit\":true", attach, StringComparison.Ordinal);
     }
