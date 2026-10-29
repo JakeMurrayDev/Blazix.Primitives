@@ -30,6 +30,7 @@ public static class DemoCatalog
         new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
         new("toolbar", "Toolbar", "A set of buttons, toggles, an input and a link that the arrow keys move between.", typeof(ToolbarDemo)),
         new("dialog", "Dialog", "A popup that opens on top of the page and keeps focus inside it until it closes.", typeof(DialogDemo)),
+        new("alert-dialog", "Alert Dialog", "A dialog that asks for a response before the user goes on, here to discard a draft.", typeof(AlertDialogDemo)),
         new("popover", "Popover", "An accessible popup anchored to a button, here the notifications of an account.", typeof(PopoverDemo)),
         new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
     ];
