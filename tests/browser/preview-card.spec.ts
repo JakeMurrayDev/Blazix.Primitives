@@ -1,0 +1,1227 @@
+import { type Locator } from '@playwright/test';
+import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
+import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
+import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
+import { popupConformanceTests } from './suites/popupConformanceTests';
+import { gotoPositionerCase, positionerConformanceTests } from './suites/positioner-conformance';
+import { viewportConformanceTests } from './suites/viewportConformanceTests';
+
+// The [L4] rows of docs/components/preview-card.md (M4 track 7, issue 122) on the PreviewCard fixtures, both render modes,
+// Server first. Base UI's titles verbatim; port titles start with "port:". The shared suites run with PreviewCard's options
+// (PreviewCardRoot.test.tsx:31-46, PreviewCardRoot.detached-triggers.test.tsx:35-49, PreviewCardPositioner.test.tsx:108-122,
+// PreviewCardViewport.test.tsx:25-47).
+
+popupConformanceTests({
+  fixture: 'preview-card-conformance',
+  triggerMouseAction: 'hover',
+});
+
+detachedTriggersConformanceTests({
+  fixture: 'preview-card-triggers',
+  openInteractions: ['hover', 'focus'],
+  ariaExpanded: false,
+  throwOnMissingTrigger: true,
+  close: false,
+  positioner: true,
+  viewport: true,
+});
+
+positionerConformanceTests({ fixture: 'preview-card-positioner', viewport: true });
+
+viewportConformanceTests({
+  fixture: 'preview-card-viewport',
+  openOn: 'focus',
+});
+
+const OPEN_DELAY = 600;
+const CLOSE_DELAY = 300;
+// The circuit's one-way delay of the titles that assert a Server round trip (`delayCircuit`).
+const LATENCY = 250;
+
+// The clock belongs to the worker's browser context, which every page of the worker shares: a title that paused it
+// resumes it, or the next page's WebAssembly boot waits on its timers.
+test.afterEach(async ({ page }) => {
+  await page.clock.resume();
+});
+
+const frozenPages = new WeakSet<Page>();
+
+const FREEZE_MARGIN = 50;
+
+/**
+ * Pauses the page's clock: its timers fire only when the test runs it forward. The page's clock runs on while the target
+ * travels to the browser, so the target sits a margin ahead, read again if the clock passed it on a slow runner; the
+ * titles freeze right after the fixture attached, when no timer a title watches is pending.
+ */
+async function freezeClock(page: Page): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    const now = await page.evaluate(() => Date.now());
+    try {
+      await page.clock.pauseAt(now + FREEZE_MARGIN);
+      break;
+    } catch (error) {
+      if (attempt === 3 || !String(error).includes('Cannot fast-forward to the past')) {
+        throw error;
+      }
+    }
+  }
+
+  frozenPages.add(page);
+}
+
+/**
+ * Moves the real pointer away from the cards, to the page's bottom-left corner. The safe polygon decides on the leave only
+ * once the session holds the floating element and its placement; on Server they arrive after C#'s render, and until then
+ * it waits for a later move. The first positioning pass removes the positioner's `opacity: 0` and publishes the placement
+ * in one step (FLT-STA-08, FLT-ANI-02), so no open positioner may still carry it. Under a paused clock the frames run
+ * first.
+ */
+async function moveAway(page: Page): Promise<void> {
+  if (frozenPages.has(page)) {
+    await page.clock.runFor(32);
+  }
+
+  await expect(page.locator('[role="presentation"][data-open][style*="opacity: 0"]')).toHaveCount(0);
+  await page.mouse.move(5, 700);
+}
+
+/** Moves the real pointer onto the center of an element, in one step. */
+async function moveOnto(page: Page, target: Locator): Promise<void> {
+  const box = (await target.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PreviewCardRoot.test.tsx's `describe.for` trio (:47-499) on `preview-card-root`: one root with a contained trigger, one
+// detached trigger, and two detached triggers. Base UI dispatches the events under fake timers; here the real pointer
+// and keyboard drive the trigger, and a title that needs frozen time pauses the page's clock and runs it forward (ADR 06
+// §2). The `actionsRef` titles run in jsdom only (`describe.skipIf(!isJSDOM)`), so at L2 here too.
+// ---------------------------------------------------------------------------------------------------------------------
+
+const trio = [
+  { name: 'contained triggers', case: 'contained' },
+  { name: 'detached triggers', case: 'detached' },
+  { name: 'multiple detached triggers', case: 'multiple' },
+] as const;
+
+for (const variant of trio) {
+  test.describe(`when using ${variant.name}`, () => {
+    const open = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) =>
+      gotoPopupFixture(page, mode, 'preview-card-root', { case: variant.case, ...options });
+    const trigger = (page: Page) => page.locator('[data-testid="trigger"]');
+    const popup = (page: Page) => page.locator('[data-testid="popup"]');
+    const positioner = (page: Page) => page.locator('[data-testid="positioner"]');
+
+    test.describe('uncontrolled open', () => {
+      test('should open when the trigger is hovered', async ({ page, mode }) => {
+        await open(page, mode);
+        await freezeClock(page);
+
+        await trigger(page).hover();
+        await page.clock.runFor(OPEN_DELAY);
+
+        await expect(popup(page)).toHaveText('Content');
+      });
+
+      test('should close when the trigger is unhovered', async ({ page, mode }) => {
+        const fixture = await open(page, mode);
+        await freezeClock(page);
+        await trigger(page).hover();
+        await page.clock.runFor(OPEN_DELAY);
+        await expect(popup(page)).toBeVisible();
+
+        await moveAway(page);
+        await page.clock.runFor(CLOSE_DELAY);
+
+        await expect(popup(page)).toHaveCount(0);
+        await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-hover false:trigger-hover');
+      });
+
+      // Base UI returns early in a browser, where its synthetic focus is not `:focus-visible`; Playwright's focus() is.
+      test('should open when the trigger is focused', async ({ page, mode }) => {
+        await open(page, mode);
+        await freezeClock(page);
+
+        await trigger(page).focus();
+        await page.clock.runFor(OPEN_DELAY);
+
+        await expect(popup(page)).toHaveText('Content');
+      });
+
+      test('should close when the trigger is blurred', async ({ page, mode }) => {
+        await open(page, mode);
+        await freezeClock(page);
+        await trigger(page).focus();
+        await page.clock.runFor(OPEN_DELAY);
+        await expect(popup(page)).toBeVisible();
+
+        await trigger(page).blur();
+        await page.clock.runFor(CLOSE_DELAY);
+
+        await expect(popup(page)).toHaveCount(0);
+      });
+    });
+
+    test.describe('prop: onOpenChange', () => {
+      test('should call onOpenChange when the open state changes', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { open: false });
+        await expect(popup(page)).toHaveCount(0);
+        await freezeClock(page);
+
+        await trigger(page).hover();
+        await page.clock.runFor(OPEN_DELAY);
+        await expect(popup(page)).toHaveText('Content');
+
+        await moveAway(page);
+        await page.clock.runFor(CLOSE_DELAY);
+
+        await expect(popup(page)).toHaveCount(0);
+        expect(await openChanges(fixture)).toEqual(['true:trigger-hover', 'false:trigger-hover']);
+      });
+
+      // With two detached triggers and no trigger id the card has no anchor and stays unpositioned (FLT-STA-09), so the
+      // pointer crosses the positioner wherever it is; Base UI's title checks only that the content is still rendered.
+      test('does not close after hovering out of a popup opened externally', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { open: false });
+        await pressControl(fixture.locator('[data-set-open="true"]'));
+        await expect(popup(page)).toHaveText('Content');
+        await freezeClock(page);
+
+        await moveOnto(page, positioner(page));
+        await page.mouse.move(5, 700);
+        await page.clock.runFor(CLOSE_DELAY);
+        await settle(fixture);
+
+        await expect(popup(page)).toHaveText('Content');
+      });
+
+      test('closes after hovering out of a popup opened by its trigger', async ({ page, mode }) => {
+        await open(page, mode, { open: false });
+        await freezeClock(page);
+        await trigger(page).hover();
+        await page.clock.runFor(OPEN_DELAY);
+        await expect(popup(page)).toBeVisible();
+
+        // From the trigger into the card below it, then out of the card.
+        await page.clock.runFor(32);
+        await moveOnto(page, positioner(page));
+        await moveAway(page);
+        await page.clock.runFor(CLOSE_DELAY);
+
+        await expect(popup(page)).toHaveCount(0);
+      });
+
+      test('does not call onOpenChange again when the trigger is re-hovered while open', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { open: false });
+        await freezeClock(page);
+        await trigger(page).hover();
+        await page.clock.runFor(OPEN_DELAY);
+        await expect(popup(page)).toBeVisible();
+        expect(await openChanges(fixture)).toEqual(['true:trigger-hover']);
+
+        // Leave and re-enter before the close delay runs out: the card stays open.
+        const box = (await trigger(page).boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y - 20);
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.clock.runFor(OPEN_DELAY);
+        await settle(fixture);
+
+        await expect(popup(page)).toBeVisible();
+        expect(await openChanges(fixture)).toEqual(['true:trigger-hover']);
+      });
+    });
+
+    test.describe('prop: defaultOpen', () => {
+      test('closes when the trigger is unhovered after opening by default', async ({ page, mode }) => {
+        await open(page, mode, { defaultOpen: true });
+        await expect(popup(page)).toHaveText('Content');
+        await freezeClock(page);
+
+        await trigger(page).hover();
+        await moveAway(page);
+        await page.clock.runFor(CLOSE_DELAY);
+
+        await expect(popup(page)).toHaveCount(0);
+      });
+
+      test('does not close after hovering out of a popup opened without trigger hover', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { defaultOpen: true });
+        await expect(popup(page)).toHaveText('Content');
+        await freezeClock(page);
+
+        await moveOnto(page, positioner(page));
+        await moveAway(page);
+        await page.clock.runFor(CLOSE_DELAY);
+        await settle(fixture);
+
+        await expect(popup(page)).toHaveText('Content');
+      });
+    });
+
+    test.describe('prop: delay', () => {
+      test('should open after delay with rest type by default', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { delay: 100 });
+        await freezeClock(page);
+
+        await trigger(page).hover();
+        await settle(fixture);
+        await expect(popup(page)).toHaveCount(0);
+
+        await page.clock.runFor(100);
+
+        await expect(popup(page)).toHaveText('Content');
+      });
+    });
+
+    test.describe('prop: closeDelay', () => {
+      test('should close after delay', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { closeDelay: 100 });
+        await freezeClock(page);
+        await trigger(page).hover();
+        await page.clock.runFor(OPEN_DELAY);
+        await expect(popup(page)).toHaveText('Content');
+
+        await moveAway(page);
+        await settle(fixture);
+        await expect(popup(page)).toHaveText('Content');
+
+        await page.clock.runFor(100);
+
+        await expect(popup(page)).toHaveCount(0);
+      });
+    });
+
+    test.describe('dismissal', () => {
+      test('reopens on hover after Escape closes it', async ({ page, mode }) => {
+        const fixture = await open(page, mode, { delay: 100 });
+        await freezeClock(page);
+        await trigger(page).hover();
+        await page.clock.runFor(100);
+        await expect(popup(page)).toHaveText('Content');
+
+        await page.keyboard.press('Escape');
+        await page.clock.runFor(32);
+        await expect(popup(page)).toHaveCount(0);
+        await settle(fixture);
+
+        // Re-enter with the real pointer only.
+        await moveAway(page);
+        await trigger(page).hover();
+        await page.clock.runFor(100);
+
+        await expect(popup(page)).toHaveText('Content');
+      });
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PreviewCardRoot.test.tsx's nested cards (:501-787) on `preview-card-nested`: the inner Root's session names the outer
+// one (PRV-STR-10, the tree join), so the outer card's dismissal and hover leave see the inner card as inside.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('nested preview card interactions', () => {
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+  const nested = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) => gotoPopupFixture(page, mode, 'preview-card-nested', options);
+
+  test('keeps the parent preview card open when clicking nested trigger', async ({ page, mode }) => {
+    const fixture = await nested(page, mode, { parentOpen: true });
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+
+    await byTestId(page, 'child-trigger').click();
+    await settle(fixture);
+
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+  });
+
+  // Base UI's synthetic `pointerdown` in the child popup and `click` outside land in one tick, inside the 0 ms window of
+  // `markPressStartedInsideReactTree`; a real drag outlasts it (ADR 04 Amendments 2026-10-29, gap 15's withdrawal), so the
+  // two events are dispatched in one task, a commented exception to the real-input rule, as Popover's title is.
+  test('keeps the parent preview card open when press starts in nested popup and ends outside', async ({ page, mode }) => {
+    const fixture = await nested(page, mode, { parentOpen: true, childOpen: true });
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+    await expect(byTestId(page, 'child-popup')).toBeVisible();
+
+    await page.evaluate(() => {
+      const child = document.querySelector('[data-testid="child-popup"]')!;
+      const outside = document.querySelector<HTMLElement>('[data-testid="outside"]')!;
+      child.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'mouse', button: 0, bubbles: true, composed: true }));
+      outside.dispatchEvent(new MouseEvent('click', { button: 0, detail: 1, bubbles: true, composed: true }));
+    });
+    await settle(fixture);
+
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+    await expect(byTestId(page, 'child-popup')).toBeVisible();
+  });
+
+  test('keeps the parent preview card open when hovering nested trigger', async ({ page, mode }) => {
+    const fixture = await nested(page, mode, { parentOpen: true });
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+
+    await byTestId(page, 'child-trigger').hover();
+    await settle(fixture);
+
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+  });
+
+  // PRV-DIS-02 (ADR 04 Amendments 2026-10-29, design point 11.4 of M4 track 7): Base UI leaves the nested Escape to its
+  // hook's tests (preview-card.md §16 Q8); the port proves it on the card.
+  // The child opens after the parent, by hover, as a nested card does in use, so the parent's Escape listener is the earlier
+  // one. Two cards open from the first render register theirs in either order, and on WebAssembly a child's synchronous
+  // close then releases the parent within the same keydown, which Base UI's render-time node state does not; that edge is
+  // reported as a follow-up of the track.
+  test('port: on nested cards, one Escape closes the inner card and the next the outer', async ({ page, mode }) => {
+    const fixture = await nested(page, mode, { parentOpen: true });
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+    await byTestId(page, 'child-trigger').hover();
+    await expect(byTestId(page, 'child-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(byTestId(page, 'child-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(byTestId(page, 'parent-popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:escape-key');
+  });
+
+  test.describe('race condition between close timers and hover-open logic', () => {
+    test('keeps the parent open and re-opens the child when re-entering after partial close', async ({ page, mode }) => {
+      const fixture = await nested(page, mode, { parentOpen: true });
+      await expect(byTestId(page, 'parent-popup')).toBeVisible();
+      await freezeClock(page);
+
+      await byTestId(page, 'child-trigger').hover();
+      await page.clock.runFor(OPEN_DELAY);
+      await expect(byTestId(page, 'child-popup')).toBeVisible();
+
+      // Out of both cards, then back into the parent's own content before its close delay runs out.
+      await moveAway(page);
+      await page.clock.runFor(CLOSE_DELAY / 2);
+      await moveOnto(page, page.getByText('Parent content'));
+      await page.clock.runFor(CLOSE_DELAY);
+      await settle(fixture);
+      // The child's exit ends on the next frame after its commit, which arrives a round trip later on Server.
+      await page.clock.resume();
+
+      await expect(byTestId(page, 'parent-popup')).toBeVisible();
+      await expect(byTestId(page, 'child-popup')).toHaveCount(0);
+
+      await freezeClock(page);
+      await byTestId(page, 'child-trigger').hover();
+      await page.clock.runFor(OPEN_DELAY);
+      await expect(byTestId(page, 'child-popup')).toBeVisible();
+
+      // From the child trigger into the child card, which lies to its right.
+      await page.clock.runFor(32);
+      await moveOnto(page, byTestId(page, 'child-positioner'));
+      await page.clock.runFor(CLOSE_DELAY);
+      await settle(fixture);
+
+      await expect(byTestId(page, 'parent-popup')).toBeVisible();
+      await expect(byTestId(page, 'child-popup')).toBeVisible();
+    });
+  });
+
+  test.describe('synchronized closing', () => {
+    test('parent popup closes as soon as the child popup closes', async ({ page, mode }) => {
+      await nested(page, mode);
+      await freezeClock(page);
+
+      await byTestId(page, 'parent-trigger').hover();
+      await page.clock.runFor(OPEN_DELAY);
+      await expect(byTestId(page, 'parent-popup')).toBeVisible();
+
+      await page.clock.runFor(32);
+      await moveOnto(page, byTestId(page, 'parent-positioner'));
+      await byTestId(page, 'child-trigger').hover();
+      await page.clock.runFor(OPEN_DELAY);
+      await expect(byTestId(page, 'child-popup')).toBeVisible();
+
+      await page.clock.runFor(32);
+      await moveOnto(page, byTestId(page, 'child-positioner'));
+      await moveAway(page);
+      await page.clock.runFor(CLOSE_DELAY + 10);
+      // The parent's cascade close (FLT-PTR-25) is requested on a zero timer after the child's, and each exit ends on a
+      // frame after its commit, a round trip later on Server.
+      await page.clock.resume();
+
+      await expect(byTestId(page, 'child-popup')).toHaveCount(0);
+      await expect(byTestId(page, 'parent-popup')).toHaveCount(0);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PRV-DIS-04 (ADR 04 Amendments 2026-10-29, design point 11.4 of M4 track 7): Base UI leaves the touch rules of the outside
+// press to its hook's tests (preview-card.md §16 Q8). As Dialog's touch titles do, the sequence is dispatched on an
+// element outside the card (`Touch` and `TouchEvent` with client points), and the 1 s window is the page's clock.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<PreviewCard.Root /> touch outside', () => {
+  interface TouchStep {
+    type: 'touchstart' | 'touchmove' | 'touchend';
+    touches: { x: number; y: number }[];
+    changed?: { x: number; y: number }[];
+  }
+
+  async function touch(page: Page, steps: TouchStep[]): Promise<void> {
+    await page.locator('[data-sync-button]').evaluate((target, all) => {
+      const make = (p: { x: number; y: number }) => new Touch({ identifier: 1, target, clientX: p.x, clientY: p.y });
+      for (const step of all) {
+        target.dispatchEvent(
+          new TouchEvent(step.type, { bubbles: true, cancelable: true, touches: step.touches.map(make), changedTouches: (step.changed ?? step.touches).map(make) }),
+        );
+      }
+    }, steps);
+  }
+
+  const open = (page: Page, mode: RenderMode) => gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', defaultOpen: true });
+  const popup = (page: Page) => page.locator('[data-testid="popup"]');
+
+  test('port: a touch sequence outside closes the card per the 10 px, 5 px and 1 s rules', async ({ page, mode }) => {
+    // More than 10 px of movement closes on that touchmove.
+    let fixture = await open(page, mode);
+    await touch(page, [
+      { type: 'touchstart', touches: [{ x: 10, y: 10 }] },
+      { type: 'touchmove', touches: [{ x: 10, y: 22 }] },
+    ]);
+    await expect(popup(page)).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+
+    // More than 5 px, then the lift, closes on the touchend.
+    fixture = await open(page, mode);
+    await touch(page, [
+      { type: 'touchstart', touches: [{ x: 10, y: 10 }] },
+      { type: 'touchmove', touches: [{ x: 10, y: 16 }] },
+    ]);
+    await settle(fixture);
+    await expect(popup(page)).toBeVisible();
+    await touch(page, [{ type: 'touchend', touches: [], changed: [{ x: 10, y: 16 }] }]);
+    await expect(popup(page)).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+
+    // A tap's compatibility mousedown within 1 s of the touchstart closes on that mousedown.
+    fixture = await open(page, mode);
+    await touch(page, [
+      { type: 'touchstart', touches: [{ x: 10, y: 10 }] },
+      { type: 'touchend', touches: [], changed: [{ x: 10, y: 10 }] },
+    ]);
+    await settle(fixture);
+    await expect(popup(page)).toBeVisible();
+    await page.locator('[data-sync-button]').dispatchEvent('mousedown', { button: 0, buttons: 1 });
+    await expect(popup(page)).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+
+    // A touch held for more than 1 s does not close: neither a mousedown while it is down nor its lift (useDismiss.ts:599-604,
+    // 704-711), as Dialog's title of the same window.
+    fixture = await open(page, mode);
+    await freezeClock(page);
+    await touch(page, [{ type: 'touchstart', touches: [{ x: 10, y: 10 }] }]);
+    await page.clock.runFor(1001);
+    await page.locator('[data-sync-button]').dispatchEvent('mousedown', { button: 0, buttons: 1 });
+    await touch(page, [{ type: 'touchend', touches: [], changed: [{ x: 10, y: 10 }] }]);
+    await page.clock.resume();
+    await settle(fixture);
+    await expect(popup(page)).toBeVisible();
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PreviewCardRoot.detached-triggers.test.tsx's browser-only titles (:230-830) on `preview-card-detached`. The close
+// transition of Base UI's 50 ms keyframe runs 1000 ms here, and the titles wait for its start on animation frames
+// (`waitForEnding`), so a real pointer move lands inside it on both modes; the titles' 200 ms windows are kept.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<PreviewCard.Root /> multiple triggers', () => {
+  const detached = (page: Page, mode: RenderMode, options: PopupFixtureOptions) => gotoPopupFixture(page, mode, 'preview-card-detached', options);
+  const link = (page: Page, name: string) => page.getByRole('link', { name, exact: true });
+  const popup = (page: Page) => page.locator('[data-testid="popup"]');
+  const content = (page: Page) => page.locator('[data-testid="content"]');
+  // Polled on animation frames: Playwright's expect polls back off to a second, longer than the window it watches.
+  const waitForEnding = (page: Page) =>
+    page.waitForFunction(() => document.querySelector('[data-testid="popup"]')?.hasAttribute('data-ending-style') === true, undefined, { polling: 'raf' });
+
+  test.describe('multiple triggers within Root', () => {
+    test('should open the preview card immediately when hovering another trigger', async ({ page, mode }) => {
+      await detached(page, mode, { case: 'multiple-root' });
+
+      await link(page, 'Trigger 1').hover();
+      await expect(popup(page)).toBeVisible();
+      await expect(popup(page)).toHaveText('Content: 1');
+
+      await link(page, 'Trigger 2').hover();
+      await expect(popup(page)).toBeVisible();
+      await expect(popup(page)).toHaveText('Content: 2');
+    });
+  });
+
+  test.describe('multiple detached triggers', () => {
+    test('should reposition to a different trigger when reopened with keepMounted=true', async ({ page, mode }) => {
+      await detached(page, mode, { case: 'keep-mounted' });
+      const positioner = page.locator('[data-testid="positioner"]');
+      const left = (locator: Locator) => locator.evaluate((element) => element.getBoundingClientRect().left);
+
+      await link(page, 'Trigger 1').hover();
+      await expect(page.getByText('Content')).toBeVisible();
+      const trigger1Left = await left(link(page, 'Trigger 1'));
+      await expect.poll(async () => Math.abs((await left(positioner)) - trigger1Left)).toBeLessThanOrEqual(1);
+
+      await moveAway(page);
+      await expect(positioner).toHaveAttribute('hidden', '');
+
+      await link(page, 'Trigger 2').hover();
+      await expect(page.getByText('Content')).toBeVisible();
+      const trigger2Left = await left(link(page, 'Trigger 2'));
+      await expect.poll(async () => Math.abs((await left(positioner)) - trigger2Left)).toBeLessThanOrEqual(1);
+    });
+
+    test('opens immediately when entering trigger B during trigger A close transition', async ({ page, mode }) => {
+      await detached(page, mode, { case: 'close-transition', closeMs: 1000, animations: 1 });
+
+      await link(page, 'Trigger 1').hover();
+      await expect(content(page)).toHaveText('1');
+
+      await moveAway(page);
+      await waitForEnding(page);
+
+      await link(page, 'Trigger 2').hover();
+
+      await expect(content(page)).toHaveText('2', { timeout: 200 });
+    });
+
+    test('still respects trigger B open delay after trigger A close transition finishes', async ({ page, mode }) => {
+      await detached(page, mode, { case: 'close-transition', closeMs: 1000, animations: 1 });
+
+      await link(page, 'Trigger 1').hover();
+      await expect(content(page)).toHaveText('1');
+
+      await moveAway(page);
+      await waitForEnding(page);
+
+      // Once the close transition is done, this behaves like a normal delayed open.
+      await expect(popup(page)).not.toHaveAttribute('data-ending-style');
+      await expect(popup(page)).toHaveAttribute('data-closed', '');
+
+      await link(page, 'Trigger 2').hover();
+      const hovered = Date.now();
+
+      // Must not open immediately once the close transition has finished.
+      await expect(popup(page)).toHaveAttribute('data-open', '');
+      expect(Date.now() - hovered).toBeGreaterThanOrEqual(200);
+    });
+
+    test('reopens immediately when re-hovering trigger A during its close transition', async ({ page, mode }) => {
+      await detached(page, mode, { case: 'close-transition', single: true, trigger1Delay: OPEN_DELAY, closeMs: 1000, animations: 1 });
+
+      await link(page, 'Trigger 1').hover();
+      await expect(content(page)).toHaveText('1');
+
+      await moveAway(page);
+      await waitForEnding(page);
+
+      await link(page, 'Trigger 1').hover();
+
+      await expect(popup(page)).toHaveAttribute('data-open', '', { timeout: 200 });
+      await expect(popup(page)).not.toHaveAttribute('data-closed');
+      await expect(content(page)).toHaveText('1');
+    });
+
+    test('respects open delay on later same-trigger hovers after close lifecycle finishes', async ({ page, mode }) => {
+      await detached(page, mode, { case: 'close-transition', single: true, trigger1Delay: OPEN_DELAY, closeMs: 1000, animations: 1 });
+
+      // First cycle: a close and an immediate re-hover during the close lifecycle reopen.
+      await link(page, 'Trigger 1').hover();
+      await expect(content(page)).toHaveText('1');
+      await moveAway(page);
+      await waitForEnding(page);
+      await link(page, 'Trigger 1').hover();
+      await expect(popup(page)).toHaveAttribute('data-open', '', { timeout: 200 });
+      await expect(popup(page)).not.toHaveAttribute('data-closed');
+
+      // Second cycle: once the close lifecycle has fully finished, a fresh hover honors the open delay.
+      await moveAway(page);
+      await expect(popup(page)).toHaveAttribute('data-closed', '');
+      await expect(popup(page)).not.toHaveAttribute('data-ending-style');
+
+      await link(page, 'Trigger 1').hover();
+      const hovered = Date.now();
+
+      await expect(popup(page)).toHaveAttribute('data-open', '');
+      expect(Date.now() - hovered).toBeGreaterThanOrEqual(200);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PreviewCardPositioner.test.tsx's "multiline inline trigger" titles (:123-800) on `preview-card-inline` (PRV-POS-03,
+// PRV-PTR-12..14, PRV-STA-13, PSH-POS-03). As in Base UI, the triggers carry `pointer-events: none` and the titles dispatch
+// `mouseenter` and `mousemove` with client coordinates, and two titles replace a trigger's client rects (`mockClientRects`).
+// ---------------------------------------------------------------------------------------------------------------------
+
+interface RectLike {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
+function expectWithin(actual: number, expected: number, tolerance = 2): void {
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance);
+}
+
+/** Base UI's `hoverAt`: a `mouseenter` and a `mousemove` at a client point. */
+async function hoverAt(target: Locator, clientX: number, clientY: number): Promise<void> {
+  await target.evaluate(
+    (element, [x, y]) => {
+      element.dispatchEvent(new MouseEvent('mouseenter', { clientX: x, clientY: y }));
+      element.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+    },
+    [clientX, clientY] as const,
+  );
+}
+
+async function dispatchMouse(target: Locator, type: 'mouseenter' | 'mousemove' | 'mouseleave', clientX = 0, clientY = 0): Promise<void> {
+  await target.evaluate(
+    (element, [eventType, x, y]) => {
+      element.dispatchEvent(new MouseEvent(eventType, { clientX: x, clientY: y, bubbles: eventType === 'mousemove' }));
+    },
+    [type, clientX, clientY] as const,
+  );
+}
+
+function clientRects(target: Locator): Promise<RectLike[]> {
+  return target.evaluate((element) =>
+    Array.from(element.getClientRects()).map((rect) => ({
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+    })),
+  );
+}
+
+function rectOf(target: Locator): Promise<RectLike> {
+  return target.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+  });
+}
+
+/** Base UI's `mockClientRects`: the element's client rects and bounding rect, replaced on the instance. */
+async function mockClientRects(target: Locator, rects: RectLike[]): Promise<void> {
+  await target.evaluate((element, list) => {
+    const left = Math.min(...list.map((rect) => rect.left));
+    const top = Math.min(...list.map((rect) => rect.top));
+    const right = Math.max(...list.map((rect) => rect.right));
+    const bottom = Math.max(...list.map((rect) => rect.bottom));
+    const boundingRect = DOMRect.fromRect({ x: left, y: top, width: right - left, height: bottom - top });
+    Object.defineProperty(element, 'getClientRects', {
+      configurable: true,
+      value: () => list.map((rect) => DOMRect.fromRect({ x: rect.left, y: rect.top, width: rect.width, height: rect.height })),
+    });
+    Object.defineProperty(element, 'getBoundingClientRect', { configurable: true, value: () => boundingRect });
+  }, rects);
+}
+
+const center = (rect: RectLike) => [rect.left + rect.width / 2, rect.top + rect.height / 2] as const;
+
+test.describe('<PreviewCard.Positioner /> multiline inline trigger', () => {
+  const inline = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) => gotoPopupFixture(page, mode, 'preview-card-inline', options);
+  const trigger = (page: Page) => page.locator('[data-testid="trigger"]');
+  const positioner = (page: Page) => page.locator('[data-testid="positioner"]');
+  const positionerY = async (page: Page) => (await rectOf(positioner(page))).top;
+
+  test('positions the popup relative to the hovered line of a multiline trigger', async ({ page, mode }) => {
+    await inline(page, mode);
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+
+    // Enter over the second line so opening on hover uses the correct inline rect.
+    const second = rects[1]!;
+    await hoverAt(trigger(page), ...center(second));
+
+    await expect(positioner(page)).toBeVisible();
+    // Positioned against the second line, not the first line or the bounding rect.
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+    const { left } = await rectOf(positioner(page));
+    expect(left).toBeGreaterThanOrEqual(second.left - 10);
+    expect(left).toBeLessThanOrEqual(second.right + 10);
+  });
+
+  test.describe('with delayed opening', () => {
+    test('uses the latest hovered line', async ({ page, mode }) => {
+      const fixture = await inline(page, mode, { delay: 100 });
+      const rects = await clientRects(trigger(page));
+      expect(rects.length).toBeGreaterThan(2);
+      const [first, second] = [rects[0]!, rects[1]!];
+      await freezeClock(page);
+
+      await dispatchMouse(trigger(page), 'mouseenter', ...center(first));
+      await dispatchMouse(trigger(page), 'mousemove', ...center(first));
+      await dispatchMouse(trigger(page), 'mousemove', ...center(second));
+      await settle(fixture);
+      await expect(positioner(page)).toHaveCount(0);
+
+      await page.clock.runFor(100);
+      await page.clock.runFor(16);
+
+      await expect(positioner(page)).toBeVisible();
+      await page.clock.runFor(32);
+      await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+    });
+  });
+
+  test('keeps the popup aligned after page scroll', async ({ page, mode }) => {
+    await inline(page, mode, { scroll: true });
+    await page.evaluate(() => window.scrollTo(0, 1000));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1000);
+
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(1);
+    const second = rects[1]!;
+    await hoverAt(trigger(page), ...center(second));
+
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+    const { left } = await rectOf(positioner(page));
+    expect(left).toBeGreaterThanOrEqual(second.left - 10);
+    expect(left).toBeLessThanOrEqual(second.right + 10);
+  });
+
+  // Base UI counts the passes through a `sideOffset` function; the port's offset functions are evaluated by the module,
+  // so the title waits two frames after the resize, which runs the module's pass (`autoUpdate`), and asserts the line.
+  test('stays anchored to the opened line while already open', async ({ page, mode }) => {
+    await inline(page, mode);
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+    const [first, second] = [rects[0]!, rects[1]!];
+
+    await hoverAt(trigger(page), ...center(first));
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (first.bottom + 5))).toBeLessThanOrEqual(2);
+
+    await dispatchMouse(trigger(page), 'mouseleave');
+    await hoverAt(trigger(page), ...center(second));
+    await page.evaluate(async () => {
+      window.dispatchEvent(new Event('resize'));
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+
+    expectWithin(await positionerY(page), first.bottom + 5);
+  });
+
+  test('re-anchors to a newly entered line while reopening during close transition', async ({ page, mode }) => {
+    await inline(page, mode, { closeDelay: 0, animated: true, animations: 1 });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+    const [first, second] = [rects[0]!, rects[1]!];
+
+    await hoverAt(trigger(page), ...center(first));
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (first.bottom + 5))).toBeLessThanOrEqual(2);
+
+    await dispatchMouse(trigger(page), 'mouseleave');
+    await expect(page.locator('[data-testid="popup"]')).toHaveAttribute('data-ending-style', '');
+
+    await dispatchMouse(trigger(page), 'mousemove', ...center(second));
+    await dispatchMouse(trigger(page), 'mouseenter', ...center(second));
+
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+  });
+
+  test('positions the popup relative to the side-aligned rect when open is controlled', async ({ page, mode }) => {
+    await inline(page, mode, { case: 'controlled-open' });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(1);
+    const target = rects[rects.length - 1]!;
+
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (target.bottom + 5))).toBeLessThanOrEqual(2);
+    const { left } = await rectOf(positioner(page));
+    expect(left).toBeGreaterThanOrEqual(target.left - 10);
+    expect(left).toBeLessThanOrEqual(target.right + 10);
+  });
+
+  test('clears hovered-line coords after close before controlled reopen of the same trigger', async ({ page, mode }) => {
+    const fixture = await inline(page, mode, { case: 'controlled-reopen' });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+    const second = rects[1]!;
+    await hoverAt(trigger(page), ...center(second));
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+
+    await pressControl(fixture.locator('[data-close-button]'));
+    await expect(positioner(page)).toHaveAttribute('hidden', '');
+
+    await pressControl(fixture.locator('[data-open-button]'));
+
+    const target = rects[rects.length - 1]!;
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (target.bottom + 5))).toBeLessThanOrEqual(2);
+  });
+
+  // ADR 04 Amendments 2026-10-29 (design point 11.2 of M4 track 7): the root's commit path sends `Mounted`, so the unmount's
+  // session update, which clears the hovered line, leaves before the controlled reopen's, under the circuit's latency too.
+  test('port: a controlled reopen after the unmount positions against the side-aligned line under circuit latency', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await inline(page, mode, { case: 'controlled-reopen' });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+    const second = rects[1]!;
+    await hoverAt(trigger(page), ...center(second));
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+
+    await pressControl(fixture.locator('[data-close-button]'));
+    await expect(positioner(page)).toHaveAttribute('hidden', '');
+    await pressControl(fixture.locator('[data-open-button]'));
+
+    const target = rects[rects.length - 1]!;
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (target.bottom + 5))).toBeLessThanOrEqual(2);
+  });
+
+  test('ignores stale hovered coords when a controlled trigger switch reuses the popup', async ({ page, mode }) => {
+    const fixture = await inline(page, mode, { case: 'switch' });
+    await mockClientRects(page.locator('[data-testid="trigger-1"]'), [
+      { left: 180, top: 0, right: 220, bottom: 10, width: 40, height: 10 },
+      { left: 100, top: 20, right: 160, bottom: 30, width: 60, height: 10 },
+    ]);
+    await mockClientRects(page.locator('[data-testid="trigger-2"]'), [
+      { left: 180, top: 100, right: 220, bottom: 110, width: 40, height: 10 },
+      { left: 100, top: 120, right: 160, bottom: 130, width: 60, height: 10 },
+    ]);
+
+    await hoverAt(page.locator('[data-testid="trigger-1"]'), 200, 5);
+    await expect(positioner(page)).toBeVisible();
+
+    await pressControl(fixture.locator('[data-switch-button]'));
+
+    await expect.poll(async () => Math.abs((await positionerY(page)) - 135)).toBeLessThanOrEqual(2);
+    const { left } = await rectOf(positioner(page));
+    expect(left).toBeGreaterThanOrEqual(90);
+    expect(left).toBeLessThanOrEqual(170);
+  });
+
+  test('uses the hovered line with a custom anchor in a clipped keepMounted portal', async ({ page, mode }) => {
+    await inline(page, mode, { case: 'custom-anchor' });
+    await page.addStyleTag({ content: 'body { margin: 0 !important; }' });
+    await mockClientRects(trigger(page), [
+      { left: 180, top: 80, right: 220, bottom: 90, width: 40, height: 10 },
+      { left: 0, top: 100, right: 60, bottom: 110, width: 60, height: 10 },
+    ]);
+
+    await hoverAt(trigger(page), 30, 105);
+
+    await expect(positioner(page)).toBeVisible();
+    expect(await page.locator('[data-testid="portal-container"]').evaluate((container) => container.querySelector('[data-testid="positioner"]') !== null)).toBe(true);
+    await expect(positioner(page)).toHaveAttribute('data-side', 'top');
+    await expect.poll(async () => Math.abs((await positionerY(page)) - 55)).toBeLessThanOrEqual(2);
+  });
+
+  test('positions the popup relative to the side-aligned rect when opened via focus', async ({ page, mode }) => {
+    await inline(page, mode, { case: 'focus' });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(1);
+    const target = rects[0]!;
+
+    await trigger(page).focus();
+
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (target.top - 40 - 5))).toBeLessThanOrEqual(2);
+    const { left } = await rectOf(positioner(page));
+    expect(left).toBeGreaterThanOrEqual(target.left - 10);
+    expect(left).toBeLessThanOrEqual(target.right + 10);
+  });
+
+  test('clears hovered-line coords when opened via focus', async ({ page, mode }) => {
+    const fixture = await inline(page, mode, { case: 'focus-controlled' });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+    const second = rects[1]!;
+    await hoverAt(trigger(page), ...center(second));
+    await settle(fixture);
+
+    const target = rects[0]!;
+    await trigger(page).focus();
+
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (target.top - 40 - 5))).toBeLessThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The arrow's mirrored placement (PRV-DOM-17, PRV-STA-07): Base UI's PreviewCardArrow.test.tsx runs describeConformance
+// only, so these are port titles on `preview-card-positioner`'s arrow cases.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<PreviewCard.Arrow />', () => {
+  const arrow = (page: Page) => page.locator('[data-testid="arrow"]');
+
+  test('port: the arrow is hidden from assistive technology and mirrors the resolved side', async ({ page, mode }) => {
+    await gotoPositionerCase(page, mode, 'preview-card-positioner', 'arrow');
+
+    await expect(arrow(page)).toHaveAttribute('aria-hidden', 'true');
+    await expect(arrow(page)).toHaveAttribute('data-side', 'bottom');
+    await expect(arrow(page)).toHaveAttribute('data-open', '');
+  });
+
+  test('port: the arrow is marked uncentered when it cannot point at the anchor', async ({ page, mode }) => {
+    await gotoPositionerCase(page, mode, 'preview-card-positioner', 'arrow-uncentered');
+
+    await expect(arrow(page)).toHaveAttribute('data-uncentered', '');
+  });
+
+  test('port: the arrow is not marked uncentered when it can point at the anchor', async ({ page, mode }) => {
+    await gotoPositionerCase(page, mode, 'preview-card-positioner', 'arrow-centered');
+
+    await expect(arrow(page)).toHaveAttribute('data-side', 'bottom');
+    await expect(arrow(page)).not.toHaveAttribute('data-uncentered');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The Server relaxations of preview-card.md §9 (ADR 01's relaxation table), each asserted per mode (ADR 13 §1) under the
+// circuit's latency (`delayCircuit`; CDP emulation does not delay the WebSocket). Each witness is a record the page takes
+// (a MutationObserver, a listener added last), never a poll of a short-lived state (ADR 06 §2).
+// ---------------------------------------------------------------------------------------------------------------------
+
+
+test.describe('Server relaxations (preview-card.md §9)', () => {
+  const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
+
+  // PRV-PTR-10 (EVD-EVT-18, PSH-ANI-03): the hover open is decided in the module and commits a round trip later on Server;
+  // on WebAssembly it commits with no round trip.
+  test('port: a hover open commits a round trip after the hover on Server and with none on WebAssembly', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', delay: 0 });
+    await page.evaluate(() => {
+      const times: { enter?: number; open?: number } = {};
+      (window as unknown as { hoverTimes: typeof times }).hoverTimes = times;
+      document.querySelector('[data-testid="trigger"]')!.addEventListener('mouseenter', () => {
+        times.enter ??= performance.now();
+      });
+      new MutationObserver(() => {
+        if (times.open === undefined && document.querySelector('[data-testid="popup"]')) {
+          times.open = performance.now();
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    const { enter, open } = await page.evaluate(() => (window as unknown as { hoverTimes: { enter: number; open: number } }).hoverTimes);
+    if (mode === 'server') {
+      expect(open - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(open - enter).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // PRV-STA-05/06/07 (RND-STA-01 for mirrored fields): the module writes data-side; the side C# mirrors (the positioner's
+  // class) follows a round trip later on Server, and within the module's report on WebAssembly.
+  test('port: the mirrored side follows the data-side the module writes', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', delay: 0, bottomEdge: true });
+    await page.evaluate(() => {
+      const records: { side: string | null; className: string }[] = [];
+      (window as unknown as { sideRecords: typeof records }).sideRecords = records;
+      new MutationObserver(() => {
+        const positioner = document.querySelector('[data-testid="positioner"]');
+        if (positioner) {
+          records.push({ side: positioner.getAttribute('data-side'), className: positioner.className });
+        }
+      }).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['data-side', 'class'] });
+    });
+
+    await byTestId(page, 'trigger').hover();
+
+    await expect(byTestId(page, 'positioner')).toHaveAttribute('data-side', 'top');
+    await expect(byTestId(page, 'positioner')).toHaveClass('mirrored-top');
+    const records = await page.evaluate(() => (window as unknown as { sideRecords: { side: string | null; className: string }[] }).sideRecords);
+    const lagging = records.some((record) => record.side === 'top' && record.className === 'mirrored-bottom');
+    // On WebAssembly the report runs .NET inside the module's observer callback, so the class lands in the same task.
+    expect(lagging).toBe(mode === 'server');
+  });
+
+  // PRV-DIS-01 (EVD-EVT-11, EVD-DIS-01, FLT-KEY-01): a consumer's cancel of an Escape close holds on both modes, and the
+  // keydown stops at the document on both (no allowPropagation call). On WebAssembly the cancel is read inside the keydown,
+  // so the key's default stays; on Server it arrives a round trip later and the module prevents the key per the
+  // innermost-popup fallback (ADR 04 §3).
+  test("port: a canceled Escape close keeps the card open on both modes and keeps the key's default only on WebAssembly", async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', defaultOpen: true, cancelClose: true });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await page.evaluate(() => {
+      const record: { prevented?: boolean; reached: boolean } = { reached: false };
+      (window as unknown as { escapeRecord: typeof record }).escapeRecord = record;
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          record.reached = true;
+        }
+      });
+      document.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Escape') {
+            setTimeout(() => {
+              record.prevented = event.defaultPrevented;
+            });
+          }
+        },
+        { capture: true },
+      );
+    });
+
+    await page.keyboard.press('Escape');
+    await settle(fixture);
+
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:escape-key');
+    const record = await page.evaluate(() => (window as unknown as { escapeRecord: { prevented: boolean; reached: boolean } }).escapeRecord);
+    expect(record).toEqual({ prevented: mode === 'server', reached: false });
+  });
+
+  // PRV-ANI-04 (TRN-ANI-03, TRN-ANI-09/10): after the exit animation the module writes the convergent `hidden` at once on
+  // both modes; the removal and onOpenChangeComplete(false) wait for the completion message, a round trip later on Server.
+  test('port: an animated close hides the popup at animation end and removes it a round trip later on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', defaultOpen: true, animated: true, animations: 1 });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(byTestId(page, 'popup')).not.toHaveAttribute('data-starting-style');
+    await page.evaluate(() => {
+      const times: { ended?: number; hidden?: number; removed?: number; completed?: number } = {};
+      (window as unknown as { exitTimes: typeof times }).exitTimes = times;
+      const isPopup = (node: Node) => node instanceof Element && node.matches('[data-testid="popup"]');
+      document.addEventListener(
+        'animationend',
+        (event) => {
+          if (isPopup(event.target as Node)) {
+            times.ended ??= performance.now();
+          }
+        },
+        { capture: true },
+      );
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          const target = mutation.target as Element;
+          if (mutation.attributeName === 'hidden' && isPopup(target) && target.hasAttribute('hidden')) {
+            times.hidden ??= performance.now();
+          }
+          if (mutation.attributeName === 'data-open-change-completes' && /false$/.test(target.getAttribute('data-open-change-completes') ?? '')) {
+            times.completed ??= performance.now();
+          }
+          for (const node of mutation.removedNodes) {
+            if (isPopup(node) || (node instanceof Element && node.querySelector('[data-testid="popup"]'))) {
+              times.removed ??= performance.now();
+            }
+          }
+        }
+      }).observe(document.body, { attributes: true, childList: true, subtree: true, attributeFilter: ['hidden', 'data-open-change-completes'] });
+    });
+
+    await page.keyboard.press('Escape');
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-change-completes', /false$/);
+    const { ended, hidden, removed, completed } = await page.evaluate(
+      () => (window as unknown as { exitTimes: { ended?: number; hidden?: number; removed?: number; completed?: number } }).exitTimes,
+    );
+    expect(hidden).toBeDefined();
+    if (mode === 'server') {
+      expect(Math.abs(hidden! - ended!)).toBeLessThan(LATENCY);
+      expect(removed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+      expect(completed! - hidden!).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(removed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+      expect(completed! - hidden!).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+
+  // PRV-STA-14, PRV-DIS-07 (PSH-STA-23): the close for a lost active trigger runs at the render-batch boundary, after paint
+  // plus a round trip on Server, during which the card stays.
+  test('port: the trigger-unmount close lands a round trip after the trigger leaves on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'detached', defaultOpen: true });
+    await expect(byTestId(page, 'popup')).toBeVisible();
+    await expect(byTestId(page, 'trigger')).toHaveAttribute('data-popup-open', '');
+    await page.evaluate(() => {
+      const times: { trigger?: number; popup?: number } = {};
+      (window as unknown as { removalTimes: typeof times }).removalTimes = times;
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.removedNodes) {
+            if (node instanceof HTMLElement && node.matches('[data-testid="trigger"]')) {
+              times.trigger ??= performance.now();
+            }
+            if (node instanceof HTMLElement && (node.matches('[data-testid="popup"]') || node.querySelector('[data-testid="popup"]'))) {
+              times.popup ??= performance.now();
+            }
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+
+    await fixture.locator('[data-toggle-trigger]').evaluate((element) => (element as HTMLElement).click());
+
+    await expect(byTestId(page, 'popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:none');
+    const { trigger, popup } = await page.evaluate(() => (window as unknown as { removalTimes: { trigger: number; popup: number } }).removalTimes);
+    if (mode === 'server') {
+      expect(popup - trigger).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    } else {
+      expect(popup - trigger).toBeLessThan(2 * LATENCY - 20);
+    }
+  });
+});
+
+// Issue 147 (PRV-ANI-06 and PRV-EVT-07's retained close, TRN-ANI-23; ADR 04 Amendments 2026-10-29, (B1) with issue 148): a
+// close kept mounted by PreventUnmountOnClose keeps the card's ending phase until Unmount(). The popup announces it through
+// the transitions module's export at the call, ahead of any render of the close, so it holds on Server under the circuit's
+// latency too.
+test.describe('<PreviewCard.Root /> a retained close', () => {
+  for (const latency of [0, 250]) {
+    const suffix = latency === 0 ? '' : ', under circuit latency on Server';
+    test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', delay: 0, closeDelay: 0, preventUnmount: true });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popup');
+      await trigger.hover();
+      await expect(popup).toBeVisible();
+
+      await moveAway(page);
+
+      await expect(trigger).not.toHaveAttribute('data-popup-open');
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await settle(fixture);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await expect(popup).not.toHaveAttribute('hidden');
+
+      await fixture.locator('[data-unmount]').evaluate((element) => (element as HTMLElement).click());
+      await expect(popup).toHaveCount(0);
+    });
+  }
+});

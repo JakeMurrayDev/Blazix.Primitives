@@ -648,6 +648,7 @@ Not applicable — popups do not participate in Field/Form registration; Select 
   Source: `utils/usePopupViewport.tsx:112-117`. Test: none.
 - **PSH-POS-03** — MUST. PreviewCard's inline-rect middleware (PSH-ALG-16) replaces the reference rectangle with the hovered line box of a wrapping trigger, and resets positioning only when the resulting rectangle differs from the current one.
   Source: `utils/popups/inlineRect.ts:237-292`, `preview-card/positioner/PreviewCardPositioner.tsx:78`. Test: [L3] `inlineRect.test.ts` (all middleware cases).
+  Port note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122); ADR 04 Amendments 2026-10-29, the inline middleware): green at L3, `src/Blazix.Primitives/js/positioning.test.ts` "positioning module: the inline middleware", the eleven middleware titles verbatim, plus "port: the hovered-line option puts the inline middleware first in the pipeline". The middleware is the `positioning` module's (`createInlineMiddleware`), turned on by `PositioningOptions.HoveredLine`, which `PreviewCardPositioner` sets and which is sent only when true (`PositioningTwinContractTests` "port: the hovered-line option is written only when set"); it reads the `interactions` session's record (`readHoveredLine`) at each pass.
 
 ### 4.14 A11Y
 
@@ -965,6 +966,7 @@ middleware(state): if reference lacks getClientRects: {}; coords valid only if c
 ```
 
   Source: `utils/popups/inlineRect.ts:62-193,237-292`. Test: [L3] `inlineRect.test.ts` "creates inline middleware rects from the hovered line", "reuses the captured line index if client coordinates become stale", "uses the edge-aligned rect for right placements", "uses the edge-aligned rect for left placements", "uses the fallback rect for disjoint two-line rects when coords miss", "does not create inline rects when the reference does not wrap", "does not run when the reference has no client rects", "does not reset when the inline rect matches the current reference rect", "ignores stored coords from a different element", "accepts stored coords from a virtual reference context element", "converts client-space inline rects through the positioning platform".
+  Port note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122)): green at L3 through the eleven titles in `positioning.test.ts`. The line grouping (`getLineRects`) and the point lookup (`findLineIndex`) are written once, in `interactions.ts`, and exported to `positioning.ts`; Base UI's `fallback` box is taken as the union of the line boxes, which is the union of the client rects.
 
 - **PSH-ALG-17** — MUST. The implementation reproduces the following procedure exactly for the anchored scroll-lock decision.
 

@@ -47,7 +47,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/number-field.md | NUM | approved | 177 reqs | |
 | components/otp-field.md | OTP | approved | 169 reqs | |
 | components/popover.md | POP | implemented | 214 reqs; `implemented` 2026-10-29 (chosen by the user); Menu/Combobox clauses and FLT PTR-01/A11Y-03 open to M5 with dated notes |
-| components/preview-card.md | PRV | approved | 158 reqs |
+| components/preview-card.md | PRV | implemented | 158 reqs; `implemented` 2026-10-29 (chosen by the user), M4 track 7 (issue 122); the retained close closed with issue 147's (B1); no row open to a later milestone |
 | components/progress.md | PRG | implemented | 55 reqs (opus) | |
 | components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7 |
 | components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-27, M4 track 1 (proposed): RDG-FRM-04 and RDG-STR-02's portal clause green at L4 on the test-only portal |

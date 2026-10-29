@@ -21,6 +21,7 @@ using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
+using Blazix.Primitives.Fixtures.Client.PreviewCardFixtures;
 using Blazix.Primitives.Fixtures.Client.Prerender;
 using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
@@ -182,6 +183,14 @@ public static class FixtureCatalog
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
+        ["preview-card-conformance"] = new(typeof(PreviewCardConformanceFixture)),
+        ["preview-card-triggers"] = new(typeof(PreviewCardTriggersFixture)),
+        ["preview-card-root"] = new(typeof(PreviewCardRootFixture)),
+        ["preview-card-detached"] = new(typeof(PreviewCardDetachedFixture)),
+        ["preview-card-nested"] = new(typeof(PreviewCardNestedFixture)),
+        ["preview-card-inline"] = new(typeof(PreviewCardInlineFixture)),
+        ["preview-card-positioner"] = new(typeof(PreviewCardPositionerFixture)),
+        ["preview-card-viewport"] = new(typeof(PreviewCardViewportFixture)),
         ["scroll-lock-basic"] = new(typeof(ScrollLockBasicFixture)),
         ["positioning-suite"] = new(typeof(PositioningSuiteFixture)),
         ["positioning-origin"] = new(typeof(PositioningOriginFixture)),

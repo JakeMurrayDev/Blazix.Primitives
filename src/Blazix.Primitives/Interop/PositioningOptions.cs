@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (the `positioning` mechanism module), ADR 03 and ADR 04 Amendments 2026-10-27 (chosen by the user
@@ -118,6 +120,16 @@ internal sealed record PositioningOptions : TwinOptions
     /// <summary>Gets a value indicating whether a viewport part is present, which positions a transitioning popup from the far edges.</summary>
     /// <value><see langword="true"/> to add the adaptive origin; the default is <see langword="false"/>.</value>
     public bool AdaptiveOrigin { get; init; }
+
+    /// <summary>Gets a value indicating whether a wrapping anchor is narrowed to one of its line boxes: the hovered one the popup's session recorded, else the one on the popup's side.</summary>
+    /// <value><see langword="true"/> for a preview card's positioner; the default is <see langword="false"/>, which is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HoveredLine { get; init; }
+
+    /// <summary>Gets a value indicating whether a reopen while the positioner is still mounted runs one positioning pass.</summary>
+    /// <value><see langword="true"/> for a preview card's positioner; the default is <see langword="false"/>, which is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool PositionOnOpen { get; init; }
 
     /// <summary>Gets the reading direction, which resolves the logical sides.</summary>
     /// <value><c>ltr</c>, the default, or <c>rtl</c>.</value>

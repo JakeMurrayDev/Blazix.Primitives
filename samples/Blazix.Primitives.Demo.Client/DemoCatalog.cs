@@ -33,6 +33,7 @@ public static class DemoCatalog
         new("alert-dialog", "Alert Dialog", "A dialog that asks for a response before the user goes on, here to discard a draft.", typeof(AlertDialogDemo)),
         new("popover", "Popover", "An accessible popup anchored to a button, here the notifications of an account.", typeof(PopoverDemo)),
         new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
+        new("preview-card", "Preview Card", "A card that previews a link's content when the pointer rests on it or the keyboard focuses it.", typeof(PreviewCardDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

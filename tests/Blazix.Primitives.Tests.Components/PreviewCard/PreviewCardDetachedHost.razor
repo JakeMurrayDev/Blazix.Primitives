@@ -1,0 +1,98 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    Detached triggers sharing one handle (PreviewCardRoot.detached-triggers.test.tsx): two triggers with payloads, rendered
+    before and after the root, the root's payload template, and the switches a test flips to mount or unmount a trigger, to
+    remount the root, or to keep the card mounted while closed.
+*@
+
+@if (ShowTrigger1)
+{
+    <PreviewCardTrigger Handle="Handle" id="trigger-1" Payload="1" @ref="Trigger1">Trigger 1</PreviewCardTrigger>
+}
+
+@if (ShowRoot)
+{
+    <PreviewCardRoot Handle="Handle" @ref="Root" DefaultOpen="DefaultOpen" DefaultTriggerId="@DefaultTriggerId" OnOpenChange="onOpenChange">
+        <PayloadContent>
+            <span data-testid="payload">@context</span>
+            <PreviewCardPortal KeepMounted="KeepMounted">
+                <PreviewCardPositioner>
+                    <PreviewCardPopup data-testid="popup">Payload @context</PreviewCardPopup>
+                </PreviewCardPositioner>
+            </PreviewCardPortal>
+        </PayloadContent>
+    </PreviewCardRoot>
+}
+
+@if (ShowTrigger2)
+{
+    <PreviewCardTrigger Handle="Handle" id="trigger-2" Payload="2" @ref="Trigger2">Trigger 2</PreviewCardTrigger>
+}
+
+@for (int i = 3; i < 3 + Bystanders; i++)
+{
+    int index = i;
+    <PreviewCardTrigger Handle="Handle" id="@($"trigger-{index}")" Payload="index" ClassValue="state => Count(index)">Trigger @index</PreviewCardTrigger>
+}
+
+@code {
+    [Parameter]
+    public PreviewCardHandle<int> Handle { get; set; } = new();
+
+    [Parameter]
+    public bool ShowTrigger1 { get; set; } = true;
+
+    [Parameter]
+    public bool ShowTrigger2 { get; set; } = true;
+
+    [Parameter]
+    public bool ShowRoot { get; set; } = true;
+
+    [Parameter]
+    public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public string? DefaultTriggerId { get; set; }
+
+    [Parameter]
+    public bool Cancel { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public int Bystanders { get; set; }
+
+    // A callback with no receiver, as Base UI's tests pass a plain function: the host does not render after it.
+    private readonly EventCallback<ValueChangeEventArgs<bool>> onOpenChange;
+
+    public PreviewCardDetachedHost()
+    {
+        onOpenChange = new EventCallback<ValueChangeEventArgs<bool>>(null, (Action<ValueChangeEventArgs<bool>>)HandleOpenChange);
+    }
+
+    internal PreviewCardRoot<int>? Root { get; private set; }
+
+    internal PreviewCardTrigger<int>? Trigger1 { get; private set; }
+
+    internal PreviewCardTrigger<int>? Trigger2 { get; private set; }
+
+    internal List<(bool Open, EventReason Reason)> Calls { get; } = [];
+
+    internal Dictionary<int, int> ClassCalls { get; } = [];
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        Calls.Add((args.Value, args.Details.Reason));
+        if (Cancel)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private string? Count(int index)
+    {
+        ClassCalls[index] = ClassCalls.GetValueOrDefault(index) + 1;
+        return null;
+    }
+}

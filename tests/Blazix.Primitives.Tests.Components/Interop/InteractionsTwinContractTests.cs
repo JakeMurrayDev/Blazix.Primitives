@@ -311,6 +311,19 @@ public sealed class InteractionsTwinContractTests
         Assert.Equal("run", twin.Decide("other", EscapeJson));
     }
 
+    // ADR 04 Amendments 2026-10-29, design point 11.2 of M4 track 7: PreviewCard's root sends its mounted state so the session
+    // clears the hovered line at the unmount; false is not sent, so every other root's options are unchanged.
+    [Fact(DisplayName = "port: the session's mounted input is written only when true")]
+    [Trait("Requirement", "PRV-STA-13")]
+    public void The_sessions_mounted_input_is_written_only_when_true()
+    {
+        string closed = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions() }, BlazixJsonContext.Default.InteractionsOptions);
+        string mounted = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Mounted = true } }, BlazixJsonContext.Default.InteractionsOptions);
+
+        Assert.DoesNotContain("mounted", closed, StringComparison.Ordinal);
+        Assert.Contains("\"mounted\":true", mounted, StringComparison.Ordinal);
+    }
+
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
     {
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);

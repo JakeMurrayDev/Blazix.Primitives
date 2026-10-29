@@ -1,0 +1,114 @@
+@namespace Blazix.Primitives.Fixtures.Client.PreviewCardFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `preview-card-detached` fixture (tests/browser/preview-card.spec.ts): the browser-only trees of
+    PreviewCardRoot.detached-triggers.test.tsx (:230-830), by `case`:
+    - `multiple-root` (:233-269): a root holding link triggers "Trigger 1" (delay 0, payload 1) and "Trigger 2" (delay 2000,
+      payload 2) and a popup `popup` "Content: N";
+    - `keep-mounted` (:468-522): detached link triggers "Trigger 1" and "Trigger 2" (delay 0) in a 50 px margin, a
+      kept-mounted portal and a positioner `positioner` on the bottom, aligned to the start, with "Content";
+    - `close-transition` (:588-830): detached link triggers "Trigger 1" (payload 1, delay `trigger1Delay`, 0 by default) and,
+      unless `single`, "Trigger 2" (payload 2, delay 600), a kept-mounted portal and a popup `popup` holding `content`, whose
+      `[data-ending-style]` (a class, since the popup is portaled out of the fixture) runs a `closeMs` (500 by default) ending keyframe, so a pointer move lands inside it on both
+      modes (Base UI's 50 ms; open with `?animations=1`).
+    Every case starts with an "Initial focus" button, as Base UI's autofocused one.
+*@
+<FixtureContainer Name="preview-card-detached" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes preview-card-detached-close-transition {
+            from { opacity: 1; }
+            to { opacity: 0.01; }
+        }
+    </style>
+    @if (Case == "close-transition")
+    {
+        <style>
+            .preview-card-detached-closing[data-ending-style] {
+                animation: preview-card-detached-close-transition @(closeMs)ms linear forwards;
+            }
+        </style>
+    }
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" aria-label="Initial focus"></button>
+
+    @if (Case == "multiple-root")
+    {
+        <PreviewCardRoot TPayload="int?" @ref="root" OnOpenChange="RecordOpenChange">
+            <PayloadContent>
+                <PreviewCardTrigger TPayload="int?" @ref="trigger1" href="#" Delay="0" Payload="1">Trigger 1</PreviewCardTrigger>
+                <PreviewCardTrigger TPayload="int?" @ref="trigger2" href="#" Delay="2000" Payload="2">Trigger 2</PreviewCardTrigger>
+                <PreviewCardPortal>
+                    <PreviewCardPositioner>
+                        <PreviewCardPopup data-testid="popup">Content: @context</PreviewCardPopup>
+                    </PreviewCardPositioner>
+                </PreviewCardPortal>
+            </PayloadContent>
+        </PreviewCardRoot>
+    }
+    else if (Case == "keep-mounted")
+    {
+        <div style="margin: 50px">
+            <PreviewCardTrigger Handle="handle" @ref="trigger1" href="#" Delay="0">Trigger 1</PreviewCardTrigger>
+            <PreviewCardTrigger Handle="handle" @ref="trigger2" href="#" Delay="0">Trigger 2</PreviewCardTrigger>
+
+            <PreviewCardRoot Handle="handle" @ref="root" OnOpenChange="RecordOpenChange">
+                <PreviewCardPortal KeepMounted="true">
+                    <PreviewCardPositioner data-testid="positioner" Side="Side.Bottom" Align="Align.Start">
+                        <PreviewCardPopup data-testid="popup">Content</PreviewCardPopup>
+                    </PreviewCardPositioner>
+                </PreviewCardPortal>
+            </PreviewCardRoot>
+        </div>
+    }
+    else
+    {
+        <PreviewCardTrigger Handle="handle" @ref="trigger1" href="#" Payload="1" Delay="@trigger1Delay">Trigger 1</PreviewCardTrigger>
+        @if (!single)
+        {
+            <PreviewCardTrigger Handle="handle" @ref="trigger2" href="#" Payload="2" Delay="600">Trigger 2</PreviewCardTrigger>
+        }
+
+        <PreviewCardRoot Handle="handle" @ref="root" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <PayloadContent>
+                <PreviewCardPortal KeepMounted="true">
+                    <PreviewCardPositioner>
+                        <PreviewCardPopup data-testid="popup" class="preview-card-detached-closing">
+                            <span data-testid="content">@context</span>
+                        </PreviewCardPopup>
+                    </PreviewCardPositioner>
+                </PreviewCardPortal>
+            </PayloadContent>
+        </PreviewCardRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly PreviewCardHandle<int?> handle = new();
+    private PreviewCardRoot<int?>? root;
+    private PreviewCardTrigger<int?>? trigger1;
+    private PreviewCardTrigger<int?>? trigger2;
+    private Duration trigger1Delay;
+    private int closeMs = 500;
+    private bool single;
+
+    protected override IEnumerable<Task> Attachments => [HandlesAttachedAsync()];
+
+    // A detached trigger renders against the handle's fallback store until its root attaches to the handle, after the
+    // fixture's first render: its handle attaches only then, so it is awaited after the root's session.
+    private async Task HandlesAttachedAsync()
+    {
+        await (root?.SessionAttached ?? Task.CompletedTask);
+        await Task.WhenAll(trigger1?.TwinAttached ?? Task.CompletedTask, trigger2?.TwinAttached ?? Task.CompletedTask);
+    }
+
+    protected override void OnInitialized()
+    {
+        trigger1Delay = int.TryParse(Query("trigger1Delay"), out int delay) ? delay : 0;
+        closeMs = int.TryParse(Query("closeMs"), out int close) ? close : 500;
+        single = QueryFlag("single") == true;
+    }
+}

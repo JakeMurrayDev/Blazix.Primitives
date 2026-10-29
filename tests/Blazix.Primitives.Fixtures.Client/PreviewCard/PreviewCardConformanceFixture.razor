@@ -1,0 +1,70 @@
+@namespace Blazix.Primitives.Fixtures.Client.PreviewCardFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `preview-card-conformance` fixture (tests/browser/preview-card.spec.ts): popupConformanceTests (tests/browser/suites/)
+    with PreviewCardRoot.test.tsx's tree (:31-46): a contained link trigger, portal, positioner and popup. The query sets the root's
+    props as PopupSuiteFixtureBase documents: `open=true|false` makes the root controlled, `defaultOpen`, `cancelOpen`,
+    `keepMounted`, `animated` (200 ms keyframes on `[data-open]` and `[data-ending-style]`; open with `?animations=1`).
+*@
+<FixtureContainer Name="preview-card-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes preview-card-conformance-enter { from { opacity: 0; } }
+        @@keyframes preview-card-conformance-exit { to { opacity: 0; } }
+        .preview-card-animated[data-open] { animation: preview-card-conformance-enter 200ms; }
+        .preview-card-animated[data-ending-style] { animation: preview-card-conformance-exit 200ms; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+
+    @if (controlled)
+    {
+        <PreviewCardRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </PreviewCardRoot>
+    }
+    else
+    {
+        <PreviewCardRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </PreviewCardRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private Dictionary<string, object> popupAttributes = [];
+    private PreviewCardTrigger<NoPayload>? trigger;
+    private PreviewCardRoot<NoPayload>? root;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        popupAttributes["data-testid"] = "popup";
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "preview-card-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <PreviewCardTrigger TPayload="NoPayload" @ref="trigger" href="#" data-testid="trigger">Link</PreviewCardTrigger>
+        <PreviewCardPortal KeepMounted="@keepMounted">
+            <PreviewCardPositioner>
+                <PreviewCardPopup @attributes="popupAttributes">Content</PreviewCardPopup>
+            </PreviewCardPositioner>
+        </PreviewCardPortal>
+    </text>;
+}

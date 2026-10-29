@@ -120,6 +120,8 @@ export interface SessionRoleOptions {
   // FLT-PTR-13
   /** Whether the popup is in its closing transition (`transitionStatus === 'ending'`). */
   ending?: boolean | null;
+  /** Whether the popup is mounted (PreviewCard); its fall from `true` clears the hovered line. */
+  mounted?: boolean | null;
   /** The number of requests C# answered, canceled ones included; a move re-arms a session that requested a close. */
   answered?: number | null;
   /** Dismissal; `null` turns it off. */
@@ -589,6 +591,7 @@ interface SessionRecord extends InteractionSession {
   open: boolean;
   openOrder: number;
   ending: boolean;
+  mounted: boolean;
   activeTriggerId: string | null;
   parentToken: string | null;
   floatingId: string | undefined;
@@ -691,6 +694,7 @@ function createSessionRecord(token: string): SessionRecord {
     open: false,
     openOrder: 0,
     ending: false,
+    mounted: false,
     activeTriggerId: null,
     parentToken: null,
     floatingId: undefined,
@@ -894,6 +898,13 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   record.parentToken = role.parentToken ?? null;
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
+  // ADR 04 Amendments 2026-10-29 (design point 11.2 of M4 track 7): PreviewCardStore.ts resets the hovered-line record when
+  // the card unmounts, so a controlled reopen of the same trigger positions against the side-aligned line.
+  const mounted = role.mounted === true;
+  if (record.mounted && !mounted) {
+    hoveredLineRef(record).current = undefined;
+  }
+  record.mounted = mounted;
   if (relay !== null && relay.revision !== record.lastRevision) {
     record.closeInFlight = null;
     const first = record.lastRevision === undefined;
@@ -3350,6 +3361,10 @@ function createHoverFloatingController(context: HandleContext): Controller {
   let subscribedTreeEvents: SessionEvents | null = null;
 
   const hoverOptions = (): FloatingHoverOptions | null => context.options.floating?.hover ?? null;
+  // ADR 04 Amendments 2026-10-29 (design point 11.6 of M4 track 7, a fidelity correction): Base UI's hook reads
+  // `useFloatingParentNodeId()` in the Popup, inside the Positioner's floating node, so the parent it reads is the popup's
+  // own node when it has one (Popover, PreviewCard, Menu) and the enclosing popup's otherwise (Tooltip).
+  const treeParentId = (): string | null => (record.hasNode ? record.token : record.parentToken);
 
   const isClickLikeOpen = () => isClickLikeOpenEvent(record.dataRef.current.openEvent?.type, instance.interactedInside);
 
@@ -3379,7 +3394,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
     if (open && instance.handleCloseOptions?.blockPointerEvents && isHoverOpen() && isElement(domReference)) {
       const ref = domReference as HTMLElement | SVGSVGElement;
       const doc = ownerDocument(floatingElement);
-      const parentId = record.parentToken;
+      const parentId = treeParentId();
 
       const parentFloating =
         parentId === null ? null : (record.tree.nodesRef.current.find((node) => node.id === parentId)?.context?.elements?.floating ?? null);
@@ -3422,9 +3437,13 @@ function createHoverFloatingController(context: HandleContext): Controller {
     }
   };
 
+  // ADR 04 Amendments 2026-10-29 (design point 11.6): a child whose close request is in flight counts as closed here, as
+  // Base UI's child has closed before it emits `floating.closed`; the dismissal's blocking-child check keeps the committed
+  // state, as Base UI's node context is a render snapshot that a close within the same event has not yet changed.
   const hasParentChildren = () => {
-    const parentId = record.parentToken;
-    return !!(parentId && getNodeChildren(record.tree.nodesRef.current, parentId).length > 0);
+    const parentId = treeParentId();
+    const isOpenChild = (node: SessionNode) => node.id === undefined || sessions.get(node.id)?.closeInFlight == null;
+    return !!(parentId && getNodeChildren(record.tree.nodesRef.current, parentId).some(isOpenChild));
   };
 
   // FLT-PTR-15 with `closeDelay` (useHoverFloatingInteraction.ts:165-178).
@@ -3450,7 +3469,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
 
   // FLT-PTR-25: useHoverFloatingInteraction.ts:235-245.
   function onNodeClosed(event: MouseEvent): void {
-    if (!record.parentToken || hasParentChildren()) {
+    if (!treeParentId() || hasParentChildren()) {
       return;
     }
     // Allow the mouseenter event to fire in case child was closed because mouse moved into parent.
@@ -4419,7 +4438,8 @@ interface HoveredLineRef {
   current: HoveredLine | undefined;
 }
 
-interface LineRect {
+/** A line box of a trigger: the union of the client rects whose tops lie within half a line of each other. */
+export interface LineRect {
   left: number;
   top: number;
   right: number;
@@ -4433,7 +4453,12 @@ function hoveredLineRef(record: SessionRecord): HoveredLineRef {
 }
 
 // inlineRect.ts:62-94: the line boxes of a trigger's client rects, those whose tops are within half a line merged.
-function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
+/**
+ * Merges a trigger's client rects into line boxes, top to bottom; positioning's inline middleware reads the same lines.
+ * @param rects The client rects.
+ * @returns The line boxes, new objects.
+ */
+export function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
   const lines: LineRect[] = [];
   let previousRect: LineRect | undefined;
 
@@ -4463,7 +4488,14 @@ function getLineRects(rects: ArrayLike<LineRect>): LineRect[] {
 }
 
 // inlineRect.ts:96-104: the line box under a point, with a 2px tolerance.
-function findLineIndex(lines: LineRect[], x: number, y: number): number {
+/**
+ * Finds the line box under a client point, with a 2 px tolerance.
+ * @param lines The line boxes.
+ * @param x The x position in viewport coordinates.
+ * @param y The y position in viewport coordinates.
+ * @returns The index of the line box, or -1 when the point is on none.
+ */
+export function findLineIndex(lines: LineRect[], x: number, y: number): number {
   return lines.findIndex(
     (lineRect) => x > lineRect.left - 2 && x < lineRect.right + 2 && y > lineRect.top - 2 && y < lineRect.bottom + 2,
   );

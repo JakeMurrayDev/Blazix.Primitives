@@ -44,8 +44,17 @@ import {
   type Strategy,
   type VirtualElement,
 } from './floating-ui';
-import { ownerDocument, ownerWindow, styleWriter, type StyleLayer } from './dom';
-import { acquireSession, releaseSession, type InteractionSession } from './interactions';
+import { isElement, ownerDocument, ownerWindow, styleWriter, type StyleLayer } from './dom';
+import {
+  acquireSession,
+  findLineIndex,
+  getLineRects,
+  readHoveredLine,
+  releaseSession,
+  type HoveredLine,
+  type InteractionSession,
+  type LineRect,
+} from './interactions';
 import { observeOpenInput } from './transitions';
 import {
   createTwinChannel,
@@ -149,6 +158,10 @@ export interface PositioningOptions extends TwinOptions {
   lazyFlip?: 'side' | 'placement' | null;
   /** Whether a Viewport part is present, which adds the adaptive-origin middleware. */
   adaptiveOrigin?: boolean;
+  /** Whether the anchor is narrowed to one line box of a wrapping trigger, from the session's hovered line (PreviewCard). */
+  hoveredLine?: boolean;
+  /** Whether a reopen while still mounted runs one pass (PreviewCard). */
+  positionOnOpen?: boolean;
   /** The reading direction from the nearest DirectionProvider. */
   direction?: 'ltr' | 'rtl';
   /** The id of the registered Arrow part, or none for the detached stand-in. */
@@ -403,6 +416,155 @@ export function transformOrigin(options: TransformOriginOptions): Middleware {
       options.write(isVertical ? `${crossOrigin} ${sideOrigin}` : `${sideOrigin} ${crossOrigin}`);
 
       return {};
+    },
+  };
+}
+
+// utils/popups/inlineRect.ts:131-293, the reading half: the recording half and the line boxes are the `interactions`
+// session's (`updateHoveredLine`, `getLineRects`, `findLineIndex`).
+interface InlineRect extends LineRect {
+  x: number;
+  y: number;
+}
+
+function createInlineRect(left: number, top: number, right: number, bottom: number): InlineRect {
+  return { left, top, right, bottom, x: left, y: top, width: right - left, height: bottom - top };
+}
+
+// inlineRect.ts:131-193: the recorded line, else the line under the recorded point, else the bounding box of two
+// disjoint lines with a point, else the side-aligned line (the last for `bottom`, the first for `top`, the outermost
+// for `left` and `right`).
+function getInlineReferenceRect(
+  reference: { getClientRects(): ArrayLike<LineRect> },
+  renderedPlacement: string,
+  coords: HoveredLine | undefined,
+): InlineRect | null {
+  const lines = getLineRects(reference.getClientRects());
+
+  if (lines.length < 2) {
+    return null;
+  }
+
+  const x = coords?.x;
+  const y = coords?.y;
+  const side = renderedPlacement[0];
+
+  if (coords?.lineIndex != null && lines[coords.lineIndex]) {
+    const line = lines[coords.lineIndex]!;
+    return createInlineRect(line.left, line.top, line.right, line.bottom);
+  }
+
+  if (x != null && y != null) {
+    const lineIndex = findLineIndex(lines, x, y);
+
+    if (lineIndex !== -1) {
+      const line = lines[lineIndex]!;
+      return createInlineRect(line.left, line.top, line.right, line.bottom);
+    }
+  }
+
+  const firstRect = lines[0]!;
+  const lastRect = lines[lines.length - 1]!;
+
+  if (lines.length === 2 && firstRect.left > lastRect.right && x != null && y != null) {
+    // The union of the lines is the union of the client rects (Base UI's `fallback`).
+    return createInlineRect(
+      Math.min(firstRect.left, lastRect.left),
+      firstRect.top,
+      Math.max(firstRect.right, lastRect.right),
+      Math.max(firstRect.bottom, lastRect.bottom),
+    );
+  }
+
+  if (side === 't' || side === 'b') {
+    const targetRect = side === 't' ? firstRect : lastRect;
+
+    return createInlineRect(targetRect.left, firstRect.top, targetRect.right, lastRect.bottom);
+  }
+
+  const isLeft = side === 'l';
+  let left = firstRect.left;
+  let right = firstRect.right;
+  let edge = isLeft ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
+  let targetFirstRect = firstRect;
+  let targetLastRect = firstRect;
+
+  for (const rect of lines) {
+    left = Math.min(left, rect.left);
+    right = Math.max(right, rect.right);
+
+    const nextEdge = isLeft ? rect.left : rect.right;
+
+    if ((isLeft && nextEdge < edge) || (!isLeft && nextEdge > edge)) {
+      edge = nextEdge;
+      targetFirstRect = rect;
+      targetLastRect = rect;
+    } else if (nextEdge === edge) {
+      targetLastRect = rect;
+    }
+  }
+
+  return createInlineRect(left, targetFirstRect.top, right, targetLastRect.bottom);
+}
+
+function getContextElement(reference: Element | VirtualElement): Element | undefined {
+  if ('contextElement' in reference && reference.contextElement) {
+    return reference.contextElement;
+  }
+
+  return isElement(reference) ? reference : undefined;
+}
+
+/**
+ * Base UI's `inline` middleware: narrows a wrapping anchor to one of its line boxes, the hovered one while its record
+ * belongs to the anchor, else the side-aligned one; first in the pipeline.
+ * @param read Reads the hovered line at each run.
+ * @returns The middleware.
+ */
+export function createInlineMiddleware(read: () => HoveredLine | undefined): Middleware {
+  return {
+    name: 'inline',
+    async fn(state) {
+      const reference = state.elements.reference;
+
+      if (typeof (reference as Partial<{ getClientRects: unknown }> | null)?.getClientRects !== 'function') {
+        return {};
+      }
+
+      const contextElement = getContextElement(reference);
+      const coords = read();
+      const currentCoords = coords?.element === reference || coords?.element === contextElement ? coords : undefined;
+      const rect = getInlineReferenceRect(reference as unknown as { getClientRects(): ArrayLike<LineRect> }, state.placement, currentCoords);
+
+      if (!rect || typeof state.platform.getElementRects !== 'function') {
+        return {};
+      }
+
+      const resetRects = await state.platform.getElementRects({
+        reference: {
+          contextElement,
+          getBoundingClientRect() {
+            return rect;
+          },
+        },
+        floating: state.elements.floating,
+        strategy: state.strategy,
+      });
+
+      if (
+        state.rects.reference.x === resetRects.reference.x &&
+        state.rects.reference.y === resetRects.reference.y &&
+        state.rects.reference.width === resetRects.reference.width &&
+        state.rects.reference.height === resetRects.reference.height
+      ) {
+        return {};
+      }
+
+      return {
+        reset: {
+          rects: resetRects,
+        },
+      };
     },
   };
 }
@@ -841,6 +1003,7 @@ export function attach(
       Array.isArray(boundary) ? boundary.map(keyOf) : boundary,
       isRtlValue,
       options.adaptiveOrigin ?? false,
+      options.hoveredLine ?? false,
       options.sideOffsetFunction ?? options.sideOffset ?? 0,
       options.alignOffsetFunction ?? options.alignOffset ?? 0,
     ]);
@@ -863,7 +1026,11 @@ export function attach(
     const commonCollisionProps = { boundary, padding: collisionPadding } as const;
 
     const middleware: Array<Middleware | null> = [];
-    // The first slot is Base UI's `inline` middleware (FLT-POS-02), PreviewCard's hovered-line rect.
+    // The first slot is Base UI's `inline` middleware (FLT-POS-02), PreviewCard's hovered-line rect; the record is
+    // read at each run, so a hover recorded after the attach narrows the next computation.
+    if (options.hoveredLine) {
+      middleware.push(createInlineMiddleware(() => (session === null ? undefined : readHoveredLine(session))));
+    }
 
     middleware.push(
       offset((state) => {
@@ -1168,6 +1335,9 @@ export function attach(
       if (nextOpen === open && nextMounted === mounted) {
         return;
       }
+      // ADR 04 Amendments 2026-10-29 (design point 11.5 of M4 track 7): PreviewCardPositioner.tsx:82-86 runs a pass in the
+      // layout effect of every commit where the card is open and mounted, so a reopen during the exit re-anchors.
+      const reopenedMounted = nextOpen && !open && nextMounted && mounted;
       open = nextOpen;
       if (nextMounted !== mounted) {
         mounted = nextMounted;
@@ -1176,7 +1346,10 @@ export function attach(
           isPositioned = false;
         }
       }
-      refresh();
+      // A tracking start runs its own first pass.
+      if (!refresh() && reopenedMounted && options.positionOnOpen) {
+        position();
+      }
     });
   };
 

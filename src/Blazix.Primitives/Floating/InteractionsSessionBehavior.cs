@@ -88,6 +88,10 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     /// <value><see langword="true"/> while the exit animation runs.</value>
     public bool Ending { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the popup is mounted, sent for a root whose session clears its hovered line at the unmount.</summary>
+    /// <value><see langword="true"/> while mounted; the default <see langword="false"/> is not sent.</value>
+    public bool Mounted { get; set; }
+
     /// <summary>Gets or sets the dismissal configuration.</summary>
     /// <value>The configuration, or <see langword="null"/> when nothing dismisses the popup.</value>
     public InteractionsDismissOptions? Dismiss { get; set; }
@@ -135,6 +139,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         sent.Session is { } session
         && session.Open == Open
         && session.Ending == Ending
+        && session.Mounted == Mounted
         && string.Equals(session.ActiveTriggerId, ActiveTriggerId, StringComparison.Ordinal)
         && string.Equals(session.ParentToken, ParentToken, StringComparison.Ordinal)
         && string.Equals(session.FloatingId, FloatingId, StringComparison.Ordinal)
@@ -153,6 +158,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
             ParentToken = ParentToken,
             FloatingId = FloatingId,
             Ending = Ending,
+            Mounted = Mounted,
             Answered = answered,
             Dismiss = Dismiss,
         },

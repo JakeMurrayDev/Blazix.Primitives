@@ -1,0 +1,62 @@
+<DemoFrame Slug="preview-card" Note="Rest the pointer on a link, or focus it with the keyboard. The card opens after a short delay and stays open while the pointer travels into it. A link that wraps over two lines anchors the card to the line under the pointer. In the variant two links share one card, whose content changes as the pointer moves from one to the other.">
+    <Hero>
+        <p class="m-0 max-w-64 text-base leading-6 text-neutral-950 dark:text-white">
+            Every component on these pages follows the
+            <PreviewCardRoot TPayload="NoPayload">
+                <PreviewCardTrigger class="@LinkClass" href="#">accessibility guidance of the WAI-ARIA authoring practices</PreviewCardTrigger>
+                <PreviewCardPortal>
+                    <PreviewCardPositioner SideOffset="8">
+                        <PreviewCardPopup class="@PopupClass">
+                            <PreviewCardArrow class="@ArrowClass" />
+                            <p class="m-0 text-sm leading-5">
+                                The WAI-ARIA Authoring Practices describe the keyboard and screen reader behavior people expect from
+                                common widgets such as menus, dialogs and tabs.
+                            </p>
+                        </PreviewCardPopup>
+                    </PreviewCardPositioner>
+                </PreviewCardPortal>
+            </PreviewCardRoot>
+            and keeps the markup of the original library.
+        </p>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <p class="m-0 text-base leading-6 text-neutral-950 dark:text-white">
+                Built with
+                <PreviewCardTrigger class="@LinkClass" href="#" Handle="handle" Payload="@("Blazor")">Blazor</PreviewCardTrigger>
+                on top of
+                <PreviewCardTrigger class="@LinkClass" href="#" Handle="handle" Payload="@("Base UI")">Base UI</PreviewCardTrigger>.
+            </p>
+            <PreviewCardRoot Handle="handle">
+                <PayloadContent>
+                    <PreviewCardPortal>
+                        <PreviewCardPositioner SideOffset="8">
+                            <PreviewCardPopup class="@PopupClass">
+                                <PreviewCardViewport class="@ViewportClass">
+                                    <p class="m-0 text-sm leading-5">@Describe(context)</p>
+                                </PreviewCardViewport>
+                            </PreviewCardPopup>
+                        </PreviewCardPositioner>
+                    </PreviewCardPortal>
+                </PayloadContent>
+            </PreviewCardRoot>
+            <span class="VariantName">Two detached triggers with one Handle, a Payload each and a Viewport</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string LinkClass = "text-neutral-950 underline decoration-neutral-950/40 underline-offset-2 outline-0 data-popup-open:decoration-neutral-950 focus-visible:rounded-xs focus-visible:no-underline focus-visible:outline-2 focus-visible:outline-neutral-950 hover:decoration-neutral-950 dark:text-white dark:decoration-white/40 dark:data-popup-open:decoration-white dark:focus-visible:outline-white dark:hover:decoration-white";
+    private const string PopupClass = "relative box-border flex w-64 flex-col gap-2 border border-neutral-950 bg-white p-3 text-neutral-950 origin-[var(--transform-origin)] shadow-[0.25rem_0.25rem_0] shadow-black/12 transition-[transform,opacity,width,height] duration-150 ease-out data-ending-style:opacity-0 data-ending-style:[transform:scale(0.98)] data-instant:transition-none data-starting-style:opacity-0 data-starting-style:[transform:scale(0.98)] dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+    private const string ArrowClass = "relative block w-3 h-1.5 overflow-clip data-[side=bottom]:top-[-6px] data-[side=left]:right-[-9px] data-[side=left]:rotate-90 data-[side=right]:left-[-9px] data-[side=right]:-rotate-90 data-[side=top]:bottom-[-6px] data-[side=top]:rotate-180 before:content-[''] before:absolute before:bottom-0 before:left-1/2 before:w-[calc(6px*sqrt(2))] before:h-[calc(6px*sqrt(2))] before:bg-white dark:before:bg-neutral-950 before:border before:border-neutral-950 dark:before:border-white before:[transform:translate(-50%,50%)_rotate(45deg)]";
+    private const string ViewportClass = "relative overflow-clip [&_[data-current]]:transition-opacity [&_[data-current]]:duration-150 [&_[data-current][data-starting-style]]:opacity-0 [&_[data-previous]]:transition-opacity [&_[data-previous]]:duration-150 [&_[data-previous][data-ending-style]]:opacity-0";
+
+    private readonly PreviewCardHandle<string> handle = new();
+
+    private static string Describe(string? payload) => payload switch
+    {
+        "Blazor" => "Blazor runs C# components in the browser through WebAssembly, or on the server over a SignalR circuit.",
+        "Base UI" => "Base UI is a library of unstyled React components, whose behavior these components reproduce.",
+        _ => string.Empty,
+    };
+}
