@@ -79,6 +79,22 @@ describe('scoped L4', () => {
   });
 });
 
+describe('dependent families', () => {
+  // Settled by the orchestrator 2026-10-27 (M4 track 9): AlertDialog's parts are sealed shells over the behaviours in
+  // Dialog/, so a change there also runs the AlertDialog specs; the dependence runs one way.
+  const withDialog = { families: [...families, 'dialog'], specFiles: [...specFiles, 'tests/browser/dialog.spec.ts'] };
+
+  it('a change under the Dialog folder also runs the AlertDialog specs, and not the other way round', () => {
+    const shared = run(['src/Blazix.Primitives/Dialog/DialogPopupBehavior.cs'], withDialog);
+    expect(shared.l4).toBe('scoped');
+    expect(shared.families).toEqual(['alert-dialog', 'dialog']);
+    expect(shared.specs).toEqual(['tests/browser/alert-dialog.spec.ts', 'tests/browser/dialog.spec.ts']);
+
+    expect(run(['src/Blazix.Primitives/AlertDialog/AlertDialogRoot.cs'], withDialog).specs).toEqual(['tests/browser/alert-dialog.spec.ts']);
+    expect(run(['tests/browser/dialog.spec.ts'], withDialog).specs).toEqual(['tests/browser/dialog.spec.ts']);
+  });
+});
+
 describe('full L4', () => {
   it.each([
     'src/Blazix.Primitives/Rendering/PartBase.cs',
