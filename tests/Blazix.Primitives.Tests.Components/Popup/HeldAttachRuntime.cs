@@ -6,11 +6,12 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
-/// An <see cref="IJSRuntime"/> over bUnit's that holds one module's <c>attach</c> until <see cref="Release"/>, as a Server
-/// round trip holds it (the portal's move, issue 149), and records every module the parts import; every other call goes
-/// to bUnit's runtime and its modules.
+/// An <see cref="IJSRuntime"/> over bUnit's that holds one module's <c>attach</c> (or, with <paramref name="holdImport"/>, its
+/// import) until <see cref="Release"/>, as a Server round trip holds it (the portal's move, issue 149; the transitions
+/// module's import, issue 147), and records every module the parts import; every other call goes to bUnit's runtime and its
+/// modules.
 /// </summary>
-internal sealed class HeldAttachRuntime(IJSRuntime inner, string module) : IJSRuntime
+internal sealed class HeldAttachRuntime(IJSRuntime inner, string module, bool holdImport = false) : IJSRuntime
 {
     private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -33,8 +34,14 @@ internal sealed class HeldAttachRuntime(IJSRuntime inner, string module) : IJSRu
 
         ValueTask<TValue> invocation = inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
         return identifier == "import" && args is [string imported] && imported.EndsWith("/" + module, StringComparison.Ordinal)
-            ? new ValueTask<TValue>(WrapAsync(invocation))
+            ? new ValueTask<TValue>(holdImport ? HoldImportAsync(invocation) : WrapAsync(invocation))
             : invocation;
+    }
+
+    private async Task<TValue> HoldImportAsync<TValue>(ValueTask<TValue> import)
+    {
+        await released.Task;
+        return await import;
     }
 
     private async Task<TValue> WrapAsync<TValue>(ValueTask<TValue> import) => (TValue)(object)new HeldModule(this, (IJSObjectReference)(await import)!);

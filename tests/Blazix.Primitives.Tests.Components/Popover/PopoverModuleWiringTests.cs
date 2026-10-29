@@ -300,6 +300,45 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
 
+    // Issue 147 ((B1), as built, ADR 04 Amendments 2026-10-29): the popup reads its first attach's options once the
+    // transitions module is imported, right before the attach is sent, so a close the store retained while the import was in
+    // flight rides in the attach itself.
+    [Fact(DisplayName = "port: a close retained while the transitions module is imported rides in the popup's first attach")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task A_close_retained_while_the_module_is_imported_rides_in_the_first_attach()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", holdImport: true);
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        bool closed = false;
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    closed = true;
+                }
+            }),
+        });
+
+        Task opening = test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForElement("[data-testid=\"popup\"][data-open]");
+        Task closing = test.PressAsync(cut, "trigger-1", open: false);
+        cut.WaitForAssertion(() => Assert.True(closed));
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.WhenAll(opening, closing);
+
+        cut.WaitForState(() => PopupAttachOptions() is not null);
+        string attach = PopupAttachOptions()!;
+        Assert.Contains("\"open\":false", attach, StringComparison.Ordinal);
+        Assert.Contains("\"retainExit\":true", attach, StringComparison.Ordinal);
+    }
+
     // Issue 147 ((B1)) for the backdrop: its own transitions handle keeps a retained close's ending phase as the popup's does,
     // so it announces the call through the export and carries the store's value in its options.
     [Fact(DisplayName = "port: the backdrop announces a retained close and carries it in its transitions options")]
@@ -353,6 +392,12 @@ public sealed class PopoverModuleWiringTests : IDisposable
 
         Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
+
+    private string? PopupAttachOptions() =>
+        test.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1)
+            .Select(invocation => invocation.Arguments[1] as string)
+            .SingleOrDefault(json => json is not null && json.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal));
 
     // The backdrop's options are the only transitions options in these trees that do not report the open's completion.
     private string? LastBackdropTransitionsOptions() =>
