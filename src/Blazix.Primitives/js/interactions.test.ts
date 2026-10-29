@@ -4789,6 +4789,22 @@ describe('inlineRect', () => {
     expect(hoveredLine(popup)).toEqual({ x: 5, y: 25, lineIndex: 1, element: trigger });
   });
 
+  // ADR 04 Amendments 2026-10-29, design point 11.2 of M4 track 7 (PRV-STA-13 (d), PRV-ANI-04; PreviewCardStore.ts's unmount
+  // reset): the root sends `mounted` from its commit path, and the session clears its record when it goes true → false.
+  it('port: the session clears the hovered line when its mounted input goes from true to false', () => {
+    const popup = popupWithSession();
+    const trigger = createTrigger(popup, twoLines);
+    popup.updateSession({ session: { mounted: true } });
+    mouse(trigger, 'mousemove', 5, 25);
+    expect(hoveredLine(popup)).toEqual({ x: 5, y: 25, lineIndex: 1, element: trigger });
+
+    popup.updateSession({ session: { mounted: true } });
+    expect(hoveredLine(popup)).toBeDefined();
+
+    popup.updateSession({ session: { mounted: false } });
+    expect(hoveredLine(popup)).toBeUndefined();
+  });
+
   it('port: the record is the session\'s: a trigger records only with hoveredLine, and moves on a trigger the popup is not open by replace it', () => {
     const popup = popupWithSession();
     const first = createTrigger(popup, twoLines);
