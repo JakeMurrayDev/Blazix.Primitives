@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components.Interop;
@@ -253,6 +254,30 @@ public sealed class TransitionsTwinContractTests
     }
 
     /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
+    // Issue 147 as chosen by the user 2026-10-29 ((B1), ADR 04 Amendments 2026-10-29): the announcement is a call of the
+    // module's export, addressed by the element, so it needs no handle and reaches one whose attach is in flight.
+    [Fact(DisplayName = "port: a retained exit is announced through the module's retainExit export with the element and the value")]
+    [Trait("Requirement", "TRN-ANI-23")]
+    public async Task A_retained_exit_is_announced_through_the_modules_export()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        module.SetupVoid("retainExit", _ => true).SetVoidResult();
+        await using TransitionsTwin twin = new(context.JSInterop.JSRuntime);
+        ElementReference element = new("popup");
+
+        await twin.RetainExitAsync(element, true);
+        await twin.RetainExitAsync(element, false);
+
+        Assert.Equal(
+            [true, false],
+            module.Invocations["retainExit"].Select(invocation =>
+            {
+                Assert.Equal(element, Assert.IsType<ElementReference>(invocation.Arguments[0]));
+                return (bool)invocation.Arguments[1]!;
+            }));
+    }
+
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);

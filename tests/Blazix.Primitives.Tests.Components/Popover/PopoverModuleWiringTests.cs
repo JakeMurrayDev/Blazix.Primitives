@@ -216,30 +216,55 @@ public sealed class PopoverModuleWiringTests : IDisposable
             attach => attach.Arguments[1] is string json && json.Contains("\"disableTransitionWhileStarting\":true", StringComparison.Ordinal));
     }
 
-    // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): the opt-out reaches the
-    // popup's transitions handle from the store notification, before the batch that closes the popup exists.
-    [Fact(DisplayName = "port: a retained close announces itself to the popup's transitions handle before the close renders")]
+    // Issue 147 as chosen by the user 2026-10-29 ((B1) with issue 148, ADR 04 Amendments 2026-10-29): the
+    // PreventUnmountOnClose() call announces the retained close through the transitions module's export, addressed by the
+    // element, ahead of any render the consumer's callback makes, a controlled close that re-renders and awaits included;
+    // a close the callback then cancels sends the reset.
+    [Fact(DisplayName = "port: the PreventUnmountOnClose() call announces the retained close to the transitions module before any render")]
     [Trait("Requirement", "POP-ANI-06")]
-    public async Task A_retained_close_announces_itself_to_the_transitions_handle_before_the_close_renders()
+    public async Task The_call_announces_the_retained_close_before_any_render()
     {
-        List<bool> openWhenAnnounced = [];
+        List<bool> announcedAtCall = [];
         IRenderedComponent<PopupTestHost>? cut = null;
-        test.Context.JSInterop.SetupVoid("update", invocation =>
-        {
-            if (invocation.Arguments.Count > 0 && invocation.Arguments[0] is string json && json.Contains("\"retainExit\":true", StringComparison.Ordinal))
+        cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, new PopoverSpec
             {
-                openWhenAnnounced.Add(cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
-            }
+                Open = host.Get<bool>("open"),
+                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, async args =>
+                {
+                    if (!args.Value)
+                    {
+                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                        announcedAtCall.Add(RetainExitAnnouncements().SequenceEqual([true]) && cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
+                    }
 
-            return false;
-        });
-        cut = Render(new PopoverSpec
+                    // A controlled consumer that re-renders and then awaits inside its callback.
+                    await host.SetAsync("open", args.Value);
+                    await Task.Yield();
+                }),
+            }),
+            new() { ["open"] = false });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForAssertion(() => Assert.Contains(test.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
+        await test.PressAsync(cut, "trigger-1", open: false);
+
+        Assert.Equal([true], announcedAtCall);
+        Assert.Equal([true], RetainExitAnnouncements());
+    }
+
+    [Fact(DisplayName = "port: a retained close the callback then cancels sends the announcement's reset")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task A_canceled_retained_close_sends_the_reset()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
         {
             OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
             {
                 if (!args.Value)
                 {
                     ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    args.Details.Cancel();
                 }
             }),
         });
@@ -248,9 +273,11 @@ public sealed class PopoverModuleWiringTests : IDisposable
         cut.WaitForAssertion(() => Assert.Contains(test.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
         await test.PressAsync(cut, "trigger-1", open: false);
 
-        // The first announcement left before the close rendered; the after-render update repeats the flag.
-        Assert.True(openWhenAnnounced.First());
+        Assert.Equal([true, false], RetainExitAnnouncements());
     }
+
+    private bool[] RetainExitAnnouncements() =>
+        [.. test.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }

@@ -241,6 +241,32 @@ public sealed class DialogRootTests : IDisposable
         Assert.Empty(cut.FindAll("[role=dialog]"));
     }
 
+    // Issue 147 as chosen by the user 2026-10-29 ((B1) with issue 148, ADR 04 Amendments 2026-10-29): the call announces the
+    // retained close to the popup's transitions module at once, and under Dialog's call-time opt-out a close the callback
+    // then cancels keeps it, since the next close that is not canceled stays mounted (DLG-EVT-05).
+    [Fact(DisplayName = "port: under Dialog's call-time opt-out a canceled close keeps the retained close's announcement")]
+    [Trait("Requirement", "DLG-EVT-05")]
+    public async Task Under_the_call_time_opt_out_a_canceled_close_keeps_the_announcement()
+    {
+        int closes = 0;
+        IRenderedComponent<DialogHarness> cut = test.Context.Render<DialogHarness>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.Modal, false)
+            .Add(x => x.OnOpenChange, args =>
+            {
+                if (!args.Value && closes++ == 0)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    args.Details.Cancel();
+                }
+            }));
+        cut.WaitForAssertion(() => Assert.Contains(test.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
+
+        await test.RequestAsync(cut, open: false, "escape-key", DialogTestContext.EscapeJson);
+
+        Assert.Equal([true], test.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!));
+    }
+
     [Fact(DisplayName = "port: a nested dialog's open count lands in the batch that opened it, and its unmount's in the batch that removed it")]
     [Trait("Requirement", "DLG-STA-05")]
     public void A_nested_dialogs_open_count_lands_in_the_batch_that_opened_it()

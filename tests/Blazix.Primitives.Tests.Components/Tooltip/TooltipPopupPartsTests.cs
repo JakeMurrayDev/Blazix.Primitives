@@ -183,23 +183,15 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.True(JsonDocument.Parse((string)attach.Arguments[1]!).RootElement.GetProperty("disableTransitionWhileStarting").GetBoolean());
     }
 
-    // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): the opt-out reaches the
-    // popup's transitions handle from the store notification, before the batch that closes the tooltip exists.
-    [Fact(DisplayName = "port: a retained close announces itself to the popup's transitions handle before the close renders")]
+    // Issue 147 as chosen by the user 2026-10-29 ((B1) with issue 148, ADR 04 Amendments 2026-10-29): the
+    // PreventUnmountOnClose() call announces the retained close through the transitions module's export, addressed by the
+    // element, ahead of any render the consumer's callback makes; a close the callback then cancels sends the reset.
+    [Fact(DisplayName = "port: the PreventUnmountOnClose() call announces the retained close to the transitions module before any render")]
     [Trait("Requirement", "TIP-EVT-04")]
-    public async Task A_retained_close_announces_itself_to_the_transitions_handle_before_the_close_renders()
+    public async Task The_call_announces_the_retained_close_before_any_render()
     {
-        List<bool> openWhenAnnounced = [];
+        List<bool> announcedAtCall = [];
         IRenderedComponent<TooltipBasicHost>? cut = null;
-        host.Context.JSInterop.SetupVoid("update", invocation =>
-        {
-            if (invocation.Arguments.Count > 0 && invocation.Arguments[0] is string json && json.Contains("\"retainExit\":true", StringComparison.Ordinal))
-            {
-                openWhenAnnounced.Add(cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
-            }
-
-            return false;
-        });
         cut = host.Context.Render<TooltipBasicHost>(p => p
             .Add(x => x.DefaultOpen, true)
             .Add(x => x.OnOpenChange, (ValueChangeEventArgs<bool> args) =>
@@ -207,16 +199,41 @@ public sealed class TooltipPopupPartsTests : IDisposable
                 if (!args.Value)
                 {
                     ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    announcedAtCall.Add(RetainExitAnnouncements().SequenceEqual([true]) && cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
                 }
             }));
-
         cut.WaitForAssertion(() => Assert.Contains(host.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
 
         await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
 
-        // The first announcement left before the close rendered; the after-render update repeats the flag.
-        Assert.True(openWhenAnnounced.First());
+        Assert.Equal([true], announcedAtCall);
+        Assert.Equal([true], RetainExitAnnouncements());
     }
+
+    [Fact(DisplayName = "port: a retained close the callback then cancels sends the announcement's reset")]
+    [Trait("Requirement", "TIP-EVT-04")]
+    public async Task A_canceled_retained_close_sends_the_reset()
+    {
+        IRenderedComponent<TooltipBasicHost> cut = host.Context.Render<TooltipBasicHost>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.OnOpenChange, (ValueChangeEventArgs<bool> args) =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    args.Details.Cancel();
+                }
+            }));
+        cut.WaitForAssertion(() => Assert.Contains(host.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
+
+        await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
+
+        Assert.True(cut.Instance.Root!.Store.IsOpen);
+        Assert.Equal([true, false], RetainExitAnnouncements());
+    }
+
+    private bool[] RetainExitAnnouncements() =>
+        [.. host.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
 
     private JsonElement PositioningOptions()
     {
