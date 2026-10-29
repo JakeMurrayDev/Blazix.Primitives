@@ -1193,3 +1193,35 @@ test.describe('Server relaxations (preview-card.md §9)', () => {
     }
   });
 });
+
+// Issue 147 (PRV-ANI-06 and PRV-EVT-07's retained close, TRN-ANI-23; ADR 04 Amendments 2026-10-29, (B1) with issue 148): a
+// close kept mounted by PreventUnmountOnClose keeps the card's ending phase until Unmount(). The popup announces it through
+// the transitions module's export at the call, ahead of any render of the close, so it holds on Server under the circuit's
+// latency too.
+test.describe('<PreviewCard.Root /> a retained close', () => {
+  for (const latency of [0, 250]) {
+    const suffix = latency === 0 ? '' : ', under circuit latency on Server';
+    test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', delay: 0, closeDelay: 0, preventUnmount: true });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popup');
+      await trigger.hover();
+      await expect(popup).toBeVisible();
+
+      await moveAway(page);
+
+      await expect(trigger).not.toHaveAttribute('data-popup-open');
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await settle(fixture);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(popup).toHaveAttribute('data-ending-style');
+      await expect(popup).not.toHaveAttribute('hidden');
+
+      await fixture.locator('[data-unmount]').evaluate((element) => (element as HTMLElement).click());
+      await expect(popup).toHaveCount(0);
+    });
+  }
+});

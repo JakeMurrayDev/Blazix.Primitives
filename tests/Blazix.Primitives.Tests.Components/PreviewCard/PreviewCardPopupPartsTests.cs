@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
 namespace Blazix.Primitives.Tests.Components;
@@ -151,6 +153,137 @@ public sealed class PreviewCardPopupPartsTests : IDisposable
         JSRuntimeInvocation attach = host.Context.JSInterop.Invocations.Last(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal));
         Assert.True(JsonDocument.Parse((string)attach.Arguments[1]!).RootElement.GetProperty("disableTransitionWhileStarting").GetBoolean());
     }
+
+    // Issue 147 ((B1) with issue 148, ADR 04 Amendments 2026-10-29), as Tooltip's TIP-EVT-04: the PreventUnmountOnClose()
+    // call announces the retained close through the transitions module's export, addressed by the element, ahead of any
+    // render the consumer's callback makes; a close the callback then cancels sends the reset.
+    [Fact(DisplayName = "port: the PreventUnmountOnClose() call announces the retained close to the transitions module before any render")]
+    [Trait("Requirement", "PRV-ANI-06")]
+    [Trait("Requirement", "PRV-EVT-07")]
+    public async Task The_call_announces_the_retained_close_before_any_render()
+    {
+        List<bool> announcedAtCall = [];
+        IRenderedComponent<PreviewCardBasicHost>? cut = null;
+        cut = host.Context.Render<PreviewCardBasicHost>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.OnOpenChange, (ValueChangeEventArgs<bool> args) =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    announcedAtCall.Add(RetainExitAnnouncements().SequenceEqual([true]) && cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
+                }
+            }));
+        cut.WaitForAssertion(() => Assert.NotNull(LastTransitionsOptions(reportsOpenComplete: true)));
+
+        await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
+
+        Assert.Equal([true], announcedAtCall);
+        Assert.Equal([true], RetainExitAnnouncements());
+    }
+
+    [Fact(DisplayName = "port: a retained close the callback then cancels sends the announcement's reset")]
+    [Trait("Requirement", "PRV-ANI-06")]
+    [Trait("Requirement", "PRV-EVT-07")]
+    public async Task A_canceled_retained_close_sends_the_reset()
+    {
+        IRenderedComponent<PreviewCardBasicHost> cut = host.Context.Render<PreviewCardBasicHost>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.OnOpenChange, (ValueChangeEventArgs<bool> args) =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    args.Details.Cancel();
+                }
+            }));
+        cut.WaitForAssertion(() => Assert.NotNull(LastTransitionsOptions(reportsOpenComplete: true)));
+
+        await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
+
+        Assert.Equal([true, false], RetainExitAnnouncements());
+    }
+
+    // As Popover's backdrop: the backdrop's own transitions handle keeps a retained close's ending phase as the popup's does.
+    [Fact(DisplayName = "port: the backdrop announces a retained close and carries it in its transitions options")]
+    [Trait("Requirement", "PRV-ANI-06")]
+    public async Task The_backdrop_announces_a_retained_close_and_carries_it_in_its_options()
+    {
+        IRenderedComponent<PreviewCardRoot<NoPayload>> cut = host.Context.Render<PreviewCardRoot<NoPayload>>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.OnOpenChange, (ValueChangeEventArgs<bool> args) =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            })
+            .Add(x => x.ChildContent, (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<PreviewCardBackdrop>(0);
+                builder.AddAttribute(1, "data-testid", "backdrop");
+                builder.CloseComponent();
+            })));
+        cut.WaitForAssertion(() => Assert.NotNull(LastTransitionsOptions(reportsOpenComplete: false)));
+        string backdrop = host.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal))
+            .Select(invocation => ((ElementReference)invocation.Arguments[0]!).Id)
+            .Single();
+
+        await cut.InvokeAsync(() => cut.Instance.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerHover)));
+
+        cut.WaitForAssertion(() => Assert.Contains("\"retainExit\":true", LastTransitionsOptions(reportsOpenComplete: false), StringComparison.Ordinal));
+        Assert.Contains(
+            host.Context.JSInterop.Invocations,
+            invocation => invocation.Identifier == "retainExit" && invocation.Arguments[0] is ElementReference element && element.Id == backdrop && (bool)invocation.Arguments[1]!);
+    }
+
+    // Issue 149's class for the backdrop: inside the portal it creates its transitions twin after the move, and a backdrop
+    // disposed while the move is pending creates none.
+    [Fact(DisplayName = "port: a backdrop disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "portal.js");
+        host.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        host.Context.Render<PreviewCardRoot<NoPayload>>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.ChildContent, (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<PreviewCardPortal>(0);
+                builder.AddAttribute(1, nameof(PreviewCardPortal.ChildContent), (RenderFragment)(portal =>
+                {
+                    portal.OpenComponent<PreviewCardBackdrop>(0);
+                    portal.CloseComponent();
+                }));
+                builder.CloseComponent();
+            })));
+        int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await host.Context.DisposeComponentsAsync();
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
+    }
+
+    private bool[] RetainExitAnnouncements() =>
+        [.. host.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
+
+    // The popup's transitions options report the open's completion; the backdrop's do not.
+    private string? LastTransitionsOptions(bool reportsOpenComplete) =>
+        host.Context.JSInterop.Invocations
+            .Select(invocation => invocation.Identifier switch
+            {
+                "attach" when invocation.Arguments.Count > 1 => invocation.Arguments[1] as string,
+                "update" => invocation.Arguments[0] as string,
+                _ => null,
+            })
+            .LastOrDefault(json => json is not null && json.Contains("\"openSelector\"", StringComparison.Ordinal) && json.Contains(reportsOpenComplete ? "\"reportOpenComplete\":true" : "\"reportOpenComplete\":false", StringComparison.Ordinal));
 
     private JsonElement PositioningOptions()
     {
