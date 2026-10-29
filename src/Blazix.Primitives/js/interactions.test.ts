@@ -3531,42 +3531,58 @@ describe('useHoverFloatingInteraction', () => {
     expect(popup.open).toBe(false);
   });
 
-  it('port: leaving a nested popup while its parent has open children waits for floating.closed, then requests a hover close after 0 ms and emits it again', async () => {
+  // ADR 04 Amendments 2026-10-29, design point 11.6 of M4 track 7 (a fidelity correction): Base UI's hook runs in the
+  // Popup, inside the Positioner's floating node, so `useFloatingParentNodeId()` is the popup's own node for a popup with
+  // a node (Popover, PreviewCard, Menu); the popup that has an open child waits for it (useHoverFloatingInteraction.ts:
+  // 161-245).
+  it('port: leaving a popup that has an open child waits for floating.closed, then requests a hover close after 0 ms and emits it again', async () => {
+    vi.useFakeTimers();
     const parent = harness({ open: true });
     parent.attachSession();
-    parent.attachFloating(element('div'));
-    const nested = harness();
-    nested.attachSession({ session: { parentToken: parent.token } });
-    const nestedTrigger = element('button');
-    nested.attachTrigger(nestedTrigger, { trigger: { hover: {} } });
-    const nestedFloating = element('div');
-    nested.attachFloating(nestedFloating, { floating: { hover: {} } });
-    const tree = getSession(nested.token)!.tree;
+    const parentFloating = element('div');
+    parent.attachFloating(parentFloating, { floating: { hover: {} } });
+    const child = harness({ open: true });
+    child.attachSession({ session: { parentToken: parent.token } });
+    child.attachFloating(element('div'), { floating: { hover: {} } });
+    const tree = getSession(parent.token)!.tree;
     const closed: unknown[] = [];
     tree.events.on('floating.closed', (event: unknown) => closed.push(event));
 
-    hoverMouse(nestedTrigger, 'mouseenter');
-    hoverMouse(nestedFloating, 'mouseleave');
-    expect(nested.open).toBe(true);
-    expect(nested.requests).toHaveLength(1);
+    hoverMouse(parentFloating, 'mouseleave');
+    expect(parent.open).toBe(true);
+    expect(parent.requests).toHaveLength(0);
 
-    // The parent's last open child closes by other means; another popup's hover close then emits on the tree.
-    nested.setOpen(false);
+    // The child closes by other means; its hover close then emits on the tree.
+    child.setOpen(false);
     const other = new MouseEvent('mouseleave');
     tree.events.emit('floating.closed', other);
-    expect(nested.requests).toHaveLength(1);
+    expect(parent.requests).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(0);
-    expect(nested.requests.at(-1)?.payload).toMatchObject({ open: false, reason: 'trigger-hover' });
+    expect(parent.requests.at(-1)?.payload).toMatchObject({ open: false, reason: 'trigger-hover' });
     expect(closed).toEqual([other, other]);
+  });
 
-    // A mouseenter that brings the pointer back before the 0 ms elapse cancels it.
-    hoverMouse(nestedTrigger, 'mouseenter');
-    hoverMouse(nestedFloating, 'mouseleave');
-    nested.setOpen(false);
-    tree.events.emit('floating.closed', other);
-    hoverMouse(nestedFloating, 'mouseenter');
+  // The port's half of design point 11.6: Base UI's `setOpen(false)` is synchronous, so a child that emits `floating.closed`
+  // is already closed; here its close waits for C#'s commit, so a node with a close in flight counts as closed.
+  it('port: a child whose hover close awaits its commit counts as closed, so the parent that waits for it closes after 0 ms', async () => {
+    vi.useFakeTimers();
+    const parent = harness({ open: true });
+    parent.attachSession();
+    const parentFloating = element('div');
+    parent.attachFloating(parentFloating, { floating: { hover: {} } });
+    const child = harness({ commit: false });
+    child.attachSession({ session: { parentToken: parent.token } });
+    const childFloating = element('div');
+    child.attachFloating(childFloating, { floating: { hover: {} } });
+    child.setOpen(true, 'trigger-hover', null, 'mouseenter');
+
+    hoverMouse(parentFloating, 'mouseleave');
+    hoverMouse(childFloating, 'mouseleave');
+    expect(child.requests.at(-1)?.payload).toMatchObject({ open: false, reason: 'trigger-hover' });
+    expect(child.open).toBe(true);
+
     await vi.advanceTimersByTimeAsync(0);
-    expect(nested.requests).toHaveLength(3);
+    expect(parent.requests.at(-1)?.payload).toMatchObject({ open: false, reason: 'trigger-hover' });
   });
 });
 
