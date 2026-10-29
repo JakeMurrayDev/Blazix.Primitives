@@ -3570,11 +3570,14 @@ describe('useHoverFloatingInteraction', () => {
     parent.attachSession();
     const parentFloating = element('div');
     parent.attachFloating(parentFloating, { floating: { hover: {} } });
-    const child = harness({ commit: false });
+    // Opened by a hover commit; from then on the harness records requests without committing them (C# not yet answered).
+    const childOptions: { commit?: boolean } = {};
+    const child = harness(childOptions);
     child.attachSession({ session: { parentToken: parent.token } });
     const childFloating = element('div');
     child.attachFloating(childFloating, { floating: { hover: {} } });
     child.setOpen(true, 'trigger-hover', null, 'mouseenter');
+    childOptions.commit = false;
 
     hoverMouse(parentFloating, 'mouseleave');
     hoverMouse(childFloating, 'mouseleave');

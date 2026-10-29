@@ -402,7 +402,6 @@ test.describe('nested preview card interactions', () => {
 
   test.describe('synchronized closing', () => {
     test('parent popup closes as soon as the child popup closes', async ({ page, mode }) => {
-      test.skip(true, 'open to design point 11.6 of M4 track 7 (PRV-DIS-08, FLT-PTR-24/25): the floating hover handle reads its tree parent as the enclosing session, where Base UI reads the card\'s own node');
       await nested(page, mode);
       await freezeClock(page);
 

@@ -741,10 +741,12 @@ function createSessionRecord(token: string): SessionRecord {
       record.placement = placement;
     },
   } as unknown as SessionRecord;
-  // FLT-STR-08: the node's context, a live view of the session.
+  // FLT-STR-08: the node's context, a live view of the session. ADR 04 Amendments 2026-10-29 (design point 11.6 of M4
+  // track 7): a node whose close request is in flight counts as closed, as Base UI's synchronous `setOpen(false)` leaves it
+  // before `floating.closed` is emitted.
   record.context = {
     get open() {
-      return record.open;
+      return record.open && record.closeInFlight === null;
     },
     nodeId: token,
     get floatingId() {
@@ -3350,6 +3352,11 @@ function createHoverFloatingController(context: HandleContext): Controller {
   let subscribedTreeEvents: SessionEvents | null = null;
 
   const hoverOptions = (): FloatingHoverOptions | null => context.options.floating?.hover ?? null;
+  // ADR 04 Amendments 2026-10-29 (design point 11.6 of M4 track 7, a fidelity correction): Base UI's hook reads
+  // `useFloatingParentNodeId()` in the Popup, inside the Positioner's floating node, so the parent it reads is the popup's
+  // own node when it has one (Popover, PreviewCard, Menu) and the enclosing popup's otherwise (Tooltip).
+  const treeParentId = (): string | null => (record.hasNode ? record.token : record.parentToken);
+
 
   const isClickLikeOpen = () => isClickLikeOpenEvent(record.dataRef.current.openEvent?.type, instance.interactedInside);
 
@@ -3379,7 +3386,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
     if (open && instance.handleCloseOptions?.blockPointerEvents && isHoverOpen() && isElement(domReference)) {
       const ref = domReference as HTMLElement | SVGSVGElement;
       const doc = ownerDocument(floatingElement);
-      const parentId = record.parentToken;
+      const parentId = treeParentId();
 
       const parentFloating =
         parentId === null ? null : (record.tree.nodesRef.current.find((node) => node.id === parentId)?.context?.elements?.floating ?? null);
@@ -3423,7 +3430,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
   };
 
   const hasParentChildren = () => {
-    const parentId = record.parentToken;
+    const parentId = treeParentId();
     return !!(parentId && getNodeChildren(record.tree.nodesRef.current, parentId).length > 0);
   };
 
@@ -3450,7 +3457,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
 
   // FLT-PTR-25: useHoverFloatingInteraction.ts:235-245.
   function onNodeClosed(event: MouseEvent): void {
-    if (!record.parentToken || hasParentChildren()) {
+    if (!treeParentId() || hasParentChildren()) {
       return;
     }
     // Allow the mouseenter event to fire in case child was closed because mouse moved into parent.
