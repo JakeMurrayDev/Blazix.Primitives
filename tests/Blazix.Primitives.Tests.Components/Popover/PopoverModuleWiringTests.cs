@@ -333,8 +333,13 @@ public sealed class PopoverModuleWiringTests : IDisposable
 #pragma warning restore BL0016
         await Task.WhenAll(opening, closing);
 
-        cut.WaitForState(() => PopupAttachOptions() is not null);
-        string attach = PopupAttachOptions()!;
+        // No render follows the attach, and bUnit's waits check on renders: the record is polled.
+        for (int poll = 0; poll < 200 && PopupAttachOptions() is null; poll++)
+        {
+            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+        }
+
+        string attach = Assert.IsType<string>(PopupAttachOptions());
         Assert.Contains("\"open\":false", attach, StringComparison.Ordinal);
         Assert.Contains("\"retainExit\":true", attach, StringComparison.Ordinal);
     }
