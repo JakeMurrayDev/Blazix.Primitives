@@ -34,7 +34,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
-| components/dialog.md | DLG | implemented | 191 reqs (1 withdrawn for the port); revised 2026-10-29, M4 tracks 8 and 9 (the AlertDialog-rendering titles run; `implemented` 2026-10-29, chosen by the user, with PR 152); C# handlers inside a shadow-root portal container a documented deviation (ADR 04 Amendments 2026-10-29); open: Menu- and Select-rendering clauses (M5), Drawer clauses (M6), DLG-EVT-05's retained-close clause (issue 147) |
+| components/dialog.md | DLG | implemented | 191 reqs (1 withdrawn for the port); revised 2026-10-29, M4 tracks 8 and 9 (the AlertDialog-rendering titles run; `implemented` 2026-10-29, chosen by the user, with PR 152); C# handlers inside a shadow-root portal container a documented deviation (ADR 04 Amendments 2026-10-29); open: Menu- and Select-rendering clauses (M5), Drawer clauses (M6), DLG-EVT-05's retained-close clause closed by PR 152 |
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
 | components/field.md | FLD | implemented | 143 reqs; owns normative Field.Control text; revised 2026-10-23, PR 1c; rows open to tracks 4–8 and M5/M6 listed in PR 1c |
 | components/fieldset.md | FST | implemented | 32 reqs; revised 2026-10-23, PR 1c; rows open to tracks 5–8 and M5 listed in PR 1c | |
