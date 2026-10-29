@@ -1,0 +1,12 @@
+@namespace Blazix.Primitives.Tests.Components
+@* AlertDialogRoot.test.tsx's AlertDialogState: reads the nearest dialog-family root's internal context (the port's
+   useDialogRootContext) and renders its modality, pointer-dismissal flag and role as data attributes. *@
+<div data-testid="alert-dialog-state"
+     data-modal="@(Context!.Modality == DialogModality.Modal ? "true" : Context.Modality == DialogModality.TrapFocus ? "trap-focus" : "false")"
+     data-disable-pointer-dismissal="@(Context.DisablePointerDismissal ? "true" : "false")"
+     data-role="@Context.Role"></div>
+
+@code {
+    [CascadingParameter]
+    private IDialogRootContext? Context { get; set; }
+}
