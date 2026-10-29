@@ -43,6 +43,8 @@ internal sealed record PopoverSpec
 
     public bool Backdrop { get; init; }
 
+    public bool BackdropInPortal { get; init; }
+
     public bool Viewport { get; init; }
 
     public bool Arrow { get; init; }
@@ -150,6 +152,18 @@ internal static class PopoverTree
         builder.CloseComponent();
     }
 
+    private static void Backdrop(RenderTreeBuilder builder, PopoverSpec spec)
+    {
+        builder.OpenComponent<PopoverBackdrop>(10);
+        builder.AddComponentParameter(11, "data-testid", "backdrop");
+        if (spec.BackdropClass is not null)
+        {
+            builder.AddComponentParameter(12, nameof(PopoverBackdrop.ClassValue), spec.BackdropClass);
+        }
+
+        builder.CloseComponent();
+    }
+
     private static void RootContent(RenderTreeBuilder builder, PopoverSpec spec)
     {
         if (!spec.DetachedTriggers)
@@ -157,16 +171,9 @@ internal static class PopoverTree
             Triggers(builder, spec, null);
         }
 
-        if (spec.Backdrop)
+        if (spec.Backdrop && !spec.BackdropInPortal)
         {
-            builder.OpenComponent<PopoverBackdrop>(0);
-            builder.AddComponentParameter(1, "data-testid", "backdrop");
-            if (spec.BackdropClass is not null)
-            {
-                builder.AddComponentParameter(2, nameof(PopoverBackdrop.ClassValue), spec.BackdropClass);
-            }
-
-            builder.CloseComponent();
+            Backdrop(builder, spec);
         }
 
         if (spec.CloseOutside)
@@ -184,6 +191,11 @@ internal static class PopoverTree
         builder.AddComponentParameter(5, "data-testid", "portal");
         builder.AddComponentParameter(6, nameof(PopoverPortal.ChildContent), (RenderFragment)(b =>
         {
+            if (spec.Backdrop && spec.BackdropInPortal)
+            {
+                Backdrop(b, spec);
+            }
+
             b.OpenComponent<PopoverPositioner>(0);
             b.AddComponentParameter(1, "data-testid", "positioner");
             b.AddComponentParameter(2, nameof(PopoverPositioner.ChildContent), (RenderFragment)(p =>

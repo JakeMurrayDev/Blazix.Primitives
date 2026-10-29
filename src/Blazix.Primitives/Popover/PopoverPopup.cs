@@ -116,6 +116,10 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private PopoverSelection<PopupTriggerElement?>? activeTrigger;
     private PopoverSelection<EventSnapshot?>? closeEvent;
     private PopoverSelection<OpenChangeRelay?>? relay;
+    private PopoverSelection<bool>? retainExit;
+    private IDisposable? retainRegistration;
+    private bool announcedRetain;
+    private bool disposed;
     private bool initialResolved;
     private FocusTargetValue? resolvedInitial;
     private EventSnapshot? finalResolvedFor;
@@ -245,6 +249,13 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         activeTrigger = subscription.Select(PopoverSelectors.ActiveTriggerElement);
         closeEvent = subscription.Select(PopoverSelectors.CloseEvent);
         relay = subscription.Select(PopoverSelectors.OpenChange);
+        retainExit = subscription.Select(PopoverSelectors.PreventUnmountingOnClose);
+
+        // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): the store tells the
+        // part at the PreventUnmountOnClose() call, at a canceled close's reset and before each write that changes the
+        // opt-out, and the part announces it through the transitions module's export, addressed by its element, ahead of any
+        // render of the close: on Server the call lands before the close's batch, and after an attach already sent.
+        retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         focus = new FocusManagerBehavior(JSRuntime, InvokeAsync, snapshot =>
             root.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut) { Event = snapshot }));
         boundaryPart = root.RegisterBoundaryPart();
@@ -300,9 +311,12 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     {
         if (disposing)
         {
+            disposed = true;
             PositionerContext?.RemoveListener(positionerChanged);
             subscription?.Dispose();
             subscription = null;
+            retainRegistration?.Dispose();
+            retainRegistration = null;
             boundaryPart?.Dispose();
             boundaryPart = null;
             if (RootContext is not null)
@@ -392,20 +406,12 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
 
     private async Task SyncTransitionsAsync(ElementReference element)
     {
-        TransitionsOptions options = new()
+        // Issue 149's residual: the portal's move can complete after the part was disposed, which must create no twin.
+        if (disposed)
         {
-            Open = open!.Value,
-            Mounted = mounted!.Value,
-            Status = status!.Value,
-            ReportOpenComplete = true,
-            OpenSelector = OpenSelector,
-            UnmountRequests = unmountRequests!.Value,
+            return;
+        }
 
-            // TRN-DOM-05, POP-DOM-29 (ADR 04 Amendments 2026-10-28): the module writes transition: none on the starting frame
-            // from the handover on, under the consumer's style, which it applies as its writer's consumer band.
-            DisableTransitionWhileStarting = true,
-            Style = consumerStyle ?? string.Empty,
-        };
         if (transitions is null)
         {
             transitions = new TransitionsTwin(JSRuntime);
@@ -416,20 +422,58 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         if (transitionsHandle is null)
         {
             // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
-            attaching ??= AttachTransitionsAsync(element, options);
+            attaching ??= AttachTransitionsAsync(element, transitions);
             await attaching;
         }
-        else if (options != sentTransitions)
+        else if (TransitionsOptions() is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
     }
 
-    private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
+    private TransitionsOptions TransitionsOptions() => new()
     {
+        Open = open!.Value,
+        Mounted = mounted!.Value,
+        Status = status!.Value,
+        ReportOpenComplete = true,
+        OpenSelector = OpenSelector,
+        UnmountRequests = unmountRequests!.Value,
+        RetainExit = retainExit!.Value,
+
+        // TRN-DOM-05, POP-DOM-29 (ADR 04 Amendments 2026-10-28): the module writes transition: none on the starting frame
+        // from the handover on, under the consumer's style, which it applies as its writer's consumer band.
+        DisableTransitionWhileStarting = true,
+        Style = consumerStyle ?? string.Empty,
+    };
+
+    // A twin not created yet (the portal's move pending) has nothing to address: its attach sends the store's value then.
+    private void AnnounceRetainExit(bool retain)
+    {
+        if (transitions is null || Element is not { } element || announcedRetain == retain)
+        {
+            return;
+        }
+
+        announcedRetain = retain;
+        _ = transitions.RetainExitAsync(element, retain).AsTask();
+    }
+
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): the options are read once the module is imported, right before
+    // the attach is sent, so a close the store retained while the import was in flight is in them, and a later one's
+    // announcement follows the attach on the circuit.
+    private async Task AttachTransitionsAsync(ElementReference element, TransitionsTwin twin)
+    {
+        await twin.PrepareAsync();
+        if (disposed || transitions != twin)
+        {
+            return;
+        }
+
+        TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
-        transitionsHandle = await transitions!.AttachAsync(element, options);
+        transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();
     }

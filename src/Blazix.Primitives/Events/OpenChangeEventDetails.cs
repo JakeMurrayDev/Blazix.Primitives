@@ -38,8 +38,22 @@ public class OpenChangeEventDetails : ChangeEventDetails
     /// <value><see langword="true"/> after <see cref="PreventUnmountOnClose"/> has been called; otherwise, <see langword="false"/>.</value>
     internal bool UnmountOnClosePrevented => unmountOnClosePrevented;
 
+    // Issue 148 (issue 147's (B1), chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): the popup's store hears the
+    // call at once, so its popup announces the retained close ahead of any render the consumer's callback makes.
+    /// <summary>Gets or sets the store's hook, called the first time <see cref="PreventUnmountOnClose"/> is called.</summary>
+    internal Action? UnmountPreventionCalled { get; set; }
+
     /// <summary>
     /// Keeps a closing popup mounted, in its closing phase, until the root's <c>unmount</c> action is called.
     /// </summary>
-    public void PreventUnmountOnClose() => unmountOnClosePrevented = true;
+    public void PreventUnmountOnClose()
+    {
+        if (unmountOnClosePrevented)
+        {
+            return;
+        }
+
+        unmountOnClosePrevented = true;
+        UnmountPreventionCalled?.Invoke();
+    }
 }

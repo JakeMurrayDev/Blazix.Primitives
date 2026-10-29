@@ -20,6 +20,7 @@ import {
   resetFrameScheduler,
   type TransitionStatusLiteral,
   type TransitionsOptions,
+  retainExit,
 } from './transitions';
 import { styleWriter } from './dom';
 import type { TwinHandle } from './twin';
@@ -906,6 +907,99 @@ describe('attach', () => {
       { status: 'ending', mounted: true },
       { status: null, mounted: false },
     ]);
+  });
+
+  // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): a popup part announces
+  // a retained close before its batch; that close keeps its ending phase, not hidden, until C# requests the unmount
+  // (TRN-ANI-23), and an ordinary close still completes at its exit end.
+  it('port: a retained exit stays in its ending phase until the unmount is requested', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+    update(handle, { open: true, keepMounted: true, hiddenWhenUnmounted: true, retainExit: true });
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, retainExit: true });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+    expect(element.hasAttribute('hidden')).toBe(false);
+    expect(fake.reported('OnTransitionComplete')).toEqual([]);
+
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, retainExit: true, unmountRequests: 1 });
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+    expect(element.hasAttribute('hidden')).toBe(true);
+    expect(fake.reported('OnStatusChange').at(-1)).toEqual({ status: null, mounted: false });
+  });
+
+  // Issue 147 as chosen by the user 2026-10-29 ((B1), ADR 04 Amendments 2026-10-29): the popup part announces a retained
+  // close through the module export, addressed by the element, so it reaches the handle whatever its attach's state.
+  it('port: retainExit(element, true) keeps an attached exit in its ending phase until the unmount is requested', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+    retainExit(element, true);
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+    expect(element.hasAttribute('hidden')).toBe(false);
+    expect(fake.reported('OnTransitionComplete')).toEqual([]);
+
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, unmountRequests: 1 });
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+    expect(element.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('port: a retainExit announced before the attach reaches the handle that attaches', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    retainExit(element, true);
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+    expect(fake.reported('OnTransitionComplete')).toEqual([]);
+  });
+
+  it('port: retainExit(element, false) lets the exit complete, and the next open clears an announcement', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, keepMounted: true, hiddenWhenUnmounted: true });
+
+    // A canceled close's reset: the exit of the next close completes at its end.
+    retainExit(element, true);
+    retainExit(element, false);
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+    expect(element.hasAttribute('hidden')).toBe(true);
+
+    // An announcement of a close that never came is cleared by the next open (TRN-ANI-24).
+    update(handle, { open: true, keepMounted: true, hiddenWhenUnmounted: true });
+    retainExit(element, true);
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, unmountRequests: 0 });
+    update(handle, { open: true, keepMounted: true, hiddenWhenUnmounted: true });
+    runFrame();
+    update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    runFrame();
+    expect(element.hasAttribute('hidden')).toBe(true);
   });
 
   // ADR 04 Amendments 2026-10-28 (gap 13 of M4 track 5, option (b)): the handed-over style is the dom writer's consumer

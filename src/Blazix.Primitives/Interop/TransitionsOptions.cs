@@ -104,4 +104,14 @@ internal sealed record TransitionsOptions : TwinOptions
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool DisableTransitionWhileStarting { get; init; }
+
+    // TRN-ANI-23; ADR 04 Amendments 2026-10-29 (issue 147, settled by the orchestrator, option (B)): a popup part sends it
+    // from the store notification that records the opt-out, ahead of the close's batch; written only when set.
+    /// <summary>Gets a value indicating whether the current close keeps its ending phase until an unmount is requested.</summary>
+    /// <value>
+    /// <see langword="true"/> while the popup's store holds an opt-out of the automatic unmount: no exit watcher completes the
+    /// close, which ends only when <see cref="UnmountRequests"/> increases; the default is <see langword="false"/>.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RetainExit { get; init; }
 }

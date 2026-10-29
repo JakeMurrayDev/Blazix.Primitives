@@ -178,6 +178,24 @@ public sealed class DialogPopupTests : IDisposable
     public Task A_modal_popup_that_unmounts_before_its_scroll_locks_attach_answers_drops_the_missing_element_error() =>
         AssertUnmountDropsTheStalledAttachAsync("scroll-lock.js", optionsFragment: null, modal: true);
 
+    // Issue 149's residual (its comment of 2026-10-29): DialogTransitions created its twin after awaiting the portal's move
+    // without a disposed check, so a popup, backdrop or viewport disposed while the move was pending leaked a twin.
+    [Fact(DisplayName = "port: a dialog disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "DLG-ANI-07")]
+    public async Task A_dialog_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        test.Context.Render<DialogHarness>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.Modal, false));
+        int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await test.Context.DisposeComponentsAsync();
+        runtime.Release();
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
+    }
+
     private async Task AssertUnmountDropsTheStalledAttachAsync(string module, string? optionsFragment, bool modal)
     {
         StalledAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, module, optionsFragment);

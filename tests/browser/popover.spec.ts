@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { expect, Fixture, fixtureUrl, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
@@ -1639,7 +1639,12 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
 // from its render prop; the port renders them as data-open and data-starting-style/data-ending-style, recorded on every
 // change and deduplicated as Base UI's onState does.
 test.describe('Popover popup transition state', () => {
-  test('starts each opening once when the popup is kept mounted', async ({ page, mode }) => {
+  // Quarantined (ADR 11 §4) until 2026-11-12, issue 153: intermittent on Server on main too (an extra leading
+  // { open: true, transitionStatus: undefined } sample; 4 of 8 local repeats on main).
+  test.fixme('starts each opening once when the popup is kept mounted', {
+    tag: '@quarantine',
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/153' },
+  }, async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'popover-root', { keepMounted: true, popupClass: 'transition-state', animations: 1 });
     await page.evaluate(() => {
       const states: { open: boolean; transitionStatus: string | undefined }[] = [];
@@ -1775,10 +1780,8 @@ test.describe('<Popover.Close /> rendering a tooltip trigger', () => {
   });
 
   test('remains anchored to the trigger when closing from a tooltip trigger close', async ({ page, mode }) => {
-    // Gap 18 (raised 2026-10-29 by track 6, settled by the orchestrator 2026-10-29): a retained close still ends its exit
-    // in the transitions module, which drops data-ending-style and hides the popup, so the positioner collapses and
-    // re-centres under the trigger (53 px on this layout). The fix is issue 147's.
-    test.skip(true, 'open to issue 147: a close kept mounted by PreventUnmountOnClose loses data-ending-style at its exit end (POP-ANI-06, POP-POS-03)');
+    // Issue 147 (gap 18, settled by the orchestrator 2026-10-29): a retained close keeps its ending phase, so the
+    // positioner keeps its size and anchor through the exit.
     await gotoPopupFixture(page, mode, 'popover-tooltip-close', { case: 'anchored' });
     const positioner = page.getByTestId('positioner');
     const rect = () => positioner.evaluate((element) => {
@@ -1797,6 +1800,61 @@ test.describe('<Popover.Close /> rendering a tooltip trigger', () => {
     expect(Math.abs(closing.x - initial.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(closing.y - initial.y)).toBeLessThanOrEqual(1);
   });
+});
+
+// Issue 147 (POP-ANI-06, TRN-ANI-23; ADR 04 Amendments 2026-10-29, (B1) with issue 148, chosen by the user 2026-10-29): a
+// close kept mounted by PreventUnmountOnClose keeps its ending phase until Unmount(). The popup announces it through the
+// transitions module's export at the call, ahead of any render of the close, so it holds on Server under the circuit's
+// latency, for a close inside the popup's first attach round trip, and for a controlled close whose callback renders the
+// new value and then awaits (issue 148).
+test.describe('<Popover.Root /> a retained close', () => {
+  const expectRetainedUntilUnmount = async (page: Page, fixture: Locator, popup: Locator) => {
+    await expect(popup).toHaveAttribute('data-ending-style');
+    await settle(fixture);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(popup).toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('hidden');
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await expect(popup).toHaveCount(0);
+  };
+
+  for (const latency of [0, 250]) {
+    const suffix = latency === 0 ? '' : ', within the first attach round trip under circuit latency on Server';
+    test(`port: a close kept mounted by PreventUnmountOnClose keeps data-ending-style until Unmount()${suffix}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'popover-root', { retainEveryClose: true });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popover-popup');
+      await trigger.click();
+      await expect(popup).toBeVisible();
+
+      // At once: under latency the popup's transitions attach is still answering.
+      await trigger.click();
+
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expectRetainedUntilUnmount(page, fixture, popup);
+    });
+
+    test(`port: a controlled close whose callback renders and then awaits keeps data-ending-style until Unmount()${latency === 0 ? '' : ', under circuit latency on Server'}`, async ({ page, mode }) => {
+      if (latency > 0 && mode === 'server') {
+        await delayCircuit(page, latency);
+      }
+      const fixture = await gotoPopupFixture(page, mode, 'popover-root', { open: false, retainEveryClose: true, awaitInCallback: true });
+      const trigger = page.getByTestId('trigger');
+      const popup = page.getByTestId('popover-popup');
+      await trigger.click();
+      await expect(popup).toBeVisible();
+      await settle(fixture);
+
+      await trigger.click();
+
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expectRetainedUntilUnmount(page, fixture, popup);
+    });
+  }
 });
 
 // Port titles for rows Base UI tests only in its floating modules (POP-DOM-11, DOM-17, KEY-04, PTR-15, ARIA-10).

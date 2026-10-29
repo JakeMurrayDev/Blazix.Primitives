@@ -1,6 +1,8 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -215,6 +217,206 @@ public sealed class PopoverModuleWiringTests : IDisposable
             transitions.Invocations["attach"],
             attach => attach.Arguments[1] is string json && json.Contains("\"disableTransitionWhileStarting\":true", StringComparison.Ordinal));
     }
+
+    // Issue 147 as chosen by the user 2026-10-29 ((B1) with issue 148, ADR 04 Amendments 2026-10-29): the
+    // PreventUnmountOnClose() call announces the retained close through the transitions module's export, addressed by the
+    // element, ahead of any render the consumer's callback makes, a controlled close that re-renders and awaits included;
+    // a close the callback then cancels sends the reset.
+    [Fact(DisplayName = "port: the PreventUnmountOnClose() call announces the retained close to the transitions module before any render")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task The_call_announces_the_retained_close_before_any_render()
+    {
+        List<bool> announcedAtCall = [];
+        IRenderedComponent<PopupTestHost>? cut = null;
+        cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, new PopoverSpec
+            {
+                Open = host.Get<bool>("open"),
+                OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(host, async args =>
+                {
+                    if (!args.Value)
+                    {
+                        ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                        announcedAtCall.Add(RetainExitAnnouncements().SequenceEqual([true]) && cut!.Find("[data-testid=\"popup\"]").HasAttribute("data-open"));
+                    }
+
+                    // A controlled consumer that re-renders and then awaits inside its callback.
+                    await host.SetAsync("open", args.Value);
+                    await Task.Yield();
+                }),
+            }),
+            new() { ["open"] = false });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForAssertion(() => Assert.Contains(test.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
+        await test.PressAsync(cut, "trigger-1", open: false);
+
+        Assert.Equal([true], announcedAtCall);
+        Assert.Equal([true], RetainExitAnnouncements());
+    }
+
+    [Fact(DisplayName = "port: a retained close the callback then cancels sends the announcement's reset")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task A_canceled_retained_close_sends_the_reset()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    args.Details.Cancel();
+                }
+            }),
+        });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForAssertion(() => Assert.Contains(test.Context.JSInterop.Invocations, invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"openSelector\"", StringComparison.Ordinal)));
+        await test.PressAsync(cut, "trigger-1", open: false);
+
+        Assert.Equal([true, false], RetainExitAnnouncements());
+    }
+
+    // Issue 149's residual (its comment of 2026-10-29): the popup creates its transitions twin after the portal's move, which
+    // on Server can complete after the part was disposed; a disposed popup creates none, so no twin outlives it.
+    [Fact(DisplayName = "port: a popup disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_popup_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        Render(new PopoverSpec { DefaultOpen = true });
+        int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await test.Context.DisposeComponentsAsync();
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
+    }
+
+    // Issue 147 ((B1), as built, ADR 04 Amendments 2026-10-29): the popup reads its first attach's options once the
+    // transitions module is imported, right before the attach is sent, so a close the store retained while the import was in
+    // flight rides in the attach itself.
+    [Fact(DisplayName = "port: a close retained while the transitions module is imported rides in the popup's first attach")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task A_close_retained_while_the_module_is_imported_rides_in_the_first_attach()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", holdImport: true);
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        bool closed = false;
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                    closed = true;
+                }
+            }),
+        });
+
+        Task opening = test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForElement("[data-testid=\"popup\"][data-open]");
+        Task closing = test.PressAsync(cut, "trigger-1", open: false);
+        cut.WaitForAssertion(() => Assert.True(closed));
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.WhenAll(opening, closing);
+
+        // No render follows the attach, and bUnit's waits check on renders: the record is polled.
+        for (int poll = 0; poll < 200 && PopupAttachOptions() is null; poll++)
+        {
+            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+        }
+
+        string attach = Assert.IsType<string>(PopupAttachOptions());
+        Assert.Contains("\"open\":false", attach, StringComparison.Ordinal);
+        Assert.Contains("\"retainExit\":true", attach, StringComparison.Ordinal);
+    }
+
+    // Issue 147 ((B1)) for the backdrop: its own transitions handle keeps a retained close's ending phase as the popup's does,
+    // so it announces the call through the export and carries the store's value in its options.
+    [Fact(DisplayName = "port: the backdrop announces a retained close and carries it in its transitions options")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task The_backdrop_announces_a_retained_close_and_carries_it_in_its_options()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            Backdrop = true,
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }),
+        });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForAssertion(() => Assert.NotNull(LastBackdropTransitionsOptions()));
+        string backdrop = test.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal))
+            .Select(invocation => ((ElementReference)invocation.Arguments[0]!).Id)
+            .Single();
+        await test.PressAsync(cut, "trigger-1", open: false);
+
+        cut.WaitForAssertion(() => Assert.Contains("\"retainExit\":true", LastBackdropTransitionsOptions(), StringComparison.Ordinal));
+        Assert.Contains(
+            test.Context.JSInterop.Invocations,
+            invocation => invocation.Identifier == "retainExit" && invocation.Arguments[0] is ElementReference element && element.Id == backdrop && (bool)invocation.Arguments[1]!);
+    }
+
+    // Issue 149's residual for the backdrop: inside the portal it creates its transitions twin after the move, as the popup
+    // does, and a backdrop disposed while the move is pending creates none.
+    [Fact(DisplayName = "port: a backdrop disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        Render(new PopoverSpec { DefaultOpen = true, Backdrop = true, BackdropInPortal = true });
+        int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await test.Context.DisposeComponentsAsync();
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
+    }
+
+    private string? PopupAttachOptions() =>
+        test.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1)
+            .Select(invocation => invocation.Arguments[1] as string)
+            .SingleOrDefault(json => json is not null && json.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal));
+
+    // The backdrop's options are the only transitions options in these trees that do not report the open's completion.
+    private string? LastBackdropTransitionsOptions() =>
+        test.Context.JSInterop.Invocations
+            .Select(invocation => invocation.Identifier switch
+            {
+                "attach" when invocation.Arguments.Count > 1 => invocation.Arguments[1] as string,
+                "update" => invocation.Arguments[0] as string,
+                _ => null,
+            })
+            .LastOrDefault(json => json is not null && json.Contains("\"openSelector\"", StringComparison.Ordinal) && json.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal));
+
+    private bool[] RetainExitAnnouncements() =>
+        [.. test.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
 }

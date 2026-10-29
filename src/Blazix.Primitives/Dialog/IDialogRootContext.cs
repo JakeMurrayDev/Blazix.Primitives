@@ -80,6 +80,9 @@ internal interface IDialogRootContext
     /// <summary>Gets a value indicating whether the dialog's portal keeps its subtree mounted while closed.</summary>
     bool PortalKeepMounted { get; }
 
+    /// <summary>Gets a value indicating whether the current close keeps the dialog mounted until the unmount action runs.</summary>
+    bool PreventUnmountingOnClose { get; }
+
     /// <summary>Subscribes a part to the fields it renders.</summary>
     /// <param name="fields">The fields.</param>
     /// <param name="changed">Called when at least one of <paramref name="fields"/> changed, such as the part's <c>StateHasChanged</c>.</param>
@@ -135,6 +138,11 @@ internal interface IDialogRootContext
     /// <param name="dialogs">The depth the nested root reports: its own count plus one while open, 0 once closed.</param>
     /// <param name="drawers">The nested drawer count it reports; 0 until Drawer is ported.</param>
     void ReportNestedOpen(int dialogs, int drawers);
+
+    /// <summary>Registers a listener for a change of whether the current close keeps the dialog mounted, called at the call and before a write is published.</summary>
+    /// <param name="listener">The listener, called with the new value.</param>
+    /// <returns>The registration; disposing it unregisters the listener.</returns>
+    IDisposable OnUnmountPreventionChanging(Action<bool> listener);
 }
 
 /// <summary>Publishes the rendered id of a dialog's title or description, and clears it on dispose.</summary>
