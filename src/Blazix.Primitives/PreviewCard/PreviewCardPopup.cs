@@ -74,6 +74,8 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
     private TwinHandle<TransitionsOptions>? transitionsHandle;
     private TransitionsOptions? sentTransitions;
     private Task? attaching;
+    private IDisposable? retainRegistration;
+    private bool announcedRetain;
     private string? consumerStyle;
     private string? frozenStyle;
 
@@ -139,6 +141,11 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
         positioner = PreviewCardPositionerContext.Require(PositionerContext);
         positioner.Positioner.AddListener(mirrorChanged);
         view = root.CreateView(StateHasChanged, PreviewCardSelection.Open | PreviewCardSelection.Mounted | PreviewCardSelection.TransitionStatus | PreviewCardSelection.InstantType | PreviewCardSelection.UnmountRequests);
+
+        // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29), as Tooltip's popup:
+        // the store tells the part at the PreventUnmountOnClose() call, at a canceled close's reset and before each write
+        // that changes the opt-out, and the part announces it through the transitions module's export, ahead of any render.
+        retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         base.OnInitialized();
     }
 
@@ -166,6 +173,8 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
             positioner?.Positioner.RemoveListener(mirrorChanged);
             view?.ClearPopupElement();
             view?.Dispose();
+            retainRegistration?.Dispose();
+            retainRegistration = null;
             view = null;
             if (transitions is not null)
             {
@@ -226,18 +235,6 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
 
     private async Task SyncTransitionsAsync(ElementReference element, PreviewCardStoreView current)
     {
-        TransitionsOptions options = new()
-        {
-            Open = current.Open,
-            Mounted = current.Mounted,
-            Status = current.TransitionStatus,
-            KeepMounted = portalContext?.KeepMounted ?? false,
-            ReportOpenComplete = true,
-            OpenSelector = "[data-open]",
-            UnmountRequests = current.UnmountRequests,
-            DisableTransitionWhileStarting = true,
-            Style = consumerStyle ?? string.Empty,
-        };
         if (transitions is null)
         {
             transitions = new TransitionsTwin(JSRuntime);
@@ -248,21 +245,50 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
         if (transitionsHandle is null)
         {
             // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
-            attaching ??= AttachTransitionsAsync(element, options);
+            attaching ??= AttachTransitionsAsync(element, current);
             await attaching;
         }
-        else if (options != sentTransitions)
+        else if (TransitionsOptions(current) is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
     }
 
+    private TransitionsOptions TransitionsOptions(PreviewCardStoreView current) => new()
+    {
+        Open = current.Open,
+        Mounted = current.Mounted,
+        Status = current.TransitionStatus,
+        KeepMounted = portalContext?.KeepMounted ?? false,
+        ReportOpenComplete = true,
+        OpenSelector = "[data-open]",
+        UnmountRequests = current.UnmountRequests,
+        RetainExit = current.PreventUnmountingOnClose,
+        DisableTransitionWhileStarting = true,
+        Style = consumerStyle ?? string.Empty,
+    };
+
+    // A twin not created yet has nothing to address: its attach sends the store's value then.
+    private void AnnounceRetainExit(bool retain)
+    {
+        if (transitions is null || Element is not { } element || announcedRetain == retain)
+        {
+            return;
+        }
+
+        announcedRetain = retain;
+        _ = transitions.RetainExitAsync(element, retain).AsTask();
+    }
+
     // Design point 3 of M4 track 1: the portal node is `display: none` in place until the portal module moves it, so the
     // first attach waits for the move, or the module reads no animation on an element not rendered yet.
     // On Server the move can complete after the close that unmounts this popup: the portal detaches from its own
     // after-render, a round trip after the render that disposed this part, so a disposed popup attaches nothing.
-    private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): the options are read once the module is imported, right before
+    // the attach is sent, so a close the store retained during the move or the import is in them, and a later one's
+    // announcement follows the attach on the circuit.
+    private async Task AttachTransitionsAsync(ElementReference element, PreviewCardStoreView current)
     {
         await PopupPortalContext.WhenMoved(Portal);
         if (transitions is not { } twin)
@@ -270,6 +296,13 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
             return;
         }
 
+        await twin.PrepareAsync();
+        if (transitions != twin)
+        {
+            return;
+        }
+
+        TransitionsOptions options = TransitionsOptions(current);
         sentTransitions = options;
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
