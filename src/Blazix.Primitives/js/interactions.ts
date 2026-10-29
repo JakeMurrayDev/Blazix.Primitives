@@ -3366,7 +3366,6 @@ function createHoverFloatingController(context: HandleContext): Controller {
   // own node when it has one (Popover, PreviewCard, Menu) and the enclosing popup's otherwise (Tooltip).
   const treeParentId = (): string | null => (record.hasNode ? record.token : record.parentToken);
 
-
   const isClickLikeOpen = () => isClickLikeOpenEvent(record.dataRef.current.openEvent?.type, instance.interactedInside);
 
   const isHoverOpen = () => isHoverOpenEvent(record.dataRef.current.openEvent?.type);
@@ -3443,9 +3442,8 @@ function createHoverFloatingController(context: HandleContext): Controller {
   // state, as Base UI's node context is a render snapshot that a close within the same event has not yet changed.
   const hasParentChildren = () => {
     const parentId = treeParentId();
-    return !!(
-      parentId && getNodeChildren(record.tree.nodesRef.current, parentId).some((node) => node.id === undefined || sessions.get(node.id)?.closeInFlight == null)
-    );
+    const isOpenChild = (node: SessionNode) => node.id === undefined || sessions.get(node.id)?.closeInFlight == null;
+    return !!(parentId && getNodeChildren(record.tree.nodesRef.current, parentId).some(isOpenChild));
   };
 
   // FLT-PTR-15 with `closeDelay` (useHoverFloatingInteraction.ts:165-178).
