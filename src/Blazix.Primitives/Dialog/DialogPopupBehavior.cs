@@ -32,6 +32,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     private static readonly InteractionsFloatingOptions s_floating = new();
     private static readonly PopupOptions s_stoppedKeys = new() { Popup = new PopupElementOptions { StopCompositeKeys = true } };
 
+    private readonly string familyName;
     private readonly string partName;
     private readonly ILogger logger;
     private readonly Action requestRender;
@@ -60,15 +61,16 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="DialogPopupBehavior"/> class.</summary>
-    /// <param name="partName">The part's name as a consumer writes it, such as <c>DialogPopup</c>, for its warnings.</param>
+    /// <param name="familyName">The part's family, such as <c>Dialog</c>, which names the part in its warnings and its messages.</param>
     /// <param name="jsRuntime">The runtime the twins import their modules through.</param>
     /// <param name="logger">The part's logger, which receives development warnings.</param>
     /// <param name="requestRender">Asks the part to render.</param>
     /// <param name="invokeAsync">Runs work on the part's renderer.</param>
     /// <param name="dispatchException">Routes an exception to the part.</param>
-    public DialogPopupBehavior(string partName, IJSRuntime jsRuntime, ILogger logger, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException)
+    public DialogPopupBehavior(string familyName, IJSRuntime jsRuntime, ILogger logger, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException)
     {
-        this.partName = partName;
+        this.familyName = familyName;
+        partName = familyName + "Popup";
         this.logger = logger;
         this.requestRender = requestRender;
         changed = OnChanged;
@@ -146,9 +148,10 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     /// <exception cref="InvalidOperationException">The part is not inside its root's portal.</exception>
     public void Subscribe(IDialogRootContext rootContext, PopupPortalContext? portalContext)
     {
+        // The part's own family names the portal, whichever family's root encloses it (ADL-STR-04).
         if (portalContext is null || !ReferenceEquals(portalContext, rootContext.Portal))
         {
-            throw DialogParts.MissingPortal(rootContext.ComponentName);
+            throw DialogParts.MissingPortal(familyName);
         }
 
         context = rootContext;

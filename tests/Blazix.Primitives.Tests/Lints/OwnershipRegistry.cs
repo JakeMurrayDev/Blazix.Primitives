@@ -111,6 +111,16 @@ internal static class OwnershipRegistry
         // TabsPanelState.TransitionStatus; C# renders data-starting-style once, on an element it creates open.
         new("tabs", "Panel", "data-starting-style", Writer.Js, "TabsPanelState.TransitionStatus"),
         new("tabs", "Panel", "data-ending-style", Writer.Js, "TabsPanelState.TransitionStatus"),
+        // AlertDialog (M4 track 9, issue 124; design point 2, settled by the orchestrator 2026-10-29, ADR 04 Amendments
+        // 2026-10-29): Dialog's transition rows under alert-dialog.md §5.1's own Writer tables, mirrored in each AlertDialog
+        // state's TransitionStatus; §5.2's outside aria-hidden is the focus manager's outside marking.
+        new("alert-dialog", "Backdrop", "data-starting-style", Writer.Js, "AlertDialogBackdropState.TransitionStatus"),
+        new("alert-dialog", "Backdrop", "data-ending-style", Writer.Js, "AlertDialogBackdropState.TransitionStatus"),
+        new("alert-dialog", "Viewport", "data-starting-style", Writer.Js, "AlertDialogViewportState.TransitionStatus"),
+        new("alert-dialog", "Viewport", "data-ending-style", Writer.Js, "AlertDialogViewportState.TransitionStatus"),
+        new("alert-dialog", "Popup", "data-starting-style", Writer.Js, "AlertDialogPopupState.TransitionStatus"),
+        new("alert-dialog", "Popup", "data-ending-style", Writer.Js, "AlertDialogPopupState.TransitionStatus"),
+        new("alert-dialog", "ARIA", "aria-hidden", Writer.Js),
         // Dialog (M4 track 8; ADR 04 §2 and Amendments 2026-10-27): the transitions module writes the Backdrop's, the
         // Viewport's and the Popup's transition attributes, mirrored in each state's TransitionStatus; C# renders the
         // initial status under the handover. `--nested-dialogs` is C#'s, written in the commit path (no entry).

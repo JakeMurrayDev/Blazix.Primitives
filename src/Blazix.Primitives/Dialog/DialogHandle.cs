@@ -3,7 +3,9 @@ namespace Blazix.Primitives;
 // DLG §3.10 (dialog/store/DialogHandle.ts), ADR 08 Amendments 2026-10-27 (chosen by the user 2026-10-27: a per-family handle
 // created with `new`): the shared handle with the Dialog family's OpenWithPayloadAsync (PSH-STA-39, DLG-API-25). Dialog
 // opens unassociated, with a development warning, for an id no trigger has (PSH-EDGE-04, DLG-EDGE-06). AlertDialogHandle
-// derives from it (track 9), so the family name in its diagnostics is a constructor argument.
+// derives from it (track 9) through the mode constructor, which picks the fallback store's mode; the diagnostics name
+// DialogHandle in every mode, as AlertDialog's do in Base UI (PSH-EDGE-02, ADL-EDGE-01; settled by the orchestrator
+// 2026-10-29).
 /// <summary>
 /// Connects a dialog's root with triggers rendered anywhere on the page, and opens and closes the dialog from code.
 /// </summary>
@@ -29,9 +31,9 @@ public class DialogHandle<TPayload> : PopupHandle<TPayload>
     }
 
     /// <summary>Initializes a new instance of the <see cref="DialogHandle{TPayload}"/> class for a dialog family.</summary>
-    /// <param name="mode">The family of the roots that use the handle.</param>
+    /// <param name="mode">The family of the roots that use the handle, which its fallback store takes.</param>
     private protected DialogHandle(DialogMode mode)
-        : base(DialogStore<TPayload>.NameOf(mode), throwOnMissingTrigger: false)
+        : base("Dialog", throwOnMissingTrigger: false)
     {
         this.mode = mode;
     }

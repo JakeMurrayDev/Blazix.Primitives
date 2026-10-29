@@ -1,0 +1,86 @@
+@namespace Blazix.Primitives.Fixtures.Client.AlertDialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `alert-dialog-conformance` fixture (tests/browser/alert-dialog.spec.ts): popupConformanceTests (tests/browser/suites/)
+    on AlertDialog, a contained trigger, portal, popup and close (AlertDialogRoot.test.tsx's popupConformanceTests host). The
+    query sets the root's props:
+    - `open=true|false`: a controlled root (the `[data-set-open]` buttons change it, as the suite's rerender does);
+      absent, the root is uncontrolled;
+    - `defaultOpen`, `cancelOpen`, `cancelClose`, `allowPropagation`, `popupId`, `keepMounted` (an alert dialog has no
+      `modal`: it is always modal);
+    - `animated`: the popup takes the `alert-dialog-animated` class, 200 ms keyframes on `[data-open]` and
+      `[data-ending-style]` (open the page with `?animations=1`).
+*@
+<FixtureContainer Name="alert-dialog-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes alert-dialog-conformance-enter { from { opacity: 0; } }
+        @@keyframes alert-dialog-conformance-exit { to { opacity: 0; } }
+        .alert-dialog-animated[data-open] { animation: alert-dialog-conformance-enter 200ms; }
+        .alert-dialog-animated[data-ending-style] { animation: alert-dialog-conformance-exit 200ms; }
+        /* The suite's rerender clicks these while the alert dialog's internal backdrop covers the page. */
+        [data-fixture="alert-dialog-conformance"] [data-set-open] { position: relative; z-index: 1; }
+        /* As Base UI's demos position the popup, so the internal backdrop lies under it. */
+        [data-base-ui-portal] [role="alertdialog"] { position: relative; z-index: 1; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+
+    @if (controlled)
+    {
+        <AlertDialogRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </AlertDialogRoot>
+    }
+    else
+    {
+        <AlertDialogRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </AlertDialogRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private Dictionary<string, object> popupAttributes = [];
+    private AlertDialogTrigger<NoPayload>? trigger;
+    private AlertDialogRoot<NoPayload>? root;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        popupAttributes["data-testid"] = "popup";
+        if (Query("popupId") is { } id)
+        {
+            popupAttributes["id"] = id;
+        }
+
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "alert-dialog-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <AlertDialogTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Trigger</AlertDialogTrigger>
+        <AlertDialogPortal KeepMounted="@keepMounted">
+            <AlertDialogPopup @attributes="popupAttributes">
+                <span>Popup content</span>
+                <AlertDialogClose data-testid="close">Close popup</AlertDialogClose>
+            </AlertDialogPopup>
+        </AlertDialogPortal>
+    </text>;
+}

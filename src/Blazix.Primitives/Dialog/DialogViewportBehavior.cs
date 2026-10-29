@@ -15,16 +15,19 @@ internal sealed class DialogViewportBehavior : IAsyncDisposable
 
     private readonly DialogTransitions transitions;
     private readonly Action requestRender;
+    private readonly string familyName;
     private IDialogRootContext? context;
     private IDisposable? subscription;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="DialogViewportBehavior"/> class.</summary>
+    /// <param name="familyName">The part's family, such as <c>Dialog</c>, which its messages name.</param>
     /// <param name="jsRuntime">The runtime the twin imports its module through.</param>
     /// <param name="requestRender">Asks the part to render.</param>
     /// <param name="invokeAsync">Runs work on the part's renderer.</param>
-    public DialogViewportBehavior(IJSRuntime jsRuntime, Action requestRender, Func<Func<Task>, Task> invokeAsync)
+    public DialogViewportBehavior(string familyName, IJSRuntime jsRuntime, Action requestRender, Func<Func<Task>, Task> invokeAsync)
     {
+        this.familyName = familyName;
         this.requestRender = requestRender;
         transitions = new DialogTransitions(jsRuntime, externalExit: true, invokeAsync);
     }
@@ -62,9 +65,10 @@ internal sealed class DialogViewportBehavior : IAsyncDisposable
     /// <exception cref="InvalidOperationException">The part is not inside its root's portal.</exception>
     public void Subscribe(IDialogRootContext rootContext, PopupPortalContext? portal)
     {
+        // The part's own family names the portal, whichever family's root encloses it (ADL-STR-04).
         if (portal is null || !ReferenceEquals(portal, rootContext.Portal))
         {
-            throw DialogParts.MissingPortal(rootContext.ComponentName);
+            throw DialogParts.MissingPortal(familyName);
         }
 
         context = rootContext;
