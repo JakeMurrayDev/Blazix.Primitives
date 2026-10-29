@@ -196,6 +196,7 @@ public static class FixtureCatalog
         ["dialog-shared"] = new(typeof(DialogSharedFixture)),
         ["dialog-shadow"] = new(typeof(DialogShadowFixture)),
         ["dialog-popover"] = new(typeof(DialogPopoverFixture)),
+        ["dialog-confirmation"] = new(typeof(DialogConfirmationFixture)),
         ["alert-dialog-conformance"] = new(typeof(AlertDialogConformanceFixture)),
         ["alert-dialog-shared"] = new(typeof(AlertDialogSharedFixture)),
         ["alert-dialog-triggers"] = new(typeof(AlertDialogTriggersFixture)),
