@@ -31,6 +31,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
     private readonly Controlled<bool> open;
     private readonly Controlled<string?> triggerId;
     private readonly List<Action<bool>> unmountPreventionListeners = [];
+    private readonly Action announceUnmountPrevention;
     private TPayload? payload;
     private bool hasPayload;
     private int openChangeRevision;
@@ -62,6 +63,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         Logger = logger;
         open = new Controlled<bool>(componentName, "open", logger);
         triggerId = new Controlled<string?>(componentName, "triggerId", logger);
+        announceUnmountPrevention = () => RaiseUnmountPreventionChanging(true);
     }
 
     /// <summary>Gets the family's name in diagnostics.</summary>
@@ -243,14 +245,10 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         // Issue 148 (issue 147's (B1), chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): a close's opt-out is
         // announced at the PreventUnmountOnClose() call, before any render the consumer's callback makes; a close the
         // callback then cancels sends the reset, except under Dialog's call-time opt-out, which keeps it for the next close.
-        bool announced = false;
+        // The hook is one cached delegate (ADR 16 rule 2): the details record the call, so it carries no state of the request.
         if (!open)
         {
-            details.UnmountPreventionCalled = () =>
-            {
-                announced = true;
-                RaiseUnmountPreventionChanging(true);
-            };
+            details.UnmountPreventionCalled = announceUnmountPrevention;
         }
 
         bool applied;
@@ -269,7 +267,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
             {
                 WritePopup(State.Popup with { PreventUnmountingOnClose = true });
             }
-            else if (announced && !State.Popup.PreventUnmountingOnClose)
+            else if (!open && details.UnmountOnClosePrevented && !State.Popup.PreventUnmountingOnClose)
             {
                 RaiseUnmountPreventionChanging(false);
             }
@@ -882,11 +880,13 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         await OnOpenChangeComplete.InvokeAsync(false);
     }
 
+    // Each listener only sends its part's announcement and none registers or unregisters during the raise, so the list is
+    // read in place, without a copy per raise (ADR 16).
     private void RaiseUnmountPreventionChanging(bool prevented)
     {
-        foreach (Action<bool> listener in unmountPreventionListeners.ToArray())
+        for (int i = 0; i < unmountPreventionListeners.Count; i++)
         {
-            listener(prevented);
+            unmountPreventionListeners[i](prevented);
         }
     }
 
