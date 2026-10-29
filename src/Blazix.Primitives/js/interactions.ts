@@ -741,12 +741,10 @@ function createSessionRecord(token: string): SessionRecord {
       record.placement = placement;
     },
   } as unknown as SessionRecord;
-  // FLT-STR-08: the node's context, a live view of the session. ADR 04 Amendments 2026-10-29 (design point 11.6 of M4
-  // track 7): a node whose close request is in flight counts as closed, as Base UI's synchronous `setOpen(false)` leaves it
-  // before `floating.closed` is emitted.
+  // FLT-STR-08: the node's context, a live view of the session.
   record.context = {
     get open() {
-      return record.open && record.closeInFlight === null;
+      return record.open;
     },
     nodeId: token,
     get floatingId() {
@@ -3429,9 +3427,14 @@ function createHoverFloatingController(context: HandleContext): Controller {
     }
   };
 
+  // ADR 04 Amendments 2026-10-29 (design point 11.6): a child whose close request is in flight counts as closed here, as
+  // Base UI's child has closed before it emits `floating.closed`; the dismissal's blocking-child check keeps the committed
+  // state, as Base UI's node context is a render snapshot that a close within the same event has not yet changed.
   const hasParentChildren = () => {
     const parentId = treeParentId();
-    return !!(parentId && getNodeChildren(record.tree.nodesRef.current, parentId).length > 0);
+    return !!(
+      parentId && getNodeChildren(record.tree.nodesRef.current, parentId).some((node) => node.id === undefined || sessions.get(node.id)?.closeInFlight == null)
+    );
   };
 
   // FLT-PTR-15 with `closeDelay` (useHoverFloatingInteraction.ts:165-178).
