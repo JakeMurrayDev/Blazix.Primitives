@@ -118,6 +118,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private PopoverSelection<OpenChangeRelay?>? relay;
     private PopoverSelection<bool>? retainExit;
     private IDisposable? retainRegistration;
+    private bool announcedRetain;
     private bool initialResolved;
     private FocusTargetValue? resolvedInitial;
     private EventSnapshot? finalResolvedFor;
@@ -249,9 +250,10 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         relay = subscription.Select(PopoverSelectors.OpenChange);
         retainExit = subscription.Select(PopoverSelectors.PreventUnmountingOnClose);
 
-        // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator, option (B)): the opt-out is recorded in the
-        // close's own store write, so it is announced before that write is published, inside the open-change path and so
-        // before any render of the close: on Server the call lands before the close's batch, on WebAssembly it is synchronous.
+        // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): the store tells the
+        // part at the PreventUnmountOnClose() call, at a canceled close's reset and before each write that changes the
+        // opt-out, and the part announces it through the transitions module's export, addressed by its element, ahead of any
+        // render of the close: on Server the call lands before the close's batch, and after an attach already sent.
         retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         focus = new FocusManagerBehavior(JSRuntime, InvokeAsync, snapshot =>
             root.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut) { Event = snapshot }));
@@ -437,16 +439,16 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         }
     }
 
-    // Sends the opt-out at once; a handle not attached yet gets it with its first options.
+    // A twin not created yet (the portal's move pending) has nothing to address: its attach sends the store's value then.
     private void AnnounceRetainExit(bool retain)
     {
-        if (transitionsHandle is null || sentTransitions is null || sentTransitions.RetainExit == retain)
+        if (transitions is null || Element is not { } element || announcedRetain == retain)
         {
             return;
         }
 
-        sentTransitions = sentTransitions with { RetainExit = retain };
-        _ = transitionsHandle.UpdateAsync(sentTransitions).AsTask();
+        announcedRetain = retain;
+        _ = transitions.RetainExitAsync(element, retain).AsTask();
     }
 
     private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)

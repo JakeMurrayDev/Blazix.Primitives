@@ -834,9 +834,36 @@ export interface TransitionsOptions extends TwinOptions {
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
 const attachedHandle = Symbol('blazix.transitions.handle');
+const announcedRetain = Symbol('blazix.transitions.retain');
+const retainChanged = Symbol('blazix.transitions.retainChanged');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
+  /** The retained close a popup part announced through `retainExit`, until the next open or the unmount. */
+  [announcedRetain]?: boolean;
+  /** The attached handle's re-arm of its exit watcher, which an announcement calls. */
+  [retainChanged]?: () => void;
+}
+
+/**
+ * Announces whether the current close of an element's popup was retained (TRN-ANI-23): while it is, no exit watcher
+ * completes the close, which ends only when the handle's `unmountRequests` increases. Addressed by the element, so it
+ * reaches the handle whatever its attach's state; JavaScript runs the attach, this call and the close's batch in the
+ * order C# sent them. The next open and the unmount clear it (TRN-ANI-24).
+ * @param element The element of the popup part, or `null` when its reference is resolved by the capture id.
+ * @param value Whether the close is retained; `false` is the reset of a close the consumer canceled.
+ * @param captureId The element's capture id, which finds it inside a registered shadow root.
+ */
+export function retainExit(element: Element | null, value: boolean, captureId?: string | null): void {
+  let target: AttachedElement;
+  try {
+    target = resolveElement(element, captureId) as AttachedElement;
+  } catch {
+    // The element left the document before the announcement arrived: nothing is closing.
+    return;
+  }
+  target[announcedRetain] = value;
+  target[retainChanged]?.();
 }
 
 /**
@@ -956,10 +983,14 @@ export function attach(
     }
   };
 
+  // Issue 147 ((B1), ADR 04 Amendments 2026-10-29): the part's announcement through `retainExit` wins over the options
+  // until the next open or the unmount clears it; the options carry the store's value to an attach made later.
+  const retained = () => element[announcedRetain] ?? options.retainExit === true;
+
   // Each watcher arms whenever its enabled state or the open input changes, aborting the previous wait.
   const armWatchers = (state: TransitionState) => {
     const closeEnabled =
-      !options.externalExit && !options.retainExit && state.mounted && !state.open && (!options.deferEndingState || state.status === 'ending');
+      !options.externalExit && !retained() && state.mounted && !state.open && (!options.deferEndingState || state.status === 'ending');
     const nextCloseKey = `${closeEnabled}|${state.open}`;
     if (nextCloseKey !== closeKey) {
       closeKey = nextCloseKey;
@@ -1002,6 +1033,10 @@ export function attach(
   };
 
   const onCommit = (state: TransitionState, previous: TransitionState) => {
+    // TRN-ANI-24: a retained close belongs to one close cycle.
+    if ((state.open && !previous.open) || (!state.mounted && previous.mounted)) {
+      delete element[announcedRetain];
+    }
     if (state.open && state.status === 'starting' && previous.status !== 'starting') {
       // The opening pass consumes a reveal's one-shot skip, whatever the motion.
       forcedIdle = reveal?.consumeSkip() ?? false;
@@ -1080,6 +1115,12 @@ export function attach(
     onCommit,
   );
 
+  element[retainChanged] = () => {
+    if (!disposed) {
+      armWatchers(machine);
+    }
+  };
+
   applyStyle();
   applyReveal();
   ready = true;
@@ -1113,6 +1154,7 @@ export function attach(
       }
       disposed = true;
       delete element[attachedHandle];
+      delete element[retainChanged];
       transitionLayer?.clear();
       machine.dispose();
       closeController?.abort();

@@ -38,6 +38,8 @@ internal sealed class DialogTransitions : IAsyncDisposable
     private bool renderedStarting;
     private bool renderedEnding;
     private TransitionStatus? renderedStatus;
+    private ElementReference? element;
+    private bool announcedRetain;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="DialogTransitions"/> class.</summary>
@@ -116,6 +118,8 @@ internal sealed class DialogTransitions : IAsyncDisposable
             return;
         }
 
+        this.element = target;
+
         if (handle is null)
         {
             // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
@@ -131,6 +135,22 @@ internal sealed class DialogTransitions : IAsyncDisposable
         }
     }
 
+    // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): the Popup announces a
+    // retained close through the module's export, addressed by its element, ahead of any render of the close; a twin not
+    // created yet (the portal's move pending) has nothing to address, and its attach sends the store's value instead.
+    /// <summary>Announces whether the current close keeps the element's ending phase until the unmount is requested.</summary>
+    /// <param name="retain"><see langword="true"/> for a retained close; <see langword="false"/> for its reset.</param>
+    public void AnnounceRetainExit(bool retain)
+    {
+        if (disposed || twin is null || element is not { } target || announcedRetain == retain)
+        {
+            return;
+        }
+
+        announcedRetain = retain;
+        _ = twin.RetainExitAsync(target, retain).AsTask();
+    }
+
     private TransitionsOptions Options(IDialogRootContext context, bool keepMounted) => new()
     {
         Open = context.Open,
@@ -142,6 +162,7 @@ internal sealed class DialogTransitions : IAsyncDisposable
         ExternalExit = externalExit,
         UnmountRequests = context.UnmountRequests,
         OpenSelector = OpenSelector,
+        RetainExit = !externalExit && context.PreventUnmountingOnClose,
     };
 
     private async Task AttachAsync(ElementReference element, IDialogRootContext context, bool keepMounted, Task ready)

@@ -239,12 +239,39 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         }
 
         PrepareOpenChange(open, details);
-        bool applied = await this.open.RequestAsync(open, details, OnOpenChange, OpenChanged);
+
+        // Issue 148 (issue 147's (B1), chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): a close's opt-out is
+        // announced at the PreventUnmountOnClose() call, before any render the consumer's callback makes; a close the
+        // callback then cancels sends the reset, except under Dialog's call-time opt-out, which keeps it for the next close.
+        bool announced = false;
+        if (!open)
+        {
+            details.UnmountPreventionCalled = () =>
+            {
+                announced = true;
+                RaiseUnmountPreventionChanging(true);
+            };
+        }
+
+        bool applied;
+        try
+        {
+            applied = await this.open.RequestAsync(open, details, OnOpenChange, OpenChanged);
+        }
+        finally
+        {
+            details.UnmountPreventionCalled = null;
+        }
+
         if (!applied)
         {
             if (UnmountPreventionAtCall && !open && details.UnmountOnClosePrevented && !State.Popup.PreventUnmountingOnClose)
             {
                 WritePopup(State.Popup with { PreventUnmountingOnClose = true });
+            }
+            else if (announced && !State.Popup.PreventUnmountingOnClose)
+            {
+                RaiseUnmountPreventionChanging(false);
             }
 
             return false;
@@ -506,10 +533,11 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         return RunUnmountAsync();
     }
 
-    // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator 2026-10-29, option (B)): the popup part hears the
-    // opt-out before the write that records it is published, so it announces it to its transitions handle ahead of any
-    // listener's render, and so of the close's batch (a listener renders synchronously when no batch is in progress).
-    /// <summary>Registers a listener for a change of whether the current close keeps the popup mounted, called before the write is published.</summary>
+    // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): the popup part hears the
+    // opt-out at the PreventUnmountOnClose() call, a canceled close's reset, and every write that changes the recorded value
+    // before it is published, so it announces each to its transitions module ahead of any listener's render, and so of the
+    // close's batch (a listener renders synchronously when no batch is in progress).
+    /// <summary>Registers a listener for a change of whether the current close keeps the popup mounted, called at the call and before a write is published.</summary>
     /// <param name="listener">The listener, called with the new value.</param>
     /// <returns>The registration; disposing it unregisters the listener.</returns>
     public IDisposable OnUnmountPreventionChanging(Action<bool> listener)
@@ -698,10 +726,7 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
 
         if (current.Popup.PreventUnmountingOnClose != next.Popup.PreventUnmountingOnClose)
         {
-            foreach (Action<bool> listener in unmountPreventionListeners.ToArray())
-            {
-                listener(next.Popup.PreventUnmountingOnClose);
-            }
+            RaiseUnmountPreventionChanging(next.Popup.PreventUnmountingOnClose);
         }
 
         // The nested record compares by reference in the family's ShallowEquals, so it is compared here member by member
@@ -855,6 +880,14 @@ internal class PopupStore<TState, TPayload> : ComponentStore<TState>, IPopupStor
         });
         OnUnmount();
         await OnOpenChangeComplete.InvokeAsync(false);
+    }
+
+    private void RaiseUnmountPreventionChanging(bool prevented)
+    {
+        foreach (Action<bool> listener in unmountPreventionListeners.ToArray())
+        {
+            listener(prevented);
+        }
     }
 
     private sealed class UnmountPreventionRegistration(PopupStore<TState, TPayload> store, Action<bool> listener) : IDisposable

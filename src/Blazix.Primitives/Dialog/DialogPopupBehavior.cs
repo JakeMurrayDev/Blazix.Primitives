@@ -45,6 +45,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     private PopupPortalContext? portal;
     private IDisposable? subscription;
     private IDisposable? boundaryPart;
+    private IDisposable? retainRegistration;
     private FocusTargetValue? initialFocus;
     private Func<InteractionType, FocusTargetValue?>? initialFocusResolver;
     private FocusTargetValue? finalFocus;
@@ -117,6 +118,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
 
         disposed = true;
         subscription?.Dispose();
+        retainRegistration?.Dispose();
         boundaryPart?.Dispose();
         if (elementRegistered && context is not null)
         {
@@ -160,6 +162,11 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
                 | DialogFields.Labels | DialogFields.PopupId | DialogFields.ActiveTriggerId | DialogFields.OpenMethod | DialogFields.OpenChange,
             changed);
         boundaryPart = rootContext.RegisterBoundaryPart();
+
+        // Issue 147 ((B1) with issue 148, ADR 04 Amendments 2026-10-29): the store tells the popup at the
+        // PreventUnmountOnClose() call, at a canceled close's reset (not under the call-time opt-out) and before each write
+        // that changes the opt-out, and the popup announces it to its transitions module ahead of any render of the close.
+        retainRegistration = rootContext.OnUnmountPreventionChanging(transitions.AnnounceRetainExit);
     }
 
     /// <summary>Applies the part's focus parameters and its rendered id, and sends the focus manager's inputs.</summary>

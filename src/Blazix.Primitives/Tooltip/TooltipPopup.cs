@@ -68,6 +68,7 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
     private readonly Action mirrorChanged;
     private TooltipStoreView? view;
     private IDisposable? retainRegistration;
+    private bool announcedRetain;
     private TooltipPositionerContext? positioner;
     private TooltipPortalContext? portalContext;
     private TooltipPopupState? state;
@@ -141,9 +142,10 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
         positioner.Positioner.AddListener(mirrorChanged);
         view = root.CreateView(StateHasChanged, TooltipSelection.Open | TooltipSelection.Mounted | TooltipSelection.TransitionStatus | TooltipSelection.InstantType | TooltipSelection.UnmountRequests);
 
-        // Issue 147 (ADR 04 Amendments 2026-10-29, settled by the orchestrator, option (B)): the opt-out is recorded in the
-        // close's own store write, so it is announced before that write is published, inside the open-change path and so
-        // before any render of the close: on Server the call lands before the close's batch, on WebAssembly it is synchronous.
+        // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): the store tells the
+        // part at the PreventUnmountOnClose() call, at a canceled close's reset and before each write that changes the
+        // opt-out, and the part announces it through the transitions module's export, addressed by its element, ahead of any
+        // render of the close: on Server the call lands before the close's batch, and after an attach already sent.
         retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         base.OnInitialized();
     }
@@ -267,16 +269,16 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
         }
     }
 
-    // Sends the opt-out at once; a handle not attached yet gets it with its first options.
+    // A twin not created yet (the portal's move pending) has nothing to address: its attach sends the store's value then.
     private void AnnounceRetainExit(bool retain)
     {
-        if (transitionsHandle is null || sentTransitions is null || sentTransitions.RetainExit == retain)
+        if (transitions is null || Element is not { } element || announcedRetain == retain)
         {
             return;
         }
 
-        sentTransitions = sentTransitions with { RetainExit = retain };
-        _ = transitionsHandle.UpdateAsync(sentTransitions).AsTask();
+        announcedRetain = retain;
+        _ = transitions.RetainExitAsync(element, retain).AsTask();
     }
 
     // Design point 3 of M4 track 1: the portal node is `display: none` in place until the portal module moves it, so the

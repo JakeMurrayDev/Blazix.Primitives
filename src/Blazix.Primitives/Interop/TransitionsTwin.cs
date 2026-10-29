@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Interop;
@@ -76,6 +77,15 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
         RevealRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.RevealRequest);
         return RevealRequestHandler is { } handler && await handler(request.Event).ConfigureAwait(false);
     }
+
+    // Issue 147 ((B1) with issue 148, chosen by the user 2026-10-29, ADR 04 Amendments 2026-10-29): a popup part announces a
+    // retained close at the PreventUnmountOnClose() call, through the module's export, addressed by the element, so it
+    // reaches the element's handle even while that handle's attach is in flight.
+    /// <summary>Announces whether the current close of a popup part's element keeps its ending phase until the unmount is requested.</summary>
+    /// <param name="element">The element the part's handle is attached to.</param>
+    /// <param name="retain"><see langword="true"/> for a retained close; <see langword="false"/> for the reset of a canceled one.</param>
+    /// <returns>A task that completes when the module has the announcement.</returns>
+    public ValueTask RetainExitAsync(ElementReference element, bool retain) => InvokeModuleVoidAsync("retainExit", element, retain, element.Id);
 
     /// <inheritdoc />
     /// <remarks>The module has one decision point, <see cref="RevealPoint"/>; any other point answers <see cref="DecisionPolicy.Run"/>.</remarks>

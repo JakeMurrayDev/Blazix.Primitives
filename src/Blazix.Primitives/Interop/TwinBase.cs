@@ -73,6 +73,40 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <returns><c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</returns>
     protected static string LibraryModule(string module) => $"./_content/Blazix.Primitives/js/{module}.js";
 
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29): a call of one of the module's exports, sent at once when the module is
+    // already imported, so it follows an attach already sent and precedes any render batch sent after it.
+    /// <summary>Calls one of the module's exported functions, importing the module first when it is not yet imported.</summary>
+    /// <typeparam name="T1">The type of the first argument.</typeparam>
+    /// <typeparam name="T2">The type of the second argument.</typeparam>
+    /// <typeparam name="T3">The type of the third argument.</typeparam>
+    /// <param name="identifier">The export's name.</param>
+    /// <param name="first">The first argument.</param>
+    /// <param name="second">The second argument.</param>
+    /// <param name="third">The third argument.</param>
+    /// <returns>A task that completes when the call has run, or at once after the twin was disposed or the circuit is gone.</returns>
+    protected async ValueTask InvokeModuleVoidAsync<T1, T2, T3>(string identifier, T1 first, T2 second, T3 third)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        IJSObjectReference? imported = await ImportAsync().ConfigureAwait(false);
+        if (imported is null || disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await imported.InvokeVoidAsync(identifier, first, second, third).ConfigureAwait(false);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone; nothing to announce.
+        }
+    }
+
     /// <summary>
     /// Attaches the module to an element. Attaching is idempotent per element: a repeated call for the same element
     /// returns the existing handle and sends nothing to JavaScript.
