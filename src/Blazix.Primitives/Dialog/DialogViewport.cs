@@ -100,7 +100,7 @@ public sealed class DialogViewport : PartBase<DialogViewportState>
             throw DialogParts.MissingRoot("Dialog");
         }
 
-        behavior = new DialogViewportBehavior(JSRuntime, StateHasChanged, InvokeAsync);
+        behavior = new DialogViewportBehavior("Dialog", JSRuntime, StateHasChanged, InvokeAsync);
         base.OnInitialized();
     }
 

@@ -102,7 +102,7 @@ public sealed class AlertDialogViewport : PartBase<AlertDialogViewportState>
             throw DialogParts.MissingRoot("AlertDialog");
         }
 
-        behavior = new DialogViewportBehavior(JSRuntime, StateHasChanged, InvokeAsync);
+        behavior = new DialogViewportBehavior("AlertDialog", JSRuntime, StateHasChanged, InvokeAsync);
         base.OnInitialized();
     }
 
