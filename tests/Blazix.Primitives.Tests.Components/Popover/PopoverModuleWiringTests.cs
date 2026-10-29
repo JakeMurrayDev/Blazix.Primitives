@@ -300,6 +300,71 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
 
+    // Issue 147 ((B1)) for the backdrop: its own transitions handle keeps a retained close's ending phase as the popup's does,
+    // so it announces the call through the export and carries the store's value in its options.
+    [Fact(DisplayName = "port: the backdrop announces a retained close and carries it in its transitions options")]
+    [Trait("Requirement", "POP-ANI-06")]
+    public async Task The_backdrop_announces_a_retained_close_and_carries_it_in_its_options()
+    {
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            Backdrop = true,
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }),
+        });
+
+        await test.PressAsync(cut, "trigger-1", open: true);
+        cut.WaitForAssertion(() => Assert.NotNull(LastBackdropTransitionsOptions()));
+        string backdrop = test.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1 && invocation.Arguments[1] is string json && json.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal))
+            .Select(invocation => ((ElementReference)invocation.Arguments[0]!).Id)
+            .Single();
+        await test.PressAsync(cut, "trigger-1", open: false);
+
+        cut.WaitForAssertion(() => Assert.Contains("\"retainExit\":true", LastBackdropTransitionsOptions(), StringComparison.Ordinal));
+        Assert.Contains(
+            test.Context.JSInterop.Invocations,
+            invocation => invocation.Identifier == "retainExit" && invocation.Arguments[0] is ElementReference element && element.Id == backdrop && (bool)invocation.Arguments[1]!);
+    }
+
+    // Issue 149's residual for the backdrop: inside the portal it creates its transitions twin after the move, as the popup
+    // does, and a backdrop disposed while the move is pending creates none.
+    [Fact(DisplayName = "port: a backdrop disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        Render(new PopoverSpec { DefaultOpen = true, Backdrop = true, BackdropInPortal = true });
+        int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await test.Context.DisposeComponentsAsync();
+
+        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+        runtime.Release();
+#pragma warning restore BL0016
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
+    }
+
+    // The backdrop's options are the only transitions options in these trees that do not report the open's completion.
+    private string? LastBackdropTransitionsOptions() =>
+        test.Context.JSInterop.Invocations
+            .Select(invocation => invocation.Identifier switch
+            {
+                "attach" when invocation.Arguments.Count > 1 => invocation.Arguments[1] as string,
+                "update" => invocation.Arguments[0] as string,
+                _ => null,
+            })
+            .LastOrDefault(json => json is not null && json.Contains("\"openSelector\"", StringComparison.Ordinal) && json.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal));
+
     private bool[] RetainExitAnnouncements() =>
         [.. test.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
 
