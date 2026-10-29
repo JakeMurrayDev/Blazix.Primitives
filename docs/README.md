@@ -25,7 +25,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | architecture/button-behavior.md | UBT | approved | 100 reqs; revised 2026-10-27 (M3 tracks 2 and 4: composite mode, the input item option) |
 | architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store; revised 2026-10-27 (M4 track 1: the scroll lock, §4.8) |
 | components/accordion.md | ACC | implemented | 101 reqs (opus) | builds on collapsible |
-| components/alert-dialog.md | ADL | approved | 30 reqs + adoption (opus); revised 2026-10-29, M4 track 9 (`implemented` with issue 147's PR; nine sealed parts over Dialog's behaviours, `AlertDialogHandle`; the context errors name AlertDialog, a dated deviation; `Modal` and `DisablePointerDismissal` cannot be supplied); open: ADL-STA-02's Drawer clause (M6), a retained close's `'ending'` clause (issue 147) | builds on dialog |
+| components/alert-dialog.md | ADL | implemented | 30 reqs + adoption (opus); revised 2026-10-29, M4 track 9 (`implemented` 2026-10-29, chosen by the user, with PR 152; nine sealed parts over Dialog's behaviours, `AlertDialogHandle`; the context errors name AlertDialog, a dated deviation; `Modal` and `DisablePointerDismissal` cannot be supplied); open: ADL-STA-02's Drawer clause (M6), a retained close's `'ending'` clause (issue 147) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
 | components/avatar.md | AVA | implemented | 58 reqs (opus) | |
 | components/button.md | BTN | implemented | 29 reqs (opus) | |
@@ -34,7 +34,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
-| components/dialog.md | DLG | approved | 191 reqs (1 withdrawn for the port); revised 2026-10-29, M4 tracks 8 and 9 (the AlertDialog-rendering titles run; `implemented` with issue 147's PR); C# handlers inside a shadow-root portal container a documented deviation (ADR 04 Amendments 2026-10-29); open: Menu- and Select-rendering clauses (M5), Drawer clauses (M6), DLG-EVT-05's retained-close clause (issue 147) |
+| components/dialog.md | DLG | implemented | 191 reqs (1 withdrawn for the port); revised 2026-10-29, M4 tracks 8 and 9 (the AlertDialog-rendering titles run; `implemented` 2026-10-29, chosen by the user, with PR 152); C# handlers inside a shadow-root portal container a documented deviation (ADR 04 Amendments 2026-10-29); open: Menu- and Select-rendering clauses (M5), Drawer clauses (M6), DLG-EVT-05's retained-close clause (issue 147) |
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
 | components/field.md | FLD | implemented | 143 reqs; owns normative Field.Control text; revised 2026-10-23, PR 1c; rows open to tracks 4–8 and M5/M6 listed in PR 1c |
 | components/fieldset.md | FST | implemented | 32 reqs; revised 2026-10-23, PR 1c; rows open to tracks 5–8 and M5 listed in PR 1c | |
@@ -46,7 +46,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/navigation-menu.md | NAV | approved | 208 reqs |
 | components/number-field.md | NUM | approved | 177 reqs | |
 | components/otp-field.md | OTP | approved | 169 reqs | |
-| components/popover.md | POP | approved | 214 reqs |
+| components/popover.md | POP | implemented | 214 reqs; `implemented` 2026-10-29 (chosen by the user); Menu/Combobox clauses and FLT PTR-01/A11Y-03 open to M5 with dated notes |
 | components/preview-card.md | PRV | approved | 158 reqs |
 | components/progress.md | PRG | implemented | 55 reqs (opus) | |
 | components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7 |
@@ -61,7 +61,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/toggle.md | TGL | implemented | 57 reqs; revised 2026-10-27, M3 tracks 2 and 4 | |
 | components/toggle-group.md | TGG | implemented | 71 reqs; revised 2026-10-27, M3 tracks 3 and 4 | |
 | components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-29, M4 tracks 5, 8 and 9 (the Dialog, Popover and AlertDialog clauses run); TLB-KEY-15, TLB-FOC-06 and the Menu and Select clauses open to M5; the non-native Switch shape open to issue 115 | |
-| components/tooltip.md | TIP | approved | 169 reqs |
+| components/tooltip.md | TIP | implemented | 169 reqs; `implemented` 2026-10-29 (chosen by the user); TIP-POS-08's `none` clause, TIP-PTR-20 (skipped, noted) and the hand-off payload (issue 142) with dated notes |
 
 Out of scope for v1.9.0: `filter-dropdown`, `internals/temporal*` (not exported).
 

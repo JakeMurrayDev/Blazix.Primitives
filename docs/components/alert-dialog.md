@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/alert-dialog/**/*.test.tsx` (1 file: `root/AlertDialogRoot.test.tsx`) + `root/AlertDialogRoot.spec.tsx` (type-level only) + the shared suite `test/dialogRootSharedTests.tsx`; AlertDialog cases in `dialog/root/DialogRoot.test.tsx`, `dialog/popup/DialogPopup.test.tsx`, `drawer/popup/DrawerPopup.test.tsx`, `toolbar/button/ToolbarButton.test.tsx`, `menu/root/MenuRoot.test.tsx`, `utils/popups/popupHandle.test.ts` |
 | Docs page | `docs/src/app/(docs)/react/components/alert-dialog/page.mdx` |
 | Prefix | `ADL` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-29 |
 | Builds on | [dialog](dialog.md) |
 | Derived by | none |
@@ -553,3 +553,4 @@ Related discrepancies in architecture docs (routed for completeness):
 - `event-details-and-reasons.md:515` ("`Dialog.Root.onOpenChange` (AlertDialog identical)") and the reason index at `:577` (`outside-press`) and `:590` (`focus-out`) list AlertDialog as an emitter of `outside-press` and `focus-out`. AlertDialog never emits either (ADL-EVT-02). Resolved: `event-details-and-reasons.md:517-521` now excludes AlertDialog from both, and the reason index (`:577`, `:590`) no longer lists it.
 - `floating-and-positioning.md` FLT-FOC-09 (backdrop clause) and FLT-FOC-12 do not state that they are inactive when `closeOnFocusOut` is false (`FloatingFocusManager.tsx:424-427`). Resolved: FLT-FOC-09 (`floating-and-positioning.md:407`) and FLT-FOC-12 (`:416`) now state the gating, naming AlertDialog.
 - `popup-store-and-handles.md:80`: handle cross-family assignability, see Q9. Resolved: PSH §3 now states the non-assignability is one-directional (a plain `Dialog` handle is rejected by the AlertDialog/Drawer props).
+- **2026-10-29, `implemented` (chosen by the user 2026-10-29, "Finish M4"; recorded by the orchestrator).** Every `Test:` row of this document is green at its layer, L4 on both render modes, or open to a later milestone with a dated note (ADR 13 Amendments 2026-10-22); the retained-close clause closed with [PR 152](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/152) (issue 147). The intermittent titles quarantined under ADR 11 §4 are listed in issues 153 and 154 with their 14-day limit.

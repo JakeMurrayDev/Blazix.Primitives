@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/popover/**/*.test.tsx` (13 files) + `root/PopoverRoot.spec.tsx`, `positioner/PopoverPositioner.spec.tsx` (type-level only) |
 | Docs page | `docs/src/app/(docs)/react/components/popover/page.mdx` |
 | Prefix | `POP` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-29 |
 | Builds on | none |
 | Derived by | none (Menu, PreviewCard and Tooltip share the same popup store and floating mechanisms but have their own documents) |
@@ -1651,3 +1651,4 @@ Non-normative.
    Resolved (2026-10-27, M4 track 3, [issue 119](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/119); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27), as floating-and-positioning §10 item 12 records. Popover's proof (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): popover.spec.ts "port: a trigger mouseleave before the hover delay ends cancels the open and requests no close", both modes.
 13. **Root `disabled` + Trigger `disabled={false}` double `onOpenChange` ([tooltip](tooltip.md) §16 Q6) — does not apply.** `Popover.Root` has no `disabled` prop. `disabled` exists only on each Trigger (POP-API-12; the store's `disabled` is the active trigger's forwarded value, POP-STA-05). There is no Root-level revert effect that could follow a trigger-initiated open with a `disabled` close.
 14. **Substitute callbacks and owner-computed IDREFs (rendering-and-composition §10 Q8).** Recorded as POP-EDGE-15. The same dangling `aria-labelledby`/`aria-describedby` also arises when `Popover.Title`/`Popover.Description` are given a substitute *element* carrying its own `id`. The element's `id` wins on the host (RND-DOM-32 rule 1, `mergeProps(props, render.props)` at `internals/useRenderElement.tsx:171`), but the part publishes `useBaseUiId(elementProps.id)` (`PopoverTitle.tsx:22-24`). Only `menu/popup/MenuPopup.tsx` uses `resolveRenderedId`. No test covers either case; confirm whether the parts should publish the resolved id. The portal's `aria-owns` owner follows FLT-DOM-12.
+- **2026-10-29, `implemented` (chosen by the user 2026-10-29, "Finish M4"; recorded by the orchestrator).** Every `Test:` row of this document is green at its layer, L4 on both render modes, or open to a later milestone with a dated note (ADR 13 Amendments 2026-10-22); the retained-close clause closed with [PR 152](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/152) (issue 147). The intermittent titles quarantined under ADR 11 §4 are listed in issues 153 and 154 with their 14-day limit.

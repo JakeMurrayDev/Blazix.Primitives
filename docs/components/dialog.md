@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/dialog/**/*.test.tsx` (10 files) + `root/DialogRoot.spec.tsx` (type-level only) + the shared suite `test/dialogRootSharedTests.tsx` (run by Dialog and AlertDialog) |
 | Docs page | `docs/src/app/(docs)/react/components/dialog/page.mdx` |
 | Prefix | `DLG` |
-| Status | approved |
+| Status | implemented |
 | Revised | 2026-10-29 |
 | Builds on | none |
 | Derived by | [alert-dialog](alert-dialog.md) (`useRenderDialogRoot('alert-dialog', …)`), [drawer](drawer.md) (`useRenderDialogRoot('drawer', …)`) |
@@ -1414,3 +1414,4 @@ Counts: STR 13, API 27, STA 15, DOM 28, ARIA 12, KEY 11, PTR 19, FOC 18, DIS 10,
 
 - `popup-store-and-handles.md` PSH-STA-04 says the popup id falls back to `floatingId` when the popup element's `id` is empty. Source: `utils/popups/store.ts:152-155` uses `popupElement?.id ?? floatingId`, so an attached popup element with an empty `id` yields `''`, which then resolves to `undefined` (no fallback to `floatingId`). DLG-EDGE-18 relies on the source behavior (`aria-controls` absent when the rendered Popup has no id). Resolved: PSH-STA-04 now states the nullish (not empty-string) fallback (`popup-store-and-handles.md` PSH-STA-04).
 - `floating-and-positioning.md` FLT-FOC-09 (backdrop-press clause) and FLT-FOC-12 omit that both run only while `closeOnFocusOut` is `true` (`FloatingFocusManager.tsx:424-427`); DLG-FOC-15/16 state the gating locally (already routed from alert-dialog.md). Resolved: FLT-FOC-09 and FLT-FOC-12 now state the `closeOnFocusOut` gating (`floating-and-positioning.md` FLT-FOC-09, FLT-FOC-12).
+- **2026-10-29, `implemented` (chosen by the user 2026-10-29, "Finish M4"; recorded by the orchestrator).** Every `Test:` row of this document is green at its layer, L4 on both render modes, or open to a later milestone with a dated note (ADR 13 Amendments 2026-10-22); the retained-close clause closed with [PR 152](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/152) (issue 147). The intermittent titles quarantined under ADR 11 §4 are listed in issues 153 and 154 with their 14-day limit.
