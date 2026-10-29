@@ -718,7 +718,6 @@ test.describe('<PreviewCard.Positioner /> multiline inline trigger', () => {
   });
 
   test('re-anchors to a newly entered line while reopening during close transition', async ({ page, mode }) => {
-    test.skip(true, 'open to design point 11.5 of M4 track 7 (PRV-ANI-05, PRV-STA-13): the positioning module runs no pass when the card reopens while mounted');
     await inline(page, mode, { closeDelay: 0, animated: true, animations: 1 });
     const rects = await clientRects(trigger(page));
     expect(rects.length).toBeGreaterThan(2);

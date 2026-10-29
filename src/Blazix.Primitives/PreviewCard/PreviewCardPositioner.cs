@@ -105,7 +105,8 @@ internal sealed class PreviewCardPositionerContext(PositionerContext positioner)
 //   outer one (ParentToken). Both handles await the portal's move.
 // - data-instant from the store (PRV-DOM-09), rendered by C# (ADR 04 Amendments 2026-10-27; PRV §16 Q3).
 // - The inline middleware (PRV-POS-03, PRV-PTR-14; PreviewCardPositioner.tsx:78): `HoveredLine` makes the module narrow a
-//   wrapping trigger to the session's hovered line, else the line on the card's side (PSH-ALG-16).
+//   wrapping trigger to the session's hovered line, else the line on the card's side (PSH-ALG-16). `PositionOnOpen` runs a
+//   pass when the card reopens while still mounted (PreviewCardPositioner.tsx:82-86; ADR 04 Amendments 2026-10-29).
 /// <summary>
 /// Positions the preview card's popup against its trigger: Base UI's <c>PreviewCard.Positioner</c>, rendered as a <c>div</c>.
 /// </summary>
@@ -302,6 +303,7 @@ public sealed class PreviewCardPositioner : PartBase<PreviewCardPositionerState>
             TransitionStatus = current.TransitionStatus,
             AdaptiveOrigin = current.AdaptiveOrigin,
             HoveredLine = true,
+            PositionOnOpen = true,
             TriggerId = current.ActiveTriggerId,
             SessionToken = root!.SessionToken,
         });

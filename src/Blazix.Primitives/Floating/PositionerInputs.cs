@@ -79,6 +79,10 @@ internal sealed record PositionerInputs
     /// <value><see langword="true"/> to position against the hovered line, else the line on the popup's side.</value>
     public bool HoveredLine { get; init; }
 
+    /// <summary>Gets a value indicating whether a reopen while still mounted runs one positioning pass.</summary>
+    /// <value><see langword="true"/> to re-anchor a popup that reopens during its exit or while kept mounted.</value>
+    public bool PositionOnOpen { get; init; }
+
     /// <summary>Gets the id of the active trigger.</summary>
     /// <value>The trigger element's id, or <see langword="null"/> for none.</value>
     public string? TriggerId { get; init; }

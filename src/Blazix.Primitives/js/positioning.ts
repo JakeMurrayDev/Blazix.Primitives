@@ -160,6 +160,8 @@ export interface PositioningOptions extends TwinOptions {
   adaptiveOrigin?: boolean;
   /** Whether the anchor is narrowed to one line box of a wrapping trigger, from the session's hovered line (PreviewCard). */
   hoveredLine?: boolean;
+  /** Whether a reopen while still mounted runs one pass (PreviewCard). */
+  positionOnOpen?: boolean;
   /** The reading direction from the nearest DirectionProvider. */
   direction?: 'ltr' | 'rtl';
   /** The id of the registered Arrow part, or none for the detached stand-in. */
@@ -1333,6 +1335,9 @@ export function attach(
       if (nextOpen === open && nextMounted === mounted) {
         return;
       }
+      // ADR 04 Amendments 2026-10-29 (design point 11.5 of M4 track 7): PreviewCardPositioner.tsx:82-86 runs a pass in the
+      // layout effect of every commit where the card is open and mounted, so a reopen during the exit re-anchors.
+      const reopenedMounted = nextOpen && !open && nextMounted && mounted;
       open = nextOpen;
       if (nextMounted !== mounted) {
         mounted = nextMounted;
@@ -1341,7 +1346,10 @@ export function attach(
           isPositioned = false;
         }
       }
-      refresh();
+      // A tracking start runs its own first pass.
+      if (!refresh() && reopenedMounted && options.positionOnOpen) {
+        position();
+      }
     });
   };
 
