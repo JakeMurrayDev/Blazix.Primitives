@@ -9,7 +9,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// parts (ADR 08 Amendments 2026-10-27, chosen by the user 2026-10-27: a dated deviation from ADL-EDGE-01, whose handle
 /// warnings keep Dialog's wording, AlertDialogApiTests), each built from the family name the part passes, so a Dialog part
 /// keeps Dialog's message under an AlertDialog root. ADL-STR-04's port titles: every part reads the nearest dialog-family
-/// root, so the root's mode decides the behaviour, whichever family the part is from.
+/// root, so the root's mode decides the behavior, whichever family the part is from.
 /// </summary>
 public sealed class AlertDialogPartTests : IDisposable
 {

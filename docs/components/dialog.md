@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/dialog/**/*.test.tsx` (10 files) + `root/DialogRoot.spec.tsx` (type-level only) + the shared suite `test/dialogRootSharedTests.tsx` (run by Dialog and AlertDialog) |
 | Docs page | `docs/src/app/(docs)/react/components/dialog/page.mdx` |
 | Prefix | `DLG` |
-| Status | implemented |
+| Status | approved |
 | Revised | 2026-10-29 |
 | Builds on | none |
 | Derived by | [alert-dialog](alert-dialog.md) (`useRenderDialogRoot('alert-dialog', …)`), [drawer](drawer.md) (`useRenderDialogRoot('drawer', …)`) |

@@ -7,7 +7,7 @@
 | Tests | `packages/react/src/alert-dialog/**/*.test.tsx` (1 file: `root/AlertDialogRoot.test.tsx`) + `root/AlertDialogRoot.spec.tsx` (type-level only) + the shared suite `test/dialogRootSharedTests.tsx`; AlertDialog cases in `dialog/root/DialogRoot.test.tsx`, `dialog/popup/DialogPopup.test.tsx`, `drawer/popup/DrawerPopup.test.tsx`, `toolbar/button/ToolbarButton.test.tsx`, `menu/root/MenuRoot.test.tsx`, `utils/popups/popupHandle.test.ts` |
 | Docs page | `docs/src/app/(docs)/react/components/alert-dialog/page.mdx` |
 | Prefix | `ADL` |
-| Status | implemented |
+| Status | approved |
 | Revised | 2026-10-29 |
 | Builds on | [dialog](dialog.md) |
 | Derived by | none |
