@@ -236,19 +236,6 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
 
     private async Task SyncTransitionsAsync(ElementReference element, TooltipStoreView current)
     {
-        TransitionsOptions options = new()
-        {
-            Open = current.Open,
-            Mounted = current.Mounted,
-            Status = current.TransitionStatus,
-            KeepMounted = portalContext?.KeepMounted ?? false,
-            ReportOpenComplete = true,
-            OpenSelector = "[data-open]",
-            UnmountRequests = current.UnmountRequests,
-            RetainExit = current.PreventUnmountingOnClose,
-            DisableTransitionWhileStarting = true,
-            Style = consumerStyle ?? string.Empty,
-        };
         if (transitions is null)
         {
             transitions = new TransitionsTwin(JSRuntime);
@@ -259,15 +246,29 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
         if (transitionsHandle is null)
         {
             // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
-            attaching ??= AttachTransitionsAsync(element, options);
+            attaching ??= AttachTransitionsAsync(element, current);
             await attaching;
         }
-        else if (options != sentTransitions)
+        else if (TransitionsOptions(current) is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
     }
+
+    private TransitionsOptions TransitionsOptions(TooltipStoreView current) => new()
+    {
+        Open = current.Open,
+        Mounted = current.Mounted,
+        Status = current.TransitionStatus,
+        KeepMounted = portalContext?.KeepMounted ?? false,
+        ReportOpenComplete = true,
+        OpenSelector = "[data-open]",
+        UnmountRequests = current.UnmountRequests,
+        RetainExit = current.PreventUnmountingOnClose,
+        DisableTransitionWhileStarting = true,
+        Style = consumerStyle ?? string.Empty,
+    };
 
     // A twin not created yet (the portal's move pending) has nothing to address: its attach sends the store's value then.
     private void AnnounceRetainExit(bool retain)
@@ -285,7 +286,10 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
     // first attach waits for the move, or the module reads no animation on an element not rendered yet.
     // On Server the move can complete after the close that unmounts this popup: the portal detaches from its own
     // after-render, a round trip after the render that disposed this part, so a disposed popup attaches nothing.
-    private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): the options are read once the module is imported, right before
+    // the attach is sent, so a close the store retained during the move or the import is in them, and a later one's
+    // announcement follows the attach on the circuit.
+    private async Task AttachTransitionsAsync(ElementReference element, TooltipStoreView current)
     {
         await PopupPortalContext.WhenMoved(Portal);
         if (transitions is not { } twin)
@@ -293,6 +297,13 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
             return;
         }
 
+        await twin.PrepareAsync();
+        if (transitions != twin)
+        {
+            return;
+        }
+
+        TransitionsOptions options = TransitionsOptions(current);
         sentTransitions = options;
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;

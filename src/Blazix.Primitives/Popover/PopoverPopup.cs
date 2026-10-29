@@ -119,6 +119,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private PopoverSelection<bool>? retainExit;
     private IDisposable? retainRegistration;
     private bool announcedRetain;
+    private bool disposed;
     private bool initialResolved;
     private FocusTargetValue? resolvedInitial;
     private EventSnapshot? finalResolvedFor;
@@ -310,6 +311,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     {
         if (disposing)
         {
+            disposed = true;
             PositionerContext?.RemoveListener(positionerChanged);
             subscription?.Dispose();
             subscription = null;
@@ -404,21 +406,6 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
 
     private async Task SyncTransitionsAsync(ElementReference element)
     {
-        TransitionsOptions options = new()
-        {
-            Open = open!.Value,
-            Mounted = mounted!.Value,
-            Status = status!.Value,
-            ReportOpenComplete = true,
-            OpenSelector = OpenSelector,
-            UnmountRequests = unmountRequests!.Value,
-            RetainExit = retainExit!.Value,
-
-            // TRN-DOM-05, POP-DOM-29 (ADR 04 Amendments 2026-10-28): the module writes transition: none on the starting frame
-            // from the handover on, under the consumer's style, which it applies as its writer's consumer band.
-            DisableTransitionWhileStarting = true,
-            Style = consumerStyle ?? string.Empty,
-        };
         if (transitions is null)
         {
             transitions = new TransitionsTwin(JSRuntime);
@@ -429,15 +416,31 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         if (transitionsHandle is null)
         {
             // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
-            attaching ??= AttachTransitionsAsync(element, options);
+            attaching ??= AttachTransitionsAsync(element, transitions);
             await attaching;
         }
-        else if (options != sentTransitions)
+        else if (TransitionsOptions() is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
         }
     }
+
+    private TransitionsOptions TransitionsOptions() => new()
+    {
+        Open = open!.Value,
+        Mounted = mounted!.Value,
+        Status = status!.Value,
+        ReportOpenComplete = true,
+        OpenSelector = OpenSelector,
+        UnmountRequests = unmountRequests!.Value,
+        RetainExit = retainExit!.Value,
+
+        // TRN-DOM-05, POP-DOM-29 (ADR 04 Amendments 2026-10-28): the module writes transition: none on the starting frame
+        // from the handover on, under the consumer's style, which it applies as its writer's consumer band.
+        DisableTransitionWhileStarting = true,
+        Style = consumerStyle ?? string.Empty,
+    };
 
     // A twin not created yet (the portal's move pending) has nothing to address: its attach sends the store's value then.
     private void AnnounceRetainExit(bool retain)
@@ -451,10 +454,20 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         _ = transitions.RetainExitAsync(element, retain).AsTask();
     }
 
-    private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): the options are read once the module is imported, right before
+    // the attach is sent, so a close the store retained while the import was in flight is in them, and a later one's
+    // announcement follows the attach on the circuit.
+    private async Task AttachTransitionsAsync(ElementReference element, TransitionsTwin twin)
     {
+        await twin.PrepareAsync();
+        if (disposed || transitions != twin)
+        {
+            return;
+        }
+
+        TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
-        transitionsHandle = await transitions!.AttachAsync(element, options);
+        transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();
     }

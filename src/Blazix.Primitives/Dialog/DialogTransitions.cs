@@ -187,6 +187,14 @@ internal sealed class DialogTransitions : IAsyncDisposable
             }
         }
 
+        // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): the options are read once the module is imported, right
+        // before the attach is sent, so a close the store retained during the move or the import is in them.
+        await twin.PrepareAsync();
+        if (disposed || attachedGeneration != generation)
+        {
+            return;
+        }
+
         // The handover: the element was rendered with these values; the module owns them from this attach on.
         frozen = true;
         sentUnmountRequests = context.UnmountRequests;

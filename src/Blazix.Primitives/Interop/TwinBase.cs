@@ -73,6 +73,19 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <returns><c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</returns>
     protected static string LibraryModule(string module) => $"./_content/Blazix.Primitives/js/{module}.js";
 
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29): a part that awaits the import before building its first attach's
+    // options reads them right before the attach is sent, so a change the part recorded while the import was in flight (a
+    // retained close) is in them; the attach itself then follows at once.
+    /// <summary>Imports the module, once, so the attach that follows is sent without waiting.</summary>
+    /// <returns>A task that completes when the module is imported, or the circuit is gone.</returns>
+    public async ValueTask PrepareAsync()
+    {
+        if (!disposed)
+        {
+            await ImportAsync().ConfigureAwait(false);
+        }
+    }
+
     // Issue 147 ((B1), ADR 04 Amendments 2026-10-29): a call of one of the module's exports, sent at once when the module is
     // already imported, so it follows an attach already sent and precedes any render batch sent after it.
     /// <summary>Calls one of the module's exported functions, importing the module first when it is not yet imported.</summary>
