@@ -1,0 +1,298 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
+@inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
+
+@*
+    The `dialog-root` fixture (tests/browser/dialog.spec.ts): DialogRoot.test.tsx's TestDialog components as one page.
+    - `triggers=contained|detached|multiple`: a trigger `trigger` inside the root, or before it with a handle, or two
+      (`trigger`, `trigger-2`) with a handle;
+    - root props: `open` (controlled; `[data-set-open]` changes it), `defaultOpen`, `modal=true|false|trap-focus`,
+      `disablePointerDismissal=true|false` (absent: not set), `cancelOpen`, `cancelClose`, `allowPropagation`;
+    - `backdrop`: a user backdrop `backdrop` (fixed, inset 0, z-index 10); `keepMounted`: the portal keeps its subtree;
+    - `animated`: the popup takes `dialog-root-animated` (200 ms keyframes on `[data-open]` and `[data-ending-style]`);
+    - `second`: a second, independent modal dialog `second-trigger`/`second-popup` beside the first (Base UI's "does not
+      dismiss previous modal dialog" and "dismisses non-nested dialogs one by one");
+    - `case=siblings`: two more modal dialogs beside it, `level-2` and `level-3`, opened by buttons inside the previous
+      popup ("Open nested 1", "Open nested 2"; Base UI's "does not dismiss previous modal dialog when clicking new modal
+      dialog" and "dismisses non-nested dialogs one by one"); the first popup is then `level-1`; `level-2` takes `modal`,
+      and with `confine` its portal renders into a transformed 160 px box at the bottom right `[data-confine]`, which
+      confines its fixed internal backdrop, so the first dialog's backdrop stays uncovered elsewhere (DLG-STA-07's gate);
+    - `container=shadow`: the portal renders nothing (a pending container) until a page script creates a closed shadow
+      root on `[data-shadow-host]` after the first render and hands it to C# as an IJSObjectReference
+      (`blazixFixtureDom.lastClosedShadowRoot` in the page);
+    - `case=remove-on-pointerdown`: the popup's first child `remove` removes itself on `pointerdown`;
+      `case=prevented-pointerdown`: the popup holds `prevented`, on which the test prevents `pointerdown` and `mousedown`
+      at the element, as NumberField's scrub area does in its own handler (DLG-PTR-17's re-citation);
+    - `indicator=swap`: the popup takes `animation-test-indicator animation-a` (keyframes on `[data-open]`), and
+      `[data-swap-animation]` swaps it to `animation-b`; `indicator=transition`: an opacity transition with
+      `[data-starting-style]` and `[data-ending-style]` (open the page with `?animations=1`). Base UI's 50 ms and 200 ms
+      become 1 s, so the swap and the dismissal land inside the first animation under a loaded run (the issue 114 rule);
+    - `case=open-on-pointerdown`: a button `open-on-pointerdown` sets the controlled root open on `pointerdown` (use with
+      `open=false`; DialogRoot.test.tsx "ignores a native click whose pointerdown opened the dialog");
+    - `case=panel` (with `triggers=detached`): a button "Open menu" toggles a panel holding a detached trigger
+      `panel-trigger` ("Open dialog"); the panel closes when the dialog opens, so that trigger unmounts (DLG-FOC-06's
+      Menu title re-cited);
+    - `case=scroll-area`: the popup holds a non-scrollable `overflow: auto` container `viewport` (DLG-KEY-06/FOC-12's
+      ScrollArea title re-cited), and the page an `outside-after` button;
+    - the popup's class function adds `cs-starting` or `cs-ending` while its mirrored transition status is `Starting` or
+      `Ending` (DLG-STA-11's row);
+    - the popup `dialog-popup` (fixed, z-index 10) holds "Dialog content", an input `popup-input` and a Close; the page has
+      an outside region `outside` and a button `outside-button`.
+*@
+<FixtureContainer Name="dialog-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes dialog-root-enter { from { opacity: 0; } }
+        @@keyframes dialog-root-exit { to { opacity: 0; } }
+        .dialog-root-animated[data-open] { animation: dialog-root-enter 200ms; }
+        .dialog-root-animated[data-ending-style] { animation: dialog-root-exit 200ms; }
+        [data-fixture="dialog-root"] [data-set-open], [data-fixture="dialog-root"] [data-swap-animation] { position: relative; z-index: 20; }
+        @@keyframes test-enter-a { from { opacity: 0; } }
+        @@keyframes test-enter-b { from { opacity: 0; } }
+        .animation-test-indicator.animation-a[data-open] { animation: test-enter-a 1000ms linear; }
+        .animation-test-indicator.animation-b[data-open] { animation: test-enter-b 1000ms linear; }
+        .transition-test-indicator { opacity: 0; transition: opacity 1000ms linear; }
+        .transition-test-indicator[data-open] { opacity: 1; }
+        .transition-test-indicator[data-open][data-starting-style] { opacity: 0; }
+        .transition-test-indicator[data-ending-style] { opacity: 0; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-swap-animation data-key-control @onclick='() => variant = variant == "a" ? "b" : "a"' @onkeydown='OnShift(() => variant = variant == "a" ? "b" : "a")'>Swap animation</button>
+
+    <div data-shadow-host @ref="shadowHost"></div>
+    <div data-testid="outside" style="min-height: 120px; padding: 8px">
+        <button type="button" data-testid="outside-button">Outside</button>
+        @if (Case == "panel")
+        {
+            <button type="button" data-testid="panel-toggle" @onclick="() => panel = !panel">Open menu</button>
+            @if (panel)
+            {
+                <div role="group" data-testid="panel" @onmousedown:preventDefault="true" @onmousedown="() => { }">
+                    <DialogTrigger TPayload="NoPayload" Handle="@handle" data-testid="panel-trigger">Open dialog</DialogTrigger>
+                </div>
+            }
+        }
+        @if (Case == "open-on-pointerdown")
+        {
+            <button type="button" data-testid="open-on-pointerdown" @onpointerdown="() => open = true">Open</button>
+        }
+        @if (triggers != "contained")
+        {
+            <DialogTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" data-testid="trigger">Open</DialogTrigger>
+            @if (triggers == "multiple")
+            {
+                <DialogTrigger TPayload="NoPayload" Handle="@handle" data-testid="trigger-2">Open another</DialogTrigger>
+            }
+        }
+
+        @if (controlled)
+        {
+            <DialogRoot TPayload="NoPayload" @ref="root" Open="@open" Handle="@RootHandle" Modal="@modal" DisablePointerDismissal="@disablePointerDismissal"
+                        OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Content
+            </DialogRoot>
+        }
+        else
+        {
+            <DialogRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Handle="@RootHandle" Modal="@modal" DisablePointerDismissal="@disablePointerDismissal"
+                        OnOpenChange="OnRootOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Content
+            </DialogRoot>
+        }
+
+        @if (Case == "siblings")
+        {
+            @if (confine)
+            {
+                <div data-confine style="position: fixed; right: 0; bottom: 0; width: 160px; height: 160px; transform: translateZ(0)"></div>
+            }
+            <DialogRoot TPayload="NoPayload" Open="@nested1" OpenChanged="v => nested1 = v" Modal="@modal" OnOpenChange="RecordOpenChange">
+                <DialogPortal Container="@SiblingContainer">
+                    <DialogPopup data-testid="level-2" style="@SiblingStyle">
+                        <button type="button" @onclick="() => nested2 = true">Open nested 2</button>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            <DialogRoot TPayload="NoPayload" Open="@nested2" OpenChanged="v => nested2 = v" OnOpenChange="RecordOpenChange">
+                <DialogPortal>
+                    <DialogPopup data-testid="level-3" style="position: fixed; z-index: 10; top: 240px; left: 240px">Final nested</DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+        }
+
+        @if (second)
+        {
+            <DialogRoot TPayload="NoPayload" @ref="secondRoot" OnOpenChange="RecordOpenChange">
+                <DialogTrigger @ref="secondTrigger" data-testid="second-trigger">Open second</DialogTrigger>
+                <DialogPortal>
+                    <DialogPopup data-testid="second-popup" style="position: fixed; z-index: 10; top: 40px; left: 40px">
+                        Second dialog
+                        <DialogClose>Close second</DialogClose>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+        }
+    </div>
+    @if (Case == "scroll-area")
+    {
+        <button type="button" data-testid="outside-after">Outside after</button>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly DialogHandle<NoPayload> handle = new();
+    private DialogTrigger<NoPayload>? trigger;
+    private DialogTrigger<NoPayload>? secondTrigger;
+    private DialogRoot<NoPayload>? root;
+    private DialogRoot<NoPayload>? secondRoot;
+    private string triggers = "contained";
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private ModalValue? modal;
+    private bool disablePointerDismissal;
+    private bool backdrop;
+    private bool keepMounted;
+    private bool second;
+    private bool confine;
+
+    private PortalContainerValue? SiblingContainer => confine ? (PortalContainerValue)"[data-confine]" : (PortalContainerValue?)null;
+
+    private string SiblingStyle => confine ? "position: fixed; z-index: 10; top: 8px; left: 8px" : "position: fixed; z-index: 10; top: 220px; left: 220px";
+    private string? popupClass;
+    private ElementReference shadowHost;
+    private PortalContainerValue? container;
+    private bool showRemove = true;
+    private bool panel;
+    private string variant = "a";
+    private bool nested1;
+    private bool nested2;
+
+    private string? PopupClass => Query("indicator") switch
+    {
+        "swap" => $"animation-test-indicator animation-{variant}",
+        "transition" => "transition-test-indicator",
+        _ => popupClass,
+    };
+
+    private DialogHandle<NoPayload>? RootHandle => triggers == "contained" ? null : handle;
+
+    // DLG-STA-11's row: the popup's mirrored transition status reaches its class function (`cs-starting`, `cs-ending`).
+    private Func<DialogPopupState, string?> PopupClassValue => state => state.TransitionStatus switch
+    {
+        TransitionStatus.Starting => $"{PopupClass} cs-starting".TrimStart(),
+        TransitionStatus.Ending => $"{PopupClass} cs-ending".TrimStart(),
+        _ => PopupClass,
+    };
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        secondTrigger?.TwinAttached ?? Task.CompletedTask,
+        secondRoot?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        triggers = Query("triggers") ?? "contained";
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        modal = Query("modal") switch
+        {
+            "false" => (ModalValue?)false,
+            "true" => true,
+            "trap-focus" => ModalValue.TrapFocus,
+            _ => null,
+        };
+        disablePointerDismissal = QueryFlag("disablePointerDismissal") == true;
+        backdrop = QueryFlag("backdrop") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        second = QueryFlag("second") == true;
+        confine = QueryFlag("confine") == true;
+        popupClass = QueryFlag("animated") == true ? "dialog-root-animated" : null;
+        if (Query("container") == "shadow")
+        {
+            container = PortalContainerValue.Pending;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && Query("container") == "shadow")
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        @if (triggers == "contained")
+        {
+            <DialogTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Open</DialogTrigger>
+        }
+        <DialogPortal KeepMounted="@keepMounted" Container="@container">
+            @if (backdrop)
+            {
+                <DialogBackdrop data-testid="backdrop" style="position: fixed; z-index: 10; inset: 0" />
+            }
+            <DialogPopup data-testid="@(Case == "siblings" ? "level-1" : "dialog-popup")" ClassValue="PopupClassValue" style="position: fixed; z-index: 10; top: 200px; left: 200px">
+                @if (Case == "remove-on-pointerdown" && showRemove)
+                {
+                    <button type="button" data-testid="remove" @onpointerdown="() => showRemove = false">Remove on pointer down</button>
+                }
+                @if (Case == "prevented-pointerdown")
+                {
+                    <div data-testid="prevented">Scrub</div>
+                }
+                @if (Case == "scroll-area")
+                {
+                    <div data-testid="viewport" style="overflow: auto; width: 200px; height: 200px">
+                        <div style="width: 100px; height: 100px">Non-scrollable content</div>
+                    </div>
+                }
+                <p>Dialog content</p>
+                @if (Case == "siblings")
+                {
+                    <button type="button" @onclick="() => nested1 = true">Open nested 1</button>
+                }
+                <input data-testid="popup-input" />
+                <DialogClose>Close</DialogClose>
+            </DialogPopup>
+        </DialogPortal>
+    </text>;
+
+    private void OnRootOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (Case == "panel" && args.Value)
+        {
+            panel = false;
+        }
+    }
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+}

@@ -492,6 +492,20 @@ test.describe('<Tabs.Root /> (tab order)', () => {
   });
 });
 
+// TAB-FOC-10's Dialog title (M4 track 8; ADR 12 Amendments 2026-10-27 item 4): Tabs inside a Dialog's popup receive initial
+// focus on the highlighted Tab and navigate normally.
+test.describe('<Tabs.Root /> (focus management)', () => {
+  test('works inside Dialog', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'tabs-dialog');
+
+    await page.getByRole('button', { name: 'Open' }).click();
+
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Projects' })).toBeFocused();
+  });
+});
+
 // Group E: the tab stop follows the active Tab while focus is outside the List (track 1's E5, the `composite` module's
 // follow of the active marker) and stays with focus inside it; a keyboard step is never pulled back.
 test.describe('<Tabs.Root /> (highlight synchronization on external value change relative to focus)', () => {

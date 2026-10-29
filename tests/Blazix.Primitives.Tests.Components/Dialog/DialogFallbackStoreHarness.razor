@@ -1,0 +1,18 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, the two hydration titles restated without prerendering: a root open by default
+   with its default trigger id, which can be left out, and its detached trigger after it, which can be delayed. *@
+@if (RootMounted)
+{
+    <DialogRoot TPayload="NoPayload" Handle="Handle" DefaultOpen="true" DefaultTriggerId="trigger" />
+}
+<DeferredContent Loading="TriggerLoading">
+    <DialogTrigger TPayload="NoPayload" Handle="Handle" id="trigger">Trigger</DialogTrigger>
+</DeferredContent>
+
+@code {
+    public DialogHandle<NoPayload> Handle { get; } = new();
+
+    [Parameter] public bool RootMounted { get; set; } = true;
+
+    [Parameter] public Task? TriggerLoading { get; set; }
+}

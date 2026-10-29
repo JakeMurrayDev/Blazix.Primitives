@@ -1,0 +1,204 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Blazix.Primitives
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `dialog-triggers` fixture (tests/browser/dialog.spec.ts): detachedTriggersConformanceTests (tests/browser/suites/) on
+    Dialog (DialogRoot.detached-triggers.test.tsx), the suite's Fixture as a page, the `popup-triggers` shape. Triggers `trigger-1`.. carry their number as payload; the
+    root's payload template renders `root-payload` and the portaled popup with its `content` and a close.
+    - `mode=contained|detached`, `triggerCount` (2), `rootFirst`, `nesting` (wrappers around the triggers);
+    - `open` and `triggerId` (a controlled root), `defaultOpen`, `defaultTriggerId`; the handle opens unassociated, with a
+      warning, for an unregistered trigger id (Dialog's behavior);
+    - `case=controlled`: the suite's programmatic case, a controlled root whose OnOpenChange follows the request, and the
+      buttons "Open Trigger 1", "Open Trigger 2" and "Close externally";
+    - `rootMounted=false`: the root starts unmounted;
+    - `case=overlap`: detached triggers and two keyed roots on one handle by phase (`[data-set-phase]`: outgoing, overlap,
+      incoming); the incoming root's batch opens `trigger-2` through the handle after its first render (OpenOnMount);
+    - the page's buttons and triggers sit above a modal dialog's internal backdrop, as the suite clicks them while open;
+    - buttons: `[data-toggle-root]` (mounts or unmounts the root), `[data-set-nesting]`, `[data-recreate-handle]`,
+      `[data-handle-open]` (the handle's OpenAsync with that id; a thrown message renders as `data-handle-error`),
+      `[data-handle-close]`; the container renders the handle's `IsOpen` as `data-handle-open-state`.
+*@
+<FixtureContainer Name="dialog-triggers" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-handle-open-state="@(handle?.IsOpen == true ? "true" : "false")" data-handle-error="@handleError">
+    <style>
+        [data-fixture="dialog-triggers"] button { position: relative; z-index: 1; }
+        /* As Base UI's demos position the popup, so a modal dialog's internal backdrop lies under it. */
+        [data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-toggle-root data-key-control @onclick="() => rootMounted = !rootMounted" @onkeydown="OnShift(() => rootMounted = !rootMounted)">Toggle root</button>
+    <button type="button" data-recreate-handle data-key-control @onclick="RecreateHandle" @onkeydown="OnShift(RecreateHandle)">Recreate handle</button>
+    @for (int level = 0; level <= 3; level++)
+    {
+        int value = level;
+        <button type="button" data-set-nesting="@value" data-key-control @onclick="() => nesting = value" @onkeydown="OnShift(() => nesting = value)">Nesting @value</button>
+    }
+    <button type="button" data-handle-open="trigger-1" data-key-control @onclick='() => HandleOpenAsync("trigger-1")' @onkeydown='OnShift(() => HandleOpenAsync("trigger-1"))'>Handle open 1</button>
+    <button type="button" data-handle-open="trigger-2" data-key-control @onclick='() => HandleOpenAsync("trigger-2")' @onkeydown='OnShift(() => HandleOpenAsync("trigger-2"))'>Handle open 2</button>
+    <button type="button" data-handle-open="missing" data-key-control @onclick='() => HandleOpenAsync("missing")' @onkeydown='OnShift(() => HandleOpenAsync("missing"))'>Handle open missing</button>
+    <button type="button" data-handle-close data-key-control @onclick="HandleCloseAsync" @onkeydown="OnShift(HandleCloseAsync)">Handle close</button>
+
+    @foreach (string value in new[] { "outgoing", "overlap", "incoming" })
+    {
+        <button type="button" data-set-phase="@value" data-key-control @onclick="() => phase = value" @onkeydown="OnShift(() => phase = value)">Phase @value</button>
+    }
+
+    <div style="margin: 50px">
+        @if (Case == "overlap")
+        {
+            @Nest(0)
+            @if (phase is "outgoing" or "overlap")
+            {
+                <DialogRoot TPayload="string" @key="@("outgoing")" Handle="@handle" PayloadContent="@Popup" />
+            }
+
+            @if (phase is "overlap" or "incoming")
+            {
+                <DialogRoot TPayload="string" @key="@("incoming")" Handle="@handle" PayloadContent="@Popup" />
+                <OpenOnMount Run='() => HandleOpenAsync("trigger-2")' />
+            }
+        }
+        else if (detached && !rootFirst)
+        {
+            @Nest(nesting)
+        }
+
+        @if (rootMounted && Case != "overlap")
+        {
+            @if (controlled)
+            {
+                <DialogRoot TPayload="string" @ref="mainRoot" Handle="@(detached ? handle : null)" Open="@open" TriggerId="@triggerId"
+                                  OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
+                    @if (!detached)
+                    {
+                        @Nest(nesting)
+                    }
+                </DialogRoot>
+            }
+            else
+            {
+                <DialogRoot TPayload="string" @ref="mainRoot" Handle="@(detached ? handle : null)" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId"
+                                  OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
+                    @if (!detached)
+                    {
+                        @Nest(nesting)
+                    }
+                </DialogRoot>
+            }
+        }
+
+        @if (detached && rootFirst && Case != "overlap")
+        {
+            @Nest(nesting)
+        }
+
+        @if (Case == "controlled")
+        {
+            <button type="button" data-key-control @onclick='() => SetControlled(true, "trigger-1")' @onkeydown='OnShift(() => SetControlled(true, "trigger-1"))'>Open Trigger 1</button>
+            <button type="button" data-key-control @onclick='() => SetControlled(true, "trigger-2")' @onkeydown='OnShift(() => SetControlled(true, "trigger-2"))'>Open Trigger 2</button>
+            <button type="button" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Close externally</button>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<int, DialogTrigger<string>> triggers = [];
+    private DialogRoot<string>? mainRoot;
+    private DialogHandle<string>? handle;
+    private bool detached;
+    private bool controlled;
+    private bool open;
+    private string? triggerId;
+    private bool defaultOpen;
+    private string? defaultTriggerId;
+    private int triggerCount = 2;
+    private bool rootFirst;
+    private bool rootMounted = true;
+    private int nesting;
+    private string? handleError;
+    private string phase = "outgoing";
+
+    // The triggers press through the `interactions` module, so the page is ready once their handles and the session attached;
+    // a detached trigger attaches only once a root gives it a session, so with no root mounted nothing is awaited.
+    protected override IEnumerable<Task> Attachments =>
+        !rootMounted
+            ? []
+            : [.. triggers.Values.Select(trigger => trigger.TwinAttached), mainRoot?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        handle = new DialogHandle<string>();
+        detached = Query("mode") == "detached";
+        controlled = Case == "controlled" || QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        triggerId = Query("triggerId");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        defaultTriggerId = Query("defaultTriggerId");
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
+        rootFirst = QueryFlag("rootFirst") == true;
+        nesting = int.TryParse(Query("nesting"), out int level) ? level : 0;
+        rootMounted = QueryFlag("rootMounted") != false;
+        if (Case == "overlap")
+        {
+            detached = true;
+        }
+    }
+
+    private RenderFragment Nest(int level) => level == 0 ? Triggers : @<div>@Nest(level - 1)</div>;
+
+    private RenderFragment Triggers => @<text>
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            string id = $"trigger-{number}";
+            string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            int index = number;
+            <DialogTrigger TPayload="string" @key="number" @ref="triggers[index]" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</DialogTrigger>
+        }
+    </text>;
+
+    private RenderFragment<string?> Popup => payload => @<text>
+        <span data-testid="root-payload">@(payload ?? "No payload")</span>
+        <DialogPortal>
+            <DialogPopup data-testid="popup">
+                <span data-testid="content">@payload</span>
+                <DialogClose>Close popup</DialogClose>
+            </DialogPopup>
+        </DialogPortal>
+    </text>;
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        triggerId = args.Details.Trigger?.Id;
+        open = args.Value;
+    }
+
+    private void SetControlled(bool value, string? id)
+    {
+        open = value;
+        triggerId = id;
+    }
+
+    private void RecreateHandle() => handle = new DialogHandle<string>();
+
+    private async Task HandleOpenAsync(string id)
+    {
+        handleError = null;
+        try
+        {
+            await handle!.OpenAsync(id);
+        }
+        catch (InvalidOperationException error)
+        {
+            handleError = error.Message;
+        }
+
+        // OpenOnMount calls this outside the page's own events: render the handle's state now.
+        StateHasChanged();
+    }
+
+    private Task HandleCloseAsync() => handle!.CloseAsync();
+}

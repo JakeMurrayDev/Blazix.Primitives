@@ -1,0 +1,120 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `dialog-focus-props` fixture (tests/browser/dialog.spec.ts): popupFocusPropsTests (tests/browser/suites/) on a modal
+    Dialog with a backdrop (DialogPopup.test.tsx); `dialog-focus-props-nonmodal` inherits it with `Modal="false"`. The page: an input
+    `outside-before`, the dialog (a trigger "Open", a popup with, under `popupInputs=true`, inputs `inside-1` and
+    `inside-2`, then a Close), an input `outside-target`. `initialFocus` and `finalFocus` take the suite's options:
+    - `false`; `ref`: the target (initialFocus `inside-2`, which the opening render creates, so its id stands in for
+      Base UI's ref: a Blazor element reference is captured by the render that creates it; finalFocus `outside-target`,
+      by its element reference);
+    - `fn-element`, `fn-true`, `fn-null`: a resolver returning the target, `true`, or `true` for Base UI's `null` (the
+      port's resolver returns `null` for Base UI's `undefined`);
+    - `fn-keyboard`: the target for a keyboard interaction, else `null` (initialFocus: focus is not moved) or `true`.
+    Each resolver call renders on the container as `data-initial-focus-calls` / `data-final-focus-calls`.
+*@
+<FixtureContainer Name="@Name" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-initial-focus-calls="@string.Join(' ', initialCalls)" data-final-focus-calls="@string.Join(' ', finalCalls)">
+    <style>
+        [data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; }
+        [data-fixture] input, [data-fixture] button { position: relative; z-index: 1; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <input data-testid="outside-before" />
+    <DialogRoot TPayload="NoPayload" @ref="root" Modal="@Modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <DialogTrigger @ref="trigger">Open</DialogTrigger>
+        <DialogPortal>
+            @if (Modal is null)
+            {
+                <DialogBackdrop />
+            }
+            <DialogPopup InitialFocus="@initialFocus" InitialFocusResolver="@initialResolver" FinalFocus="@finalFocus" FinalFocusResolver="@finalResolver">
+                @if (popupInputs)
+                {
+                    <input data-testid="inside-1" />
+                    <input data-testid="inside-2" id="inside-2" />
+                }
+                <DialogClose>Close</DialogClose>
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+    <input data-testid="outside-target" @ref="outsideTarget" />
+</FixtureContainer>
+
+@code {
+    private readonly List<string> initialCalls = [];
+    private readonly List<string> finalCalls = [];
+    private DialogRoot<NoPayload>? root;
+    private DialogTrigger<NoPayload>? trigger;
+    private ElementReference outsideTarget;
+    private bool popupInputs;
+    private string? initialOption;
+    private string? finalOption;
+    private FocusTargetValue? initialFocus;
+    private Func<InteractionType, FocusTargetValue?>? initialResolver;
+    private FocusTargetValue? finalFocus;
+    private Func<InteractionType, FocusTargetValue?>? finalResolver;
+
+    /// <summary>Gets the fixture's name.</summary>
+    protected virtual string Name => "dialog-focus-props";
+
+    /// <summary>Gets the dialog's modality.</summary>
+    protected virtual ModalValue? Modal => null;
+
+    protected override IEnumerable<Task> Attachments => [trigger?.TwinAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        popupInputs = QueryFlag("popupInputs") == true;
+        initialOption = Query("initialFocus");
+        finalOption = Query("finalFocus");
+        switch (initialOption)
+        {
+            case "false":
+                initialFocus = false;
+                break;
+            case "ref":
+                initialFocus = "inside-2";
+                break;
+            case "fn-element" or "fn-true" or "fn-null" or "fn-keyboard":
+                initialResolver = type => Resolve(initialCalls, initialOption, type, new FocusTargetValue("inside-2"), keyboardElse: null);
+                break;
+        }
+
+        if (finalOption is "fn-element" or "fn-true" or "fn-null" or "fn-keyboard")
+        {
+            finalResolver = type => Resolve(finalCalls, finalOption, type, new FocusTargetValue(outsideTarget), keyboardElse: true);
+        }
+        else if (finalOption == "false")
+        {
+            finalFocus = false;
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // The finalFocus ref: the outside input exists from the first render, so its reference is captured now.
+        if (firstRender && finalOption == "ref")
+        {
+            finalFocus = outsideTarget;
+            StateHasChanged();
+        }
+    }
+
+    private FocusTargetValue? Resolve(List<string> calls, string? option, InteractionType type, FocusTargetValue target, bool? keyboardElse)
+    {
+        calls.Add(type == InteractionType.Unknown ? "unknown" : InteractionTypeLiterals.ToLiteral(type));
+        _ = InvokeAsync(StateHasChanged);
+        return option switch
+        {
+            "fn-element" => target,
+            "fn-true" or "fn-null" => true,
+            "fn-keyboard" => type == InteractionType.Keyboard ? target : keyboardElse is { } value ? value : default(FocusTargetValue?),
+            _ => default(FocusTargetValue?),
+        };
+    }
+}

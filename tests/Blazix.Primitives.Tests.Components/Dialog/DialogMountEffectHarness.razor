@@ -1,0 +1,29 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DialogRoot.detached-triggers.test.tsx, the three "from a descendant layout effect" titles: Base UI's layout effect is a
+   descendant whose first OnAfterRenderAsync runs `Run`, in the root's own first render batch. With a NumberHandle the root
+   renders its payload. *@
+@if (NumberHandle is not null)
+{
+    <DialogRoot TPayload="int?" Handle="NumberHandle">
+        <PayloadContent Context="payload">
+            <span data-testid="payload">@(payload?.ToString() ?? "No payload")</span>
+            <RunAfterFirstRender Run="Run" />
+        </PayloadContent>
+    </DialogRoot>
+}
+else
+{
+    <DialogRoot TPayload="NoPayload" Handle="Handle" DefaultOpen="DefaultOpen">
+        <RunAfterFirstRender Run="Run" />
+    </DialogRoot>
+}
+
+@code {
+    [Parameter] public DialogHandle<NoPayload>? Handle { get; set; }
+
+    [Parameter] public DialogHandle<int?>? NumberHandle { get; set; }
+
+    [Parameter] public bool DefaultOpen { get; set; }
+
+    [Parameter] public Func<Task>? Run { get; set; }
+}

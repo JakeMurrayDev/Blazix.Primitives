@@ -34,7 +34,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
 | components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
-| components/dialog.md | DLG | approved | 191 reqs |
+| components/dialog.md | DLG | approved | 191 reqs (1 withdrawn for the port); revised 2026-10-29, M4 track 8 (implementation in progress; `implemented` is proposed by track 9); C# handlers inside a shadow-root portal container a documented deviation (ADR 04 Amendments 2026-10-29); open: Menu-, Select-, Drawer- and AlertDialog-rendering clauses |
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
 | components/field.md | FLD | implemented | 143 reqs; owns normative Field.Control text; revised 2026-10-23, PR 1c; rows open to tracks 4–8 and M5/M6 listed in PR 1c |
 | components/fieldset.md | FST | implemented | 32 reqs; revised 2026-10-23, PR 1c; rows open to tracks 5–8 and M5 listed in PR 1c | |
@@ -56,11 +56,11 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |
 | components/slider.md | SLD | approved | 191 reqs | |
 | components/switch.md | SWT | implemented | pilot; 117 reqs; revised 2026-10-23, M2 track 4 (SWT-API-12 withdrawn) |
-| components/tabs.md | TAB | implemented | 156 reqs (7 withdrawn for the port); revised 2026-10-27, M3 track 5; TAB-FOC-10's popup clause open to M4 | |
+| components/tabs.md | TAB | implemented | 156 reqs (7 withdrawn for the port); revised 2026-10-29, M4 tracks 5 and 8; TAB-FOC-10's popup clauses run | |
 | components/toast.md | TST | approved | 186 reqs |
 | components/toggle.md | TGL | implemented | 57 reqs; revised 2026-10-27, M3 tracks 2 and 4 | |
 | components/toggle-group.md | TGG | implemented | 71 reqs; revised 2026-10-27, M3 tracks 3 and 4 | |
-| components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-27, M3 track 4; TLB-KEY-15, TLB-FOC-06 and the popup clauses open to M4 and M5; the non-native Switch shape open to issue 115 | |
+| components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-29, M4 tracks 5 and 8 (the Dialog and Popover clauses run); TLB-KEY-15, TLB-FOC-06 and the AlertDialog, Menu and Select clauses open to M4 track 9 and M5; the non-native Switch shape open to issue 115 | |
 | components/tooltip.md | TIP | approved | 169 reqs |
 
 Out of scope for v1.9.0: `filter-dropdown`, `internals/temporal*` (not exported).

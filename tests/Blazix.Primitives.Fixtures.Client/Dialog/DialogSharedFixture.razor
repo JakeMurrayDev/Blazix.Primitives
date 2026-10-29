@@ -1,0 +1,93 @@
+@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `dialog-shared` fixture (tests/browser/dialog.spec.ts): dialogRootSharedTests (tests/browser/suites/) on Dialog.
+    - `case=trigger-close`: a trigger "Open" and a Close "Close"; the container also renders each open change's trigger id
+      as `data-open-change-triggers` (space-separated, `none` for no trigger);
+    - `case=prevent-unmount`: every close calls PreventUnmountOnClose(); `case=prevent-once`: only the first one does;
+      `[data-unmount]` calls the root's Unmount();
+    - `case=close-method`: an initially open root; `[data-close]` calls the root's CloseAsync();
+    - `case=payload`: two detached triggers with the payloads 1 and 2 and a root that renders the payload in its popup
+      `content`; `[data-open-with-payload]` calls OpenWithPayloadAsync(8), `[data-handle-close]` the handle's CloseAsync().
+    The page's buttons sit above a modal dialog's internal backdrop.
+*@
+<FixtureContainer Name="dialog-shared" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" data-open-change-triggers="@string.Join(' ', triggerIds)">
+    <style>
+        [data-fixture="dialog-shared"] button { position: relative; z-index: 1; }
+        /* Base UI's empty Popup is visible to jsdom; a real browser needs it to have a size. */
+        [data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; min-width: 20px; min-height: 20px; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    <button type="button" data-close data-key-control @onclick="() => root?.CloseAsync() ?? Task.CompletedTask" @onkeydown="OnShift(() => root?.CloseAsync() ?? Task.CompletedTask)">Close method</button>
+    <button type="button" data-open-with-payload data-key-control @onclick="() => handle.OpenWithPayloadAsync(8)" @onkeydown="OnShift(() => handle.OpenWithPayloadAsync(8))">Open with payload</button>
+    <button type="button" data-handle-close data-key-control @onclick="() => handle.CloseAsync()" @onkeydown="OnShift(() => handle.CloseAsync())">Handle close</button>
+
+    @if (Case == "payload")
+    {
+        <div>
+            <DialogTrigger TPayload="int" @ref="trigger1" Handle="@handle" id="trigger-1" Payload="1">Trigger 1</DialogTrigger>
+            <DialogTrigger TPayload="int" @ref="trigger2" Handle="@handle" id="trigger-2" Payload="2">Trigger 2</DialogTrigger>
+            <DialogRoot TPayload="int" @ref="payloadRoot" Handle="@handle" OnOpenChange="Record">
+                <PayloadContent Context="payload">
+                    <DialogPortal>
+                        <DialogPopup data-testid="content">@payload</DialogPopup>
+                    </DialogPortal>
+                </PayloadContent>
+            </DialogRoot>
+        </div>
+    }
+    else
+    {
+        <DialogRoot TPayload="NoPayload" @ref="root" DefaultOpen="@(Case == "close-method")" OnOpenChange="Record">
+            @if (Case != "close-method")
+            {
+                <DialogTrigger @ref="trigger">Open</DialogTrigger>
+            }
+            <DialogPortal>
+                <DialogPopup>
+                    @if (Case is "trigger-close" or "prevent-once")
+                    {
+                        <DialogClose>Close</DialogClose>
+                    }
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly DialogHandle<int> handle = new();
+    private readonly List<string> triggerIds = [];
+    private DialogRoot<NoPayload>? root;
+    private DialogRoot<int>? payloadRoot;
+    private DialogTrigger<NoPayload>? trigger;
+    private DialogTrigger<int>? trigger1;
+    private DialogTrigger<int>? trigger2;
+    private bool prevented;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinAttached ?? Task.CompletedTask,
+        trigger1?.TwinAttached ?? Task.CompletedTask,
+        trigger2?.TwinAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        payloadRoot?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private void Record(ValueChangeEventArgs<bool> args)
+    {
+        triggerIds.Add(args.Details.Trigger?.Id ?? "none");
+        if (!args.Value && (Case == "prevent-unmount" || (Case == "prevent-once" && !prevented)))
+        {
+            prevented = true;
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        RecordOpenChange(args);
+    }
+}
