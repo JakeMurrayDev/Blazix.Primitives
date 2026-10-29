@@ -55,6 +55,9 @@ internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPaylo
     public int UnmountRequests => State.Popup.UnmountRequests;
 
     /// <inheritdoc />
+    public bool PreventUnmountingOnClose => State.Popup.PreventUnmountingOnClose;
+
+    /// <inheritdoc />
     public bool Nested => State.Nested;
 
     /// <inheritdoc />

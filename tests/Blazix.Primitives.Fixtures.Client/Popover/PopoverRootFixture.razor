@@ -11,7 +11,9 @@
     the root, on a handle) and `multiple` (a second detached trigger `trigger-2`, "Toggle another", after the first and its
     `afterTrigger`). The trigger `trigger` reads "Toggle"; the positioner `positioner` holds the popup `popover-popup`.
     The query:
-    - `modal` (`true`, `false`, `trap-focus`), `defaultOpen`, `keepMounted`;
+    - `modal` (`true`, `false`, `trap-focus`), `defaultOpen`, `keepMounted`; `open=true|false` makes the root controlled, its
+      OnOpenChange following the request, and with `awaitInCallback` it renders the new value and then awaits 100 ms inside
+      the callback (issue 148's consumer); `retainEveryClose` (the base's) keeps every close mounted until `[data-unmount]`;
     - `before`, `after`: an input before and after the popover, `plain` or its test id; `afterTrigger`: an input after the
       trigger, the same way; `outside=before|after`: a button `outside` there;
     - `inside`, the popup's content: `input` (`input-inside`), `button` (`inside`), `close` (a close "Close"),
@@ -42,7 +44,7 @@
         }
         @if (variant == "contained")
         {
-            <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" @attributes="RootAttributes" OnOpenChange="HandleOpenChangeAsync" OnOpenChangeComplete="RecordOpenChangeComplete">
                 @Trigger(null)
                 @Input(afterTrigger)
                 @Portal
@@ -56,7 +58,7 @@
             {
                 <PopoverTrigger TPayload="NoPayload" @ref="second" Handle="@handle" data-testid="trigger-2">Toggle another</PopoverTrigger>
             }
-            <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" DefaultOpen="@defaultOpen" Modal="@modal" @attributes="RootAttributes" OnOpenChange="HandleOpenChangeAsync" OnOpenChangeComplete="RecordOpenChangeComplete">
                 @Portal
             </PopoverRoot>
         }
@@ -74,6 +76,9 @@
 @code {
     private readonly PopoverHandle<NoPayload> handle = new();
     private PopoverRoot<NoPayload>? root;
+    private bool controlled;
+    private bool open;
+    private bool awaitInCallback;
     private PopoverTrigger<NoPayload>? trigger;
     private PopoverTrigger<NoPayload>? second;
     private string variant = "contained";
@@ -143,6 +148,26 @@
         </PopoverPositioner>
     </PopoverPortal>;
 
+    // A controlled root receives Open only when the query names it, so an uncontrolled root never sees the parameter.
+    private Dictionary<string, object> RootAttributes => controlled ? new() { ["Open"] = open } : [];
+
+    // Issue 148's consumer: a controlled root whose callback renders the new value, then awaits work.
+    private async Task HandleOpenChangeAsync(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!controlled || args.Details.IsCanceled)
+        {
+            return;
+        }
+
+        open = args.Value;
+        if (awaitInCallback)
+        {
+            // The receiver renders the new value at this await, as an EventCallback's receiver does.
+            await Task.Delay(100);
+        }
+    }
+
     protected override void OnInitialized()
     {
         variant = Query("variant") ?? "contained";
@@ -154,6 +179,9 @@
             _ => null,
         };
         defaultOpen = QueryFlag("defaultOpen") == true;
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        awaitInCallback = QueryFlag("awaitInCallback") == true;
         keepMounted = QueryFlag("keepMounted") == true;
         before = Query("before");
         after = Query("after");

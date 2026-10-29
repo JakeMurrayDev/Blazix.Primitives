@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components.Interop;
@@ -88,6 +89,13 @@ public sealed class TransitionsTwinContractTests
         Assert.Contains(
             "\"disableTransitionWhileStarting\":true",
             JsonSerializer.Serialize(new TransitionsOptions { DisableTransitionWhileStarting = true }, BlazixJsonContext.Default.TransitionsOptions),
+            StringComparison.Ordinal);
+
+        // Issue 147's flag (ADR 04 Amendments 2026-10-29): left out at its default, and written when a popup announces a
+        // retained close.
+        Assert.Contains(
+            "\"retainExit\":true",
+            JsonSerializer.Serialize(new TransitionsOptions { RetainExit = true }, BlazixJsonContext.Default.TransitionsOptions),
             StringComparison.Ordinal);
 
         foreach ((TransitionStatus status, string literal) in new[] { (TransitionStatus.Starting, "starting"), (TransitionStatus.Ending, "ending"), (TransitionStatus.Idle, "idle") })
@@ -246,6 +254,50 @@ public sealed class TransitionsTwinContractTests
     }
 
     /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
+    // Issue 147 as chosen by the user 2026-10-29 ((B1), ADR 04 Amendments 2026-10-29): the announcement is a call of the
+    // module's export, addressed by the element, so it needs no handle and reaches one whose attach is in flight.
+    [Fact(DisplayName = "port: a retained exit is announced through the module's retainExit export with the element and the value")]
+    [Trait("Requirement", "TRN-ANI-23")]
+    public async Task A_retained_exit_is_announced_through_the_modules_export()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        module.SetupVoid("retainExit", _ => true).SetVoidResult();
+        await using TransitionsTwin twin = new(context.JSInterop.JSRuntime);
+        ElementReference element = new("popup");
+
+        await twin.RetainExitAsync(element, true);
+        await twin.RetainExitAsync(element, false);
+
+        Assert.Equal(
+            [true, false],
+            module.Invocations["retainExit"].Select(invocation =>
+            {
+                Assert.Equal(element, Assert.IsType<ElementReference>(invocation.Arguments[0]));
+                return (bool)invocation.Arguments[1]!;
+            }));
+    }
+
+    // Issue 147 ((B1), ADR 04 Amendments 2026-10-29, as built): a popup awaits its twin's import, then builds its first
+    // attach's options, which carry a retained close the store recorded meanwhile.
+    [Fact(DisplayName = "port: the first attach after PrepareAsync sends the options built after the import, a retained close included")]
+    [Trait("Requirement", "TRN-ANI-23")]
+    public async Task The_first_attach_after_PrepareAsync_sends_the_options_built_after_the_import()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        SetupHandle(module);
+        await using TransitionsTwin twin = new(context.JSInterop.JSRuntime);
+        bool retained = false;
+
+        await twin.PrepareAsync();
+        retained = true;
+        await twin.AttachAsync("base-ui-7", new TransitionsOptions { Open = false, Mounted = true, RetainExit = retained });
+
+        Assert.Single(context.JSInterop.Invocations["import"]);
+        Assert.Contains("\"retainExit\":true", (string)Assert.Single(module.Invocations["attach"]).Arguments[1]!, StringComparison.Ordinal);
+    }
+
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);

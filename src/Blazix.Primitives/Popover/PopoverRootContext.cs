@@ -44,6 +44,11 @@ internal abstract class PopoverRootContext
     /// <returns>The registration; disposing it unregisters the part.</returns>
     public abstract IDisposable RegisterBoundaryPart();
 
+    /// <summary>Registers a listener for a change of whether the current close keeps the popup mounted, called before the write is published.</summary>
+    /// <param name="listener">The listener, called with the new value.</param>
+    /// <returns>The registration; disposing it unregisters the listener.</returns>
+    public abstract IDisposable OnUnmountPreventionChanging(Action<bool> listener);
+
     /// <summary>Runs the store's render-batch boundary work.</summary>
     /// <returns>A task that completes when it has run.</returns>
     public abstract Task AtBatchBoundaryAsync();
@@ -160,6 +165,9 @@ internal sealed class PopoverRootContext<TPayload>(PopoverStore<TPayload> store)
 
     /// <inheritdoc />
     public override IDisposable RegisterBoundaryPart() => store.RegisterBoundaryPart();
+
+    /// <inheritdoc />
+    public override IDisposable OnUnmountPreventionChanging(Action<bool> listener) => store.OnUnmountPreventionChanging(listener);
 
     /// <inheritdoc />
     public override Task AtBatchBoundaryAsync() => store.AtBatchBoundaryAsync();

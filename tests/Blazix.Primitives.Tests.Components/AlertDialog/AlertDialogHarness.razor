@@ -1,0 +1,123 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The AlertDialog tests' configurable tree, DialogHarness's shape over the AlertDialog parts: a Root with a Trigger, a
+   Portal, an optional Backdrop and Viewport, a Popup with a Title, a Description and a Close. The root has no Modal and no
+   DisablePointerDismissal to set; its callbacks are recorded for the assertions. *@
+@if (TriggerMode != "contained" && WithTrigger)
+{
+    <AlertDialogTrigger TPayload="NoPayload" Handle="EffectiveHandle" id="@TriggerId" data-testid="trigger">Open</AlertDialogTrigger>
+}
+@if (ControlledOpen is { } controlled)
+{
+    <AlertDialogRoot TPayload="NoPayload" @ref="Root" Open="controlled" OpenChanged="FollowOpenChanged"
+                     OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="@DefaultTriggerId">
+        @Body
+    </AlertDialogRoot>
+}
+else
+{
+    <AlertDialogRoot TPayload="NoPayload" @ref="Root" DefaultOpen="DefaultOpen"
+                     OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="@DefaultTriggerId">
+        @Body
+    </AlertDialogRoot>
+}
+
+@code {
+    private RenderFragment Body => @<text>
+    @if (WithTrigger && TriggerMode == "contained")
+    {
+        <AlertDialogTrigger TPayload="NoPayload" id="@TriggerId" data-testid="trigger">Open</AlertDialogTrigger>
+    }
+    @Probe
+    <AlertDialogPortal KeepMounted="KeepMounted" data-testid="portal">
+        @if (WithBackdrop)
+        {
+            <AlertDialogBackdrop data-testid="backdrop" ForceRender="ForceRender" />
+        }
+        @if (WithViewport)
+        {
+            <AlertDialogViewport data-testid="viewport">
+                @PopupContent
+            </AlertDialogViewport>
+        }
+        else
+        {
+            @PopupContent
+        }
+    </AlertDialogPortal>
+</text>;
+
+    private RenderFragment PopupContent => @<AlertDialogPopup data-testid="popup">
+        @if (WithTitle)
+        {
+            <AlertDialogTitle>title text</AlertDialogTitle>
+        }
+        @if (WithDescription)
+        {
+            <AlertDialogDescription>description text</AlertDialogDescription>
+        }
+        @if (WithClose)
+        {
+            <AlertDialogClose data-testid="close">Close</AlertDialogClose>
+        }
+    </AlertDialogPopup>;
+
+    public AlertDialogRoot<NoPayload>? Root { get; private set; }
+
+    public List<string> OpenChanges { get; } = [];
+
+    public List<bool> Completes { get; } = [];
+
+    private readonly AlertDialogHandle<NoPayload> ownHandle = new();
+
+    public AlertDialogHandle<NoPayload>? EffectiveHandle => Handle ?? (TriggerMode == "contained" ? null : ownHandle);
+
+    [Parameter] public bool DefaultOpen { get; set; }
+
+    /// <summary><c>contained</c> (the trigger inside the root) or <c>detached</c> (rendered before the root, with a handle).</summary>
+    [Parameter] public string TriggerMode { get; set; } = "contained";
+
+    [Parameter] public string? TriggerId { get; set; }
+
+    [Parameter] public string? DefaultTriggerId { get; set; }
+
+    [Parameter] public bool? ControlledOpen { get; set; }
+
+    /// <summary>Whether the owner of a controlled root takes a close: <see langword="false"/> vetoes it, as the owner that only sets <c>true</c> does.</summary>
+    [Parameter] public bool AcceptClose { get; set; } = true;
+
+    [Parameter] public AlertDialogHandle<NoPayload>? Handle { get; set; }
+
+    [Parameter] public bool WithTrigger { get; set; } = true;
+
+    [Parameter] public bool WithBackdrop { get; set; }
+
+    [Parameter] public bool ForceRender { get; set; }
+
+    [Parameter] public bool WithViewport { get; set; }
+
+    [Parameter] public bool KeepMounted { get; set; }
+
+    [Parameter] public bool WithTitle { get; set; }
+
+    [Parameter] public bool WithDescription { get; set; }
+
+    [Parameter] public bool WithClose { get; set; }
+
+    [Parameter] public RenderFragment? Probe { get; set; }
+
+    private void FollowOpenChanged(bool open)
+    {
+        if (open || AcceptClose)
+        {
+            ControlledOpen = open;
+        }
+    }
+
+    private Task OnOpenChangeAsync(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add($"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}");
+        return Task.CompletedTask;
+    }
+
+    private void OnComplete(bool open) => Completes.Add(open);
+}

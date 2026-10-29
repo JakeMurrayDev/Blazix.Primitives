@@ -33,6 +33,11 @@ const inertPrefixes = [
   'samples/',
 ];
 
+// Families whose parts are shells over another family's behaviours (ADR 08 Amendments 2026-10-27): a change under the
+// behaviours' folder also runs the dependents' specs (design point 1 of M4 track 9, settled by the orchestrator
+// 2026-10-27). The dependence runs one way: a change to a dependent's own folder or spec scopes to that family alone.
+const dependentFamilies = new Map([['dialog', ['alert-dialog']]]);
+
 /** @param {string} stem a document stem such as `alert-dialog` @returns {string} the family folder, `AlertDialog` (ADR 08) */
 export function familyFolderName(stem) {
   return stem
@@ -72,6 +77,9 @@ export function classify({ changed, labels, event, families, specFiles }) {
       const family = rest.length > 0 ? familyByFolder.get(folder ?? '') : undefined;
       if (family) {
         touchedFamilies.add(family);
+        for (const dependent of dependentFamilies.get(family) ?? []) {
+          if (familySet.has(dependent)) touchedFamilies.add(dependent);
+        }
         continue;
       }
     } else if (path.startsWith(browserRoot) && !path.slice(browserRoot.length).includes('/')) {

@@ -10,7 +10,8 @@
     (`trigger-2`), the positioner (`positioner`) and the popup "Content" (`popup`). The query sets:
     - the root: `open=true|false` (controlled; `[data-set-open]` changes it), `defaultOpen`, `disabled`,
       `disableHoverablePopup`, `trackCursorAxis=x|y|both`, `cancelOpen`, `cancelClose`, `allowPropagation`,
-      `preventUnmount` (the first close calls PreventUnmountOnClose);
+      `preventUnmount` (the first close calls PreventUnmountOnClose), `awaitInCallback` (a controlled root's callback renders
+      the new value, then awaits 100 ms);
     - the first trigger: `delay`, `closeDelay`, `closeOnClick=false`, `triggerDisabled=true|false`;
     - `keepMounted`, `animated` (200 ms keyframes; open with `?animations=1`), `showTrigger=false` (`[data-toggle-trigger]`
       mounts or unmounts the first trigger), `topEdge` (the triggers 4 px below the top, so a top popup flips to the bottom);
@@ -85,6 +86,7 @@
     private bool closeOnClick = true;
     private bool? triggerDisabled;
     private bool preventUnmount;
+    private bool awaitInCallback;
     private bool prevented;
     private Duration? delay;
     private Duration? closeDelay;
@@ -120,6 +122,7 @@
         closeOnClick = QueryFlag("closeOnClick") != false;
         triggerDisabled = QueryFlag("triggerDisabled");
         preventUnmount = QueryFlag("preventUnmount") == true;
+        awaitInCallback = QueryFlag("awaitInCallback") == true;
         topEdge = QueryFlag("topEdge") == true;
         delay = int.TryParse(Query("delay"), out int openDelay) ? openDelay : null;
         closeDelay = int.TryParse(Query("closeDelay"), out int close) ? close : null;
@@ -137,7 +140,7 @@
         }
     }
 
-    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    private async Task HandleOpenChange(ValueChangeEventArgs<bool> args)
     {
         RecordOpenChange(args);
         if (!args.Value && preventUnmount && !prevented)
@@ -149,6 +152,13 @@
         if (controlled && !args.Details.IsCanceled)
         {
             open = args.Value;
+
+            // Issue 148's consumer: the callback renders the new value, then awaits work.
+            if (awaitInCallback)
+            {
+                // The receiver renders the new value at this await, as an EventCallback's receiver does.
+                await Task.Delay(100);
+            }
         }
     }
 

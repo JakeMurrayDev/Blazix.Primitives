@@ -66,6 +66,40 @@
             </DialogRoot>
             <span class="VariantName">Detached trigger: the trigger is outside the root and opens it through a handle</span>
         </div>
+        <div class="Variant">
+            <DialogRoot TPayload="NoPayload" Open="@tweetOpen" OnOpenChange="ConfirmTweetClose">
+                <DialogTrigger class="@ButtonClass">Tweet</DialogTrigger>
+                <DialogPortal>
+                    <DialogBackdrop class="@BackdropClass" />
+                    <DialogPopup class="@ConfirmationPopupClass">
+                        <DialogTitle id="tweet-title" class="text-base font-bold">New tweet</DialogTitle>
+                        <form class="flex flex-col gap-4" @onsubmit="() => tweetOpen = false">
+                            <textarea aria-labelledby="tweet-title" required class="@TextareaClass" placeholder="What’s on your mind?" @bind="tweet" @bind:event="oninput"></textarea>
+                            <div class="flex justify-end gap-3">
+                                <DialogClose class="@ButtonClass">Cancel</DialogClose>
+                                <button type="submit" class="@PlainButtonClass">Tweet</button>
+                            </div>
+                        </form>
+                    </DialogPopup>
+                </DialogPortal>
+
+                <AlertDialogRoot TPayload="NoPayload" @bind-Open="confirmationOpen">
+                    <AlertDialogPortal>
+                        <AlertDialogPopup class="@ConfirmationPopupClass">
+                            <div class="flex flex-col gap-1">
+                                <AlertDialogTitle class="text-base font-bold">Discard tweet?</AlertDialogTitle>
+                                <AlertDialogDescription class="@DescriptionClass">Your tweet will be lost.</AlertDialogDescription>
+                            </div>
+                            <div class="flex justify-end gap-3">
+                                <AlertDialogClose class="@ButtonClass">Go back</AlertDialogClose>
+                                <button type="button" class="@PlainButtonClass" @onclick="DiscardTweet">Discard</button>
+                            </div>
+                        </AlertDialogPopup>
+                    </AlertDialogPortal>
+                </AlertDialogRoot>
+            </DialogRoot>
+            <span class="VariantName">Close confirmation: closing with text in the field asks first, in an alert dialog</span>
+        </div>
     </Variants>
 </DemoFrame>
 
@@ -76,5 +110,32 @@
     private const string NestedPopupClass = "fixed top-[calc(50%+1.25rem*var(--nested-dialogs))] left-1/2 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 scale-[calc(1-0.1*var(--nested-dialogs))] bg-white dark:bg-neutral-950 p-4 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[top,scale,opacity] duration-100 ease-out after:absolute after:inset-0 after:bg-black/5 after:opacity-0 after:transition-opacity after:duration-100 after:ease-out after:pointer-events-none data-ending-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-ending-style:scale-[0.96] data-ending-style:opacity-0 data-nested-dialog-open:after:opacity-100 data-starting-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-starting-style:scale-[0.96] data-starting-style:opacity-0";
     private const string DescriptionClass = "text-sm text-neutral-600 dark:text-neutral-400";
 
+    private const string ConfirmationPopupClass = "fixed top-[calc(50%+1.25rem*var(--nested-dialogs))] left-1/2 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 scale-[calc(1-0.1*var(--nested-dialogs))] bg-white dark:bg-neutral-950 p-4 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[top,scale,opacity] duration-100 ease-out after:absolute after:inset-0 after:bg-black/5 after:opacity-0 after:transition-opacity after:duration-100 after:ease-out after:pointer-events-none data-ending-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-ending-style:scale-[0.96] data-ending-style:opacity-0 data-nested-dialog-open:after:opacity-100 data-starting-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-starting-style:scale-[0.96] data-starting-style:opacity-0";
+    private const string TextareaClass = "min-h-32 w-full border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 p-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white";
+    private const string PlainButtonClass = "flex h-8 items-center justify-center gap-2 border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 px-3 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 dark:text-white select-none hover:bg-neutral-100 dark:hover:bg-neutral-800 active:bg-neutral-200 dark:active:bg-neutral-700 disabled:border-neutral-500 disabled:text-neutral-500 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+
     private readonly DialogHandle<NoPayload> detached = new();
+    private bool tweetOpen;
+    private bool confirmationOpen;
+    private string tweet = string.Empty;
+
+    // The close-confirmation demo: a close with text in the field opens the confirmation instead.
+    private void ConfirmTweetClose(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value && tweet.Length > 0)
+        {
+            confirmationOpen = true;
+            return;
+        }
+
+        tweet = string.Empty;
+        tweetOpen = args.Value;
+    }
+
+    private void DiscardTweet()
+    {
+        confirmationOpen = false;
+        tweetOpen = false;
+        tweet = string.Empty;
+    }
 }

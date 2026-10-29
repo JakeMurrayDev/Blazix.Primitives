@@ -53,11 +53,15 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
     private PopoverSelection<TransitionStatus?>? status;
     private PopoverSelection<bool>? hoverOpened;
     private PopoverSelection<int>? unmountRequests;
+    private PopoverSelection<bool>? retainExit;
+    private IDisposable? retainRegistration;
     private PopoverBackdropState? state;
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
     private TransitionsOptions? sentTransitions;
     private Task? attaching;
+    private bool announcedRetain;
+    private bool disposed;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -108,6 +112,11 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
         status = subscription.Select(PopoverSelectors.TransitionStatus);
         hoverOpened = subscription.Select(PopoverSelectors.HoverOpened);
         unmountRequests = subscription.Select(PopoverSelectors.UnmountRequests);
+        retainExit = subscription.Select(PopoverSelectors.PreventUnmountingOnClose);
+
+        // Issue 147 ((B1)): the backdrop's own handle keeps a retained close's ending phase as the popup's does, so it hears
+        // the store at the PreventUnmountOnClose() call as the popup does.
+        retainRegistration = root.OnUnmountPreventionChanging(AnnounceRetainExit);
         base.OnInitialized();
     }
 
@@ -120,21 +129,20 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
         }
 
         await PopupPortalContext.WhenMoved(Portal);
-        TransitionsOptions options = new()
+
+        // Issue 149's residual: the portal's move can complete after the part was disposed, which must create no twin.
+        if (disposed)
         {
-            Open = open!.Value,
-            Mounted = mounted!.Value,
-            Status = status!.Value,
-            UnmountRequests = unmountRequests!.Value,
-            OpenSelector = OpenSelector,
-        };
+            return;
+        }
+
         transitions ??= new TransitionsTwin(JSRuntime);
         if (transitionsHandle is null)
         {
-            attaching ??= AttachAsync(options);
+            attaching ??= AttachAsync(transitions);
             await attaching;
         }
-        else if (options != sentTransitions)
+        else if (TransitionsOptions() is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
@@ -146,8 +154,11 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
     {
         if (disposing)
         {
+            disposed = true;
             subscription?.Dispose();
             subscription = null;
+            retainRegistration?.Dispose();
+            retainRegistration = null;
             if (transitions is not null)
             {
                 _ = transitions.DisposeAsync().AsTask();
@@ -171,12 +182,43 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
         attributes.Set(MergeProps.StyleAttribute, hoverOpened!.Value ? HoverStyle : BaseStyle);
     }
 
-    private async Task AttachAsync(TransitionsOptions options)
+    private TransitionsOptions TransitionsOptions() => new()
     {
+        Open = open!.Value,
+        Mounted = mounted!.Value,
+        Status = status!.Value,
+        UnmountRequests = unmountRequests!.Value,
+        OpenSelector = OpenSelector,
+        RetainExit = retainExit!.Value,
+    };
+
+    // A twin not created yet has nothing to address, nor has a backdrop without an element reference (a render function's):
+    // its attach or its next update sends the store's value then.
+    private void AnnounceRetainExit(bool retain)
+    {
+        if (transitions is null || Element is not { } element || announcedRetain == retain)
+        {
+            return;
+        }
+
+        announcedRetain = retain;
+        _ = transitions.RetainExitAsync(element, retain).AsTask();
+    }
+
+    // As the popup's (issue 147 (B1), as built): the options are read once the module is imported, right before the attach.
+    private async Task AttachAsync(TransitionsTwin twin)
+    {
+        await twin.PrepareAsync();
+        if (disposed || transitions != twin)
+        {
+            return;
+        }
+
+        TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
         transitionsHandle = Element is { } element
-            ? await transitions!.AttachAsync(element, options)
-            : await transitions!.AttachAsync(Id!, options);
+            ? await twin.AttachAsync(element, options)
+            : await twin.AttachAsync(Id!, options);
         attaching = null;
         attached.TrySetResult();
     }

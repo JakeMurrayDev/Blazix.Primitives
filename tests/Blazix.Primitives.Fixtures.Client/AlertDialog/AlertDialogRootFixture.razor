@@ -1,0 +1,150 @@
+@namespace Blazix.Primitives.Fixtures.Client.AlertDialogFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `alert-dialog-root` fixture (tests/browser/alert-dialog.spec.ts): AlertDialogRoot.test.tsx's browser titles and the
+    regime alert mode forces (ADL-API-02/03, ADL-DOM-01, ADL-DIS-01), the `dialog-root` shape over the AlertDialog parts.
+    - `triggers=contained|detached`: a trigger `trigger` inside the root, or before it with a handle;
+    - root props: `open` (controlled; `[data-set-open]` changes it; with `veto`, the owner takes an open and declines a close),
+      `defaultOpen`, `cancelClose`, `allowPropagation`; an alert dialog has no `modal` and no `disablePointerDismissal`;
+    - `backdrop`: an AlertDialogBackdrop `backdrop` (fixed, inset 0, z-index 10); `viewport`: an AlertDialogViewport
+      `viewport` around the popup; `keepMounted`: the portal keeps its subtree;
+    - `animated`: the popup takes `alert-dialog-root-animated` (200 ms keyframes on `[data-open]` and `[data-ending-style]`;
+      open the page with `?animations=1`);
+    - `case=empty`: the popup holds no tabbable element (DLG-KEY-07);
+    - `case=remount` (with `triggers=detached`): `[data-toggle-root]` unmounts and mounts the root, and the popup holds
+      "Unmount root" (AlertDialogRoot.test.tsx "rewires the trigger and keeps pointer dismissal disabled after the root
+      remounts while open");
+    - the popup `alert-dialog-popup` (fixed, z-index 10) holds "Alert dialog content", an input `popup-input` and a Close
+      "Cancel"; the page has an outside region `outside` with a button `outside-button` and a live region `live`
+      (`aria-live="polite"`); the page's controls sit above the internal backdrop (z-index 20); the container renders the
+      handle's `IsOpen` as `data-handle-open-state`.
+*@
+<FixtureContainer Name="alert-dialog-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-handle-open-state="@(handle.IsOpen ? "true" : "false")">
+    <style>
+        @@keyframes alert-dialog-root-enter { from { opacity: 0; } }
+        @@keyframes alert-dialog-root-exit { to { opacity: 0; } }
+        .alert-dialog-root-animated[data-open] { animation: alert-dialog-root-enter 200ms; }
+        .alert-dialog-root-animated[data-ending-style] { animation: alert-dialog-root-exit 200ms; }
+        [data-fixture="alert-dialog-root"] [data-page-control] { position: relative; z-index: 20; }
+    </style>
+    <button type="button" data-page-control data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-page-control data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-page-control data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-page-control data-toggle-root data-key-control @onclick="() => rootMounted = !rootMounted" @onkeydown="OnShift(() => rootMounted = !rootMounted)">Remount root</button>
+
+    <div data-testid="outside" style="min-height: 120px; padding: 8px">
+        <button type="button" data-testid="outside-button">Outside</button>
+        <div data-testid="live" aria-live="polite">Saved</div>
+        @if (triggers != "contained")
+        {
+            <AlertDialogTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" id="trigger" data-testid="trigger">Open</AlertDialogTrigger>
+        }
+
+        @if (rootMounted)
+        {
+            @if (controlled)
+            {
+                <AlertDialogRoot TPayload="NoPayload" @ref="root" Open="@open" Handle="@RootHandle"
+                                 OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                    @Content
+                </AlertDialogRoot>
+            }
+            else
+            {
+                <AlertDialogRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Handle="@RootHandle"
+                                 OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                    @Content
+                </AlertDialogRoot>
+            }
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly AlertDialogHandle<NoPayload> handle = new();
+    private AlertDialogTrigger<NoPayload>? trigger;
+    private AlertDialogRoot<NoPayload>? root;
+    private string triggers = "contained";
+    private bool controlled;
+    private bool veto;
+    private bool open;
+    private bool defaultOpen;
+    private bool backdrop;
+    private bool viewport;
+    private bool keepMounted;
+    private bool rootMounted = true;
+    private string? popupClass;
+
+    private AlertDialogHandle<NoPayload>? RootHandle => triggers == "contained" ? null : handle;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        triggers = Query("triggers") ?? "contained";
+        controlled = QueryFlag("open") is not null;
+        veto = QueryFlag("veto") == true;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        backdrop = QueryFlag("backdrop") == true;
+        viewport = QueryFlag("viewport") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        popupClass = QueryFlag("animated") == true ? "alert-dialog-root-animated" : null;
+    }
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Details.IsCanceled && (args.Value || !veto))
+        {
+            open = args.Value;
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        @if (triggers == "contained")
+        {
+            <AlertDialogTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger">Open</AlertDialogTrigger>
+        }
+        <AlertDialogPortal KeepMounted="@keepMounted">
+            @if (backdrop)
+            {
+                <AlertDialogBackdrop data-testid="backdrop" style="position: fixed; z-index: 10; inset: 0" />
+            }
+            @if (viewport)
+            {
+                <AlertDialogViewport data-testid="viewport">@Popup</AlertDialogViewport>
+            }
+            else
+            {
+                @Popup
+            }
+        </AlertDialogPortal>
+    </text>;
+
+    private RenderFragment Popup => @<AlertDialogPopup data-testid="alert-dialog-popup" class="@popupClass" style="position: fixed; z-index: 10; top: 200px; left: 200px">
+        @if (Case == "empty")
+        {
+            <p>Alert dialog content</p>
+        }
+        else
+        {
+            <p>Alert dialog content</p>
+            <input data-testid="popup-input" />
+            <AlertDialogClose>Cancel</AlertDialogClose>
+            @if (Case == "remount")
+            {
+                <button type="button" @onclick="() => rootMounted = false">Unmount root</button>
+            }
+        }
+    </AlertDialogPopup>;
+}

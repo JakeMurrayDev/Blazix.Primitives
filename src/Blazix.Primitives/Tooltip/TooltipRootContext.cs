@@ -38,6 +38,11 @@ internal abstract class TooltipRootContext
     /// <returns>The view; disposing it ends the subscription and a boundary registration.</returns>
     public abstract TooltipStoreView CreateView(Action changed, TooltipSelection selection);
 
+    /// <summary>Registers a listener for a change of whether the current close keeps the popup mounted, called before the write is published.</summary>
+    /// <param name="listener">The listener, called with the new value.</param>
+    /// <returns>The registration; disposing it unregisters the listener.</returns>
+    public abstract IDisposable OnUnmountPreventionChanging(Action<bool> listener);
+
     // TIP-POS-05.
     /// <summary>Writes whether a viewport is mounted.</summary>
     /// <param name="adaptiveOrigin">Whether a viewport is mounted.</param>
@@ -115,6 +120,9 @@ internal abstract class TooltipStoreView : IDisposable
     /// <summary>Gets a value indicating whether a viewport is mounted.</summary>
     public abstract bool AdaptiveOrigin { get; }
 
+    /// <summary>Gets a value indicating whether the current close keeps the popup mounted until the unmount action runs.</summary>
+    public abstract bool PreventUnmountingOnClose { get; }
+
     /// <inheritdoc />
     public abstract void Dispose();
 
@@ -165,6 +173,9 @@ internal sealed class TooltipRootContext<TPayload>(TooltipStore<TPayload> store)
 
     /// <inheritdoc />
     public override void SetAdaptiveOrigin(bool adaptiveOrigin) => store.SetAdaptiveOrigin(adaptiveOrigin);
+
+    /// <inheritdoc />
+    public override IDisposable OnUnmountPreventionChanging(Action<bool> listener) => store.OnUnmountPreventionChanging(listener);
 
     private sealed class View : TooltipStoreView
     {
@@ -260,6 +271,9 @@ internal sealed class TooltipRootContext<TPayload>(TooltipStore<TPayload> store)
 
         /// <inheritdoc />
         public override bool AdaptiveOrigin => store.State.AdaptiveOrigin;
+
+        /// <inheritdoc />
+        public override bool PreventUnmountingOnClose => store.Popup.PreventUnmountingOnClose;
 
         /// <inheritdoc />
         public override void Dispose()
