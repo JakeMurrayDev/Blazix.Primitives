@@ -1060,6 +1060,47 @@ test.describe('<Toolbar.Button />', () => {
       });
     });
 
+    test.describe('AlertDialog', () => {
+      // TLB-KEY-12, KEY-15, FOC-06: the AlertDialog clauses (M4 track 9; ADR 12 Amendments 2026-10-27 item 4), on the
+      // `toolbar-dialog` fixture's AlertDialog cases. Base UI's AlertDialog.Trigger is Dialog.Trigger, so rendering and the
+      // disabled state are the Dialog block's; the modal cases are here: opening moves focus into the popup, and closing
+      // returns it to the ToolbarButton trigger.
+      const alertCase = (page: Page, mode: RenderMode, name: string) => gotoPopupFixture(page, mode, 'toolbar-dialog', { case: name });
+
+      test('handles interactions', async ({ page, mode }) => {
+        const fixture = await alertCase(page, mode, 'alert-interactions');
+        await expect(page.getByText('title text')).toHaveCount(0);
+        const trigger = page.getByTestId('trigger');
+
+        await tabIn(page, fixture.locator('[data-before]'));
+        await expect(trigger).toBeFocused();
+        expect(await openChanges(fixture)).toEqual([]);
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByText('title text')).toHaveCount(1);
+        await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press']);
+        await expect(page.getByRole('alertdialog')).toBeFocused();
+
+        await page.keyboard.press('Escape');
+        await expect(page.getByText('title text')).toHaveCount(0);
+        await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+        await expect(trigger).toBeFocused();
+      });
+
+      test('prevents composite keydowns from escaping', async ({ page, mode }) => {
+        await alertCase(page, mode, 'alert-composite');
+        await expect(page.getByRole('alertdialog')).toHaveCount(0);
+        const trigger = page.getByRole('button', { name: 'dialog', exact: true });
+
+        await trigger.click();
+        await expect(page.getByRole('alertdialog')).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+
+        await expect(page.getByRole('alertdialog')).toBeFocused();
+        await expect(page.getByRole('button', { name: 'empty', includeHidden: true })).not.toBeFocused();
+      });
+    });
+
     test.describe('Switch', () => {
       // TLB-STR-05, TLB-ARIA-09. Deviation (design point 14.7, option (c), chosen by the user 2026-10-27; the
       // non-native shape is open to issue 115): the switch is native, `NativeButton="true"` over a `<button>`, because

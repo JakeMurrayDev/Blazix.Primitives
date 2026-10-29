@@ -693,6 +693,55 @@ test('port: keeps focus trapped when dialog content contains a non-scrollable sc
 });
 
 // DialogPopup.test.tsx's own browser titles, on the `dialog-popup` fixture.
+// DialogRoot.test.tsx's two close-confirmation titles, whose confirmation is a controlled AlertDialog (DLG-KEY-10, FOC-06,
+// FOC-07, FOC-11, FOC-16; ADL-FOC-01), on the `dialog-confirmation` fixture (M4 track 9).
+test('returns focus into the dialog when a close confirmation opened by an outside press closes', async ({ page, mode }) => {
+  const fixture = await gotoPopupFixture(page, mode, 'dialog-confirmation', { case: 'outside-press' });
+  await page.getByTestId('trigger').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  const textarea = page.getByTestId('textarea');
+  await textarea.click();
+  await page.keyboard.type('x');
+  await expect(textarea).toBeFocused();
+
+  // Pressing the backdrop moves focus to the body before the close is canceled and the confirmation dialog opens.
+  await page.getByTestId('backdrop').click();
+
+  const goBack = page.getByTestId('go-back');
+  await expect(goBack).toBeFocused();
+  expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:outside-press']);
+
+  await page.keyboard.press('Enter');
+
+  await expect(goBack).toHaveCount(0);
+  await expect(textarea).toBeFocused();
+  await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+test('does not leak a non-modal popup field into an unrelated dialog return focus', async ({ page, mode }) => {
+  const fixture = await gotoPopupFixture(page, mode, 'dialog-confirmation', { case: 'no-leak' });
+
+  const field = page.getByTestId('nonmodal-field');
+  await field.click();
+  await expect(field).toBeFocused();
+
+  // Blur the field to the body and open the confirmation while it is focused.
+  await page.getByTestId('surface').click();
+
+  const goBack = page.getByTestId('go-back');
+  await expect(goBack).toBeFocused();
+
+  await page.keyboard.press('Enter');
+
+  await expect(goBack).toHaveCount(0);
+  // The modal gate keeps the non-modal field out of the shared stack, so the confirmation must not restore focus into the
+  // unrelated dialog.
+  await settle(fixture);
+  expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? document.activeElement?.tagName)).not.toBe('nonmodal-field');
+  await expect(field).not.toBeFocused();
+});
+
 test.describe('<Dialog.Popup />', () => {
   test.describe('prop: initialFocus', () => {
     test('focuses the popup itself rather than inner content when opened by touch', async ({ page, mode }) => {
@@ -809,7 +858,6 @@ test.describe('closed shadow root', () => {
         const nestedInShadow = nested === 'shadow root' || (outer === 'shadow root' && nested === undefined);
         if (!nestedInShadow) {
           test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
-            test.skip(kind === 'alert', 'open: AlertDialog is M4 track 9 (issue 124)');
             const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
 
             await click(page, 'open-nested');
@@ -825,8 +873,33 @@ test.describe('closed shadow root', () => {
           continue;
         }
 
+        // An alert dialog closes on Escape, and a press on its backdrop never closes it (ADL-DIS-01, ADL-DIS-03).
+        if (kind === 'alert') {
+          test(`port: keeps the parent open when the nested alert dialog inside the shadow root closes on Escape, and a press on its backdrop leaves it open (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+            const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+
+            await click(page, 'open-nested');
+            await expect.poll(() => exists(page, 'nested')).toBe(true);
+            // A nested root's Backdrop renders only with ForceRender (DLG-STR-05): its backdrop is the internal one, the
+            // first child of its portal node in the shadow root.
+            await page.evaluate(() => {
+              const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;
+              const node = root.querySelector('[data-testid="nested"]')!.closest('[data-base-ui-portal]')!;
+              (node.querySelector(':scope > [role="presentation"]') as HTMLElement).click();
+            });
+            await settle(fixture);
+            expect(await exists(page, 'nested')).toBe(true);
+
+            await page.keyboard.press('Escape');
+            await expect.poll(() => exists(page, 'nested')).toBe(false);
+            expect(await exists(page, 'outer')).toBe(true);
+            await settle(fixture);
+            expect(await openChanges(fixture)).toEqual([]);
+          });
+          continue;
+        }
+
         test(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
-          test.skip(kind === 'alert', 'open: AlertDialog is M4 track 9 (issue 124)');
           const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
 
           await click(page, 'open-nested');
