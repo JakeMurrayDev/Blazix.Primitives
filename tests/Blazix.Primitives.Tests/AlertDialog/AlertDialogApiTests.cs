@@ -125,8 +125,10 @@ public sealed class AlertDialogApiTests
             logger.Messages);
     }
 
+    // The parameters the part declares: those it inherits from PartBase (ClassValue, RenderFunction and the others) are typed by
+    // its own state record, as every part's are.
     private static Dictionary<string, PropertyInfo> Parameters(Type part) =>
-        part.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        part.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             .Where(property => property.GetCustomAttribute<ParameterAttribute>() is not null)
             .ToDictionary(property => property.Name, StringComparer.Ordinal);
 

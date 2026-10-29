@@ -9,14 +9,14 @@
 @if (ControlledOpen is { } controlled)
 {
     <AlertDialogRoot TPayload="NoPayload" @ref="Root" Open="controlled" OpenChanged="FollowOpenChanged"
-                     OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="DefaultTriggerId">
+                     OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="@DefaultTriggerId">
         @Body
     </AlertDialogRoot>
 }
 else
 {
     <AlertDialogRoot TPayload="NoPayload" @ref="Root" DefaultOpen="DefaultOpen"
-                     OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="DefaultTriggerId">
+                     OnOpenChange="OnOpenChangeAsync" OnOpenChangeComplete="OnComplete" Handle="EffectiveHandle" DefaultTriggerId="@DefaultTriggerId">
         @Body
     </AlertDialogRoot>
 }

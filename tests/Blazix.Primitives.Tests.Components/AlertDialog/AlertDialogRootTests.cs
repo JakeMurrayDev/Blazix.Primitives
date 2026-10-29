@@ -221,7 +221,7 @@ public sealed class AlertDialogRootTests : IDisposable
     [Trait("Requirement", "ADL-EVT-02")]
     public async Task An_alert_dialogs_session_never_dismisses_on_an_outside_press()
     {
-        IRenderedComponent<AlertDialogHarness> cut = test.Context.Render<AlertDialogHarness>(p => p.Add(x => x.WithBackdrop, true));
+        IRenderedComponent<AlertDialogHarness> cut = test.Context.Render<AlertDialogHarness>(p => p.Add(x => x.WithBackdrop, true).Add(x => x.TriggerId, "trigger"));
 
         await test.PressAsync(cut, "trigger", open: true);
         IElement popup = cut.Find("[role=alertdialog]");
