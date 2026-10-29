@@ -35,6 +35,8 @@ viewportConformanceTests({
 
 const OPEN_DELAY = 600;
 const CLOSE_DELAY = 300;
+// The circuit's one-way delay of the titles that assert a Server round trip (`delayCircuit`).
+const LATENCY = 250;
 
 // The clock belongs to the worker's browser context, which every page of the worker shares: a title that paused it
 // resumes it, or the next page's WebAssembly boot waits on its timers.
@@ -362,6 +364,28 @@ test.describe('nested preview card interactions', () => {
     await expect(byTestId(page, 'parent-popup')).toBeVisible();
   });
 
+  // PRV-DIS-02 (ADR 04 Amendments 2026-10-29, design point 11.4 of M4 track 7): Base UI leaves the nested Escape to its
+  // hook's tests (preview-card.md §16 Q8); the port proves it on the card.
+  // The child opens after the parent, by hover, as a nested card does in use, so the parent's Escape listener is the earlier
+  // one. Two cards open from the first render register theirs in either order, and on WebAssembly a child's synchronous
+  // close then releases the parent within the same keydown, which Base UI's render-time node state does not; that edge is
+  // reported as a follow-up of the track.
+  test('port: on nested cards, one Escape closes the inner card and the next the outer', async ({ page, mode }) => {
+    const fixture = await nested(page, mode, { parentOpen: true });
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+    await byTestId(page, 'child-trigger').hover();
+    await expect(byTestId(page, 'child-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(byTestId(page, 'child-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(byTestId(page, 'parent-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(byTestId(page, 'parent-popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:escape-key');
+  });
+
   test.describe('race condition between close timers and hover-open logic', () => {
     test('keeps the parent open and re-opens the child when re-entering after partial close', async ({ page, mode }) => {
       const fixture = await nested(page, mode, { parentOpen: true });
@@ -426,6 +450,82 @@ test.describe('nested preview card interactions', () => {
       await expect(byTestId(page, 'child-popup')).toHaveCount(0);
       await expect(byTestId(page, 'parent-popup')).toHaveCount(0);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PRV-DIS-04 (ADR 04 Amendments 2026-10-29, design point 11.4 of M4 track 7): Base UI leaves the touch rules of the outside
+// press to its hook's tests (preview-card.md §16 Q8). As Dialog's touch titles do, the sequence is dispatched on an
+// element outside the card (`Touch` and `TouchEvent` with client points), and the 1 s window is the page's clock.
+// ---------------------------------------------------------------------------------------------------------------------
+
+test.describe('<PreviewCard.Root /> touch outside', () => {
+  interface TouchStep {
+    type: 'touchstart' | 'touchmove' | 'touchend';
+    touches: { x: number; y: number }[];
+    changed?: { x: number; y: number }[];
+  }
+
+  async function touch(page: Page, steps: TouchStep[]): Promise<void> {
+    await page.locator('[data-sync-button]').evaluate((target, all) => {
+      const make = (p: { x: number; y: number }) => new Touch({ identifier: 1, target, clientX: p.x, clientY: p.y });
+      for (const step of all) {
+        target.dispatchEvent(
+          new TouchEvent(step.type, { bubbles: true, cancelable: true, touches: step.touches.map(make), changedTouches: (step.changed ?? step.touches).map(make) }),
+        );
+      }
+    }, steps);
+  }
+
+  const open = (page: Page, mode: RenderMode) => gotoPopupFixture(page, mode, 'preview-card-root', { case: 'contained', defaultOpen: true });
+  const popup = (page: Page) => page.locator('[data-testid="popup"]');
+
+  test('port: a touch sequence outside closes the card per the 10 px, 5 px and 1 s rules', async ({ page, mode }) => {
+    // More than 10 px of movement closes on that touchmove.
+    let fixture = await open(page, mode);
+    await touch(page, [
+      { type: 'touchstart', touches: [{ x: 10, y: 10 }] },
+      { type: 'touchmove', touches: [{ x: 10, y: 22 }] },
+    ]);
+    await expect(popup(page)).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+
+    // More than 5 px, then the lift, closes on the touchend.
+    fixture = await open(page, mode);
+    await touch(page, [
+      { type: 'touchstart', touches: [{ x: 10, y: 10 }] },
+      { type: 'touchmove', touches: [{ x: 10, y: 16 }] },
+    ]);
+    await settle(fixture);
+    await expect(popup(page)).toBeVisible();
+    await touch(page, [{ type: 'touchend', touches: [], changed: [{ x: 10, y: 16 }] }]);
+    await expect(popup(page)).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+
+    // A tap's compatibility mousedown within 1 s of the touchstart closes on that mousedown.
+    fixture = await open(page, mode);
+    await touch(page, [
+      { type: 'touchstart', touches: [{ x: 10, y: 10 }] },
+      { type: 'touchend', touches: [], changed: [{ x: 10, y: 10 }] },
+    ]);
+    await settle(fixture);
+    await expect(popup(page)).toBeVisible();
+    await page.locator('[data-sync-button]').dispatchEvent('mousedown', { button: 0, buttons: 1 });
+    await expect(popup(page)).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['false:outside-press']);
+
+    // A touch held for more than 1 s does not close: neither a mousedown while it is down nor its lift (useDismiss.ts:599-604,
+    // 704-711), as Dialog's title of the same window.
+    fixture = await open(page, mode);
+    await freezeClock(page);
+    await touch(page, [{ type: 'touchstart', touches: [{ x: 10, y: 10 }] }]);
+    await page.clock.runFor(1001);
+    await page.locator('[data-sync-button]').dispatchEvent('mousedown', { button: 0, buttons: 1 });
+    await touch(page, [{ type: 'touchend', touches: [], changed: [{ x: 10, y: 10 }] }]);
+    await page.clock.resume();
+    await settle(fixture);
+    await expect(popup(page)).toBeVisible();
+    expect(await openChanges(fixture)).toEqual([]);
   });
 });
 
@@ -748,7 +848,6 @@ test.describe('<PreviewCard.Positioner /> multiline inline trigger', () => {
   });
 
   test('clears hovered-line coords after close before controlled reopen of the same trigger', async ({ page, mode }) => {
-    test.skip(true, 'open to design point 11.2 of M4 track 7 (PRV-STA-13(d), PRV-ANI-04): the session record is not cleared at the unmount yet');
     const fixture = await inline(page, mode, { case: 'controlled-reopen' });
     const rects = await clientRects(trigger(page));
     expect(rects.length).toBeGreaterThan(2);
@@ -759,6 +858,29 @@ test.describe('<PreviewCard.Positioner /> multiline inline trigger', () => {
     await pressControl(fixture.locator('[data-close-button]'));
     await expect(positioner(page)).toHaveAttribute('hidden', '');
 
+    await pressControl(fixture.locator('[data-open-button]'));
+
+    const target = rects[rects.length - 1]!;
+    await expect(positioner(page)).toBeVisible();
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (target.bottom + 5))).toBeLessThanOrEqual(2);
+  });
+
+  // ADR 04 Amendments 2026-10-29 (design point 11.2 of M4 track 7): the root's commit path sends `Mounted`, so the unmount's
+  // session update, which clears the hovered line, leaves before the controlled reopen's, under the circuit's latency too.
+  test('port: a controlled reopen after the unmount positions against the side-aligned line under circuit latency', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, LATENCY);
+    }
+
+    const fixture = await inline(page, mode, { case: 'controlled-reopen' });
+    const rects = await clientRects(trigger(page));
+    expect(rects.length).toBeGreaterThan(2);
+    const second = rects[1]!;
+    await hoverAt(trigger(page), ...center(second));
+    await expect.poll(async () => Math.abs((await positionerY(page)) - (second.bottom + 5))).toBeLessThanOrEqual(2);
+
+    await pressControl(fixture.locator('[data-close-button]'));
+    await expect(positioner(page)).toHaveAttribute('hidden', '');
     await pressControl(fixture.locator('[data-open-button]'));
 
     const target = rects[rects.length - 1]!;
@@ -871,7 +993,6 @@ test.describe('<PreviewCard.Arrow />', () => {
 // (a MutationObserver, a listener added last), never a poll of a short-lived state (ADR 06 §2).
 // ---------------------------------------------------------------------------------------------------------------------
 
-const LATENCY = 250;
 
 test.describe('Server relaxations (preview-card.md §9)', () => {
   const byTestId = (page: Page, id: string) => page.locator(`[data-testid="${id}"]`);
