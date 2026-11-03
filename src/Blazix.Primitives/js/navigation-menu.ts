@@ -259,7 +259,7 @@ interface Menu {
   readonly root: HTMLElement;
   options: NavigationMenuOptions;
   readonly triggers: Set<TriggerController>;
-  /** The handles that follow the Popup's state on every pass (the Arrows, NAV-ANI-15). */
+  /** The handles that run first in every pass: the Arrows (NAV-ANI-15) and the Contents (their exiting style). */
   readonly followers: Set<() => void>;
   popup: HTMLElement | null;
   positioner: HTMLElement | null;
@@ -1209,11 +1209,27 @@ function attachLink(element: HTMLElement, menu: MenuState, channel: TwinChannel)
 function attachContent(element: HTMLElement, menu: MenuState): TwinHandle {
   let disposed = false;
   let focusInside = false;
+  // NavigationMenuContent.tsx:126-133: an exiting Content leaves the flow, so the size pass measures the new one alone.
+  // C# renders the same style, but after attach it reaches the element through the transitions handle's `update` from
+  // `OnAfterRender`, which on Server lands after the switch's batch; written here in the pass, before the size steps.
+  const exitLayer = styleWriter(element).layer('positioning');
+  let outOfFlow = false;
   const exiting = () => element.hasAttribute('data-closed') && !element.hidden;
   const write = () => {
-    const inert = exiting() && !focusInside;
+    const isExiting = exiting();
+    const inert = isExiting && !focusInside;
     if (element.hasAttribute('inert') !== inert) {
       element.toggleAttribute('inert', inert);
+    }
+    if (isExiting !== outOfFlow) {
+      outOfFlow = isExiting;
+      if (isExiting) {
+        exitLayer.set('position', 'absolute');
+        exitLayer.set('top', '0');
+        exitLayer.set('left', '0');
+      } else {
+        exitLayer.clear();
+      }
     }
   };
   const onFocusIn = (event: FocusEvent) => {
@@ -1234,6 +1250,7 @@ function attachContent(element: HTMLElement, menu: MenuState): TwinHandle {
   observer.observe(element, { attributes: true, attributeFilter: ['data-open', 'data-closed', 'hidden'] });
   element.addEventListener('focusin', onFocusIn);
   element.addEventListener('focusout', onFocusOut);
+  menu.followers.add(write);
   write();
   menu.invalidate();
   return {
@@ -1241,6 +1258,8 @@ function attachContent(element: HTMLElement, menu: MenuState): TwinHandle {
     dispose() {
       if (!disposed) {
         disposed = true;
+        menu.followers.delete(write);
+        exitLayer.clear();
         observer.disconnect();
         element.removeEventListener('focusin', onFocusIn);
         element.removeEventListener('focusout', onFocusOut);
