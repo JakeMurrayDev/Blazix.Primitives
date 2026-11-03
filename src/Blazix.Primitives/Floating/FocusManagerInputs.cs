@@ -111,6 +111,7 @@ internal sealed record FocusManagerInputs
             && Modal == other.Modal
             && Disabled == other.Disabled
             && SameTarget(InitialFocus, other.InitialFocus)
+            && TypeableComboboxAnchor == other.TypeableComboboxAnchor
             && SameTarget(ReturnFocus, other.ReturnFocus)
             && ExplicitReturnFocus == other.ExplicitReturnFocus
             && string.Equals(RestoreFocus, other.RestoreFocus, StringComparison.Ordinal)
@@ -136,6 +137,7 @@ internal sealed record FocusManagerInputs
         hash.Add(Open);
         hash.Add(Modal);
         hash.Add(Disabled);
+        hash.Add(TypeableComboboxAnchor);
         hash.Add(InitialFocus?.HasValue);
         hash.Add(ReturnFocus?.HasValue);
         hash.Add(ExplicitReturnFocus);
