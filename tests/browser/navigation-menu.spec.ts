@@ -858,6 +858,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
   test('closes the parent menu after a nested submenu closes on delayed hover-out', async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'portal', closeDelay: 200 });
     await hoverOpen(page, trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
 
