@@ -1,6 +1,6 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Blazix.Primitives.Tests.TestSupport;
 using Blazix.Primitives.Utilities;
 
 namespace Blazix.Primitives.Tests.ListValues;
@@ -104,5 +104,5 @@ public sealed class CollatorFilterTests
         ["half-width katakana against katakana"] = (false, false, false),
     };
 
-    private static string TablePath([CallerFilePath] string source = "") => Path.Combine(Path.GetDirectoryName(source)!, "Data", "collation-table.json");
+    private static string TablePath() => Path.Combine(RepositoryRoot.Find(), "tests", "Blazix.Primitives.Tests", "ListValues", "Data", "collation-table.json");
 }
