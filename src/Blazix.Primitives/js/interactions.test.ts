@@ -900,6 +900,34 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     expect(popup.open).toBe(true);
   });
 
+  // The consumer's declined onmousedown (M5 track 2): Blazor dispatches the mousedown before a frame- or touch-deferred
+  // press fires, so the press says it was deferred and C# takes the consumer's verdict from that dispatch.
+  it('port: a press deferred to a frame or a touch delay is marked deferred, and a press inside its event is not', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const { popup, reference } = App({ click: { event: 'mousedown', touchOpenDelay: 100 } });
+    const deferred = () =>
+      (synchronous ? popup.pressings : popup.requests.filter((request) => request.method === 'OnPress').map((request) => request.payload)).map(
+        (press) => (press as { deferred?: boolean }).deferred ?? false,
+      );
+
+    pressMouse(reference);
+    expect(popup.open).toBe(true);
+    click(reference);
+    expect(popup.open).toBe(false);
+    reference.dispatchEvent(createPointerEvent('pointerdown', 'touch'));
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    reference.dispatchEvent(createMouseEvent('click'));
+    runFrames();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(popup.open).toBe(true);
+
+    expect(deferred()).toEqual([true, false, true]);
+  });
+
   it('port: with patientClick a hover open sticks for 500 ms after its commit, then a press closes it', async () => {
     vi.useFakeTimers();
     const { popup, reference } = App({ click: { patientClick: true } });
