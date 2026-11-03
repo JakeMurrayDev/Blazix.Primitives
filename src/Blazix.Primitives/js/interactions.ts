@@ -4328,6 +4328,28 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
   notifyPositionListeners(record);
 }
 
+// ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04; ContextMenuTrigger.tsx:16, 58), M5 track 2: the
+// `context-menu` module anchors its session to a 0 x 0 rect at the gesture's point, or the origin rect before any. The
+// Positioner's explicit anchor keeps precedence (FLT-API-11): `positioning` follows the session's reference only without one.
+/**
+ * Sets the position reference of the session of a token to a rectangle, or clears it.
+ * @param token The session token.
+ * @param rect The rectangle in viewport coordinates, or `null` to clear the reference.
+ */
+export function setSessionPositionReference(token: string, rect: { x: number; y: number; width: number; height: number } | null): void {
+  const record = sessions.get(token);
+  if (record === undefined) {
+    return;
+  }
+  if (rect === null) {
+    setPositionReference(record, null);
+    return;
+  }
+  const { x, y, width, height } = rect;
+  const box = { x, y, width, height, top: y, left: x, right: x + width, bottom: y + height };
+  setPositionReference(record, { getBoundingClientRect: () => box });
+}
+
 function notifyPositionListeners(record: SessionRecord): void {
   for (const listener of [...record.positionListeners]) {
     listener();
