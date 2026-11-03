@@ -229,14 +229,16 @@ public sealed class NavigationMenuViewport : PartBase<EmptyState>
     }
 
     // NAV-PTR-09: without a Positioner the Viewport is the floating element, with the hover-close while a trigger is active.
+    // NAV-DIS-06: it stays out of the popup tree. Base UI's inline nested Root is a tree node with no context (only
+    // `useFloating` sets one), so it is never an open child, and the parent's safe polygon closes over it.
     private void SetFloatingOptions()
     {
         bool active = activeTriggerId!.Value is not null;
         int? delay = active ? root!.CloseDelayMs : null;
         InteractionsFloatingOptions current = floating!.Options;
-        if (current.Node != true || current.Hover?.CloseDelay != delay || (current.Hover is null) == active)
+        if (current.Node != false || current.Hover?.CloseDelay != delay || (current.Hover is null) == active)
         {
-            floating.Options = new InteractionsFloatingOptions { Node = true, Hover = active ? new InteractionsFloatingHoverOptions(delay) : null };
+            floating.Options = new InteractionsFloatingOptions { Node = false, Hover = active ? new InteractionsFloatingHoverOptions(delay) : null };
         }
     }
 
