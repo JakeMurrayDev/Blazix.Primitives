@@ -35,6 +35,9 @@ internal sealed class TestFocusManaged : PartBase<EmptyState>
     public FocusTargetValue? InitialFocus { get; set; }
 
     [Parameter]
+    public bool TypeableComboboxAnchor { get; set; }
+
+    [Parameter]
     public FocusTargetValue? ReturnFocus { get; set; }
 
     [Parameter]
@@ -88,6 +91,7 @@ internal sealed class TestFocusManaged : PartBase<EmptyState>
         Disabled = Disabled,
         CloseOnFocusOut = CloseOnFocusOut,
         InitialFocus = InitialFocus,
+        TypeableComboboxAnchor = TypeableComboboxAnchor,
         ReturnFocus = ReturnFocus,
         OpenInteractionType = OpenInteractionType,
         CloseEvent = CloseEvent,
