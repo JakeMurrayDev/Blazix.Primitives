@@ -56,6 +56,10 @@ public sealed class NavigationMenuList : PartBase<NavigationMenuListState>
     /// <inheritdoc />
     protected override string DefaultTagName => "ul";
 
+    // ADR 02 decision 1: under a substitute callback the composite's twin finds the element by id (the TabsList precedent).
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => RenderFunction is not null;
+
     /// <inheritdoc />
     protected override NavigationMenuListState State
     {
