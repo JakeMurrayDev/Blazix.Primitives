@@ -124,6 +124,12 @@ internal sealed record InteractionsDismissOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Topmost { get; init; }
 
+    // M5 track 2 (ADR 04 Amendments 2026-11-03 (7)): NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65),
+    // a branch of FLT-DIS-09; the module and Equals ignore it until its commit.
+    /// <summary>Gets the selector of the elements a press inside which is not outside the popup.</summary>
+    /// <value>A CSS selector matched from the press target outward, or <see langword="null"/> for none.</value>
+    public string? OutsidePressExemptSelector { get; init; }
+
     /// <inheritdoc />
     public bool Equals(InteractionsDismissOptions? other) =>
         other is not null
@@ -268,7 +274,29 @@ internal sealed record InteractionsHoverOptions
     /// <summary>Gets the token of the tooltip provider whose delay group the trigger belongs to.</summary>
     /// <value>The provider's token, or <see langword="null"/> outside a provider.</value>
     public string? DelayGroupToken { get; init; }
+
+    // M5 track 2 (ADR 04 Amendments 2026-11-03 (7)): NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data,
+    // read on the trigger side and the floating side; the module ignores it until its commit.
+    /// <summary>Gets the selector of the trigger's nearest ancestor that the safe triangle's pointer-events lock scopes to.</summary>
+    /// <value>A CSS selector, such as <c>ul</c>, matched from the trigger outward; <see langword="null"/> for the page's default scope.</value>
+    public string? PointerEventsScopeSelector { get; init; }
+
+    // M5 track 2: NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615); ignored until its commit.
+    /// <summary>Gets a value indicating whether entering the trigger locks pointer events while the floating element exists.</summary>
+    /// <value><see langword="true"/> for a navigation menu trigger that blocks pointer events; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool BlockPointerEventsOnEnter { get; init; }
+
+    // M5 track 2: NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845); ignored until its commit.
+    /// <summary>Gets the floating element and tree node the safe triangle closes against when the popup has no positioner.</summary>
+    /// <value>The context, or <see langword="null"/> for the session's published one.</value>
+    public InteractionsInlineCloseContext? InlineCloseContext { get; init; }
 }
+
+/// <summary>The floating element and tree node a trigger's safe triangle closes against when its popup has no positioner.</summary>
+/// <param name="FloatingId">The <c>id</c> of the floating element, such as a navigation menu's viewport.</param>
+/// <param name="NodeToken">The session token of the tree node the close is judged for, or <see langword="null"/> for the trigger's own.</param>
+internal sealed record InteractionsInlineCloseContext(string FloatingId, string? NodeToken = null);
 
 /// <summary>The focus configuration of a trigger.</summary>
 /// <param name="Delay">The delay in milliseconds before a focus opens the popup, or <see langword="null"/> for none.</param>
