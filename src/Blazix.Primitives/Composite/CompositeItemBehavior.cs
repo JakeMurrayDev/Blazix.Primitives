@@ -14,6 +14,9 @@ namespace Blazix.Primitives;
 //   Blazor never writes the attribute the module owns from attach (ADR 04 Amendments 2026-10-22, CMP-DOM-01). The
 //   pipeline merges the consumer after the part, so a consumer tabindex wins (RAD-DOM-16) and travels in the registration,
 //   which the module never writes over.
+// - M5 track 1 (issue 159; ADR 04 Amendments 2026-11-03 (1), chosen by the user): the registration carries the item's
+//   explicit label, its text element's id and its explicit index, each sent only when set (CMP-STA-04, 06, 07, 17), so
+//   the module resolves labels and C# keeps values.
 // - An item registered without a tabindex (M5 track 1, issue 159; NAV-DOM-21, NAV-FOC-03, a navigation menu link) renders
 //   none and says so in its registration, so the module writes none; a consumer tabindex still wins and travels.
 // - After every render it asks the root to send what changed; a new element under the same id (a substitute that changed
@@ -79,18 +82,27 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// <param name="disabled">Whether the item is disabled.</param>
     /// <param name="focusableWhenDisabled">Whether the item stays navigable and can hold the tab stop while disabled.</param>
     /// <param name="omitTabIndex">Whether the item renders no <c>tabindex</c> and the module writes none, as a navigation menu link.</param>
+    /// <param name="label">
+    /// The item's explicit label, which typeahead matches; the empty string for no label; <see langword="null"/> to read
+    /// the text of <paramref name="textId"/> or of the item's element.
+    /// </param>
+    /// <param name="textId">The id of the element whose text is the label when there is no explicit label.</param>
+    /// <param name="index">The item's explicit index, or <see langword="null"/> for an automatic index in document order.</param>
     public void SetRegistration(
         string? id,
         IReadOnlyDictionary<string, object>? additionalAttributes,
         bool disabled = false,
         bool focusableWhenDisabled = false,
-        bool omitTabIndex = false)
+        bool omitTabIndex = false,
+        string? label = null,
+        string? textId = null,
+        int? index = null)
     {
         string elementIdValue = id ?? string.Empty;
         string? tabIndex = ConsumerTabIndex(additionalAttributes);
         if (!registered)
         {
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled) { OmitTabIndex = omitTabIndex };
+            Registration = Create(elementIdValue, tabIndex, disabled, focusableWhenDisabled, omitTabIndex, label, textId, index);
             registered = true;
             root.Register(this);
             return;
@@ -100,10 +112,13 @@ internal sealed class CompositeItemBehavior : IDisposable
             || !string.Equals(Registration.TabIndex, tabIndex, StringComparison.Ordinal)
             || Registration.Disabled != disabled
             || Registration.FocusableWhenDisabled != focusableWhenDisabled
-            || Registration.OmitTabIndex != omitTabIndex)
+            || Registration.OmitTabIndex != omitTabIndex
+            || !string.Equals(Registration.Label, label, StringComparison.Ordinal)
+            || !string.Equals(Registration.TextId, textId, StringComparison.Ordinal)
+            || Registration.Index != index)
         {
             string previousId = Registration.Id;
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled) { OmitTabIndex = omitTabIndex };
+            Registration = Create(elementIdValue, tabIndex, disabled, focusableWhenDisabled, omitTabIndex, label, textId, index);
             root.RegistrationChanged(this, previousId);
         }
     }
@@ -197,6 +212,25 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// <summary>Records that a decision ran the consumer's key handler for a key Blazor dispatches afterwards.</summary>
     /// <param name="args">The key event.</param>
     internal void MarkDecided(KeyboardEventArgs args) => decidedKeyDown = DecidedKey.From(args);
+
+    private static CompositeItemRegistration Create(
+        string id,
+        string? tabIndex,
+        bool disabled,
+        bool focusableWhenDisabled,
+        bool omitTabIndex,
+        string? label,
+        string? textId,
+        int? index)
+    {
+        return new CompositeItemRegistration(id, tabIndex, disabled, focusableWhenDisabled)
+        {
+            OmitTabIndex = omitTabIndex,
+            Label = label,
+            TextId = textId,
+            Index = index,
+        };
+    }
 
     private static string? ConsumerTabIndex(IReadOnlyDictionary<string, object>? additionalAttributes)
     {
