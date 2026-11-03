@@ -15,9 +15,9 @@ internal sealed partial record FixturePopupStoreState<TPayload>(PopupStoreState<
     public static FixturePopupStoreState<TPayload> WithPopup(FixturePopupStoreState<TPayload> state, PopupStoreState<TPayload> popup) => state with { Popup = popup };
 }
 
-/// <summary>The test-only popup family's store.</summary>
+/// <summary>The test-only popup family's store, the root's node in the family-agnostic floating tree (ADR 04 Amendments 2026-11-03 (5)).</summary>
 internal sealed class FixturePopupStore<TPayload>(string? floatingId, string? sessionToken, bool inert = false, ILogger? logger = null)
-    : PopupStore<FixturePopupStoreState<TPayload>, TPayload>(new FixturePopupStoreState<TPayload>(PopupStoreState<TPayload>.Initial(floatingId)), "FixturePopup", sessionToken, inert, logger);
+    : PopupStore<FixturePopupStoreState<TPayload>, TPayload>(new FixturePopupStoreState<TPayload>(PopupStoreState<TPayload>.Initial(floatingId)), "FixturePopup", sessionToken, inert, logger), IFloatingNodeContext;
 
 /// <summary>The test-only popup family's handle, created with <see langword="new"/>.</summary>
 /// <typeparam name="TPayload">The type of the payload the popup's triggers carry.</typeparam>

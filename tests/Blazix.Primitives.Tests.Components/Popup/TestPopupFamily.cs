@@ -14,9 +14,9 @@ internal sealed partial record TestPopupStoreState<TPayload>(PopupStoreState<TPa
     public static TestPopupStoreState<TPayload> WithPopup(TestPopupStoreState<TPayload> state, PopupStoreState<TPayload> popup) => state with { Popup = popup };
 }
 
-/// <summary>The test-only family's store.</summary>
+/// <summary>The test-only family's store, the root's node in the family-agnostic floating tree (ADR 04 Amendments 2026-11-03 (5)).</summary>
 internal sealed class TestPopupStore<TPayload>(string? floatingId, string? sessionToken, bool inert = false, ILogger? logger = null)
-    : PopupStore<TestPopupStoreState<TPayload>, TPayload>(new TestPopupStoreState<TPayload>(PopupStoreState<TPayload>.Initial(floatingId)), "Test", sessionToken, inert, logger);
+    : PopupStore<TestPopupStoreState<TPayload>, TPayload>(new TestPopupStoreState<TPayload>(PopupStoreState<TPayload>.Initial(floatingId)), "Test", sessionToken, inert, logger), IFloatingNodeContext;
 
 /// <summary>The test-only family's handle, created with <see langword="new"/>; its fallback store is an inert test store.</summary>
 public sealed class TestPopupHandle<TPayload>(bool throwOnMissingTrigger = true) : PopupHandle<TPayload>("Test", throwOnMissingTrigger)

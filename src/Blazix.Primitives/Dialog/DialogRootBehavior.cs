@@ -38,6 +38,7 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
     private InteractionsSessionBehavior? session;
     private IDisposable? committed;
     private IDialogRootContext? parent;
+    private IFloatingNodeContext? floatingParent;
     private int reported;
     private bool rendered;
     private bool disposed;
@@ -130,10 +131,12 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
     /// <param name="modality">The root's modality regime, before the mode's overrides.</param>
     /// <param name="disablePointerDismissal">The root's <c>DisablePointerDismissal</c>, before the mode's overrides.</param>
     /// <param name="parentContext">The enclosing dialog-family root's context, or <see langword="null"/> at the top level.</param>
+    /// <param name="floatingParent">The enclosing popup of any family, whose session the root's session names as its parent, or <see langword="null"/> at the top level.</param>
     /// <remarks>Call it from the root's <c>OnParametersSet</c>.</remarks>
-    public void ApplyParameters(in PopupRootParameters<TPayload> parameters, DialogModality modality, bool disablePointerDismissal, IDialogRootContext? parentContext)
+    public void ApplyParameters(in PopupRootParameters<TPayload> parameters, DialogModality modality, bool disablePointerDismissal, IDialogRootContext? parentContext, IFloatingNodeContext? floatingParent)
     {
         root.ApplyParameters(parameters);
+        this.floatingParent = floatingParent;
         if (!ReferenceEquals(parent, parentContext))
         {
             if (reported != 0)
@@ -201,7 +204,9 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
         session.FloatingId = popup.PopupId;
         session.Ending = popup.DerivedTransitionStatus == TransitionStatus.Ending;
         session.Relay = popup.OpenChange;
-        session.ParentToken = parent?.SessionToken;
+        // ADR 04 Amendments 2026-11-03 (5): the parent is the enclosing popup of any family, read from the family-agnostic
+        // cascade; the dialog family's own parent context keeps the nested count.
+        session.ParentToken = floatingParent?.SessionToken;
         session.Dismiss = Dismiss(store);
     }
 
