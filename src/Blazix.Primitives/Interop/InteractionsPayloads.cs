@@ -13,6 +13,7 @@ namespace Blazix.Primitives.Interop;
 /// </param>
 internal sealed record InteractionsRequest(bool Open, string Reason, EventSnapshot? Event, string? TriggerId, bool Instant = false);
 
+// Deferred: M5 track 2, the consumer's declined onmousedown (ADR 01 Amendments 2026-11-04).
 /// <summary>The payload of a press reported after its dispatch: the open state it computed and how it happened.</summary>
 /// <param name="Open">The open state the press requests.</param>
 /// <param name="Reason">The reason's literal: <c>trigger-press</c> or <c>input-press</c>.</param>
@@ -21,10 +22,11 @@ internal sealed record InteractionsRequest(bool Open, string Reason, EventSnapsh
 /// <param name="Event">The snapshot of the click or mousedown.</param>
 /// <param name="Deferred">
 /// <see langword="true"/> when the press fired after a frame or a touch delay, so Blazor already dispatched its event to
-/// the trigger; the default is <see langword="false"/> (M5 track 2).
+/// the trigger; the default is <see langword="false"/>.
 /// </param>
 internal sealed record InteractionsPress(bool Open, string Reason, string? TriggerId, string InteractionType, EventSnapshot Event, bool Deferred = false);
 
+// Deferred: M5 track 2, the consumer's declined onmousedown (ADR 01 Amendments 2026-11-04).
 /// <summary>The press handed over inside the dispatch just before the press decision point asks about it.</summary>
 /// <param name="Open">The open state the press requests.</param>
 /// <param name="Reason">The reason's literal: <c>trigger-press</c> or <c>input-press</c>.</param>
@@ -32,7 +34,7 @@ internal sealed record InteractionsPress(bool Open, string Reason, string? Trigg
 /// <param name="InteractionType"><c>mouse</c>, <c>touch</c>, <c>pen</c>, <c>keyboard</c>, or the empty string when unknown.</param>
 /// <param name="Deferred">
 /// <see langword="true"/> when the press fired after a frame or a touch delay, so Blazor already dispatched its event to
-/// the trigger; the default is <see langword="false"/> (M5 track 2).
+/// the trigger; the default is <see langword="false"/>.
 /// </param>
 internal sealed record InteractionsPressing(bool Open, string Reason, string? TriggerId, string InteractionType, bool Deferred = false);
 
