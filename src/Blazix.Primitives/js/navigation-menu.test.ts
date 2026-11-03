@@ -716,6 +716,47 @@ describe('size', () => {
     expect(popup.style.getPropertyValue('--popup-width')).toBe('auto');
   });
 
+  it('does not let interrupted mutation resizing reapply popup sizes after a later switch', async () => {
+    vi.stubGlobal('ResizeObserver', undefined);
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const rendered = renderMenu({ synchronous: true, open: 'item-1' });
+    const popup = rendered.popup!;
+    const positioner = rendered.positioner!;
+    await settle();
+    const animations = mockAnimations(popup);
+    let size = { width: 700, height: 420 };
+    mockOffsetSize(popup, () => size);
+    primeSize(popup, positioner, 700, 700, 420);
+    const setProperty = vi.spyOn(positioner.style, 'setProperty');
+    const widths = (from = 0) => setProperty.mock.calls.slice(from).filter((call) => call[0] === '--positioner-width').map((call) => call[1]);
+
+    // "Expand Product": the active Content grows while the popup's transition runs.
+    size = { width: 760, height: 480 };
+    animations.start();
+    rendered.item('item-1').content!.appendChild(document.createElement('div'));
+    await settle();
+    flushFrames();
+    flushFrames();
+    flushFrames();
+    expect(widths()).toContain('760px');
+
+    // The hover onto "Solutions" switches before the mutation's steps have finished.
+    size = { width: 500, height: 300 };
+    const before = setProperty.mock.calls.length;
+    mouseEnter(rendered.item('item-2').trigger);
+    await settle();
+    for (let i = 0; i < 4; i += 1) {
+      flushFrames();
+      await settle();
+    }
+
+    const after = widths(before);
+    expect(after).toContain('500px');
+    expect(positioner.style.getPropertyValue('--positioner-width')).toBe('500px');
+    expect(after.slice(after.indexOf('500px') + 1)).not.toContain('760px');
+    setProperty.mockRestore();
+  });
+
   it('updates popup sizing when inline nested content is inserted while active', async () => {
     vi.stubGlobal('ResizeObserver', undefined);
     globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
