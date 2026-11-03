@@ -18,6 +18,7 @@ using Blazix.Primitives.Fixtures.Client.InputFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
@@ -221,5 +222,6 @@ public static class FixtureCatalog
         ["tooltip-viewport"] = new(typeof(TooltipViewportFixture)),
         ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
         ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
+        ["navigation-menu-basic"] = new(typeof(NavigationMenuBasicFixture)),
     };
 }
