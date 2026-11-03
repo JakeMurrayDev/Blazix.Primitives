@@ -165,6 +165,34 @@ test.describe('mousedown press (FLT-PTR-01, FLT-PTR-02, FLT-A11Y-03)', () => {
   });
 });
 
+// The platform flags (M5 track 2, design point 4; MNU-A11Y-01) on the test-only host `platform-flags`: C#'s scoped
+// PlatformFlags reads the platform module's VoiceOver hint and macOS from the first interactive render on, and reads
+// unread until the module answers, which a part renders as neither (ADR 01's row of 2026-11-04). The module computes
+// them from `navigator.platform` when it loads, so the init script sets it before any module runs.
+test.describe('platform flags (MNU-A11Y-01)', () => {
+  for (const [platformName, expected] of [
+    ['MacIntel', 'true'],
+    ['Win32', 'false'],
+  ] as const) {
+    test(`port: the flags are unread until the module answers, then macOS and the VoiceOver hint read ${expected} on ${platformName}`, async ({ page, mode }) => {
+      await page.addInitScript((value) => {
+        Object.defineProperty(Navigator.prototype, 'platform', { get: () => value, configurable: true });
+        Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 0, configurable: true });
+      }, platformName);
+      const release = await stall(page, 'interactions');
+      const fixture = await gotoFixture(page, mode, 'platform-flags');
+
+      await expect(fixture).toHaveAttribute('data-reading', 'true');
+      await expect(fixture).toHaveAttribute('data-mac', 'unread');
+      await expect(fixture).toHaveAttribute('data-voice-over', 'unread');
+
+      await release();
+      await expect(fixture).toHaveAttribute('data-mac', expected);
+      await expect(fixture).toHaveAttribute('data-voice-over', expected);
+    });
+  }
+});
+
 test.describe('attach order', () => {
   test('port: with js/interactions.js stalled the button handle attaches first, and the trigger toggles once when the module arrives', async ({ page, mode }) => {
     const release = await stall(page, 'interactions');
