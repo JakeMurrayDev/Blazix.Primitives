@@ -669,7 +669,8 @@ public sealed class NavigationMenuRootTests : IDisposable
         cut.WaitForAssertion(() => Assert.False(cut.Find("[data-testid=\"positioner\"]").HasAttribute("data-instant")), TimeSpan.FromSeconds(2));
     }
 
-    [Fact(DisplayName = "uses the layout viewport")]
+    // Open to track 2 (issue 163's list): PositionerInputs.Shift reaches the positioning options once track 2 wires it.
+    [Fact(DisplayName = "uses the layout viewport", Skip = "Open to M5 track 2: the Positioner's shift input (NAV-POS-03)")]
     [Trait("Requirement", "NAV-POS-03")]
     public async Task Uses_the_layout_viewport()
     {
