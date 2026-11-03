@@ -421,6 +421,14 @@ describe('useListNavigation (second block)', () => {
         expect(harness.floating).not.toBeNull();
         expect(document.activeElement).not.toBe(harness.item(0));
       });
+      expect(highlighted(harness.item(0))).toBe(false);
+      // The open left no highlight behind: the list's first ArrowDown starts at the first item, where a highlight on
+      // item 0 would have moved it to item 1.
+      keyDown(menu(harness), 'ArrowDown');
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(highlighted(harness.item(0))).toBe(true);
     });
   });
 
@@ -514,16 +522,31 @@ describe('useListNavigation (second block)', () => {
       expect(harness.floating).not.toBeNull();
     });
 
-    it('does not open on ArrowDown when false', () => {
+    // A closed list's arrow key leaves the default behavior and keeps no key for the next open: a click then opens with
+    // the first item highlighted, not the last one an ArrowUp open takes.
+    it('does not open on ArrowDown when false', async () => {
       const harness = app({ list: { openOnArrowKeyDown: false } });
-      keyDown(harness.reference, 'ArrowDown');
+      const event = keyDown(harness.reference, 'ArrowDown');
       expect(harness.floating).toBeNull();
+      expect(event.defaultPrevented).toBe(false);
+      click(harness.reference);
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(highlighted(harness.item(0))).toBe(true);
     });
 
-    it('does not open on ArrowUp when false', () => {
+    it('does not open on ArrowUp when false', async () => {
       const harness = app({ list: { openOnArrowKeyDown: false } });
-      keyDown(harness.reference, 'ArrowUp');
+      const event = keyDown(harness.reference, 'ArrowUp');
       expect(harness.floating).toBeNull();
+      expect(event.defaultPrevented).toBe(false);
+      click(harness.reference);
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(highlighted(harness.item(0))).toBe(true);
+      expect(highlighted(harness.item(2))).toBe(false);
     });
   });
 
@@ -578,6 +601,13 @@ describe('useListNavigation (second block)', () => {
       mouseMove(harness.item(1));
       expect(document.activeElement).not.toBe(harness.item(1));
       expect(harness.highlights).toHaveLength(0);
+      // The hover left the active index unset: ArrowDown starts at the first item, where a synced index 1 would have
+      // moved it to item 2, and the move is the first report.
+      keyDown(menu(harness), 'ArrowDown');
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(harness.highlights.map((report) => report.index)).toEqual([0]);
     });
 
     it('clears the active item when the pointer leaves a clipped container while still within the item bounds', async () => {
@@ -1063,9 +1093,15 @@ describe('useListNavigation (grid)', () => {
 
       option(harness, 43).focus();
 
-      pressOnMenu(harness, 'ArrowUp', 8);
+      // Seven presses climb the column to its first enabled item (3 is disabled); the eighth loops to the last.
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 38)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp', 6);
+      expect(option(harness, 8)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
 
       expect(option(harness, 43)).toBe(document.activeElement);
+      expect(highlighted(option(harness, 43))).toBe(true);
     });
 
     it('does not leave row with "both" orientation while looping', async () => {
@@ -1243,22 +1279,31 @@ describe('useListNavigation (grid)', () => {
 
         option(harness, 36).focus();
 
+        // Each move is the list's: the module writes `data-highlighted` on the item it focuses and reports its index.
         pressOnMenu(harness, arrowToStart);
         await waitFor(() => {
           expect(option(harness, 34)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 34))).toBe(true);
+        expect(harness.activeIndex).toBe(34);
         pressOnMenu(harness, arrowToStart, 6);
         await waitFor(() => {
           expect(option(harness, 28)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 28))).toBe(true);
+        expect(harness.activeIndex).toBe(28);
         pressOnMenu(harness, arrowToStart, 7);
         await waitFor(() => {
           expect(option(harness, 20)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 20))).toBe(true);
+        expect(harness.activeIndex).toBe(20);
         pressOnMenu(harness, arrowToStart, 11);
         await waitFor(() => {
           expect(option(harness, 7)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 7))).toBe(true);
+        expect(harness.activeIndex).toBe(7);
       });
 
       it('looping works on last row', async () => {
@@ -1268,9 +1313,13 @@ describe('useListNavigation (grid)', () => {
         await opened(harness);
 
         option(harness, 36).focus();
+        expect(highlighted(option(harness, 36))).toBe(true);
 
-        pressOnMenu(harness, arrowToEnd);
+        // The last row holds 35 (disabled) and 36: the loop stays on 36, and the grid navigator consumes the key.
+        const event = keyDown(menu(harness), arrowToEnd);
         expect(option(harness, 36)).toBe(document.activeElement);
+        expect(event.defaultPrevented).toBe(true);
+        expect(highlighted(option(harness, 36))).toBe(true);
       });
     });
   });
