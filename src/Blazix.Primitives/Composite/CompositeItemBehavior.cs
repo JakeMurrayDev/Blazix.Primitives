@@ -14,6 +14,8 @@ namespace Blazix.Primitives;
 //   Blazor never writes the attribute the module owns from attach (ADR 04 Amendments 2026-10-22, CMP-DOM-01). The
 //   pipeline merges the consumer after the part, so a consumer tabindex wins (RAD-DOM-16) and travels in the registration,
 //   which the module never writes over.
+// - An item registered without a tabindex (M5 track 1, issue 159; NAV-DOM-21, NAV-FOC-03, a navigation menu link) renders
+//   none and says so in its registration, so the module writes none; a consumer tabindex still wins and travels.
 // - After every render it asks the root to send what changed; a new element under the same id (a substitute that changed
 //   its root) is reported, so the module resolves the id again. Under a substitute callback the part has no element
 //   reference and a replaced element is found again only on the root's next update.
@@ -76,17 +78,19 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// <param name="additionalAttributes">The part's unmatched attributes, which may hold the consumer's <c>tabindex</c>.</param>
     /// <param name="disabled">Whether the item is disabled.</param>
     /// <param name="focusableWhenDisabled">Whether the item stays navigable and can hold the tab stop while disabled.</param>
+    /// <param name="omitTabIndex">Whether the item renders no <c>tabindex</c> and the module writes none, as a navigation menu link.</param>
     public void SetRegistration(
         string? id,
         IReadOnlyDictionary<string, object>? additionalAttributes,
         bool disabled = false,
-        bool focusableWhenDisabled = false)
+        bool focusableWhenDisabled = false,
+        bool omitTabIndex = false)
     {
         string elementIdValue = id ?? string.Empty;
         string? tabIndex = ConsumerTabIndex(additionalAttributes);
         if (!registered)
         {
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
+            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled) { OmitTabIndex = omitTabIndex };
             registered = true;
             root.Register(this);
             return;
@@ -95,10 +99,11 @@ internal sealed class CompositeItemBehavior : IDisposable
         if (!string.Equals(Registration.Id, elementIdValue, StringComparison.Ordinal)
             || !string.Equals(Registration.TabIndex, tabIndex, StringComparison.Ordinal)
             || Registration.Disabled != disabled
-            || Registration.FocusableWhenDisabled != focusableWhenDisabled)
+            || Registration.FocusableWhenDisabled != focusableWhenDisabled
+            || Registration.OmitTabIndex != omitTabIndex)
         {
             string previousId = Registration.Id;
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
+            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled) { OmitTabIndex = omitTabIndex };
             root.RegistrationChanged(this, previousId);
         }
     }
@@ -132,11 +137,18 @@ internal sealed class CompositeItemBehavior : IDisposable
         return !(onKeyDown.HasDelegate && string.Equals(eventName, "onkeydown", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Adds the item's initial <c>tabindex</c>, and the part's key handler when the consumer supplied one, to a render.</summary>
+    /// <summary>
+    /// Adds the item's initial <c>tabindex</c>, unless it is registered without one, and the part's key handler when the
+    /// consumer supplied one, to a render.
+    /// </summary>
     /// <param name="attributes">The part-supplied attributes.</param>
     public void AddAttributes(AttributeList attributes)
     {
-        attributes.Set("tabindex", "-1");
+        if (!Registration.OmitTabIndex)
+        {
+            attributes.Set("tabindex", "-1");
+        }
+
         if (HasKeyHandler)
         {
             attributes.Set("onkeydown", onKeyDown);

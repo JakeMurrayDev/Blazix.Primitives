@@ -15,7 +15,8 @@
 // floating-ui-react/utils/composite.ts; radio-group/RadioGroup.tsx:205-245 and radio/root/RadioRoot.tsx:156-166.
 // From `attach` the module is the only writer of every item's `tabindex` (ADR 04 Amendments 2026-10-22): C# renders
 // "-1" (CMP-STA-15, the handover at attach) and the module writes "0" or "-1" in the task that moves the highlight
-// (CMP-DOM-01), except on an item whose registration carries the consumer's `tabindex` (RAD-DOM-16).
+// (CMP-DOM-01), except on an item whose registration carries the consumer's `tabindex` (RAD-DOM-16) or none at all, a
+// navigation menu link (NAV-DOM-21; M5 track 1).
 // Decision points (ADR 04 §3, fallback run for both; names chosen by the user 2026-10-22, ADR 04 Amendments 2026-10-22):
 // `navigate`, the consumer's onKeyDown veto against key handling (EVD-EVT-26, CMP-EVT-12, RDG-API-12), and `select`,
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
@@ -973,6 +974,7 @@ interface AttachedItem {
   tabIndex: string | null;
   disabled: boolean;
   focusableWhenDisabled: boolean;
+  omitTabIndex: boolean;
 }
 
 function sameIndices(a: ReadonlyArray<number> | null | undefined, b: ReadonlyArray<number> | null | undefined): boolean {
@@ -1014,7 +1016,7 @@ export function attach(
   let disposed = false;
   const registry = createCompositeRegistry();
   let items = new Map<string, AttachedItem>();
-  // Elements whose `tabindex` belongs to the consumer.
+  // Elements whose `tabindex` belongs to the consumer, or that take none (NAV-DOM-21).
   let consumerTabIndexes = new Set<Element>();
   // The registered items by element, for their flags.
   let itemsByElement = new Map<Element, AttachedItem>();
@@ -1307,6 +1309,7 @@ export function attach(
           tabIndex: registration.tabIndex ?? null,
           disabled: registration.disabled ?? false,
           focusableWhenDisabled: registration.focusableWhenDisabled ?? false,
+          omitTabIndex: registration.omitTabIndex ?? false,
         });
       }
     }
@@ -1333,7 +1336,8 @@ export function attach(
     itemsByElement = new Map();
     next.forEach((attached) => {
       itemsByElement.set(attached.element, attached);
-      if (attached.tabIndex != null) {
+      // NAV-DOM-21 (M5 track 1, Deliverable 10): an item registered without a tabindex keeps its native focusability.
+      if (attached.tabIndex != null || attached.omitTabIndex) {
         consumerTabIndexes.add(attached.element);
       }
     });
