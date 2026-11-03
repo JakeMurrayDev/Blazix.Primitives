@@ -3329,7 +3329,8 @@ function createHoverReferenceController(context: HandleContext): Controller {
       return;
     }
 
-    if (currentOpen && isOverInactive && instance.handleCloseOptions?.blockPointerEvents) {
+    // ADR 04 Amendments 2026-11-04 (2): a trigger with its own lock (NavigationMenu's) takes none here, so the lock applies once.
+    if (currentOpen && isOverInactive && instance.handleCloseOptions?.blockPointerEvents && options.blockPointerEventsOnEnter !== true) {
       const floatingElement = record.floatingElement;
 
       if (floatingElement) {
