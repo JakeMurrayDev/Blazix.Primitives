@@ -17,7 +17,9 @@
       content 1; `nested=portal` gives it a Portal, a Positioner `nested-positioner` on the right and a Popup
       `nested-popup-root` around that Viewport instead; `nestedDefault=nested-1` its default; `nested=deep` puts Base UI's
       three levels there instead (`level2-trigger-<n>`, `level2-content-<n>`, `level2-link-<n>`, default `level2-1`, and
-      in `level2-content-1` the same with `level3-`, default `level3-1`), all inline; `sized` gives content 1 400×200 and content 2 300×150, fixed;
+      in `level2-content-1` the same with `level3-`, default `level3-1`), all inline; `nested=falsy` puts an inline nested
+      Root with `TValue` `bool?` there, its default and its first Item's value `false`, the Links closing on click;
+    - `[data-remove-first]` removes Item 1; `sized` gives content 1 400×200 and content 2 300×150, fixed;
     - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
       (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
       `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
@@ -69,6 +71,7 @@
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
     <button type="button" tabindex="-1" data-close data-key-control @onclick="() => root!.CloseAsync()" @onkeydown="OnShift(() => root!.CloseAsync())">Close</button>
+    <button type="button" tabindex="-1" data-remove-first data-key-control @onclick="() => showFirst = false" @onkeydown="OnShift(() => showFirst = false)">Remove first</button>
     @if (disabled is not null)
     {
         <button type="button" tabindex="-1" data-enable data-key-control @onclick="() => disabled = null" @onkeydown="OnShift(() => disabled = null)">Enable</button>
@@ -114,6 +117,7 @@
     private bool roomy;
     private bool vetoOpenKey;
     private bool scopedExit;
+    private bool showFirst = true;
     private int vetoCalls;
 
     protected override IEnumerable<Task> Attachments => attachments;
@@ -141,7 +145,7 @@
         disabled = Query("disabled");
         topLink = QueryFlag("topLink") == true;
         closeOnClick = QueryFlag("closeOnClick") == true;
-        nested = Query("nested") is "inline" or "portal" or "deep" ? Query("nested") : null;
+        nested = Query("nested") is "inline" or "portal" or "deep" or "falsy" ? Query("nested") : null;
         nestedDefault = Query("nestedDefault");
         sized = QueryFlag("sized") == true;
         fade = QueryFlag("fade") == true;
@@ -203,10 +207,10 @@
 
     private RenderFragment Body => @<text>
     <NavigationMenuList data-testid="list" class="@(orientation == Orientation.Vertical ? "vertical" : null)">
-        @for (int i = 1; i <= 2; i++)
+        @for (int i = showFirst ? 1 : 2; i <= 2; i++)
         {
             int n = i;
-            <NavigationMenuItem TValue="string" Value="@("item-" + n)">
+            <NavigationMenuItem TValue="string" Value="@("item-" + n)" @key="n">
                 @if (vetoOpenKey && n == 1)
                 {
                     <NavigationMenuTrigger @ref="triggers[n]" data-testid="@("trigger-" + n)" @onkeydown="VetoOpenKey">
@@ -227,6 +231,10 @@
                     @if (nested == "deep" && n == 1)
                     {
                         @DeepLevel2
+                    }
+                    else if (nested == "falsy" && n == 1)
+                    {
+                        @FalsyNested
                     }
                     else if (nested is not null && n == 1)
                     {
@@ -326,6 +334,26 @@
             }
         </NavigationMenuList>
         <NavigationMenuViewport data-testid="level3-viewport" />
+    </NavigationMenuRoot>
+</text>;
+
+    private RenderFragment FalsyNested => @<text>
+    <NavigationMenuRoot TValue="bool?" DefaultValue="false" data-testid="nested-root">
+        <NavigationMenuList data-testid="nested-list">
+            <NavigationMenuItem TValue="bool?" Value="false">
+                <NavigationMenuTrigger data-testid="nested-trigger-1">Nested 1</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-1">
+                    <NavigationMenuLink href="@(PageUrl + "#nested-1")" CloseOnClick="true" data-testid="nested-link-1">Nested link 1</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem TValue="bool?" Value="true">
+                <NavigationMenuTrigger data-testid="nested-trigger-2">Nested 2</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-2">
+                    <NavigationMenuLink href="@(PageUrl + "#nested-2")" data-testid="nested-link-2">Nested link 2</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="nested-viewport" />
     </NavigationMenuRoot>
 </text>;
 }

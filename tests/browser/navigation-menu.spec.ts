@@ -526,6 +526,26 @@ test.describe('<NavigationMenu.Root /> actions', () => {
     expect((await openChangeCompletes(fixture)).filter((open) => open === 'false')).toHaveLength(1);
   });
 
+  test('keeps the opt-out when focus leaves the trigger during a manual exit', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { defaultValue: 'item-1', retain: true });
+    await trigger(page, 1).focus();
+
+    await pressControl(fixture.locator('[data-close]'));
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('popup-root')).toHaveCount(1);
+
+    // The blur to outside asks a redundant focus-out close, which must not discard the recorded opt-out.
+    await page.getByTestId('after').click();
+    await settle(fixture);
+    await expect(page.getByTestId('popup-root')).toHaveCount(1);
+    expect(await openChangeCompletes(fixture)).not.toContain('false');
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect((await openChangeCompletes(fixture)).filter((open) => open === 'false')).toHaveLength(1);
+  });
+
   test('clears activation direction when controlled value closes externally after switching triggers', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode, { value: 'item-1', contentFade: true, fade: true, animations: 1 });
     await expect(content(page, 1)).toBeVisible();
@@ -803,6 +823,18 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
     await settle(fixture);
     expect((await valueChanges(fixture)).at(-1)).toBe('null:link-press');
+  });
+
+  test('propagates a nested close with a falsy open value to the parent root', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'falsy' });
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await page.getByTestId('nested-link-1').click();
+
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
   });
 
   test('opens nested menu on hover and stays open when hovering over nested popup', async ({ page, mode }) => {
@@ -1091,6 +1123,23 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
 });
 
 test.describe('<NavigationMenu.List />', () => {
+  test('navigates from the focused trigger after an earlier item is removed', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { topLink: true });
+    await trigger(page, 1).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(trigger(page, 2)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    const last = page.getByTestId('top-link');
+    await expect(last).toBeFocused();
+
+    await pressControl(fixture.locator('[data-remove-first]'));
+    await expect(trigger(page, 1)).toHaveCount(0);
+    await settle(fixture);
+    await page.keyboard.press('ArrowLeft');
+
+    await expect(trigger(page, 2)).toBeFocused();
+  });
+
   test('stops vertical navigation keys from escaping the list', async ({ page, mode }) => {
     await gotoMenu(page, mode, { orientation: 'vertical' });
     await page.evaluate(() => {
