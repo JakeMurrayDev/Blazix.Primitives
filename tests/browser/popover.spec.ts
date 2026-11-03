@@ -1996,7 +1996,9 @@ test.describe('a dialog nested in a popover', () => {
     await expect(page.getByTestId('dialog-popup')).toBeVisible();
     await expect(page.getByTestId('popover-popup')).toBeVisible();
 
-    await page.getByTestId('dialog-inside').click();
+    // A real press at the button, with no actionability wait: on a popover that dismisses it, the press removes the button.
+    const box = (await page.getByTestId('dialog-inside').boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await settle(fixture);
 
     await expect(page.getByTestId('popover-popup')).toBeVisible();

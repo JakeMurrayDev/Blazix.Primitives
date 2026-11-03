@@ -1450,6 +1450,10 @@ test.describe('a popover nested in a dialog', () => {
   test('port: Escape in a popover inside a dialog closes the popover only, and the next Escape closes the dialog', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'dialog-popover-nested');
     await expect(page.getByTestId('popover-popup')).toBeVisible();
+    // Focus inside the dialog's popup and outside the popover's: the dialog's floating element hears the key first, and
+    // only the tree tells it that the open popover is its child.
+    await page.getByTestId('dialog-inside').focus();
+    await expect(page.getByTestId('dialog-inside')).toBeFocused();
 
     await page.keyboard.press('Escape');
 

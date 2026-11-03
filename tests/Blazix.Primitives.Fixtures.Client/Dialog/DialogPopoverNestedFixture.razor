@@ -6,8 +6,9 @@
 
 @*
     The `dialog-popover-nested` fixture (tests/browser/dialog.spec.ts; M5 track 2, brief deliverable 3): the cross-family
-    floating tree. A dialog open from the first render (`dialog-popup`) holds a popover open from the first render
-    (`popover-trigger`, `popover-popup`). The container renders each root's open changes as `data-dialog-changes` and
+    floating tree. A dialog open from the first render (`dialog-popup`, with the button `dialog-inside`) holds a popover
+    open from the first render (`popover-trigger`, `popover-popup`, which moves no focus, so the dialog's initial focus
+    lands on `dialog-inside`). The container renders each root's open changes as `data-dialog-changes` and
     `data-popover-changes` (space-separated `open:reason` entries).
 *@
 <FixtureContainer Name="dialog-popover-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -19,12 +20,12 @@
     <DialogRoot TPayload="NoPayload" @ref="dialog" DefaultOpen="true" OnOpenChange="args => Record(dialogChanges, args)">
         <DialogPortal>
             <DialogPopup data-testid="dialog-popup">
-                <div>Dialog content</div>
+                <button type="button" data-testid="dialog-inside">Inside the dialog</button>
                 <PopoverRoot TPayload="NoPayload" @ref="popover" DefaultOpen="true" OnOpenChange="args => Record(popoverChanges, args)">
                     <PopoverTrigger TPayload="NoPayload" @ref="popoverTrigger" data-testid="popover-trigger">Popover</PopoverTrigger>
                     <PopoverPortal>
                         <PopoverPositioner>
-                            <PopoverPopup data-testid="popover-popup">Popover content</PopoverPopup>
+                            <PopoverPopup data-testid="popover-popup" InitialFocus="false">Popover content</PopoverPopup>
                         </PopoverPositioner>
                     </PopoverPortal>
                 </PopoverRoot>
