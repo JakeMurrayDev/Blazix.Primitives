@@ -1142,6 +1142,9 @@ test.describe('size', () => {
     await page.keyboard.press('Escape');
 
     await expect.poll(() => openChangeCompletes(fixture)).toEqual(['false']);
+    // Base UI's bound (NavigationMenuRoot.test.tsx:4310): the scoped exit is 150 ms, and the 350 ms size transitions,
+    // which the ending style drops, would exceed it. Measured in the page, from the Escape's keydown to the completion's
+    // attribute write, so the test runner's speed does not count.
     const { start, end } = await page.evaluate(() => (window as unknown as { shortExit: { start: number; end: number } }).shortExit);
     expect(end - start).toBeLessThan(325);
   });
