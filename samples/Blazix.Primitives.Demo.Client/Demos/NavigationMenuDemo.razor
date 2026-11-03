@@ -1,0 +1,95 @@
+<DemoFrame Slug="navigation-menu" Note="Rest the pointer on a trigger or click it to open its panel; moving to the other trigger slides the content across and resizes the popup. The arrow keys move between the triggers and ArrowDown opens a panel; Escape, a press outside or leaving the menu closes it. Tab does not reach the panel's links yet; that arrives with the links' registration in the list navigation.">
+    <Hero>
+        <NavigationMenuRoot TValue="string" class="min-w-max text-neutral-950 dark:text-white">
+            <NavigationMenuList class="relative flex gap-px">
+                <NavigationMenuItem TValue="string">
+                    <NavigationMenuTrigger class="@TriggerClass">
+                        Overview
+                        <NavigationMenuIcon class="transition-transform duration-200 ease-[ease] data-popup-open:rotate-180">
+                            <CaretDownIcon />
+                        </NavigationMenuIcon>
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent class="@ContentClass">
+                        <ul class="m-0 grid list-none grid-cols-2 p-0 max-[500px]:grid-cols-1">
+                            @foreach (DemoLink link in s_overviewLinks)
+                            {
+                                <li @key="link.Href">
+                                    <NavigationMenuLink href="@link.Href" class="@LinkCardClass">
+                                        <h3 class="m-0 mb-1 text-sm leading-4 font-normal">@link.Title</h3>
+                                        <p class="m-0 text-sm text-neutral-500 dark:text-neutral-400">@link.Description</p>
+                                    </NavigationMenuLink>
+                                </li>
+                            }
+                        </ul>
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+
+                <NavigationMenuItem TValue="string">
+                    <NavigationMenuTrigger class="@TriggerClass">
+                        Handbook
+                        <NavigationMenuIcon class="transition-transform duration-200 ease-[ease] data-popup-open:rotate-180">
+                            <CaretDownIcon />
+                        </NavigationMenuIcon>
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent class="@ContentClass">
+                        <ul class="m-0 flex max-w-[400px] list-none flex-col justify-center p-0">
+                            @foreach (DemoLink link in s_handbookLinks)
+                            {
+                                <li @key="link.Href">
+                                    <NavigationMenuLink href="@link.Href" class="@LinkCardClass">
+                                        <h3 class="m-0 mb-1 text-sm leading-4 font-normal">@link.Title</h3>
+                                        <p class="m-0 text-sm text-neutral-500 dark:text-neutral-400">@link.Description</p>
+                                    </NavigationMenuLink>
+                                </li>
+                            }
+                        </ul>
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+
+                <NavigationMenuItem TValue="string">
+                    <NavigationMenuLink class="@TriggerClass" href="https://github.com/mui/base-ui">GitHub</NavigationMenuLink>
+                </NavigationMenuItem>
+            </NavigationMenuList>
+
+            <NavigationMenuPortal>
+                <NavigationMenuPositioner SideOffset="10" CollisionPadding="s_collisionPadding" CollisionAvoidance="s_collisionAvoidance"
+                                          class="@PositionerClass" style="--duration: 0.35s; --easing: cubic-bezier(0.22, 1, 0.36, 1)">
+                    <NavigationMenuPopup class="@PopupClass">
+                        <NavigationMenuArrow class="@ArrowClass" />
+                        <NavigationMenuViewport class="relative h-full w-full overflow-hidden" />
+                    </NavigationMenuPopup>
+                </NavigationMenuPositioner>
+            </NavigationMenuPortal>
+        </NavigationMenuRoot>
+    </Hero>
+</DemoFrame>
+
+@code {
+    private const string TriggerClass = "flex h-8 items-center justify-center gap-1.5 bg-transparent px-2 text-sm font-normal text-neutral-950 no-underline select-none min-[501px]:px-3 hover:bg-neutral-100 data-pressed:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:text-white dark:hover:bg-neutral-800 dark:data-pressed:bg-neutral-800";
+    private const string ContentClass = "h-full w-[calc(100vw-40px)] p-2 min-[500px]:w-max min-[500px]:max-w-[400px] transition-[opacity,transform,translate] duration-[var(--duration)] ease-[var(--easing)] data-starting-style:opacity-0 data-ending-style:opacity-0 data-starting-style:data-[activation-direction=left]:translate-x-[-50%] data-starting-style:data-[activation-direction=right]:translate-x-[50%] data-ending-style:data-[activation-direction=left]:translate-x-[50%] data-ending-style:data-[activation-direction=right]:translate-x-[-50%]";
+    private const string LinkCardClass = "relative block h-full w-full border-0 bg-transparent p-2 text-left text-inherit no-underline hover:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:hover:bg-neutral-800";
+    private const string PositionerClass = "h-[var(--positioner-height)] w-[var(--positioner-width)] max-w-[var(--available-width)] transition-[top,left,right,bottom] duration-[var(--duration)] ease-[var(--easing)] before:absolute before:content-[''] data-instant:transition-none data-[side=bottom]:before:top-[-10px] data-[side=bottom]:before:right-0 data-[side=bottom]:before:left-0 data-[side=bottom]:before:h-2.5 data-[side=left]:before:top-0 data-[side=left]:before:right-[-10px] data-[side=left]:before:bottom-0 data-[side=left]:before:w-2.5 data-[side=right]:before:top-0 data-[side=right]:before:bottom-0 data-[side=right]:before:left-[-10px] data-[side=right]:before:w-2.5 data-[side=top]:before:right-0 data-[side=top]:before:bottom-[-10px] data-[side=top]:before:left-0 data-[side=top]:before:h-2.5";
+    private const string PopupClass = "relative h-[var(--popup-height)] w-[var(--popup-width)] origin-[var(--transform-origin)] border border-neutral-950 bg-white text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[opacity,transform,width,height,scale] duration-[var(--duration)] ease-[var(--easing)] data-ending-style:scale-90 data-ending-style:opacity-0 data-ending-style:duration-150 data-ending-style:ease-[ease] data-starting-style:scale-90 data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+    private const string ArrowClass = "relative block h-1.5 w-3 overflow-clip transition-[left,right] duration-[var(--duration)] ease-[var(--easing)] before:absolute before:bottom-0 before:left-1/2 before:block before:h-[calc(6px*sqrt(2))] before:w-[calc(6px*sqrt(2))] before:-translate-x-1/2 before:translate-y-1/2 before:rotate-45 before:border before:border-neutral-950 before:bg-white before:content-[''] data-[side=bottom]:top-[-6px] data-[side=left]:right-[-9px] data-[side=left]:rotate-90 data-[side=right]:left-[-9px] data-[side=right]:-rotate-90 data-[side=top]:bottom-[-6px] data-[side=top]:rotate-180 dark:before:border-white dark:before:bg-neutral-950";
+
+    private static readonly CollisionPaddingValue s_collisionPadding = new PaddingSides(Top: 5, Right: 20, Bottom: 5, Left: 20);
+    private static readonly CollisionAvoidance s_collisionAvoidance = new(Side: CollisionAvoidanceMode.None);
+
+    // The documentation's links, on the documentation's site.
+    private static readonly DemoLink[] s_overviewLinks =
+    [
+        new("https://base-ui.com/react/overview/quick-start", "Quick Start", "Install and assemble your first component."),
+        new("https://base-ui.com/react/overview/accessibility", "Accessibility", "Learn how we build accessible components."),
+        new("https://base-ui.com/react/overview/releases", "Releases", "See what’s new in the latest Base UI versions."),
+        new("https://base-ui.com/react/overview/about", "About", "Learn more about Base UI and our mission."),
+    ];
+
+    private static readonly DemoLink[] s_handbookLinks =
+    [
+        new("https://base-ui.com/react/handbook/styling", "Styling", "Base UI components can be styled with plain CSS, Tailwind CSS, CSS-in-JS, or CSS Modules."),
+        new("https://base-ui.com/react/handbook/animation", "Animation", "Base UI components can be animated with CSS transitions, CSS animations, or JavaScript libraries."),
+        new("https://base-ui.com/react/handbook/composition", "Composition", "Base UI components can be replaced and composed with your own existing components."),
+    ];
+
+    private sealed record DemoLink(string Href, string Title, string Description);
+}
