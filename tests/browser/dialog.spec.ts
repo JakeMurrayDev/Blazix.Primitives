@@ -1442,3 +1442,26 @@ test.describe('<Dialog.Root /> a retained close', () => {
     });
   }
 });
+
+// The cross-family floating tree (ADR 04 Amendments 2026-11-03 (5), chosen by the user 2026-11-03; M5 track 2): a popover
+// nested in a dialog's popup is the dialog's child in the tree, so Escape is the innermost popup's alone (FLT-DIS-08,
+// FLT-KEY-02).
+test.describe('a popover nested in a dialog', () => {
+  test('port: Escape in a popover inside a dialog closes the popover only, and the next Escape closes the dialog', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'dialog-popover-nested');
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(page.getByTestId('dialog-popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-popover-changes', 'false:escape-key');
+    await expect(fixture).toHaveAttribute('data-dialog-changes', '');
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('dialog-popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-dialog-changes', 'false:escape-key');
+  });
+});

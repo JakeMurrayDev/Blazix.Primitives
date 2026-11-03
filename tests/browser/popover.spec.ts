@@ -1986,3 +1986,22 @@ test.describe('<Popover.Root /> a close during the first attach', () => {
     await expect(page.locator('#blazor-error-ui')).toBeHidden();
   });
 });
+
+// The cross-family floating tree (ADR 04 Amendments 2026-11-03 (5), chosen by the user 2026-11-03; M5 track 2): a dialog
+// nested in a popover's popup is the popover's child in the tree, so a press inside the dialog's popup is not outside the
+// popover (FLT-DIS-08's tree check).
+test.describe('a dialog nested in a popover', () => {
+  test('port: a press inside the nested dialog\'s popup leaves the enclosing popover open', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-dialog-nested');
+    await expect(page.getByTestId('dialog-popup')).toBeVisible();
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+
+    await page.getByTestId('dialog-inside').click();
+    await settle(fixture);
+
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+    await expect(page.getByTestId('dialog-popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-popover-changes', '');
+    await expect(fixture).toHaveAttribute('data-dialog-changes', '');
+  });
+});

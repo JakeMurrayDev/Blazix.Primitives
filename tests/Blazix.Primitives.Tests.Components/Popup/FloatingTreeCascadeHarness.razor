@@ -1,0 +1,69 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The cross-family floating tree (ADR 04 Amendments 2026-11-03 (5); M5 track 2): one popup family's Root inside another
+   family's open popup, per `Case`. Each Root attaches its `interactions` session in render order, the outer first. *@
+@switch (Case)
+{
+    case "popover-in-dialog":
+        <DialogRoot TPayload="NoPayload" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup>
+                    <PopoverRoot TPayload="NoPayload"><PopoverTrigger>Inner</PopoverTrigger></PopoverRoot>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+        break;
+    case "dialog-in-popover":
+        <PopoverRoot TPayload="NoPayload" DefaultOpen="true">
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup>
+                        <DialogRoot TPayload="NoPayload"><DialogTrigger>Inner</DialogTrigger></DialogRoot>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+        break;
+    case "preview-card-in-alert-dialog":
+        <AlertDialogRoot TPayload="NoPayload" DefaultOpen="true">
+            <AlertDialogPortal>
+                <AlertDialogPopup>
+                    <PreviewCardRoot TPayload="NoPayload"><PreviewCardTrigger>Inner</PreviewCardTrigger></PreviewCardRoot>
+                </AlertDialogPopup>
+            </AlertDialogPortal>
+        </AlertDialogRoot>
+        break;
+    case "alert-dialog-in-preview-card":
+        <PreviewCardRoot TPayload="NoPayload" DefaultOpen="true">
+            <PreviewCardPortal>
+                <PreviewCardPositioner>
+                    <PreviewCardPopup>
+                        <AlertDialogRoot TPayload="NoPayload"><AlertDialogTrigger>Inner</AlertDialogTrigger></AlertDialogRoot>
+                    </PreviewCardPopup>
+                </PreviewCardPositioner>
+            </PreviewCardPortal>
+        </PreviewCardRoot>
+        break;
+    case "dialog-in-tooltip-in-popover":
+        <PopoverRoot TPayload="NoPayload" DefaultOpen="true">
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup>
+                        <TooltipRoot TPayload="NoPayload" DefaultOpen="true">
+                            <TooltipPortal>
+                                <TooltipPositioner>
+                                    <TooltipPopup>
+                                        <DialogRoot TPayload="NoPayload"><DialogTrigger>Inner</DialogTrigger></DialogRoot>
+                                    </TooltipPopup>
+                                </TooltipPositioner>
+                            </TooltipPortal>
+                        </TooltipRoot>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+        break;
+}
+
+@code {
+    [Parameter] public string Case { get; set; } = "";
+}

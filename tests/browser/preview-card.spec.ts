@@ -1225,3 +1225,26 @@ test.describe('<PreviewCard.Root /> a retained close', () => {
     });
   }
 });
+
+// Issue 156 (M5 track 2, brief deliverable 3): two nested cards open from the first render register their Escape
+// listeners in either order. The dismissal's blocking-child check reads the children's open state recorded at the
+// keydown's start, as Base UI's render snapshot does, so one Escape closes only the child.
+test.describe('nested cards open from the first render', () => {
+  test('port: one Escape closes only the child card, and the next closes the parent', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'preview-card-nested', { parentOpen: true, childOpen: true });
+    await expect(page.getByTestId('child-popup')).toBeVisible();
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(page.getByTestId('parent-popup')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('parent-popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:escape-key');
+  });
+});
