@@ -85,6 +85,13 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Parameter]
     public bool OutsidePress { get; set; }
 
+    /// <summary>
+    /// Gets or sets the session token of the enclosing popup, which makes this popup's session its child (M5 track 1's
+    /// nested list hosts, issue 159, Deliverable 6: the test-only parent token until track 2's cascade is on <c>main</c>).
+    /// </summary>
+    [Parameter]
+    public string? ParentToken { get; set; }
+
     /// <summary>Gets a value indicating whether the popup is open.</summary>
     public bool IsOpen => behavior.Store.IsOpen;
 
@@ -125,6 +132,7 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     protected override void OnParametersSet()
     {
         session!.Dismiss = OutsidePress ? s_escapeAndOutsidePress : s_escapeOnly;
+        session.ParentToken = ParentToken;
         behavior.ApplyParameters(new PopupRootParameters<TPayload>(
             DefaultOpen,
             DefaultTriggerId,

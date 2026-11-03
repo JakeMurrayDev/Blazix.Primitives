@@ -55,8 +55,11 @@ public sealed class FixtureListPopup : ComponentBase, IDisposable
             PopupInternalBackdrop.Render(builder, host.Store.Popup.FloatingId + "-backdrop", inert: false);
         }
 
-        // A key opening a non-empty list highlights an item, which list navigation focuses.
-        bool initialFocus = !host.Virtual && (!host.OpenedByKeyboard || host.Root.Items.Count == 0);
+        // A key opening a non-empty list highlights an item, which list navigation focuses. A nested list's focus manager
+        // neither takes the initial focus nor returns it (Base UI's MenuOrientation.tsx: `initialFocus={!isNested}`,
+        // `returnFocus={!isNested}`): the list's close key returns it.
+        FixtureListRoot root = host.Root;
+        bool initialFocus = root.InitialFocus && !root.Nested && !host.Virtual && (!host.OpenedByKeyboard || root.Items.Count == 0);
         builder.OpenComponent<FixtureListPositioner>(1);
         builder.AddComponentParameter(2, nameof(FixtureListPositioner.ChildContent), (RenderFragment)(positioned =>
         {
@@ -69,11 +72,12 @@ public sealed class FixtureListPopup : ComponentBase, IDisposable
                 content.AddComponentParameter(1, nameof(FixtureFocusManaged.Open), isOpen);
                 content.AddComponentParameter(2, nameof(FixtureFocusManaged.Modal), false);
                 content.AddComponentParameter(3, nameof(FixtureFocusManaged.InitialFocus), initialFocus);
-                content.AddComponentParameter(4, nameof(FixtureFocusManaged.InitialFocusId), ListId);
-                content.AddComponentParameter(5, nameof(FixtureFocusManaged.ReturnFocus), !host.Virtual);
+                content.AddComponentParameter(4, nameof(FixtureFocusManaged.InitialFocusId), root.InitialFocusOnList ? ListId : null);
+                content.AddComponentParameter(5, nameof(FixtureFocusManaged.ReturnFocus), !host.Virtual && !root.Nested);
                 content.AddComponentParameter(6, nameof(FixtureFocusManaged.DomReferenceId), TriggerId);
                 content.AddComponentParameter(7, nameof(FixtureFocusManaged.OnFocusOutClose), EventCallback.Factory.Create<EventSnapshot>(this, OnFocusOutCloseAsync));
                 content.AddComponentParameter(8, nameof(FixtureFocusManaged.ChildContent), ChildContent);
+                content.AddComponentParameter(9, nameof(FixtureFocusManaged.CloseOnFocusOut), root.Dismissible);
                 content.CloseComponent();
             }));
             positioned.CloseComponent();

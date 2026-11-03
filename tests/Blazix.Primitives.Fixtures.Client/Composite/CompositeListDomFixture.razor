@@ -15,13 +15,18 @@
     - `role` (`menuitem` or `option`; the list's role follows), `selectable` (`aria-selected`, `data-value-changes`),
       `defaultValue`, `modal` (the internal backdrop), `wrap` (`form` with a submit button, recording `data-submits`;
       `dialog`, inside an open DialogRoot's popup `data-testid="dialog"`);
-    - the family's list options: `loopFocus`, `allowEscape`, `typeahead`, `typeaheadResetMs`, `typeaheadSkip`.
-    The After button records `data-outside-clicks`. The sync button takes the suites' Shift keydown (`data-key-control`).
+    - the family's list options: `loopFocus`, `allowEscape`, `typeahead`, `typeaheadResetMs`, `typeaheadSkip`;
+    - the non-suite titles' options (tests/browser/composite-list-rows.spec.ts): `focusItemOnHover`, `focusItemOnOpen`
+      (`true`, `false`, absent for `'auto'`), `initialFocus=false` (the focus manager takes no initial focus, as
+      useListNavigation.test.tsx's App has none), `initialFocusOnList=false` (the focus manager's default initial focus),
+      `defaultOpen` (open from the start).
+    The After button records `data-outside-clicks`; with `recordHighlights=true` each accepted highlight report is
+    recorded in `data-highlights` (space-separated indices, `null` for none). The sync button takes the suites' Shift keydown (`data-key-control`).
 *@
 <FixtureContainer Name="@FixtureName" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
                   data-item-clicks="@string.Join('|', itemClicks)" data-value-changes="@string.Join('|', valueChanges)"
-                  data-outside-clicks="@outsideClicks" data-submits="@submits">
+                  data-outside-clicks="@outsideClicks" data-submits="@submits" data-highlights="@string.Join(' ', highlights)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     @if (wrap == "form")
     {
@@ -49,6 +54,7 @@
     private readonly TaskCompletionSource listAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly List<string> itemClicks = [];
     private readonly List<string> valueChanges = [];
+    private readonly List<string> highlights = [];
     private string[] items = s_items;
     private HashSet<string> disabledItems = [];
     private string itemRole = "menuitem";
@@ -64,6 +70,12 @@
     private bool typeahead;
     private int typeaheadResetMs = 750;
     private string? typeaheadSkip;
+    private bool focusItemOnHover = true;
+    private bool? focusItemOnOpen;
+    private bool initialFocus = true;
+    private bool initialFocusOnList = true;
+    private bool recordHighlights;
+    private bool defaultOpen;
     private int outsideClicks;
     private int submits;
     private DialogRoot<NoPayload>? dialog;
@@ -105,7 +117,16 @@
         typeahead = QueryFlag("typeahead") == true;
         typeaheadResetMs = Query("typeaheadResetMs") is { } ms ? int.Parse(ms, System.Globalization.CultureInfo.InvariantCulture) : 750;
         typeaheadSkip = Query("typeaheadSkip");
+        focusItemOnHover = QueryFlag("focusItemOnHover") != false;
+        focusItemOnOpen = QueryFlag("focusItemOnOpen");
+        initialFocus = QueryFlag("initialFocus") != false;
+        initialFocusOnList = QueryFlag("initialFocusOnList") != false;
+        recordHighlights = QueryFlag("recordHighlights") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
     }
+
+    // Only a page that records the reports renders on each one: the suite's pages render as before.
+    private EventCallback<int?> HighlightCallback => recordHighlights ? EventCallback.Factory.Create<int?>(this, RecordHighlight) : default;
 
     private string ListRole => itemRole == "option" ? "listbox" : "menu";
 
@@ -113,6 +134,8 @@
     private void RecordValueChange(string value) => valueChanges.Add(value);
 
     private void RecordItemClick(string label) => itemClicks.Add(label);
+
+    private void RecordHighlight(int? index) => highlights.Add(index?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
 
     private Dictionary<string, object> ItemAttributes(string label)
     {
@@ -132,9 +155,11 @@
 
     private RenderFragment ListPage => @<div>
         <button type="button" data-testid="before">Before</button>
-        <FixtureListRoot Items="@items" Selectable="@selectable" DefaultValue="@defaultValue" OnValueChange="RecordValueChange"
+        <FixtureListRoot Items="@items" DefaultOpen="@defaultOpen" Selectable="@selectable" DefaultValue="@defaultValue" OnValueChange="RecordValueChange"
                          Modal="@modal" Virtual="@Virtual" LoopFocus="@loopFocus" AllowEscape="@allowEscape"
                          Typeahead="@typeahead" TypeaheadResetMs="@typeaheadResetMs" TypeaheadSkip="@typeaheadSkip"
+                         FocusItemOnHover="@focusItemOnHover" FocusItemOnOpen="@focusItemOnOpen" InitialFocus="@initialFocus"
+                         InitialFocusOnList="@initialFocusOnList" OnHighlightChange="@HighlightCallback"
                          OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete"
                          OnAttached="() => listAttached.TrySetResult()">
             @if (Virtual)

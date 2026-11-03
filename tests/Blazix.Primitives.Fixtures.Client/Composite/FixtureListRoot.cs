@@ -21,6 +21,7 @@ public sealed class FixtureListRoot : ComponentBase
 {
     private readonly TaskCompletionSource sessionReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly FixtureListContext context = new();
+    private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private FixturePopupRoot<NoPayload>? popupRoot;
 
     [Parameter]
@@ -125,15 +126,59 @@ public sealed class FixtureListRoot : ComponentBase
     [Parameter]
     public EventCallback OnAttached { get; set; }
 
+    // M5 track 1's non-suite pages (issue 159, Deliverables 12-14).
+
+    /// <summary>
+    /// Gets or sets a value indicating whether an outside press and the focus leaving the popup close it; <see langword="false"/>
+    /// for a list that stays open, as <c>ListboxFocus.tsx</c>'s does (CMP-STA-40's page).
+    /// </summary>
+    [Parameter]
+    public bool Dismissible { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the focus manager takes the initial focus at all.</summary>
+    [Parameter]
+    public bool InitialFocus { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the focus manager's initial focus is the list element (Base UI's
+    /// <c>MenuPopup.tsx</c>) rather than its default, the first tabbable element of the popup.
+    /// </summary>
+    [Parameter]
+    public bool InitialFocusOnList { get; set; } = true;
+
+    /// <summary>Gets or sets the callback each accepted highlight report runs, with its index.</summary>
+    [Parameter]
+    public EventCallback<int?> OnHighlightChange { get; set; }
+
+    /// <summary>Gets or sets the composite root a keydown the list does not stop is relayed to (CMP-KEY-14's page).</summary>
+    [Parameter]
+    public ElementReference? RelayTarget { get; set; }
+
+    /// <summary>Gets the list's behavior, for a page that asks for a highlight from C#.</summary>
+    internal ListNavigationBehavior List => context.List;
+
+    /// <summary>Gets a task that completes when the session and the trigger's handles are attached.</summary>
+    public Task Attached => attached.Task;
+
+    // The enclosing list host's context: a nested list's session is the child of its parent popup's (the test-only parent
+    // token, Deliverable 6).
+    [CascadingParameter]
+    private FixtureListContext? ParentHost { get; set; }
+
+    /// <summary>Sets the list's selected value from outside the list, as <c>ListboxFocus.tsx</c>'s reference button does.</summary>
+    /// <param name="label">The label of the item to select.</param>
+    internal void Select(string? label) => context.Value = label;
+
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         builder.OpenComponent<FixturePopupRoot<NoPayload>>(0);
         builder.AddComponentParameter(1, nameof(FixturePopupRoot<NoPayload>.DefaultOpen), DefaultOpen);
         builder.AddComponentParameter(2, nameof(FixturePopupRoot<NoPayload>.OnOpenChange), OnOpenChange);
         builder.AddComponentParameter(3, nameof(FixturePopupRoot<NoPayload>.OnOpenChangeComplete), OnOpenChangeComplete);
-        builder.AddComponentParameter(4, nameof(FixturePopupRoot<NoPayload>.OutsidePress), true);
-        builder.AddComponentParameter(5, nameof(FixturePopupRoot<NoPayload>.ChildContent), (RenderFragment)BuildScope);
-        builder.AddComponentReferenceCapture(6, reference => popupRoot = (FixturePopupRoot<NoPayload>)reference);
+        builder.AddComponentParameter(4, nameof(FixturePopupRoot<NoPayload>.OutsidePress), Dismissible);
+        builder.AddComponentParameter(5, nameof(FixturePopupRoot<NoPayload>.ParentToken), Nested ? ParentHost?.Store.SessionToken : null);
+        builder.AddComponentParameter(6, nameof(FixturePopupRoot<NoPayload>.ChildContent), (RenderFragment)BuildScope);
+        builder.AddComponentReferenceCapture(7, reference => popupRoot = (FixturePopupRoot<NoPayload>)reference);
         builder.CloseComponent();
     }
 
@@ -147,6 +192,7 @@ public sealed class FixtureListRoot : ComponentBase
         await popupRoot!.SessionAttached;
         sessionReady.TrySetResult();
         await context.TriggerAttached;
+        attached.TrySetResult();
         await OnAttached.InvokeAsync();
     }
 
