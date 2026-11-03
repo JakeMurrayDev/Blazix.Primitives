@@ -789,7 +789,8 @@ export type CompositeMetadata = { index: number } & Record<string, unknown>;
 export interface CompositeRegistry {
   /** The registered, connected elements at their indexes; explicit indexes may leave empty slots. */
   readonly elements: Array<HTMLElement | null>;
-  /** The items' labels, aligned with `elements`, resolved on every rebuild (CMP-STA-06, CMP-STA-07). */
+  // CMP-STA-06, CMP-STA-07.
+  /** The items' labels, aligned with `elements`, resolved on every rebuild. */
   readonly labels: Array<string | null>;
   /**
    * Registers an element, replacing its earlier registration.
@@ -1142,14 +1143,16 @@ export interface CompositeItemRegistration {
   disabled?: boolean | undefined;
   /** Whether the item stays navigable and can hold the tab stop while disabled; absent for `false`. */
   focusableWhenDisabled?: boolean | undefined;
+  // CMP-STA-06.
   /**
    * The item's explicit label; the empty string for an item with no label that must not fall back to its text; absent to
-   * read the text of `textId`'s element or of the item's element (CMP-STA-06).
+   * read the text of `textId`'s element or of the item's element.
    */
   label?: string | undefined;
   /** The id of the element whose text is the label when there is no explicit label; absent for the item's element. */
   textId?: string | undefined;
-  /** The item's explicit index; absent for an automatic index in document order (CMP-STA-04, CMP-STA-17). */
+  // CMP-STA-04, CMP-STA-17.
+  /** The item's explicit index; absent for an automatic index in document order. */
   index?: number | undefined;
   /** Whether the item renders no `tabindex` and the module writes none; absent for `false`. */
   omitTabIndex?: boolean | undefined;
@@ -1218,8 +1221,9 @@ export interface CompositeListOptions {
   selectedIndex?: number | undefined;
   /** Whether the items are a grid; absent for `false`. */
   grid?: boolean | undefined;
+  // CMP-ALG-13.
   /**
-   * The grid's number of columns; absent for 2, the navigator Combobox passes unwrapped (CMP-ALG-13); C#'s `Cols`.
+   * The grid's number of columns; absent for 2, the navigator Combobox passes unwrapped; C#'s `Cols`.
    */
   cols?: number | undefined;
   /**
@@ -2213,7 +2217,8 @@ interface ListFloating {
   idOf(element: Element | null | undefined): string | null;
   /** The indices derived from the items' flags, in the registry's order. */
   derivedDisabledIndices(): number[];
-  /** Runs the floating handle's keydown handling for a keydown a portaled child list handed up (CMP-KEY-27). */
+  // CMP-KEY-27.
+  /** Runs the floating handle's keydown handling for a keydown a portaled child list handed up. */
   keyDown(event: KeyboardEvent): void;
 }
 
@@ -2279,7 +2284,8 @@ interface ListHandle {
 
 type ListData = { [LIST_STATE]?: ListState };
 
-/** Base UI's `open`: the session's committed state, or the one its `openchange` is emitting (CMP §8, read at event time). */
+// CMP §8: read at event time.
+/** Base UI's `open`: the session's committed state, or the one its `openchange` is emitting, read at event time. */
 function isOpen(state: ListState, session: InteractionSession): boolean {
   return state.emittingOpen ?? session.open;
 }
@@ -2877,7 +2883,8 @@ function typeaheadFocusOut(state: ListState, handle: ListHandle, event: FocusEve
 // The list handle's key handling (useListNavigation.ts:550-912)
 // ---------------------------------------------------------------------------------------------------------------
 
-/** One keydown as a handle handles it: the consumer's veto, asked once before the first effect (EVD-EVT-26). */
+// EVD-EVT-26.
+/** One keydown as a handle handles it: the consumer's veto, asked once before the first effect. */
 interface KeyDispatch {
   readonly event: KeyboardEvent;
   vetoed: boolean | null;
@@ -3288,9 +3295,10 @@ function sameWarningInputs(a: CompositeListOptions, b: CompositeListOptions): bo
   );
 }
 
+// ADR 04 Amendments 2026-11-03 (1).
 /**
- * Attaches a list handle (ADR 04 Amendments 2026-11-03 (1)): it joins the popup's interactions session by token and
- * shares the list's state with the list's other handles. The floating handle resolves and orders the items, writes the
+ * Attaches a list handle: it joins the popup's interactions session by token and shares the list's state with the
+ * list's other handles. The floating handle resolves and orders the items, writes the
  * highlight and handles the list's keys and the items' pointer and focus events; a reference or trigger handle opens
  * the list from its keys. Every handle runs the typeahead its options carry.
  */
