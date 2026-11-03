@@ -1,0 +1,27 @@
+@* Q1, Q2: TValue inferred from @bind-Value against fields of the natural types. *@
+<ListRoot @bind-Value="s" />
+<ListRoot @bind-Value="ns" />
+<ListRoot @bind-Value="i" />
+<ListRoot @bind-Value="ni" />
+<ListRoot @bind-Value="f" />
+<ListRoot @bind-Value="p" />
+<ListRoot @bind-Value="ns" @bind-Value:after="After" />
+@code {
+    private string s = "a";
+    private string? ns;
+    private int i = 1;
+    private int? ni;
+    private Fruit f = Fruit.Banana;
+    private Person? p = new("Ada");
+    private IReadOnlyList<string> ls = ["a", "b"];
+    private IReadOnlyList<string?> lns = ["a", null];
+    private IReadOnlyList<int> li = [1, 2];
+    private IReadOnlyList<int?> lni = [1, null];
+    private IReadOnlyList<Fruit> lf = [Fruit.Apple];
+    private IReadOnlyList<Person> lp = [new("Ada")];
+    private IReadOnlyList<ProbeItem<string>> items = [new("a", "A")];
+    private List<ProbeItem<int>> itemsList = [new(1, "One")];
+}
+@code {
+    private void After() { }
+}

@@ -26,3 +26,9 @@ The fixture host: a Blazor Web App that serves every fixture page in both render
 - Every fixture container is `FixtureContainer`, so `data-interactive`, `data-renderer` and `data-session` are always there; no fixture needs a sleep.
 - Test-only endpoints and hooks exist only in the host and the client, never in the library.
 - A fixture is a component in the client project, not copy in the host.
+
+**The list value layer's fixtures (2026-11-04, M5 track 4, issue 162),** in `Blazix.Primitives.Fixtures.Client/ListValues/`, for `tests/browser/list-values.spec.ts`:
+- `list-values-allocation`: the interpreter's bytes per round per type and operation, and for the filter;
+- `list-values-collation`: a subset of the L1 collation table in the page's runtime;
+- `list-values-indicator`: a kept-mounted test-only indicator over `ItemIndicatorBehavior` with a 150 ms keyframe exit. `FixtureItemIndicator` is internal and rendered through `OpenComponent`, which Razor markup does not resolve for an internal component.
+- `list-values-hidden-input`: the `form` module's autofill role on a test-only root over `apple`/`banana`, with `?reject=1`.

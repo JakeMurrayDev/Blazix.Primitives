@@ -192,4 +192,34 @@ public sealed class FormTwinWiringTests : IDisposable
         host.Module.Control.Input(cut, "a@b.co", NativeValidity.Default);
         Assert.Null(host.Module.Control.Options!.CustomValidity);
     }
+
+    // M5 track 4, design point 4 (a)+(i) (settled by the orchestrator 2026-11-04): a list root's form-participation input is
+    // the control role with ReportAutofill and ReportEvents false; the flag is written only when set.
+    [Fact(DisplayName = "port: the control options carry reportAutofill only when it is set")]
+    [Trait("Requirement", "SEL-FRM-18")]
+    public void The_control_options_carry_reportAutofill_only_when_set()
+    {
+        string set = JsonSerializer.Serialize(new FormOptions { Control = new FormControlOptions { ReportAutofill = true, ReportEvents = false, Controlled = true, Value = "a" } }, BlazixJsonContext.Default.FormOptions);
+        string unset = JsonSerializer.Serialize(new FormOptions { Control = new FormControlOptions() }, BlazixJsonContext.Default.FormOptions);
+
+        Assert.Contains("\"reportAutofill\":true", set, StringComparison.Ordinal);
+        Assert.Contains("\"reportEvents\":false", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("reportAutofill", unset, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: an autofill report reaches Autofilled with its text, defaultPrevented and the event")]
+    [Trait("Requirement", "SEL-FRM-18")]
+    public async Task An_autofill_report_reaches_Autofilled()
+    {
+        await using FormTwin twin = new(Context.JSInterop.JSRuntime);
+        List<FormAutofillReport> reports = [];
+        twin.Autofilled += reports.Add;
+
+        twin.OnAutofill("""{"text":"Banana","defaultPrevented":true,"event":{"kind":"Event","type":"change","isTrusted":true}}""");
+
+        FormAutofillReport report = Assert.Single(reports);
+        Assert.Equal("Banana", report.Text);
+        Assert.True(report.DefaultPrevented);
+        Assert.Equal("change", report.Event.Type);
+    }
 }

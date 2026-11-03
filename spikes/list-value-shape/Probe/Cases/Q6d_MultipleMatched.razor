@@ -1,0 +1,7 @@
+@* Q6: the matched uses render. *@
+<ListRoot Multiple="true" @bind-Values="ls" OnValuesChange="(ValueChangeEventArgs<IReadOnlyList<string>> args) => { }" />
+<ListRoot @bind-Value="ns" OnValueChange="(ValueChangeEventArgs<string?> args) => { }" />
+@code {
+    private string? ns;
+    private IReadOnlyList<string> ls = [];
+}

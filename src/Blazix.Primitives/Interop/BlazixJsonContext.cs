@@ -35,6 +35,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(CompositeListMatch))]
 [JsonSerializable(typeof(FormOptions))]
 [JsonSerializable(typeof(FormControlReport))]
+[JsonSerializable(typeof(FormAutofillReport))]
 [JsonSerializable(typeof(LabelMismatch))]
 [JsonSerializable(typeof(FormSubmitRequest))]
 [JsonSerializable(typeof(FormSubmitAnswer))]

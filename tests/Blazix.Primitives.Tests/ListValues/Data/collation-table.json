@@ -1,0 +1,185 @@
+{
+  "generatedBy": "Node v26.0.0, ICU 78.3, CLDR 48.0",
+  "rows": [
+    {
+      "locale": "en-US",
+      "text": "Résumé",
+      "query": "resume",
+      "case": "accents (filter.test.ts)",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "RESUME",
+      "query": "resume",
+      "case": "case",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "Résumé",
+      "query": "resume",
+      "case": "decomposed accents: the window counts code units",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "en-US",
+      "text": "Jean-Luc",
+      "query": "jean luc",
+      "case": "punctuation against whitespace, whole string",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "re-sume",
+      "query": "resume",
+      "case": "punctuation inside the item: the window counts code units",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "en-US",
+      "text": "New York",
+      "query": "new york",
+      "case": "whitespace, whole string",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "New York",
+      "query": "newyork",
+      "case": "whitespace inside the item",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "de-DE",
+      "text": "Straße",
+      "query": "strasse",
+      "case": "ß against ss, whole string",
+      "contains": false,
+      "startsWith": true,
+      "endsWith": false
+    },
+    {
+      "locale": "de-DE",
+      "text": "Strasse",
+      "query": "straße",
+      "case": "ss against ß, whole string",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "de-DE",
+      "text": "Großstraße",
+      "query": "strasse",
+      "case": "ß against ss inside the item",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "en-US",
+      "text": "Æther",
+      "query": "aether",
+      "case": "æ against ae",
+      "contains": false,
+      "startsWith": true,
+      "endsWith": false
+    },
+    {
+      "locale": "en-US",
+      "text": "encyclopædia",
+      "query": "paedia",
+      "case": "æ against ae inside the item",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "tr-TR",
+      "text": "İstanbul",
+      "query": "istanbul",
+      "case": "dotted capital I under tr-TR",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "tr-TR",
+      "text": "ISPARTA",
+      "query": "isparta",
+      "case": "dotless capital I under tr-TR",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    },
+    {
+      "locale": "en-US",
+      "text": "ISPARTA",
+      "query": "isparta",
+      "case": "dotless capital I under en-US",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "ＡＢＣ",
+      "query": "abc",
+      "case": "full-width letters",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "ja-JP",
+      "text": "カタカナ",
+      "query": "かたかな",
+      "case": "katakana against hiragana",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "ja-JP",
+      "text": "ｶﾀｶﾅ",
+      "query": "カタカナ",
+      "case": "half-width katakana against katakana",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "apple",
+      "query": "",
+      "case": "empty query",
+      "contains": true,
+      "startsWith": true,
+      "endsWith": true
+    },
+    {
+      "locale": "en-US",
+      "text": "pie",
+      "query": "apple pie",
+      "case": "query longer than the item",
+      "contains": false,
+      "startsWith": false,
+      "endsWith": false
+    }
+  ]
+}

@@ -45,3 +45,11 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin)
 - Gesture tests use real Playwright mouse and touch input, not `dispatchEvent`; driving a fixture's own control with `pressControl` is not the gesture under test.
 - `retries` stays 0; a flaky test is quarantined with `test.fixme`, `@quarantine` and an issue, for at most 14 days. The nightly summary counts the quarantined specs and reports any flaky result (there can be none while `retries` is 0).
 - A test that needs frozen time pauses the clock itself; nothing waits on a timeout.
+
+`list-values.spec.ts` (M5 track 4, issue 162) holds the shared list value layer's L4 titles on its test-only `list-values-*` fixtures:
+- the item indicator's DOM-52 and ANI-03 titles (the exit's `animationstart` recorded);
+- the form-participation input (a page-set value and a dispatched `change` stand in for the browser's autofill), including the per-mode timing of ADR 01's autofill relaxation row under `delayCircuit`;
+- the collation subset on both modes;
+- the `wasm`-only allocation probe with its record-struct profile title.
+
+Select, Combobox, Autocomplete and Menu's filter mode re-run the family rows on their own parts.

@@ -607,7 +607,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
         }
 
         // RAD-EVT-03, RDG-EVT-07: ignored entirely, and the input re-synchronized.
-        if (EffectiveDisabled || EffectiveReadOnly || RadioValues.IsNull(Value))
+        if (EffectiveDisabled || EffectiveReadOnly || ValueNull.IsNull(Value))
         {
             return false;
         }
@@ -683,7 +683,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
 
         serialized = true;
         serializedValue = Value;
-        formValue = RadioValues.Serialize(Value);
+        formValue = FormValue.Serialize(Value);
     }
 
     // A change of the group's value, name, form or flags.

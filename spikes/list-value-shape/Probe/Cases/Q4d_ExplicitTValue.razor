@@ -1,0 +1,11 @@
+@* Q4: an explicit TValue serves every other use. *@
+<ListRoot TValue="string" OnValueChange="Changed">
+    <ListItem Value="@("a")" />
+</ListRoot>
+<ListRoot TValue="int" Multiple="true">
+    <ListItem />
+    <ListItem Value="0" />
+</ListRoot>
+@code {
+    private void Changed(ValueChangeEventArgs<string> args) { }
+}

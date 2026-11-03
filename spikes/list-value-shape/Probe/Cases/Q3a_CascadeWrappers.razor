@@ -1,0 +1,23 @@
+@* Q3: the cascading type parameter reaches items nested in the root's content through three wrappers, in one file. *@
+<ListRoot @bind-Value="ns">
+    <ListPortal>
+        <ListPositioner>
+            <ListPopup>
+                <ListItem Value="@("a")" />
+                <ListItem />
+                @foreach (string item in names)
+                {
+                    <ListItem Value="item">@item</ListItem>
+                }
+            </ListPopup>
+        </ListPositioner>
+    </ListPortal>
+</ListRoot>
+<ListRoot Multiple="true" @bind-Values="ls">
+    <ListPortal><ListPositioner><ListPopup><ListItem /></ListPopup></ListPositioner></ListPortal>
+</ListRoot>
+@code {
+    private string? ns;
+    private IReadOnlyList<string> ls = [];
+    private string[] names = ["b", "c"];
+}
