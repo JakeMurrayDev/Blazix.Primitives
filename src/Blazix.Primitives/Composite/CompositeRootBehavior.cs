@@ -389,9 +389,11 @@ internal sealed class CompositeRootBehavior : IDisposable
         CompositeOptions options = BuildOptions();
         try
         {
+            // A list handle's element-typed options name the list's references by index.
+            TwinReferences? references = list?.List.References;
             handle = elementId is null
-                ? await twin.AttachAsync(element!.Value, options)
-                : await twin.AttachAsync(elementId, options);
+                ? await twin.AttachAsync(element!.Value, options, references)
+                : await twin.AttachAsync(elementId, options, references);
         }
         finally
         {
@@ -480,7 +482,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         CompositeOptions? next = NextOptions();
-        return next is null ? Task.CompletedTask : handle.UpdateAsync(next).AsTask();
+        return next is null ? Task.CompletedTask : handle.UpdateAsync(next, list?.List.References).AsTask();
     }
 
     private static bool IsKeyDown(string name) => string.Equals(name, "onkeydown", StringComparison.OrdinalIgnoreCase);

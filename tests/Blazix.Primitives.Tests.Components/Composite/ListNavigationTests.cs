@@ -178,6 +178,44 @@ public sealed class ListNavigationTests : IDisposable
         Assert.Equal(2, cut.Instance.Requests.Count);
     }
 
+    // CMP-KEY-14 (Deliverable 7) and CMP-KEY-27/CMP-DIS-01's return element (Deliverable 6): the element-typed list options
+    // cross as indices into the references every handle attaches and updates with (ADR 04 Amendments 2026-10-27), the
+    // return element first, then the relay's root; an update that clears one sends the other alone.
+    [Fact(DisplayName = "a relay target and a nested return focus target go out as indices into the references each handle attaches and updates with")]
+    [Trait("Requirement", "CMP-KEY-14")]
+    [Trait("Requirement", "CMP-KEY-27")]
+    [Trait("Requirement", "CMP-DIS-01")]
+    public void Element_targets_go_out_as_indices_into_the_references_of_every_attach_and_update()
+    {
+        ElementReference bar = new("menubar");
+        ElementReference input = new("parent-input");
+        IRenderedComponent<TestListRoot> cut = Context.Render<TestListRoot>(p => p
+            .Add(x => x.RelayTarget, bar)
+            .Add(x => x.NestedReturnFocusTarget, input)
+            .AddChildContent(Handles(3)));
+        cut.WaitForAssertion(() => Assert.Equal(2, host.Attaches.Count));
+
+        Assert.All(host.Attaches, attach =>
+        {
+            Assert.Contains("\"list\":{\"nestedReturnFocusElement\":0,\"relayElement\":1}", (string)attach.Arguments[1]!, StringComparison.Ordinal);
+            Assert.Equal(["parent-input", "menubar"], ((object[])attach.Arguments[3]!).Cast<ElementReference>().Select(element => element.Id));
+        });
+
+        cut.Render(p => p.Add(x => x.RelayTarget, bar).Add(x => x.NestedReturnFocusTarget, (ElementReference?)null).AddChildContent(Handles(3)));
+
+        IReadOnlyList<JSRuntimeInvocation> updates = host.Handle.Invocations["update"];
+        Assert.Equal(2, updates.Count);
+        Assert.All(updates, update =>
+        {
+            Assert.Contains("\"list\":{\"relayElement\":0}", (string)update.Arguments[0]!, StringComparison.Ordinal);
+            Assert.Equal(["menubar"], ((object[])update.Arguments[1]!).Cast<ElementReference>().Select(element => element.Id));
+        });
+
+        // An unchanged target sends nothing.
+        cut.Render(p => p.Add(x => x.RelayTarget, bar).Add(x => x.NestedReturnFocusTarget, (ElementReference?)null).AddChildContent(Handles(3)));
+        Assert.Equal(2, host.Handle.Invocations["update"].Count);
+    }
+
     private static RenderFragment Handles(int count, int[]? renders = null) => builder =>
     {
         builder.OpenComponent<TestListHandle>(0);

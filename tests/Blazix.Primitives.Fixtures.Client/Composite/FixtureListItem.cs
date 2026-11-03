@@ -137,6 +137,13 @@ public sealed class FixtureListItem : PartBase<FixtureListItemState>
 
         attributes.Set("onclick", onClick);
         item!.AddAttributes(attributes);
+
+        // The C# mirror, rendered for the L4 titles that measure its lag behind the module's `data-highlighted` (ADR 01's
+        // RND-STA-01 row; M5 track 1, Deliverable 14), as FixturePositioner renders `data-mirrored-side`.
+        if (item.Highlighted)
+        {
+            attributes.Set("data-mirrored-highlighted", string.Empty);
+        }
     }
 
     protected override bool ForwardsConsumerHandler(string eventName) =>

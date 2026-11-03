@@ -40,6 +40,17 @@ public sealed class FixtureListBox : PartBase<EmptyState>
     [Parameter]
     public string Role { get; set; } = "menu";
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the module reports the items' order (the measurement page's registry
+    /// figure, M5 track 1, Deliverable 14).
+    /// </summary>
+    [Parameter]
+    public bool ReportItems { get; set; }
+
+    /// <summary>Gets or sets the callback each order report runs, with the count of ordered items.</summary>
+    [Parameter]
+    public EventCallback<int> OnItemsChange { get; set; }
+
     /// <summary>Gets a task that completes when the floating handle is attached.</summary>
     public Task TwinAttached => behavior!.TwinAttached;
 
@@ -58,12 +69,14 @@ public sealed class FixtureListBox : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         behavior = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown);
+        behavior.ItemsChanged += () => _ = OnItemsChange.InvokeAsync(behavior.OrderedItems.Count);
         base.OnInitialized();
     }
 
     protected override void OnParametersSet()
     {
         behavior!.SetList(ListContext, CompositeListRole.Floating);
+        behavior.ReportItems = ReportItems;
         behavior.SetConsumerAttributes(AdditionalAttributes);
         if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))
         {

@@ -98,6 +98,7 @@ internal sealed class FixtureListScope : ComponentBase, IDisposable
         Context.Value = Root.DefaultValue;
         list = new ListNavigationBehavior(Store!.SessionToken!, SessionReady, Context.RequestAsync, exception => throw exception);
         Context.List = list;
+        list.HighlightChanged += report => _ = Root.OnHighlightChange.InvokeAsync(report.Index);
     }
 
     protected override void OnParametersSet()
@@ -121,6 +122,7 @@ internal sealed class FixtureListScope : ComponentBase, IDisposable
         list.Grid = root.Grid;
         list.KeepOpenOnCrossOrientationKey = root.KeepOpenOnCrossOrientationKey;
         list.SetTypeahead(root.Typeahead, root.TypeaheadResetMs, root.TypeaheadSkip, root.TypeaheadLabels);
+        list.RelayTarget = root.RelayTarget;
         int selected = Context.Selectable && Context.Value is { } value ? IndexOf(root.Items, value) : -1;
         list.SelectedIndex = selected < 0 ? null : selected;
         if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))

@@ -1,0 +1,61 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `composite-list-relay` fixture (tests/browser/composite-list-rows.spec.ts; M5 track 1, issue 159, Deliverables 7
+    and 12): the keyboard relay (CMP-KEY-14) on a test-only menubar, the L3 relay titles' host in the browser. A horizontal
+    FixtureCompositeRoot (`data-testid="menubar"`) holds File, the Edit list's trigger (also an item of the bar) and View;
+    the Edit list is nested under the bar's orientation and its popup is portaled outside the bar, so its keydowns never
+    bubble through the bar: the list's RelayTarget names the bar's element, which the page passes once the bar attached.
+    The container renders the list's open changes and `data-attached` once the bar, the session, the trigger's handles
+    and the relay target are in.
+*@
+<FixtureContainer Name="composite-list-relay" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <FixtureCompositeRoot @ref="bar" role="menubar" data-testid="menubar" Orientation="Blazix.Primitives.Orientation.Horizontal"
+                          LoopFocus="true" EnableHomeAndEndKeys="true">
+        <FixtureCompositeItem Tag="button" type="button" data-testid="file">File</FixtureCompositeItem>
+        <FixtureListRoot Nested="true" ParentOrientation="horizontal" RelayTarget="@relayTarget" OnOpenChange="RecordOpenChange"
+                         OnAttached="() => listAttached.TrySetResult()">
+            <FixtureListTrigger id="edit-trigger" data-testid="trigger" Item="true" HasPopup="menu">Edit</FixtureListTrigger>
+            <FixturePopupPortal TPayload="NoPayload">
+                <FixtureListPopup data-testid="popup" TriggerId="edit-trigger" ListId="edit-list">
+                    <FixtureListBox id="edit-list" Role="menu">
+                        <FixtureListItem Label="Undo">Undo</FixtureListItem>
+                        <FixtureListItem Label="Redo">Redo</FixtureListItem>
+                    </FixtureListBox>
+                </FixtureListPopup>
+            </FixturePopupPortal>
+        </FixtureListRoot>
+        <FixtureCompositeItem Tag="button" type="button" data-testid="view">View</FixtureCompositeItem>
+    </FixtureCompositeRoot>
+</FixtureContainer>
+
+@code {
+    private readonly TaskCompletionSource listAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource relayed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private FixtureCompositeRoot? bar;
+    private ElementReference? relayTarget;
+
+    protected override IEnumerable<Task> Attachments => [listAttached.Task, relayed.Task];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            await bar!.TwinAttached;
+            relayTarget = bar.Element;
+            StateHasChanged();
+        }
+        else if (relayTarget is not null)
+        {
+            // The render that passed the target sent it to the list's handles in the list's own after-render.
+            relayed.TrySetResult();
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+}

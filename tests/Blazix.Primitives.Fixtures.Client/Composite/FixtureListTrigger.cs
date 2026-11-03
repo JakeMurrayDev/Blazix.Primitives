@@ -17,6 +17,9 @@ namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 /// closed, and <c>aria-activedescendant</c> under virtual focus).
 /// </summary>
 /// <remarks>
+/// With <see cref="Item"/> the trigger is also an item of the enclosing composite root, a submenu trigger of a parent
+/// list (the nested page) or a menubar's item (the relay page), with the item's <c>Highlighted</c> mirror as
+/// <c>data-mirrored-highlighted</c>.
 /// The input also takes the Combobox family's Enter (Base UI's <c>ComboboxInput.tsx:404-420</c>, which clicks the
 /// highlighted item): a test-only listener of the fixture host (<c>blazixFixtureDom.listenComboboxEnter</c>) clicks the
 /// element <c>aria-activedescendant</c> names and prevents the key, so a surrounding form is not submitted.
@@ -32,8 +35,10 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
     private readonly EventCallback onKeyDown;
     private InteractionsTriggerBehavior? interactions;
     private CompositeRootBehavior? reference;
+    private CompositeItemBehavior? item;
     private FixturePopupTriggerState state = new(false);
     private bool enterListened;
+    private bool interactionsAttached;
 
     public FixtureListTrigger()
     {
@@ -56,6 +61,16 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
 
     [CascadingParameter]
     private FixtureListContext? HostContext { get; set; }
+
+    [CascadingParameter]
+    private CompositeRootContext? ParentRoot { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the trigger is also an item of the enclosing composite root: a parent list's
+    /// submenu trigger or a menubar's item.
+    /// </summary>
+    [Parameter]
+    public bool Item { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the trigger is an <c>input</c> with <c>role="combobox"</c>.</summary>
     [Parameter]
@@ -91,6 +106,11 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
     {
         interactions = new InteractionsTriggerBehavior(JSRuntime, request => HostContext!.RequestAsync(request), DispatchExceptionAsync, onClick);
         reference = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown);
+        if (Item)
+        {
+            item = new CompositeItemBehavior(ParentRoot, nameof(FixtureListTrigger), onKeyDown, StateHasChanged);
+        }
+
         base.OnInitialized();
     }
 
@@ -99,6 +119,8 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
         behavior.Apply(RootStore, null, Id, Element, false, default, "Blazix: `FixtureListTrigger` must be used within a `FixtureListRoot` component.");
         reference!.SetList(ListContext, CompositeListRole.Reference);
         reference.SetConsumerAttributes(AdditionalAttributes);
+        item?.SetConsumerAttributes(AdditionalAttributes);
+        item?.SetRegistration(Id, AdditionalAttributes);
         interactions!.SetConsumerAttributes(AdditionalAttributes);
         interactions.SessionToken = behavior.Store.SessionToken;
         InteractionsClickOptions click = Input ? s_openOnly : s_toggle;
@@ -112,8 +134,22 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
     {
         await behavior.OnAfterRenderAsync(Element);
         Task interactionsSync = interactions!.AfterRenderAsync(Enabled, Element, Id);
-        await reference!.AfterRenderAsync(Enabled, Element, Id);
+        Task referenceSync = reference!.AfterRenderAsync(Enabled, Element, Id);
         await interactionsSync;
+
+        // The attach-order titles press the trigger while js/composite.js is held back, once the interactions handle is in.
+        if (!interactionsAttached && interactions.TwinAttached.IsCompleted)
+        {
+            interactionsAttached = true;
+            StateHasChanged();
+        }
+
+        await referenceSync;
+        if (item is not null)
+        {
+            await item.AfterRenderAsync(Element);
+        }
+
         if (Input && !enterListened && Element is { } element)
         {
             enterListened = true;
@@ -140,6 +176,7 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
         {
             behavior.Dispose();
             reference?.Dispose();
+            item?.Dispose();
             if (interactions is not null)
             {
                 _ = interactions.DisposeAsync().AsTask();
@@ -166,9 +203,23 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
         behavior.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: HasPopup);
         attributes.Set("onclick", onClick);
         interactions!.AddAttributes(attributes);
+        if (item is not null)
+        {
+            item.AddAttributes(attributes);
+            if (item.Highlighted)
+            {
+                attributes.Set("data-mirrored-highlighted", string.Empty);
+            }
+        }
+
         reference!.AddAttributes(attributes, Id);
+        if (interactionsAttached)
+        {
+            attributes.Set("data-interactions-attached", string.Empty);
+        }
     }
 
     protected override bool ForwardsConsumerHandler(string eventName) =>
-        interactions!.ForwardsConsumerHandler(eventName) && reference!.ForwardsConsumerHandler(eventName);
+        interactions!.ForwardsConsumerHandler(eventName) && reference!.ForwardsConsumerHandler(eventName)
+        && (item is null || item.ForwardsConsumerHandler(eventName));
 }

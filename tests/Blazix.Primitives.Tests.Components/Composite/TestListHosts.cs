@@ -44,6 +44,12 @@ internal sealed class TestListRoot : ComponentBase, IDisposable
     [Parameter]
     public IReadOnlyList<string?>? TypeaheadLabels { get; set; }
 
+    [Parameter]
+    public ElementReference? RelayTarget { get; set; }
+
+    [Parameter]
+    public ElementReference? NestedReturnFocusTarget { get; set; }
+
     public ListNavigationBehavior List => list!;
 
     public List<OpenChangeRequest> Requests { get; } = [];
@@ -70,6 +76,8 @@ internal sealed class TestListRoot : ComponentBase, IDisposable
         list.Virtual = Virtual;
         list.SelectedIndex = SelectedIndex;
         list.SetTypeahead(TypeaheadLabels is not null, 750, null, TypeaheadLabels);
+        list.RelayTarget = RelayTarget;
+        list.NestedReturnFocusTarget = NestedReturnFocusTarget;
         if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))
         {
             cascadedContent = ChildContent;

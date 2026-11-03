@@ -225,5 +225,12 @@ public static class FixtureCatalog
         // M5 track 1 (issue 159, Deliverables 12-13): the popup-list suite on the test-only list hosts.
         ["composite-list-dom"] = new(typeof(CompositeListDomFixture)),
         ["composite-list-virtual"] = new(typeof(CompositeListVirtualFixture)),
+
+        // M5 track 1 (issue 159, Deliverables 6, 7, 13, 14): the non-suite list pages, the measurement fixture and the
+        // ADR 01 figures' page.
+        ["composite-list-nested"] = new(typeof(CompositeListNestedFixture)),
+        ["composite-list-relay"] = new(typeof(CompositeListRelayFixture)),
+        ["composite-list-selected"] = new(typeof(CompositeListSelectedFixture)),
+        ["composite-list-measure"] = new(typeof(CompositeListMeasureFixture)),
     };
 }
