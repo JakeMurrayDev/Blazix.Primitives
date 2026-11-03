@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
@@ -133,7 +134,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     private bool HasSelection => (valueState!.IsControlled && valueSupplied) || defaultValueSupplied || selectedOnce;
 
     // RDG §4 `checkedValue != null`.
-    private bool Selected => HasSelection && !RadioValues.IsNull(CurrentValue);
+    private bool Selected => HasSelection && !ValueNull.IsNull(CurrentValue);
 
     // RDG-API-04, FFI-STA-11: the field's disabled state with the group's own.
     private bool EffectiveDisabled => Disabled || (fieldScope?.Disabled ?? false);

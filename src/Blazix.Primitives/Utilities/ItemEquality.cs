@@ -23,7 +23,7 @@ internal static class ItemEquality
     /// </returns>
     public static bool Compare<TValue>(TValue itemValue, TValue selectedValue, Func<TValue, TValue, bool>? comparer)
     {
-        if (comparer is null || RadioValues.IsNull(itemValue) || RadioValues.IsNull(selectedValue))
+        if (comparer is null || ValueNull.IsNull(itemValue) || ValueNull.IsNull(selectedValue))
         {
             return Equality.Is(itemValue, selectedValue);
         }

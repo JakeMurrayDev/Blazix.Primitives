@@ -1,5 +1,6 @@
 @namespace Blazix.Primitives.Fixtures.Client.RadioGroupFixtures
 @using Blazix.Primitives.Store
+@using Blazix.Primitives.Utilities
 
 @*
     The `radio-group-allocation` fixture (tests/browser/radio-group.spec.ts, the WebAssembly half of the radio's allocation
@@ -65,7 +66,7 @@
     {
         for (int i = 0; i < count; i++)
         {
-            if (!Equality.StrictEquals(first, first) || Equality.StrictEquals(first, second) || RadioValues.IsNull(first))
+            if (!Equality.StrictEquals(first, first) || Equality.StrictEquals(first, second) || ValueNull.IsNull(first))
             {
                 throw new InvalidOperationException("unexpected comparison");
             }
