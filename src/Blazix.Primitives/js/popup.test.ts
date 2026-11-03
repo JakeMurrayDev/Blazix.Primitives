@@ -516,6 +516,18 @@ describe('the positioner', () => {
     expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 15, top: 25, right: 45, bottom: 65 }));
   });
 
+  // PSH-ALG-21's element branch (InternalBackdrop.tsx:10-44; M5 track 2): under a Menubar the cut-out is the bar's element
+  // (MBR-DOM-08, MBR-PTR-09), named by id, instead of the active trigger.
+  it('port: with a cut-out element, the backdrop cuts that element out instead of the active trigger', () => {
+    const { positioner, backdrop } = renderPositioner();
+    const bar = withRect(document.createElement('div'), 0, 0, 300, 32);
+    bar.id = 'menubar';
+    document.body.appendChild(bar);
+    attachTo(positioner, { positioner: { watchTriggerChange: true, cutout: true, cutoutElementId: 'menubar', activeTriggerId: 'trigger' } as never }, createFakeTwin());
+
+    expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 0, top: 0, right: 300, bottom: 32 }));
+  });
+
   it('port: a trigger inside a shadow root is found by its id and cut out of the backdrop', () => {
     const { positioner, backdrop, trigger } = renderPositioner();
     const host = document.createElement('div');
