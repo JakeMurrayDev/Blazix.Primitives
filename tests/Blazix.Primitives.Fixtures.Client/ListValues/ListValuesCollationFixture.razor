@@ -1,0 +1,68 @@
+@namespace Blazix.Primitives.Fixtures.Client.ListValuesFixtures
+@using System.Globalization
+@using Blazix.Primitives.Utilities
+
+@*
+    The `list-values-collation` fixture (tests/browser/list-values.spec.ts; UTL-I18N-09..11, ADR 01 decision 2's note of
+    2026-11-04): a subset of the L1 collation table (tests/Blazix.Primitives.Tests/ListValues/Data/collation-table.json) run by
+    the collator filter in the page's runtime, so WebAssembly's ICU data is measured beside Server's CoreCLR. Each row renders
+    its three predicates as `contains,startsWith,endsWith`, or `culture-not-found` when the runtime has no data for it.
+*@
+<FixtureContainer Name="list-values-collation" data-globalization="@globalization">
+    <dl>
+        @foreach ((string locale, string text, string query) in s_rows)
+        {
+            <dt>@locale @text @query</dt>
+            <dd data-row="@($"{locale}|{text}|{query}")">@Evaluate(locale, text, query)</dd>
+        }
+    </dl>
+</FixtureContainer>
+
+@code {
+    private static readonly (string Locale, string Text, string Query)[] s_rows =
+    [
+        ("en-US", "Résumé", "resume"),
+        ("en-US", "Résumé", "resume"),
+        ("en-US", "Jean-Luc", "jean luc"),
+        ("de-DE", "Straße", "strasse"),
+        ("en-US", "Æther", "aether"),
+        ("tr-TR", "İstanbul", "istanbul"),
+        ("tr-TR", "ISPARTA", "isparta"),
+        ("en-US", "ＡＢＣ", "abc"),
+        ("ja-JP", "カタカナ", "かたかな"),
+    ];
+
+    private string globalization = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        // What the runtime's globalization data is, for the report: the current culture and whether invariant mode is on.
+        globalization = $"{CultureInfo.CurrentCulture.Name}|{(CultureInfo.GetCultures(CultureTypes.AllCultures).Length > 1 ? "icu" : "invariant")}";
+    }
+
+    private static string Evaluate(string locale, string text, string query)
+    {
+        CultureInfo culture;
+        string suffix = string.Empty;
+        try
+        {
+            culture = CultureInfo.GetCultureInfo(locale, predefinedOnly: true);
+        }
+        catch (CultureNotFoundException)
+        {
+            // The runtime has no data for the culture: what a consumer's `new CultureInfo(locale)` then compares with.
+            try
+            {
+                culture = new CultureInfo(locale);
+                suffix = " (not predefined)";
+            }
+            catch (CultureNotFoundException)
+            {
+                return "culture-not-found";
+            }
+        }
+
+        CollatorFilter filter = CollatorFilter.Create(culture);
+        return $"{filter.Contains(text, query)},{filter.StartsWith(text, query)},{filter.EndsWith(text, query)}".ToLowerInvariant() + suffix;
+    }
+}

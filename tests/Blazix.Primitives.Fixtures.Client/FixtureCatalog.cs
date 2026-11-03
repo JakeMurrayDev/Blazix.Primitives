@@ -15,6 +15,7 @@ using Blazix.Primitives.Fixtures.Client.FloatingFixtures;
 using Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
 using Blazix.Primitives.Fixtures.Client.FormFixtures;
 using Blazix.Primitives.Fixtures.Client.InputFixtures;
+using Blazix.Primitives.Fixtures.Client.ListValuesFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
@@ -227,5 +228,9 @@ public static class FixtureCatalog
         ["tooltip-viewport"] = new(typeof(TooltipViewportFixture)),
         ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
         ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
+        ["list-values-allocation"] = new(typeof(ListValuesAllocationFixture)),
+        ["list-values-collation"] = new(typeof(ListValuesCollationFixture)),
+        ["list-values-indicator"] = new(typeof(ListValuesIndicatorFixture)),
+        ["list-values-hidden-input"] = new(typeof(ListValuesHiddenInputFixture)),
     };
 }

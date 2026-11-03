@@ -1,0 +1,5 @@
+@* Q6: @bind-Values without Multiple: compiles; the parameter set rejects it. *@
+<ListRoot @bind-Values="ls" />
+@code {
+    private IReadOnlyList<string> ls = [];
+}

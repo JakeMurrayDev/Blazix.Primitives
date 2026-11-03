@@ -122,6 +122,13 @@ internal sealed record FormControlOptions
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool LabelFallback { get; init; }
+
+    // M5 track 4, design point 4 (a)+(i) (settled by the orchestrator 2026-11-04): a list root's form-participation input. With
+    // ReportEvents false, the module reports each `change` once as OnAutofill and restores the committed value inside the
+    // dispatch; the root applies a matched value through `update`.
+    /// <summary>Gets or sets a value indicating whether each <c>change</c> is reported as an autofill and the committed value restored.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ReportAutofill { get; init; }
 }
 
 /// <summary>The options of an attached field label.</summary>

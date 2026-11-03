@@ -1,0 +1,8 @@
+@* Q3: a RenderFragment field's items name TValue. *@
+<ListRoot @bind-Value="ns">
+    @items
+</ListRoot>
+@code {
+    private string? ns;
+    private RenderFragment items = @<ListItem TValue="string?" />;
+}

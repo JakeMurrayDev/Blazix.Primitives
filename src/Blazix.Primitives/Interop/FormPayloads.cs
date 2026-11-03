@@ -168,3 +168,18 @@ internal sealed record FormSubmitAnswer
     /// <value>For <see cref="BlockedVerdict"/>: the controls the module focuses the first of; otherwise <see langword="null"/>.</value>
     public IReadOnlyList<string>? Focus { get; init; }
 }
+
+// M5 track 4, design point 4 (a)+(i) (settled by the orchestrator 2026-11-04): one message per autofilled `change` of a list
+// root's form-participation input (ADR 16 rule 6); the root matches the text to an item after the force-mount batch.
+/// <summary>The payload of an autofill report: the text the browser filled in a list root's hidden input.</summary>
+internal sealed record FormAutofillReport
+{
+    /// <summary>Gets the text the input held when its <c>change</c> was dispatched.</summary>
+    public string Text { get; init; } = string.Empty;
+
+    /// <summary>Gets a value indicating whether a handler had prevented the <c>change</c> when the module read it.</summary>
+    public bool DefaultPrevented { get; init; }
+
+    /// <summary>Gets the <c>change</c> event, as JavaScript saw it.</summary>
+    public EventSnapshot Event { get; init; } = EventSnapshot.CreatePlaceholder();
+}

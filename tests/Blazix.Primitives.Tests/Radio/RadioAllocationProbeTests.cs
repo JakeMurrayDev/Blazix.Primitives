@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Blazix.Primitives.Utilities;
 
 namespace Blazix.Primitives.Tests.Radio;
 
@@ -54,7 +55,7 @@ public sealed class RadioAllocationProbeTests
     {
         Assert.True(Equality.StrictEquals(first, first));
         Assert.False(Equality.StrictEquals(first, second));
-        Assert.False(RadioValues.IsNull(first));
+        Assert.False(ValueNull.IsNull(first));
         observer.Observe(second);
         observer.Observe(first);
     }

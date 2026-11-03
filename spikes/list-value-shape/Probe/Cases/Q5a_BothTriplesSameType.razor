@@ -1,0 +1,6 @@
+@* Q5: both triples on one use, of one type (compiles; the mismatch is the runtime check's). *@
+<ListRoot Value="@ns" Values="@ls" />
+@code {
+    private string? ns;
+    private IReadOnlyList<string> ls = [];
+}
