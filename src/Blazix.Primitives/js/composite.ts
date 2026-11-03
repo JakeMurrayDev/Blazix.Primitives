@@ -452,12 +452,16 @@ function getScrollStyles(element: HTMLElement) {
 // The item registry (CMP-ALG-17; CompositeList.tsx). Registry in JavaScript: ADR 01 decision 2.
 // ---------------------------------------------------------------------------------------------------------------
 
-/** What an item registers with: an explicit index and metadata, both optional. */
+/** What an item registers with: an explicit index, metadata and its label's source, all optional. */
 export interface CompositeRegistration {
   /** The index the item occupies; automatic, in document order, when absent. A negative index is ignored. */
   index?: number | null | undefined;
   /** The value published with the item's index; compared by identity. */
   metadata?: object | null | undefined;
+  /** The item's label; `null` for no label, which never falls back; absent to read `textElement`'s or the item's text. */
+  label?: string | null | undefined;
+  /** The element whose text is the label when `label` is absent. */
+  textElement?: Element | null | undefined;
 }
 
 /** What the registry publishes for one item: its metadata with its index. */
@@ -467,6 +471,8 @@ export type CompositeMetadata = { index: number } & Record<string, unknown>;
 export interface CompositeRegistry {
   /** The registered, connected elements at their indexes; explicit indexes may leave empty slots. */
   readonly elements: Array<HTMLElement | null>;
+  /** The items' labels, aligned with `elements`, resolved on every rebuild (CMP-STA-06, CMP-STA-07). */
+  readonly labels: Array<string | null>;
   /**
    * Registers an element, replacing its earlier registration.
    * @param element The item's element.
@@ -499,6 +505,8 @@ export interface CompositeRegistry {
 interface NormalizedRegistration {
   index: number | null;
   metadata: object | null;
+  label: string | null | undefined;
+  textElement: Element | null;
 }
 
 interface RegistryItem {
@@ -595,6 +603,7 @@ function hasMovedNode(entries: MutationRecord[]): boolean {
 export function createCompositeRegistry(): CompositeRegistry {
   const map = new Map<Element, NormalizedRegistration>();
   const elements: Array<HTMLElement | null> = [];
+  const labels: Array<string | null> = [];
   const listeners = new Set<(map: Map<Element, CompositeMetadata>) => void>();
   let dirty = true;
   let disposed = false;
@@ -602,13 +611,19 @@ export function createCompositeRegistry(): CompositeRegistry {
   let latest = new Map<Element, CompositeMetadata>();
   let mutationObserver: MutationObserver | null = null;
 
-  // CMP-STA-05: the elements array is rewritten in place.
+  // CMP-STA-05: the elements and labels arrays are rewritten in place. CMP-STA-06/07 (M5 track 1): each label is
+  // resolved again on every rebuild, the explicit label first (an explicit `null` never falls back), then the text
+  // element's text, then the item element's.
   const syncRefs = (items: readonly RegistryItem[]): Map<Element, CompositeMetadata> => {
     const nextMap = new Map<Element, CompositeMetadata>();
     elements.length = 0;
+    labels.length = 0;
     for (const item of items) {
-      nextMap.set(item.element, { ...((item.registration.metadata ?? {}) as Record<string, unknown>), index: item.index });
+      const { registration } = item;
+      nextMap.set(item.element, { ...((registration.metadata ?? {}) as Record<string, unknown>), index: item.index });
       elements[item.index] = item.element;
+      labels[item.index] =
+        registration.label !== undefined ? registration.label : (registration.textElement?.textContent ?? item.element.textContent);
     }
     return nextMap;
   };
@@ -698,11 +713,17 @@ export function createCompositeRegistry(): CompositeRegistry {
 
   return {
     elements,
+    labels,
     register(element, registration = {}) {
       if (disposed) {
         return;
       }
-      map.set(element, { index: registration.index ?? null, metadata: registration.metadata ?? null });
+      map.set(element, {
+        index: registration.index ?? null,
+        metadata: registration.metadata ?? null,
+        label: registration.label,
+        textElement: registration.textElement ?? null,
+      });
       dirty = true;
     },
     unregister(element) {
@@ -735,6 +756,7 @@ export function createCompositeRegistry(): CompositeRegistry {
       mutationObserver?.disconnect();
       mutationObserver = null;
       elements.length = 0;
+      labels.length = 0;
       map.clear();
       listeners.clear();
       latest = new Map();
@@ -975,6 +997,19 @@ interface AttachedItem {
   disabled: boolean;
   focusableWhenDisabled: boolean;
   omitTabIndex: boolean;
+  label: string | null | undefined;
+  textId: string | null;
+  index: number | null;
+}
+
+// The registry's part of an item registration: a change re-registers the item (CMP-STA-07, CMP-STA-17).
+function sameRegistryFields(a: AttachedItem | undefined, b: AttachedItem): boolean {
+  return a !== undefined && a.element === b.element && a.label === b.label && a.textId === b.textId && a.index === b.index;
+}
+
+// CMP-STA-06 at the C# boundary (M5 track 1): C# sends an explicit "no label" as the empty string.
+function registeredLabel(label: string | undefined): string | null | undefined {
+  return label === '' ? null : label;
 }
 
 function sameIndices(a: ReadonlyArray<number> | null | undefined, b: ReadonlyArray<number> | null | undefined): boolean {
@@ -1310,6 +1345,9 @@ export function attach(
           disabled: registration.disabled ?? false,
           focusableWhenDisabled: registration.focusableWhenDisabled ?? false,
           omitTabIndex: registration.omitTabIndex ?? false,
+          label: registeredLabel(registration.label),
+          textId: registration.textId ?? null,
+          index: registration.index ?? null,
         });
       }
     }
@@ -1325,8 +1363,13 @@ export function attach(
       }
     });
     next.forEach((attached, id) => {
-      if (items.get(id)?.element !== attached.element) {
-        registry.register(attached.element);
+      if (!sameRegistryFields(items.get(id), attached)) {
+        // CMP-STA-04, CMP-STA-06, CMP-STA-17 (M5 track 1): the explicit index and the label's source from C#.
+        registry.register(attached.element, {
+          index: attached.index,
+          label: attached.label,
+          textElement: attached.textId === null ? null : resolveItem(attached.textId),
+        });
         changed = true;
       }
     });
