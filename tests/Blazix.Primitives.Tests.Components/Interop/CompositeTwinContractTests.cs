@@ -321,9 +321,11 @@ public sealed class CompositeTwinContractTests
             RelayElement = 1,
             Highlight = new CompositeHighlightRequest(null, 3),
             Typeahead = new CompositeTypeaheadOptions { ResetMs = 500, Skip = "element", Labels = ["one", null] },
+            Cols = 3,
+            ItemCount = 40,
         };
         Assert.Equal(
-            """{"enabled":false,"loopFocus":true,"orientation":"horizontal","triggerOrientation":"vertical","rtl":true,"virtual":true,"nested":true,"parentOrientation":"both","focusItemOnOpen":false,"allowEscape":true,"openOnArrowKeyDown":false,"focusItemOnHover":false,"resetOnPointerLeave":false,"disabledIndices":[],"deriveDisabledIndices":true,"selectedIndex":2,"grid":true,"keepOpenOnCrossOrientationKey":true,"nestedReturnFocusElement":0,"relayElement":1,"highlight":{"revision":3},"typeahead":{"resetMs":500,"skip":"element","labels":["one",null]}}""",
+            """{"enabled":false,"loopFocus":true,"orientation":"horizontal","triggerOrientation":"vertical","rtl":true,"virtual":true,"nested":true,"parentOrientation":"both","focusItemOnOpen":false,"allowEscape":true,"openOnArrowKeyDown":false,"focusItemOnHover":false,"resetOnPointerLeave":false,"disabledIndices":[],"deriveDisabledIndices":true,"selectedIndex":2,"grid":true,"keepOpenOnCrossOrientationKey":true,"nestedReturnFocusElement":0,"relayElement":1,"highlight":{"revision":3},"typeahead":{"resetMs":500,"skip":"element","labels":["one",null]},"cols":3,"itemCount":40}""",
             JsonSerializer.Serialize(every, BlazixJsonContext.Default.CompositeListOptions));
         Assert.Contains(""","reference":{}}""", JsonSerializer.Serialize(new CompositeOptions { Reference = new CompositeReferenceOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
         Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
