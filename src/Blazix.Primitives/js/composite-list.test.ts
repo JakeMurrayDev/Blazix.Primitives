@@ -2414,3 +2414,126 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
   });
 });
+
+// CMP-EDGE-12's list-navigation and grid clauses: the list inside an open shadow root. The handles resolve the items by
+// id from the floating element's root node, the shadow root; `activeElement` and `contains` read the composed tree (the
+// document's active element is the shadow host), so the "focus inside the popup" check holds there; and the grid's
+// `[role="row"]` lookup runs on rows inside the shadow tree.
+describe('list navigation inside a shadow root (port)', () => {
+  function shadowContainer(): { shadow: ShadowRoot; container: HTMLElement } {
+    const host = document.body.appendChild(document.createElement('div'));
+    const shadow = host.attachShadow({ mode: 'open' });
+    const container = shadow.appendChild(document.createElement('div'));
+    return { shadow, container };
+  }
+
+  it('port: inside a shadow root the list resolves its items by id, opens on ArrowDown and moves the focus and the highlight', async () => {
+    const { shadow, container } = shadowContainer();
+    const harness = app({ container });
+    expect(harness.reference.getRootNode()).toBe(shadow);
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(0));
+    });
+    expect(highlighted(harness.item(0))).toBe(true);
+    expect(harness.item(0).getAttribute('tabindex')).toBe('0');
+
+    keyDown(menu(harness), 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(1));
+    });
+    expect(highlighted(harness.item(1))).toBe(true);
+    expect(highlighted(harness.item(0))).toBe(false);
+    expect(harness.highlights.map((report) => [report.index, report.itemId])).toEqual([
+      [0, harness.item(0).id],
+      [1, harness.item(1).id],
+    ]);
+  });
+
+  it('port: inside a shadow root the main key with the focus on the popup itself starts at the boundary item', async () => {
+    const { shadow, container } = shadowContainer();
+    const harness = app({ container });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(0));
+    });
+    keyDown(menu(harness), 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(1));
+    });
+
+    // The focus rests on the popup, not on an item: the composed check sees it inside the popup, so ArrowDown starts at
+    // the first item rather than moving on from the highlighted second one.
+    menu(harness).focus();
+    expect(document.activeElement).toBe(shadow.host);
+    expect(shadow.activeElement).toBe(menu(harness));
+    keyDown(menu(harness), 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(0));
+    });
+    expect(highlighted(harness.item(0))).toBe(true);
+    expect(harness.activeIndex).toBe(0);
+  });
+
+  it('port: inside a shadow root the grid moves vertically along its [role="row"] rows', async () => {
+    const { shadow, container } = shadowContainer();
+    // Nine gridcells in rows of three, while the list's `cols` says five: vertical moves follow the DOM rows.
+    const harness = app({
+      container,
+      items: Array.from({ length: 9 }, (_, index) => `Cell ${index}`),
+      itemTag: 'button',
+      rowSize: 3,
+      floatingRole: 'grid',
+      itemAttributes: () => ({ type: 'button', role: 'gridcell' }),
+      list: { grid: true, cols: 5, orientation: 'horizontal', loopFocus: false, openOnArrowKeyDown: false },
+    });
+
+    fireClick(harness.reference);
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(option(harness, 0));
+    });
+
+    pressOnMenu(harness, 'ArrowDown');
+    expect(shadow.activeElement).toBe(option(harness, 3));
+    expect(highlighted(option(harness, 3))).toBe(true);
+    pressOnMenu(harness, 'ArrowDown');
+    expect(shadow.activeElement).toBe(option(harness, 6));
+    pressOnMenu(harness, 'ArrowRight');
+    expect(shadow.activeElement).toBe(option(harness, 7));
+    pressOnMenu(harness, 'ArrowUp');
+    expect(shadow.activeElement).toBe(option(harness, 4));
+    expect(harness.activeIndex).toBe(4);
+  });
+
+  it('port: the grid finds an item\'s [role="row"] through its assigned slot, inside the row host\'s shadow root', async () => {
+    // Each row host keeps its three gridcells as children; its shadow root holds the `role="row"` element around a slot,
+    // so a cell's row is an ancestor only in the composed tree.
+    const harness = app({
+      items: Array.from({ length: 9 }, (_, index) => `Cell ${index}`),
+      itemTag: 'button',
+      rowSize: 3,
+      slottedRows: true,
+      floatingRole: 'grid',
+      itemAttributes: () => ({ type: 'button', role: 'gridcell' }),
+      list: { grid: true, cols: 5, orientation: 'horizontal', loopFocus: false, openOnArrowKeyDown: false },
+    });
+
+    fireClick(harness.reference);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(option(harness, 0));
+    });
+    expect(option(harness, 0).closest('[role="row"]')).toBeNull();
+    expect(option(harness, 0).assignedSlot?.parentElement?.getAttribute('role')).toBe('row');
+
+    pressOnMenu(harness, 'ArrowDown');
+    expect(document.activeElement).toBe(option(harness, 3));
+    pressOnMenu(harness, 'ArrowDown');
+    expect(document.activeElement).toBe(option(harness, 6));
+    pressOnMenu(harness, 'ArrowUp');
+    expect(document.activeElement).toBe(option(harness, 3));
+    expect(highlighted(option(harness, 3))).toBe(true);
+    expect(harness.activeIndex).toBe(3);
+  });
+});
