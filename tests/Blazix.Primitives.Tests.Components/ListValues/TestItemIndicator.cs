@@ -6,15 +6,23 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
+/// <summary>The state of <see cref="TestItemIndicator"/>, the shape a family shell's state record takes.</summary>
+/// <param name="Selected">Whether the item is selected; rendered as <c>data-selected</c>.</param>
+/// <param name="TransitionStatus">The phase of the indicator's transition, written by the transitions module.</param>
+[PartState]
+public sealed partial record TestItemIndicatorState(
+    bool Selected,
+    [property: MirroredField] TransitionStatus? TransitionStatus);
+
 /// <summary>
 /// A test-only item indicator (RND-STR-10, API-12): a <c>span</c> over <see cref="ItemIndicatorBehavior"/>, as the sealed
 /// <c>Select.ItemIndicator</c> and <c>Combobox.ItemIndicator</c> shells compose it in wave 2. <see cref="Selected"/> stands
 /// in for the family item's selection, which a shell reads from its item context.
 /// </summary>
-internal sealed class TestItemIndicator : PartBase<ItemIndicatorState>
+public sealed class TestItemIndicator : PartBase<TestItemIndicatorState>
 {
     private ItemIndicatorBehavior? behavior;
-    private ItemIndicatorState? state;
+    private TestItemIndicatorState? state;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -31,7 +39,7 @@ internal sealed class TestItemIndicator : PartBase<ItemIndicatorState>
     protected override string DefaultTagName => "span";
 
     /// <inheritdoc />
-    protected override ItemIndicatorState State => state ??= new ItemIndicatorState(behavior!.Selected, behavior.TransitionStatus);
+    protected override TestItemIndicatorState State => state ??= new TestItemIndicatorState(behavior!.Selected, behavior.TransitionStatus);
 
     /// <inheritdoc />
     protected override void OnInitialized()
