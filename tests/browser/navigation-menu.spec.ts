@@ -703,11 +703,9 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await expect(nestedContent(page, 2)).toBeVisible();
   });
 
-  // Open, under investigation (M5 track 5, 2026-11-04): with the inline nested menu open by default, leaving the trigger
-  // and the popup keeps the parent open on both modes, with real input and with Base UI's dispatched leaves alike. The
-  // parent's safe polygon aborts while a child node is open (safePolygon.ts:177); which path closes it in Base UI's run
-  // is not traced yet.
-  test.fixme('closes inline nested viewport when parent menu closes', async ({ page, mode }) => {
+  // An inline nested Root (no Positioner) is a node of the floating tree without a context in Base UI (only `useFloating`
+  // sets one, `useFloating.ts:115-117`), so it is never an open child and the parent's safe polygon closes it.
+  test('closes inline nested viewport when parent menu closes', async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
     await hoverOpen(page, trigger(page, 1));
     await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
