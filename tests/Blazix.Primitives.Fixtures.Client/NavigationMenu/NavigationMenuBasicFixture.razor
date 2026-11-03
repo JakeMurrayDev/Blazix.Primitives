@@ -14,7 +14,11 @@
       `top-link`; `closeOnClick` on every Link;
     - `nested=inline` puts an inline nested Root (List and Viewport `nested-viewport`, Items `nested-<n>`) in content 1,
       `nestedDefault=nested-1` its default; `sized` gives content 1 400×200 and content 2 300×150, fixed;
-    - `fade` gives the Popup a 150 ms opacity exit; `cancel`, `retain` (the base's).
+    - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
+      (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
+      `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
+    - `fixed` keeps a controlled value where the page set it (ValueChanged ignored); `cancel`, `retain` (the base's).
+    With `side`, the menu sits 300 px down and 400 px in, so the requested side has room.
     The List is a row (a column when vertical, the Positioner then on the right), so the popup never covers a trigger.
     Around the menu: a `before` and an `after` button, in that order in the DOM but laid out in a row above the menu, so
     the popup never covers them either. `[data-unmount]` calls Unmount, `[data-close]` CloseAsync.
@@ -24,8 +28,12 @@
     <style>
         .sized-1 { width: 400px; height: 200px; }
         .sized-2 { width: 300px; height: 150px; }
-        .fade { transition: opacity 150ms; }
-        .fade[data-ending-style] { opacity: 0; }
+        @@keyframes nav-popup-out { to { opacity: 0; } }
+        @@keyframes nav-content-out { to { opacity: 0; } }
+        .fade[data-ending-style] { animation: nav-popup-out 400ms; }
+        .content-fade[data-ending-style] { animation: nav-content-out 400ms; }
+        .fluid { width: 40vw; }
+        .menu-frame.roomy { margin: 300px 0 0 400px; }
         [data-testid="popup-root"] { width: var(--popup-width, auto); height: var(--popup-height, auto); }
         [data-testid="list"], [data-testid="nested-list"] { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
         [data-testid="list"].vertical { flex-direction: column; align-items: flex-start; }
@@ -34,7 +42,7 @@
         .menu-frame > [data-testid="after"] { grid-area: after; }
         .menu-frame > [data-testid="root"] { grid-area: menu; }
     </style>
-    <div class="menu-frame">
+    <div class="@(roomy ? "menu-frame roomy" : "menu-frame")">
         <button type="button" data-testid="before">Before</button>
         @if (rtl)
         {
@@ -82,6 +90,12 @@
     private string? nestedDefault;
     private bool sized;
     private bool fade;
+    private bool contentFade;
+    private bool fluid;
+    private bool noViewport;
+    private bool arrow;
+    private bool fixedValue;
+    private bool roomy;
 
     protected override IEnumerable<Task> Attachments => attachments;
 
@@ -112,6 +126,18 @@
         nestedDefault = Query("nestedDefault");
         sized = QueryFlag("sized") == true;
         fade = QueryFlag("fade") == true;
+        contentFade = QueryFlag("contentFade") == true;
+        fluid = QueryFlag("fluid") == true;
+        noViewport = QueryFlag("noViewport") == true;
+        arrow = QueryFlag("arrow") == true;
+        fixedValue = QueryFlag("fixed") == true;
+        roomy = Query("side") is not null;
+    }
+
+    private string? ContentClass(int n)
+    {
+        string? size = sized ? "sized-" + n.ToString(System.Globalization.CultureInfo.InvariantCulture) : fluid && n == 1 ? "fluid" : null;
+        return contentFade ? size is null ? "content-fade" : size + " content-fade" : size;
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -132,7 +158,7 @@
     private RenderFragment Menu => @<text>
     @if (controlled)
     {
-        <NavigationMenuRoot TValue="string" @ref="root" Value="@controlledValue" ValueChanged="@(v => controlledValue = v)" OnValueChange="RecordValueChange" OnOpenChangeComplete="RecordOpenChangeComplete" Delay="delay" CloseDelay="closeDelay" Orientation="orientation" data-testid="root">
+        <NavigationMenuRoot TValue="string" @ref="root" Value="@controlledValue" ValueChanged="@(v => controlledValue = fixedValue ? controlledValue : v)" OnValueChange="RecordValueChange" OnOpenChangeComplete="RecordOpenChangeComplete" Delay="delay" CloseDelay="closeDelay" Orientation="orientation" data-testid="root">
             @Body
         </NavigationMenuRoot>
     }
@@ -154,7 +180,7 @@
                     Item @n
                     <NavigationMenuIcon />
                 </NavigationMenuTrigger>
-                <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@(sized ? "sized-" + n : null)">
+                <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@ContentClass(n)">
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
                     @if (nestedInline && n == 1)
@@ -188,7 +214,18 @@
     <NavigationMenuPortal KeepMounted="keepMounted" data-testid="portal">
         <NavigationMenuPositioner Side="side" data-testid="positioner">
             <NavigationMenuPopup data-testid="popup-root" class="@(fade ? "fade" : null)">
-                <NavigationMenuViewport data-testid="viewport" />
+                @if (arrow)
+                {
+                    <NavigationMenuArrow data-testid="arrow" />
+                }
+                @if (noViewport)
+                {
+                    @("Popup")
+                }
+                else
+                {
+                    <NavigationMenuViewport data-testid="viewport" />
+                }
             </NavigationMenuPopup>
         </NavigationMenuPositioner>
     </NavigationMenuPortal>
