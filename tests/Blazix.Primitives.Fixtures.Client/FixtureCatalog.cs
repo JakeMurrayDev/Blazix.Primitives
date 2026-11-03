@@ -229,5 +229,6 @@ public static class FixtureCatalog
         ["list-values-indicator"] = new(typeof(ListValuesIndicatorFixture)),
         ["list-values-hidden-input"] = new(typeof(ListValuesHiddenInputFixture)),
         ["navigation-menu-basic"] = new(typeof(NavigationMenuBasicFixture)),
+        ["navigation-menu-prerender"] = new(typeof(NavigationMenuPrerenderFixture), Prerender: true),
     };
 }
