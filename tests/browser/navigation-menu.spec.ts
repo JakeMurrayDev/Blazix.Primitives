@@ -1047,6 +1047,23 @@ test.describe('size', () => {
     });
   }
 
+  test('port: reports the activation direction when switching by hover', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { animations: 1 });
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(page.getByTestId('link-1-a')).toBeVisible();
+
+    // Across the panel, which releases the List's lock, to the other trigger: on WebAssembly the hover interaction
+    // switches inside the same dispatch, after the activation measured the direction.
+    const link = (await page.getByTestId('link-1-b').boundingBox())!;
+    await page.mouse.move(link.x + 2, link.y + 2);
+    const next = (await trigger(page, 2).boundingBox())!;
+    await page.mouse.move(next.x + 4, next.y + next.height - 3);
+    await page.mouse.move(next.x + 10, next.y + 8);
+
+    await expect(content(page, 2)).toHaveAttribute('data-activation-direction', 'right');
+  });
+
   test('repositions the positioner when switching triggers via hover', async ({ page, mode }) => {
     await gotoMenu(page, mode);
     await hoverTrigger(page, 1);

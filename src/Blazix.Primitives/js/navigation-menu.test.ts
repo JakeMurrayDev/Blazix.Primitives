@@ -362,7 +362,7 @@ function renderMenu(options: RenderOptions = {}): Rendered {
   // The Trigger whose handle is dispatching: the synchronous invocation carries no element, as C#'s twin knows its own.
   let activating: HTMLElement | null = null;
   for (const item of items) {
-    item.trigger.addEventListener('mouseenter', () => (activating = item.trigger), true);
+    item.trigger.addEventListener('mouseover', () => (activating = item.trigger), true);
     item.trigger.addEventListener('click', () => (activating = item.trigger), true);
     item.trigger.addEventListener('keydown', () => (activating = item.trigger), true);
   }
@@ -410,7 +410,9 @@ function createContent(value: string): HTMLElement {
   return content;
 }
 
+/** A pointer entering an element, as the browser dispatches it: `mouseover` (bubbling) and then `mouseenter`. */
 function mouseEnter(element: HTMLElement): void {
+  element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: null }));
   element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
 }
 
@@ -509,7 +511,31 @@ describe.each([false, true])('the activation (synchronous: %s)', (synchronous) =
     const reports = synchronous ? rendered.activations : rendered.twin.reported<ActivationReport>(ACTIVATE_REPORT);
     expect(reports).toHaveLength(1);
     expect(reports[0]).toMatchObject({ reason: 'trigger-hover', direction: 'right' });
-    expect(reports[0]!.event.type).toBe('mouseenter');
+    expect(reports[0]!.event.type).toBe('mouseover');
+  });
+
+  it("activates on the trigger's mouseover, before the entry's mouseenter listeners run", async () => {
+    const rendered = renderMenu({ synchronous, open: 'item-1' });
+    mockRect(rendered.item('item-1').trigger, { x: 0, y: 0, width: 80, height: 30 });
+    mockRect(rendered.item('item-2').trigger, { x: 100, y: 0, width: 80, height: 30 });
+    await settle();
+    const reports = () => (synchronous ? rendered.activations : rendered.twin.reported<ActivationReport>(ACTIVATE_REPORT));
+    let reportedBeforeEnter = -1;
+    // Stands in for the hover interaction's listener, attached before this handle, which on WebAssembly switches the
+    // menu inside the dispatch: a capture listener runs before every listener on the target.
+    const target = rendered.item('item-2').trigger;
+    const onEnter = (event: Event) => {
+      if (event.target === target) {
+        reportedBeforeEnter = reports().length;
+      }
+    };
+    document.addEventListener('mouseenter', onEnter, true);
+
+    mouseEnter(target);
+    document.removeEventListener('mouseenter', onEnter, true);
+
+    expect(reportedBeforeEnter).toBe(1);
+    expect(reports()[0]).toMatchObject({ reason: 'trigger-hover', direction: 'right' });
   });
 
   it("resets the session's recorded open event on a hover switch, and keeps it on a click switch", async () => {
