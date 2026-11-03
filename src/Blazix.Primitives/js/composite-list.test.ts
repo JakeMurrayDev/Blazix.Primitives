@@ -277,9 +277,12 @@ function highlighted(element: HTMLElement): boolean {
   return element.hasAttribute('data-highlighted');
 }
 
-/** `fireEvent.click`: a bubbling click with `detail: 1`, as React Testing Library dispatches it. */
+/**
+ * `fireEvent.click`: a bubbling click with `detail: 0` and no pointer type, as Testing Library dispatches it, which
+ * `isVirtualClick` reads as a virtual click (so `focusItemOnOpen: 'auto'` highlights the first item, as in Base UI's run).
+ */
 function click(target: HTMLElement): void {
-  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, detail: 0 }));
 }
 
 /** `fireEvent.mouseMove` with movement. */
@@ -2292,7 +2295,8 @@ describe('list navigation rows without a Base UI title (port)', () => {
     harnesses.splice(harnesses.indexOf(virtual), 1);
 
     const pointer = app();
-    click(pointer.reference);
+    // A pointer's click: `detail: 1`, which is not virtual.
+    pointer.reference.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
     await opened(pointer);
     await nextTask();
     expect([0, 1, 2].some((index) => highlighted(pointer.item(index)))).toBe(false);
