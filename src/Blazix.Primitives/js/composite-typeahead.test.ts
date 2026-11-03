@@ -275,6 +275,39 @@ describe('typeahead on a closed list (port)', () => {
     expect(harness.matches.map((match) => [match.index, match.event.key])).toEqual([[1, 't']]);
     expect(harness.highlights).toEqual([]);
   });
+
+  // CMP-KEY-36 on a closed trigger: the typing flag's capture listener is the floating handle's, for the items, whose own
+  // keydown listener would otherwise activate them first. A closed trigger's typed Space is consumed by the reference
+  // handle's typeahead itself (useTypeahead.ts:132-136 on SelectTrigger's own keydown): a prevented Space keydown cancels
+  // a native button's activation whatever the order of the trigger's keydown listeners.
+  it('port: on a closed button trigger a Space while the buffer holds text is consumed by the reference handle and opens nothing', async () => {
+    const harness = combobox(['one', 'two', 'three'], {
+      reference: 'button',
+      session: { open: false },
+      list: { typeahead: { resetMs: 750, labels: ['one', 'two', 'three'] }, selectedIndex: 0 },
+    });
+    const reached: string[] = [];
+    const listener = (event: KeyboardEvent) => reached.push(event.key);
+    document.addEventListener('keydown', listener);
+    try {
+      harness.reference.focus();
+      type('t');
+      expect(harness.matches.map((match) => match.index)).toEqual([1]);
+      // A closed list's character key is matched and not stopped.
+      expect(reached).toEqual(['t']);
+      reached.length = 0;
+
+      const space = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true, composed: true });
+      harness.reference.dispatchEvent(space);
+
+      expect(space.defaultPrevented).toBe(true);
+      expect(reached).toEqual([]);
+      expect(harness.openRequests).toEqual([]);
+      expect(harness.floating).toBeNull();
+    } finally {
+      document.removeEventListener('keydown', listener);
+    }
+  });
 });
 
 // Port titles for typeahead rows with `Test: none` (M5 track 1, issue 159), positive first.
