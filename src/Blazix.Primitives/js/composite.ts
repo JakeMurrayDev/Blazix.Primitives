@@ -22,13 +22,27 @@
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
 import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
-import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument } from './dom';
+import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
+import { enqueueFocus } from './focus-manager';
+import {
+  acquireSession,
+  getSession,
+  isTypeableElement,
+  isVirtualClick,
+  isVirtualPointerEvent,
+  releaseSession,
+  type InteractionSession,
+  type SessionOpenChangeDetails,
+} from './interactions';
+import { createFrameSlot, type FrameSlot } from './transitions';
 import {
   createTwinChannel,
   parseOptions,
   resolveElement,
+  resolveReference,
   type DotNetTwin,
+  type TwinChannel,
   type TwinHandle,
   type TwinOptions,
   type TwinCaptures,
@@ -1020,14 +1034,15 @@ function sameIndices(a: ReadonlyArray<number> | null | undefined, b: ReadonlyArr
 }
 
 /**
- * Attaches the roving group to a root element. From here on the module resolves the items C# registers, keeps their
- * order, owns their `tabindex` (except where the consumer set one), handles the navigation keys on the root, follows
- * focus and, when asked, the pointer, and reports highlight changes, focus leaving the root and the items' order. With
- * `registrationOnly` it only resolves the items, keeps their order and reports it.
+ * Attaches a roving group to a root element, or, when the options carry `list`, a list handle in its role. From here on
+ * the module resolves the items C# registers, keeps their order, owns their `tabindex` (except where the consumer set
+ * one or the item takes none), handles the navigation keys, follows focus and, when asked, the pointer, and reports
+ * highlight changes, focus leaving the root and the items' order. With `registrationOnly` it only resolves the items,
+ * keeps their order and reports it. A list handle joins its popup's interactions session; see `attachList`.
  * @param elementOrId The root element, or its id when the part has no element reference.
  * @param optionsJson The `CompositeOptions` JSON.
  * @param twinReference The twin's object reference.
- * @param _references The references, which this module names none of.
+ * @param references The references: a list handle's return-focus element and relay root, by the indices its options name.
  * @param captures The capture ids C# sends beside the element and the references, which find them inside a shadow root.
  * @returns The handle with `update(optionsJson)` and `dispose()`; the live handle when the element is already attached.
  */
@@ -1035,7 +1050,20 @@ export function attach(
   elementOrId: Element | string | null,
   optionsJson: string,
   twinReference: DotNetTwin,
-  _references?: TwinReferences,
+  references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  const options = parseOptions<CompositeOptions>(optionsJson);
+  if (options.list) {
+    return attachList(elementOrId, options, twinReference, references, captures);
+  }
+  return attachGroup(elementOrId, options, twinReference, captures);
+}
+
+function attachGroup(
+  elementOrId: Element | string | null,
+  initialOptions: CompositeOptions,
+  twinReference: DotNetTwin,
   captures?: TwinCaptures,
 ): TwinHandle {
   const root = resolveElement(elementOrId, captures?.[0]) as AttachedElement;
@@ -1045,7 +1073,7 @@ export function attach(
   }
 
   const twin = createTwinChannel(twinReference);
-  let options = parseOptions<CompositeOptions>(optionsJson);
+  let options = initialOptions;
   // CMP-STR-03 (M3 track 1, E1): a root-less list, such as TabsRoot's panels and AccordionRoot's items.
   const registrationOnly = options.registrationOnly === true;
   let disposed = false;
@@ -1659,4 +1687,1406 @@ export function attach(
   };
   root[attachedHandle] = handle;
   return handle;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// List navigation (M5 track 1, issue 159; ADR 04 Amendments 2026-11-03 (1)-(3), chosen by the user; CMP §4.2.4,
+// §4.2.5, §4.6-§4.9, §5.4-§5.6; useListNavigation.ts and useTypeahead.ts). One handle per element role (design point
+// 1): the reference (the active trigger, or the input under virtual focus), each other trigger, and the floating
+// element, which owns the registry and the items' listeners by delegation; items attach nothing. The refs Base UI's
+// hooks keep in one closure are the list state, kept in the popup session's `dataRef` under a key this module owns, so
+// every handle of one list shares them whatever their attach order. The module writes the highlight (the items'
+// `tabindex` and `data-highlighted`, and under virtual focus `aria-activedescendant`) in the task that moves the focus,
+// and reports it once per change; C# mirrors it and asks for its own highlights by revision (CMP-STA-32).
+// ---------------------------------------------------------------------------------------------------------------
+
+/** The `dataRef` key that holds a list's shared state (the `interactions` session data a module owns by its key). */
+const LIST_STATE = 'blazix.composite.list';
+
+const TAB = 'Tab';
+const ESCAPE = 'Escape';
+
+/** The report of a list's highlight. */
+export const LIST_HIGHLIGHT_REPORT = 'OnListHighlight';
+
+/** The report of a list's open or close request. */
+export const LIST_OPEN_REQUEST_REPORT = 'OnListOpenRequest';
+
+/** The report of a typeahead match while the list is closed. */
+export const LIST_MATCH_REPORT = 'OnListMatch';
+
+function doSwitch(orientation: Orientation | undefined, vertical: boolean, horizontal: boolean): boolean {
+  switch (orientation) {
+    case 'vertical':
+      return vertical;
+    case 'horizontal':
+      return horizontal;
+    default:
+      return vertical || horizontal;
+  }
+}
+
+// CMP-ALG-20 (useListNavigation.ts:59-100), exported for Menu's filter keydown (fact sheet A contradiction 8).
+/**
+ * Determines whether a key moves along a list's orientation.
+ * @param key The key.
+ * @param orientation The orientation; absent for both axes.
+ * @returns `true` for the arrow keys of the orientation's axis.
+ */
+export function isMainOrientationKey(key: string, orientation: Orientation | undefined): boolean {
+  const vertical = key === ARROW_UP || key === ARROW_DOWN;
+  const horizontal = key === ARROW_LEFT || key === ARROW_RIGHT;
+  return doSwitch(orientation, vertical, horizontal);
+}
+
+/**
+ * Determines whether a key moves towards a list's end, or is Enter, Space or the empty key.
+ * @param key The key.
+ * @param orientation The orientation; absent for both axes.
+ * @param rtl Whether the reading direction is right to left.
+ * @returns `true` for ArrowDown, the forward horizontal arrow, Enter, Space and `''`.
+ */
+export function isMainOrientationToEndKey(key: string, orientation: Orientation | undefined, rtl: boolean): boolean {
+  const vertical = key === ARROW_DOWN;
+  const horizontal = rtl ? key === ARROW_LEFT : key === ARROW_RIGHT;
+  return doSwitch(orientation, vertical, horizontal) || key === 'Enter' || key === ' ' || key === '';
+}
+
+/**
+ * Determines whether a key opens a nested list across its parent's orientation.
+ * @param key The key.
+ * @param orientation The parent's orientation; absent for both axes.
+ * @param rtl Whether the reading direction is right to left.
+ * @returns `true` for the forward horizontal arrow under a vertical parent, ArrowDown under a horizontal one.
+ */
+export function isCrossOrientationOpenKey(key: string, orientation: Orientation | undefined, rtl: boolean): boolean {
+  const vertical = rtl ? key === ARROW_LEFT : key === ARROW_RIGHT;
+  const horizontal = key === ARROW_DOWN;
+  return doSwitch(orientation, vertical, horizontal);
+}
+
+/**
+ * Determines whether a key closes a nested list across its own orientation.
+ * @param key The key.
+ * @param orientation The nested list's orientation; absent for both axes.
+ * @param rtl Whether the reading direction is right to left.
+ * @param grid Whether the list is a grid.
+ * @returns `true` for the backward horizontal arrow in a vertical list, ArrowUp in a horizontal one, and Escape in a
+ * list of both axes or a horizontal grid.
+ */
+export function isCrossOrientationCloseKey(key: string, orientation: Orientation | undefined, rtl: boolean, grid: boolean): boolean {
+  const vertical = rtl ? key === ARROW_RIGHT : key === ARROW_LEFT;
+  const horizontal = key === ARROW_UP;
+  if (orientation === 'both' || (orientation === 'horizontal' && grid)) {
+    return key === ESCAPE;
+  }
+  return doSwitch(orientation, vertical, horizontal);
+}
+
+// The event's own preventDefault and stopPropagation (floating-ui-react/utils/event.ts `stopEvent`).
+function stopEvent(event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+// useListNavigation.ts:36-38: WebKit fires zero-delta moves when the list scrolls under a still pointer (CMP-ALG-29).
+function isStationaryWebKitPointer(event: MouseEvent): boolean {
+  return platform.engine.webkit && event.movementX === 0 && event.movementY === 0;
+}
+
+// floating-ui-react/utils/element.ts `isTypeableCombobox`.
+function isTypeableCombobox(element: Element | null | undefined): boolean {
+  return element != null && element.getAttribute('role') === 'combobox' && isTypeableElement(element);
+}
+
+function setAttribute(element: Element, name: string, value: string | null): void {
+  if (value === null) {
+    if (element.hasAttribute(name)) {
+      element.removeAttribute(name);
+    }
+  } else if (element.getAttribute(name) !== value) {
+    element.setAttribute(name, value);
+  }
+}
+
+function resolveById(scopeElement: Element, id: string): HTMLElement | null {
+  const scope = scopeElement.getRootNode();
+  const found =
+    'getElementById' in scope && typeof (scope as Document | ShadowRoot).getElementById === 'function'
+      ? (scope as Document | ShadowRoot).getElementById(id)
+      : null;
+  const element = found ?? ownerDocument(scopeElement).getElementById(id);
+  return isHTMLElement(element) ? element : null;
+}
+
+/** The floating handle's half of a list: its element, its registry and its items. */
+interface ListFloating {
+  readonly element: HTMLElement;
+  readonly registry: CompositeRegistry;
+  readonly channel: TwinChannel;
+  /** Whether the module writes the element's `tabindex` (not a consumer's, not an item registered without one). */
+  ownsTabIndex(element: Element): boolean;
+  /** The registered id of an item element. */
+  idOf(element: Element | null | undefined): string | null;
+  /** The indices derived from the items' flags, in the registry's order. */
+  derivedDisabledIndices(): number[];
+}
+
+/** A reference or trigger handle's half of a list. */
+interface ListReference {
+  readonly element: HTMLElement;
+  /** Whether the handle is the reference, which carries `aria-activedescendant` under virtual focus. */
+  readonly isReference: boolean;
+}
+
+/** The typeahead's refs (useTypeahead.ts:57-60) and the typing flag Base UI reports through `onTyping`. */
+interface TypeaheadState {
+  text: string;
+  prevIndex: number | null;
+  matchIndex: number | null;
+  timer: ReturnType<typeof setTimeout> | null;
+  typing: boolean;
+}
+
+/** The refs of one list, shared by its handles. */
+interface ListState {
+  /** `indexRef`, the cursor; -1 for none. */
+  index: number;
+  /** Base UI's `activeIndex`: the highlight the module wrote and last reported. */
+  activeIndex: number | null;
+  /** `keyRef`, the navigation key recorded on the trigger. */
+  key: string | null;
+  pointerModality: boolean;
+  forceSyncFocus: boolean;
+  forceScrollIntoView: boolean;
+  /** `focusItemOnOpenRef`. */
+  focusItemOnOpen: boolean | 'auto';
+  /** The open state an `openchange` carries while it is emitted, before the session applies it; `null` otherwise. */
+  emittingOpen: boolean | null;
+  previousOpen: boolean;
+  previousMounted: boolean;
+  cancelQueuedFocus: (() => void) | null;
+  readonly focusFrame: FrameSlot;
+  readonly waitFrame: FrameSlot;
+  floating: ListFloating | null;
+  references: Set<ListReference>;
+  /** Every live handle of the list, the most recent last. */
+  handles: Set<ListHandle>;
+  /** The revision of the last C# highlight request applied. */
+  appliedRevision: number;
+  /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
+  reportedIndex: number | null | undefined;
+  readonly typeahead: TypeaheadState;
+  readonly onOpenChange: (details: SessionOpenChangeDetails) => void;
+}
+
+/** One list handle as the shared logic sees it: its element, its channel and its current options. */
+interface ListHandle {
+  readonly element: HTMLElement;
+  readonly channel: TwinChannel;
+  readonly session: InteractionSession;
+  options(): CompositeOptions;
+  list(): CompositeListOptions;
+  returnFocusElement(): HTMLElement | null;
+}
+
+type ListData = { [LIST_STATE]?: ListState };
+
+/** Base UI's `open`: the session's committed state, or the one its `openchange` is emitting (CMP §8, read at event time). */
+function isOpen(state: ListState, session: InteractionSession): boolean {
+  return state.emittingOpen ?? session.open;
+}
+
+function listStateOf(session: InteractionSession): ListState | undefined {
+  return (session.dataRef.current as ListData)[LIST_STATE];
+}
+
+/** The list options of any live handle: every handle of one list carries the same options. */
+function currentHandle(state: ListState): ListHandle | null {
+  let last: ListHandle | null = null;
+  for (const handle of state.handles) {
+    last = handle;
+  }
+  return last;
+}
+
+function enabledOf(list: CompositeListOptions): boolean {
+  return list.enabled !== false;
+}
+
+function orientationOf(list: CompositeListOptions): Orientation {
+  return list.orientation ?? 'vertical';
+}
+
+function selectedIndexOf(list: CompositeListOptions): number | null {
+  return list.selectedIndex ?? null;
+}
+
+function focusItemOnOpenOf(list: CompositeListOptions): boolean | 'auto' {
+  return list.focusItemOnOpen ?? 'auto';
+}
+
+function elementsOf(state: ListState): Array<HTMLElement | null> {
+  return state.floating?.registry.elements ?? [];
+}
+
+function disabledIndicesOfList(state: ListState, list: CompositeListOptions): ReadonlyArray<number> | undefined {
+  if (list.deriveDisabledIndices) {
+    return state.floating?.derivedDisabledIndices() ?? [];
+  }
+  return list.disabledIndices;
+}
+
+/** The reference: the reference handle's element, else the session's reference element. */
+function referenceElementOf(state: ListState, session: InteractionSession): Element | null {
+  for (const reference of state.references) {
+    if (reference.isReference) {
+      return reference.element;
+    }
+  }
+  return session.domReferenceElement;
+}
+
+// CMP-STA-41: the parent popup's published orientation, when the options do not name it.
+function parentOrientationOf(handle: ListHandle): Orientation | undefined {
+  const list = handle.list();
+  if (list.parentOrientation) {
+    return list.parentOrientation;
+  }
+  const parentId = handle.session.node.parentId;
+  const parent = parentId ? getSession(parentId) : undefined;
+  return parent?.dataRef.current.orientation as Orientation | undefined;
+}
+
+// The writer of the highlight (ADR 04 Amendments 2026-11-03 (2)): each item's `data-highlighted`, and its `tabindex`
+// (`0` on the highlighted item of an open list under DOM focus, `-1` elsewhere; into a non-modal portal's `data-tabindex`
+// stash while it carries one), and under virtual focus `aria-activedescendant` from the active item's own id on the
+// reference and, unless the reference is a typeable combobox, on the floating element (CMP-ARIA-01, CMP-ARIA-02).
+function writeHighlight(state: ListState, handle: ListHandle): void {
+  const list = handle.list();
+  const virtual = list.virtual === true;
+  const enabled = enabledOf(list);
+  const floating = state.floating;
+  if (floating) {
+    floating.registry.elements.forEach((element, index) => {
+      if (!element) {
+        return;
+      }
+      const highlighted = enabled && index === state.activeIndex;
+      setAttribute(element, 'data-highlighted', highlighted ? '' : null);
+      if (!floating.ownsTabIndex(element)) {
+        return;
+      }
+      const value = !virtual && isOpen(state, handle.session) && highlighted ? '0' : '-1';
+      setAttribute(element, element.hasAttribute('data-tabindex') ? 'data-tabindex' : 'tabindex', value);
+    });
+  }
+  if (!virtual) {
+    return;
+  }
+  const active = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+  const descendant = enabled && isOpen(state, handle.session) && active?.id ? active.id : null;
+  const reference = referenceElementOf(state, handle.session);
+  if (reference) {
+    setAttribute(reference, 'aria-activedescendant', descendant);
+  }
+  if (floating) {
+    setAttribute(floating.element, 'aria-activedescendant', isTypeableCombobox(reference) ? null : descendant);
+  }
+}
+
+// CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied.
+function reportHighlight(state: ListState, handle: ListHandle, event: Event | undefined): void {
+  if (state.activeIndex === state.reportedIndex) {
+    return;
+  }
+  state.reportedIndex = state.activeIndex;
+  const element = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+  const payload: CompositeListHighlightReport = {
+    index: state.activeIndex,
+    itemId: state.floating?.idOf(element) ?? null,
+    event: event ? eventInfo(event) : null,
+    revision: state.appliedRevision,
+  };
+  (state.floating?.channel ?? handle.channel).report(LIST_HIGHLIGHT_REPORT, payload);
+}
+
+// useListNavigation.ts:330-371 `focusItem`: the queued focus of CMP-ALG-23/ALG-31 and the scroll of CMP-STA-34.
+function focusItem(state: ListState, handle: ListHandle): void {
+  state.focusFrame.cancel();
+  const virtual = handle.list().virtual === true;
+  const runFocus = (item: HTMLElement): void => {
+    if (!virtual) {
+      state.cancelQueuedFocus = enqueueFocus(item, { sync: state.forceSyncFocus, preventScroll: true });
+    }
+  };
+  const initialItem = elementsOf(state)[state.index];
+  const forceScrollIntoView = state.forceScrollIntoView;
+  if (initialItem) {
+    runFocus(initialItem);
+  }
+  const run = (): void => {
+    const waitedItem = elementsOf(state)[state.index] || initialItem;
+    if (!waitedItem) {
+      return;
+    }
+    if (!initialItem) {
+      runFocus(waitedItem);
+    }
+    if (forceScrollIntoView || !state.pointerModality) {
+      waitedItem.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+  };
+  if (state.forceSyncFocus) {
+    run();
+  } else {
+    state.focusFrame.request(run);
+  }
+}
+
+// The consumer's `activeIndex` update and the effect that follows it (useListNavigation.ts:405-477): the module is
+// Base UI's consumer, so a change of the highlight is written, reported and synchronized with the focus in one task.
+function commitHighlight(state: ListState, handle: ListHandle, next: number | null, event: Event | undefined): void {
+  if (next === state.activeIndex) {
+    return;
+  }
+  state.activeIndex = next;
+  writeHighlight(state, handle);
+  reportHighlight(state, handle, event);
+  syncActiveIndex(state, handle, next);
+}
+
+// `onNavigate`: the cursor proposed as the highlight.
+function navigateTo(state: ListState, handle: ListHandle, event?: Event): void {
+  commitHighlight(state, handle, state.index === -1 ? null : state.index, event);
+}
+
+// useListNavigation.ts:407-477 for one value of `activeIndex`: the item focus while open, and the initial sync.
+function syncActiveIndex(state: ListState, handle: ListHandle, activeIndex: number | null): void {
+  const list = handle.list();
+  if (!enabledOf(list)) {
+    return;
+  }
+  if (!isOpen(state, handle.session)) {
+    state.forceSyncFocus = false;
+    return;
+  }
+  if (!state.floating) {
+    return;
+  }
+  const elements = elementsOf(state);
+  if (activeIndex == null) {
+    state.forceSyncFocus = false;
+    if (selectedIndexOf(list) != null) {
+      return;
+    }
+    // Reset while the floating element was open (the list changed).
+    if (state.previousMounted) {
+      state.index = -1;
+      focusItem(state, handle);
+    }
+    // CMP-STA-37, CMP-ALG-24: the initial sync, after the list has a first element.
+    const focusOnOpen = state.focusItemOnOpen;
+    if ((!state.previousOpen || !state.previousMounted) && focusOnOpen && (state.key != null || (focusOnOpen === true && state.key == null))) {
+      let runs = 0;
+      const waitForListPopulated = (): void => {
+        if (elementsOf(state)[0] == null) {
+          // Before paint if possible, then one frame; no more than that (CMP-FOC-09: give up silently).
+          if (runs < 2) {
+            if (runs) {
+              state.waitFrame.request(waitForListPopulated);
+            } else {
+              queueMicrotask(waitForListPopulated);
+            }
+          }
+          runs += 1;
+          return;
+        }
+        const current = handle.list();
+        const rtl = current.rtl === true;
+        // `disabledIndices` is deliberately left out, so DOM-disabled items are skipped on open (mui/base-ui#2604).
+        state.index =
+          state.key == null || isMainOrientationToEndKey(state.key, current.triggerOrientation ?? orientationOf(current), rtl) || current.nested
+            ? getMinListIndex(elementsOf(state))
+            : getMaxListIndex(elementsOf(state));
+        state.key = null;
+        navigateTo(state, handle);
+      };
+      waitForListPopulated();
+    }
+  } else if (!isIndexOutOfListBounds(elements, activeIndex)) {
+    state.index = activeIndex;
+    focusItem(state, handle);
+    state.forceScrollIntoView = false;
+  }
+}
+
+// The effects that follow an open change or the floating element's mount or unmount (useListNavigation.ts:374-547).
+function syncOpenAndMount(state: ListState, handle: ListHandle): void {
+  const list = handle.list();
+  const open = isOpen(state, handle.session);
+  const mounted = state.floating !== null;
+  const renderedActiveIndex = state.activeIndex;
+  // :374-376, CMP-STA-41
+  handle.session.dataRef.current.orientation = orientationOf(list);
+  // :378-385, CMP-STA-38
+  if (!open) {
+    state.key = null;
+  }
+  const focusItemOnOpen = focusItemOnOpenOf(list);
+  if (!open || focusItemOnOpen !== 'auto') {
+    state.focusItemOnOpen = focusItemOnOpen;
+  }
+  if (enabledOf(list)) {
+    // :389-403, CMP-STA-33
+    const selectedIndex = selectedIndexOf(list);
+    if (open && mounted) {
+      state.index = selectedIndex ?? -1;
+      if (state.focusItemOnOpen && selectedIndex != null) {
+        state.forceScrollIntoView = true;
+        navigateTo(state, handle);
+      }
+    } else if (state.previousMounted) {
+      state.index = -1;
+      navigateTo(state, handle);
+    }
+    // :407-477 with the highlight of the render that opened or mounted the list.
+    syncActiveIndex(state, handle, renderedActiveIndex);
+  }
+  // :481-503, CMP-FOC-08: a nested child whose floating element unmounted focuses its parent's, so the arrow keys work
+  // after the pointer leaves the child.
+  if (enabledOf(list) && !mounted && list.virtual !== true && state.previousMounted) {
+    const parentId = handle.session.node.parentId;
+    const parent = parentId ? getSession(parentId)?.floatingElement : null;
+    const nodes = handle.session.tree.nodesRef.current;
+    const focused = activeElement(ownerDocument(handle.session.domReferenceElement ?? parent ?? null));
+    const treeContainsFocus = nodes.some((node) => node.context?.elements?.floating != null && contains(node.context.elements.floating, focused));
+    if (parent && !treeContainsFocus && state.pointerModality) {
+      parent.focus({ preventScroll: true });
+    }
+  }
+  // :505-508
+  state.previousOpen = open;
+  state.previousMounted = mounted;
+  writeHighlight(state, handle);
+  typeaheadOnOpenOrSelectedChange(state, handle);
+}
+
+function createListState(session: InteractionSession, list: CompositeListOptions): ListState {
+  const state: ListState = {
+    index: selectedIndexOf(list) ?? -1,
+    activeIndex: null,
+    key: null,
+    pointerModality: true,
+    forceSyncFocus: false,
+    forceScrollIntoView: false,
+    focusItemOnOpen: focusItemOnOpenOf(list),
+    emittingOpen: null,
+    previousOpen: session.open,
+    previousMounted: false,
+    cancelQueuedFocus: null,
+    focusFrame: createFrameSlot(),
+    waitFrame: createFrameSlot(),
+    floating: null,
+    references: new Set(),
+    handles: new Set(),
+    appliedRevision: 0,
+    reportedIndex: null,
+    typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
+    // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
+    onOpenChange: (details) => {
+      const handle = currentHandle(state);
+      if (!handle) {
+        return;
+      }
+      state.emittingOpen = details.open;
+      try {
+        syncOpenAndMount(state, handle);
+      } finally {
+        state.emittingOpen = null;
+      }
+    },
+  };
+  session.events.on('openchange', state.onOpenChange);
+  (session.dataRef.current as ListData)[LIST_STATE] = state;
+  return state;
+}
+
+function releaseListState(state: ListState, session: InteractionSession): void {
+  if (state.handles.size > 0) {
+    return;
+  }
+  session.events.off('openchange', state.onOpenChange);
+  state.focusFrame.cancel();
+  state.waitFrame.cancel();
+  if (state.typeahead.timer !== null) {
+    clearTimeout(state.typeahead.timer);
+  }
+  if ((session.dataRef.current as ListData)[LIST_STATE] === state) {
+    delete (session.dataRef.current as ListData)[LIST_STATE];
+  }
+}
+
+// A C# highlight request (ADR 04 Amendments 2026-11-03 (2)): applied once per revision, as a consumer's `activeIndex`.
+function applyHighlightRequest(state: ListState, handle: ListHandle): void {
+  const request = handle.list().highlight;
+  if (!request || request.revision <= state.appliedRevision) {
+    return;
+  }
+  state.appliedRevision = request.revision;
+  const next = request.index ?? null;
+  if (next === state.activeIndex) {
+    // The revision moved: report it, so C# knows its request was applied.
+    state.reportedIndex = undefined;
+    reportHighlight(state, handle, undefined);
+    return;
+  }
+  commitHighlight(state, handle, next, undefined);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Typeahead (CMP §4.2.5, §4.9, §5.5; useTypeahead.ts), wholly in the module: the buffer, the reset timer, the
+// matching and the typing flag, which the floating handle's capture listener reads to prevent Space (design point 2).
+// ---------------------------------------------------------------------------------------------------------------
+
+function setTyping(state: ListState, typing: boolean): void {
+  state.typeahead.typing = typing;
+}
+
+// useTypeahead.ts:223-235, CMP-STA-44: a reset on open, and on a close that has no selected index.
+function typeaheadOnOpenOrSelectedChange(state: ListState, handle: ListHandle): void {
+  const typeahead = handle.list().typeahead;
+  const t = state.typeahead;
+  if (!typeahead) {
+    return;
+  }
+  if (!isOpen(state, handle.session) && selectedIndexOf(handle.list()) !== null) {
+    return;
+  }
+  if (t.timer !== null) {
+    clearTimeout(t.timer);
+    t.timer = null;
+  }
+  t.matchIndex = null;
+  if (t.text !== '') {
+    t.text = '';
+    setTyping(state, false);
+  }
+}
+
+// useTypeahead.ts:84-222 (CMP-ALG-25, ALG-26; KEY-35..43; EVT-10, EVT-11).
+function typeaheadKeyDown(state: ListState, handle: ListHandle, event: KeyboardEvent): void {
+  const list = handle.list();
+  const options = list.typeahead;
+  if (!options) {
+    return;
+  }
+  const t = state.typeahead;
+  const elements = state.floating?.registry.elements;
+  const listContent: ReadonlyArray<string | null> = options.labels ?? state.floating?.registry.labels ?? [];
+
+  const isItemAvailable = (index: number): boolean => {
+    if (options.skip === 'element') {
+      const element = elements?.[index];
+      return !((element && !isElementVisible(element)) || element?.matches(':disabled'));
+    }
+    if (options.skip === 'attribute') {
+      return !isElementDisabled(elements?.[index] ?? null);
+    }
+    return true;
+  };
+
+  const getMatchingIndex = (content: ReadonlyArray<string | null>, text: string, startIndex = 0): number => {
+    if (content.length === 0) {
+      return -1;
+    }
+    const normalizedStartIndex = ((startIndex % content.length) + content.length) % content.length;
+    const lowerString = text.toLowerCase();
+    for (let offset = 0; offset < content.length; offset += 1) {
+      const index = (normalizedStartIndex + offset) % content.length;
+      const label = content[index];
+      if (!label?.toLowerCase().startsWith(lowerString) || !isItemAvailable(index)) {
+        continue;
+      }
+      return index;
+    }
+    return -1;
+  };
+
+  if (t.text.length > 0 && event.key === ' ') {
+    // Space continues the typing session.
+    stopEvent(event);
+    setTyping(state, true);
+  }
+
+  if (t.text.length > 0 && t.text[0] !== ' ') {
+    if (getMatchingIndex(listContent, t.text) === -1 && event.key !== ' ') {
+      setTyping(state, false);
+    }
+  }
+
+  if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+
+  if (isOpen(state, handle.session) && event.key !== ' ') {
+    stopEvent(event);
+    setTyping(state, true);
+  }
+
+  const selectedIndex = selectedIndexOf(list);
+  const isNewSession = t.text === '';
+  if (isNewSession) {
+    t.prevIndex = selectedIndex ?? state.activeIndex ?? -1;
+  }
+
+  // Rapid succession of one first letter cycles through its items, unless a label repeats its first letter.
+  const allowRapidSuccessionOfFirstLetter = listContent.every((text, index) =>
+    text && isItemAvailable(index) ? text[0]?.toLowerCase() !== text[1]?.toLowerCase() : true,
+  );
+  if (allowRapidSuccessionOfFirstLetter && t.text === event.key) {
+    t.text = '';
+    t.prevIndex = t.matchIndex;
+  }
+
+  t.text += event.key;
+  if (t.timer !== null) {
+    clearTimeout(t.timer);
+  }
+  t.timer = setTimeout(() => {
+    t.timer = null;
+    t.text = '';
+    t.prevIndex = t.matchIndex;
+    setTyping(state, false);
+  }, options.resetMs);
+
+  const prevIndex = isNewSession ? (selectedIndex ?? state.activeIndex ?? -1) : t.prevIndex;
+  const startIndex = (prevIndex ?? 0) + 1;
+  const index = getMatchingIndex(listContent, t.text, startIndex);
+
+  if (index !== -1) {
+    onTypeaheadMatch(state, handle, index, event);
+    t.matchIndex = index;
+  } else if (event.key !== ' ') {
+    t.text = '';
+    setTyping(state, false);
+  }
+}
+
+// `onMatch` (CMP-EVT-10): while open the match is a keyboard highlight (MenuRoot.tsx:562-566, SelectRoot.tsx:401-403);
+// on a closed list it is the family's value request (SelectRoot.tsx:404-407, ComboboxTrigger.tsx:116-121).
+function onTypeaheadMatch(state: ListState, handle: ListHandle, index: number, event: KeyboardEvent): void {
+  if (isOpen(state, handle.session)) {
+    if (index !== state.activeIndex) {
+      commitHighlight(state, handle, index, event);
+    }
+    return;
+  }
+  const payload: CompositeListMatchReport = { index, event: eventInfo(event) };
+  handle.channel.report(LIST_MATCH_REPORT, payload);
+}
+
+// useTypeahead.ts:205-221: focus leaving the reference and the floating element ends the session.
+function typeaheadFocusOut(state: ListState, handle: ListHandle, event: FocusEvent): void {
+  if (!handle.list().typeahead) {
+    return;
+  }
+  const next = isElement(event.relatedTarget) ? event.relatedTarget : null;
+  const reference = referenceElementOf(state, handle.session);
+  const floating = state.floating?.element ?? handle.session.floatingElement;
+  if (contains(reference, next) || contains(floating, next)) {
+    return;
+  }
+  const t = state.typeahead;
+  if (t.timer !== null) {
+    clearTimeout(t.timer);
+    t.timer = null;
+  }
+  t.text = '';
+  t.prevIndex = t.matchIndex;
+  setTyping(state, false);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The list handle's key handling (useListNavigation.ts:550-912)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** One keydown as a handle handles it: the consumer's veto, asked once before the first effect (EVD-EVT-26). */
+interface KeyDispatch {
+  readonly event: KeyboardEvent;
+  vetoed: boolean | null;
+  stopped: boolean;
+}
+
+function proceed(dispatch: KeyDispatch, handle: ListHandle): boolean {
+  if (dispatch.vetoed === null) {
+    dispatch.vetoed = decide(handle.channel, NAVIGATE_POINT, dispatch.event, 'run') !== 'run';
+  }
+  return !dispatch.vetoed;
+}
+
+function stopDispatch(dispatch: KeyDispatch): void {
+  dispatch.stopped = true;
+  stopEvent(dispatch.event);
+}
+
+function requestOpen(handle: ListHandle, open: boolean, reason: 'list-navigation' | 'focus-out', event: KeyboardEvent, trigger: Element | null): void {
+  const payload: CompositeListOpenRequestReport = {
+    open,
+    reason,
+    event: eventInfo(event),
+    triggerId: trigger?.id || null,
+  };
+  handle.channel.report(LIST_OPEN_REQUEST_REPORT, payload);
+}
+
+// `commonOnKeyDown` (useListNavigation.ts:550-683).
+function commonKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispatch, currentTarget: Element): void {
+  const event = dispatch.event;
+  const list = handle.list();
+  state.pointerModality = false;
+  state.forceSyncFocus = true;
+
+  // CMP-KEY-25: Chrome fires ArrowDown twice while composing.
+  if ((event as KeyboardEvent & { which?: number }).which === 229) {
+    return;
+  }
+
+  // An animating-out floating element ignores navigation.
+  if (!isOpen(state, handle.session) && currentTarget === state.floating?.element) {
+    return;
+  }
+
+  const orientation = orientationOf(list);
+  const rtl = list.rtl === true;
+  const isGrid = list.grid === true;
+
+  // CMP-KEY-27, CMP-DIS-01, CMP-EVT-07: the nested close across the list's orientation.
+  if (list.nested && !list.keepOpenOnCrossOrientationKey && isCrossOrientationCloseKey(event.key, orientation, rtl, isGrid)) {
+    if (!proceed(dispatch, handle)) {
+      return;
+    }
+    // The parent navigates with the key when it is its main key; otherwise the key stops here.
+    if (!isMainOrientationKey(event.key, parentOrientationOf(handle))) {
+      stopDispatch(dispatch);
+    }
+    requestOpen(handle, false, 'list-navigation', event, null);
+    const returnElement = handle.returnFocusElement() ?? referenceElementOf(state, handle.session);
+    if (isHTMLElement(returnElement)) {
+      returnElement.focus();
+    }
+    return;
+  }
+
+  const elements = elementsOf(state);
+  // CMP-STA-32: the cursor follows a highlight C# set since the last key.
+  if (state.activeIndex != null && state.activeIndex !== state.index && !isIndexOutOfListBounds(elements, state.activeIndex)) {
+    state.index = state.activeIndex;
+  }
+
+  const currentIndex = state.index;
+  const disabledIndices = disabledIndicesOfList(state, list);
+  const minIndex = getMinListIndex(elements, disabledIndices);
+  const maxIndex = getMaxListIndex(elements, disabledIndices);
+
+  // CMP-KEY-28's Home and End, except on a typeable combobox reference.
+  if (!isTypeableCombobox(referenceElementOf(state, handle.session))) {
+    if (event.key === HOME || event.key === END) {
+      if (!proceed(dispatch, handle)) {
+        return;
+      }
+      stopDispatch(dispatch);
+      state.index = event.key === HOME ? minIndex : maxIndex;
+      navigateTo(state, handle, event);
+    }
+  }
+
+  if (isMainOrientationKey(event.key, orientation)) {
+    if (!proceed(dispatch, handle)) {
+      return;
+    }
+    stopDispatch(dispatch);
+
+    // No item focused while focus is inside the popup: start at the boundary (CMP-KEY-31).
+    const focused = activeElement(ownerDocument(currentTarget));
+    if (
+      isOpen(state, handle.session) &&
+      list.virtual !== true &&
+      contains(currentTarget, focused) &&
+      !elements.some((item) => item != null && contains(item, focused))
+    ) {
+      state.index = isMainOrientationToEndKey(event.key, orientation, rtl) ? minIndex : maxIndex;
+      const before = state.activeIndex;
+      navigateTo(state, handle, event);
+      // The boundary item may already be the highlight, so no change would move the focus.
+      if (before === state.index) {
+        focusItem(state, handle);
+      }
+      return;
+    }
+
+    const { index, wrapped } = getNextListIndex(elements, currentIndex, {
+      decrement: !isMainOrientationToEndKey(event.key, orientation, rtl),
+      loopFocus: list.loopFocus === true,
+      allowEscape: list.allowEscape === true,
+      disabledIndices,
+      minIndex,
+      maxIndex,
+    });
+    if (wrapped) {
+      // Give time for virtualizers to update the list.
+      state.forceSyncFocus = false;
+    }
+    state.index = index;
+    navigateTo(state, handle, event);
+  }
+}
+
+// The trigger's keydown (useListNavigation.ts:836-912), on the reference and on every trigger.
+function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispatch): void {
+  const event = dispatch.event;
+  const list = handle.list();
+  const currentTarget = handle.element;
+  const currentOpen = isOpen(state, handle.session);
+  state.pointerModality = false;
+
+  const orientation = orientationOf(list);
+  const triggerOrientation = list.triggerOrientation ?? orientation;
+  const rtl = list.rtl === true;
+  const parentOrientation = parentOrientationOf(handle);
+  const isArrowKey = event.key.startsWith('Arrow');
+  const isParentCrossOpenKey = isCrossOrientationOpenKey(event.key, parentOrientation, rtl);
+  const isMainKey = isMainOrientationKey(event.key, currentOpen ? orientation : triggerOrientation);
+  const isNavigationKey = (list.nested ? isParentCrossOpenKey : isMainKey) || event.key === 'Enter' || event.key.trim() === '';
+
+  if (list.virtual && currentOpen && (!list.nested || isTypeableElement(currentTarget))) {
+    commonKeyDown(state, handle, dispatch, currentTarget);
+    return;
+  }
+
+  // CMP-KEY-19: a list that does not open on an arrow key keeps its highlight unset while closed.
+  if (!currentOpen && list.openOnArrowKeyDown === false && isArrowKey) {
+    return;
+  }
+
+  // CMP-KEY-21: the key the open's initial highlight reads.
+  if (isNavigationKey) {
+    const isParentMainKey = isMainOrientationKey(event.key, parentOrientation);
+    state.key = list.nested && isParentMainKey ? null : event.key;
+  }
+
+  if (list.nested) {
+    if (isParentCrossOpenKey) {
+      if (!proceed(dispatch, handle)) {
+        return;
+      }
+      stopDispatch(dispatch);
+      if (currentOpen) {
+        state.index = getMinListIndex(elementsOf(state), disabledIndicesOfList(state, list));
+        navigateTo(state, handle, event);
+        if (list.virtual) {
+          state.floating?.element.focus();
+        }
+      } else {
+        // CMP-EVT-06
+        requestOpen(handle, true, 'list-navigation', event, currentTarget);
+      }
+    }
+    return;
+  }
+
+  if (isMainKey) {
+    if (!proceed(dispatch, handle)) {
+      return;
+    }
+    const selectedIndex = selectedIndexOf(list);
+    if (selectedIndex != null) {
+      state.index = selectedIndex;
+    }
+    stopDispatch(dispatch);
+    if (!currentOpen && list.openOnArrowKeyDown !== false) {
+      // CMP-EVT-06
+      requestOpen(handle, true, 'list-navigation', event, currentTarget);
+    } else {
+      commonKeyDown(state, handle, dispatch, currentTarget);
+    }
+    if (currentOpen) {
+      navigateTo(state, handle, event);
+    }
+  }
+}
+
+// The floating element's keydown (useListNavigation.ts:769-797): Shift+Tab's `leave`, then the common handling.
+function floatingKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispatch): void {
+  const event = dispatch.event;
+  const list = handle.list();
+  if (event.key === TAB && event.shiftKey && isOpen(state, handle.session) && list.virtual !== true) {
+    // A keydown from inside a nested element with its own focus management, such as a dialog, is not handled.
+    const target = getTarget(event);
+    if (isElement(target) && !contains(handle.element, target)) {
+      return;
+    }
+    if (!proceed(dispatch, handle)) {
+      return;
+    }
+    stopDispatch(dispatch);
+    // CMP-KEY-24, CMP-EVT-08 (ADR 04 Amendments 2026-11-03 (3)): on WebAssembly C# runs the close inside `leave` and
+    // answers whether it was canceled; on Server the close is requested and the focus returns (fallback run).
+    const verdict = decide(handle.channel, LEAVE_POINT, event, 'run');
+    if (!handle.channel.lastDecisionWasSynchronous) {
+      requestOpen(handle, false, 'focus-out', event, null);
+    }
+    const returnElement = handle.returnFocusElement() ?? referenceElementOf(state, handle.session);
+    if (verdict === 'run' && isHTMLElement(returnElement)) {
+      returnElement.focus();
+    }
+    return;
+  }
+  commonKeyDown(state, handle, dispatch, handle.element);
+}
+
+// The trigger's focus, pointer and mouse handlers (useListNavigation.ts:812-834, :913-926).
+function triggerFocus(state: ListState, handle: ListHandle, event: FocusEvent): void {
+  if (event.target !== handle.element) {
+    return;
+  }
+  if (isOpen(state, handle.session) && handle.list().virtual !== true) {
+    state.index = -1;
+    navigateTo(state, handle, event);
+  }
+}
+
+function checkVirtualMouse(state: ListState, handle: ListHandle, event: MouseEvent): void {
+  const list = handle.list();
+  if (focusItemOnOpenOf(list) === 'auto' && isVirtualClick(event)) {
+    state.focusItemOnOpen = list.virtual !== true;
+  }
+}
+
+function checkVirtualPointer(state: ListState, handle: ListHandle, event: PointerEvent): void {
+  const list = handle.list();
+  const focusItemOnOpen = focusItemOnOpenOf(list);
+  state.focusItemOnOpen = focusItemOnOpen;
+  if (focusItemOnOpen === 'auto' && isVirtualPointerEvent(event)) {
+    state.focusItemOnOpen = true;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The items' handlers, delegated on the floating element (useListNavigation.ts:685-750)
+// ---------------------------------------------------------------------------------------------------------------
+
+// The registered item an event's composed path reaches inside the floating element, innermost first.
+function itemOfEvent(state: ListState, event: Event): HTMLElement | null {
+  const floating = state.floating;
+  if (!floating) {
+    return null;
+  }
+  for (const node of event.composedPath()) {
+    if (node === floating.element) {
+      break;
+    }
+    if (isHTMLElement(node) && floating.registry.indexOf(node) !== -1) {
+      return node;
+    }
+  }
+  return null;
+}
+
+// `syncCurrentTarget` (useListNavigation.ts:515-525).
+function syncCurrentTarget(state: ListState, handle: ListHandle, item: HTMLElement, event: Event): void {
+  if (!isOpen(state, handle.session)) {
+    return;
+  }
+  const index = state.floating?.registry.indexOf(item) ?? -1;
+  if (index !== -1 && (state.index !== index || state.activeIndex !== index)) {
+    state.index = index;
+    navigateTo(state, handle, event);
+  }
+}
+
+function itemFocus(state: ListState, handle: ListHandle, event: FocusEvent): void {
+  const item = itemOfEvent(state, event);
+  if (!item) {
+    return;
+  }
+  state.forceSyncFocus = true;
+  syncCurrentTarget(state, handle, item, event);
+}
+
+function itemClick(state: ListState, handle: ListHandle, event: MouseEvent): void {
+  const item = itemOfEvent(state, event);
+  // Safari; skipped under virtual focus, which keeps the real focus on the reference.
+  if (item && handle.list().virtual !== true) {
+    item.focus({ preventScroll: true });
+  }
+}
+
+function itemMouseMove(state: ListState, handle: ListHandle, event: MouseEvent): void {
+  const item = itemOfEvent(state, event);
+  if (!item || isStationaryWebKitPointer(event)) {
+    return;
+  }
+  state.forceSyncFocus = true;
+  state.forceScrollIntoView = false;
+  if (handle.list().focusItemOnHover !== false) {
+    syncCurrentTarget(state, handle, item, event);
+  }
+}
+
+// An item's `pointerleave`, from the delegated `pointerout` whose related target is outside the item.
+function itemPointerOut(state: ListState, handle: ListHandle, event: PointerEvent): void {
+  const item = itemOfEvent(state, event);
+  if (!item || contains(item, isElement(event.relatedTarget) ? event.relatedTarget : null)) {
+    return;
+  }
+  const list = handle.list();
+  if (!isOpen(state, handle.session) || !state.pointerModality || event.pointerType === 'touch') {
+    return;
+  }
+  state.forceSyncFocus = true;
+  const relatedTarget = event.relatedTarget as HTMLElement | null;
+  if (list.focusItemOnHover === false || elementsOf(state).includes(relatedTarget)) {
+    return;
+  }
+  if (list.resetOnPointerLeave === false) {
+    return;
+  }
+  state.cancelQueuedFocus?.();
+  state.cancelQueuedFocus = null;
+  state.index = -1;
+  navigateTo(state, handle, event);
+  if (list.virtual !== true) {
+    const floatingElement = state.floating?.element ?? null;
+    const focused = activeElement(ownerDocument(floatingElement));
+    if (floatingElement && contains(floatingElement, focused)) {
+      floatingElement.focus({ preventScroll: true });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// attachList: a list handle in its role
+// ---------------------------------------------------------------------------------------------------------------
+
+// The development warnings of useListNavigation.ts:272-287 (CMP-EDGE-03..05), with the `Blazix: ` prefix.
+function warnListOptions(list: CompositeListOptions): void {
+  if (list.allowEscape) {
+    if (!list.loopFocus) {
+      console.warn('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+    }
+    if (!list.virtual) {
+      console.warn('Blazix: `useListNavigation` must be virtual to allow escaping.');
+    }
+  }
+  if (orientationOf(list) === 'vertical' && list.grid) {
+    console.warn('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+  }
+}
+
+/**
+ * Attaches a list handle (ADR 04 Amendments 2026-11-03 (1)): it joins the popup's interactions session by token and
+ * shares the list's state with the list's other handles. The floating handle resolves and orders the items, writes the
+ * highlight and handles the list's keys and the items' pointer and focus events; a reference or trigger handle opens
+ * the list from its keys. Every handle runs the typeahead its options carry.
+ */
+function attachList(
+  elementOrId: Element | string | null,
+  initialOptions: CompositeOptions,
+  twinReference: DotNetTwin,
+  initialReferences: TwinReferences,
+  captures: TwinCaptures,
+): TwinHandle {
+  const element = resolveElement(elementOrId, captures?.[0]) as AttachedElement;
+  const existing = element[attachedHandle];
+  if (existing) {
+    return existing;
+  }
+
+  const channel = createTwinChannel(twinReference);
+  let options = initialOptions;
+  let references = initialReferences;
+  let referenceCaptures = captures;
+  let disposed = false;
+  const session = acquireSession(options.sessionToken ?? '');
+  const isFloating = options.floating != null;
+  const state = listStateOf(session) ?? createListState(session, options.list!);
+
+  const handle: ListHandle = {
+    element,
+    channel,
+    session,
+    options: () => options,
+    list: () => options.list ?? {},
+    returnFocusElement: () => {
+      const index = options.list?.nestedReturnFocusElement;
+      const found = index == null ? null : resolveReference<Element>(references, index, referenceCaptures);
+      return isHTMLElement(found) ? found : null;
+    },
+  };
+  state.handles.add(handle);
+  warnListOptions(handle.list());
+
+  // The floating half: the registry and the items, resolved by id from C#'s registrations.
+  const registry = isFloating ? createCompositeRegistry() : null;
+  let items = new Map<string, AttachedItem>();
+  let itemsByElement = new Map<Element, AttachedItem>();
+  let reportedIds: string[] | null = null;
+  let derived: number[] = [];
+
+  const deriveDisabled = (): number[] => {
+    const result: number[] = [];
+    registry?.elements.forEach((item, index) => {
+      const attached = item ? itemsByElement.get(item) : undefined;
+      if (attached?.disabled && !attached.focusableWhenDisabled) {
+        result.push(index);
+      }
+    });
+    return result;
+  };
+
+  const syncListItems = (registrations: ReadonlyArray<CompositeItemRegistration>): boolean => {
+    if (!registry) {
+      return false;
+    }
+    const next = new Map<string, AttachedItem>();
+    for (const registration of registrations) {
+      const found = resolveById(element, registration.id);
+      if (found) {
+        next.set(registration.id, {
+          id: registration.id,
+          element: found,
+          tabIndex: registration.tabIndex ?? null,
+          disabled: registration.disabled ?? false,
+          focusableWhenDisabled: registration.focusableWhenDisabled ?? false,
+          omitTabIndex: registration.omitTabIndex ?? false,
+          label: registeredLabel(registration.label),
+          textId: registration.textId ?? null,
+          index: registration.index ?? null,
+        });
+      }
+    }
+    const nextElements = new Set<Element>();
+    next.forEach((attached) => nextElements.add(attached.element));
+    let changed = false;
+    items.forEach((previous, id) => {
+      if (next.get(id)?.element !== previous.element && !nextElements.has(previous.element)) {
+        registry.unregister(previous.element);
+        changed = true;
+      }
+    });
+    next.forEach((attached, id) => {
+      if (!sameRegistryFields(items.get(id), attached)) {
+        registry.register(attached.element, {
+          index: attached.index,
+          label: attached.label,
+          textElement: attached.textId === null ? null : resolveById(element, attached.textId),
+        });
+        changed = true;
+      }
+    });
+    items = next;
+    itemsByElement = new Map();
+    next.forEach((attached) => itemsByElement.set(attached.element, attached));
+    return changed;
+  };
+
+  let floatingPart: ListFloating | null = null;
+  let referencePart: ListReference | null = null;
+
+  if (registry) {
+    floatingPart = {
+      element,
+      registry,
+      channel,
+      ownsTabIndex: (item) => {
+        const attached = itemsByElement.get(item);
+        return attached !== undefined && attached.tabIndex == null && !attached.omitTabIndex;
+      },
+      idOf: (item) => (item ? (itemsByElement.get(item)?.id ?? null) : null),
+      derivedDisabledIndices: () => derived,
+    };
+    // CMP-EVT-03 (E2): the ids in index order on each publication that changed them, when asked.
+    registry.subscribe(() => {
+      derived = deriveDisabled();
+      if (options.reportItems) {
+        const ids: string[] = [];
+        for (const item of registry.elements) {
+          const attached = item ? itemsByElement.get(item) : undefined;
+          if (attached) {
+            ids.push(attached.id);
+          }
+        }
+        if (!(reportedIds && ids.length === reportedIds.length && ids.every((id, index) => id === reportedIds![index]))) {
+          reportedIds = ids;
+          channel.report('OnItemsChange', { ids });
+        }
+      }
+      writeHighlight(state, handle);
+    });
+  } else {
+    referencePart = { element, isReference: options.reference != null };
+    state.references.add(referencePart);
+  }
+
+  // Listeners. One keydown per handle runs the list navigation, then the typeahead, after the consumer's veto.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    const list = handle.list();
+    const dispatch: KeyDispatch = { event, vetoed: null, stopped: false };
+    if (enabledOf(list)) {
+      if (isFloating) {
+        floatingKeyDown(state, handle, dispatch);
+      } else {
+        triggerKeyDown(state, handle, dispatch);
+      }
+    }
+    if (list.typeahead && typeaheadProceeds(dispatch, handle, event)) {
+      const stoppedBefore = event.defaultPrevented;
+      typeaheadKeyDown(state, handle, event);
+      if (!stoppedBefore && event.defaultPrevented) {
+        dispatch.stopped = true;
+      }
+    }
+    // Option (i) (ADR 04 Amendments 2026-10-22, 2026-11-03 (3)): a key stopped here never reaches Blazor's dispatcher.
+    if (dispatch.stopped && options.reportHandledKeys && !channel.lastDecisionWasSynchronous) {
+      channel.report('OnKeyHandled', { event: eventInfo(event) });
+    }
+  };
+
+  // Design point 2 (c): an item's Space while typing is prevented before the item's own `button` listener runs, as
+  // Base UI's item handler does (useMenuItemCommonProps.ts:85-88, SelectItem.tsx:161-169); `button` skips a prevented
+  // Space on a `menuitem*`, `option` or `gridcell`.
+  const onKeyDownCapture = (event: KeyboardEvent): void => {
+    if (event.key === ' ' && state.typeahead.typing && itemOfEvent(state, event)) {
+      event.preventDefault();
+    }
+  };
+
+  const onFocusOut = (event: FocusEvent): void => typeaheadFocusOut(state, handle, event);
+
+  const listeners: [string, EventListener, boolean][] = isFloating
+    ? [
+        ['keydown', onKeyDownCapture as EventListener, true],
+        ['keydown', onKeyDown as EventListener, false],
+        ['focusout', onFocusOut as EventListener, false],
+        ['focusin', ((event: FocusEvent) => enabledOf(handle.list()) && itemFocus(state, handle, event)) as EventListener, false],
+        ['click', ((event: MouseEvent) => enabledOf(handle.list()) && itemClick(state, handle, event)) as EventListener, false],
+        ['mousemove', ((event: MouseEvent) => enabledOf(handle.list()) && itemMouseMove(state, handle, event)) as EventListener, false],
+        ['pointerout', ((event: PointerEvent) => enabledOf(handle.list()) && itemPointerOut(state, handle, event)) as EventListener, false],
+        [
+          'pointermove',
+          ((event: PointerEvent) => {
+            if (enabledOf(handle.list()) && !isStationaryWebKitPointer(event)) {
+              state.pointerModality = true;
+            }
+          }) as EventListener,
+          false,
+        ],
+      ]
+    : [
+        ['keydown', onKeyDown as EventListener, false],
+        ['focusout', onFocusOut as EventListener, false],
+        ['focus', ((event: FocusEvent) => enabledOf(handle.list()) && triggerFocus(state, handle, event)) as EventListener, false],
+        ['pointerdown', ((event: PointerEvent) => enabledOf(handle.list()) && checkVirtualPointer(state, handle, event)) as EventListener, false],
+        ['pointerenter', ((event: PointerEvent) => enabledOf(handle.list()) && checkVirtualPointer(state, handle, event)) as EventListener, false],
+        ['mousedown', ((event: MouseEvent) => enabledOf(handle.list()) && checkVirtualMouse(state, handle, event)) as EventListener, false],
+        ['click', ((event: MouseEvent) => enabledOf(handle.list()) && checkVirtualMouse(state, handle, event)) as EventListener, false],
+      ];
+  for (const [type, listener, capture] of listeners) {
+    element.addEventListener(type, listener, capture);
+  }
+
+  // The first publication, then the open sync of a floating element mounted open (CMP-STA-37; ADR 01 Amendments
+  // 2026-10-27: a handle the opening render creates attaches from OnAfterRender).
+  if (registry && floatingPart) {
+    syncListItems(options.items);
+    registry.flush();
+    derived = deriveDisabled();
+    state.floating = floatingPart;
+  }
+  applyHighlightRequest(state, handle);
+  if (registry) {
+    syncOpenAndMount(state, handle);
+  } else {
+    session.dataRef.current.orientation = orientationOf(handle.list());
+    writeHighlight(state, handle);
+  }
+
+  const twinHandle: TwinHandle = {
+    update(nextOptionsJson: string, nextReferences?: TwinReferences, nextCaptures?: TwinCaptures) {
+      if (disposed) {
+        return;
+      }
+      const previous = handle.list();
+      options = parseOptions<CompositeOptions>(nextOptionsJson);
+      if (nextReferences !== undefined) {
+        references = nextReferences;
+        referenceCaptures = nextCaptures;
+      }
+      const list = handle.list();
+      if (registry && syncListItems(options.items)) {
+        registry.flush();
+      }
+      if (registry) {
+        derived = deriveDisabled();
+      }
+      session.dataRef.current.orientation = orientationOf(list);
+      if (focusItemOnOpenOf(list) !== focusItemOnOpenOf(previous) && (!isOpen(state, session) || focusItemOnOpenOf(list) !== 'auto')) {
+        state.focusItemOnOpen = focusItemOnOpenOf(list);
+      }
+      if (selectedIndexOf(list) !== selectedIndexOf(previous)) {
+        onSelectedIndexChange(state, handle);
+      }
+      applyHighlightRequest(state, handle);
+      writeHighlight(state, handle);
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      delete element[attachedHandle];
+      for (const [type, listener, capture] of listeners) {
+        element.removeEventListener(type, listener, capture);
+      }
+      state.handles.delete(handle);
+      if (referencePart) {
+        state.references.delete(referencePart);
+      }
+      if (registry && state.floating === floatingPart) {
+        state.floating = null;
+        // The unmount's effects (CMP-STA-33's reset, CMP-FOC-08), with the options of the handle that unmounted.
+        syncOpenAndMount(state, handle);
+        registry.dispose();
+      }
+      releaseListState(state, session);
+      releaseSession(session);
+    },
+  };
+  element[attachedHandle] = twinHandle;
+  return twinHandle;
+}
+
+// The typeahead runs after the list navigation of the same keydown under the same veto (mergeProps runs the consumer's
+// handler first, and its preventBaseUIHandler() skips both); a key it does not act on asks nothing.
+function typeaheadProceeds(dispatch: KeyDispatch, handle: ListHandle, event: KeyboardEvent): boolean {
+  if (dispatch.vetoed !== null) {
+    return !dispatch.vetoed;
+  }
+  const actsOnKey = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+  return !actsOnKey || proceed(dispatch, handle);
+}
+
+// useListNavigation.ts:389-403 for a change of `selectedIndex` while the list is open and mounted; useTypeahead's reset.
+function onSelectedIndexChange(state: ListState, handle: ListHandle): void {
+  const list = handle.list();
+  if (enabledOf(list) && isOpen(state, handle.session) && state.floating) {
+    const selectedIndex = selectedIndexOf(list);
+    state.index = selectedIndex ?? -1;
+    if (state.focusItemOnOpen && selectedIndex != null) {
+      state.forceScrollIntoView = true;
+      navigateTo(state, handle);
+    }
+  }
+  typeaheadOnOpenOrSelectedChange(state, handle);
 }
