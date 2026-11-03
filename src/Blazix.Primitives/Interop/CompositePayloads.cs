@@ -17,9 +17,13 @@ internal sealed record CompositeKeyHandled(EventSnapshot Event);
 
 // CMP-EVT-03 as a report of ids (M3 track 1, E2; ADR 04 Amendments 2026-10-26, chosen by the user; one self-contained
 // sequence per report, design points 1 and 3, option (a), settled by the orchestrator 2026-10-26).
-/// <summary>The payload of the <c>composite</c> module's report of the items' order.</summary>
-/// <param name="Ids">The ids of the registered items in index order, each once.</param>
-internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids);
+// Design point 5 (b) of M5 track 1, chosen by the user 2026-11-04: a long order arrives in parts of one publication.
+/// <summary>The payload of the <c>composite</c> module's report of the items' order, whole or one part of it.</summary>
+/// <param name="Ids">The ids of the registered items in index order, each once; for a part, the ids of that part.</param>
+/// <param name="Publication">The number of the publication a part belongs to; <see langword="null"/> for a whole order.</param>
+/// <param name="Part">The part's position, from 0; <see langword="null"/> for a whole order.</param>
+/// <param name="Parts">The number of parts of the publication; <see langword="null"/> for a whole order.</param>
+internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids, int? Publication = null, int? Part = null, int? Parts = null);
 
 // CMP-STA-31, CMP-EVT-04 (onNavigate) under ADR 04 Amendments 2026-11-03 (2), chosen by the user: the module writes the
 // highlight and reports it once per change, with the C# request it had applied, so C# ignores a stale report.

@@ -751,6 +751,49 @@ export function createCompositeRegistry(): CompositeRegistry {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// The order report (CMP-EVT-03 as ids, M3 track 1's E2; design point 5 (b) of M5 track 1, chosen by the user
+// 2026-11-04: chunked, so no JavaScript → C# message reaches Server's default 32 KB receive limit)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * The largest order report payload sent whole, in characters of JSON: a longer one goes in parts. Escaping doubles a
+ * quote and a non-ASCII id takes up to three bytes per character, so a part stays below 25 KB on the wire.
+ */
+export const ORDER_REPORT_CHUNK_CHARS = 8192;
+
+// Characters a part's envelope adds beyond its ids (`{"ids":[`, `],"publication":N,"part":N,"parts":N}`), with room.
+const ORDER_REPORT_ENVELOPE_CHARS = 96;
+
+/**
+ * Sends one publication's order: whole when its payload fits `ORDER_REPORT_CHUNK_CHARS`, else in parts, each with the
+ * publication's number, its position and the number of parts, which C# joins in order before acting on the order.
+ * @param channel The twin channel.
+ * @param ids The ids in index order.
+ * @param publication The publication's number, which grows with each report of the handle.
+ */
+function reportItemOrder(channel: TwinChannel, ids: string[], publication: number): void {
+  if (JSON.stringify({ ids }).length <= ORDER_REPORT_CHUNK_CHARS) {
+    channel.report('OnItemsChange', { ids });
+    return;
+  }
+  const parts: string[][] = [];
+  let part: string[] = [];
+  let length = ORDER_REPORT_ENVELOPE_CHARS;
+  for (const id of ids) {
+    const added = JSON.stringify(id).length + 1;
+    if (part.length > 0 && length + added > ORDER_REPORT_CHUNK_CHARS) {
+      parts.push(part);
+      part = [];
+      length = ORDER_REPORT_ENVELOPE_CHARS;
+    }
+    part.push(id);
+    length += added;
+  }
+  parts.push(part);
+  parts.forEach((chunk, index) => channel.report('OnItemsChange', { ids: chunk, publication, part: index, parts: parts.length }));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // The root (attach): CompositeTwin's handle
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -1052,6 +1095,7 @@ function attachGroup(
   let derivedDisabledIndices: number[] = [];
   // CMP-EVT-03 (M3 track 1, E2): the id sequence last reported, so a publication that keeps it reports nothing.
   let reportedIds: string[] | null = null;
+  let publications = 0;
   // CMP-STA-22's consumer-owned clause as TabsList uses it (M3 track 1, E5): what each item's last evaluation saw, the
   // highlight it saw, the items a keydown reached since their last evaluation (TabsTab.tsx's `isNavigatingRef`), and the
   // observer of the marker.
@@ -1246,7 +1290,8 @@ function attachGroup(
       return;
     }
     reportedIds = ids;
-    twin.report('OnItemsChange', { ids });
+    publications += 1;
+    reportItemOrder(twin, ids, publications);
   });
 
   // The root's listener on each publication; a registration-only list has no highlight to adjust.
@@ -2798,6 +2843,7 @@ function attachList(
   let items = new Map<string, AttachedItem>();
   let itemsByElement = new Map<Element, AttachedItem>();
   let reportedIds: string[] | null = null;
+  let publications = 0;
   let derived: number[] = [];
 
   const deriveDisabled = (): number[] => {
@@ -2885,7 +2931,8 @@ function attachList(
         }
         if (!(reportedIds && ids.length === reportedIds.length && ids.every((id, index) => id === reportedIds![index]))) {
           reportedIds = ids;
-          channel.report('OnItemsChange', { ids });
+          publications += 1;
+          reportItemOrder(channel, ids, publications);
         }
       }
       writeHighlight(state, handle);

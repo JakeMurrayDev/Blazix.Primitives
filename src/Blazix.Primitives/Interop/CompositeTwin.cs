@@ -26,6 +26,10 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the name of the decision point the module asks about before it returns the focus after a list's Shift+Tab close.</summary>
     public const string LeavePoint = "leave";
 
+    private readonly List<string> orderParts = [];
+    private int orderPublication = -1;
+    private int orderNextPart;
+
     /// <summary>Occurs when the highlighted index changed, if the options ask for it, once per change.</summary>
     public event Action<int>? HighlightChanged;
 
@@ -118,7 +122,35 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     public void OnItemsChange(string payloadJson)
     {
         CompositeItemsChange change = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeItemsChange);
-        ItemsChanged?.Invoke(change.Ids);
+        if (change.Parts is not { } parts)
+        {
+            ItemsChanged?.Invoke(change.Ids);
+            return;
+        }
+
+        // The parts of one publication arrive in order on the twin's channel; a newer publication's first part drops an
+        // older one that is incomplete, and a part out of sequence is ignored.
+        if (change.Part == 0)
+        {
+            orderParts.Clear();
+            orderPublication = change.Publication ?? -1;
+            orderNextPart = 0;
+        }
+
+        if (change.Publication != orderPublication || change.Part != orderNextPart)
+        {
+            return;
+        }
+
+        orderParts.AddRange(change.Ids);
+        orderNextPart++;
+        if (orderNextPart == parts)
+        {
+            string[] ids = [.. orderParts];
+            orderParts.Clear();
+            orderPublication = -1;
+            ItemsChanged?.Invoke(ids);
+        }
     }
 
     /// <summary>Receives a list's highlight.</summary>
