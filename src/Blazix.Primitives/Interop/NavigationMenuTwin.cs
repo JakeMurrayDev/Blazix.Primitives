@@ -41,6 +41,9 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     /// <summary>The part name of the Viewport's handle.</summary>
     public const string ViewportPart = "viewport";
 
+    /// <summary>The part name of the Arrow's handle.</summary>
+    public const string ArrowPart = "arrow";
+
     /// <summary>Occurs when a trigger reported an activation.</summary>
     public event Action<NavigationMenuActivation>? Activated;
 

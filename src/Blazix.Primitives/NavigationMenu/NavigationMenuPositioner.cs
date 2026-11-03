@@ -493,7 +493,8 @@ public static class NavigationMenuArrowDataAttributes
 
 // Base UI's NavigationMenu.Arrow (navigation-menu/arrow/NavigationMenuArrow.tsx); the contract is
 // docs/components/navigation-menu.md §3.13, §5.13: track 2's PositionerArrowBehavior (aria-hidden, the placement from the
-// mirror until the Positioner's module writes it); NAV-EDGE-04 outside a Positioner.
+// mirror until the Positioner's module writes it); NAV-EDGE-04 outside a Positioner; the navigation-menu handle writes
+// `transition: none` while the popup starts (NAV-ANI-15).
 /// <summary>
 /// Represents an arrow that points from the navigation menu's popup to the active trigger: Base UI's
 /// <c>NavigationMenu.Arrow</c>, rendered as a <c>div</c>.
@@ -503,8 +504,14 @@ public sealed class NavigationMenuArrow : PartBase<NavigationMenuArrowState>
     private static readonly StateAttributesMapping<NavigationMenuArrowState> s_mapping = PopupStateMapping.CreateOpen<NavigationMenuArrowState>();
 
     private PositionerArrowBehavior? arrow;
+    private NavigationMenuRootContext? root;
+    private NavigationMenuModule? module;
     private StoreSelection<NavigationMenuStoreState, bool>? open;
     private NavigationMenuArrowState? state;
+    private bool disposed;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
     private NavigationMenuRootContext? RootContext { get; set; }
@@ -540,9 +547,10 @@ public sealed class NavigationMenuArrow : PartBase<NavigationMenuArrowState>
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        NavigationMenuRootContext.Require(RootContext);
+        root = NavigationMenuRootContext.Require(RootContext);
         RequirePositioner(PositionerContext);
         arrow = new PositionerArrowBehavior(OnMirrorChanged);
+        module = new NavigationMenuModule(JSRuntime);
         base.OnInitialized();
     }
 
@@ -550,14 +558,28 @@ public sealed class NavigationMenuArrow : PartBase<NavigationMenuArrowState>
     protected override void OnParametersSet() => arrow!.SetContext(PositionerContext!);
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => arrow!.AfterRenderAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        Task arrowSync = arrow!.AfterRenderAsync();
+        if (Element is { } element && !disposed)
+        {
+            await module!.SyncAsync(element, new NavigationMenuOptions { Part = NavigationMenuTwin.ArrowPart }, root!.RootElement);
+        }
+
+        await arrowSync;
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && !disposed)
         {
+            disposed = true;
             arrow?.Dispose();
+            if (module is not null)
+            {
+                _ = module.DisposeAsync().AsTask();
+            }
         }
 
         base.Dispose(disposing);

@@ -67,6 +67,7 @@ export const CONTENT_PART = 'content';
 export const POSITIONER_PART = 'positioner';
 export const POPUP_PART = 'popup';
 export const VIEWPORT_PART = 'viewport';
+export const ARROW_PART = 'arrow';
 
 // ADR 04 Amendments 2026-11-04 (chosen by the user 2026-11-04): the consumer's onKeyDown veto of the open key, the
 // composite meaning of the name, fallback run.
@@ -114,7 +115,8 @@ export interface NavigationMenuOptions extends TwinOptions {
     | typeof CONTENT_PART
     | typeof POSITIONER_PART
     | typeof POPUP_PART
-    | typeof VIEWPORT_PART;
+    | typeof VIEWPORT_PART
+    | typeof ARROW_PART;
   /** The index of the Root element in the references; every part but the Root's names it. */
   rootRef?: number | null;
   // The Root's options.
@@ -257,6 +259,8 @@ interface Menu {
   readonly root: HTMLElement;
   options: NavigationMenuOptions;
   readonly triggers: Set<TriggerController>;
+  /** The handles that follow the Popup's state on every pass (the Arrows, NAV-ANI-15). */
+  readonly followers: Set<() => void>;
   popup: HTMLElement | null;
   positioner: HTMLElement | null;
   viewport: HTMLElement | null;
@@ -393,6 +397,7 @@ function getMenu(root: HTMLElement): MenuState {
     root,
     options: { part: ROOT_PART },
     triggers: new Set(),
+    followers: new Set(),
     popup: null,
     positioner: null,
     viewport: null,
@@ -554,6 +559,10 @@ function runPass(menu: MenuState): void {
   const status = popupStatus(menu);
   const active = findActiveTrigger(menu);
   const { popup, positioner } = menu;
+
+  for (const follow of menu.followers) {
+    follow();
+  }
 
   // NAV-ANI-12, NavigationMenuTrigger.tsx:149-157: a Trigger that stopped being active cancels its frames and its reset.
   for (const trigger of menu.triggers) {
@@ -1282,6 +1291,36 @@ function attachPositioner(element: HTMLElement, menu: MenuState, channel: TwinCh
   };
 }
 
+// NAV-ANI-15; arrow/NavigationMenuArrow.tsx:39 (getDisabledMountTransitionStyles): while the Root's status is
+// `starting`, read from the Popup's data-starting-style as the Popup's own suppression is, the Arrow carries
+// `transition: none`, written under the consumer's style in the `transitions` band.
+function attachArrow(element: HTMLElement, menu: MenuState): TwinHandle {
+  const layer = styleWriter(element).layer('transitions');
+  let suppressed = false;
+  const follow = () => {
+    const starting = menu.popup?.hasAttribute(STARTING_STYLE) === true;
+    if (starting === suppressed) {
+      return;
+    }
+    suppressed = starting;
+    if (starting) {
+      layer.set('transition', 'none');
+    } else {
+      layer.remove('transition');
+    }
+  };
+  menu.followers.add(follow);
+  follow();
+  return {
+    update() {},
+    dispose() {
+      menu.followers.delete(follow);
+      layer.clear();
+      releaseMenu(menu);
+    },
+  };
+}
+
 // NAV-DOM-31: the Popup grows away from its anchor; its status and open state feed the size pass.
 function attachPopup(element: HTMLElement, menu: MenuState): TwinHandle {
   let disposed = false;
@@ -1537,6 +1576,9 @@ export function attach(
       break;
     case POPUP_PART:
       handle = attachPopup(element, menu);
+      break;
+    case ARROW_PART:
+      handle = attachArrow(element, menu);
       break;
     default:
       handle = attachViewport(element, options, menu, channel);
