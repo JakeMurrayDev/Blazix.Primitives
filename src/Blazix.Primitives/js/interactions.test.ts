@@ -3352,6 +3352,33 @@ describe('useHoverReferenceInteraction', () => {
       expect([list.style.pointerEvents, second.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
     });
 
+    // ADR 04 Amendments 2026-11-04 (2) (NavigationMenu's design point 2, settled by the orchestrator 2026-11-04): with the
+    // trigger's own lock configured, the session's lock over inactive triggers on `mousemove` (useHoverReferenceInteraction's
+    // isOverInactive path, which Base UI's per-trigger stores never take for NavigationMenu) stays off, so the lock applies
+    // once (NAV-PTR-10, NAV-PTR-12).
+    it('port: with the trigger\'s own lock, a mousemove over an inactive trigger applies no second lock, and its mouseenter\'s lock moves it', async () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
+      const list = document.createElement('ul');
+      document.body.append(list);
+      const first = element('button', 'own-lock-first');
+      const second = element('button', 'own-lock-second');
+      list.append(first, second);
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      const floating = element('div');
+      popup.attachFloating(floating, { floating: { hover: {} } });
+      popup.setOpen(true, 'trigger-press', first.id, 'click');
+
+      hoverMouse(second, 'mousemove');
+      expect(second.style.pointerEvents).toBe('');
+
+      hoverMouse(second, 'mouseenter');
+      await Promise.resolve();
+      expect([list.style.pointerEvents, second.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+    });
+
     // NavigationMenuTrigger.tsx:488-501 (the effect's cleanup; M5 track 2): NAV-EDGE-10, NavigationMenuTrigger.test.tsx
     // "releases the pointer-events lock on the list when the open trigger unmounts".
     it('port: the unmount of the trigger that applied the lock releases it, and another trigger\'s unmount does not', () => {
