@@ -2335,18 +2335,29 @@ describe('useDismiss', () => {
     // Issue 156 (M5 track 2, brief deliverable 3): two nested popups open from the first render register their Escape
     // listeners in either order. Base UI's blocking-child check reads the children's open state from the render before the
     // keydown (useFloating.ts:90-118), so a child that closes inside the keydown still blocks its parent for that keydown.
+    // On WebAssembly a child's close commits inside the keydown and its popup can leave the document there, taking its node
+    // out of the forest before the parent's listener runs; the record keeps the tree of the keydown's start.
     it('port: nested sessions open from the first render, in either registration order: one Escape closes only the child, and the next closes the parent', async () => {
       await inBothModes((synchronous) => {
-        for (const order of ['parent first', 'child first'] as const) {
+        for (const [order, leaves] of [['parent first', false], ['child first', false], ['parent first', true], ['child first', true]] as const) {
           const outer = harness({ open: true, synchronous });
-          const inner = harness({ open: true, synchronous });
+          let innerFloating: { dispose(): void } | null = null;
+          const inner = harness({
+            open: true,
+            synchronous,
+            onOpenChange: (open) => {
+              if (!open && leaves) {
+                innerFloating?.dispose();
+              }
+            },
+          });
           const attachOuter = () => {
             outer.attachSession({ session: { dismiss: {} } });
             outer.attachFloating(element('div'));
           };
           const attachInner = () => {
             inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
-            inner.attachFloating(element('div'));
+            innerFloating = inner.attachFloating(element('div'));
           };
           if (order === 'parent first') {
             attachOuter();
@@ -2358,12 +2369,12 @@ describe('useDismiss', () => {
 
           keyDown(document.body);
 
-          expect([order, inner.open, outer.open]).toEqual([order, false, true]);
-          expect([order, outer.decisions.length, outer.requests.length]).toEqual([order, 0, 0]);
+          expect([order, leaves, inner.open, outer.open]).toEqual([order, leaves, false, true]);
+          expect([order, leaves, outer.decisions.length, outer.requests.length]).toEqual([order, leaves, 0, 0]);
 
           keyDown(document.body);
 
-          expect([order, outer.open]).toEqual([order, false]);
+          expect([order, leaves, outer.open]).toEqual([order, leaves, false]);
           inner.dispose();
           outer.dispose();
         }
