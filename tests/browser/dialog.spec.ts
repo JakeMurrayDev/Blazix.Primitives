@@ -1,4 +1,16 @@
-import { expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import {
+  expect,
+  externalLockers,
+  Fixture,
+  fixtureUrl,
+  lockExternally,
+  pageLockRecords,
+  releaseExternalLockWhenPending,
+  test,
+  throttleCpu,
+  type Page,
+  type RenderMode,
+} from './helpers';
 import type { Locator, Route } from '@playwright/test';
 import { delayCircuit } from './helpers/circuit';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
@@ -507,85 +519,25 @@ test.describe('external scroll lock handoff', () => {
       return /hidden|clip/.test(getComputedStyle(htmlScrolls ? html : document.body).overflowY);
     });
 
-  // Each entry reproduces a third-party locker's DOM mechanism; its cleanup is deferred past the dialog's own deferred
-  // lock (200 ms), as an exit animation does in practice.
-  const lockers = [
-    {
-      name: 'react-remove-scroll, via an attribute and a stylesheet',
-      lock: () => {
-        const style = document.createElement('style');
-        style.textContent = 'body[data-scroll-locked]{overflow:hidden!important;}';
-        document.head.appendChild(style);
-        document.body.setAttribute('data-scroll-locked', '1');
-        setTimeout(() => {
-          style.remove();
-          document.body.removeAttribute('data-scroll-locked');
-        }, 200);
-      },
-    },
-    {
-      name: 'silk-hq, via the <body> overflow shorthand',
-      lock: () => {
-        document.body.style.setProperty('overflow', 'hidden');
-        setTimeout(() => document.body.style.removeProperty('overflow'), 200);
-      },
-    },
-    {
-      name: 'Ariakit, via <html> overflow longhands',
-      lock: () => {
-        const { style } = document.documentElement;
-        style.setProperty('scrollbar-gutter', 'stable');
-        style.setProperty('overflow-x', 'hidden');
-        style.setProperty('overflow-y', 'hidden');
-        setTimeout(() => {
-          style.removeProperty('scrollbar-gutter');
-          style.removeProperty('overflow-x');
-          style.removeProperty('overflow-y');
-        }, 200);
-      },
-    },
-  ];
-
   test.describe('when a third-party overlay is still unlocking', () => {
-    for (const { name, lock } of lockers) {
-      test.describe(`'${name}'`, () => {
-        // Quarantined (ADR 11 §4) until 2026-11-12, issue 154: an unlocked sample on WebAssembly in three runs (the
-        // react-remove-scroll, silk-hq and Ariakit variants).
-        test.fixme('keeps the page locked until it takes over, and unlocks on close', {
-          tag: '@quarantine',
-          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/154' },
-        }, async ({ page, mode }) => {
+    for (const locker of externalLockers) {
+      test.describe(`'${locker.name}'`, () => {
+        test('keeps the page locked until it takes over, and unlocks on close', async ({ page, mode }) => {
           const fixture = await gotoPopupFixture(page, mode, 'dialog-root', { open: false });
+          // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup;
+          // throttled once the page is ready, so the boot is not slowed.
+          await throttleCpu(page, 6);
           expect(`initial: ${await isPageLocked(page)}`).toBe('initial: false');
 
-          // A sampler records the page's lock every 10 ms for 450 ms from the open click on: the record, not a poll of a
-          // passing style, witnesses that there is no gap (ADR 06 §2).
-          await page.evaluate((lockSource) => {
-            const samples: { at: number; locked: boolean; open: boolean }[] = [];
-            (window as unknown as { lockSamples: typeof samples }).lockSamples = samples;
-            const start = performance.now();
-            const sample = () => {
-              const html = document.documentElement;
-              const { overflow, overflowX, overflowY } = getComputedStyle(html);
-              const htmlScrolls = /auto|scroll|overlay|hidden|clip/.test(overflow + overflowY + overflowX);
-              const locked = /hidden|clip/.test(getComputedStyle(htmlScrolls ? html : document.body).overflowY);
-              samples.push({ at: performance.now() - start, locked, open: document.querySelector('[role="dialog"]') !== null });
-              if (performance.now() - start < 450) {
-                setTimeout(sample, 10);
-              }
-            };
-            // eslint-disable-next-line no-new-func
-            new Function(`(${lockSource})()`)();
-            sample();
-          }, lock.toString());
+          // The third-party lock holds until the dialog's own lock waits for it; every change from the lock on is recorded.
+          await lockExternally(page, locker);
           await setRootOpen(fixture, true);
           await expect(page.getByRole('dialog')).toHaveCount(1);
-          await expect
-            .poll(() => page.evaluate(() => (window as unknown as { lockSamples: { at: number }[] }).lockSamples.at(-1)?.at ?? 0))
-            .toBeGreaterThanOrEqual(440);
+          await releaseExternalLockWhenPending(page);
 
-          const samples = await page.evaluate(() => (window as unknown as { lockSamples: { at: number; locked: boolean; open: boolean }[] }).lockSamples);
-          expect(samples.filter((s) => !s.locked).map((s) => Math.round(s.at))).toEqual([]);
+          const records = await pageLockRecords(page);
+          expect(records.at(-1)).toEqual({ locked: true, released: true });
+          expect(records.filter((record) => !record.locked)).toEqual([]);
 
           // The popup's own Close, by exact name: the fixture's "Set closed" control matches "Close" as a substring
           // until the modal's outside marking hides it (run 40719682511).
@@ -904,7 +856,12 @@ test.describe('closed shadow root', () => {
           continue;
         }
 
-        test(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+        // Quarantined (ADR 11 §4) until 2026-11-18, issue 166: the nested dialog's removal times out intermittently on Server
+        // (main's run 40872081690, nightly dispatches 41681848386 and 41685879786); every variant shares the mechanism.
+        test.fixme(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, {
+          tag: '@quarantine',
+          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
+        }, async ({ page, mode }) => {
           const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
 
           await click(page, 'open-nested');
