@@ -3270,8 +3270,8 @@ describe('useHoverReferenceInteraction', () => {
       const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
       const list = document.createElement('ul');
       document.body.append(list);
-      const first = element('button');
-      const second = element('button');
+      const first = element('button', 'nav-first');
+      const second = element('button', 'nav-second');
       list.append(first, second);
       popup.attachTrigger(first, { trigger: { hover } });
       popup.attachTrigger(second, { trigger: { hover } });
