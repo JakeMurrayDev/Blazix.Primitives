@@ -224,6 +224,22 @@ public sealed class PositionerBehaviorTests : IDisposable
         Assert.Equal(12, second.GetProperty("collisionPadding").GetDouble());
     }
 
+    // M5 track 2 (brief deliverable 4): the Positioner's shift input, NavigationMenu's rootBoundary (NAV-POS-03) and
+    // ContextMenu's crossAxis (MenuPositioner.tsx:123-127), passed to the positioning options' shift.
+    [Fact(DisplayName = "port: the shift input is sent as the positioning options' shift, and its change is sent in an update")]
+    [Trait("Requirement", "NAV-POS-03")]
+    public void The_shift_input_is_sent_as_the_positioning_options_shift_and_its_change_is_sent_in_an_update()
+    {
+        IRenderedComponent<TestPositioner> cut = host.Context.Render<TestPositioner>(p => p.Add(x => x.Shift, new Blazix.Primitives.Interop.PositioningShift(CrossAxis: false, RootBoundary: "layoutViewport")));
+
+        JsonElement shift = PositioningTestContext.Parse(host.AttachOptions).GetProperty("shift");
+        Assert.False(shift.GetProperty("crossAxis").GetBoolean());
+        Assert.Equal("layoutViewport", shift.GetProperty("rootBoundary").GetString());
+
+        cut.Render(p => p.Add(x => x.Shift, new Blazix.Primitives.Interop.PositioningShift(CrossAxis: true, RootBoundary: null)));
+        cut.WaitForAssertion(() => Assert.True(PositioningTestContext.Parse(host.UpdateOptions[^1]).GetProperty("shift").GetProperty("crossAxis").GetBoolean()));
+    }
+
     [Fact(DisplayName = "sends the anchor element and the boundary elements as indexes into the references after the options, an update when an element at the same index changes, and no reference for an element not rendered yet")]
     [Trait("Requirement", "FLT-API-09")]
     [Trait("Requirement", "FLT-API-11")]
