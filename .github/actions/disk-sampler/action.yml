@@ -1,5 +1,5 @@
 name: Disk sampler
-description: The free disk and the volume of test-results/ every 15 s while a nightly browser shard runs (issue 158), started before the browser step and reported after it.
+description: The free disk and the volume of test-results/ every 15 s while a browser shard runs (the nightly's shards and ci.yml's browser-wasm shards; issue 158), started before the browser step and reported after it.
 inputs:
   stage:
     description: start (before the browser step) or report (after it, under if always()).
