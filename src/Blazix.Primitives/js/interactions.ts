@@ -2158,7 +2158,9 @@ function patientClickState(record: SessionRecord): PatientClickState {
  * useClick on a trigger (useClick.ts) with the decision point `press`: the trigger computes the next open value from the
  * relayed state and asks `press` on its own twin, fallback `run`. On WebAssembly it first hands the press
  * over (`OnPressing`) and C# runs the consumer's declined `onclick` and the request inside the dispatch; on Server it
- * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later.
+ * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later. A press
+ * deferred to a frame or a touch delay fires after Blazor dispatched its event, so it says `deferred` and C# takes the
+ * consumer's verdict from that dispatch (M5 track 2).
  */
 function createClickController(context: HandleContext): Controller {
   const { record, channel, twinReference } = context;
@@ -2177,10 +2179,16 @@ function createClickController(context: HandleContext): Controller {
   // orchestrator 2026-10-27); iOS's empty type is touch.
   const classify = (event: MouseEvent): PressInteractionType => classifyClick(event, lastPressPointerType) || (platform.os.ios ? 'touch' : '');
 
-  const press = (nextOpen: boolean, event: MouseEvent, target: HTMLElement) => {
+  const press = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, deferred: boolean) => {
     const options = clickOptions();
     const reason = options?.reason ?? 'trigger-press';
-    const payload = { open: nextOpen, reason, triggerId: triggerIdOf(record, target === element ? element : target), interactionType: classify(event) };
+    const payload = {
+      open: nextOpen,
+      reason,
+      triggerId: triggerIdOf(record, target === element ? element : target),
+      interactionType: classify(event),
+      ...(deferred ? { deferred } : {}),
+    };
     const request: PendingRequest = { open: nextOpen, reason, event };
     record.pending = request;
     if (nextOpen) {
@@ -2196,12 +2204,12 @@ function createClickController(context: HandleContext): Controller {
   };
 
   // FLT-PTR-04: a touch open waits `touchOpenDelay`; a close never waits.
-  const setOpenWithTouchDelay = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, type: string | undefined) => {
+  const setOpenWithTouchDelay = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, type: string | undefined, deferred = false) => {
     const touchOpenDelay = clickOptions()?.touchOpenDelay ?? 0;
     if (nextOpen && type === 'touch' && touchOpenDelay > 0) {
-      touchOpenTimeout.start(touchOpenDelay, () => press(true, event, target));
+      touchOpenTimeout.start(touchOpenDelay, () => press(true, event, target, true));
     } else {
-      press(nextOpen, event, target);
+      press(nextOpen, event, target, deferred);
     }
   };
 
@@ -2248,7 +2256,7 @@ function createClickController(context: HandleContext): Controller {
       setOpenWithTouchDelay(nextOpen, event, (isTypeable ? target : element) as HTMLElement, type);
       return;
     }
-    frame.request(() => setOpenWithTouchDelay(nextOpen, event, element, type));
+    frame.request(() => setOpenWithTouchDelay(nextOpen, event, element, type, true));
   };
 
   // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213): a mousedown whose action matches the popup's
