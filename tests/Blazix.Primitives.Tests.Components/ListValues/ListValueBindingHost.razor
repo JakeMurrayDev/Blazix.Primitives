@@ -1,0 +1,44 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The value-shape probe's permanent evidence (ADR 08 Amendments 2026-11-03 (1), the probe's finding of 2026-11-04;
+    spikes/list-value-shape/): a single-value root inferred from @bind-Value, a multiple root inferred from @bind-Values
+    against an IReadOnlyList<string> field, their items nested two wrappers deep taking TValue from the cascade, and an
+    explicit TValue="int" root whose items tell an omitted Value from 0.
+*@
+
+<TestListRoot @bind-Value="selected" @ref="SingleRoot">
+    <div>
+        <div>
+            <TestListItem Value="@("a")" />
+            <TestListItem />
+        </div>
+    </div>
+</TestListRoot>
+
+<TestListRoot Multiple="true" @bind-Values="selectedValues" @ref="MultipleRoot">
+    <div>
+        <TestListItem Value="@("b")" />
+    </div>
+</TestListRoot>
+
+<TestListRoot TValue="int" Multiple="true">
+    <TestListItem @ref="OmittedItem" />
+    <TestListItem Value="0" @ref="ZeroItem" />
+</TestListRoot>
+
+@code {
+    private string? selected = "a";
+    private IReadOnlyList<string> selectedValues = ["b"];
+
+    internal string? Selected => selected;
+
+    internal IReadOnlyList<string> SelectedValues => selectedValues;
+
+    internal TestListRoot<string?>? SingleRoot { get; private set; }
+
+    internal TestListRoot<string>? MultipleRoot { get; private set; }
+
+    internal TestListItem<int>? OmittedItem { get; private set; }
+
+    internal TestListItem<int>? ZeroItem { get; private set; }
+}
