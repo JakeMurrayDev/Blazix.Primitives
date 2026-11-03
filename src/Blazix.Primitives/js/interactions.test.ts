@@ -5074,7 +5074,7 @@ describe('inlineRect', () => {
 describe('setSessionPositionReference', () => {
   it('port: the setter anchors a session to a 0 × 0 rect at a point, and null clears it; an unknown token is ignored', async () => {
     const { setSessionPositionReference } = await import('./interactions');
-    const popup = createPopupHarness();
+    const popup = harness();
     popup.attachSession();
     const session = getSession(popup.token)!;
 
@@ -5086,6 +5086,5 @@ describe('setSessionPositionReference', () => {
     setSessionPositionReference(popup.token, null);
     expect(session.positionReference).toBeNull();
     setSessionPositionReference('no-such-token', { x: 1, y: 1, width: 0, height: 0 });
-    popup.dispose();
   });
 });
