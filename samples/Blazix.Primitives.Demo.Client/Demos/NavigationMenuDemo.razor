@@ -47,7 +47,10 @@
                 </NavigationMenuItem>
 
                 <NavigationMenuItem TValue="string">
-                    <NavigationMenuLink class="@TriggerClass" href="https://github.com/mui/base-ui">GitHub</NavigationMenuLink>
+                    <NavigationMenuLink class="@TriggerClass" href="https://github.com/mui/base-ui">
+                        <Render><a></a></Render>
+                        <ChildContent>GitHub</ChildContent>
+                    </NavigationMenuLink>
                 </NavigationMenuItem>
             </NavigationMenuList>
 
@@ -62,6 +65,68 @@
             </NavigationMenuPortal>
         </NavigationMenuRoot>
     </Hero>
+    <Variants>
+        <div class="Variant">
+            <NavigationMenuRoot TValue="string" class="min-w-max text-neutral-950 dark:text-white">
+                <NavigationMenuList class="relative flex gap-px">
+                    <NavigationMenuItem TValue="string">
+                        <NavigationMenuTrigger class="@TriggerClass">
+                            Product
+                            <NavigationMenuIcon class="transition-transform duration-200 ease-[ease] data-popup-open:rotate-180">
+                                <CaretDownIcon />
+                            </NavigationMenuIcon>
+                        </NavigationMenuTrigger>
+                        <NavigationMenuContent class="@ProductContentClass">
+                            <NavigationMenuRoot TValue="string" class="overflow-hidden overflow-clip text-neutral-950 dark:text-white" Orientation="Orientation.Vertical" DefaultValue="@("developers")">
+                                <div class="grid grid-cols-1 overflow-hidden overflow-clip min-[700px]:grid-cols-[13rem_minmax(0,1fr)]">
+                                    <NavigationMenuList class="@SubmenuListClass">
+                                        @foreach (DemoAudience audience in s_audiences)
+                                        {
+                                            <NavigationMenuItem TValue="string" Value="@audience.Value" @key="audience.Value">
+                                                <NavigationMenuTrigger class="@SubmenuTriggerClass">
+                                                    <span class="text-sm leading-4 font-normal text-neutral-950 dark:text-white">@audience.Label</span>
+                                                    <span class="text-sm text-neutral-500 dark:text-neutral-400">@audience.Hint</span>
+                                                </NavigationMenuTrigger>
+                                                <NavigationMenuContent class="@SubmenuContentClass">
+                                                    <div>
+                                                        <h4 class="m-0 text-base leading-5 font-normal">@audience.Title</h4>
+                                                        <p class="m-0 mt-1 text-sm text-neutral-500 dark:text-neutral-400">@audience.Description</p>
+                                                    </div>
+                                                    <ul class="-mx-2 m-0 flex list-none flex-col gap-0 p-0">
+                                                        @foreach (DemoLink link in audience.Links)
+                                                        {
+                                                            <li @key="link.Href">
+                                                                <NavigationMenuLink href="@link.Href" class="@LinkCardClass">
+                                                                    <h5 class="m-0 text-sm leading-4 font-normal">@link.Title</h5>
+                                                                    <p class="m-0 text-sm text-neutral-500 dark:text-neutral-400">@link.Description</p>
+                                                                </NavigationMenuLink>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </NavigationMenuContent>
+                                            </NavigationMenuItem>
+                                        }
+                                    </NavigationMenuList>
+                                    <NavigationMenuViewport class="relative min-h-[16.5rem] overflow-hidden border-t border-neutral-950 min-[700px]:border-t-0 dark:border-white" />
+                                </div>
+                            </NavigationMenuRoot>
+                        </NavigationMenuContent>
+                    </NavigationMenuItem>
+                </NavigationMenuList>
+
+                <NavigationMenuPortal>
+                    <NavigationMenuPositioner SideOffset="10" CollisionPadding="s_collisionPadding" CollisionAvoidance="s_collisionAvoidance"
+                                              class="@PositionerClass" style="--duration: 0.35s; --easing: cubic-bezier(0.22, 1, 0.36, 1)">
+                        <NavigationMenuPopup class="@PopupClass">
+                            <NavigationMenuArrow class="@ArrowClass" />
+                            <NavigationMenuViewport class="relative h-full w-full overflow-hidden" />
+                        </NavigationMenuPopup>
+                    </NavigationMenuPositioner>
+                </NavigationMenuPortal>
+            </NavigationMenuRoot>
+            <span class="VariantName">A submenu inside a panel: a nested root with its own list and an inline viewport, which switches as the pointer rests on its triggers or the arrow keys move between them</span>
+        </div>
+    </Variants>
 </DemoFrame>
 
 @code {
@@ -70,6 +135,11 @@
     private const string LinkCardClass = "relative block h-full w-full border-0 bg-transparent p-2 text-left text-inherit no-underline hover:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:hover:bg-neutral-800";
     private const string PositionerClass = "h-[var(--positioner-height)] w-[var(--positioner-width)] max-w-[var(--available-width)] transition-[top,left,right,bottom] duration-[var(--duration)] ease-[var(--easing)] before:absolute before:content-[''] data-instant:transition-none data-[side=bottom]:before:top-[-10px] data-[side=bottom]:before:right-0 data-[side=bottom]:before:left-0 data-[side=bottom]:before:h-2.5 data-[side=left]:before:top-0 data-[side=left]:before:right-[-10px] data-[side=left]:before:bottom-0 data-[side=left]:before:w-2.5 data-[side=right]:before:top-0 data-[side=right]:before:bottom-0 data-[side=right]:before:left-[-10px] data-[side=right]:before:w-2.5 data-[side=top]:before:right-0 data-[side=top]:before:bottom-[-10px] data-[side=top]:before:left-0 data-[side=top]:before:h-2.5";
     private const string PopupClass = "relative h-[var(--popup-height)] w-[var(--popup-width)] origin-[var(--transform-origin)] border border-neutral-950 bg-white text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[opacity,transform,width,height,scale] duration-[var(--duration)] ease-[var(--easing)] data-ending-style:scale-90 data-ending-style:opacity-0 data-ending-style:duration-150 data-ending-style:ease-[ease] data-starting-style:scale-90 data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+    private const string SharedContentClass = "h-full w-[calc(100vw_-_40px)] transition-[opacity,translate] duration-[calc(var(--duration)*0.5),var(--duration)] ease-[ease,cubic-bezier(0.4,0,0.2,1)] data-starting-style:data-[activation-direction=left]:opacity-0 data-starting-style:data-[activation-direction=right]:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--duration)*0.5)] data-ending-style:ease-[ease] data-starting-style:data-[activation-direction=left]:translate-x-[-2rem] data-starting-style:data-[activation-direction=right]:translate-x-[2rem] data-ending-style:data-[activation-direction=left]:translate-x-[2rem] data-ending-style:data-[activation-direction=right]:translate-x-[-2rem]";
+    private const string ProductContentClass = SharedContentClass + " p-0 min-[700px]:[width:min(675px,calc(100vw-40px))]";
+    private const string SubmenuListClass = "m-0 flex list-none flex-row gap-1 overflow-x-auto p-2 min-[700px]:h-[var(--popup-height)] min-[700px]:flex-col min-[700px]:gap-px min-[700px]:overflow-x-visible min-[700px]:overflow-y-clip min-[700px]:border-r min-[700px]:border-r-neutral-950 min-[700px]:transition-[height] min-[700px]:duration-[var(--duration)] min-[700px]:ease-[var(--easing)] dark:min-[700px]:border-r-white";
+    private const string SubmenuTriggerClass = "m-0 flex w-full min-w-[10rem] flex-col items-start gap-1 border-0 bg-transparent p-2 text-left text-inherit hover:bg-neutral-100 data-pressed:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white dark:hover:bg-neutral-800 dark:data-pressed:bg-neutral-800";
+    private const string SubmenuContentClass = "flex h-full translate-x-0 flex-col gap-4 p-4 min-[700px]:blur-0 transition-[opacity,translate,filter] duration-[var(--duration)] ease-[var(--easing)] min-[700px]:duration-[calc(var(--duration)*1.35)] min-[700px]:ease-[cubic-bezier(0.16,1,0.3,1)] data-starting-style:data-[activation-direction=left]:opacity-0 data-starting-style:data-[activation-direction=right]:opacity-0 data-starting-style:data-[activation-direction=left]:translate-x-[-50%] data-starting-style:data-[activation-direction=right]:translate-x-[50%] data-ending-style:opacity-0 data-ending-style:data-[activation-direction=left]:translate-x-[50%] data-ending-style:data-[activation-direction=right]:translate-x-[-50%] min-[700px]:data-starting-style:data-[activation-direction=up]:opacity-0 min-[700px]:data-starting-style:data-[activation-direction=down]:opacity-0 min-[700px]:data-starting-style:data-[activation-direction=up]:translate-y-[-72px] min-[700px]:data-starting-style:data-[activation-direction=down]:translate-y-[72px] min-[700px]:data-starting-style:blur-[2px] min-[700px]:data-ending-style:data-[activation-direction=up]:translate-y-[72px] min-[700px]:data-ending-style:data-[activation-direction=down]:translate-y-[-72px] min-[700px]:data-ending-style:blur-[2px]";
     private const string ArrowClass = "relative block h-1.5 w-3 overflow-clip transition-[left,right] duration-[var(--duration)] ease-[var(--easing)] before:absolute before:bottom-0 before:left-1/2 before:block before:h-[calc(6px*sqrt(2))] before:w-[calc(6px*sqrt(2))] before:-translate-x-1/2 before:translate-y-1/2 before:rotate-45 before:border before:border-neutral-950 before:bg-white before:content-[''] data-[side=bottom]:top-[-6px] data-[side=left]:right-[-9px] data-[side=left]:rotate-90 data-[side=right]:left-[-9px] data-[side=right]:-rotate-90 data-[side=top]:bottom-[-6px] data-[side=top]:rotate-180 dark:before:border-white dark:before:bg-neutral-950";
 
     private static readonly CollisionPaddingValue s_collisionPadding = new PaddingSides(Top: 5, Right: 20, Bottom: 5, Left: 20);
@@ -91,5 +161,24 @@
         new("https://base-ui.com/react/handbook/composition", "Composition", "Base UI components can be replaced and composed with your own existing components."),
     ];
 
+    // The documentation's nested demo, two of its audiences.
+    private static readonly DemoAudience[] s_audiences =
+    [
+        new("developers", "Developers", "Go from idea to UI faster.", "Build product UI without giving up control",
+            "Start with accessible parts and shape them to your app instead of working around a preset design system.",
+            [
+                new("https://base-ui.com/react/overview/quick-start", "Quick start", "Install Base UI and get your first interactive primitive on screen fast."),
+                new("https://base-ui.com/react/handbook/composition", "Composition", "Wrap and combine parts to match your product structure without hacks."),
+            ]),
+        new("systems", "Design Systems", "Keep patterns aligned across teams.", "Turn shared standards into working components",
+            "Connect tokens, states, and accessibility rules once, then give every product team the same solid starting point.",
+            [
+                new("https://base-ui.com/react/handbook/styling", "Styling", "Map tokens and component states to your own CSS or utility setup."),
+                new("https://base-ui.com/react/overview/accessibility", "Accessibility", "Review keyboard support and semantic defaults before anything ships."),
+            ]),
+    ];
+
     private sealed record DemoLink(string Href, string Title, string Description);
+
+    private sealed record DemoAudience(string Value, string Label, string Hint, string Title, string Description, DemoLink[] Links);
 }
