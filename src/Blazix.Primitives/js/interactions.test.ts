@@ -780,6 +780,24 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     expect(popup.changes[0]?.details.reason).toBe('input-press');
   });
 
+  // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213), M5 track 2: a mousedown that matches the
+  // action arms a one-shot suppression of the next click on the trigger, and the next document click disarms it.
+  it('port: with the mixed toggle, the click after an arming mousedown asks nothing, and the document click disarms it', () => {
+    const { popup, reference } = App({ click: { mouseDownAction: 'open' } });
+
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    click(reference);
+    expect(popup.changes).toEqual([]);
+    expect(popup.open).toBe(false);
+
+    click(reference);
+    expect(popup.open).toBe(true);
+
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    click(reference);
+    expect(popup.open).toBe(false);
+  });
+
   it('stickIfOpen true keeps a hover-opened popup open on first click', () => {
     const { popup, reference } = App({ click: { stickIfOpen: true } });
 
