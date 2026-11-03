@@ -1869,6 +1869,8 @@ interface ListState {
   appliedRevision: number;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
   reportedIndex: number | null | undefined;
+  /** The elements that carry the `aria-activedescendant` the module wrote under virtual focus. */
+  readonly descendantTargets: Set<Element>;
   readonly typeahead: TypeaheadState;
   readonly onOpenChange: (details: SessionOpenChangeDetails) => void;
 }
@@ -1974,18 +1976,35 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
       setAttribute(element, element.hasAttribute('data-tabindex') ? 'data-tabindex' : 'tabindex', value);
     });
   }
-  if (!virtual) {
-    return;
+  // CMP-ARIA-01, CMP-ARIA-02: the attribute exists only under virtual focus. React drops the prop when it no longer
+  // applies, so the module removes what it wrote from an element it no longer targets (DOM focus, another reference, an
+  // unmounted floating element), and never touches the attribute of an element it did not write.
+  const targets = new Map<Element, string | null>();
+  if (virtual) {
+    const active = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+    const descendant = enabled && isOpen(state, handle.session) && active?.id ? active.id : null;
+    const reference = referenceElementOf(state, handle.session);
+    if (reference) {
+      targets.set(reference, descendant);
+    }
+    if (floating) {
+      targets.set(floating.element, isTypeableCombobox(reference) ? null : descendant);
+    }
   }
-  const active = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
-  const descendant = enabled && isOpen(state, handle.session) && active?.id ? active.id : null;
-  const reference = referenceElementOf(state, handle.session);
-  if (reference) {
-    setAttribute(reference, 'aria-activedescendant', descendant);
+  for (const element of state.descendantTargets) {
+    if (!targets.has(element)) {
+      setAttribute(element, 'aria-activedescendant', null);
+      state.descendantTargets.delete(element);
+    }
   }
-  if (floating) {
-    setAttribute(floating.element, 'aria-activedescendant', isTypeableCombobox(reference) ? null : descendant);
-  }
+  targets.forEach((value, element) => {
+    setAttribute(element, 'aria-activedescendant', value);
+    if (value === null) {
+      state.descendantTargets.delete(element);
+    } else {
+      state.descendantTargets.add(element);
+    }
+  });
 }
 
 // CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied.
@@ -2185,6 +2204,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     handles: new Set(),
     appliedRevision: 0,
     reportedIndex: null,
+    descendantTargets: new Set(),
     typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
     // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
     onOpenChange: (details) => {
@@ -2215,6 +2235,7 @@ function releaseListState(state: ListState, session: InteractionSession): void {
   if (state.typeahead.timer !== null) {
     clearTimeout(state.typeahead.timer);
   }
+  state.descendantTargets.clear();
   if ((session.dataRef.current as ListData)[LIST_STATE] === state) {
     delete (session.dataRef.current as ListData)[LIST_STATE];
   }
