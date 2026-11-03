@@ -221,5 +221,9 @@ public static class FixtureCatalog
         ["tooltip-viewport"] = new(typeof(TooltipViewportFixture)),
         ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
         ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
+
+        // M5 track 1 (issue 159, Deliverables 12-13): the popup-list suite on the test-only list hosts.
+        ["composite-list-dom"] = new(typeof(CompositeListDomFixture)),
+        ["composite-list-virtual"] = new(typeof(CompositeListVirtualFixture)),
     };
 }

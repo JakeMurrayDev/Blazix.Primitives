@@ -1,0 +1,161 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `composite-list-dom` fixture (tests/browser/composite-list.spec.ts; M5 track 1, issue 159, Deliverables 12-13):
+    popupListConformanceTests (tests/browser/suites/) on the test-only DOM-focus list host, a button trigger as the list's
+    reference and the list element as its floating handle; `composite-list-virtual` (CompositeListVirtualFixture.cs)
+    renders the same page with an input reference under virtual focus. The suite's page: a Before button, the trigger,
+    the popup with a 100 px scroller, the items, an After button. The query (the suite's createComponent props and root
+    props, tests/browser/CONTEXT.md):
+    - `items` (`|`-separated labels; absent for Item 0..Item 11, empty for none), `disabledItems` (`|`-separated),
+      `itemStyle`, `scrollerStyle` (CSS text), `onItemClick` (the items' consumer onclick records `data-item-clicks`);
+    - `role` (`menuitem` or `option`; the list's role follows), `selectable` (`aria-selected`, `data-value-changes`),
+      `defaultValue`, `modal` (the internal backdrop), `wrap` (`form` with a submit button, recording `data-submits`;
+      `dialog`, inside an open DialogRoot's popup `data-testid="dialog"`);
+    - the family's list options: `loopFocus`, `allowEscape`, `typeahead`, `typeaheadResetMs`, `typeaheadSkip`.
+    The After button records `data-outside-clicks`. The sync button takes the suites' Shift keydown (`data-key-control`).
+*@
+<FixtureContainer Name="@FixtureName" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-item-clicks="@string.Join('|', itemClicks)" data-value-changes="@string.Join('|', valueChanges)"
+                  data-outside-clicks="@outsideClicks" data-submits="@submits">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (wrap == "form")
+    {
+        <form @onsubmit="() => submits++">
+            @ListPage
+            <button type="submit">Submit</button>
+        </form>
+    }
+    else if (wrap == "dialog")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="dialog" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup data-testid="dialog">@ListPage</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else
+    {
+        @ListPage
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = [.. Enumerable.Range(0, 12).Select(i => $"Item {i}")];
+    private readonly TaskCompletionSource listAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly List<string> itemClicks = [];
+    private readonly List<string> valueChanges = [];
+    private string[] items = s_items;
+    private HashSet<string> disabledItems = [];
+    private string itemRole = "menuitem";
+    private string? itemStyle;
+    private string? scrollerStyle;
+    private bool recordItemClicks;
+    private bool selectable;
+    private string? defaultValue;
+    private bool modal;
+    private string? wrap;
+    private bool loopFocus;
+    private bool allowEscape;
+    private bool typeahead;
+    private int typeaheadResetMs = 750;
+    private string? typeaheadSkip;
+    private int outsideClicks;
+    private int submits;
+    private DialogRoot<NoPayload>? dialog;
+
+    /// <summary>Gets the fixture's name.</summary>
+    protected virtual string FixtureName => "composite-list-dom";
+
+    /// <summary>Gets a value indicating whether the reference is an input under virtual focus.</summary>
+    protected virtual bool Virtual => false;
+
+    protected override IEnumerable<Task> Attachments =>
+        [listAttached.Task, dialog?.SessionAttached ?? Task.CompletedTask];
+
+    // The suites' query is URLSearchParams's, which writes a space as `+`; the base class unescapes percent escapes only.
+    private string? Text(string name) => Query(name)?.Replace('+', ' ');
+
+    protected override void OnInitialized()
+    {
+        if (Text("items") is { } list)
+        {
+            items = list.Length == 0 ? [] : list.Split('|');
+        }
+
+        if (Text("disabledItems") is { } disabled && disabled.Length > 0)
+        {
+            disabledItems = [.. disabled.Split('|')];
+        }
+
+        itemRole = Query("role") ?? "menuitem";
+        itemStyle = Text("itemStyle");
+        scrollerStyle = Text("scrollerStyle");
+        recordItemClicks = QueryFlag("onItemClick") == true;
+        selectable = QueryFlag("selectable") == true;
+        defaultValue = Text("defaultValue");
+        modal = QueryFlag("modal") == true;
+        wrap = Query("wrap");
+        loopFocus = QueryFlag("loopFocus") == true;
+        allowEscape = QueryFlag("allowEscape") == true;
+        typeahead = QueryFlag("typeahead") == true;
+        typeaheadResetMs = Query("typeaheadResetMs") is { } ms ? int.Parse(ms, System.Globalization.CultureInfo.InvariantCulture) : 750;
+        typeaheadSkip = Query("typeaheadSkip");
+    }
+
+    private string ListRole => itemRole == "option" ? "listbox" : "menu";
+
+    // Both run as event callbacks, which render the page after them.
+    private void RecordValueChange(string value) => valueChanges.Add(value);
+
+    private void RecordItemClick(string label) => itemClicks.Add(label);
+
+    private Dictionary<string, object> ItemAttributes(string label)
+    {
+        Dictionary<string, object> attributes = [];
+        if (itemStyle is not null)
+        {
+            attributes["style"] = itemStyle;
+        }
+
+        if (recordItemClicks)
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => RecordItemClick(label));
+        }
+
+        return attributes;
+    }
+
+    private RenderFragment ListPage => @<div>
+        <button type="button" data-testid="before">Before</button>
+        <FixtureListRoot Items="@items" Selectable="@selectable" DefaultValue="@defaultValue" OnValueChange="RecordValueChange"
+                         Modal="@modal" Virtual="@Virtual" LoopFocus="@loopFocus" AllowEscape="@allowEscape"
+                         Typeahead="@typeahead" TypeaheadResetMs="@typeaheadResetMs" TypeaheadSkip="@typeaheadSkip"
+                         OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete"
+                         OnAttached="() => listAttached.TrySetResult()">
+            @if (Virtual)
+            {
+                <FixtureListTrigger id="list-trigger" data-testid="trigger" Input="true" HasPopup="listbox" />
+            }
+            else
+            {
+                <FixtureListTrigger id="list-trigger" data-testid="trigger" HasPopup="@ListRole">Open</FixtureListTrigger>
+            }
+            <FixturePopupPortal TPayload="NoPayload">
+                <FixtureListPopup data-testid="popup" TriggerId="list-trigger" ListId="list-floating">
+                    <FixtureListBox id="list-floating" data-testid="scroller" Role="@ListRole" style="@scrollerStyle">
+                        @foreach (string label in items)
+                        {
+                            <FixtureListItem @key="label" Label="@label" Role="@itemRole" Disabled="@disabledItems.Contains(label)" @attributes="ItemAttributes(label)">@label</FixtureListItem>
+                        }
+                    </FixtureListBox>
+                </FixtureListPopup>
+            </FixturePopupPortal>
+        </FixtureListRoot>
+        <button type="button" data-testid="after" @onclick="() => outsideClicks++">After</button>
+    </div>;
+}

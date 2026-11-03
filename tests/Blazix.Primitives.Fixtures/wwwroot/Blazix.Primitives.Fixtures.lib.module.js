@@ -24,6 +24,23 @@ globalThis.blazixFixtureDom = {
     return host.attachShadow({ mode: 'open' });
   },
   lastClosedShadowRoot: null,
+  // M5 track 1's virtual list host (issue 159, Deliverable 12): the Combobox family's Enter on its input
+  // (ComboboxInput.tsx:404-420 at Base UI v1.9.0), which no module of the list mechanism owns: while the input is expanded
+  // and names an active descendant, Enter clicks that item and is stopped, so a surrounding form is not submitted.
+  listenComboboxEnter(input) {
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.which === 229 || input.getAttribute('aria-expanded') !== 'true') {
+        return;
+      }
+      const id = input.getAttribute('aria-activedescendant');
+      const item = id ? input.ownerDocument.getElementById(id) : null;
+      if (item) {
+        event.preventDefault();
+        event.stopPropagation();
+        item.click();
+      }
+    });
+  },
 };
 
 globalThis.blazixFixture = {
