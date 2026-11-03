@@ -1328,8 +1328,33 @@ export interface CompositeOptions extends TwinOptions {
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
 const attachedHandle = Symbol('blazix.composite.handle');
 
+// CMP-KEY-14 (M5 track 1, Deliverable 7; design point 3 (a), settled by the orchestrator 2026-11-04): a roving root
+// publishes its key resolution on its element, Base UI's `relayKeyboardEvent` (useCompositeRoot.ts:338), so no module
+// registry is needed (ADR 04 §3).
+const keyboardRelay = Symbol('blazix.composite.relay');
+
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
+  [keyboardRelay]?: (event: KeyboardEvent) => boolean;
+}
+
+/**
+ * Runs a composite root's key resolution for a keydown that did not bubble through the root element, such as one from a
+ * menu popup portaled outside a menubar, and stops the event when the root handles it.
+ * @param rootElement The root's element; an element with no attached root handles nothing.
+ * @param event The keydown.
+ * @returns `true` when the root moved its highlight for the key.
+ */
+export function relayKeyboardEvent(rootElement: Element | null | undefined, event: KeyboardEvent): boolean {
+  const relay = (rootElement as AttachedElement | null | undefined)?.[keyboardRelay];
+  if (!relay) {
+    return false;
+  }
+  const handled = relay(event);
+  if (handled) {
+    event.stopPropagation();
+  }
+  return handled;
 }
 
 /** What the follow last saw of one item: the dependencies of its evaluation. */
@@ -1779,21 +1804,21 @@ function attachGroup(
     }
   };
 
-  // CMP-ALG-14 without the grid branch (no consumer, CMP §10 Q1).
-  const onKeyDown = (event: KeyboardEvent): void => {
+  // CMP-ALG-14 without the grid branch (no consumer, CMP §10 Q1). Returns whether it acted, for the relay (CMP-KEY-14).
+  const onKeyDown = (event: KeyboardEvent): boolean => {
     const current = options;
     const isHomeOrEnd = event.key === HOME || event.key === END;
     if (!COMPOSITE_KEYS.has(event.key) || (!current.enableHomeAndEndKeys && isHomeOrEnd)) {
-      return;
+      return false;
     }
 
     if (isModifierKeySet(event, current.modifierKeys)) {
-      return;
+      return false;
     }
 
     // CMP-EDGE-08
     if (!root.isConnected) {
-      return;
+      return false;
     }
 
     const isRtl = current.direction === 'rtl';
@@ -1813,15 +1838,15 @@ function attachGroup(
       const textContent = target.value;
       // Native text behavior: Shift held to select, or a selection exists.
       if (selectionStart == null || event.shiftKey || selectionStart !== selectionEnd) {
-        return;
+        return false;
       }
       // Moving forward and not at the last caret position.
       if (event.key !== backwardKey && selectionStart < textContent.length) {
-        return;
+        return false;
       }
       // Moving backward and not at the first caret position.
       if (event.key !== forwardKey && selectionStart > 0) {
-        return;
+        return false;
       }
     }
 
@@ -1861,12 +1886,12 @@ function attachGroup(
 
     // CMP-KEY-10/11, CMP-EDGE-18: nothing is prevented or stopped unless the index changes.
     if (nextIndex === highlightedIndex || isIndexOutOfListBounds(elements, nextIndex)) {
-      return;
+      return false;
     }
 
     // The consumer's veto, asked only where the module is about to act (EVD-EVT-26; Server: run).
     if (decide(twin, NAVIGATE_POINT, event, 'run') !== 'run') {
-      return;
+      return false;
     }
 
     if (current.stopEventPropagation) {
@@ -1888,6 +1913,7 @@ function attachGroup(
     if (current.stopEventPropagation && current.reportHandledKeys && !twin.lastDecisionWasSynchronous) {
       twin.report('OnKeyHandled', { event: eventInfo(event) });
     }
+    return true;
   };
 
   const onFocusIn = (event: FocusEvent): void => {
@@ -1959,7 +1985,7 @@ function attachGroup(
 
   const listeners: [string, EventListener, boolean][] = [
     ['keydown', onKeyDownCapture as EventListener, true],
-    ['keydown', onKeyDown as EventListener, false],
+    ['keydown', ((event: KeyboardEvent) => void onKeyDown(event)) as EventListener, false],
     ['focusin', onFocusIn as EventListener, false],
     ['focusout', onFocusOut as EventListener, false],
     ['mousemove', onMouseMove as EventListener, false],
@@ -1969,6 +1995,9 @@ function attachGroup(
     for (const [type, listener, capture] of listeners) {
       root.addEventListener(type, listener, capture);
     }
+    // CMP-KEY-14: the relay runs the same key resolution, with the options of the latest `update` and the root's twin, so
+    // a relayed key asks the root's `navigate` point and sends the root's handled-key report (option (i)).
+    root[keyboardRelay] = onKeyDown;
   }
 
   // The first publication (CMP-STA-23..25, ALG-18).
@@ -2011,6 +2040,9 @@ function attachGroup(
       }
       disposed = true;
       delete root[attachedHandle];
+      if (root[keyboardRelay] === onKeyDown) {
+        delete root[keyboardRelay];
+      }
       for (const [type, listener, capture] of listeners) {
         root.removeEventListener(type, listener, capture);
       }
@@ -3395,6 +3427,13 @@ function attachList(
     // Option (i) (ADR 04 Amendments 2026-10-22, 2026-11-03 (3)): a key stopped here never reaches Blazor's dispatcher.
     if (dispatch.stopped && options.reportHandledKeys && !channel.lastDecisionWasSynchronous) {
       channel.report('OnKeyHandled', { event: eventInfo(event) });
+    }
+    // CMP-KEY-14 (Deliverable 7; MenuRoot.tsx:692-699): a menubar's root does not hear the keydowns of a menu portaled
+    // outside it, so the floating handle relays one no listener stopped to the root its `relayElement` names; the root
+    // stops what it handles.
+    const relayElement = list.relayElement;
+    if (isFloating && relayElement != null && !event.cancelBubble) {
+      relayKeyboardEvent(resolveReference<Element>(references, relayElement, referenceCaptures), event);
     }
     // CMP-KEY-27, CMP-DIS-01 (Deliverable 6): React bubbles a portaled child popup's keydown through the React tree to its
     // parent popup's handlers, so a nested list's close key that is also the parent's main key moves the parent. The
