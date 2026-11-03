@@ -10,7 +10,8 @@
     - `value` makes the Root controlled (`none` is null; `[data-set-value]` buttons set it); `defaultValue`; `delay`,
       `closeDelay` (ms); `orientation=vertical`; `rtl` (a DirectionProvider); `side` (the Positioner's: `left`,
       `inline-start`, `inline-end`, `top`); `keepMounted` (the Portal), `keepMountedContent`;
-    - `disabled=<n>` disables trigger `<n>`; `topLink` adds an Item with a Link `top-link`; `closeOnClick` on every Link;
+    - `disabled=<n>` disables trigger `<n>` (`[data-enable]` enables it again); `topLink` adds an Item with a Link
+      `top-link`; `closeOnClick` on every Link;
     - `nested=inline` puts an inline nested Root (List and Viewport `nested-viewport`, Items `nested-<n>`) in content 1,
       `nestedDefault=nested-1` its default; `sized` gives content 1 400×200 and content 2 300×150, fixed;
     - `fade` gives the Popup a 150 ms opacity exit; `cancel`, `retain` (the base's).
@@ -48,6 +49,10 @@
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
     <button type="button" tabindex="-1" data-close data-key-control @onclick="() => root!.CloseAsync()" @onkeydown="OnShift(() => root!.CloseAsync())">Close</button>
+    @if (disabled is not null)
+    {
+        <button type="button" tabindex="-1" data-enable data-key-control @onclick="() => disabled = null" @onkeydown="OnShift(() => disabled = null)">Enable</button>
+    }
     @if (controlled)
     {
         <button type="button" tabindex="-1" data-set-value="none" data-key-control @onclick="() => controlledValue = null" @onkeydown="OnShift(() => controlledValue = null)">Set none</button>
@@ -150,8 +155,8 @@
                     <NavigationMenuIcon />
                 </NavigationMenuTrigger>
                 <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@(sized ? "sized-" + n : null)">
-                    <NavigationMenuLink href="@("#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
-                    <NavigationMenuLink href="@("#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
+                    <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
+                    <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
                     @if (nestedInline && n == 1)
                     {
                         <NavigationMenuRoot TValue="string" DefaultValue="@nestedDefault" data-testid="nested-root">
@@ -162,7 +167,7 @@
                                     <NavigationMenuItem TValue="string" Value="@("nested-" + m)">
                                         <NavigationMenuTrigger data-testid="@("nested-trigger-" + m)">Nested @m</NavigationMenuTrigger>
                                         <NavigationMenuContent data-testid="@("nested-content-" + m)">
-                                            <NavigationMenuLink href="@("#nested-" + m)" CloseOnClick="closeOnClick" data-testid="@("nested-link-" + m)">Nested link @m</NavigationMenuLink>
+                                            <NavigationMenuLink href="@(PageUrl + "#nested-" + m)" CloseOnClick="closeOnClick" data-testid="@("nested-link-" + m)">Nested link @m</NavigationMenuLink>
                                         </NavigationMenuContent>
                                     </NavigationMenuItem>
                                 }
@@ -176,7 +181,7 @@
         @if (topLink)
         {
             <NavigationMenuItem TValue="string">
-                <NavigationMenuLink href="#top" data-testid="top-link">Top</NavigationMenuLink>
+                <NavigationMenuLink href="@(PageUrl + "#top")" data-testid="top-link">Top</NavigationMenuLink>
             </NavigationMenuItem>
         }
     </NavigationMenuList>

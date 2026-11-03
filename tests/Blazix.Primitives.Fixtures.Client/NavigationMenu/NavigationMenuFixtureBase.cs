@@ -1,5 +1,6 @@
 using System.Globalization;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 
@@ -12,8 +13,18 @@ public abstract class NavigationMenuFixtureBase : PopupSuiteFixtureBase
 {
     private readonly List<string> valueChanges = [];
 
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
     /// <summary>Gets the recorded value changes as the container renders them.</summary>
     protected string ValueChanges => string.Join(' ', valueChanges);
+
+    /// <summary>
+    /// Gets the page's URL without its fragment, which a Link's <c>href</c> starts with: under <c>&lt;base href="/"&gt;</c> a
+    /// bare <c>#fragment</c> resolves against the site's root and navigates away from the fixture (the TabsFixtureBase
+    /// precedent).
+    /// </summary>
+    protected string PageUrl => Navigation.Uri.Split('#')[0];
 
     /// <summary>Records a value change; <c>?cancel=true</c> cancels it, <c>?retain=true</c> keeps a close mounted until Unmount.</summary>
     /// <typeparam name="TValue">The type of the Root's value.</typeparam>
