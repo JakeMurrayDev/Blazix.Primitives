@@ -16,6 +16,7 @@ import {
   nameRelayTrigger,
   releaseSession,
   resetInteractionsForTest,
+  setSessionPositionReference,
   type SessionNode,
   type SessionOpenChangeDetails,
 } from './interactions';
@@ -5072,8 +5073,7 @@ describe('inlineRect', () => {
 // position reference to a 0 × 0 rect at a point, or the origin rect before any gesture; the Positioner's explicit anchor
 // keeps precedence (FLT-API-11) through `positioning`, which follows the session's reference.
 describe('setSessionPositionReference', () => {
-  it('port: the setter anchors a session to a 0 × 0 rect at a point, and null clears it; an unknown token is ignored', async () => {
-    const { setSessionPositionReference } = await import('./interactions');
+  it('port: the setter anchors a session to a 0 × 0 rect at a point, and null clears it; an unknown token is ignored', () => {
     const popup = harness();
     popup.attachSession();
     const session = getSession(popup.token)!;
