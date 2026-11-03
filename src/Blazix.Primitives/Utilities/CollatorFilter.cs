@@ -69,4 +69,32 @@ internal readonly record struct CollatorFilter
     /// <returns><see langword="true"/> when the text's end compares equal to <paramref name="query"/>.</returns>
     public bool EndsWith(ReadOnlySpan<char> text, ReadOnlySpan<char> query) =>
         query.IsEmpty || (text.Length >= query.Length && CompareInfo.Compare(text[^query.Length..], query, Options) == 0);
+
+    // UTL-I18N-13: an item's text is its stringified label.
+    /// <summary>Gets a value indicating whether some window of the query's length in an item's text compares equal to the query.</summary>
+    /// <typeparam name="TItem">The type of the item.</typeparam>
+    /// <param name="item">The item.</param>
+    /// <param name="query">The query; an empty query matches every item.</param>
+    /// <param name="itemToString">The item's text, or <see langword="null"/> for its invariant text.</param>
+    /// <returns><see langword="true"/> when the item's text contains the query.</returns>
+    public bool Contains<TItem>(TItem item, string query, Func<TItem, string>? itemToString) =>
+        query.Length == 0 || Contains(ValueLabels.StringifyAsLabel(item, itemToString), query);
+
+    /// <summary>Gets a value indicating whether an item's text starts with the query.</summary>
+    /// <typeparam name="TItem">The type of the item.</typeparam>
+    /// <param name="item">The item.</param>
+    /// <param name="query">The query; an empty query matches every item.</param>
+    /// <param name="itemToString">The item's text, or <see langword="null"/> for its invariant text.</param>
+    /// <returns><see langword="true"/> when the item's text starts with the query.</returns>
+    public bool StartsWith<TItem>(TItem item, string query, Func<TItem, string>? itemToString) =>
+        query.Length == 0 || StartsWith(ValueLabels.StringifyAsLabel(item, itemToString), query);
+
+    /// <summary>Gets a value indicating whether an item's text ends with the query.</summary>
+    /// <typeparam name="TItem">The type of the item.</typeparam>
+    /// <param name="item">The item.</param>
+    /// <param name="query">The query; an empty query matches every item.</param>
+    /// <param name="itemToString">The item's text, or <see langword="null"/> for its invariant text.</param>
+    /// <returns><see langword="true"/> when the item's text ends with the query.</returns>
+    public bool EndsWith<TItem>(TItem item, string query, Func<TItem, string>? itemToString) =>
+        query.Length == 0 || EndsWith(ValueLabels.StringifyAsLabel(item, itemToString), query);
 }
