@@ -882,4 +882,5 @@ Counts: STR 11, API 13, STA 3, DOM 53, ARIA 2, ANI 3, EVT 13, ALG 15, EDGE 9 —
 - *Open, by ID:*
   - STR-10's family clause and its `SelectItemIndicator` conformance title → M5 track 9; the `Combobox.ItemIndicator` half → track 10;
   - "exposes the listbox separator behavior" (STR-11, ARIA-02) → tracks 9, 10 and 11;
+  - the brief's render-count claim, "a selection change renders only the indicators whose `Selected` changed" (ADR 16 rule 6, counted through `ClassValue`) → tracks 9 and 10. It depends on how a shell receives `Selected` from its item context, which the test-only indicator takes as a parameter. What is green at L2 counts the `transitions` module's `update` messages only, not renders: an indicator re-rendered with unchanged parameters or with a new selection sends none, and a `KeepMounted` change sends one;
   - tracks 9 and 10 re-run the indicator titles on their parts and add "also proven through" notes.
