@@ -594,6 +594,32 @@ describe('useListNavigation (second block)', () => {
   });
 });
 
+describe('useListNavigation (typeable combobox reference)', () => {
+  // CMP-KEY-28's typeable branch.
+  it('Home or End key press is ignored for typeable combobox reference', async () => {
+    const harness = app({ reference: 'input' });
+
+    harness.reference.focus();
+
+    keyDown(harness.reference, 'ArrowDown');
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    keyDown(harness.item(0), 'End');
+
+    expect(document.activeElement).toBe(harness.item(0));
+
+    keyDown(harness.item(0), 'ArrowDown');
+    keyDown(harness.item(1), 'Home');
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(1));
+    });
+  });
+});
+
 // The highlight's writer (ADR 04 Amendments 2026-11-03 (2); CMP-STA-31, CMP-STA-34, CMP-STA-35; FOC-03..05's DOM
 // clauses), port titles: the module writes each item's `tabindex` and `data-highlighted` in the task that moves the focus,
 // and reports the highlight once per change.
