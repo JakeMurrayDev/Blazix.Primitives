@@ -58,6 +58,26 @@ public sealed class PopupTwinContractTests
         Assert.Single(handle.Invocations["dispose"]);
     }
 
+    // ADR 04 Amendments 2026-11-03 (7) (M5 track 2): PSH-ALG-21's cut-out element (Menubar's, MBR-DOM-08) crosses by its
+    // module name only when set, so a positioner that cuts out its active trigger sends what it sent before.
+    [Fact(DisplayName = "port: the positioner's cut-out element id is written by its module name only when set")]
+    [Trait("Requirement", "PSH-ALG-21")]
+    public async Task The_positioners_cut_out_element_id_is_written_by_its_module_name_only_when_set()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
+        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+        await using PopupTwin twin = new(context.JSInterop.JSRuntime);
+
+        TwinHandle<PopupOptions> positioner = await twin.AttachAsync("positioner", new PopupOptions { Positioner = new PopupPositionerOptions { Cutout = true, CutoutElementId = "menubar-1" } });
+        await positioner.UpdateAsync(new PopupOptions { Positioner = new PopupPositionerOptions { Cutout = true } });
+
+        Assert.Contains("\"cutout\":true,\"cutoutElementId\":\"menubar-1\"", (string)Assert.Single(module.Invocations["attach"]).Arguments[1]!, StringComparison.Ordinal);
+        Assert.DoesNotContain("cutoutElementId", (string)Assert.Single(handle.Invocations["update"]).Arguments[0]!, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "PSH-ALG-13")]
     [Trait("Requirement", "PSH-DOM-07")]
