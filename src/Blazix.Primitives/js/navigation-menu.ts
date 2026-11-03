@@ -76,6 +76,8 @@ export const FOCUS_OUT_REPORT = 'OnFocusOut';
 export const VIEWPORT_INERT_REPORT = 'OnViewportInertChange';
 /** The report of a window resize while open, once per animation frame. */
 export const RESIZE_REPORT = 'OnResize';
+/** The report of the inline Viewport target's finished exit, the second completion watcher. */
+export const VIEWPORT_EXIT_REPORT = 'OnExitComplete';
 
 /** The CSS variables of the size pass. */
 export const POPUP_WIDTH = '--popup-width';
@@ -1387,6 +1389,34 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
       channel.report(VIEWPORT_INERT_REPORT, { inert: true });
     }
   };
+  // NavigationMenuRoot.tsx:160-170: without a Positioner the target may be the animated element, so a second completion
+  // watcher waits for its animations once the menu closes, and stops when it reopens; C# completes the close unless the
+  // opt-out holds.
+  const exitWatcher = createAnimationsWatcher(() => menu.target);
+  let exitAbort: AbortController | null = null;
+  let wasOpen = isOpen(menu);
+  const onRootChange = () => {
+    const open = isOpen(menu);
+    if (open === wasOpen) {
+      return;
+    }
+    wasOpen = open;
+    exitAbort?.abort();
+    exitAbort = null;
+    if (!open && options.hasPositioner !== true && menu.target !== null) {
+      const abort = new AbortController();
+      exitAbort = abort;
+      exitWatcher.run(() => {
+        if (exitAbort === abort) {
+          exitAbort = null;
+          channel.report(VIEWPORT_EXIT_REPORT, {});
+        }
+      }, abort.signal);
+    }
+  };
+  const rootObserver = new MutationObserver(onRootChange);
+  rootObserver.observe(menu.root, { attributes: true, attributeFilter: ['data-open'] });
+
   const observer = new MutationObserver(sync);
   const scope = options.hasPositioner === true ? element.parentElement : element;
   if (scope !== null) {
@@ -1409,6 +1439,9 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
       }
       disposed = true;
       observer.disconnect();
+      rootObserver.disconnect();
+      exitAbort?.abort();
+      exitWatcher.cancel();
       scope?.removeEventListener('focusin', onGuardFocus as EventListener);
       element.removeEventListener('focusout', onFocusOut);
       if (menu.viewport === element) {

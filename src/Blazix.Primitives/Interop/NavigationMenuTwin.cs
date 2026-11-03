@@ -49,6 +49,9 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when the window was resized while the menu is open, at most once per animation frame.</summary>
     public event Action? Resized;
 
+    /// <summary>Occurs when the inline viewport target's exit animations finished after the menu closed.</summary>
+    public event Action? ExitCompleted;
+
     /// <summary>Receives a trigger's activation, synchronously on WebAssembly and as a report on Server.</summary>
     /// <param name="payloadJson">The <see cref="NavigationMenuActivation"/> JSON.</param>
     [JSInvokable]
@@ -83,6 +86,15 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     {
         _ = payloadJson;
         Resized?.Invoke();
+    }
+
+    /// <summary>Receives the inline viewport target's finished exit.</summary>
+    /// <param name="payloadJson">An empty object; the report carries nothing.</param>
+    [JSInvokable]
+    public void OnExitComplete(string payloadJson)
+    {
+        _ = payloadJson;
+        ExitCompleted?.Invoke();
     }
 
     /// <inheritdoc />
