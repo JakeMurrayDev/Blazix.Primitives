@@ -1,0 +1,6 @@
+@* Q5: both binds on one use. *@
+<ListRoot @bind-Value="ns" @bind-Values="ls" />
+@code {
+    private string? ns;
+    private IReadOnlyList<string> ls = [];
+}

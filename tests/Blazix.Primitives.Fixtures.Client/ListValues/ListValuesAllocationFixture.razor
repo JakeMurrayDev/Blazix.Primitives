@@ -1,0 +1,126 @@
+@namespace Blazix.Primitives.Fixtures.Client.ListValuesFixtures
+@using System.Globalization
+@using Blazix.Primitives.Utilities
+
+@*
+    The `list-values-allocation` fixture (tests/browser/list-values.spec.ts, the WebAssembly half of the list value layer's
+    allocation probe; ADR 16 rule 7, ADR 05 Amendments 2026-10-20's M5 re-measure of Is<T> on the interpreter; the
+    `radio-group-allocation` pattern). Per value type, N rounds of what a list root and its items compare on the render path
+    over 300 items: ItemEquality.Compare with and without a comparer, FindSelectionIndex single and multiple, Includes and
+    both dirty tests; and the collator filter's three predicates over 1,000 item texts per query. Measured with
+    GC.GetTotalAllocatedBytes on the interpreter and rendered as bytes per round.
+*@
+<FixtureContainer Name="list-values-allocation" data-rounds="@rounds" data-scenarios="@string.Join(',', results.Select(r => $"{r.Key}={r.Value}"))">
+    <button type="button" data-measure @onclick="Measure">Measure</button>
+    <dl>
+        @foreach ((string name, long bytes) in results)
+        {
+            <dt>@name</dt>
+            <dd data-scenario="@name">@bytes</dd>
+        }
+    </dl>
+</FixtureContainer>
+
+@code {
+    private const int Items = 300;
+    private const int Rounds = 100;
+    private const int FilterRounds = 4;
+
+    private readonly Dictionary<string, long> results = [];
+    private int? rounds;
+
+    private enum Shade
+    {
+        None,
+    }
+
+    private sealed record Item(int Id);
+
+    private readonly record struct Point(int X, int Y);
+
+    private void Measure()
+    {
+        results.Clear();
+        Run("int", i => i);
+        Run("string", i => $"item-{i}");
+        Run("enum", i => (Shade)i);
+        Run("record-class", i => new Item(i));
+        Run("record-struct", i => new Point(i, i));
+        RunFilter();
+        rounds = Rounds;
+    }
+
+    private void Run<T>(string name, Func<int, T> create)
+    {
+        ItemSlot<T>[] items = new ItemSlot<T>[Items];
+        for (int i = 0; i < Items; i++)
+        {
+            items[i] = new ItemSlot<T>(create(i), true);
+        }
+
+        T last = items[Items - 1].Value;
+        IReadOnlyList<T> selected = [items[Items - 3].Value, items[Items - 2].Value, last];
+        IReadOnlyList<T> initial = [items[Items - 3].Value, items[Items - 2].Value, last];
+        Func<T, T, bool> comparer = (item, value) => ItemEquality.Compare(item, value, null);
+        Measure(name, "compare", () => ItemEquality.Compare(last, last, null) && ItemEquality.Compare(last, last, comparer));
+        Measure(name, "find-single", () => ItemEquality.FindSelectionIndex<T>(items, last, null) == Items - 1);
+        Measure(name, "find-multiple", () => ItemEquality.FindSelectionIndex<T>(items, selected, null) == Items - 3);
+        Measure(name, "includes", () => ItemEquality.Includes(selected, last, null));
+        Measure(name, "dirty", () => !ItemEquality.IsDirty(selected, initial, null) && !ItemEquality.IsDirty(last, last));
+    }
+
+    private void Measure(string name, string operation, Func<bool> round)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            Check(round());
+        }
+
+        long before = GC.GetTotalAllocatedBytes(precise: true);
+        for (int i = 0; i < Rounds; i++)
+        {
+            Check(round());
+        }
+
+        long after = GC.GetTotalAllocatedBytes(precise: true);
+        results[$"{name}/{operation}"] = (after - before) / Rounds;
+    }
+
+    private static void Check(bool result)
+    {
+        if (!result)
+        {
+            throw new InvalidOperationException("unexpected comparison");
+        }
+    }
+
+    private void RunFilter()
+    {
+        CollatorFilter filter = CollatorFilter.Create(CultureInfo.GetCultureInfo("en-US"));
+        string[] texts = new string[1000];
+        for (int i = 0; i < texts.Length; i++)
+        {
+            texts[i] = $"Résumé number {i}";
+        }
+
+        Filter(filter, texts, 1);
+        long before = GC.GetTotalAllocatedBytes(precise: true);
+        Filter(filter, texts, FilterRounds);
+        long after = GC.GetTotalAllocatedBytes(precise: true);
+        results["filter"] = (after - before) / FilterRounds;
+    }
+
+    private static void Filter(CollatorFilter filter, string[] texts, int count)
+    {
+        for (int round = 0; round < count; round++)
+        {
+            foreach (string text in texts)
+            {
+                if (!filter.Contains(text, "number 99") && !filter.StartsWith(text, "RESUME") && !filter.EndsWith(text, "zz"))
+                {
+                    throw new InvalidOperationException("unexpected filter result");
+                }
+            }
+        }
+    }
+}

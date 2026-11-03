@@ -1,0 +1,84 @@
+@namespace Blazix.Primitives.Fixtures.Client.ListValuesFixtures
+@using Blazix.Primitives.Interop
+@using Blazix.Primitives.Utilities
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+@*
+    The `list-values-hidden-input` fixture (tests/browser/list-values.spec.ts; design point 4 of M5 track 4): a test-only list
+    root's form-participation input (`hidden-input`), the form module's control role with ReportAutofill, over items `apple`
+    (Apple) and `banana` (Banana) with `apple` committed. An autofill report is matched to an item by its value or label text
+    after the report's batch (Select's own match is track 9's); `?reject=1` makes the root keep its value, as a canceled
+    change does. The container renders `data-autofills` (the reported texts, `|`-joined), `data-committed` and `data-attached`.
+*@
+<FixtureContainer Name="list-values-hidden-input" data-attached="@(attached ? "true" : "false")" data-autofills="@string.Join('|', autofills)" data-committed="@committed">
+    <input type="text" data-testid="hidden-input" name="fruit" tabindex="-1" aria-hidden="true" value="@initial" @ref="input" />
+</FixtureContainer>
+
+@code {
+    private static readonly LabeledItems<string> s_items = LabeledItems<string>.Flat([new("apple", "Apple"), new("banana", "Banana")]);
+
+    private readonly List<string> autofills = [];
+    private readonly string initial = "apple";
+    private ElementReference input;
+    private FormTwin? twin;
+    private TwinHandle<FormOptions>? handle;
+    private string committed = "apple";
+    private int revision;
+    private bool reject;
+    private bool attached;
+
+    protected override void OnInitialized() => reject = new Uri(Navigation.Uri).Query.Contains("reject=1", StringComparison.Ordinal);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        twin = new FormTwin(JS);
+        twin.Autofilled += report => _ = InvokeAsync(() => MatchAsync(report));
+        handle = await twin.AttachAsync(input, Options());
+        attached = true;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (twin is not null)
+        {
+            await twin.DisposeAsync();
+        }
+    }
+
+    private FormOptions Options() => new()
+    {
+        Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = FormValue.Serialize(committed), Revision = revision },
+    };
+
+    // The root's match: an item whose value or label text equals the filled text, case-insensitively.
+    private async Task MatchAsync(FormAutofillReport report)
+    {
+        autofills.Add(report.Text);
+        StateHasChanged();
+        if (reject || handle is null)
+        {
+            return;
+        }
+
+        foreach (LabeledItem<string> item in s_items.Leaves)
+        {
+            if (string.Equals(item.Value, report.Text, StringComparison.OrdinalIgnoreCase) || string.Equals(item.Label, report.Text, StringComparison.OrdinalIgnoreCase))
+            {
+                committed = item.Value;
+                revision++;
+                StateHasChanged();
+                await handle.UpdateAsync(Options());
+                return;
+            }
+        }
+    }
+}

@@ -19,6 +19,9 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs once per event of an attached control.</summary>
     public event Action<FormControlReport>? ControlReported;
 
+    /// <summary>Occurs once per autofilled <c>change</c> of an attached control that reports autofill.</summary>
+    public event Action<FormAutofillReport>? Autofilled;
+
     /// <summary>Occurs when a label's element contradicts its declared mode.</summary>
     /// <remarks>The argument is <see langword="true"/> when a native label's element is not a <c>label</c>.</remarks>
     public event Action<bool>? LabelMismatched;
@@ -60,6 +63,16 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     {
         FormControlReport report = Deserialize(payloadJson, BlazixJsonContext.Default.FormControlReport);
         ControlReported?.Invoke(report);
+    }
+
+    /// <summary>Receives one autofilled <c>change</c> of an attached control.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="FormAutofillReport"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnAutofill(string payloadJson)
+    {
+        FormAutofillReport report = Deserialize(payloadJson, BlazixJsonContext.Default.FormAutofillReport);
+        Autofilled?.Invoke(report);
     }
 
     /// <summary>Receives the report of a label element that contradicts its declared mode.</summary>

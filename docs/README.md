@@ -15,15 +15,15 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 
 | Document | Prefix | Status | Notes |
 |---|---|---|---|
-| architecture/rendering-and-composition.md | RND | approved | 123 reqs; conformance obligations in §4.9 |
+| architecture/rendering-and-composition.md | RND | approved | 123 reqs; conformance obligations in §4.9; revised 2026-11-04 (M5 track 4: the ListboxSeparator and ItemIndicator behaviours in `Utilities/`) |
 | architecture/event-details-and-reasons.md | EVD | approved | 83 reqs; reason matrix in §4.3.7 | |
 | architecture/composite-and-list-navigation.md | CMP | approved | 225 reqs; keyboard matrices §4.5-4.6, algorithms §5; revised 2026-10-27 (M2 track 3, M3 tracks 1, 5 and 6); the M5 rows listed in §10 item 16 (2026-11-03) | |
 | architecture/floating-and-positioning.md | FLT | approved | 221 reqs; engine middleware in §5; revised 2026-10-29 (M4 track 1: the portal rows; M4 track 4: the focus manager and its portal wiring, and FLT-FOC-11's request after the browser's focus move; the rows open to M4 track 5 and to M5 listed in §10 item 17) | |
 | architecture/popup-store-and-handles.md | PSH | approved | 208 reqs; shared popup props in §3; revised 2026-10-27 (M4 track 1: the popup store, handles and suites; §10 item 12) | |
 | architecture/transitions-and-mounting.md | TRN | approved | 94 reqs; state machine in §4.1; revised 2026-10-27 (M4 track 1: the popup host; §10 item 11) | |
-| architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-23 (M2 track 1, PRs 1a and 1c) | |
+| architecture/field-and-form-infrastructure.md | FFI | approved | 126 reqs; control registration matrix in §6; revised 2026-10-23 (M2 track 1, PRs 1a and 1c); revised 2026-11-04 (M5 track 4: the serializer in `Field/`, the `form` module's autofill role) | |
 | architecture/button-behavior.md | UBT | approved | 100 reqs; revised 2026-10-27 (M3 tracks 2 and 4: composite mode, the input item option) |
-| architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store; revised 2026-10-27 (M4 track 1: the scroll lock, §4.8) |
+| architecture/shared-utilities.md | UTL | approved | 155 reqs; includes DirectionProvider, CSPProvider, useMediaQuery, store; revised 2026-10-27 (M4 track 1: the scroll lock, §4.8); revised 2026-11-04 (M5 track 4: the list value layer, `CspProvider`, §10 items 12 and 13) |
 | components/accordion.md | ACC | implemented | 101 reqs (opus) | builds on collapsible |
 | components/alert-dialog.md | ADL | implemented | 30 reqs + adoption (opus); revised 2026-10-29, M4 track 9 (`implemented` 2026-10-29, chosen by the user, with PR 152; nine sealed parts over Dialog's behaviours, `AlertDialogHandle`; the context errors name AlertDialog, a dated deviation; `Modal` and `DisablePointerDismissal` cannot be supplied); open: ADL-STA-02's Drawer clause (M6), a retained close's `'ending'` clause (issue 147) | builds on dialog |
 | components/autocomplete.md | AUT | approved | 83 reqs + adoption (opus) | builds on combobox |
@@ -49,7 +49,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/popover.md | POP | implemented | 214 reqs; `implemented` 2026-10-29 (chosen by the user); Menu/Combobox clauses and FLT PTR-01/A11Y-03 open to M5 with dated notes |
 | components/preview-card.md | PRV | implemented | 158 reqs; `implemented` 2026-10-29 (chosen by the user), M4 track 7 (issue 122); the retained close closed with issue 147's (B1); no row open to a later milestone |
 | components/progress.md | PRG | implemented | 55 reqs (opus) | |
-| components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7 |
+| components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7; revised 2026-11-04, M5 track 4 (RAD-FRM-02: the serializer moved to `Field/`) |
 | components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-27, M4 track 1 (proposed): RDG-FRM-04 and RDG-STR-02's portal clause green at L4 on the test-only portal |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
 | components/select.md | SEL | approved | 332 reqs | |

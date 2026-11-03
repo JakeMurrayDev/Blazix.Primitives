@@ -1,0 +1,8 @@
+@* Q3: items in a RenderFragment field the root's content renders. *@
+<ListRoot @bind-Value="ns">
+    @items
+</ListRoot>
+@code {
+    private string? ns;
+    private RenderFragment items = @<ListItem />;
+}

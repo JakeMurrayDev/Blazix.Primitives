@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
@@ -80,7 +81,7 @@ internal sealed class RadioGroupContext<TValue> : RadioGroupContext
     /// <summary>Determines whether a radio with the given value is selected.</summary>
     /// <param name="value">The radio's value.</param>
     /// <returns><see langword="true"/> when the group holds a value that is not <see langword="null"/> and strictly equals <paramref name="value"/>.</returns>
-    public bool IsSelected(TValue value) => HasSelection && !RadioValues.IsNull(Value) && Equality.StrictEquals(Value, value);
+    public bool IsSelected(TValue value) => HasSelection && !ValueNull.IsNull(Value) && Equality.StrictEquals(Value, value);
 
     /// <summary>Takes the group's state and notifies the radios when it changed.</summary>
     /// <param name="value">The value.</param>

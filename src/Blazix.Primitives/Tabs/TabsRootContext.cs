@@ -1,4 +1,5 @@
 using Blazix.Primitives.Store;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
@@ -185,7 +186,7 @@ internal sealed class TabsRootContext<TValue> : TabsRootContext
     public bool ImplicitDefault { get; private set; }
 
     /// <inheritdoc />
-    public override bool HasValue => ImplicitDefault || (HasSelection && !RadioValues.IsNull(Value));
+    public override bool HasValue => ImplicitDefault || (HasSelection && !ValueNull.IsNull(Value));
 
     /// <summary>Gets the root's half of a user activation.</summary>
     /// <value>A function that receives the tab's value and the details and returns whether the request was not canceled.</value>
@@ -202,7 +203,7 @@ internal sealed class TabsRootContext<TValue> : TabsRootContext
             return TabsImplicitDefault.Matches(value);
         }
 
-        return HasSelection && !RadioValues.IsNull(Value) && Equality.StrictEquals(Value, value);
+        return HasSelection && !ValueNull.IsNull(Value) && Equality.StrictEquals(Value, value);
     }
 
     /// <summary>Takes the root's value and notifies the parts when it changed.</summary>
