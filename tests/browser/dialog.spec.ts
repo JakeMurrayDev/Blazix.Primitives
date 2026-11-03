@@ -855,7 +855,12 @@ test.describe('closed shadow root', () => {
           continue;
         }
 
-        test(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+        // Quarantined (ADR 11 §4) until 2026-11-18, issue 166: the nested dialog's removal times out intermittently on Server
+        // (main's run 40872081690, nightly dispatches 41681848386 and 41685879786); every variant shares the mechanism.
+        test.fixme(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, {
+          tag: '@quarantine',
+          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
+        }, async ({ page, mode }) => {
           const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
 
           await click(page, 'open-nested');
