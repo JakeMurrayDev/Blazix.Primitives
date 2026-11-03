@@ -378,4 +378,27 @@ public sealed class CompositeTwinContractTests
         Assert.Equal("stop", twin.Decide(CompositeTwin.LeavePoint, KeydownJson));
         Assert.Equal("ArrowDown", seen?.Key);
     }
+
+    // Design point 5 (b), chosen by the user 2026-11-04 (M5 track 1, issue 159): a long order report arrives in parts of
+    // one publication; the twin raises ItemsChanged once with the joined ids, and an incomplete older publication is
+    // dropped when a newer one starts.
+    [Fact]
+    [Trait("Requirement", "CMP-EVT-03")]
+    public void A_chunked_order_report_raises_ItemsChanged_once_with_the_joined_ids_and_drops_an_incomplete_older_publication()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        List<IReadOnlyList<string>> changes = [];
+        twin.ItemsChanged += changes.Add;
+
+        twin.OnItemsChange("""{"ids":["a","b"],"publication":1,"part":0,"parts":2}""");
+        twin.OnItemsChange("""{"ids":["x"],"publication":2,"part":0,"parts":2}""");
+        twin.OnItemsChange("""{"ids":["y","z"],"publication":2,"part":1,"parts":2}""");
+        twin.OnItemsChange("""{"ids":["c"],"publication":1,"part":1,"parts":2}""");
+        twin.OnItemsChange("""{"ids":["w"]}""");
+
+        Assert.Equal(2, changes.Count);
+        Assert.Equal(["x", "y", "z"], changes[0]);
+        Assert.Equal(["w"], changes[1]);
+    }
 }

@@ -97,6 +97,51 @@ public sealed class CompositeRegistrationFieldsTests : IDisposable
         Assert.InRange(reportWire, 1, reportWireBudget);
     }
 
+    // Design point 5 (b), chosen by the user 2026-11-04: at 5,000 items the order report would exceed Server's default
+    // 32 KB receive limit whole; the module sends it in parts of at most 8,192 characters of JSON (the rule of
+    // `composite.ts`'s `reportItemOrder`, replayed here), each within the limit on the wire, and the root joins them in order.
+    [Fact(DisplayName = "at 5,000 items the order report arrives in parts within the receive limit and the root joins them in order")]
+    [Trait("Requirement", "CMP-EVT-03")]
+    [Trait("Requirement", "CMP-STA-10")]
+    public void At_5000_items_the_order_report_arrives_in_parts_within_the_limit_and_is_joined_in_order()
+    {
+        const int receiveLimit = 32 * 1024;
+        const int chunkChars = 8192;
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
+            .Add(x => x.ReportItems, true)
+            .AddChildContent(Many(5000, labelled: false, removeLast: false)));
+        string[] ids = CompositeTestContext.RenderedItemIds(cut);
+
+        string whole = JsonSerializer.Serialize(new CompositeItemsChange(ids), BlazixJsonContext.Default.CompositeItemsChange);
+        Assert.True(Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(whole, s_javaScriptStringify)) > receiveLimit);
+
+        List<string> parts = [];
+        List<string> chunk = [];
+        foreach (string id in ids)
+        {
+            chunk.Add(id);
+            if (JsonSerializer.Serialize(new { ids = chunk, publication = 1, part = 99, parts = 99 }, s_javaScriptStringify).Length > chunkChars)
+            {
+                chunk.RemoveAt(chunk.Count - 1);
+                parts.Add(JsonSerializer.Serialize(chunk, s_javaScriptStringify));
+                chunk = [id];
+            }
+        }
+
+        parts.Add(JsonSerializer.Serialize(chunk, s_javaScriptStringify));
+        CompositeTwin twin = host.Twin;
+        for (int i = 0; i < parts.Count; i++)
+        {
+            string payload = $$"""{"ids":{{parts[i]}},"publication":1,"part":{{i}},"parts":{{parts.Count}}}""";
+            Assert.InRange(Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(payload, s_javaScriptStringify)), 1, receiveLimit);
+            cut.InvokeAsync(() => twin.OnItemsChange(payload));
+        }
+
+        output.WriteLine($"5000 items: whole report {Encoding.UTF8.GetByteCount(whole)} B, {parts.Count} parts");
+        Assert.True(parts.Count > 1);
+        Assert.Equal(ids, cut.Instance.Behavior.OrderedItems.Select(item => item.Registration.Id));
+    }
+
     private static RenderFragment Fields(string label) => builder =>
     {
         builder.OpenComponent<TestCompositeItem>(0);

@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ACTIVE_COMPOSITE_ITEM,
   NAVIGATE_POINT,
+  ORDER_REPORT_CHUNK_CHARS,
   SELECT_POINT,
   attach,
   createCompositeRegistry,
@@ -2225,6 +2226,37 @@ describe('composite items report (port)', () => {
 
     expect(group.fake.reports.map((report) => report.method)).toEqual(['OnItemsChange', 'OnHighlightChange']);
     expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
+  });
+});
+
+// --- the chunked order report (M5 track 1, issue 159; design point 5 (b), chosen by the user 2026-11-04) ----------------
+// An order report whose payload exceeds the chunk size goes out in parts of one publication, so no JavaScript → C#
+// message reaches Server's default 32 KB receive limit; a short one is sent whole, as before.
+
+describe('composite chunked order report (M5)', () => {
+  type ItemsChange = { ids: string[]; publication?: number; part?: number; parts?: number };
+
+  it('reports a long order in parts of one publication, each within the chunk size, whose ids join in order', () => {
+    const elements = Array.from({ length: 2500 }, (_, index) => {
+      const element = item(`long-${index}`);
+      element.id = `composite-item-with-a-long-id-${index}`;
+      return element;
+    });
+    const group = mountGroup(elements, { reportItems: true });
+
+    const reports = group.fake.reports.filter((report) => report.method === 'OnItemsChange');
+    const payloads = reports.map((report) => report.payload as ItemsChange);
+    expect(payloads.length).toBeGreaterThan(1);
+    payloads.forEach((payload, index) => {
+      expect(JSON.stringify(payload).length).toBeLessThanOrEqual(ORDER_REPORT_CHUNK_CHARS);
+      expect([payload.part, payload.parts, payload.publication]).toEqual([index, payloads.length, payloads[0]!.publication]);
+    });
+    expect(payloads.flatMap((payload) => payload.ids)).toEqual(elements.map((element) => element.id));
+
+    // A short order is sent whole, without parts, as before.
+    document.body.replaceChildren();
+    const short = mountItems(['a', 'b'], { reportItems: true });
+    expect(short.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [byTestId('a').id, byTestId('b').id] }]);
   });
 });
 
