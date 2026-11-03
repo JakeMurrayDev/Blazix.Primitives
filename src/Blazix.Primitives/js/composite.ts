@@ -2734,10 +2734,11 @@ function itemMouseMove(state: ListState, handle: ListHandle, event: MouseEvent):
   }
 }
 
-// An item's `pointerleave`, from the delegated `pointerout` whose related target is outside the item.
-function itemPointerOut(state: ListState, handle: ListHandle, event: PointerEvent): void {
-  const item = itemOfEvent(state, event);
-  if (!item || contains(item, isElement(event.relatedTarget) ? event.relatedTarget : null)) {
+// An item's `pointerleave` (React's per-element onPointerLeave): `pointerleave` does not bubble, so the floating handle
+// hears it in the capture phase, where its target is the element the pointer left.
+function itemPointerLeave(state: ListState, handle: ListHandle, event: PointerEvent): void {
+  const item = event.target;
+  if (!isHTMLElement(item) || (state.floating?.registry.indexOf(item) ?? -1) === -1) {
     return;
   }
   const list = handle.list();
@@ -2972,7 +2973,7 @@ function attachList(
         ['focusin', ((event: FocusEvent) => enabledOf(handle.list()) && itemFocus(state, handle, event)) as EventListener, false],
         ['click', ((event: MouseEvent) => enabledOf(handle.list()) && itemClick(state, handle, event)) as EventListener, false],
         ['mousemove', ((event: MouseEvent) => enabledOf(handle.list()) && itemMouseMove(state, handle, event)) as EventListener, false],
-        ['pointerout', ((event: PointerEvent) => enabledOf(handle.list()) && itemPointerOut(state, handle, event)) as EventListener, false],
+        ['pointerleave', ((event: PointerEvent) => enabledOf(handle.list()) && itemPointerLeave(state, handle, event)) as EventListener, true],
         [
           'pointermove',
           ((event: PointerEvent) => {
