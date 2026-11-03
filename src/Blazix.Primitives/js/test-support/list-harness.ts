@@ -41,6 +41,11 @@ export interface ListHarnessOptions {
   flat?: boolean;
   /** Groups the items, directly in the floating element, into `role="row"` elements of this many items each. */
   rowSize?: number;
+  /**
+   * Whether each row of `rowSize` is a host element whose shadow root holds the `role="row"` element around a `slot`, so
+   * the items stay the host's children and reach their row only through their assigned slot.
+   */
+  slottedRows?: boolean;
   /** The registration fields C# sends for an item beyond its id. */
   itemRegistration?: (index: number, label: string) => Partial<CompositeItemRegistration>;
   /** The reference element: a button (the default) or an input. */
@@ -216,8 +221,16 @@ export function createListHarness(options: ListHarnessOptions = {}): ListHarness
       for (let start = 0; start < elements.length; start += rowSize) {
         const row = document.createElement('div');
         row.setAttribute('role', 'row');
-        row.append(...elements.slice(start, start + rowSize));
-        rows.push(row);
+        if (options.slottedRows) {
+          const host = document.createElement('div');
+          row.appendChild(document.createElement('slot'));
+          host.attachShadow({ mode: 'open' }).appendChild(row);
+          host.append(...elements.slice(start, start + rowSize));
+          rows.push(host);
+        } else {
+          row.append(...elements.slice(start, start + rowSize));
+          rows.push(row);
+        }
       }
       target.replaceChildren(...rows);
     } else if (options.flat) {

@@ -1,4 +1,5 @@
 using Blazix.Primitives.Interop;
+using Blazix.Primitives.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
@@ -101,6 +102,38 @@ public sealed class ListNavigationTests : IDisposable
         Assert.Equal([5, 6], rendered);
         Assert.Equal(1, renders[5] - before[5]);
         Assert.Equal(1, renders[6] - before[6]);
+    }
+
+    // ADR 16 rule 8 and the lesson of issue 110: a re-render of the list with unchanged parameters renders the root and its
+    // handles and sends nothing; the fixed cascades and the handles render no item, counted through ClassValue at 100 items
+    // behind a count (TestListItems), so a parent's re-render alone would not reach them.
+    [Fact(DisplayName = "an unchanged list re-render renders no item")]
+    [Trait("Requirement", "CMP-STA-10")]
+    [Trait("Requirement", "CMP-STA-31")]
+    public void An_unchanged_list_rerender_renders_no_item()
+    {
+        int[] handleRenders = new int[2];
+        RenderFragment content = CountedHandles(100, handleRenders);
+        Action<ComponentParameterCollectionBuilder<TestListRoot>> parameters = p => p.Add(x => x.LoopFocus, true).AddChildContent(content);
+        IRenderedComponent<TestListRoot> cut = Context.Render(parameters);
+        cut.WaitForAssertion(() => Assert.Equal(2, host.Attaches.Count));
+        int[] renders = cut.FindComponent<TestListItems>().Instance.Renders;
+        Assert.Equal(100, renders.Length);
+        Assert.All(renders, count => Assert.Equal(1, count));
+        int[] handlesBefore = [.. handleRenders];
+
+        cut.Render(parameters);
+
+        // The re-render reached the list: the reference and floating handles rendered again, and sent nothing.
+        Assert.Equal([handlesBefore[0] + 1, handlesBefore[1] + 1], handleRenders);
+        Assert.Empty(host.UpdateOptions);
+        Assert.All(renders, count => Assert.Equal(1, count));
+
+        // The count sees an item's own render: a report renders the item it highlights, and only that one.
+        string[] ids = CompositeTestContext.RenderedItemIds(cut);
+        cut.InvokeAsync(() => FloatingTwin().OnListHighlight($$"""{"index":5,"itemId":"{{ids[5]}}","event":null,"revision":0}"""));
+        Assert.Equal([5], Enumerable.Range(0, 100).Where(i => renders[i] != 1));
+        Assert.Equal(2, renders[5]);
     }
 
     [Fact(DisplayName = "a C# highlight request goes out at once with a revision, and a report that answers an older revision is ignored")]
@@ -244,6 +277,35 @@ public sealed class ListNavigationTests : IDisposable
 
                 content.CloseComponent();
             }
+        }));
+        builder.CloseComponent();
+    };
+
+    // The reference and floating handles, each counting its renders through ClassValue, with the floating handle's items
+    // behind TestListItems's count.
+    private static RenderFragment CountedHandles(int count, int[] handleRenders) => builder =>
+    {
+        builder.OpenComponent<TestListHandle>(0);
+        builder.AddAttribute(1, nameof(TestListHandle.Role), CompositeListRole.Reference);
+        builder.AddAttribute(2, nameof(TestListHandle.ClassValue), (Func<EmptyState, string?>)(_ =>
+        {
+            handleRenders[0]++;
+            return null;
+        }));
+        builder.CloseComponent();
+
+        builder.OpenComponent<TestListHandle>(3);
+        builder.AddAttribute(4, nameof(TestListHandle.Role), CompositeListRole.Floating);
+        builder.AddAttribute(5, nameof(TestListHandle.ClassValue), (Func<EmptyState, string?>)(_ =>
+        {
+            handleRenders[1]++;
+            return null;
+        }));
+        builder.AddAttribute(6, nameof(TestListHandle.ChildContent), (RenderFragment)(items =>
+        {
+            items.OpenComponent<TestListItems>(7);
+            items.AddAttribute(8, nameof(TestListItems.Count), count);
+            items.CloseComponent();
         }));
         builder.CloseComponent();
     };

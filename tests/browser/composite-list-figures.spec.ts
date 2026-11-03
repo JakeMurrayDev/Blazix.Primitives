@@ -11,10 +11,19 @@ import { gotoPopupFixture, openChanges, pressInPage, settle, type PopupFixtureOp
 //   page; .NET-to-JavaScript calls are bound at startup, so the page cannot count them, and render batches are read from
 //   the runtime's memory). Each figure is the run minus a barrier measured the same way.
 // - CMP's ADR 01 rows (Deliverable 14): each relaxation per mode, Server under a 75 ms one-way delay (a 150 ms round
-//   trip, the M4 popup rows' figure), each a titled test that asserts an upper bound and logs its figure. Times are the
-//   page's `performance.now()`, witnessed by mutation records and capture listeners, never by frame polls.
+//   trip, the M4 popup rows' figure), each a titled test that logs its figure. Times are the page's `performance.now()`,
+//   witnessed by mutation records and capture listeners, never by frame polls. The assertions do not depend on the
+//   runner's speed (issue 114's rule; PR 170's WebAssembly run 41703479207 measured 365 ms against a fixed 300 ms bound):
+//   they assert the order of the recorded markers, whether a marker held inside the keydown's own task (before a timer
+//   the keydown's capture listener starts), and, on Server, the floor the added delay puts under each leg.
 
 const ONE_WAY_MS = 75;
+
+/**
+ * The least time `count` delayed legs of the circuit take, as the page sees it: each leg waits `ONE_WAY_MS` in the
+ * route, whose timers (libuv's cached clock) may fire up to a millisecond early, and the figures are rounded.
+ */
+const legsFloor = (count: number): number => count * ONE_WAY_MS - 2 * count;
 
 interface Frame {
   up: boolean;
@@ -270,11 +279,17 @@ interface Condition {
 const menuItemAt = (index: number, attribute: string): Omit<Condition, 'name'> => ({ selector: '[role="menuitem"]', index, attribute });
 const container = '[data-fixture="composite-list-measure"]';
 
-/** Records, from the page, the first time each condition held: a mutation record or a capture listener witnesses it. */
+/**
+ * Records, from the page, the first time each condition held (a mutation record or a capture listener witnesses it), and
+ * whether it first held inside a keydown's task: a keydown's capture listener starts a 0 ms timer, and a mutation's
+ * record runs as a microtask of the task that made it, before that timer.
+ */
 async function startWitness(page: Page, conditions: readonly Condition[]): Promise<void> {
   await page.evaluate((list) => {
-    const w = window as unknown as { __t: Record<string, number>; __witness?: MutationObserver };
+    const w = window as unknown as { __t: Record<string, number>; __inKeydown: Record<string, boolean>; __keydownTask?: boolean; __witness?: MutationObserver };
     w.__t = {};
+    w.__inKeydown = {};
+    w.__keydownTask = false;
     const holds = (condition: (typeof list)[number]): boolean => {
       const all = document.querySelectorAll(condition.selector);
       if (condition.count !== undefined) {
@@ -301,6 +316,7 @@ async function startWitness(page: Page, conditions: readonly Condition[]): Promi
       for (const condition of list) {
         if (w.__t[condition.name] === undefined && holds(condition)) {
           w.__t[condition.name] = now;
+          w.__inKeydown[condition.name] = w.__keydownTask === true;
         }
       }
     };
@@ -308,12 +324,37 @@ async function startWitness(page: Page, conditions: readonly Condition[]): Promi
     w.__witness = new MutationObserver(check);
     w.__witness.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
     document.addEventListener('focusin', check, true);
-    window.addEventListener('keydown', () => (w.__t.keydown ??= performance.now()), true);
+    window.addEventListener(
+      'keydown',
+      () => {
+        w.__t.keydown ??= performance.now();
+        w.__keydownTask = true;
+        setTimeout(() => {
+          w.__keydownTask = false;
+        }, 0);
+      },
+      true,
+    );
   }, conditions as Condition[]);
 }
 
 async function times(page: Page): Promise<Record<string, number>> {
   return page.evaluate(() => (window as unknown as { __t: Record<string, number> }).__t);
+}
+
+/** Whether each recorded condition first held inside a keydown's task. */
+async function inKeydownTask(page: Page): Promise<Record<string, boolean>> {
+  return page.evaluate(() => (window as unknown as { __inKeydown: Record<string, boolean> }).__inKeydown);
+}
+
+/** Asserts that the named markers were recorded, in this order (equal times allowed: one mutation batch). */
+function expectOrder(t: Record<string, number>, names: readonly string[]): void {
+  for (const name of names) {
+    expect(t[name], `the marker "${name}" was recorded`).toBeDefined();
+  }
+  for (let index = 1; index < names.length; index += 1) {
+    expect(t[names[index]!]!, `"${names[index - 1]}" precedes "${names[index]}"`).toBeGreaterThanOrEqual(t[names[index - 1]!]!);
+  }
 }
 
 async function markStart(page: Page): Promise<void> {
@@ -340,10 +381,16 @@ test.describe("ADR 01's list rows", () => {
     await expect(item(page, 2)).toHaveAttribute('data-mirrored-highlighted', '');
 
     const t = await times(page);
-    const figure = { written: since(t, 'keydown', 'written'), mirrored: since(t, 'keydown', 'mirrored'), lag: since(t, 'written', 'mirrored') };
+    const k = await inKeydownTask(page);
+    const figure = { written: since(t, 'keydown', 'written'), mirrored: since(t, 'keydown', 'mirrored'), lag: since(t, 'written', 'mirrored'), inKeydown: k };
     logFigure('Highlighted mirror lag', figure);
-    expect(figure.written).toBeLessThan(50);
-    expect(figure.lag).toBeLessThan(mode === 'server' ? 2 * ONE_WAY_MS + 400 : 200);
+    // The module writes in the keydown's task; the mirror follows it, on Server after the report's leg and the render's.
+    expect(k.written).toBe(true);
+    expectOrder(t, ['keydown', 'written', 'mirrored']);
+    if (mode === 'server') {
+      expect(k.mirrored).toBe(false);
+      expect(figure.lag).toBeGreaterThanOrEqual(legsFloor(2));
+    }
   });
 
   // ADR 01's "JS-owned values that originate in C# state" row: a C#-origin highlight is sent at once with a revision.
@@ -363,7 +410,13 @@ test.describe("ADR 01's list rows", () => {
     const t = await times(page);
     const figure = { written: since(t, 'start', 'written'), mirrored: since(t, 'start', 'mirrored') };
     logFigure('C#-origin highlight request', figure);
-    expect(figure.written).toBeLessThan(mode === 'server' ? 2 * ONE_WAY_MS + 400 : 200);
+    // The request goes out with the press's own answer, before the mirror, which waits for the module's report.
+    expectOrder(t, ['start', 'written', 'mirrored']);
+    if (mode === 'server') {
+      // The press's leg up and the request's leg down; then the report's leg up and the render's leg down.
+      expect(figure.written).toBeGreaterThanOrEqual(legsFloor(2));
+      expect(figure.mirrored - figure.written).toBeGreaterThanOrEqual(legsFloor(2));
+    }
   });
 
   // CMP-STA-37, CMP-KEY-21: the open by an arrow key is C#'s (a round trip on Server), then the floating handle attaches
@@ -394,7 +447,14 @@ test.describe("ADR 01's list rows", () => {
       attach: since(t, 'rendered', 'highlighted'),
     };
     logFigure('open by ArrowDown to the first item highlighted', figure);
-    expect(figure.highlighted).toBeLessThan(mode === 'server' ? 6 * ONE_WAY_MS + 600 : 300);
+    // The open is C#'s commit (the trigger's aria-expanded) and render; the portal moves the popup; only then does the
+    // floating handle, attached after the move, highlight the first item.
+    expectOrder(t, ['keydown', 'expanded', 'highlighted']);
+    expectOrder(t, ['keydown', 'rendered', 'moved', 'highlighted']);
+    if (mode === 'server') {
+      // The open request's leg up and the commit's render down.
+      expect(figure.expanded).toBeGreaterThanOrEqual(legsFloor(2));
+    }
   });
 
   // CMP-STA-06, STA-07, STA-17 into the CMP-STA-10 row: an item C# adds registers in the render that creates it, the
@@ -426,7 +486,17 @@ test.describe("ADR 01's list rows", () => {
     const t = await times(page);
     const figure = { rendered: since(t, 'start', 'rendered'), reported: since(t, 'start', 'reported'), afterRender: since(t, 'rendered', 'reported'), csharp: since(t, 'start', 'mirrored') };
     logFigure('registry change after a re-render to the order report', figure);
-    expect(figure.afterRender).toBeLessThan(mode === 'server' ? 2 * ONE_WAY_MS + 400 : 200);
+    // The render that creates the item, then the module's report of the registration the root sends from its
+    // after-render, then C#'s count of the report. On WebAssembly the render, the after-render and the report run in one
+    // task, so the render's mutation record (a microtask) is timed after the report's call.
+    expectOrder(t, ['start', 'reported', 'mirrored']);
+    expectOrder(t, ['start', 'rendered', 'mirrored']);
+    if (mode === 'server') {
+      expectOrder(t, ['rendered', 'reported']);
+      // The render's completion up and the after-render's registration down; then the report up and its render down.
+      expect(figure.afterRender).toBeGreaterThanOrEqual(legsFloor(2));
+      expect(figure.csharp - figure.reported).toBeGreaterThanOrEqual(legsFloor(2));
+    }
   });
 
   // A closed list's typeahead match (CMP-EVT-10): the module matches in the keydown and reports the index; the family's
@@ -443,7 +513,11 @@ test.describe("ADR 01's list rows", () => {
     const figure = { csharp: since(t, 'keydown', 'matched'), index: await fixture.getAttribute('data-matches') };
     logFigure("closed list's typeahead match to C#", figure);
     await expect(page.getByTestId('trigger')).toHaveAttribute('aria-expanded', 'false');
-    expect(figure.csharp).toBeLessThan(mode === 'server' ? 2 * ONE_WAY_MS + 400 : 200);
+    expectOrder(t, ['keydown', 'matched']);
+    if (mode === 'server') {
+      // The report's leg up and the render's leg down.
+      expect(figure.csharp).toBeGreaterThanOrEqual(legsFloor(2));
+    }
   });
 
   // ADR 01's "C#-origin consumer vetoes" row, the decision point `navigate` (ADR 04 Amendments 2026-10-22, option (i)):
@@ -470,18 +544,23 @@ test.describe("ADR 01's list rows", () => {
     await settle(fixture);
 
     const t = await times(page);
+    const k = await inKeydownTask(page);
     if (mode === 'server') {
       await expect(item(page, 1)).toHaveAttribute('data-highlighted', '');
-      const figure = { moved: since(t, 'keydown', 'moved'), handler: since(t, 'keydown', 'vetoed') };
+      const figure = { moved: since(t, 'keydown', 'moved'), handler: since(t, 'keydown', 'vetoed'), inKeydown: k };
       logFigure('navigate: the consumer handler after the move (Server)', figure);
-      expect(figure.moved).toBeLessThan(50);
-      expect(figure.handler).toBeLessThan(2 * ONE_WAY_MS + 400);
+      // The module moves in the keydown's task; the handler's count comes a round trip later.
+      expect(k.moved).toBe(true);
+      expectOrder(t, ['keydown', 'moved', 'vetoed']);
+      expect(figure.handler - figure.moved).toBeGreaterThanOrEqual(legsFloor(2));
     } else {
       await expect(page.locator('[role="menuitem"][data-highlighted]')).toHaveCount(0);
-      const figure = { handler: since(t, 'keydown', 'vetoed') };
+      const figure = { handler: since(t, 'keydown', 'vetoed'), inKeydown: k };
       logFigure('navigate: the consumer handler in the keydown (WebAssembly)', figure);
       expect(t.moved).toBeUndefined();
-      expect(figure.handler).toBeLessThan(200);
+      // The handler runs inside the keydown: its count is rendered in the keydown's task.
+      expect(k.vetoed).toBe(true);
+      expectOrder(t, ['keydown', 'vetoed']);
     }
   });
 
@@ -501,19 +580,24 @@ test.describe("ADR 01's list rows", () => {
     await settle(fixture);
 
     const t = await times(page);
+    const k = await inKeydownTask(page);
     await expect(page.getByRole('menu')).toBeVisible();
     if (mode === 'server') {
       await expect(page.getByTestId('trigger')).toBeFocused();
-      const figure = { focusReturned: since(t, 'keydown', 'returned'), cancelInCSharp: since(t, 'keydown', 'canceled') };
+      const figure = { focusReturned: since(t, 'keydown', 'returned'), cancelInCSharp: since(t, 'keydown', 'canceled'), inKeydown: k };
       logFigure('leave: a canceled close that still moved the focus (Server)', figure);
-      expect(figure.focusReturned).toBeLessThan(50);
-      expect(figure.cancelInCSharp).toBeLessThan(2 * ONE_WAY_MS + 400);
+      // The module returns the focus in the keydown's task; the cancel is recorded a round trip later.
+      expect(k.returned).toBe(true);
+      expectOrder(t, ['keydown', 'returned', 'canceled']);
+      expect(figure.cancelInCSharp - figure.focusReturned).toBeGreaterThanOrEqual(legsFloor(2));
     } else {
       await expect(item(page, 1)).toBeFocused();
-      const figure = { cancelInCSharp: since(t, 'keydown', 'canceled') };
+      const figure = { cancelInCSharp: since(t, 'keydown', 'canceled'), inKeydown: k };
       logFigure('leave: the canceled close in the keydown (WebAssembly)', figure);
       expect(t.returned).toBeUndefined();
-      expect(figure.cancelInCSharp).toBeLessThan(200);
+      // The close runs inside the keydown: its cancel is rendered in the keydown's task.
+      expect(k.canceled).toBe(true);
+      expectOrder(t, ['keydown', 'canceled']);
     }
   });
 });

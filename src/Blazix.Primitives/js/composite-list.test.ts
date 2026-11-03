@@ -421,6 +421,14 @@ describe('useListNavigation (second block)', () => {
         expect(harness.floating).not.toBeNull();
         expect(document.activeElement).not.toBe(harness.item(0));
       });
+      expect(highlighted(harness.item(0))).toBe(false);
+      // The open left no highlight behind: the list's first ArrowDown starts at the first item, where a highlight on
+      // item 0 would have moved it to item 1.
+      keyDown(menu(harness), 'ArrowDown');
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(highlighted(harness.item(0))).toBe(true);
     });
   });
 
@@ -514,16 +522,31 @@ describe('useListNavigation (second block)', () => {
       expect(harness.floating).not.toBeNull();
     });
 
-    it('does not open on ArrowDown when false', () => {
+    // A closed list's arrow key leaves the default behavior and keeps no key for the next open: a click then opens with
+    // the first item highlighted, not the last one an ArrowUp open takes.
+    it('does not open on ArrowDown when false', async () => {
       const harness = app({ list: { openOnArrowKeyDown: false } });
-      keyDown(harness.reference, 'ArrowDown');
+      const event = keyDown(harness.reference, 'ArrowDown');
       expect(harness.floating).toBeNull();
+      expect(event.defaultPrevented).toBe(false);
+      click(harness.reference);
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(highlighted(harness.item(0))).toBe(true);
     });
 
-    it('does not open on ArrowUp when false', () => {
+    it('does not open on ArrowUp when false', async () => {
       const harness = app({ list: { openOnArrowKeyDown: false } });
-      keyDown(harness.reference, 'ArrowUp');
+      const event = keyDown(harness.reference, 'ArrowUp');
       expect(harness.floating).toBeNull();
+      expect(event.defaultPrevented).toBe(false);
+      click(harness.reference);
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(highlighted(harness.item(0))).toBe(true);
+      expect(highlighted(harness.item(2))).toBe(false);
     });
   });
 
@@ -578,6 +601,13 @@ describe('useListNavigation (second block)', () => {
       mouseMove(harness.item(1));
       expect(document.activeElement).not.toBe(harness.item(1));
       expect(harness.highlights).toHaveLength(0);
+      // The hover left the active index unset: ArrowDown starts at the first item, where a synced index 1 would have
+      // moved it to item 2, and the move is the first report.
+      keyDown(menu(harness), 'ArrowDown');
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      expect(harness.highlights.map((report) => report.index)).toEqual([0]);
     });
 
     it('clears the active item when the pointer leaves a clipped container while still within the item bounds', async () => {
@@ -1063,9 +1093,15 @@ describe('useListNavigation (grid)', () => {
 
       option(harness, 43).focus();
 
-      pressOnMenu(harness, 'ArrowUp', 8);
+      // Seven presses climb the column to its first enabled item (3 is disabled); the eighth loops to the last.
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 38)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp', 6);
+      expect(option(harness, 8)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
 
       expect(option(harness, 43)).toBe(document.activeElement);
+      expect(highlighted(option(harness, 43))).toBe(true);
     });
 
     it('does not leave row with "both" orientation while looping', async () => {
@@ -1243,22 +1279,31 @@ describe('useListNavigation (grid)', () => {
 
         option(harness, 36).focus();
 
+        // Each move is the list's: the module writes `data-highlighted` on the item it focuses and reports its index.
         pressOnMenu(harness, arrowToStart);
         await waitFor(() => {
           expect(option(harness, 34)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 34))).toBe(true);
+        expect(harness.activeIndex).toBe(34);
         pressOnMenu(harness, arrowToStart, 6);
         await waitFor(() => {
           expect(option(harness, 28)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 28))).toBe(true);
+        expect(harness.activeIndex).toBe(28);
         pressOnMenu(harness, arrowToStart, 7);
         await waitFor(() => {
           expect(option(harness, 20)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 20))).toBe(true);
+        expect(harness.activeIndex).toBe(20);
         pressOnMenu(harness, arrowToStart, 11);
         await waitFor(() => {
           expect(option(harness, 7)).toBe(document.activeElement);
         });
+        expect(highlighted(option(harness, 7))).toBe(true);
+        expect(harness.activeIndex).toBe(7);
       });
 
       it('looping works on last row', async () => {
@@ -1268,9 +1313,13 @@ describe('useListNavigation (grid)', () => {
         await opened(harness);
 
         option(harness, 36).focus();
+        expect(highlighted(option(harness, 36))).toBe(true);
 
-        pressOnMenu(harness, arrowToEnd);
+        // The last row holds 35 (disabled) and 36: the loop stays on 36, and the grid navigator consumes the key.
+        const event = keyDown(menu(harness), arrowToEnd);
         expect(option(harness, 36)).toBe(document.activeElement);
+        expect(event.defaultPrevented).toBe(true);
+        expect(highlighted(option(harness, 36))).toBe(true);
       });
     });
   });
@@ -2363,5 +2412,128 @@ describe('list navigation rows without a Base UI title (port)', () => {
     warn.mockClear();
     quiet.update({ loopFocus: false, orientation: 'vertical' });
     expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+  });
+});
+
+// CMP-EDGE-12's list-navigation and grid clauses: the list inside an open shadow root. The handles resolve the items by
+// id from the floating element's root node, the shadow root; `activeElement` and `contains` read the composed tree (the
+// document's active element is the shadow host), so the "focus inside the popup" check holds there; and the grid's
+// `[role="row"]` lookup runs on rows inside the shadow tree.
+describe('list navigation inside a shadow root (port)', () => {
+  function shadowContainer(): { shadow: ShadowRoot; container: HTMLElement } {
+    const host = document.body.appendChild(document.createElement('div'));
+    const shadow = host.attachShadow({ mode: 'open' });
+    const container = shadow.appendChild(document.createElement('div'));
+    return { shadow, container };
+  }
+
+  it('port: inside a shadow root the list resolves its items by id, opens on ArrowDown and moves the focus and the highlight', async () => {
+    const { shadow, container } = shadowContainer();
+    const harness = app({ container });
+    expect(harness.reference.getRootNode()).toBe(shadow);
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(0));
+    });
+    expect(highlighted(harness.item(0))).toBe(true);
+    expect(harness.item(0).getAttribute('tabindex')).toBe('0');
+
+    keyDown(menu(harness), 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(1));
+    });
+    expect(highlighted(harness.item(1))).toBe(true);
+    expect(highlighted(harness.item(0))).toBe(false);
+    expect(harness.highlights.map((report) => [report.index, report.itemId])).toEqual([
+      [0, harness.item(0).id],
+      [1, harness.item(1).id],
+    ]);
+  });
+
+  it('port: inside a shadow root the main key with the focus on the popup itself starts at the boundary item', async () => {
+    const { shadow, container } = shadowContainer();
+    const harness = app({ container });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(0));
+    });
+    keyDown(menu(harness), 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(1));
+    });
+
+    // The focus rests on the popup, not on an item: the composed check sees it inside the popup, so ArrowDown starts at
+    // the first item rather than moving on from the highlighted second one.
+    menu(harness).focus();
+    expect(document.activeElement).toBe(shadow.host);
+    expect(shadow.activeElement).toBe(menu(harness));
+    keyDown(menu(harness), 'ArrowDown');
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(harness.item(0));
+    });
+    expect(highlighted(harness.item(0))).toBe(true);
+    expect(harness.activeIndex).toBe(0);
+  });
+
+  it('port: inside a shadow root the grid moves vertically along its [role="row"] rows', async () => {
+    const { shadow, container } = shadowContainer();
+    // Nine gridcells in rows of three, while the list's `cols` says five: vertical moves follow the DOM rows.
+    const harness = app({
+      container,
+      items: Array.from({ length: 9 }, (_, index) => `Cell ${index}`),
+      itemTag: 'button',
+      rowSize: 3,
+      floatingRole: 'grid',
+      itemAttributes: () => ({ type: 'button', role: 'gridcell' }),
+      list: { grid: true, cols: 5, orientation: 'horizontal', loopFocus: false, openOnArrowKeyDown: false },
+    });
+
+    fireClick(harness.reference);
+    await waitFor(() => {
+      expect(shadow.activeElement).toBe(option(harness, 0));
+    });
+
+    pressOnMenu(harness, 'ArrowDown');
+    expect(shadow.activeElement).toBe(option(harness, 3));
+    expect(highlighted(option(harness, 3))).toBe(true);
+    pressOnMenu(harness, 'ArrowDown');
+    expect(shadow.activeElement).toBe(option(harness, 6));
+    pressOnMenu(harness, 'ArrowRight');
+    expect(shadow.activeElement).toBe(option(harness, 7));
+    pressOnMenu(harness, 'ArrowUp');
+    expect(shadow.activeElement).toBe(option(harness, 4));
+    expect(harness.activeIndex).toBe(4);
+  });
+
+  it('port: the grid finds an item\'s [role="row"] through its assigned slot, inside the row host\'s shadow root', async () => {
+    // Each row host keeps its three gridcells as children; its shadow root holds the `role="row"` element around a slot,
+    // so a cell's row is an ancestor only in the composed tree.
+    const harness = app({
+      items: Array.from({ length: 9 }, (_, index) => `Cell ${index}`),
+      itemTag: 'button',
+      rowSize: 3,
+      slottedRows: true,
+      floatingRole: 'grid',
+      itemAttributes: () => ({ type: 'button', role: 'gridcell' }),
+      list: { grid: true, cols: 5, orientation: 'horizontal', loopFocus: false, openOnArrowKeyDown: false },
+    });
+
+    fireClick(harness.reference);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(option(harness, 0));
+    });
+    expect(option(harness, 0).closest('[role="row"]')).toBeNull();
+    expect(option(harness, 0).assignedSlot?.parentElement?.getAttribute('role')).toBe('row');
+
+    pressOnMenu(harness, 'ArrowDown');
+    expect(document.activeElement).toBe(option(harness, 3));
+    pressOnMenu(harness, 'ArrowDown');
+    expect(document.activeElement).toBe(option(harness, 6));
+    pressOnMenu(harness, 'ArrowUp');
+    expect(document.activeElement).toBe(option(harness, 3));
+    expect(highlighted(option(harness, 3))).toBe(true);
+    expect(harness.activeIndex).toBe(3);
   });
 });

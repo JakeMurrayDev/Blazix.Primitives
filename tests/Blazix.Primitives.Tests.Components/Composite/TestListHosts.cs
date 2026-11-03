@@ -8,8 +8,9 @@ using Microsoft.JSInterop;
 namespace Blazix.Primitives.Tests.Components;
 
 // The test-only list hosts at L2 (M5 track 1, issue 159, Deliverable 12): a store-agnostic root that composes the list
-// behaviour over a recorded request delegate, a part that is a composite root in list mode in one role, and a list item
-// whose state carries the Highlighted mirror, so render counts are read through ClassValue (the lesson of issue 110).
+// behavior over a recorded request delegate, a part that is a composite root in list mode in one role, a list item
+// whose state carries the Highlighted mirror, so render counts are read through ClassValue (the lesson of issue 110), and a
+// run of those items behind a count, whose renders come only from the list.
 
 /// <summary>A test-only list root: no element; it owns a <see cref="ListNavigationBehavior"/> and cascades its context.</summary>
 internal sealed class TestListRoot : ComponentBase, IDisposable
@@ -168,6 +169,56 @@ internal sealed class TestListHandle : PartBase<EmptyState>
     protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddAttributes(attributes, Id);
 
     protected override bool ForwardsConsumerHandler(string eventName) => behavior!.ForwardsConsumerHandler(eventName);
+}
+
+/// <summary>
+/// A test-only run of <see cref="TestListItem"/>s, labeled "Item 0" onward, that counts each item's renders through its
+/// <c>ClassValue</c>. Its one parameter is a count and the counting delegates are created once, so a re-render of the
+/// list reaches the items only if the list's own cascades or handles render them; a parent's re-render alone does not.
+/// </summary>
+internal sealed class TestListItems : ComponentBase
+{
+    private Func<TestListItemState, string?>[] classValues = [];
+
+    [Parameter]
+    public int Count { get; set; }
+
+    /// <summary>Gets the number of times each item's <c>ClassValue</c> ran, by index.</summary>
+    public int[] Renders { get; private set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        if (Renders.Length == Count)
+        {
+            return;
+        }
+
+        int[] renders = new int[Count];
+        Renders = renders;
+        classValues = new Func<TestListItemState, string?>[Count];
+        for (int i = 0; i < Count; i++)
+        {
+            int index = i;
+            classValues[i] = _ =>
+            {
+                renders[index]++;
+                return null;
+            };
+        }
+    }
+
+    protected override void BuildRenderTree(RenderTreeBuilder builder)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            builder.OpenComponent<TestListItem>(0);
+            builder.SetKey(i);
+            builder.AddAttribute(1, "data-item", i);
+            builder.AddAttribute(2, nameof(TestListItem.Label), "Item " + i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.AddAttribute(3, nameof(TestListItem.ClassValue), classValues[i]);
+            builder.CloseComponent();
+        }
+    }
 }
 
 /// <summary>The state of <see cref="TestListItem"/>: the Highlighted mirror, whose attribute the module writes.</summary>

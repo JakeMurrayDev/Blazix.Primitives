@@ -404,6 +404,48 @@ test.describe('consumption', () => {
     await settle(fixture);
     expect(await highlights(fixture)).toContain('1');
   });
+
+  // CMP-API-01 (L4 for the consumption clause without looping): Select's options (composite-list.spec.ts's Select
+  // configuration: no loopFocus, typeahead skipping by attribute, option items, selectable). At either end of the list the
+  // main key does not move the highlight, and the list consumes it all the same.
+  test('port: without loopFocus the main key at an end of the list is consumed: its default is prevented, it does not propagate and the highlight stays', async ({ page, mode }) => {
+    const fixture = await openApp(page, mode, { typeahead: true, typeaheadSkip: 'attribute', role: 'option', selectable: true });
+    const option = (name: string) => page.getByRole('option', { name, exact: true, includeHidden: true });
+    await page.getByTestId('trigger').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await expect(option('one')).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(option('three')).toBeFocused();
+    await expect(option('three')).toHaveAttribute('data-highlighted', '');
+    await settle(fixture);
+    const before = await highlights(fixture);
+    expect(before.at(-1)).toBe('2');
+    await recordKeys(page);
+
+    await page.keyboard.press('ArrowDown');
+
+    expect(await lastKey(page)).toEqual({ key: 'ArrowDown', prevented: true, reached: false });
+    await settle(fixture);
+    await expect(option('three')).toBeFocused();
+    await expect(option('three')).toHaveAttribute('data-highlighted', '');
+    expect(await highlights(fixture)).toEqual(before);
+
+    // The first item's ArrowUp, likewise.
+    await page.keyboard.press('Home');
+    await expect(option('one')).toBeFocused();
+    await settle(fixture);
+    const atStart = await highlights(fixture);
+    expect(atStart.at(-1)).toBe('0');
+
+    await page.keyboard.press('ArrowUp');
+
+    expect(await lastKey(page)).toEqual({ key: 'ArrowUp', prevented: true, reached: false });
+    await settle(fixture);
+    await expect(option('one')).toBeFocused();
+    await expect(option('one')).toHaveAttribute('data-highlighted', '');
+    expect(await highlights(fixture)).toEqual(atStart);
+  });
 });
 
 // CMP-KEY-14 (Deliverable 7; ADR 04 Amendments 2026-11-03 (4)): the L3 relay titles on a test-only menubar whose Edit
