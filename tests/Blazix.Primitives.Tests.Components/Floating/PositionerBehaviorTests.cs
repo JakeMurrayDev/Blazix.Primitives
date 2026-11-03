@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -222,6 +223,31 @@ public sealed class PositionerBehaviorTests : IDisposable
         JsonElement second = PositioningTestContext.Parse(host.AttachOptions);
         Assert.Equal("anchor", second.GetProperty("anchorId").GetString());
         Assert.Equal(12, second.GetProperty("collisionPadding").GetDouble());
+    }
+
+    // M5 track 2 (brief deliverable 4): the Positioner's shift input, NavigationMenu's rootBoundary (NAV-POS-03) and
+    // ContextMenu's crossAxis (MenuPositioner.tsx:123-127), passed to the positioning options' shift. Driven on the behavior
+    // itself: a parameter of the shared test host adds 24 bytes to its measured re-render (PositionerAllocationBudgetTests).
+    [Fact(DisplayName = "port: the shift input is sent as the positioning options' shift, and its change is sent in an update")]
+    [Trait("Requirement", "NAV-POS-03")]
+    public async Task The_shift_input_is_sent_as_the_positioning_options_shift_and_its_change_is_sent_in_an_update()
+    {
+        using PositionerBehavior behavior = new(host.Context.JSInterop.JSRuntime, () => { }, action =>
+        {
+            action();
+            return Task.CompletedTask;
+        });
+        PositionerInputs inputs = new() { Open = true, Mounted = true, Shift = new PositioningShift(CrossAxis: false, RootBoundary: "layoutViewport") };
+        behavior.SetInputs(inputs);
+        await behavior.AfterRenderAsync(null, "positioner");
+
+        JsonElement shift = PositioningTestContext.Parse(host.AttachOptions).GetProperty("shift");
+        Assert.False(shift.GetProperty("crossAxis").GetBoolean());
+        Assert.Equal("layoutViewport", shift.GetProperty("rootBoundary").GetString());
+
+        behavior.SetInputs(inputs with { Shift = new PositioningShift(CrossAxis: true, RootBoundary: null) });
+        await behavior.AfterRenderAsync(null, "positioner");
+        Assert.True(PositioningTestContext.Parse(host.UpdateOptions[^1]).GetProperty("shift").GetProperty("crossAxis").GetBoolean());
     }
 
     [Fact(DisplayName = "sends the anchor element and the boundary elements as indexes into the references after the options, an update when an element at the same index changes, and no reference for an element not rendered yet")]

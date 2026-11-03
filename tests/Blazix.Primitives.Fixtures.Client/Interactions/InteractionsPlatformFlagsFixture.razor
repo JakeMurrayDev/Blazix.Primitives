@@ -1,0 +1,38 @@
+@*
+    The platform flags host of M5 track 2 (design point 4; MNU-A11Y-01; ADR 01's row of 2026-11-04): the scoped
+    PlatformFlags read from the first interactive render, as the Roots that render a platform-dependent attribute do,
+    rendered as attributes: unread until the module answers, then the browser's VoiceOver hint and macOS. data-reading
+    once the read has started.
+*@
+@inject PlatformFlags Flags
+@inject IJSRuntime JSRuntime
+<FixtureContainer Name="interactions-platform-flags"
+                  data-reading="@(reading ? "true" : "false")"
+                  data-mac="@Format(Flags.Mac)"
+                  data-voice-over="@Format(Flags.VoiceOver)">
+</FixtureContainer>
+
+@code {
+    private bool reading;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        reading = true;
+        StateHasChanged();
+        await Flags.EnsureAsync(JSRuntime);
+        StateHasChanged();
+    }
+
+    private static string Format(bool? flag) => flag switch
+    {
+        null => "unread",
+        true => "true",
+        false => "false",
+    };
+}

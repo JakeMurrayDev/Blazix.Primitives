@@ -13,15 +13,14 @@ namespace Blazix.Primitives;
 // open change (ADR 04 Amendments 2026-10-27). TPayload has no member: it ties the record to its family's payload type.
 // Element identity is the registering trigger part plus its element (PopupTriggerElement; settled by the orchestrator
 // 2026-10-27 under ADR 01 Amendments 2026-10-22). popupElement is its id string here (PSH-STA-04 reads only its id).
+// M5 track 2 (ADR 05 Amendments 2026-11-03 and 2026-11-04, design point 1 (a2), settled by the orchestrator 2026-11-04):
+// the open lifecycle's ten fields (open and its controlled prop, mounted, the stored status, the floating id, the unmount
+// opt-out and count, the relay, the open method, Disabled) are one member, Lifecycle, behind forwarding properties, so the
+// families' reads and `with` expressions are unchanged and the generated ShallowEquals compares the struct member by member.
 /// <summary>Represents the state every popup store shares, whatever its family.</summary>
 /// <typeparam name="TPayload">The type of the payload the popup's triggers carry.</typeparam>
-/// <param name="Open">The internal open state, written by every committed open change.</param>
-/// <param name="OpenProp">The controlled <c>Open</c> parameter, or <see langword="null"/> while uncontrolled.</param>
-/// <param name="Mounted">Whether the popup's subtree is mounted; it lags <paramref name="Open"/> through the exit.</param>
-/// <param name="TransitionStatus">The stored transition phase.</param>
-/// <param name="FloatingId">The generated id of the popup element.</param>
+/// <param name="Lifecycle">The open lifecycle: the open state, mounting, the transition and the last committed change.</param>
 /// <param name="TriggerCount">The number of registered triggers while open; 0 while closed.</param>
-/// <param name="PreventUnmountingOnClose">Whether the current close cycle stays mounted until the unmount action.</param>
 /// <param name="PayloadVersion">A counter that moves whenever the payload in the store's context is written.</param>
 /// <param name="ActiveTriggerId">The internal id of the active trigger.</param>
 /// <param name="ActiveTriggerElement">The active trigger's registration.</param>
@@ -32,18 +31,10 @@ namespace Blazix.Primitives;
 /// <param name="PopupElementId">The <c>id</c> the registered popup element renders, or <see langword="null"/> for none.</param>
 /// <param name="PopupElement">The popup element, once rendered.</param>
 /// <param name="PositionerElement">The positioner element, once rendered.</param>
-/// <param name="UnmountRequests">How many times the unmount action ended a close.</param>
-/// <param name="OpenChange">The relay of the last committed open change, or <see langword="null"/> before the first.</param>
-/// <param name="OpenMethod">How the user opened the popup, or <see langword="null"/> while closed.</param>
 [StoreState]
 internal sealed partial record PopupStoreState<TPayload>(
-    bool Open,
-    bool? OpenProp,
-    bool Mounted,
-    TransitionStatus? TransitionStatus,
-    string? FloatingId,
+    PopupLifecycleState Lifecycle,
     int TriggerCount,
-    bool PreventUnmountingOnClose,
     int PayloadVersion,
     string? ActiveTriggerId,
     PopupTriggerElement? ActiveTriggerElement,
@@ -53,24 +44,88 @@ internal sealed partial record PopupStoreState<TPayload>(
     bool PopupElementKnown,
     string? PopupElementId,
     ElementReference? PopupElement,
-    ElementReference? PositionerElement,
-    int UnmountRequests,
-    OpenChangeRelay? OpenChange,
-    InteractionType? OpenMethod) : IStoreState<PopupStoreState<TPayload>>
+    ElementReference? PositionerElement) : IStoreState<PopupStoreState<TPayload>>
 {
     // PSH-ALG-22; store.ts:146-213. The selectors of the shared state; PopupSelectors<TState, TPayload> lifts them to a
     // family's record.
+
+    /// <summary>Gets the internal open state, written by every committed open change.</summary>
+    public bool Open
+    {
+        get => Lifecycle.Open;
+        init => Lifecycle = Lifecycle with { Open = value };
+    }
+
+    /// <summary>Gets the controlled <c>Open</c> parameter, or <see langword="null"/> while uncontrolled.</summary>
+    public bool? OpenProp
+    {
+        get => Lifecycle.OpenProp;
+        init => Lifecycle = Lifecycle with { OpenProp = value };
+    }
+
+    /// <summary>Gets a value indicating whether the popup's subtree is mounted; it lags <see cref="Open"/> through the exit.</summary>
+    public bool Mounted
+    {
+        get => Lifecycle.Mounted;
+        init => Lifecycle = Lifecycle with { Mounted = value };
+    }
+
+    /// <summary>Gets the stored transition phase.</summary>
+    public TransitionStatus? TransitionStatus
+    {
+        get => Lifecycle.TransitionStatus;
+        init => Lifecycle = Lifecycle with { TransitionStatus = value };
+    }
+
+    /// <summary>Gets the generated id of the popup element.</summary>
+    public string? FloatingId
+    {
+        get => Lifecycle.FloatingId;
+        init => Lifecycle = Lifecycle with { FloatingId = value };
+    }
+
+    /// <summary>Gets a value indicating whether the current close cycle stays mounted until the unmount action.</summary>
+    public bool PreventUnmountingOnClose
+    {
+        get => Lifecycle.PreventUnmountingOnClose;
+        init => Lifecycle = Lifecycle with { PreventUnmountingOnClose = value };
+    }
+
+    /// <summary>Gets how many times the unmount action ended a close.</summary>
+    public int UnmountRequests
+    {
+        get => Lifecycle.UnmountRequests;
+        init => Lifecycle = Lifecycle with { UnmountRequests = value };
+    }
+
+    /// <summary>Gets the relay of the last committed open change, or <see langword="null"/> before the first.</summary>
+    public OpenChangeRelay? OpenChange
+    {
+        get => Lifecycle.OpenChange;
+        init => Lifecycle = Lifecycle with { OpenChange = value };
+    }
+
+    /// <summary>Gets how the user opened the popup, or <see langword="null"/> while closed.</summary>
+    public InteractionType? OpenMethod
+    {
+        get => Lifecycle.OpenMethod;
+        init => Lifecycle = Lifecycle with { OpenMethod = value };
+    }
 
     // TIP-STA-02 (tooltip/root/TooltipRoot.tsx:68-82: the transitions run on `!disabled && openState`); design point 13.7 of
     // M4 track 6, ADR 05 Amendments 2026-10-28 (settled by the orchestrator 2026-10-28). Tooltip sets it through
     // PopupStore.SetDisabled (Menu does not: its `disabled` only switches the interactions off); the stored open state is
     // left to the family's disabled close.
     /// <summary>Gets a value indicating whether the popup's root is disabled, which keeps it effectively closed.</summary>
-    public bool Disabled { get; init; }
+    public bool Disabled
+    {
+        get => Lifecycle.Disabled;
+        init => Lifecycle = Lifecycle with { Disabled = value };
+    }
 
     // PSH-STA-02, TIP-STA-02.
     /// <summary>Gets the effective open state: the controlled value when controlled, else the internal one, while the root is not disabled.</summary>
-    public bool EffectiveOpen => IsEffectivelyOpen(Disabled, OpenProp, Open);
+    public bool EffectiveOpen => Lifecycle.EffectiveOpen;
 
     // PSH-STA-03.
     /// <summary>Gets the effective active trigger id: the controlled value when controlled, else the internal one.</summary>
@@ -90,32 +145,27 @@ internal sealed partial record PopupStoreState<TPayload>(
 
     // PSH-STA-05, TRN-STA-14.
     /// <summary>Gets the derived transition status: starting while effectively open and not yet mounted, else the stored one.</summary>
-    public TransitionStatus? DerivedTransitionStatus => EffectiveOpen && !Mounted ? Primitives.TransitionStatus.Starting : TransitionStatus;
+    public TransitionStatus? DerivedTransitionStatus => Lifecycle.DerivedTransitionStatus;
 
     // PSH-STA-06.
     /// <summary>Gets the active trigger's registration while mounted, and <see langword="null"/> otherwise.</summary>
     public PopupTriggerElement? DerivedActiveTriggerElement => Mounted ? ActiveTriggerElement : null;
 
-    // PSH-STA-02, TIP-STA-02: the one definition, also read for a state a write is about to commit.
+    // PSH-STA-02, TIP-STA-02: the one definition (the lifecycle's), also read for a state a write is about to commit.
     /// <summary>Determines the effective open state of a set of inputs.</summary>
     /// <param name="disabled">Whether the root is disabled.</param>
     /// <param name="openProp">The controlled <c>Open</c> parameter, or <see langword="null"/> while uncontrolled.</param>
     /// <param name="open">The internal open state.</param>
     /// <returns><see langword="true"/> if the root is not disabled and the controlled value, else the internal one, is open.</returns>
-    public static bool IsEffectivelyOpen(bool disabled, bool? openProp, bool open) => !disabled && (openProp ?? open);
+    public static bool IsEffectivelyOpen(bool disabled, bool? openProp, bool open) => PopupLifecycleState.IsEffectivelyOpen(disabled, openProp, open);
 
     // store.ts:90-125, createInitialPopupStoreState.
     /// <summary>Creates the initial state of a store.</summary>
     /// <param name="floatingId">The generated id of the popup element.</param>
     /// <returns>A closed, unmounted state with no trigger.</returns>
     public static PopupStoreState<TPayload> Initial(string? floatingId) => new(
-        Open: false,
-        OpenProp: null,
-        Mounted: false,
-        TransitionStatus: null,
-        FloatingId: floatingId,
+        Lifecycle: PopupLifecycleState.Initial(floatingId),
         TriggerCount: 0,
-        PreventUnmountingOnClose: false,
         PayloadVersion: 0,
         ActiveTriggerId: null,
         ActiveTriggerElement: null,
@@ -125,10 +175,7 @@ internal sealed partial record PopupStoreState<TPayload>(
         PopupElementKnown: false,
         PopupElementId: null,
         PopupElement: null,
-        PositionerElement: null,
-        UnmountRequests: 0,
-        OpenChange: null,
-        OpenMethod: null);
+        PositionerElement: null);
 
     // PSH-STA-07.
     /// <summary>Determines whether the trigger with <paramref name="triggerId"/> is the effective active trigger.</summary>

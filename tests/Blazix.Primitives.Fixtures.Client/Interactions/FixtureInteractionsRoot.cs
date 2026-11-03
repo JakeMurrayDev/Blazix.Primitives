@@ -39,6 +39,9 @@ public sealed class FixtureInteractionsRoot : ComponentBase, IAsyncDisposable
     /// <summary>Gets the number of requests the store received.</summary>
     public int Requests { get; private set; }
 
+    /// <summary>Gets the id of the trigger the last committed open came from, or <see langword="null"/> before any.</summary>
+    public string? ActiveTriggerId => activeTriggerId;
+
     internal InteractionsSessionBehavior Session => session!;
 
     /// <summary>Gets a task that completes when the session handle is attached.</summary>

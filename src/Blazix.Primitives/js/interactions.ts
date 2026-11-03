@@ -105,9 +105,15 @@ export interface DismissOptions {
   ownBackdropIds?: string[] | null;
   /** Dialog's predicate: only the topmost open popup dismisses. */
   topmost?: boolean | null;
-  // FLT-DIS-09's cross-menu branch (NavigationMenuList.tsx:54-65); M5 track 2, ignored until its commit.
+  // FLT-DIS-09's cross-menu branch (NavigationMenuList.tsx:54-65); M5 track 2.
   /** A selector matched from the press target outward: a press inside a match is not outside. */
   outsidePressExemptSelector?: string | null;
+  // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01); M5 track 2.
+  /** The ids of the elements a press inside which is not outside (a combobox's Trigger, Clear, Chips and InputGroup). */
+  outsidePressExemptIds?: string[] | null;
+  // ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-DIS-01); M5 track 2.
+  /** Milliseconds after an open during which outside presses are ignored, unless the open came from a `contextmenu`. */
+  outsidePressGrace?: number | null;
 }
 
 /** The options of a `session` handle (a popup Root). */
@@ -152,6 +158,9 @@ export interface ClickOptions {
   touchOpenDelay?: number | null;
   /** The reason of the request; `trigger-press` when absent. */
   reason?: 'trigger-press' | 'input-press' | null;
+  // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43); M5 track 2.
+  /** The action a `mousedown` takes elsewhere: the click after a `mousedown` that matches it (opening a closed popup, closing an open one) asks nothing. */
+  mouseDownAction?: 'open' | 'close' | null;
 }
 
 // FLT §6.7; §6.9
@@ -183,13 +192,13 @@ export interface HoverOptions {
   // FLT-ALG-23
   /** The provider token whose delay group the trigger belongs to. */
   delayGroupToken?: string | null;
-  // NavigationMenu's `getScope` (NavigationMenuTrigger.tsx:511-517); M5 track 2, ignored until its commit.
+  // NavigationMenu's `getScope` (NavigationMenuTrigger.tsx:511-517); M5 track 2.
   /** The selector of the trigger's nearest ancestor the pointer-events lock scopes to; the default scope when absent. */
   pointerEventsScopeSelector?: string | null;
-  // NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615); M5 track 2, ignored until its commit.
+  // NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615); M5 track 2.
   /** Whether entering the trigger locks pointer events while the floating element exists. */
   blockPointerEventsOnEnter?: boolean | null;
-  // NavigationMenu's `getHandleCloseContext` (NavigationMenuTrigger.tsx:503-509, 812-845); M5 track 2, ignored until its commit.
+  // NavigationMenu's `getHandleCloseContext` (NavigationMenuTrigger.tsx:503-509, 812-845); M5 track 2.
   /** The floating element (by id) and tree node the safe polygon closes against when the popup has no positioner. */
   inlineCloseContext?: InlineCloseContextOptions | null;
 }
@@ -1287,6 +1296,9 @@ interface DismissState {
   clearInsideReactTreeTimeout: Timer;
   /** Outlives the listeners' re-installs, so a pending reset cannot leave `isComposing` stuck. */
   compositionTimeout: Timer;
+  // ContextMenu's outside-press grace (M5 track 2).
+  /** Runs while an open's outside-press grace lasts. */
+  graceTimeout: Timer;
 }
 
 /** Re-arms a session that requested a close: C# answered a request (canceled ones included). */
@@ -1309,6 +1321,7 @@ function dismissState(record: SessionRecord): DismissState {
     currentPointerType: '',
     touchState: null,
     disarmed: false,
+    graceTimeout: createTimer(),
     cancelDismissOnEndTimeout: createTimer(),
     clearInsideReactTreeTimeout: createTimer(),
     compositionTimeout: createTimer(),
@@ -1370,9 +1383,33 @@ function markInsidePressStartPrevented(record: SessionRecord, event: MouseEvent)
 }
 
 // useDismiss.ts:169-178 (FLT-KEY-02, FLT-DIS-10): an open descendant in the session forest that does not bubble.
-function hasBlockingChild(record: SessionRecord, bubbleKey: '__escapeKeyBubbles' | '__outsidePressBubbles'): boolean {
+// Issue 156 (M5 track 2; ADR 04 Amendments 2026-11-03 (5), chosen by the user 2026-11-03): Base UI's dismissal reads the tree
+// of the render before the keydown (useFloating.ts:90-118), so within one keydown a child that has just closed, or whose
+// popup has just left the document, still blocks its parent, whatever order the sessions' listeners run in. The first
+// Escape listener of a keydown records the forest's nodes (their parents, open states and Escape bubbling) before any
+// listener closes a popup, and every session's check reads that record for the keydown. Design point 11.6's in-flight rule
+// stays the hover cascade's (ADR 04 Amendments 2026-10-29), and the outside press keeps the committed state.
+const nodesAtKeydownStart = new WeakMap<Event, readonly SessionNode[]>();
+
+function recordNodesAtKeydownStart(record: SessionRecord, event: KeyboardEvent): readonly SessionNode[] {
+  let nodes = nodesAtKeydownStart.get(event);
+  if (nodes === undefined) {
+    nodes = record.tree.nodesRef.current.map((node): SessionNode => {
+      const context = node.context;
+      return {
+        id: node.id,
+        parentId: node.parentId,
+        context: context === undefined ? undefined : { open: context.open, dataRef: { current: { ...context.dataRef?.current } } } as SessionNode['context'],
+      };
+    });
+    nodesAtKeydownStart.set(event, nodes);
+  }
+  return nodes;
+}
+
+function hasBlockingChild(record: SessionRecord, bubbleKey: '__escapeKeyBubbles' | '__outsidePressBubbles', nodes: readonly SessionNode[] = record.tree.nodesRef.current): boolean {
   const nodeId = record.dataRef.current.floatingContext?.nodeId;
-  const children = getNodeChildren(record.tree.nodesRef.current, nodeId);
+  const children = getNodeChildren(nodes, nodeId);
   return children.some((child) => child.context?.open && !child.context.dataRef?.current[bubbleKey]);
 }
 
@@ -1388,9 +1425,13 @@ function isEventWithinOwnElements(record: SessionRecord, event: Event): boolean 
  * before the next open arrives, is left alone.
  */
 function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
+  if (event.key !== 'Escape') {
+    return;
+  }
+  const nodesAtStart = recordNodesAtKeydownStart(record, event);
   const state = dismissState(record);
   const options = state.options;
-  if (!record.open || options === null || options.escapeKey === false || event.key !== 'Escape') {
+  if (!record.open || options === null || options.escapeKey === false) {
     return;
   }
   const handled = (event as EscapeMarkedEvent)[escapeHandled];
@@ -1405,7 +1446,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   // The innermost open popup takes the key (FLT-KEY-02): with Escape not bubbling, an open descendant in the session
   // forest that does not bubble it blocks this popup.
   const escapeKeyBubbles = normalizeBubbles({ escapeKey: options.bubblesEscapeKey, outsidePress: options.bubblesOutsidePress }).escapeKey;
-  if (!escapeKeyBubbles && hasBlockingChild(record, '__escapeKeyBubbles')) {
+  if (!escapeKeyBubbles && hasBlockingChild(record, '__escapeKeyBubbles', nodesAtStart)) {
     return;
   }
   const channel = record.channel;
@@ -1449,6 +1490,24 @@ function passesOutsidePressGuard(record: SessionRecord, event: MouseEvent | Poin
   const options = dismissState(record).options;
   if (options === null) {
     return true;
+  }
+  if (dismissState(record).graceTimeout.isStarted()) {
+    return false;
+  }
+  // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), M5 track 2.
+  const exemptIds = options.outsidePressExemptIds;
+  if (exemptIds != null && exemptIds.length > 0) {
+    const target = getTarget(event) as Element | null;
+    const doc = ownerDocument(record.floatingElement ?? (target as Element | null));
+    if (exemptIds.some((id) => contains(doc.getElementById(id), target))) {
+      return false;
+    }
+  }
+  // NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65; NAV-PTR-17), a branch of FLT-DIS-09 as data
+  // (M5 track 2): a press inside a match of the selector, such as any navigation menu's trigger, is not outside.
+  const exemptSelector = options.outsidePressExemptSelector;
+  if (exemptSelector != null && exemptSelector !== '' && closest(getTarget(event) as Element | null, exemptSelector) !== null) {
+    return false;
   }
   // For mouse events, only the left button.
   if (options.primaryButtonOnly === true && 'button' in event && event.button !== 0) {
@@ -1537,9 +1596,17 @@ function createSessionDismissController(context: HandleContext): Controller {
   const onOpenChange = (details: SessionOpenChangeDetails) => {
     if (!details.open) {
       state.sawPressWhileOpen = false;
+      state.graceTimeout.clear();
     } else {
       // The relay brought the next open: the session may request a close again.
       state.disarmed = false;
+      // ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-DIS-01, M5 track 2): outside presses wait out the
+      // grace after an open that did not come from a `contextmenu`; the timer is the module's (ADR 01 decision 4).
+      const grace = state.options?.outsidePressGrace ?? 0;
+      state.graceTimeout.clear();
+      if (grace > 0 && details.nativeEvent?.type !== 'contextmenu') {
+        state.graceTimeout.start(grace, () => {});
+      }
     }
   };
 
@@ -2087,12 +2154,14 @@ function patientClickState(record: SessionRecord): PatientClickState {
   });
 }
 
-// FLT-ALG-16
+// FLT-ALG-16. The deferred press: M5 track 2, the consumer's declined onmousedown (ADR 01 Amendments 2026-11-04).
 /**
  * useClick on a trigger (useClick.ts) with the decision point `press`: the trigger computes the next open value from the
  * relayed state and asks `press` on its own twin, fallback `run`. On WebAssembly it first hands the press
  * over (`OnPressing`) and C# runs the consumer's declined `onclick` and the request inside the dispatch; on Server it
- * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later.
+ * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later. A press
+ * deferred to a frame or a touch delay fires after Blazor dispatched its event, so it says `deferred` and C# takes the
+ * consumer's verdict from that dispatch.
  */
 function createClickController(context: HandleContext): Controller {
   const { record, channel, twinReference } = context;
@@ -2111,10 +2180,16 @@ function createClickController(context: HandleContext): Controller {
   // orchestrator 2026-10-27); iOS's empty type is touch.
   const classify = (event: MouseEvent): PressInteractionType => classifyClick(event, lastPressPointerType) || (platform.os.ios ? 'touch' : '');
 
-  const press = (nextOpen: boolean, event: MouseEvent, target: HTMLElement) => {
+  const press = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, deferred: boolean) => {
     const options = clickOptions();
     const reason = options?.reason ?? 'trigger-press';
-    const payload = { open: nextOpen, reason, triggerId: triggerIdOf(record, target === element ? element : target), interactionType: classify(event) };
+    const payload = {
+      open: nextOpen,
+      reason,
+      triggerId: triggerIdOf(record, target === element ? element : target),
+      interactionType: classify(event),
+      ...(deferred ? { deferred } : {}),
+    };
     const request: PendingRequest = { open: nextOpen, reason, event };
     record.pending = request;
     if (nextOpen) {
@@ -2130,12 +2205,12 @@ function createClickController(context: HandleContext): Controller {
   };
 
   // FLT-PTR-04: a touch open waits `touchOpenDelay`; a close never waits.
-  const setOpenWithTouchDelay = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, type: string | undefined) => {
+  const setOpenWithTouchDelay = (nextOpen: boolean, event: MouseEvent, target: HTMLElement, type: string | undefined, deferred = false) => {
     const touchOpenDelay = clickOptions()?.touchOpenDelay ?? 0;
     if (nextOpen && type === 'touch' && touchOpenDelay > 0) {
-      touchOpenTimeout.start(touchOpenDelay, () => press(true, event, target));
+      touchOpenTimeout.start(touchOpenDelay, () => press(true, event, target, true));
     } else {
-      press(nextOpen, event, target);
+      press(nextOpen, event, target, deferred);
     }
   };
 
@@ -2182,11 +2257,33 @@ function createClickController(context: HandleContext): Controller {
       setOpenWithTouchDelay(nextOpen, event, (isTypeable ? target : element) as HTMLElement, type);
       return;
     }
-    frame.request(() => setOpenWithTouchDelay(nextOpen, event, element, type));
+    frame.request(() => setOpenWithTouchDelay(nextOpen, event, element, type, true));
+  };
+
+  // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213): a mousedown whose action matches the popup's
+  // state arms a one-shot suppression of the trigger's next click; the next document click, which follows the trigger's
+  // own listener, disarms it.
+  let ignoreClick = false;
+  const armMixedToggle = (event: MouseEvent) => {
+    const action = clickOptions()?.mouseDownAction;
+    if ((action === 'open' && !record.open) || (action === 'close' && record.open)) {
+      ignoreClick = true;
+      ownerDocument(event.currentTarget as Element).addEventListener(
+        'click',
+        () => {
+          ignoreClick = false;
+        },
+        { once: true },
+      );
+    }
   };
 
   // FLT-PTR-03.
   const onClick = (event: MouseEvent) => {
+    if (ignoreClick) {
+      ignoreClick = false;
+      return;
+    }
     const options = clickOptions();
     const eventOption = options?.event ?? 'click';
     if (eventOption === 'mousedown-only') {
@@ -2226,14 +2323,16 @@ function createClickController(context: HandleContext): Controller {
     const state = patient;
     cleanup = mergeCleanups(
       listen(element, 'pointerdown', onPointerDown),
+      listen(element, 'mousedown', armMixedToggle),
       listen(element, 'mousedown', onMouseDown),
       listen(element, 'click', onClick),
       listen(element, 'keydown', onKeyDown),
       () => {
         state.listening -= 1;
+        // NAV-PTR-05 (M5 track 2): the window is the session's, as Base UI keeps it on the Trigger (stickIfOpenTimeout) and
+        // Popover's store does, so the last uninstall leaves a running timer to end it.
         if (state.listening === 0) {
           record.events.off('openchange', state.onOpenChange);
-          state.timer.clear();
         }
       },
     );
@@ -2316,6 +2415,20 @@ function isHoverOpenEvent(openEventType: string | undefined): boolean {
 export interface SafePolygonOptions {
   /** Whether pointer events outside the trigger and the floating element are blocked while the popup is hover-open. */
   blockPointerEvents?: boolean | undefined;
+  // NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data (M5 track 2; NAV-PTR-10).
+  /** The selector of the trigger's nearest ancestor the lock scopes to; the default scope when absent or unmatched. */
+  scopeSelector?: string | null | undefined;
+}
+
+/**
+ * Returns the lock's scope a strategy's selector names for a trigger: its nearest ancestor that matches.
+ * @param options The strategy's options.
+ * @param trigger The trigger.
+ * @returns The scope, or `null` for the caller's default.
+ */
+function scopeFromSelector(options: SafePolygonOptions | undefined, trigger: Element | null): HTMLElement | SVGSVGElement | null {
+  const selector = options?.scopeSelector;
+  return selector != null && selector !== '' ? closest<HTMLElement>(trigger, selector) : null;
 }
 
 /** What a close strategy is invoked with when the pointer leaves a trigger. */
@@ -2668,6 +2781,8 @@ interface PointerEventsMutationState {
   pointerEventsScopeElement: HTMLElement | SVGSVGElement | null;
   pointerEventsReferenceElement: HTMLElement | SVGSVGElement | null;
   pointerEventsFloatingElement: HTMLElement | null;
+  /** The observer that re-asserts the mutation after a write of the elements' `style` while it holds. */
+  pointerEventsObserver?: MutationObserver | null | undefined;
 }
 
 /** The hover state of a session, shared by its trigger and floating hover controllers. */
@@ -2701,6 +2816,8 @@ function clearSafePolygonPointerEventsMutation(instance: PointerEventsMutationSt
 
   const scopeElement = instance.pointerEventsScopeElement as PointerEventsScope | null;
 
+  instance.pointerEventsObserver?.disconnect();
+  instance.pointerEventsObserver = null;
   if (scopeElement && scopeElement[pointerEventsOwner] === instance) {
     instance.pointerEventsScopeElement?.style.removeProperty('pointer-events');
     instance.pointerEventsReferenceElement?.style.removeProperty('pointer-events');
@@ -2742,6 +2859,30 @@ function applySafePolygonPointerEventsMutation(
   scopeElement.style.pointerEvents = 'none';
   referenceElement.style.pointerEvents = 'auto';
   floatingElement.style.pointerEvents = 'auto';
+
+  // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's
+  // whole `style` attribute when its rendered value changes (a Trigger's or a List's C#-rendered `style`), which drops the
+  // three values. While this state owns the scope, the observer re-asserts a value that differs at the microtask after
+  // the write, before the next input task; a matching value is left alone, so its own writes end the loop.
+  if (typeof MutationObserver === 'function') {
+    const reassert = (element: HTMLElement | SVGSVGElement, value: string) => {
+      if (element.style.pointerEvents !== value) {
+        element.style.pointerEvents = value;
+      }
+    };
+    const observer = new MutationObserver(() => {
+      if (scopeElement[pointerEventsOwner] !== instance) {
+        return;
+      }
+      reassert(scopeElement, 'none');
+      reassert(referenceElement, 'auto');
+      reassert(floatingElement, 'auto');
+    });
+    for (const element of [scopeElement, referenceElement, floatingElement]) {
+      observer.observe(element, { attributes: true, attributeFilter: ['style'] });
+    }
+    instance.pointerEventsObserver = observer;
+  }
 }
 
 /**
@@ -2903,6 +3044,60 @@ function createHoverReferenceController(context: HandleContext): Controller {
 
   const clearPointerEvents = () => clearSafePolygonPointerEventsMutation(instance);
 
+  // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; NAV-PTR-09, NAV-PTR-13), as data:
+  // the named element (the Viewport) is the floating element, placed on the dominant axis from the trigger's center to
+  // its center, and the node is the one the option names (the nested Root's), else this session's.
+  const inlineCloseContext = () => {
+    const inline = hoverOptions()?.inlineCloseContext;
+    const floating = inline == null ? null : ownerDocument(element).getElementById(inline.floatingId);
+    if (inline == null || floating === null) {
+      return undefined;
+    }
+    const reference = element.getBoundingClientRect();
+    const target = floating.getBoundingClientRect();
+    const deltaX = target.left + target.width / 2 - (reference.left + reference.width / 2);
+    const deltaY = target.top + target.height / 2 - (reference.top + reference.height / 2);
+    const placement = Math.abs(deltaX) >= Math.abs(deltaY) ? (deltaX >= 0 ? 'right' : 'left') : deltaY >= 0 ? 'bottom' : 'top';
+    return { placement, elements: { domReference: element, floating }, nodeId: inline.nodeToken ?? record.token };
+  };
+
+  // NavigationMenu's own lock (NavigationMenuTrigger.tsx:594-615, 488-501, 651-675; NAV-PTR-10..12, NAV-EDGE-10), as data:
+  // entering the trigger while the floating element exists locks pointer events, at once for a closed popup or the active
+  // trigger and in a microtask after a switch, so the switch's commit lands first; a pointerdown and a leave while closed
+  // release it.
+  const lockOnEnter = (event: MouseEvent) => {
+    const options = hoverOptions();
+    if (options?.blockPointerEventsOnEnter !== true || options.blockPointerEvents !== true || record.floatingElement === null) {
+      return;
+    }
+    const trigger = event.currentTarget as HTMLElement;
+    const apply = () => {
+      const floating = record.floatingElement;
+      if (floating !== null) {
+        const scopeElement = scopeFromSelector({ scopeSelector: options.pointerEventsScopeSelector }, trigger) ?? trigger.ownerDocument.body;
+        applySafePolygonPointerEventsMutation(instance, { scopeElement, referenceElement: trigger, floatingElement: floating });
+      }
+    };
+    // Base UI's `value != null && value !== itemValue`: the committed active trigger, which a hover hand-off has not moved.
+    if (record.open && record.activeTriggerId !== null && record.activeTriggerId !== triggerIdOf(record, trigger)) {
+      queueMicrotask(apply);
+    } else {
+      apply();
+    }
+  };
+
+  const releaseOnPointerDown = () => {
+    if (hoverOptions()?.blockPointerEventsOnEnter === true) {
+      clearPointerEvents();
+    }
+  };
+
+  const releaseOnClosedLeave = () => {
+    if (hoverOptions()?.blockPointerEventsOnEnter === true && !record.open) {
+      clearPointerEvents();
+    }
+  };
+
   // FLT-PTR-19 (useHoverReferenceInteraction.ts:156-159): the strategy, rebuilt when its options change, and its options
   // published to the shared state while this trigger is the active one. A trigger without hover publishes nothing.
   const refreshHandleClose = () => {
@@ -2910,10 +3105,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     if (options === null) {
       return;
     }
-    const key = options.safePolygon === true ? String(options.blockPointerEvents === true) : null;
+    const scopeSelector = options.pointerEventsScopeSelector ?? null;
+    const key = options.safePolygon === true ? `${options.blockPointerEvents === true}|${scopeSelector ?? ''}` : null;
     if (key !== handleCloseKey) {
       handleCloseKey = key;
-      handleClose = key === null ? null : safePolygon({ blockPointerEvents: options.blockPointerEvents === true });
+      handleClose = key === null ? null : safePolygon({ blockPointerEvents: options.blockPointerEvents === true, scopeSelector });
     }
     if (isActiveTrigger()) {
       instance.handleCloseOptions = handleClose?.__options;
@@ -3070,8 +3266,9 @@ function createHoverReferenceController(context: HandleContext): Controller {
     instance.restTimeout.clear();
     instance.restTimeoutPending = false;
 
-    // `getHandleCloseContext` has no M4 consumer: the session's published floating context is the close context.
-    const handleCloseContextBase = record.dataRef.current.floatingContext;
+    // useHoverReferenceInteraction.ts:315: the session's published floating context, else the trigger's inline one
+    // (NavigationMenu's getHandleCloseContext, M5 track 2).
+    const handleCloseContextBase = record.dataRef.current.floatingContext ?? inlineCloseContext();
 
     if (isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements)) {
       return;
@@ -3142,12 +3339,13 @@ function createHoverReferenceController(context: HandleContext): Controller {
       return;
     }
 
-    if (currentOpen && isOverInactive && instance.handleCloseOptions?.blockPointerEvents) {
+    // ADR 04 Amendments 2026-11-04 (2): a trigger with its own lock (NavigationMenu's) takes none here, so the lock applies once.
+    if (currentOpen && isOverInactive && instance.handleCloseOptions?.blockPointerEvents && options.blockPointerEventsOnEnter !== true) {
       const floatingElement = record.floatingElement;
 
       if (floatingElement) {
-        // `getScope` has no M4 consumer (Navigation Menu's).
-        const scopeElement = trigger.ownerDocument.body;
+        // FLT-PTR-16 with NavigationMenu's getScope (M5 track 2): the strategy's scope, else the document.
+        const scopeElement = scopeFromSelector(instance.handleCloseOptions, trigger) ?? trigger.ownerDocument.body;
 
         applySafePolygonPointerEventsMutation(instance, {
           scopeElement,
@@ -3303,8 +3501,12 @@ function createHoverReferenceController(context: HandleContext): Controller {
     // The hook's native listeners first, then its prop bag, then Tooltip's handlers (React runs delegated handlers last).
     hoverCleanup = mergeCleanups(
       options.move !== false && listen(element, 'mousemove', onMouseEnter, { once: true }),
+      // NavigationMenu's own lock decides on the state before this event's switch (Base UI reads the render's `value`), so
+      // its listener runs before the hover hook's.
+      options.blockPointerEventsOnEnter === true && listen(element, 'mouseenter', lockOnEnter),
       listen(element, 'mouseenter', onMouseEnter),
       listen(element, 'mouseleave', onMouseLeave),
+      options.blockPointerEventsOnEnter === true && mergeCleanups(listen(element, 'pointerdown', releaseOnPointerDown), listen(element, 'mouseleave', releaseOnClosedLeave)),
       options.guardStaleOpen === true && listen(element, 'mouseout', onMouseOut),
       listen(element, 'pointerdown', setPointerRef),
       listen(element, 'pointerenter', setPointerRef),
@@ -3351,6 +3553,10 @@ function createHoverReferenceController(context: HandleContext): Controller {
       }
     },
     dispose() {
+      // NavigationMenuTrigger.tsx:488-501 (NAV-EDGE-10): the unmount of the trigger the lock was applied for releases it.
+      if (hoverOptions()?.blockPointerEventsOnEnter === true && instance.pointerEventsReferenceElement === element) {
+        clearPointerEvents();
+      }
       uninstallHover();
       uninstallPress();
       cleanupMouseMoveHandler();
@@ -3428,8 +3634,9 @@ function createHoverFloatingController(context: HandleContext): Controller {
       // would not shield sibling items in the parent menu.
       const cachedScopeElement = instance.pointerEventsScopeElement !== floatingElement ? instance.pointerEventsScopeElement : null;
       const parentScopeElement = parentFloating !== floatingElement ? parentFloating : null;
-      // `getScope` has no M4 consumer (Navigation Menu's).
-      const scopeElement = cachedScopeElement ?? parentScopeElement ?? closest<HTMLElement>(ref, '[data-rootownerid]') ?? doc.body;
+      // useHoverFloatingInteraction.ts:124-129: the strategy's scope (NavigationMenu's getScope, M5 track 2) comes first.
+      const scopeElement =
+        scopeFromSelector(instance.handleCloseOptions, ref) ?? cachedScopeElement ?? parentScopeElement ?? closest<HTMLElement>(ref, '[data-rootownerid]') ?? doc.body;
 
       applySafePolygonPointerEventsMutation(instance, {
         scopeElement,
@@ -4130,6 +4337,53 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
   }
   record.positionReference = reference;
   notifyPositionListeners(record);
+}
+
+// NAV-PTR-07 (M5 track 2; settled by the orchestrator 2026-11-04 under ADR 04 §1): the recorded open event is this
+// module's key (`dataRef.current.openEvent`), so a component module that switches without a click (NavigationMenu's hover
+// and key switches) clears it through this export.
+/**
+ * Forgets the open event recorded on the session of a token.
+ * @param token The session token; an unknown token is ignored.
+ */
+export function clearSessionOpenEvent(token: string): void {
+  const record = sessions.get(token);
+  if (record !== undefined) {
+    record.dataRef.current.openEvent = undefined;
+  }
+}
+
+// The platform flags (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01),
+// M5 track 2: C#'s PlatformFlags service reads them once per circuit or runtime, for the attributes C# renders that depend
+// on them (the VoiceOver `aria-expanded` omission, ContextMenu's macOS branch).
+/**
+ * Returns the platform flags C# renders with: whether VoiceOver may be running, and whether the platform is macOS.
+ * @returns The JSON of `{ voiceOver, mac }`.
+ */
+export function readPlatformFlags(): string {
+  return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+}
+
+// ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04; ContextMenuTrigger.tsx:16, 58), M5 track 2: the
+// `context-menu` module anchors its session to a 0 x 0 rect at the gesture's point, or the origin rect before any. The
+// Positioner's explicit anchor keeps precedence (FLT-API-11): `positioning` follows the session's reference only without one.
+/**
+ * Sets the position reference of the session of a token to a rectangle, or clears it.
+ * @param token The session token.
+ * @param rect The rectangle in viewport coordinates, or `null` to clear the reference.
+ */
+export function setSessionPositionReference(token: string, rect: { x: number; y: number; width: number; height: number } | null): void {
+  const record = sessions.get(token);
+  if (record === undefined) {
+    return;
+  }
+  if (rect === null) {
+    setPositionReference(record, null);
+    return;
+  }
+  const { x, y, width, height } = rect;
+  const box = { x, y, width, height, top: y, left: x, right: x + width, bottom: y + height };
+  setPositionReference(record, { getBoundingClientRect: () => box });
 }
 
 function notifyPositionListeners(record: SessionRecord): void {

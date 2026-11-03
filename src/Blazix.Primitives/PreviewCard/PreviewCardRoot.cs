@@ -17,7 +17,9 @@ namespace Blazix.Primitives;
 //   Escape and the sloppy outside press while the card is open, mounted or given a Handle (PRV-STA-16, PSH-STA-43); no
 //   reference press, so EventReason.TriggerPress is never emitted (PRV-EVT-03, PRV §16 Q1). A Root inside another card's
 //   Root joins its tree (ParentToken, PRV-STR-10), as PopoverRoot does: the port's tree is the session forest, so the
-//   outer card's Root token stands for Base UI's outer Positioner node. The committed state reaches the session from the
+//   outer card's Root token stands for Base UI's outer Positioner node. The parent token is the enclosing popup's,
+//   whatever its family: the Root reads the family-agnostic cascade (IFloatingNodeContext; ADR 04 Amendments
+//   2026-11-03 (5), chosen by the user 2026-11-03; M5 track 2), which the store supplies to the Root's descendants. The committed state reaches the session from the
 //   commit path (ADR 01 Amendments 2026-10-27).
 // - The payload clear (PRV-STA-12) runs in the commit path, so the payload template never renders a stale payload.
 /// <summary>
@@ -66,7 +68,7 @@ public sealed class PreviewCardRoot<TPayload> : ComponentBase, IAsyncDisposable
     private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
-    private PreviewCardRootContext? EnclosingRoot { get; set; }
+    private IFloatingNodeContext? FloatingParent { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the preview card is open, when you control it.</summary>
     /// <value>The open state; supplying it at the first render makes the open state yours, with <see cref="OnOpenChange"/> or <c>@bind-Open</c>.</value>
@@ -170,7 +172,7 @@ public sealed class PreviewCardRoot<TPayload> : ComponentBase, IAsyncDisposable
             CloseOnActiveTriggerUnmount: true,
             ChildContent,
             PayloadContent));
-        session!.ParentToken = EnclosingRoot?.SessionToken;
+        session!.ParentToken = FloatingParent?.SessionToken;
     }
 
     /// <inheritdoc />

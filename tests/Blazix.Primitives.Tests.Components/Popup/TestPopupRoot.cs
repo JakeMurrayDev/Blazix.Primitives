@@ -26,6 +26,10 @@ public sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
     [Inject]
     private ILogger<TestPopupRoot<TPayload>> Logger { get; set; } = null!;
 
+    // ADR 04 Amendments 2026-11-03 (5): the enclosing popup of any family, as every popup Root reads it.
+    [CascadingParameter]
+    private IFloatingNodeContext? FloatingParent { get; set; }
+
     [Parameter]
     public bool Open { get; set; }
 
@@ -60,6 +64,9 @@ public sealed class TestPopupRoot<TPayload> : ComponentBase, IDisposable
     public RenderFragment<TPayload?>? PayloadContent { get; set; }
 
     internal TestPopupStore<TPayload> Store => behavior.Store;
+
+    /// <summary>Gets the session token of the enclosing popup, which a popup root's session names as its parent.</summary>
+    internal string? ParentToken => FloatingParent?.SessionToken;
 
     public int Renders { get; private set; }
 

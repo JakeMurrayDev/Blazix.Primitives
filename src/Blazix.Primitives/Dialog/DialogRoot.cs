@@ -49,6 +49,11 @@ public sealed class DialogRoot<TPayload> : ComponentBase, IAsyncDisposable
     [CascadingParameter]
     private IDialogRootContext? ParentContext { get; set; }
 
+    // ADR 04 Amendments 2026-11-03 (5) (chosen by the user 2026-11-03; M5 track 2): the session's parent is the enclosing
+    // popup of any family; ParentContext stays the dialog family's own (the nested-dialog count, DLG-STA-04..06).
+    [CascadingParameter]
+    private IFloatingNodeContext? FloatingParent { get; set; }
+
     // DLG-API-01
     /// <summary>Gets or sets a value indicating whether the dialog is open, for <c>@bind-Open</c>.</summary>
     /// <value>Leave it unset for an uncontrolled dialog; once set at the first render, the dialog follows it.</value>
@@ -140,7 +145,8 @@ public sealed class DialogRoot<TPayload> : ComponentBase, IAsyncDisposable
             new PopupRootParameters<TPayload>(DefaultOpen, DefaultTriggerId, Handle, OnOpenChange, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: false, ChildContent, PayloadContent),
             ToModality(Modal),
             DisablePointerDismissal,
-            ParentContext);
+            ParentContext,
+            FloatingParent);
     }
 
     /// <inheritdoc />

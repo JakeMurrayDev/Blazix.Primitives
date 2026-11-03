@@ -12,14 +12,39 @@ namespace Blazix.Primitives;
 /// <summary>Represents the open lifecycle of one popup: its open state, mounting, transition and last committed change.</summary>
 internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
 {
+    // ADR 16 rule 7: the four booleans and the controlled open share one byte. As separate fields the struct pads to 48
+    // bytes, and PopupStoreState<TPayload>, which can no longer interleave them with its own small fields, grew 8 bytes on
+    // every allocation (the payload write's L1 budget, 216 bytes, measured 224); as one byte it is 40 and the record is the
+    // size it was before the extraction.
+    private const byte OpenFlag = 1;
+    private const byte MountedFlag = 2;
+    private const byte PreventUnmountingFlag = 4;
+    private const byte DisabledFlag = 8;
+    private const byte OpenPropSetFlag = 16;
+    private const byte OpenPropFlag = 32;
+
+    private readonly byte flags;
+
     /// <summary>Gets the internal open state, written by every committed open change.</summary>
-    public bool Open { get; init; }
+    public bool Open
+    {
+        get => (flags & OpenFlag) != 0;
+        init => flags = With(flags, OpenFlag, value);
+    }
 
     /// <summary>Gets the controlled open state, or <see langword="null"/> while uncontrolled.</summary>
-    public bool? OpenProp { get; init; }
+    public bool? OpenProp
+    {
+        get => (flags & OpenPropSetFlag) != 0 ? (flags & OpenPropFlag) != 0 : null;
+        init => flags = With(With(flags, OpenPropSetFlag, value is not null), OpenPropFlag, value == true);
+    }
 
     /// <summary>Gets a value indicating whether the popup's subtree is mounted; it lags <see cref="Open"/> through the exit.</summary>
-    public bool Mounted { get; init; }
+    public bool Mounted
+    {
+        get => (flags & MountedFlag) != 0;
+        init => flags = With(flags, MountedFlag, value);
+    }
 
     /// <summary>Gets the stored transition phase.</summary>
     public TransitionStatus? TransitionStatus { get; init; }
@@ -28,7 +53,11 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
     public string? FloatingId { get; init; }
 
     /// <summary>Gets a value indicating whether the current close cycle stays mounted until the unmount action.</summary>
-    public bool PreventUnmountingOnClose { get; init; }
+    public bool PreventUnmountingOnClose
+    {
+        get => (flags & PreventUnmountingFlag) != 0;
+        init => flags = With(flags, PreventUnmountingFlag, value);
+    }
 
     /// <summary>Gets how many times the unmount action ended a close.</summary>
     public int UnmountRequests { get; init; }
@@ -40,7 +69,11 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
     public InteractionType? OpenMethod { get; init; }
 
     /// <summary>Gets a value indicating whether the popup's root is disabled, which keeps it effectively closed.</summary>
-    public bool Disabled { get; init; }
+    public bool Disabled
+    {
+        get => (flags & DisabledFlag) != 0;
+        init => flags = With(flags, DisabledFlag, value);
+    }
 
     // PSH-STA-02, TIP-STA-02.
     /// <summary>Gets the effective open state: the controlled value when controlled, else the internal one, while the root is not disabled.</summary>
@@ -55,16 +88,12 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
     /// <param name="right">The second state.</param>
     /// <returns><see langword="true"/> if every member is equal; the relay compares by reference.</returns>
     public static bool operator ==(PopupLifecycleState left, PopupLifecycleState right) =>
-        left.Open == right.Open
-        && left.OpenProp == right.OpenProp
-        && left.Mounted == right.Mounted
+        left.flags == right.flags
         && left.TransitionStatus == right.TransitionStatus
         && string.Equals(left.FloatingId, right.FloatingId, StringComparison.Ordinal)
-        && left.PreventUnmountingOnClose == right.PreventUnmountingOnClose
         && left.UnmountRequests == right.UnmountRequests
         && ReferenceEquals(left.OpenChange, right.OpenChange)
-        && left.OpenMethod == right.OpenMethod
-        && left.Disabled == right.Disabled;
+        && left.OpenMethod == right.OpenMethod;
 
     /// <summary>Determines whether two lifecycle states differ in any member.</summary>
     /// <param name="left">The first state.</param>
@@ -92,5 +121,7 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
     public override bool Equals(object? obj) => obj is PopupLifecycleState other && this == other;
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(HashCode.Combine(Open, OpenProp, Mounted, TransitionStatus, FloatingId), PreventUnmountingOnClose, UnmountRequests, OpenChange, OpenMethod, Disabled);
+    public override int GetHashCode() => HashCode.Combine(flags, TransitionStatus, FloatingId, UnmountRequests, OpenChange, OpenMethod);
+
+    private static byte With(byte flags, byte flag, bool set) => set ? (byte)(flags | flag) : (byte)(flags & ~flag);
 }

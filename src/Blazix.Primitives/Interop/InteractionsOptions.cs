@@ -125,10 +125,21 @@ internal sealed record InteractionsDismissOptions
     public bool Topmost { get; init; }
 
     // M5 track 2 (ADR 04 Amendments 2026-11-03 (7)): NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65),
-    // a branch of FLT-DIS-09; the module and Equals ignore it until its commit.
+    // a branch of FLT-DIS-09.
     /// <summary>Gets the selector of the elements a press inside which is not outside the popup.</summary>
     /// <value>A CSS selector matched from the press target outward, or <see langword="null"/> for none.</value>
     public string? OutsidePressExemptSelector { get; init; }
+
+    // M5 track 2: Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), the OwnBackdropIds precedent.
+    /// <summary>Gets the ids of the elements a press inside which is not outside the popup.</summary>
+    /// <value>The ids, such as a combobox's Trigger, Clear, Chips and InputGroup; <see langword="null"/> for none.</value>
+    public IReadOnlyList<string>? OutsidePressExemptIds { get; init; }
+
+    // M5 track 2: ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-DIS-01); the timer is the module's.
+    /// <summary>Gets the time after an open during which outside presses are ignored, unless the open came from a <c>contextmenu</c>.</summary>
+    /// <value>The grace in milliseconds; the default 0 is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int OutsidePressGrace { get; init; }
 
     /// <inheritdoc />
     public bool Equals(InteractionsDismissOptions? other) =>
@@ -141,10 +152,13 @@ internal sealed record InteractionsDismissOptions
         && PrimaryButtonOnly == other.PrimaryButtonOnly
         && SingleTouch == other.SingleTouch
         && Topmost == other.Topmost
+        && string.Equals(OutsidePressExemptSelector, other.OutsidePressExemptSelector, StringComparison.Ordinal)
+        && OutsidePressGrace == other.OutsidePressGrace
+        && (ReferenceEquals(OutsidePressExemptIds, other.OutsidePressExemptIds) || (OutsidePressExemptIds is not null && other.OutsidePressExemptIds is not null && OutsidePressExemptIds.SequenceEqual(other.OutsidePressExemptIds, StringComparer.Ordinal)))
         && (ReferenceEquals(OwnBackdropIds, other.OwnBackdropIds) || (OwnBackdropIds is not null && other.OwnBackdropIds is not null && OwnBackdropIds.SequenceEqual(other.OwnBackdropIds, StringComparer.Ordinal)));
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(EscapeKey, OutsidePress, OutsidePressEvent, BubblesEscapeKey, BubblesOutsidePress, PrimaryButtonOnly, SingleTouch, Topmost);
+    public override int GetHashCode() => HashCode.Combine(EscapeKey, OutsidePress, OutsidePressEvent, BubblesEscapeKey, BubblesOutsidePress, PrimaryButtonOnly, SingleTouch, HashCode.Combine(Topmost, OutsidePressExemptSelector, OutsidePressGrace));
 }
 
 /// <summary>The press type an outside press is read as: <c>intentional</c> (a click whose press began inside the open popup's lifetime) or <c>sloppy</c> (the press itself).</summary>
@@ -224,6 +238,11 @@ internal sealed record InteractionsClickOptions
     /// <summary>Gets the reason of the request a press makes.</summary>
     /// <value><c>trigger-press</c> or <c>input-press</c>; <see langword="null"/>, the default, for <c>trigger-press</c>.</value>
     public string? Reason { get; init; }
+
+    // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213); M5 track 2, for Menu and Menubar.
+    /// <summary>Gets the action a <c>mousedown</c> takes elsewhere, whose following click on the trigger asks nothing.</summary>
+    /// <value><c>open</c> or <c>close</c>; <see langword="null"/>, the default, for no suppression.</value>
+    public string? MouseDownAction { get; init; }
 }
 
 /// <summary>The hover configuration of a trigger.</summary>
@@ -276,18 +295,18 @@ internal sealed record InteractionsHoverOptions
     public string? DelayGroupToken { get; init; }
 
     // M5 track 2 (ADR 04 Amendments 2026-11-03 (7)): NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data,
-    // read on the trigger side and the floating side; the module ignores it until its commit.
+    // read on the trigger side and the floating side.
     /// <summary>Gets the selector of the trigger's nearest ancestor that the safe triangle's pointer-events lock scopes to.</summary>
     /// <value>A CSS selector, such as <c>ul</c>, matched from the trigger outward; <see langword="null"/> for the page's default scope.</value>
     public string? PointerEventsScopeSelector { get; init; }
 
-    // M5 track 2: NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615); ignored until its commit.
+    // M5 track 2: NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615).
     /// <summary>Gets a value indicating whether entering the trigger locks pointer events while the floating element exists.</summary>
     /// <value><see langword="true"/> for a navigation menu trigger that blocks pointer events; the default <see langword="false"/> is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool BlockPointerEventsOnEnter { get; init; }
 
-    // M5 track 2: NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845); ignored until its commit.
+    // M5 track 2: NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845).
     /// <summary>Gets the floating element and tree node the safe triangle closes against when the popup has no positioner.</summary>
     /// <value>The context, or <see langword="null"/> for the session's published one.</value>
     public InteractionsInlineCloseContext? InlineCloseContext { get; init; }

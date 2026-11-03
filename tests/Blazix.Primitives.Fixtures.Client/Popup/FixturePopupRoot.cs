@@ -41,6 +41,11 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
 
+    // ADR 04 Amendments 2026-11-03 (5): the enclosing popup of any family, whose session this root's session names as its
+    // parent.
+    [CascadingParameter]
+    private IFloatingNodeContext? FloatingParent { get; set; }
+
     [Parameter]
     public bool Open { get; set; }
 
@@ -155,5 +160,6 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
         session.FloatingId = popup.PopupId;
         session.Ending = popup.DerivedTransitionStatus == TransitionStatus.Ending;
         session.Relay = popup.OpenChange;
+        session.ParentToken = FloatingParent?.SessionToken;
     }
 }

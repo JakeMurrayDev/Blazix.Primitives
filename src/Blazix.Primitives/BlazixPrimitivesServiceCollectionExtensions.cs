@@ -22,6 +22,10 @@ public static class BlazixPrimitivesServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<PartIdGenerator>();
+
+        // ADR 04 Amendments 2026-11-04 (design point 4, settled by the orchestrator 2026-11-04): the platform hints, read
+        // once per circuit or runtime.
+        services.AddScoped<PlatformFlags>();
         services.AddScoped<ButtonDevelopmentLog>();
         services.AddScoped<CollapsibleDevelopmentLog>();
         services.AddScoped<ToggleDevelopmentLog>();
