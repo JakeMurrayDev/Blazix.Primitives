@@ -371,6 +371,16 @@ function setSharedFixedSize(menu: Menu, width: number, height: number): void {
   positionerLayer(menu)?.set(POSITIONER_HEIGHT, `${height}px`);
 }
 
+// NAV-PTR-07: clears the session's recorded open event. The key is the `interactions` module's, so this is the one
+// place that writes it, until that module's `clearSessionOpenEvent(token)` reaches this branch (a known gap, ADR 04 §1).
+function clearOpenEvent(menu: Menu): void {
+  const token = menu.options.sessionToken;
+  const session = token ? getSession(token) : undefined;
+  if (session !== undefined) {
+    session.dataRef.current.openEvent = undefined;
+  }
+}
+
 // NAV-FOC-10, 11, KEY-13; utils/isOutsideMenuEvent.ts over the session forest.
 function isOutsideMenuEvent(menu: Menu, currentTarget: Element, relatedTarget: Element | null): boolean {
   const token = menu.options.sessionToken;
@@ -826,14 +836,9 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
   const activate = (event: Event): void => {
     const direction = directionFrom();
     // NAV-PTR-07; NavigationMenuTrigger.tsx:571-576: a hover (or key) activation of an open menu resets the session's
-    // recorded open event, so a click-opened menu switched by hover is treated as hover-opened from then on. The
-    // session's dataRef is shared by every module of the session; the key is the interactions module's.
+    // recorded open event, so a click-opened menu switched by hover is treated as hover-opened from then on.
     if (event.type !== 'click' && isOpen(menu)) {
-      const token = menu.options.sessionToken;
-      const session = token ? getSession(token) : undefined;
-      if (session !== undefined) {
-        session.dataRef.current.openEvent = undefined;
-      }
+      clearOpenEvent(menu);
     }
     // NavigationMenuTrigger.tsx:578-580: a touch mouseenter requests nothing.
     if (pointerType === 'touch' && event.type !== 'click') {
