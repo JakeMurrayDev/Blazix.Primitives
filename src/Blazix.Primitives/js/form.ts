@@ -30,6 +30,8 @@ export interface FormControlOptions {
   reportKeys?: boolean;
   disabled?: boolean;
   reportEvents?: boolean;
+  /** Reports each `change` as `OnAutofill` and restores the committed value inside the dispatch (a list root's input). */
+  reportAutofill?: boolean;
   focusTarget?: string | null;
   autoFocus?: boolean;
   enterSubmit?: boolean;
@@ -677,6 +679,20 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
     element.addEventListener('blur', onBlur);
     element.addEventListener('keydown', onKeyDown);
   }
+  // M5 track 4, design point 4 (a)+(i) (settled by the orchestrator 2026-11-04): a list root's form-participation input owns
+  // no value of its own. An autofill's `change` is reported once (ADR 16 rule 6) with the text, `defaultPrevented` and the
+  // event, and the committed value is put back inside the dispatch; a value the root matches arrives through `update`.
+  function onAutofill(event: Event): void {
+    if (options.reportAutofill !== true) {
+      return;
+    }
+    const text = valueOf(element) ?? '';
+    channel.report('OnAutofill', { text, defaultPrevented: event.defaultPrevented, event: eventInfo(event) });
+    if (options.controlled) {
+      setValue(options.value ?? '');
+    }
+  }
+  element.addEventListener('change', onAutofill);
   element.addEventListener('focus', onFocus);
   const removeEnterSubmission = createEnterSubmission(element, () => options.enterSubmit === true && !options.disabled);
   if (options.autoFocus && !options.disabled) {
@@ -717,6 +733,7 @@ function attachControl(element: HTMLElement, initial: FormControlOptions, channe
       element.removeEventListener('change', onValue);
       element.removeEventListener('blur', onBlur);
       element.removeEventListener('keydown', onKeyDown);
+      element.removeEventListener('change', onAutofill);
       element.removeEventListener('focus', onFocus);
       removeEnterSubmission();
       stopWatchingLabels?.();
