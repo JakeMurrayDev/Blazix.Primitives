@@ -299,9 +299,11 @@ public sealed class NavigationMenuPopupConformanceTests : PartConformanceTests<N
 {
     public NavigationMenuPopupConformanceTests()
     {
+        // The Positioner's setup: an initially open one renders again 0 ms after mount, off the test's thread, and the
+        // element-reference titles read the markup while that render may run.
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
-        Context.RenderTree.Add<NavigationMenuRoot<string>>(p => p.Add(x => x.Value, "item"));
-        Context.RenderTree.Add<NavigationMenuPortal>();
+        Context.RenderTree.Add<NavigationMenuRoot<string>>();
+        Context.RenderTree.Add<NavigationMenuPortal>(p => p.Add(x => x.KeepMounted, true));
         Context.RenderTree.Add<NavigationMenuPositioner>();
     }
 
@@ -357,9 +359,10 @@ public sealed class NavigationMenuArrowConformanceTests : PartConformanceTests<N
 {
     public NavigationMenuArrowConformanceTests()
     {
+        // The Popup's setup, for the same reason.
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
-        Context.RenderTree.Add<NavigationMenuRoot<string>>(p => p.Add(x => x.Value, "item"));
-        Context.RenderTree.Add<NavigationMenuPortal>();
+        Context.RenderTree.Add<NavigationMenuRoot<string>>();
+        Context.RenderTree.Add<NavigationMenuPortal>(p => p.Add(x => x.KeepMounted, true));
         Context.RenderTree.Add<NavigationMenuPositioner>();
     }
 
