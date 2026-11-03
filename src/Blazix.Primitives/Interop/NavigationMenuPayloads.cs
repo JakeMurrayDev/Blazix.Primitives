@@ -22,3 +22,24 @@ internal sealed record NavigationMenuFocusOut(EventSnapshot? Event);
 /// <summary>Represents a change of the viewport's inert flag the module reported.</summary>
 /// <param name="Inert">The new value.</param>
 internal sealed record NavigationMenuViewportInertChange(bool Inert);
+
+// NAV-EVT-02: the reasons an activation requests with. The `interactions` literals have no `list-navigation`, so the
+// module's three are mapped here (the InteractionsLiterals precedent).
+/// <summary>Conversions of the literals the <c>navigation-menu</c> module reports.</summary>
+internal static class NavigationMenuLiterals
+{
+    /// <summary>Parses the literal of a reason an activation requests with.</summary>
+    /// <param name="literal">The literal: <c>trigger-hover</c>, <c>trigger-press</c> or <c>list-navigation</c>.</param>
+    /// <returns>The reason.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="literal"/> is not a reason the module reports.</exception>
+    public static EventReason ParseReason(string literal)
+    {
+        return literal switch
+        {
+            "trigger-hover" => EventReason.TriggerHover,
+            "trigger-press" => EventReason.TriggerPress,
+            "list-navigation" => EventReason.ListNavigation,
+            _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Blazix: `{literal}` is not a reason the `navigation-menu` module reports."),
+        };
+    }
+}

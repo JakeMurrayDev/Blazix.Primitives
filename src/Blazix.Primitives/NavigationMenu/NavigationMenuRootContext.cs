@@ -279,7 +279,7 @@ internal sealed class NavigationMenuRootContext<TValue> : NavigationMenuRootCont
             return Task.CompletedTask;
         }
 
-        OpenChangeEventDetails details = new(InteractionsLiterals.ParseReason(reason), activation.Event, item.TriggerId is { } id ? new EventTrigger(id, null) : null);
+        OpenChangeEventDetails details = new(NavigationMenuLiterals.ParseReason(reason), activation.Event, item.TriggerId is { } id ? new EventTrigger(id, null) : null);
         return request(typed.Value, details);
     }
 }
