@@ -18,12 +18,13 @@ public sealed class ItemIndicatorTests : IDisposable
 
     private readonly BunitContext context = new();
     private readonly BunitJSModuleInterop transitions;
+    private readonly BunitJSModuleInterop handle;
 
     public ItemIndicatorTests()
     {
         context.Services.AddBlazixPrimitives();
         transitions = context.JSInterop.SetupModule(TransitionsModulePath);
-        BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
+        handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();
     }
@@ -115,6 +116,22 @@ public sealed class ItemIndicatorTests : IDisposable
         IRenderedComponent<TestItemIndicator> cut = context.Render<TestItemIndicator>(p => p.Add(x => x.Selected, false));
         cut.Render(p => p.Add(x => x.Selected, true));
         Assert.True(cut.Find("span").HasAttribute("data-starting-style"));
+    }
+
+    // The module reads the selection from the applied batch (OpenSelector), so only a KeepMounted change is sent again.
+    [Fact(DisplayName = "port: an indicator re-rendered with unchanged parameters, or with a new selection, sends no update; a KeepMounted change sends one")]
+    [Trait("Requirement", "RND-ANI-02")]
+    public void An_indicator_sends_an_update_only_for_a_KeepMounted_change()
+    {
+        IRenderedComponent<TestItemIndicator> cut = context.Render<TestItemIndicator>(p => p.Add(x => x.Selected, true));
+        Assert.Single(transitions.Invocations["attach"]);
+
+        cut.Render(p => p.Add(x => x.Selected, true));
+        cut.Render(p => p.Add(x => x.Selected, false));
+        Assert.Empty(handle.Invocations["update"]);
+
+        cut.Render(p => p.Add(x => x.KeepMounted, true));
+        Assert.Single(handle.Invocations["update"]);
     }
 
     private Task CompleteExitAsync(IRenderedComponent<TestItemIndicator> cut)
