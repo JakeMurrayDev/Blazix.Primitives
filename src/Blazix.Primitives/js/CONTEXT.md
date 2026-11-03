@@ -175,3 +175,5 @@ The TypeScript side of the library: one module per row of ADR 04 §1, the JS ini
 - Every `decide()` call names its point and its fallback policy from ADR 04 §3; no module moves state through a synchronous invoke (ADR 01 decision 1).
 - Every module checks `event.defaultPrevented` where the Base UI source does (ADR 04 Amendments 2026-10-18).
 - One message per state change, never per frame (`report`).
+
+**`form.ts`'s `reportAutofill` (2026-11-04, M5 track 4, issue 162; design point 4 (a)+(i) settled by the orchestrator).** On the control role, `reportAutofill: true` adds one `change` listener. It reports `OnAutofill` `{ text, defaultPrevented, event }` once per change (ADR 16 rule 6) and puts the controlled `value` back inside the dispatch; with `reportEvents: false` nothing else is reported. A matched value arrives through `update`. On WebAssembly the report runs C# synchronously, so the matched value is already in the input when the dispatch returns. The L3 titles are in `form.test.ts`, "control with reportAutofill".

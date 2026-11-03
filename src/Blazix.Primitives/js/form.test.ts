@@ -231,6 +231,42 @@ describe('custom validity ownership', () => {
   });
 });
 
+// M5 track 4, design point 4 (a)+(i), settled by the orchestrator 2026-11-04: a list root's form-participation input is the
+// control role with `reportAutofill` and `reportEvents: false`. Its `value` is C#'s; an autofill's `change` is reported once
+// with the text, `defaultPrevented` and the event, and the committed value is restored inside the dispatch.
+describe('control with reportAutofill', () => {
+  it('reports an autofilled text once, restores the committed value in the dispatch, and reports nothing else', () => {
+    const element = input();
+    const { fake } = attachControl(element, { reportEvents: false, reportAutofill: true, controlled: true, value: 'a' });
+    expect(element.value).toBe('a');
+
+    element.value = 'Banana';
+    const change = new Event('change', { bubbles: true, cancelable: true });
+    element.dispatchEvent(change);
+
+    expect(fake.reported('OnAutofill')).toEqual([{ text: 'Banana', defaultPrevented: false, event: expect.objectContaining({ kind: 'Event', type: 'change' }) }]);
+    expect(element.value).toBe('a');
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new FocusEvent('blur'));
+    expect(fake.reported('OnControlReport')).toEqual([]);
+  });
+
+  it('reports a prevented change as prevented and writes the matched value the root commits through update', () => {
+    const element = input();
+    const { fake, handle } = attachControl(element, { reportEvents: false, reportAutofill: true, controlled: true, value: '' });
+
+    element.addEventListener('change', (event) => event.preventDefault(), { capture: true });
+    element.value = 'b';
+    element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+
+    expect(fake.reported<{ defaultPrevented: boolean }>('OnAutofill')).toEqual([expect.objectContaining({ text: 'b', defaultPrevented: true })]);
+    expect(element.value).toBe('');
+
+    handle.update(controlJson({ reportEvents: false, reportAutofill: true, controlled: true, value: 'b', revision: 1 }));
+    expect(element.value).toBe('b');
+  });
+});
+
 describe('control', () => {
   it('reports the value and the validity once per change of the value', () => {
     const element = input('<input id="control" required />');

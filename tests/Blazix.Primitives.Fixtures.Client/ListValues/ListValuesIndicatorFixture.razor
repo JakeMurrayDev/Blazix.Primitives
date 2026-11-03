@@ -1,0 +1,45 @@
+@namespace Blazix.Primitives.Fixtures.Client.ListValuesFixtures
+
+@*
+    The `list-values-indicator` fixture (tests/browser/list-values.spec.ts; RND-DOM-52, RND-ANI-03): item `a`'s kept-mounted
+    indicator (`indicator`) over ItemIndicatorBehavior, selected at first, with a 150 ms keyframe exit while
+    [data-ending-style]; `[data-select="a"]` and `[data-select="b"]` select an item. Open it with `?animations=1`, so the
+    transitions module watches the exit. `data-attached` turns true once the indicator's transitions handle attached.
+*@
+<FixtureContainer Name="list-values-indicator" data-attached="@(attached ? "true" : "false")">
+    <style>
+        @@keyframes list-values-indicator-out { from { opacity: 1; } to { opacity: 0; } }
+        [data-testid="indicator"][data-ending-style] { animation: list-values-indicator-out 150ms; }
+    </style>
+    <div data-testid="item-a">a @Indicator</div>
+    <div data-testid="item-b">b</div>
+    <button type="button" data-select="a" @onclick='() => selected = "a"'>Select a</button>
+    <button type="button" data-select="b" @onclick='() => selected = "b"'>Select b</button>
+</FixtureContainer>
+
+@code {
+    private string selected = "a";
+    private FixtureItemIndicator? indicator;
+    private bool attached;
+
+    // The test-only indicator is internal (its state record is), which Razor markup does not resolve, so it is built here.
+    private RenderFragment Indicator => builder =>
+    {
+        builder.OpenComponent<FixtureItemIndicator>(0);
+        builder.AddComponentParameter(1, nameof(FixtureItemIndicator.Selected), selected == "a");
+        builder.AddComponentParameter(2, nameof(FixtureItemIndicator.KeepMounted), true);
+        builder.AddAttribute(3, "data-testid", "indicator");
+        builder.AddComponentReferenceCapture(4, component => indicator = (FixtureItemIndicator)component);
+        builder.CloseComponent();
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && indicator is not null)
+        {
+            await indicator.TwinAttached;
+            attached = true;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,57 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The value-shape probe's permanent evidence (ADR 08 Amendments 2026-11-03 (1), the probe's finding of 2026-11-04;
+    spikes/list-value-shape/): a single-value root inferred from @bind-Value, a multiple root inferred from @bind-Values
+    against an IReadOnlyList<string> field, their items nested two wrappers deep taking TValue from the cascade, and an
+    explicit TValue="int" root whose items tell an omitted Value from 0.
+*@
+
+<TestListRoot @bind-Value="selected" @ref="SingleRoot">
+    <div>
+        <div>
+            <TestListItem Value="@("a")" />
+            <TestListItem />
+        </div>
+    </div>
+</TestListRoot>
+
+<TestListRoot Multiple="true" @bind-Values="selectedValues" @ref="MultipleRoot">
+    <div>
+        <TestListItem Value="@("b")" />
+    </div>
+</TestListRoot>
+
+<TestListRoot TValue="int" Multiple="true">
+    <TestListItem @ref="OmittedItem" />
+    <TestListItem Value="0" @ref="ZeroItem" />
+</TestListRoot>
+
+@* The one-way Values takes any list (the probe's Q2a, Q2d): @bind-Values needs an IReadOnlyList<T> field (CS1503). *@
+<TestListRoot Multiple="true" Values="@list" @ref="ListRoot" />
+<TestListRoot Multiple="true" Values="@array" @ref="ArrayRoot" />
+<TestListRoot Multiple="true" Values="@(["x", "y"])" @ref="ExpressionRoot" />
+
+@code {
+    private readonly List<string> list = ["l"];
+    private readonly string[] array = ["a1", "a2"];
+    private string? selected = "a";
+    private IReadOnlyList<string> selectedValues = ["b"];
+
+    internal string? Selected => selected;
+
+    internal IReadOnlyList<string> SelectedValues => selectedValues;
+
+    internal TestListRoot<string?>? SingleRoot { get; private set; }
+
+    internal TestListRoot<string>? MultipleRoot { get; private set; }
+
+    internal TestListItem<int>? OmittedItem { get; private set; }
+
+    internal TestListItem<int>? ZeroItem { get; private set; }
+
+    internal TestListRoot<string>? ListRoot { get; private set; }
+
+    internal TestListRoot<string>? ArrayRoot { get; private set; }
+
+    internal TestListRoot<string>? ExpressionRoot { get; private set; }
+}

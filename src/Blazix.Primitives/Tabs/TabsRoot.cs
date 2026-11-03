@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -371,9 +372,9 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
             return true;
         }
 
-        if (!context.HasSelection || RadioValues.IsNull(context.Value))
+        if (!context.HasSelection || ValueNull.IsNull(context.Value))
         {
-            return explicitDefault && RadioValues.IsNull(initialDefault);
+            return explicitDefault && ValueNull.IsNull(initialDefault);
         }
 
         return explicitDefault ? Equality.StrictEquals(context.Value, initialDefault) : TabsImplicitDefault.Matches(context.Value);
