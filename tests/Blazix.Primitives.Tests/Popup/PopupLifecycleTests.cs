@@ -235,6 +235,63 @@ public sealed class PopupLifecycleTests
         Assert.Null(store.Lifecycle.OpenMethod);
     }
 
+    // PSH-PTR-03: the open interaction type resets only when the popup closes. A boundary before an open (an awaiting
+    // consumer callback between the press and the commit, say) keeps the type the opening interaction recorded.
+    [Fact(DisplayName = "port: the open interaction type recorded before an open survives a boundary before the open commits")]
+    [Trait("Requirement", "PSH-PTR-02")]
+    [Trait("Requirement", "PSH-PTR-03")]
+    public async Task The_open_interaction_type_recorded_before_an_open_survives_a_boundary_before_the_open_commits()
+    {
+        TestLifecycleStore store = new();
+        store.ApplyOpenParameters(openProp: null, defaultOpen: false);
+        store.SetOpenInteractionType(InteractionType.Touch);
+
+        await store.AtBatchBoundaryAsync();
+        await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerPress));
+
+        Assert.Equal(InteractionType.Touch, store.Lifecycle.OpenMethod);
+    }
+
+    // NavigationMenu's switch (PTR-07; ADR 04 Amendments 2026-10-27, the relay): a commit while already open moves the relay's
+    // revision with the switch's reason and leaves the open, mounted and transition state as they were.
+    [Fact(DisplayName = "port: a commit that keeps the popup open relays the next revision with its reason and changes nothing else of the lifecycle")]
+    [Trait("Requirement", "FLT-STR-11")]
+    [Trait("Requirement", "FLT-EVT-02")]
+    public async Task A_commit_that_keeps_the_popup_open_relays_the_next_revision_with_its_reason_and_changes_nothing_else_of_the_lifecycle()
+    {
+        TestLifecycleStore store = new();
+        store.ApplyOpenParameters(openProp: null, defaultOpen: false);
+        await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerPress));
+        store.MirrorStatus(TransitionStatus.Idle);
+        PopupLifecycleState before = store.Lifecycle;
+
+        store.CommitOpenChange(true, new OpenChangeEventDetails(EventReason.TriggerHover));
+
+        Assert.Equal(new OpenChangeRelay(2, "trigger-hover", EventKind.Event, "base-ui", null, null), store.Lifecycle.OpenChange);
+        Assert.True(store.Lifecycle == (before with { OpenChange = store.Lifecycle.OpenChange }));
+    }
+
+    // NavigationMenu's second exit watcher (the inline nested Root's Viewport target): two exit completions racing run the
+    // unmount and its callback once.
+    [Fact(DisplayName = "port: two exit completions racing unmount the popup once and complete once")]
+    [Trait("Requirement", "TRN-ANI-22")]
+    [Trait("Requirement", "TRN-EVT-01")]
+    public async Task Two_exit_completions_racing_unmount_the_popup_once_and_complete_once()
+    {
+        TestLifecycleStore store = new();
+        store.ApplyOpenParameters(openProp: null, defaultOpen: true);
+        List<bool> completions = [];
+        store.OnOpenChangeComplete = new EventCallback<bool>(null, (Action<bool>)completions.Add);
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.OutsidePress));
+
+        await Task.WhenAll(store.CompleteTransitionAsync(false), store.CompleteTransitionAsync(false));
+
+        Assert.False(store.Lifecycle.Mounted);
+        Assert.Equal(1, store.Lifecycle.UnmountRequests);
+        Assert.Equal([false], completions);
+        Assert.Equal(1, store.Order.Count(step => step == "onUnmount"));
+    }
+
     // ADR 16 rule 7 (UTL-STA-11): a lifecycle write that changes nothing is a no-op and allocates nothing, and so is a
     // mirrored status that did not change.
     [Fact(DisplayName = "port: an unchanged lifecycle write allocates nothing")]

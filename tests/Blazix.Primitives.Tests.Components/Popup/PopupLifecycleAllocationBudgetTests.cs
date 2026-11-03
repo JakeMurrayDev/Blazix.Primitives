@@ -12,11 +12,13 @@ namespace Blazix.Primitives.Tests.Components;
 [Collection(AllocationBudgetsCollection.Name)]
 public sealed class PopupLifecycleAllocationBudgetTests : IDisposable
 {
-    // First measurement 2026-11-04 (arm64, .NET 11 RC2, Release; M5 track 2): 1976 bytes, least of five, in 3 of 3 runs, for
-    // the parent passing the same values again to a closed root with its popup: the root, its fixed cascade and the popup
-    // part render; the session compares its inputs with the options last sent and sends nothing. The budget is that
-    // envelope with the CI runner's +112 bytes floor shift that InteractionsAllocationBudgetTests records (2026-10-29), so
-    // 2088. It only tightens.
+    // First measurement 2026-11-04 (arm64, .NET 11 RC2, Release; M5 track 2): 1976 bytes, least of five, for the parent
+    // passing the same values again to a closed root with its popup: the root, its fixed cascade and the popup part render;
+    // the session compares its inputs with the options last sent and sends nothing. The figure is the envelope of 12 of 12
+    // full Release runs of this project in the non-parallel AllocationBudgets collection (ADR 16 Amendments 2026-10-27),
+    // every run 1976 exactly, so more runs would not move it; the precedents took 25 when their runs varied. The budget is
+    // that envelope with the CI runner's +112 bytes floor shift that InteractionsAllocationBudgetTests records
+    // (2026-10-29), so 2088. It only tightens.
     private const long RerenderBudgetBytes = 2088;
 
     private readonly LifecycleTestContext test = new();

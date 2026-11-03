@@ -121,7 +121,7 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
     public override bool Equals(object? obj) => obj is PopupLifecycleState other && this == other;
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(flags, TransitionStatus, FloatingId, UnmountRequests, OpenMethod);
+    public override int GetHashCode() => HashCode.Combine(flags, TransitionStatus, FloatingId, UnmountRequests, OpenChange, OpenMethod);
 
     private static byte With(byte flags, byte flag, bool set) => set ? (byte)(flags | flag) : (byte)(flags & ~flag);
 }
