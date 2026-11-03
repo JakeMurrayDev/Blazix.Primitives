@@ -81,6 +81,7 @@ function isMenuSpec(item: MenuItemSpec | MenuSpec): item is MenuSpec {
 }
 
 interface NodeState extends MenuNode {
+  readonly parent: NodeState | null;
   trigger: HTMLElement | null;
   floating: HTMLElement | null;
   activeIndex: number | null;
@@ -308,7 +309,7 @@ export function createMenuTree(spec: MenuSpec, options: MenuTreeOptions = {}): M
   const root = createNode(spec, null);
   const rootTrigger = options.rootTrigger ?? document.createElement('button');
   if (!options.rootTrigger) {
-    rootTrigger.type = 'button';
+    rootTrigger.setAttribute('type', 'button');
     rootTrigger.textContent = spec.label;
     container.appendChild(rootTrigger);
   }
