@@ -22,6 +22,10 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the name of the decision point the module asks about before it selects a focused item.</summary>
     public const string SelectPoint = "select";
 
+    // ADR 04 Amendments 2026-11-03 (3), chosen by the user: the Shift+Tab close of a list (CMP-KEY-24, CMP-EVT-08).
+    /// <summary>Represents the name of the decision point the module asks about before it returns the focus after a list's Shift+Tab close.</summary>
+    public const string LeavePoint = "leave";
+
     /// <summary>Occurs when the highlighted index changed, if the options ask for it, once per change.</summary>
     public event Action<int>? HighlightChanged;
 

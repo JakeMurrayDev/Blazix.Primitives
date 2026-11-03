@@ -22,7 +22,7 @@
 import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
 import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument } from './dom';
-import { eventInfo } from './event-info';
+import { eventInfo, type EventInfo } from './event-info';
 import {
   createTwinChannel,
   parseOptions,
@@ -46,6 +46,10 @@ export const NAVIGATE_POINT = 'navigate';
 
 /** The name of the decision point asked before the module selects a focused item by clicking its input. */
 export const SELECT_POINT = 'select';
+
+// ADR 04 Amendments 2026-11-03 (3), chosen by the user: the Shift+Tab close of a list (CMP-KEY-24, CMP-EVT-08).
+/** The name of the decision point asked before the module returns the focus after a list's Shift+Tab close. */
+export const LEAVE_POINT = 'leave';
 
 const ARROW_UP = 'ArrowUp';
 const ARROW_DOWN = 'ArrowDown';
@@ -754,6 +758,140 @@ export interface CompositeItemRegistration {
   disabled?: boolean | undefined;
   /** Whether the item stays navigable and can hold the tab stop while disabled; absent for `false`. */
   focusableWhenDisabled?: boolean | undefined;
+  /**
+   * The item's explicit label; the empty string for an item with no label that must not fall back to its text; absent to
+   * read the text of `textId`'s element or of the item's element (CMP-STA-06).
+   */
+  label?: string | undefined;
+  /** The id of the element whose text is the label when there is no explicit label; absent for the item's element. */
+  textId?: string | undefined;
+  /** The item's explicit index; absent for an automatic index in document order (CMP-STA-04, CMP-STA-17). */
+  index?: number | undefined;
+  /** Whether the item renders no `tabindex` and the module writes none; absent for `false`. */
+  omitTabIndex?: boolean | undefined;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The list handle's options (ADR 04 Amendments 2026-11-03 (1), chosen by the user; CMP §6.8, §6.9; M5 track 1's names,
+// design points of 2026-11-04). Each is absent when it has Base UI's default (useListNavigation.ts:244-267,
+// useTypeahead.ts:73-83).
+// ---------------------------------------------------------------------------------------------------------------
+
+/** A highlight C# asks the list for: an index, or `null` to clear, applied once per revision. */
+export interface CompositeHighlightRequest {
+  /** The index to highlight; absent or `null` to clear the highlight. */
+  index?: number | null | undefined;
+  /** The request's number, which grows with each request. */
+  revision: number;
+}
+
+/** The typeahead of a list. */
+export interface CompositeTypeaheadOptions {
+  /** The time in milliseconds after the last key at which a new search starts. */
+  resetMs: number;
+  /**
+   * The items a search skips: `element` for a hidden or natively disabled element (Menu), `attribute` for
+   * `isElementDisabled` (Select); absent for none.
+   */
+  skip?: 'element' | 'attribute' | undefined;
+  /** The labels by index, sent by C# (Combobox's `items`); absent for the registered items' labels. */
+  labels?: ReadonlyArray<string | null> | undefined;
+}
+
+/** The list navigation options every handle of one list carries. */
+export interface CompositeListOptions {
+  /** `false` to turn the handle's navigation off; absent for `true`. */
+  enabled?: boolean | undefined;
+  /** Whether a step past either end wraps; absent for `false`. */
+  loopFocus?: boolean | undefined;
+  /** The arrow keys that move the highlight; absent for `vertical`. */
+  orientation?: Orientation | undefined;
+  /** The arrow keys that open the list from its trigger; absent for `orientation`. */
+  triggerOrientation?: Orientation | undefined;
+  /** Whether the reading direction is right to left; absent for `false`. */
+  rtl?: boolean | undefined;
+  /** Whether the highlight moves without moving the focus; absent for `false`. */
+  virtual?: boolean | undefined;
+  /** Whether the list is nested in another list; absent for `false`. */
+  nested?: boolean | undefined;
+  /** The parent list's orientation; absent to read what the parent popup's list published. */
+  parentOrientation?: Orientation | undefined;
+  /** Whether an item is highlighted on open; absent for `'auto'` (a keyboard open only). */
+  focusItemOnOpen?: boolean | undefined;
+  /** Whether a step past either end clears the highlight under virtual focus; absent for `false`. */
+  allowEscape?: boolean | undefined;
+  /** `false` to keep the closed list closed on an arrow key; absent for `true`. */
+  openOnArrowKeyDown?: boolean | undefined;
+  /** `false` to ignore the pointer moving over an item; absent for `true`. */
+  focusItemOnHover?: boolean | undefined;
+  /** `false` to keep the highlight when the pointer leaves an item; absent for `true`. */
+  resetOnPointerLeave?: boolean | undefined;
+  /** The indices navigation skips; empty for none; absent to read the items' disabled state from the DOM. */
+  disabledIndices?: number[] | undefined;
+  /** Whether the skipped indices are derived from the items' flags; absent for `false`. */
+  deriveDisabledIndices?: boolean | undefined;
+  /** The selected item's index; absent when none is selected. */
+  selectedIndex?: number | undefined;
+  /** Whether the items are a grid; absent for `false`. */
+  grid?: boolean | undefined;
+  /** Whether a nested list that is its menu's root stays open on the nested close key; absent for `false`. */
+  keepOpenOnCrossOrientationKey?: boolean | undefined;
+  /** The references index of the element that takes the focus when a nested list closes; absent for the reference. */
+  nestedReturnFocusElement?: number | undefined;
+  /** The references index of the composite root that unstopped keydowns are relayed to; absent for none. */
+  relayElement?: number | undefined;
+  /** The latest highlight C# asked for; absent before any. */
+  highlight?: CompositeHighlightRequest | undefined;
+  /** The typeahead; absent for none. */
+  typeahead?: CompositeTypeaheadOptions | undefined;
+  /** Whether a key handled and stopped without running the C# chain inside the dispatch is reported; absent for `false`. */
+  reportHandledKeys?: boolean | undefined;
+}
+
+/** The reference role: the active trigger, or the input under virtual focus, which carries `aria-activedescendant`. */
+export type CompositeReferenceOptions = Record<string, never>;
+
+/** The trigger role: a trigger that opens the list but is not its reference. */
+export type CompositeTriggerOptions = Record<string, never>;
+
+/** The floating role: the list's element, with its items. */
+export interface CompositeFloatingOptions {
+  /** The items, by element id. */
+  items: CompositeItemRegistration[];
+  /** Whether the items' ids are reported in index order on each publication that changed them; absent for `false`. */
+  reportItems?: boolean | undefined;
+}
+
+/** The report of a list's highlight, once per change. */
+export interface CompositeListHighlightReport {
+  /** The highlighted index, or `null`. */
+  index: number | null;
+  /** The highlighted item's element id, or `null`. */
+  itemId: string | null;
+  /** The event that moved the highlight, or `null`. */
+  event: EventInfo | null;
+  /** The revision of the last C# highlight request applied; 0 before any. */
+  revision: number;
+}
+
+/** The request to open or close a list's popup. */
+export interface CompositeListOpenRequestReport {
+  /** Whether the popup is to open. */
+  open: boolean;
+  /** `list-navigation` or `focus-out`. */
+  reason: 'list-navigation' | 'focus-out';
+  /** The keydown. */
+  event: EventInfo;
+  /** The trigger's element id for an open, or `null`. */
+  triggerId: string | null;
+}
+
+/** The report of a typeahead match while the list is closed. */
+export interface CompositeListMatchReport {
+  /** The matching index. */
+  index: number;
+  /** The keydown. */
+  event: EventInfo;
 }
 
 // Mirrors `CompositeOptions` in C#.
@@ -803,6 +941,16 @@ export interface CompositeOptions extends TwinOptions {
    * not run.
    */
   followActiveItem?: boolean | undefined;
+  /** The token of the popup session a list handle joins; absent for a roving group. */
+  sessionToken?: string | undefined;
+  /** The list navigation options of a list handle; absent for a roving group. */
+  list?: CompositeListOptions | undefined;
+  /** The reference role; absent for another role. */
+  reference?: CompositeReferenceOptions | undefined;
+  /** The trigger role; absent for another role. */
+  trigger?: CompositeTriggerOptions | undefined;
+  /** The floating role; absent for another role. */
+  floating?: CompositeFloatingOptions | undefined;
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.

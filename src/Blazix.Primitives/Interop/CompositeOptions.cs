@@ -115,6 +115,28 @@ internal sealed record CompositeOptions : TwinOptions
     /// </value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool FollowActiveItem { get; init; }
+
+    // ADR 04 Amendments 2026-11-03 (1), chosen by the user: a list handle joins the popup's interactions session by token
+    // and carries one role record (CMP-STR-06); the roving group's fields above are ignored on it.
+    /// <summary>Gets the token of the popup session a list handle joins.</summary>
+    /// <value>The token the popup root drew and cascades; it is never rendered. <see langword="null"/>, the default, for a roving group.</value>
+    public string? SessionToken { get; init; }
+
+    /// <summary>Gets the list navigation options of a list handle.</summary>
+    /// <value>The options, the same on every handle of one list; or <see langword="null"/>, the default, for a roving group.</value>
+    public CompositeListOptions? List { get; init; }
+
+    /// <summary>Gets the options of a list's reference handle.</summary>
+    /// <value>The reference role, or <see langword="null"/> for another role.</value>
+    public CompositeReferenceOptions? Reference { get; init; }
+
+    /// <summary>Gets the options of a list's trigger handle.</summary>
+    /// <value>The trigger role, or <see langword="null"/> for another role.</value>
+    public CompositeTriggerOptions? Trigger { get; init; }
+
+    /// <summary>Gets the options of a list's floating handle.</summary>
+    /// <value>The floating role with the list's items, or <see langword="null"/> for another role.</value>
+    public CompositeFloatingOptions? Floating { get; init; }
 }
 
 // ADR 04 Amendments 2026-10-22 (the items by element id; a consumer tabindex wins, RAD-DOM-16); the flags of ADR 04
@@ -134,4 +156,34 @@ internal sealed record CompositeItemRegistration(
     string Id,
     string? TabIndex,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Disabled = false,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool FocusableWhenDisabled = false);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool FocusableWhenDisabled = false)
+{
+    // CMP-STA-06 (ADR 04 Amendments 2026-11-03 (1), chosen by the user): the label is resolved in JavaScript, explicit first.
+    /// <summary>Gets the item's explicit label, which typeahead matches.</summary>
+    /// <value>
+    /// The label; the empty string for an item that has no label and must not fall back to its text, which never matches;
+    /// or <see langword="null"/>, the default, to read the text of <see cref="TextId"/> or of the item's element.
+    /// </value>
+    public string? Label { get; init; }
+
+    /// <summary>Gets the id of the element whose text is the item's label when it has no explicit label.</summary>
+    /// <value>The id, resolved as the item's is; or <see langword="null"/>, the default, to read the item's element.</value>
+    public string? TextId { get; init; }
+
+    // CMP-STA-04, CMP-STA-17: an explicit index from C#, such as a windowed list's.
+    /// <summary>Gets the item's explicit index.</summary>
+    /// <value>
+    /// The index the item occupies, which a negative value takes out of the list; or <see langword="null"/>, the default,
+    /// for an automatic index in document order.
+    /// </value>
+    public int? Index { get; init; }
+
+    // NAV-DOM-21 and NAV-FOC-03 (sheet F Q15 (a)): a navigation menu link takes no tabindex.
+    /// <summary>Gets a value indicating whether the item renders no <c>tabindex</c> and the module writes none.</summary>
+    /// <value>
+    /// <see langword="true"/> for an item that keeps its native focusability and stays navigable by the arrow keys; the
+    /// default is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmitTabIndex { get; init; }
+}

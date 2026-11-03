@@ -24,6 +24,21 @@ The C# half of the composite mechanism: the root and item behaviours a roving gr
 | `CompositeLiterals.cs` | `Orientation?` → `horizontal`, `vertical`, `both` (`null`); `TextDirection` → `ltr`, `rtl`. |
 | `CompositeAttributes.cs` | `ActiveItem = "data-composite-item-active"` (CMP §6.11): the attribute Radio (RAD-DOM-02) and Tabs write on the item that takes the initial tab stop. |
 
+### M5 track 1: list navigation's published interface (issue 159; first commit, 2026-11-04)
+
+ADR 04 Amendments 2026-11-03 (1)–(3), chosen by the user; the names are the track's (design points of 2026-11-04, in the shared notes folder); the wave-2 briefs quote them. Later commits add, never rename without telling the orchestrator.
+
+| Name | Where | What |
+|---|---|---|
+| `CompositeOptions.SessionToken`, `.List`, `.Reference`, `.Trigger`, `.Floating` | `Interop/CompositeOptions.cs` | A list handle: the interactions session it joins, the list options every handle of one list carries, and exactly one role record (CMP-STR-06). A roving root sends none of them. |
+| `CompositeListOptions` | `Interop/CompositeListOptions.cs` | The union of CMP §6.8 and §6.9 (fact sheet A §3): `Enabled : bool?`, `LoopFocus`, `Orientation : string?`, `TriggerOrientation : string?`, `Rtl`, `Virtual`, `Nested`, `ParentOrientation : string?`, `FocusItemOnOpen : bool?` (`null` = `'auto'`), `AllowEscape`, `OpenOnArrowKeyDown : bool?`, `FocusItemOnHover : bool?`, `ResetOnPointerLeave : bool?`, `DisabledIndices`, `DeriveDisabledIndices`, `SelectedIndex : int?`, `Grid`, `KeepOpenOnCrossOrientationKey`, `NestedReturnFocusElement : int?` and `RelayElement : int?` (indices into the references array), `Highlight`, `Typeahead`, `ReportHandledKeys`; each sent only when it differs from Base UI's default (a default of `true` is a `bool?` whose `null` stands for it). `externalTree` is the session's `ParentToken`. |
+| `CompositeHighlightRequest(int? Index, int Revision)` | same | A C#-origin highlight (auto-highlight, a clear, the selection anchor), applied once per revision (CMP-STA-32). |
+| `CompositeTypeaheadOptions` | same | `ResetMs` (750; Menu sends 500), `Skip` (`element` for Menu, `attribute` for Select, `null` for none), `Labels` (C#'s labels by index, Combobox's `items`; `null` for the registry's). |
+| `CompositeReferenceOptions`, `CompositeTriggerOptions`, `CompositeFloatingOptions(Items, ReportItems)` | same | The role records; the item role is the registration. |
+| `CompositeItemRegistration.Label`, `.TextId`, `.Index`, `.OmitTabIndex` | `Interop/CompositeOptions.cs` | The item role's additions, each sent only when set: the explicit label (the empty string for "no label", CMP-STA-06), the text element's id, the explicit index, and the registration without a `tabindex` (NAV-DOM-21). |
+| `CompositeListHighlight(int? Index, string? ItemId, EventSnapshot? Event, int Revision)`, `CompositeListOpenRequest(bool Open, string Reason, EventSnapshot Event, string? TriggerId)`, `CompositeListMatch(int Index, EventSnapshot Event)` | `Interop/CompositePayloads.cs` | The list reports: the highlight with the C# revision it had applied; an open request (`list-navigation`, `focus-out`); a typeahead match on a closed list. `OnKeyHandled` and `OnItemsChange` are reused. |
+| `CompositeTwin.LeavePoint = "leave"`; `LEAVE_POINT` | `Interop/CompositeTwin.cs`, `js/composite.ts` | The Shift+Tab close's decision point: `Run` returns the focus, `Stop` (a canceled close) leaves it; fallback `run`. |
+
 Removal-only batches: a batch that only removes items runs no item's after-render. The item's dispose therefore makes the root render, unless the root already rendered in that batch, and the root's after-render sends the one `update`. L2 proves both paths (`CompositeRootTests`: the nested unmount, and a parent removing an item).
 
 What JavaScript owns (not here): the item order and move detection, the highlighted index and its publication adjustments, the key resolution, the focus moves, the roving `tabindex` from attach, the pending-navigation flag and the focus-driven selection, the leaving blur.

@@ -20,3 +20,27 @@ internal sealed record CompositeKeyHandled(EventSnapshot Event);
 /// <summary>The payload of the <c>composite</c> module's report of the items' order.</summary>
 /// <param name="Ids">The ids of the registered items in index order, each once.</param>
 internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids);
+
+// CMP-STA-31, CMP-EVT-04 (onNavigate) under ADR 04 Amendments 2026-11-03 (2), chosen by the user: the module writes the
+// highlight and reports it once per change, with the C# request it had applied, so C# ignores a stale report.
+/// <summary>The payload of the <c>composite</c> module's report of a list's highlight.</summary>
+/// <param name="Index">The highlighted index, or <see langword="null"/> when no item is highlighted.</param>
+/// <param name="ItemId">The id of the highlighted item's element, or <see langword="null"/> when no item is highlighted.</param>
+/// <param name="Event">The snapshot of the event that moved the highlight, or <see langword="null"/> when no event did.</param>
+/// <param name="Revision">The revision of the last highlight request from C# the module had applied; 0 before any.</param>
+internal sealed record CompositeListHighlight(int? Index, string? ItemId, EventSnapshot? Event, int Revision);
+
+// CMP-EVT-06, CMP-EVT-07 (reason list-navigation) and CMP-EVT-08 (reason focus-out).
+/// <summary>The payload of the <c>composite</c> module's request to open or close a list's popup.</summary>
+/// <param name="Open">Whether the popup is to open.</param>
+/// <param name="Reason">The reason: <c>list-navigation</c> or <c>focus-out</c>.</param>
+/// <param name="Event">The snapshot of the <c>keydown</c>.</param>
+/// <param name="TriggerId">The id of the trigger that opened the popup, or <see langword="null"/> for a close.</param>
+internal sealed record CompositeListOpenRequest(bool Open, string Reason, EventSnapshot Event, string? TriggerId);
+
+// CMP-EVT-10 (onMatch) on a closed list (ADR 04 Amendments 2026-11-03 (1)): the family's value request; a match while open
+// moves the highlight and is reported as a highlight.
+/// <summary>The payload of the <c>composite</c> module's report of a typeahead match while the list is closed.</summary>
+/// <param name="Index">The index of the matching item.</param>
+/// <param name="Event">The snapshot of the <c>keydown</c>.</param>
+internal sealed record CompositeListMatch(int Index, EventSnapshot Event);
