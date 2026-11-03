@@ -1,4 +1,5 @@
 using Blazix.Primitives.Interop;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
 
@@ -21,6 +22,9 @@ namespace Blazix.Primitives;
 //   2026-11-03 (3); Server: the module returns the focus, ADR 01's "C#-origin consumer vetoes" row).
 // - A list handle attaches after the session's handle (the Root's), so the module reads the session's committed state at
 //   attach (`SessionReady`): a list handle can otherwise attach first and miss an open that emitted no `openchange`.
+// - The element-typed options (CMP-KEY-27, CMP-DIS-01's return element; CMP-KEY-14's relay root, Deliverables 6-7) cross
+//   as indices into the references every handle attaches and updates with (ADR 04 Amendments 2026-10-27): the return
+//   element first, then the relay's root, each present only when set.
 /// <summary>
 /// The list navigation of one popup list: the options its handles send, the mirror of the highlight the module writes,
 /// C#'s highlight requests, and the routing of the module's open and close requests into the family's store.
@@ -58,6 +62,9 @@ internal sealed class ListNavigationBehavior : IDisposable
     private string? typeaheadSkip;
     private IReadOnlyList<string?>? typeaheadLabels;
     private bool typeahead;
+    private ElementReference? nestedReturnFocusTarget;
+    private ElementReference? relayTarget;
+    private TwinReferences? references;
     private bool disposed;
 
     /// <summary>Occurs when the mirrored highlight changed, once per accepted report, with the report.</summary>
@@ -187,6 +194,14 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <value>The count, or <see langword="null"/>, the default, for the registered items.</value>
     public int? ItemCount { get => itemCount; set => Set(ref itemCount, value); }
 
+    /// <summary>Gets or sets the element a nested list returns the focus to when its close key closes it.</summary>
+    /// <value>The element, such as the parent menu's input; or <see langword="null"/>, the default, for the reference.</value>
+    public ElementReference? NestedReturnFocusTarget { get => nestedReturnFocusTarget; set => Set(ref nestedReturnFocusTarget, value); }
+
+    /// <summary>Gets or sets the composite root a keydown the list does not stop is relayed to.</summary>
+    /// <value>The root's element, such as a menubar's; or <see langword="null"/>, the default, to relay nothing.</value>
+    public ElementReference? RelayTarget { get => relayTarget; set => Set(ref relayTarget, value); }
+
     /// <summary>Gets the highlighted index the module last reported.</summary>
     /// <value>The index, or <see langword="null"/> while no item is highlighted.</value>
     public int? HighlightedIndex { get; private set; }
@@ -198,6 +213,17 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <summary>Gets the options every handle of the list sends.</summary>
     /// <value>The record, built again only after an option changed.</value>
     internal CompositeListOptions Options => options ??= Build();
+
+    /// <summary>Gets the elements the options name by index, sent with every handle's <c>attach</c> and <c>update</c>.</summary>
+    /// <value>The references built with <see cref="Options"/>, or <see langword="null"/> when no option names an element.</value>
+    internal TwinReferences? References
+    {
+        get
+        {
+            options ??= Build();
+            return references;
+        }
+    }
 
     /// <inheritdoc />
     public void Dispose()
@@ -425,6 +451,16 @@ internal sealed class ListNavigationBehavior : IDisposable
         }
     }
 
+    // Compared by id: an element reference is the id Blazor rendered for the element.
+    private void Set(ref ElementReference? field, ElementReference? value)
+    {
+        if (!string.Equals(field?.Id, value?.Id, StringComparison.Ordinal))
+        {
+            field = value;
+            options = null;
+        }
+    }
+
     private void Set(ref string? field, string? value)
     {
         if (!string.Equals(field, value, StringComparison.Ordinal))
@@ -435,7 +471,17 @@ internal sealed class ListNavigationBehavior : IDisposable
     }
 
     // Each option is sent only when it differs from Base UI's default (useListNavigation.ts:244-267).
-    private CompositeListOptions Build() => new()
+    private CompositeListOptions Build()
+    {
+        references = null;
+        int? nestedReturnFocusElement = nestedReturnFocusTarget is { } returnElement ? AddReference(returnElement) : null;
+        int? relayElement = relayTarget is { } relayRoot ? AddReference(relayRoot) : null;
+        return Build(nestedReturnFocusElement, relayElement);
+    }
+
+    private int AddReference(ElementReference element) => (references ??= new TwinReferences()).Add(element);
+
+    private CompositeListOptions Build(int? nestedReturnFocusElement, int? relayElement) => new()
     {
         Enabled = enabled ? null : false,
         LoopFocus = loopFocus,
@@ -455,6 +501,8 @@ internal sealed class ListNavigationBehavior : IDisposable
         SelectedIndex = selectedIndex,
         Grid = grid,
         KeepOpenOnCrossOrientationKey = keepOpenOnCrossOrientationKey,
+        NestedReturnFocusElement = nestedReturnFocusElement,
+        RelayElement = relayElement,
         Highlight = highlightRequest,
         Typeahead = typeahead ? new CompositeTypeaheadOptions { ResetMs = typeaheadResetMs, Skip = typeaheadSkip, Labels = typeaheadLabels } : null,
         Cols = cols,
