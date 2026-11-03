@@ -83,6 +83,7 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
     private StoreSelection<NavigationMenuStoreState, string?>? viewportId;
     private NavigationMenuTriggerState? state;
     private Dictionary<string, object>? registrationAttributes;
+    private bool openKeyDecided;
     private IReadOnlyDictionary<string, object>? registrationSource;
 
     /// <summary>Initializes a new instance of the <see cref="NavigationMenuTrigger"/> class.</summary>
@@ -177,7 +178,8 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
         composite = new CompositeItemBehavior(CompositeContext, "NavigationMenuTrigger", onKeyDown);
         interactions = new InteractionsTriggerBehavior(JSRuntime, request => root.RouteAsync(request), DispatchExceptionAsync, onClick);
         module = new NavigationMenuModule(JSRuntime);
-        module.Twin.Activated += activation => _ = InvokeAsync(() => item.ActivateAsync(activation));
+        module.Twin.NavigationDecider = DecideOpenKey;
+        module.Twin.Activated += activation => _ = InvokeAsync(() => ActivateAsync(activation));
         module.Twin.FocusedOut += focusOut => _ = InvokeAsync(() => root.FocusOutAsync(focusOut.Event));
         module.Twin.ViewportInertChanged += inert => _ = InvokeAsync(() => root.Store.SetViewportInert(inert));
         item.AddListener(itemChanged);
@@ -341,6 +343,70 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
     }
 
     private void OnItemChanged() => StateHasChanged();
+
+    // ADR 04 Amendments 2026-11-04 (chosen by the user 2026-11-04): on WebAssembly the consumer's declined onkeydown runs
+    // inside `navigate`, before the module prevents the open key, and its PreventPartHandler() stops the open, as Base UI's
+    // mergeProps order runs the consumer first (NavigationMenuTrigger.tsx:729-735); the key's later dispatch does not run it
+    // again. Only the synchronous part of the handler can veto (ADR 04 §3).
+    private DecisionPolicy DecideOpenKey(EventSnapshot snapshot)
+    {
+        if (!composite!.HasKeyHandler)
+        {
+            return DecisionPolicy.Run;
+        }
+
+        KeyboardEventArgs args = snapshot.ToKeyboardEventArgs();
+        RunConsumerKeyHandler(args);
+        composite.MarkDecided(args);
+        openKeyDecided = true;
+        return args.PartHandlerPrevented() ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    // An open key the module stopped without asking C# (Server, ADR 01's "C#-origin consumer vetoes" row): the consumer's
+    // onkeydown still runs, first, and cannot veto.
+    private Task ActivateAsync(NavigationMenuActivation activation)
+    {
+        bool decided = openKeyDecided;
+        openKeyDecided = false;
+        if (!decided && activation.Reason == "list-navigation" && activation.Event is { } snapshot && composite!.HasKeyHandler)
+        {
+            RunConsumerKeyHandler(snapshot.ToKeyboardEventArgs());
+        }
+
+        return item!.ActivateAsync(activation);
+    }
+
+    private void RunConsumerKeyHandler(KeyboardEventArgs args)
+    {
+        try
+        {
+            Task task = composite!.InvokeKeyHandler(args);
+            if (!task.IsCompleted)
+            {
+                _ = ObserveAsync(task);
+            }
+            else if (task.Exception is { } exception)
+            {
+                _ = DispatchExceptionAsync(exception.GetBaseException());
+            }
+        }
+        catch (Exception exception)
+        {
+            _ = DispatchExceptionAsync(exception);
+        }
+    }
+
+    private async Task ObserveAsync(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception)
+        {
+            await DispatchExceptionAsync(exception);
+        }
+    }
 
     // NavigationMenuTrigger.tsx:126-130, 486, 511-541; NAV-PTR-01..20.
     private void SyncInteractions()

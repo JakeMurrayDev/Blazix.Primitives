@@ -68,6 +68,11 @@ export const POSITIONER_PART = 'positioner';
 export const POPUP_PART = 'popup';
 export const VIEWPORT_PART = 'viewport';
 
+// ADR 04 Amendments 2026-11-04 (chosen by the user 2026-11-04): the consumer's onKeyDown veto of the open key, the
+// composite meaning of the name, fallback run.
+/** The decision point asked before the open key is prevented, stopped and reported. */
+export const NAVIGATE_POINT = 'navigate';
+
 /** The report of an activation (`OnActivate`), and the synchronous invocation of the same name on WebAssembly. */
 export const ACTIVATE_REPORT = 'OnActivate';
 /** The report of a blur that leaves the menu (`focus-out`). */
@@ -945,6 +950,11 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
   // size transition; the key is prevented and stopped in the dispatch.
   const onKeyDown = (event: KeyboardEvent) => {
     if (menu.options.nested === true || isDisabled() || !isOpenKey(event.key, orientation(), menu.options.rtl === true)) {
+      return;
+    }
+    // Base UI merges the consumer's onKeyDown first (NavigationMenuTrigger.tsx:729-735): on WebAssembly its
+    // PreventBaseUIHandler() stops the open; on Server the point falls back to run (ADR 01, "C#-origin consumer vetoes").
+    if (channel.decide(NAVIGATE_POINT, event, 'run') !== 'run') {
       return;
     }
     hold(event);

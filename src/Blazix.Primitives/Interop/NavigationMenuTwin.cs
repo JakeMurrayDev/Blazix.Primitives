@@ -13,6 +13,10 @@ namespace Blazix.Primitives.Interop;
 internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     : TwinBase<NavigationMenuTwin, NavigationMenuOptions>(jsRuntime, LibraryModule("navigation-menu"), BlazixJsonContext.Default.NavigationMenuOptions)
 {
+    // ADR 04 Amendments 2026-11-04 (chosen by the user 2026-11-04).
+    /// <summary>The decision point asked before the open key opens the trigger's item: the consumer's key veto.</summary>
+    public const string NavigatePoint = "navigate";
+
     /// <summary>The part name of the Root's handle.</summary>
     public const string RootPart = "root";
 
@@ -51,6 +55,9 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when the inline viewport target's exit animations finished after the menu closed.</summary>
     public event Action? ExitCompleted;
+
+    /// <summary>Gets or sets the chain the <c>navigate</c> decision runs on WebAssembly: the consumer's key handler.</summary>
+    public Func<EventSnapshot, DecisionPolicy>? NavigationDecider { get; set; }
 
     /// <summary>Receives a trigger's activation, synchronously on WebAssembly and as a report on Server.</summary>
     /// <param name="payloadJson">The <see cref="NavigationMenuActivation"/> JSON.</param>
@@ -98,5 +105,6 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     }
 
     /// <inheritdoc />
-    protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) => DecisionPolicy.Run;
+    protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) =>
+        string.Equals(point, NavigatePoint, StringComparison.Ordinal) && NavigationDecider is { } decider ? decider(snapshot) : DecisionPolicy.Run;
 }
