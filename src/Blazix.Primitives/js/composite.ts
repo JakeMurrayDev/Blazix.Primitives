@@ -2165,6 +2165,8 @@ interface ListFloating {
   idOf(element: Element | null | undefined): string | null;
   /** The indices derived from the items' flags, in the registry's order. */
   derivedDisabledIndices(): number[];
+  /** Runs the floating handle's keydown handling for a keydown a portaled child list handed up (CMP-KEY-27). */
+  keyDown(event: KeyboardEvent): void;
 }
 
 /** A reference or trigger handle's half of a list. */
@@ -2335,6 +2337,13 @@ function referenceElementOf(state: ListState, session: InteractionSession): Elem
     }
   }
   return session.domReferenceElement;
+}
+
+// The floating half of the list in the parent popup's session, when that popup has one.
+function parentListFloatingOf(session: InteractionSession): ListFloating | null {
+  const parentId = session.node.parentId;
+  const parent = parentId ? getSession(parentId) : undefined;
+  return parent ? (listStateOf(parent)?.floating ?? null) : null;
 }
 
 // CMP-STA-41: the parent popup's published orientation, when the options do not name it.
@@ -3340,6 +3349,7 @@ function attachList(
       },
       idOf: (item) => (item ? (itemsByElement.get(item)?.id ?? null) : null),
       derivedDisabledIndices: () => derived,
+      keyDown: (event) => onKeyDown(event),
     };
     // CMP-EVT-03 (E2): the ids in index order on each publication that changed them, when asked.
     registry.subscribe(() => {
@@ -3385,6 +3395,16 @@ function attachList(
     // Option (i) (ADR 04 Amendments 2026-10-22, 2026-11-03 (3)): a key stopped here never reaches Blazor's dispatcher.
     if (dispatch.stopped && options.reportHandledKeys && !channel.lastDecisionWasSynchronous) {
       channel.report('OnKeyHandled', { event: eventInfo(event) });
+    }
+    // CMP-KEY-27, CMP-DIS-01 (Deliverable 6): React bubbles a portaled child popup's keydown through the React tree to its
+    // parent popup's handlers, so a nested list's close key that is also the parent's main key moves the parent. The
+    // port's child popup is outside the parent popup's DOM: a keydown no listener stopped is handed to the parent list's
+    // floating handle, unless its path already reaches that element.
+    if (isFloating && !event.cancelBubble) {
+      const parentFloating = parentListFloatingOf(session);
+      if (parentFloating && !event.composedPath().includes(parentFloating.element)) {
+        parentFloating.keyDown(event);
+      }
     }
   };
 
