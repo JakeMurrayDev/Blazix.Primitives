@@ -140,7 +140,7 @@ internal sealed class NavigationMenuTestContext : IDisposable
     /// <summary>Gets the options a trigger's interactions handle sent last.</summary>
     public string LastTriggerOptions(string triggerId)
     {
-        string marker = "\"triggerId\":\"" + triggerId + "\"";
+        string marker = "\"trigger\":{\"triggerId\":\"" + triggerId + "\"";
         string? options = null;
         foreach (JSRuntimeInvocation attach in Interactions.Invocations["attach"])
         {

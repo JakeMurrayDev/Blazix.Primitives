@@ -89,13 +89,14 @@ public sealed class NavigationMenuItemConformanceTests : PartConformanceTests<Na
     }
 }
 
-/// <summary>NAV-STR-04, NAV-API-09: <c>NavigationMenuTrigger.test.tsx</c>'s conformance suite inside an item, <c>button: true</c>.</summary>
+/// <summary>NAV-STR-04, NAV-API-09: <c>NavigationMenuTrigger.test.tsx</c>'s conformance suite inside <c>Root &gt; List &gt; Item</c>, <c>button: true</c>.</summary>
 public sealed class NavigationMenuTriggerConformanceTests : PartConformanceTests<NavigationMenuTrigger>
 {
     public NavigationMenuTriggerConformanceTests()
     {
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         Context.RenderTree.Add<NavigationMenuRoot<string>>();
+        Context.RenderTree.Add<NavigationMenuList>();
         Context.RenderTree.Add<NavigationMenuItem<string>>(p => p.Add(x => x.Value, "item"));
     }
 
@@ -262,14 +263,16 @@ public sealed class NavigationMenuBackdropConformanceTests : PartConformanceTest
     }
 }
 
-/// <summary>NAV-STR-10, NAV-POS-01: <c>NavigationMenuPositioner.test.tsx</c>'s conformance suite under <c>Root value="item" &gt; Portal</c>.</summary>
+/// <summary>NAV-STR-10, NAV-POS-01: <c>NavigationMenuPositioner.test.tsx</c>'s conformance suite under a closed root and a kept-mounted portal.</summary>
 public sealed class NavigationMenuPositionerConformanceTests : PartConformanceTests<NavigationMenuPositioner>
 {
     public NavigationMenuPositionerConformanceTests()
     {
+        // A closed root with a kept-mounted portal: an initially open positioner renders again 0 ms after mount to clear its
+        // instant marker (NAV-ANI-13), which the suite's element-reference titles do not allow for.
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
-        Context.RenderTree.Add<NavigationMenuRoot<string>>(p => p.Add(x => x.Value, "item"));
-        Context.RenderTree.Add<NavigationMenuPortal>();
+        Context.RenderTree.Add<NavigationMenuRoot<string>>();
+        Context.RenderTree.Add<NavigationMenuPortal>(p => p.Add(x => x.KeepMounted, true));
     }
 
     /// <inheritdoc />
