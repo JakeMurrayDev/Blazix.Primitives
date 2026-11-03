@@ -1167,6 +1167,23 @@ describe('the Arrow', () => {
 });
 
 describe('the Content', () => {
+  it('takes an exiting Content out of flow in the pass, before the size pass measures, and puts it back once hidden', async () => {
+    const rendered = renderMenu({ keepMounted: true, open: 'item-1' });
+    await settle();
+    const first = rendered.item('item-1').content!;
+    handles.push(attach(first, JSON.stringify({ part: 'content', rootRef: 0 }), rendered.dotnet, [rendered.root]));
+
+    // Server: the switch's batch closes the kept Content; its `hidden` and C#'s exiting style land a moment later.
+    rendered.commit('item-2');
+    first.hidden = false;
+    await settle();
+    expect([first.style.position, first.style.top, first.style.left]).toEqual(['absolute', '0px', '0px']);
+
+    first.hidden = true;
+    await settle();
+    expect(first.style.position).toBe('');
+  });
+
   it('makes an exiting Content inert unless focus is inside it', async () => {
     const rendered = renderMenu({ open: 'item-1' });
     await settle();

@@ -687,6 +687,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
   test('maintains inline viewport state when hovering between triggers and content', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
     await hoverOpen(page, trigger(page, 1));
+    await expect(nestedContent(page, 1)).toBeVisible();
     await hoverOpen(page, nestedTrigger(page, 2));
     await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
     await expect(nestedContent(page, 2)).toBeVisible();
@@ -1098,6 +1099,20 @@ test.describe('size', () => {
     await expect(page.getByTestId('link-2-a')).toBeVisible();
 
     await expect.poll(async () => Math.abs((await positioner.boundingBox())!.x - firstLeft)).toBeGreaterThan(20);
+  });
+
+  test('updates popup sizing immediately when switching to a keepMounted trigger', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { sized: true, keepMountedContent: true });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    const positioner = page.getByTestId('positioner');
+    await expect.poll(() => pixels(positioner, '--positioner-height')).toBeCloseTo(200, 0);
+
+    await fireClick(trigger(page, 2));
+
+    await expect(content(page, 2)).toBeVisible();
+    await expect.poll(() => pixels(positioner, '--positioner-height')).toBeCloseTo(150, 0);
+    await expect.poll(() => pixels(positioner, '--positioner-width')).toBeCloseTo(300, 0);
   });
 
   test('preserves popup size when controlled value closes externally', async ({ page, mode }) => {
