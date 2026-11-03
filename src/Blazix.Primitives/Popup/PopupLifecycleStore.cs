@@ -7,9 +7,9 @@ namespace Blazix.Primitives;
 
 // FLT-STR-11, the port's standalone root store (useFloatingRootContext.ts:24-77, FloatingRootStore.ts:106-135), extracted
 // from PopupStore (ADR 05 Amendments 2026-11-03, chosen by the user 2026-11-03; M5 track 2 design point 1, shape (a2),
-// settled by the orchestrator 2026-11-04). PopupStore<TState, TPayload> derives from it and keeps the trigger registry, the payload and
-// the handles; Select's, Combobox's and NavigationMenu's stores derive from it directly. Its fields and properties are the
-// store's non-reactive context (UTL-STA-15): the controlled open, the callbacks, the inert flag, the session token, the
+// settled by the orchestrator 2026-11-04). Select's, Combobox's and NavigationMenu's stores derive from it; PopupStore<TState,
+// TPayload>, which keeps the trigger registry, the payload and the handles, is re-based on it by track 2's main pull
+// request. Its fields and properties are the store's non-reactive context (UTL-STA-15): the controlled open, the callbacks, the inert flag, the session token, the
 // relay's revision, the unmount-prevention listeners and the boundary parts.
 // - The open-change sequence (PSH-ALG-01 = EVD-ALG-04, ADR 05 §2): the consumer step first, a cancel honoured, then the
 //   family's pre-dispatch step, the relay (ADR 04 Amendments 2026-10-27), one write (PSH-ALG-02 = EVD-ALG-05). The consumer
@@ -31,6 +31,7 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
     private int boundaryRevision;
     private bool lastChangeClosed;
     private bool unmountPending;
+    private bool closedSinceBoundary;
     private int boundaryParts;
     private bool seeded;
 
@@ -322,8 +323,9 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
         return new BoundaryPartRegistration(this);
     }
 
-    // The render-batch boundary (ADR 01 decision 3's amendment): the close's reset of the open interaction type (PSH-PTR-03's
-    // Root-level variant; PopupStore's reconciliation did it on main), then a pending unmount action. Called from the
+    // The render-batch boundary (ADR 01 decision 3's amendment): the reset of the open interaction type at the first boundary
+    // after a committed close (PSH-PTR-03's Root-level variant, as PopupStore's reconciliation resets it), then a pending
+    // unmount action. A boundary before an open keeps the type the opening interaction recorded. Called from the
     // OnAfterRender of the popup parts' behaviors and of the root.
     /// <summary>Runs the work that waits for the end of a render batch: a pending unmount action and the close's reset of the open interaction type.</summary>
     /// <returns>A task that completes when the boundary's work has run.</returns>
@@ -331,9 +333,13 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
     {
         boundaryRevision = openChangeRevision;
         PopupLifecycleState lifecycle = State.Lifecycle;
-        if (!lifecycle.EffectiveOpen && lifecycle.OpenMethod is not null)
+        if (closedSinceBoundary)
         {
-            WriteLifecycle(lifecycle with { OpenMethod = null });
+            closedSinceBoundary = false;
+            if (!lifecycle.EffectiveOpen && lifecycle.OpenMethod is not null)
+            {
+                WriteLifecycle(lifecycle with { OpenMethod = null });
+            }
         }
 
         if (!unmountPending)
@@ -419,6 +425,11 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
         if (current.Lifecycle.PreventUnmountingOnClose != next.Lifecycle.PreventUnmountingOnClose)
         {
             RaiseUnmountPreventionChanging(next.Lifecycle.PreventUnmountingOnClose);
+        }
+
+        if (current.Lifecycle.EffectiveOpen && !next.Lifecycle.EffectiveOpen)
+        {
+            closedSinceBoundary = true;
         }
 
         // The lifecycle compares member by member in the record's generated ShallowEquals (its == operator), so an equal
