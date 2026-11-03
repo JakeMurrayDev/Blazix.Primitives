@@ -151,7 +151,7 @@ internal static class ItemEquality
             return null;
         }
 
-        HashSet<TValue> index = SelectionIndex<TValue>.Rent();
+        SelectionSet<TValue> index = SelectionSet<TValue>.Rent(selectedValues.Count);
         try
         {
             for (int i = 0; i < selectedValues.Count; i++)
@@ -237,39 +237,149 @@ internal static class ItemEquality
         return result;
     }
 
-    // One set per thread and value type, emptied after each use, so a lookup allocates nothing once warm. A render runs on one
-    // thread at a time and the default comparer calls no consumer code, so a set is never rented twice at once.
-    private static class SelectionIndex<TValue>
+    // The set of selected values under Object.is: open addressing with linear probing, one per thread and value type, emptied
+    // after each use, so a lookup allocates nothing once warm. A render runs on one thread at a time and the default comparer
+    // calls no consumer code, so a set is never rented twice at once. HashSet<T> is not used: on the WebAssembly interpreter its
+    // lookup boxes a value-type item (its `item != null` test; measured 2026-11-04: 16 bytes per item for int and an enum).
+    private sealed class SelectionSet<TValue>
     {
         [ThreadStatic]
-        private static HashSet<TValue>? s_set;
+        private static SelectionSet<TValue>? s_set;
 
-        public static HashSet<TValue> Rent() => s_set ??= new HashSet<TValue>(ObjectIsComparer<TValue>.Instance);
-    }
+        private TValue[] values = [];
+        private bool[] used = [];
+        private int shift;
+        private int capacity;
 
-    // Object.is as an equality comparer: Equality.Is, with a hash that agrees with it (a reference by identity, a string by its
-    // ordinal text, a value type by its default hash, which gives +0 and -0, and every NaN, one hash).
-    private sealed class ObjectIsComparer<TValue> : IEqualityComparer<TValue>
-    {
-        public static readonly ObjectIsComparer<TValue> Instance = new();
-
-        /// <inheritdoc />
-        public bool Equals(TValue? x, TValue? y) => Equality.Is(x, y);
-
-        /// <inheritdoc />
-        public int GetHashCode(TValue obj)
+        public static SelectionSet<TValue> Rent(int count)
         {
-            if (typeof(TValue).IsValueType)
+            SelectionSet<TValue> set = s_set ??= new SelectionSet<TValue>();
+            set.Reset(count);
+            return set;
+        }
+
+        public void Add(TValue value)
+        {
+            int index = Slot(value);
+            while (used[index])
             {
-                return EqualityComparer<TValue>.Default.GetHashCode(obj!);
+                if (Equality.Is(values[index], value))
+                {
+                    return;
+                }
+
+                index = (index + 1) & (capacity - 1);
             }
 
-            if (obj is null)
+            used[index] = true;
+            values[index] = value;
+        }
+
+        public bool Contains(TValue value)
+        {
+            int index = Slot(value);
+            while (used[index])
             {
-                return 0;
+                if (Equality.Is(values[index], value))
+                {
+                    return true;
+                }
+
+                index = (index + 1) & (capacity - 1);
             }
 
-            return typeof(TValue) == typeof(string) ? StringComparer.Ordinal.GetHashCode((string)(object)obj) : RuntimeHelpers.GetHashCode(obj);
+            return false;
+        }
+
+        public void Clear()
+        {
+            Array.Clear(used, 0, capacity);
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<TValue>())
+            {
+                // The set outlives the call, so it holds no consumer value.
+                Array.Clear(values, 0, capacity);
+            }
+        }
+
+        // A power of two at least twice the count, so a probe ends at an empty slot; Fibonacci hashing spreads close hashes.
+        private void Reset(int count)
+        {
+            int bits = 2;
+            while ((1 << bits) < count * 2)
+            {
+                bits++;
+            }
+
+            capacity = 1 << bits;
+            shift = 32 - bits;
+            if (values.Length < capacity)
+            {
+                values = new TValue[capacity];
+                used = new bool[capacity];
+            }
+        }
+
+        private int Slot(TValue value) => (int)(((uint)Hash(ref value) * 0x9E3779B9u) >> shift);
+
+        // A hash that agrees with Equality.Is: a reference by identity, a string by its ordinal text, a floating-point number or
+        // a decimal by its own hash (+0 and -0, every NaN, and 1.0m and 1.00m each hash alike), an integral primitive or an enum
+        // by its bits, and any other value type by its default hash. EqualityComparer<T>.Default.GetHashCode boxes a primitive
+        // or an enum on the interpreter (measured 2026-11-04: 16 bytes per item), so those read their bits through Unsafe.As, as
+        // Equality.Is compares them.
+        private static int Hash(ref TValue value)
+        {
+            if (!typeof(TValue).IsValueType)
+            {
+                if (value is null)
+                {
+                    return 0;
+                }
+
+                return typeof(TValue) == typeof(string) ? StringComparer.Ordinal.GetHashCode((string)(object)value) : RuntimeHelpers.GetHashCode(value);
+            }
+
+            if (typeof(TValue) == typeof(double))
+            {
+                return Unsafe.As<TValue, double>(ref value).GetHashCode();
+            }
+
+            if (typeof(TValue) == typeof(float))
+            {
+                return Unsafe.As<TValue, float>(ref value).GetHashCode();
+            }
+
+            if (typeof(TValue) == typeof(Half))
+            {
+                return Unsafe.As<TValue, Half>(ref value).GetHashCode();
+            }
+
+            if (typeof(TValue) == typeof(decimal))
+            {
+                return Unsafe.As<TValue, decimal>(ref value).GetHashCode();
+            }
+
+            if (typeof(TValue) == typeof(int?))
+            {
+                return Unsafe.As<TValue, int?>(ref value).GetHashCode();
+            }
+
+            if (typeof(TValue) == typeof(long?))
+            {
+                return Unsafe.As<TValue, long?>(ref value).GetHashCode();
+            }
+
+            if (typeof(TValue).IsPrimitive || typeof(TValue).IsEnum)
+            {
+                return Unsafe.SizeOf<TValue>() switch
+                {
+                    1 => Unsafe.As<TValue, byte>(ref value),
+                    2 => Unsafe.As<TValue, ushort>(ref value),
+                    4 => Unsafe.As<TValue, int>(ref value),
+                    _ => Unsafe.As<TValue, long>(ref value).GetHashCode(),
+                };
+            }
+
+            return EqualityComparer<TValue>.Default.GetHashCode(value!);
         }
     }
 }
