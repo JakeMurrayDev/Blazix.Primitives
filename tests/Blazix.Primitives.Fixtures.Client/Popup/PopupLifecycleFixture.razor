@@ -1,0 +1,34 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Blazix.Primitives
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popup-lifecycle` fixture (tests/browser/popup.spec.ts; M5 track 2, brief deliverable 1): the standalone host, the
+    open lifecycle alone (FLT-STR-11) with an `interactions` session on its token (Escape dismissal only) and a
+    transitions-watched popup, without a trigger registry, payload or handle. `[data-open-button]` opens it with no trigger;
+    `[data-unmount-button]` runs the root's unmount action. With `?animations=1` the popup animates in and out over 200ms; `?exit=long` makes
+    its exit last ten seconds, so a title acts while it is still closing.
+*@
+<FixtureContainer Name="popup-lifecycle" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes popup-lifecycle-enter { from { opacity: 0; } }
+        @@keyframes popup-lifecycle-exit { to { opacity: 0; } }
+        [data-fixture="popup-lifecycle"] [role="dialog"][data-open] { animation: popup-lifecycle-enter 200ms; }
+        [data-fixture="popup-lifecycle"] [role="dialog"][data-ending-style] { animation: popup-lifecycle-exit 200ms; }
+        [data-fixture="popup-lifecycle"] .popup-long-exit[data-ending-style] { animation: popup-lifecycle-exit 10s; }
+    </style>
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-open-button @onclick="() => root!.OpenAsync()">Open</button>
+    <button type="button" data-unmount-button @onclick="() => root!.UnmountAsync()">Unmount</button>
+
+    <FixtureLifecycleRoot @ref="root" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <FixtureLifecyclePopup data-testid="popup" class="@(Query("exit") == "long" ? "popup-long-exit" : null)">Popup content</FixtureLifecyclePopup>
+    </FixtureLifecycleRoot>
+</FixtureContainer>
+
+@code {
+    private FixtureLifecycleRoot? root;
+
+    protected override IEnumerable<Task> Attachments => [root!.SessionAttached];
+}
