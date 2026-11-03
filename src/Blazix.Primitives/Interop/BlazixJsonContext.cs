@@ -46,6 +46,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(PositioningPlacement))]
 [JsonSerializable(typeof(InteractionsOptions))]
 [JsonSerializable(typeof(InteractionsRequest))]
+[JsonSerializable(typeof(PlatformFlagsPayload))]
 [JsonSerializable(typeof(InteractionsPress))]
 [JsonSerializable(typeof(InteractionsPressing))]
 [JsonSerializable(typeof(PopupOptions))]

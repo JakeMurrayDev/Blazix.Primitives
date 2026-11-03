@@ -53,3 +53,9 @@ internal static class InteractionsLiterals
         };
     }
 }
+
+// ADR 04 Amendments 2026-11-04 (design point 4): the `interactions` module's readPlatformFlags.
+/// <summary>The platform hints the <c>interactions</c> module reports.</summary>
+/// <param name="VoiceOver">Whether VoiceOver may be running.</param>
+/// <param name="Mac">Whether the platform is macOS.</param>
+internal sealed record PlatformFlagsPayload(bool VoiceOver, bool Mac);
