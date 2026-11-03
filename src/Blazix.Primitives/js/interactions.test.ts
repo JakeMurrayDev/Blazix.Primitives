@@ -15,6 +15,7 @@ import {
   isTopmostOpenSession,
   nameRelayTrigger,
   releaseSession,
+  clearSessionOpenEvent,
   resetInteractionsForTest,
   setSessionPositionReference,
   type SessionNode,
@@ -912,6 +913,40 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     await vi.advanceTimersByTimeAsync(500);
     click(reference);
     expect(popup.open).toBe(false);
+  });
+
+  // NavigationMenu's report (NAV-PTR-05; M5 track 2): the window is the session's, as Base UI keeps it on the Trigger
+  // (stickIfOpenTimeout) and Popover's store does, so an uninstall of the click role within it (a role off while open)
+  // leaves its timer running.
+  it('port: the patient-click window outlives an uninstall of the click role, and a press after it closes the popup', async () => {
+    vi.useFakeTimers();
+    const popup = harness({ synchronous });
+    popup.attachSession();
+    const reference = element('button', 'patient-reference');
+    const handle = popup.attachTrigger(reference, { trigger: { click: { patientClick: true } } });
+    popup.setReference(reference);
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+
+    handle.update(JSON.stringify({ sessionToken: popup.token, trigger: {} }));
+    handle.update(JSON.stringify({ sessionToken: popup.token, trigger: { click: { patientClick: true } } }));
+    await vi.advanceTimersByTimeAsync(500);
+    click(reference);
+
+    expect(popup.open).toBe(false);
+  });
+
+  // NAV-PTR-07 (M5 track 2): the session's recorded open event is this module's key, so a component module that switches
+  // without a click (NavigationMenu's hover and key switches) clears it through an export.
+  it('port: clearSessionOpenEvent forgets the open event a press recorded, and an unknown token is ignored', () => {
+    const { popup, reference } = App({ click: { stickIfOpen: true } });
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    click(reference);
+    expect(getSession(popup.token)?.dataRef.current.openEvent?.type).toBe('click');
+
+    clearSessionOpenEvent(popup.token);
+    clearSessionOpenEvent('no-such-token');
+
+    expect(getSession(popup.token)?.dataRef.current.openEvent).toBeUndefined();
   });
 
   it('port: a press on another registered trigger of an open popup keeps it open and moves the anchor', () => {
