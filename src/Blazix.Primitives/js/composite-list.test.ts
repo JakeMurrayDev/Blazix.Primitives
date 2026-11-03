@@ -5,10 +5,19 @@
 // `OnAfterRender`). `waitFor` stands for Testing Library's: it polls across frames, which the stub below runs on a 0 ms
 // timeout (FloatingFocusManager.test.tsx:62-73, the focus-manager tests' precedent). Port titles say "port:".
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LEAVE_POINT, NAVIGATE_POINT } from './composite';
+import {
+  attach,
+  LEAVE_POINT,
+  LIST_HIGHLIGHT_REPORT,
+  NAVIGATE_POINT,
+  type CompositeListHighlightReport,
+  type CompositeOptions,
+} from './composite';
 import { resetFocusManagerState } from './focus-manager';
 import { resetInteractionsForTest } from './interactions';
 import { resetFrameScheduler } from './transitions';
+import type { DotNetTwin, TwinHandle } from './twin';
+import { createPopupHarness } from './test-support/interactions-harness';
 import { createListHarness, type ListHarness, type ListHarnessOptions } from './test-support/list-harness';
 
 const harnesses: ListHarness[] = [];
@@ -838,4 +847,696 @@ describe('list virtual focus (port)', () => {
 
     expect(harness.activeIndex).toBe(0);
   });
+});
+
+// The popup grid (M5 track 1, Deliverable 9; CMP-ALG-07, ALG-08, ALG-13, KEY-29, EDGE-16, EDGE-17):
+// useListNavigation.test.tsx's grid titles, verbatim, on DOM built after `test/floating-ui-tests/Grid.tsx` (49 option
+// buttons, 5 columns), `ComplexGrid.tsx` (37, 7 columns), the file's own `VirtualizedGridRows` (an input reference, 15
+// rendered gridcells in `role="row"` rows of 5 out of a longer list) and `EmojiPicker.tsx` (an input inside the popup, 3
+// columns). The fixtures wrap Base UI's navigator with their column count (`gridNavigationWithColumns.ts`); the port
+// reads it from the list's `cols`, and a virtualized list's length (`listRef.current.length`) from `itemCount`.
+// `fireEvent.click` dispatches `detail: 0`, which `isVirtualClick` reads as a virtual click (CMP-ALG-28), so a click
+// opening highlights the first enabled item as Base UI's does; `data-active-index` is C#'s mirror of the highlight.
+function fireClick(target: HTMLElement): void {
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, button: 0 }));
+}
+
+/** `screen.getAllByRole('option')[index]` (or `gridcell`): the rendered item at an index. */
+function option(harness: ListHarness, index: number): HTMLElement {
+  return harness.item(index);
+}
+
+async function opened(harness: ListHarness): Promise<void> {
+  await waitFor(() => {
+    expect(harness.floating).not.toBeNull();
+  });
+}
+
+/** Grid.tsx's `Main`: 49 option buttons in 5 columns, 12 of them disabled, opened by a click only. */
+function gridFixture(props: { orientation?: 'horizontal' | 'both'; loopFocus?: boolean } = {}): ListHarness {
+  const disabledIndices = [0, 1, 2, 3, 4, 5, 6, 7, 10, 15, 45, 48];
+  return app({
+    items: Array.from({ length: 49 }, (_, index) => `Item ${index}`),
+    itemTag: 'button',
+    flat: true,
+    itemAttributes: (index) => ({ type: 'button', role: 'option', ...(disabledIndices.includes(index) ? { disabled: '' } : {}) }),
+    list: {
+      orientation: props.orientation ?? 'horizontal',
+      loopFocus: props.loopFocus ?? false,
+      openOnArrowKeyDown: false,
+      disabledIndices,
+      grid: true,
+      cols: 5,
+    },
+  });
+}
+
+/** ComplexGrid.tsx's `Main`: 37 option buttons in 7 columns, 11 of them disabled. */
+function complexGridFixture(props: { orientation?: 'horizontal' | 'both'; loopFocus?: boolean; rtl?: boolean } = {}): ListHarness {
+  const disabledIndices = [0, 1, 2, 3, 4, 5, 6, 9, 14, 23, 35];
+  return app({
+    items: Array.from({ length: 37 }, (_, index) => `Item ${index}`),
+    itemTag: 'button',
+    flat: true,
+    floatingRole: 'presentation',
+    itemAttributes: (index) => ({ type: 'button', role: 'option', ...(disabledIndices.includes(index) ? { disabled: '' } : {}) }),
+    list: {
+      orientation: props.orientation ?? 'horizontal',
+      loopFocus: props.loopFocus ?? false,
+      rtl: props.rtl ?? false,
+      openOnArrowKeyDown: false,
+      disabledIndices,
+      grid: true,
+      cols: 7,
+    },
+  });
+}
+
+/**
+ * useListNavigation.test.tsx's `VirtualizedGridRows`: open from the start, an input reference under virtual focus, the
+ * first three rows of five gridcells rendered out of `totalItems`, the consumer's initial `activeIndex` as C#'s first
+ * highlight request.
+ */
+function virtualizedGridRows(
+  props: { totalItems?: number; initialActiveIndex?: number; loopFocus?: boolean; disabledIndices?: number[]; hiddenIndices?: number[] } = {},
+): ListHarness {
+  const { totalItems = 100, initialActiveIndex = 0, loopFocus = true, disabledIndices, hiddenIndices } = props;
+  const COLUMNS = 5;
+  const VISIBLE_ROWS = 3;
+  const harness = app({
+    reference: 'input',
+    floatingRole: 'grid',
+    items: Array.from({ length: Math.min(totalItems, COLUMNS * VISIBLE_ROWS) }, (_, index) => `${index}`),
+    itemTag: 'button',
+    rowSize: COLUMNS,
+    itemAttributes: (index) => ({ type: 'button', role: 'gridcell', ...(hiddenIndices?.includes(index) ? { style: 'display: none' } : {}) }),
+    session: { open: true },
+    list: {
+      virtual: true,
+      loopFocus,
+      orientation: 'horizontal',
+      ...(disabledIndices ? { disabledIndices } : {}),
+      grid: true,
+      itemCount: totalItems,
+      highlight: { index: initialActiveIndex, revision: 1 },
+    },
+  });
+  harness.reference.removeAttribute('role');
+  return harness;
+}
+
+/** Presses a key on the floating element `times` times, as consecutive `fireEvent.keyDown` calls. */
+function pressOnMenu(harness: ListHarness, key: string, times = 1): void {
+  for (let count = 0; count < times; count += 1) {
+    keyDown(menu(harness), key);
+  }
+}
+
+describe('useListNavigation (grid)', () => {
+  describe('grid navigation', () => {
+    it('ArrowDown focuses first item', async () => {
+      const harness = gridFixture();
+
+      fireClick(harness.reference);
+      await opened(harness);
+      keyDown(document, 'ArrowDown');
+      await waitFor(() => {
+        expect(option(harness, 8)).toBe(document.activeElement);
+      });
+    });
+
+    it('focuses first non-disabled item in grid', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await waitFor(() => {
+        expect(option(harness, 8)).toBe(document.activeElement);
+      });
+    });
+
+    it('focuses next item using ArrowRight key, skipping disabled items', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 9)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 11)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight', 3);
+      expect(option(harness, 14)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 16)).toBe(document.activeElement);
+    });
+
+    it('focuses previous item using ArrowLeft key, skipping disabled items', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 47).focus();
+
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 46)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 44)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft', 3);
+      expect(option(harness, 41)).toBe(document.activeElement);
+    });
+
+    it('skips row and remains on same column when pressing ArrowDown', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 13)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 18)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 23)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 28)).toBe(document.activeElement);
+    });
+
+    it('skips row and remains on same column when pressing ArrowUp', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 47).focus();
+
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 42)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 37)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 32)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 27)).toBe(document.activeElement);
+    });
+
+    it('loops on the same column with ArrowDown', async () => {
+      const harness = gridFixture({ loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      pressOnMenu(harness, 'ArrowDown', 8);
+
+      expect(option(harness, 8)).toBe(document.activeElement);
+    });
+
+    it('loops on the same column with ArrowUp', async () => {
+      const harness = gridFixture({ loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 43).focus();
+
+      pressOnMenu(harness, 'ArrowUp', 8);
+
+      expect(option(harness, 43)).toBe(document.activeElement);
+    });
+
+    it('does not leave row with "both" orientation while looping', async () => {
+      const harness = gridFixture({ orientation: 'both', loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 9)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 8)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 9)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 8)).toBe(document.activeElement);
+
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 13)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 14)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 11)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 14)).toBe(document.activeElement);
+    });
+
+    it('looping works on last row', async () => {
+      const harness = gridFixture({ orientation: 'both', loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 46).focus();
+
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 47)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 46)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 47)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 46)).toBe(document.activeElement);
+    });
+
+    it('wraps ArrowUp to the last row in the full list for virtualized rows', async () => {
+      const harness = virtualizedGridRows();
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowUp');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(95);
+      });
+    });
+
+    it('clamps ArrowUp to the last item in a partial last row for virtualized rows', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 4 });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowUp');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(97);
+      });
+    });
+
+    it('clamps ArrowDown into a partial last row for virtualized rows', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 93 });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(97);
+      });
+    });
+
+    it('does not wrap ArrowUp when loopFocus is false for virtualized rows', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 4, loopFocus: false });
+
+      harness.reference.focus();
+
+      const event = keyDown(harness.reference, 'ArrowUp');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(4);
+      });
+      // The grid navigator consumed the key all the same (`stopEvent: true`).
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('still clamps ArrowDown into a partial last row when loopFocus is false', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 93, loopFocus: false });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(97);
+      });
+    });
+
+    it('falls back left in a partial last row when the preferred candidate is disabled', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 93, disabledIndices: [97] });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(96);
+      });
+    });
+
+    it('falls back left when the preferred candidate is hidden', async () => {
+      const harness = virtualizedGridRows({ initialActiveIndex: 9, hiddenIndices: [14] });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(13);
+      });
+    });
+  });
+
+  describe('grid navigation in a multi-column grid with disabled items', () => {
+    it('focuses first non-disabled item in grid', async () => {
+      const harness = complexGridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await waitFor(() => {
+        expect(option(harness, 7)).toBe(document.activeElement);
+      });
+    });
+
+    describe.each([
+      { rtl: false, arrowToStart: 'ArrowLeft', arrowToEnd: 'ArrowRight' },
+      { rtl: true, arrowToStart: 'ArrowRight', arrowToEnd: 'ArrowLeft' },
+    ])('with rtl $rtl', ({ rtl, arrowToStart, arrowToEnd }) => {
+      it(`focuses next item using ${arrowToEnd} key, skipping disabled items`, async () => {
+        const harness = complexGridFixture({ rtl });
+        keyDown(harness.reference, 'Enter');
+        fireClick(harness.reference);
+        await opened(harness);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 8)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 10)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 3);
+        expect(option(harness, 13)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 15)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 5);
+        expect(option(harness, 20)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 3);
+        expect(option(harness, 24)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 10);
+        expect(option(harness, 34)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 36)).toBe(document.activeElement);
+      });
+
+      it(`focuses previous item using ${arrowToStart} key, skipping disabled items`, async () => {
+        const harness = complexGridFixture({ rtl });
+        keyDown(harness.reference, 'Enter');
+        fireClick(harness.reference);
+        await opened(harness);
+
+        option(harness, 36).focus();
+
+        pressOnMenu(harness, arrowToStart);
+        await waitFor(() => {
+          expect(option(harness, 34)).toBe(document.activeElement);
+        });
+        pressOnMenu(harness, arrowToStart, 6);
+        await waitFor(() => {
+          expect(option(harness, 28)).toBe(document.activeElement);
+        });
+        pressOnMenu(harness, arrowToStart, 7);
+        await waitFor(() => {
+          expect(option(harness, 20)).toBe(document.activeElement);
+        });
+        pressOnMenu(harness, arrowToStart, 11);
+        await waitFor(() => {
+          expect(option(harness, 7)).toBe(document.activeElement);
+        });
+      });
+
+      it('looping works on last row', async () => {
+        const harness = complexGridFixture({ rtl, orientation: 'both', loopFocus: true });
+        keyDown(harness.reference, 'Enter');
+        fireClick(harness.reference);
+        await opened(harness);
+
+        option(harness, 36).focus();
+
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 36)).toBe(document.activeElement);
+      });
+    });
+  });
+
+  it('grid navigation with changing list items', async () => {
+    const picker = emojiPicker();
+
+    fireClick(picker.button);
+
+    await flushMicrotasks();
+
+    await waitFor(() => {
+      expect(picker.input()).toBe(document.activeElement);
+    });
+
+    picker.type('appl');
+    const initialActiveIndex = picker.activeIndex;
+    picker.press('ArrowDown');
+
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    picker.press('ArrowDown');
+
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    expect(picker.activeIndex).not.toBeNull();
+  });
+
+  it('grid navigation with disabled list items', async () => {
+    const picker = emojiPicker();
+
+    fireClick(picker.button);
+
+    await flushMicrotasks();
+
+    await waitFor(() => {
+      expect(picker.input()).toBe(document.activeElement);
+    });
+
+    picker.type('o');
+    const initialActiveIndex = picker.activeIndex;
+    picker.press('ArrowDown');
+
+    expect(picker.option('orange').hasAttribute('data-highlighted')).toBe(false);
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    picker.press('ArrowDown');
+
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    expect(picker.activeIndex).not.toBeNull();
+
+    picker.unmount();
+
+    const next = emojiPicker();
+
+    fireClick(next.button);
+
+    await flushMicrotasks();
+
+    await waitFor(() => {
+      expect(next.input()).toBe(document.activeElement);
+    });
+
+    const nextInitialActiveIndex = next.activeIndex;
+    next.press('ArrowDown');
+    next.press('ArrowDown');
+    next.press('ArrowRight');
+    next.press('ArrowUp');
+
+    await waitFor(() => {
+      expect(next.activeIndex).not.toBe(nextInitialActiveIndex);
+    });
+    expect(next.option('cherry').hasAttribute('data-highlighted')).toBe(true);
+  });
+});
+
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => queueMicrotask(resolve));
+}
+
+interface EmojiPicker {
+  readonly button: HTMLElement;
+  /** C#'s mirror of the highlight (`emoji-picker-active-index`). */
+  readonly activeIndex: number | null;
+  input(): HTMLInputElement;
+  option(name: string): HTMLElement;
+  /** userEvent's keyboard: a keydown per character on the input, and the input's change. */
+  type(text: string): void;
+  press(key: string): void;
+  unmount(): void;
+}
+
+/**
+ * EmojiPicker.tsx's `Main` as C# would render it: the button is the popup's trigger (a click opens, the session's
+ * dismissal is on), and the list's reference is the search input inside the popup, so the reference handle attaches to
+ * it with the floating handle when the popup renders; the focus manager's initial focus lands on the input. The input's
+ * change clears the highlight by a request and filters the options.
+ */
+function emojiPicker(): EmojiPicker {
+  const emojis = ['apple', 'orange', 'watermelon', 'strawberry', 'pear', 'banana', 'pineapple', 'cherry', 'peach'];
+  let render: () => void = () => {};
+  const popup = createPopupHarness({ onOpenChange: () => queueMicrotask(() => render()) });
+  const button = document.createElement('button');
+  button.setAttribute('aria-label', 'Choose emoji');
+  document.body.appendChild(button);
+  popup.attachSession({ session: { dismiss: {} } });
+  popup.attachTrigger(button, { trigger: { click: {} } });
+  popup.setReference(button);
+
+  let search = '';
+  let revision = 0;
+  let activeIndex: number | null = null;
+  let floating: HTMLElement | null = null;
+  let input: HTMLInputElement | null = null;
+  let listbox: HTMLElement | null = null;
+  let floatingHandle: TwinHandle | null = null;
+  let referenceHandle: TwinHandle | null = null;
+
+  const twin: DotNetTwin = {
+    invokeMethod<T>(): T {
+      throw new Error('The current dispatcher does not support synchronous calls from JS to .NET.');
+    },
+    invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T> {
+      if (methodName === LIST_HIGHLIGHT_REPORT) {
+        activeIndex = (JSON.parse(args[0] as string) as CompositeListHighlightReport).index;
+      }
+      return Promise.resolve(undefined as T);
+    },
+  };
+
+  const common = (): CompositeOptions =>
+    ({
+      orientation: 'both',
+      loopFocus: true,
+      enableHomeAndEndKeys: false,
+      stopEventPropagation: true,
+      highlightItemOnHover: false,
+      modifierKeys: [],
+      direction: 'ltr',
+      items: [],
+      selectOnNavigation: false,
+      reportFocusLeave: false,
+      reportHighlight: false,
+      sessionToken: popup.token,
+      list: {
+        orientation: 'horizontal',
+        loopFocus: true,
+        focusItemOnOpen: false,
+        virtual: true,
+        allowEscape: true,
+        grid: true,
+        cols: 3,
+        ...(revision > 0 ? { highlight: { index: null, revision } } : {}),
+      },
+    }) as CompositeOptions;
+
+  const renderOptions = (): void => {
+    const filtered = emojis.filter((name) => name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+    listbox!.replaceChildren(
+      ...filtered.map((name) => {
+        const element = document.createElement('button');
+        element.id = `${popup.token}-${name}`;
+        element.type = 'button';
+        element.setAttribute('role', 'option');
+        element.setAttribute('aria-label', name);
+        element.setAttribute('tabindex', '-1');
+        element.setAttribute('data-option', '');
+        element.disabled = name === 'orange';
+        element.textContent = name;
+        return element;
+      }),
+    );
+  };
+
+  const floatingOptions = (): string =>
+    JSON.stringify({
+      ...common(),
+      floating: {},
+      items: Array.from(listbox!.querySelectorAll<HTMLElement>('[data-option]'), (element) => ({ id: element.id, tabIndex: null })),
+    });
+  const referenceOptions = (): string => JSON.stringify({ ...common(), reference: {} });
+
+  // The input's onChange: `setActiveIndex(null)` and the new search, one render batch.
+  const onChange = (): void => {
+    revision += 1;
+    search = input!.value;
+    renderOptions();
+    floatingHandle?.update(floatingOptions());
+    referenceHandle?.update(referenceOptions());
+  };
+
+  render = () => {
+    if (popup.open && !floating) {
+      floating = document.createElement('div');
+      floating.id = `${popup.token}-floating`;
+      floating.setAttribute('role', 'menu');
+      input = document.createElement('input');
+      input.placeholder = 'Search emoji';
+      input.addEventListener('input', onChange);
+      listbox = document.createElement('div');
+      listbox.setAttribute('role', 'listbox');
+      floating.append(input, listbox);
+      renderOptions();
+      document.body.appendChild(floating);
+      popup.attachFloating(floating);
+      floatingHandle = attach(floating, floatingOptions(), twin);
+      referenceHandle = attach(input, referenceOptions(), twin);
+      input.focus();
+    } else if (!popup.open && floating) {
+      floatingHandle?.dispose();
+      referenceHandle?.dispose();
+      floatingHandle = null;
+      referenceHandle = null;
+      floating.remove();
+      floating = null;
+      search = '';
+    }
+  };
+
+  const picker: EmojiPicker = {
+    button,
+    get activeIndex() {
+      return activeIndex;
+    },
+    input() {
+      if (!input) {
+        throw new Error('the emoji picker is not open');
+      }
+      return input;
+    },
+    option(name) {
+      const found = listbox?.querySelector<HTMLElement>(`[aria-label="${name}"]`);
+      if (!found) {
+        throw new Error(`no option ${name}`);
+      }
+      return found;
+    },
+    type(text) {
+      for (const key of text) {
+        keyDown(picker.input(), key);
+        picker.input().value += key;
+        picker.input().dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    },
+    press(key) {
+      keyDown(document.activeElement ?? document.body, key);
+    },
+    unmount() {
+      floatingHandle?.dispose();
+      referenceHandle?.dispose();
+      popup.dispose();
+      floating?.remove();
+      button.remove();
+    },
+  };
+  pickers.push(picker);
+  return picker;
+}
+
+const pickers: EmojiPicker[] = [];
+
+afterEach(() => {
+  for (const picker of pickers.splice(0)) {
+    picker.unmount();
+  }
 });
