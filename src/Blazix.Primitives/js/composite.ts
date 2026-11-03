@@ -22,7 +22,7 @@
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
 import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
-import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument, platform } from './dom';
+import { activeElement, contains, getTarget, isElement, isElementVisible, isHiddenByStyles, isHTMLElement, ownerDocument, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import { enqueueFocus } from './focus-manager';
 import {
@@ -108,38 +108,10 @@ export function isIndexOutOfListBounds(list: ReadonlyArray<HTMLElement | null | 
   return index < 0 || index >= list.length;
 }
 
-// CMP-ALG-03
-/**
- * Determines whether computed styles hide an element through `visibility`.
- * @param styles The element's computed styles.
- * @returns `true` for `visibility: hidden` and `visibility: collapse`.
- */
-export function isHiddenByStyles(styles: CSSStyleDeclaration): boolean {
-  return styles.visibility === 'hidden' || styles.visibility === 'collapse';
-}
-
-// CMP-ALG-03
-/**
- * Determines whether an element is rendered and visible.
- * @param element The element, or `null`.
- * @param styles The element's computed styles; read from the element when omitted.
- * @returns `false` for a missing or disconnected element and for one hidden by its styles; otherwise
- * `checkVisibility()` where it exists, else whether `display` is neither `none` nor `contents`.
- */
-export function isElementVisible(
-  element: Element | null | undefined,
-  styles: CSSStyleDeclaration | null = element ? getComputedStyle(element) : null,
-): boolean {
-  if (!element || !element.isConnected || !styles || isHiddenByStyles(styles)) {
-    return false;
-  }
-
-  if (typeof element.checkVisibility === 'function') {
-    return element.checkVisibility();
-  }
-
-  return styles.display !== 'none' && styles.display !== 'contents';
-}
+// CMP-ALG-03: `isHiddenByStyles` and `isElementVisible` live in `dom` (design point 6 (a) of M5 track 1, settled by the
+// orchestrator 2026-11-04: `focus-manager` imports them from there, so this module imports `focus-manager` without a
+// cycle, ADR 04 §1); re-exported for this module's callers.
+export { isElementVisible, isHiddenByStyles };
 
 // CMP-ALG-02, CMP-ARIA-03
 /**
