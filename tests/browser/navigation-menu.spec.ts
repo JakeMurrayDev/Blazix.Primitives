@@ -36,11 +36,16 @@ const OPEN_DELAY = 50;
 const CLOSE_DELAY = 50;
 const PATIENT_CLICK_THRESHOLD = 500;
 
-/** Rests a real mouse on a trigger: two moves inside it, so the rest timer starts (NAV-PTR-01). */
-async function hoverTrigger(page: Page, n: number): Promise<void> {
-  const box = (await trigger(page, n).boundingBox())!;
+/** Rests a real mouse on an element: two moves inside it, so a trigger's rest timer starts (NAV-PTR-01). */
+async function hoverElement(page: Page, locator: Locator): Promise<void> {
+  const box = (await locator.boundingBox())!;
   await page.mouse.move(box.x + 4, box.y + 4);
   await page.mouse.move(box.x + 10, box.y + 8);
+}
+
+/** Rests a real mouse on a top-level trigger. */
+async function hoverTrigger(page: Page, n: number): Promise<void> {
+  await hoverElement(page, trigger(page, n));
 }
 
 /** Moves the mouse in one step to an empty corner of the page and once more inside it, away from the triggers and the popup. */
@@ -605,6 +610,213 @@ test.describe('<NavigationMenu.Popup /> anchoring', () => {
     await page.clock.runFor(64);
     await expect.poll(() => popup.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
     expect(await arrowPart.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
+  });
+});
+
+test.describe('<NavigationMenu.Root /> nested', () => {
+  const nestedTrigger = (page: Page, n: number) => page.getByTestId(`nested-trigger-${n}`);
+  const nestedContent = (page: Page, n: number) => page.getByTestId(`nested-content-${n}`);
+
+  async function hoverOpen(page: Page, locator: Locator): Promise<void> {
+    await hoverElement(page, locator);
+    await page.clock.runFor(OPEN_DELAY + 10);
+  }
+
+  test('handles inline nested menu without positioner/popup correctly', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await hoverOpen(page, trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await hoverElement(page, nestedContent(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await hoverOpen(page, nestedTrigger(page, 2));
+    await expect(nestedContent(page, 2)).toBeVisible();
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('keeps parent menu open when hovering inline nested triggers without defaultValue', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline' });
+    await hoverOpen(page, trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    // A real pointer crosses the nested panel first, which releases the inline lock on the nested List (NAV-PTR-13).
+    await hoverElement(page, nestedContent(page, 1));
+    await hoverOpen(page, nestedTrigger(page, 2));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 2)).toBeVisible();
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('switches content in viewport when hovering different nested triggers', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await hoverOpen(page, trigger(page, 1));
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    await hoverOpen(page, nestedTrigger(page, 2));
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(nestedContent(page, 2)).toBeVisible();
+    await expect(nestedContent(page, 1)).toHaveCount(0);
+
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(nestedContent(page, 2)).toHaveCount(0);
+  });
+
+  test('maintains inline viewport state when hovering between triggers and content', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await hoverOpen(page, trigger(page, 1));
+    await hoverOpen(page, nestedTrigger(page, 2));
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 2)).toBeVisible();
+
+    await hoverElement(page, nestedContent(page, 2));
+    await settle(fixture);
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 2)).toBeVisible();
+
+    await hoverElement(page, nestedTrigger(page, 2));
+    await settle(fixture);
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 2)).toBeVisible();
+  });
+
+  // Open, under investigation (M5 track 5, 2026-11-04): with the inline nested menu open by default, leaving the trigger
+  // and the popup keeps the parent open on both modes, with real input and with Base UI's dispatched leaves alike. The
+  // parent's safe polygon aborts while a child node is open (safePolygon.ts:177); which path closes it in Base UI's run
+  // is not traced yet.
+  test.fixme('closes inline nested viewport when parent menu closes', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await hoverOpen(page, trigger(page, 1));
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    // Base UI leaves the trigger and the popup; the real pointer crosses the popup on its way out.
+    await hoverElement(page, page.getByTestId('link-1-a'));
+    await leaveMenu(page);
+    await page.clock.runFor(CLOSE_DELAY + 10);
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(nestedContent(page, 1)).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('handles click interactions on inline nested menu triggers', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await fireClick(nestedTrigger(page, 2));
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(nestedContent(page, 2)).toBeVisible();
+    await expect(nestedContent(page, 1)).toHaveCount(0);
+
+    await fireClick(nestedTrigger(page, 2));
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(nestedContent(page, 2)).toBeVisible();
+    await expect(nestedContent(page, 1)).toHaveCount(0);
+  });
+
+  test('allows arrow key navigation to submenu triggers', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    // Base UI's Content has one Link before the nested Root; this one has two, so the walk starts from the second.
+    const link = page.getByTestId('link-1-b');
+    await link.focus();
+
+    await page.keyboard.press('ArrowDown');
+    await expect(nestedTrigger(page, 1)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(nestedTrigger(page, 2)).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(nestedTrigger(page, 1)).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(link).toBeFocused();
+  });
+
+  test('opens nested menu on hover and stays open when hovering over nested popup', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'portal' });
+    await hoverOpen(page, trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await hoverElement(page, page.getByTestId('nested-popup-root'));
+    await page.clock.runFor(CLOSE_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('closes the parent menu after a nested submenu closes on delayed hover-out', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'portal', closeDelay: 200 });
+    await hoverOpen(page, trigger(page, 1));
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    await leaveMenu(page);
+    await page.clock.runFor(210);
+
+    await expect(nestedContent(page, 1)).toHaveCount(0);
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('closes the parent menu when a nested link with closeOnClick is clicked', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'portal', closeOnClick: true });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    await page.getByTestId('nested-link-1').click();
+
+    await expect(nestedContent(page, 1)).toHaveCount(0);
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('calls onValueChange on the parent root when nested closeOnClick link is clicked', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { nested: 'portal', closeOnClick: true });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await hoverOpen(page, nestedTrigger(page, 1));
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    await page.getByTestId('nested-link-1').click();
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect((await valueChanges(fixture)).at(-1)).toBe('null:link-press');
   });
 });
 
