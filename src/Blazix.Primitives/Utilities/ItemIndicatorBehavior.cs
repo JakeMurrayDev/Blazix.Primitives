@@ -229,15 +229,9 @@ internal sealed class ItemIndicatorBehavior
     }
 }
 
-// RND-STR-10's state (ItemIndicatorState in utils/ItemIndicator.tsx): `selected` is projected as data-selected, never a
-// `selected` attribute; the transition status is the transitions module's (mirrored).
-/// <summary>Holds the state of an item's selection indicator.</summary>
-/// <param name="Selected">Whether the item is selected; rendered as <c>data-selected</c>.</param>
-/// <param name="TransitionStatus">The phase of the indicator's transition, written by the transitions module.</param>
-[PartState]
-internal sealed partial record ItemIndicatorState(
-    bool Selected,
-    [property: MirroredField] TransitionStatus? TransitionStatus);
+// RND-STR-10's state (ItemIndicatorState in utils/ItemIndicator.tsx) is each shell's own record, `bool Selected` projected as
+// data-selected (never a `selected` attribute) beside `[MirroredField] TransitionStatus? TransitionStatus`, with its family's
+// ownership-registry row for the mirrored field: a [PartState] record here would be a mirrored field no family owns.
 
 /// <summary>Provides the data attributes of an item's selection indicator.</summary>
 internal static class ItemIndicatorDataAttributes
