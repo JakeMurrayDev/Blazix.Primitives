@@ -60,6 +60,9 @@ export interface PopupPositionerOptions {
   watchTriggerChange?: boolean;
   /** Whether the internal backdrop cuts out the active trigger (it is rendered). */
   cutout?: boolean;
+  // PSH-ALG-21's element branch (InternalBackdrop.tsx:10-44); M5 track 2: a Menubar's element under a bar (MBR-DOM-08).
+  /** The id of the element the backdrop cuts out instead of the active trigger; the trigger when absent. */
+  cutoutElementId?: string | null;
   /** Whether the anchored scroll lock is enabled. */
   scrollLock?: boolean;
   /** Whether a touch opened the popup. */
@@ -642,6 +645,16 @@ function attachPositioner(positioner: HTMLElement, initial: PopupOptions, channe
 
   const trigger = (): Element | null => (options.activeTriggerId ? findById(positioner, options.activeTriggerId) : null);
 
+  // The named cut-out element (a Menubar's), looked up in the positioner's own root first, as the trigger is.
+  const cutoutElement = (): HTMLElement | null => {
+    const id = options.cutoutElementId;
+    if (id == null || id === '') {
+      return null;
+    }
+    const root = positioner.getRootNode();
+    return (root instanceof ShadowRoot ? (root.getElementById(id) as HTMLElement | null) : null) ?? doc.getElementById(id);
+  };
+
   // InternalBackdrop.tsx:13-16: the backdrop is the positioner's previous sibling, found by position.
   const cut = () => {
     const sibling = positioner.previousElementSibling;
@@ -654,7 +667,7 @@ function attachPositioner(positioner: HTMLElement, initial: PopupOptions, channe
     if (backdropLayer === null) {
       return;
     }
-    const anchor = options.cutout === false ? null : trigger();
+    const anchor = options.cutout === false ? null : (cutoutElement() ?? trigger());
     if (anchor === null) {
       backdropLayer.remove('clip-path');
       return;

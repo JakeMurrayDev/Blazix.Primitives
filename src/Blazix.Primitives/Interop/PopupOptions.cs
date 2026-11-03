@@ -62,6 +62,11 @@ internal sealed record PopupPositionerOptions
     /// <value><see langword="true"/> while the backdrop renders.</value>
     public bool Cutout { get; init; }
 
+    // M5 track 2: PSH-ALG-21's element branch (InternalBackdrop.tsx:10-44), a Menubar's element under a bar (MBR-DOM-08).
+    /// <summary>Gets the id of the element the internal backdrop cuts out instead of the active trigger.</summary>
+    /// <value>The element's id, such as a menu bar's; <see langword="null"/>, the default, for the active trigger.</value>
+    public string? CutoutElementId { get; init; }
+
     /// <summary>Gets a value indicating whether the anchored scroll lock is enabled.</summary>
     /// <value><see langword="true"/> while open, modal and not opened by hover.</value>
     public bool ScrollLock { get; init; }
