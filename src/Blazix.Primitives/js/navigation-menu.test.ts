@@ -40,6 +40,7 @@ const {
   isOpenKey,
   ACTIVATE_REPORT,
   FOCUS_OUT_REPORT,
+  NAVIGATE_POINT,
   RESIZE_REPORT,
   VIEWPORT_EXIT_REPORT,
   VIEWPORT_INERT_REPORT,
@@ -179,6 +180,7 @@ interface RenderOptions {
   synchronous?: boolean;
   sessionToken?: string;
   open?: string | null;
+  verdict?: 'run' | 'stop';
 }
 
 interface Rendered {
@@ -268,7 +270,7 @@ function renderMenu(options: RenderOptions = {}): Rendered {
     return { value, li, trigger, content };
   });
 
-  const fake = createFakeTwin({ synchronous: options.synchronous ?? false });
+  const fake = createFakeTwin({ synchronous: options.synchronous ?? false, verdict: options.verdict ?? 'run' });
   const activations: ActivationReport[] = [];
   const rendered: Rendered = {
     root,
@@ -891,6 +893,18 @@ describe('the open key', () => {
     keyDown(rendered.item('item-2').trigger, 'ArrowDown');
     expect(nested.twin.reported(ACTIVATE_REPORT)).toHaveLength(0);
     expect(rendered.twin.reported<ActivationReport>(ACTIVATE_REPORT).map((report) => report.reason)).toEqual(['list-navigation']);
+  });
+
+  it('asks navigate before it prevents the open key, and a stop leaves the key and the menu alone', async () => {
+    const rendered = renderMenu({ synchronous: true, verdict: 'stop' });
+    await settle();
+
+    const event = keyDown(rendered.item('item-1').trigger, 'ArrowDown');
+
+    expect(rendered.twin.decisions.map((decision) => decision.point)).toEqual([NAVIGATE_POINT]);
+    expect(rendered.twin.decisions[0]!.event.key).toBe('ArrowDown');
+    expect(event.defaultPrevented).toBe(false);
+    expect(rendered.activations).toHaveLength(0);
   });
 
   it('opens a vertical menu with the mirrored arrow key in RTL mode', async () => {

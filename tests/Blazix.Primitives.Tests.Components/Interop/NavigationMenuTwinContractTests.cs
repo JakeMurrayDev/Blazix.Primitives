@@ -118,6 +118,28 @@ public sealed class NavigationMenuTwinContractTests
     }
 
     [Fact]
+    [Trait("Requirement", "NAV-KEY-01")]
+    [Trait("Requirement", "EVD-EVT-26")]
+    public async Task The_navigate_decision_answers_the_deciders_verdict_and_runs_otherwise()
+    {
+        await using NavigationMenuTwin twin = new(new NoRuntime());
+        string arrowDown = MouseEnterJson.Replace("\"mouseenter\"", "\"keydown\"", StringComparison.Ordinal).Replace("\"key\":null", "\"key\":\"ArrowDown\"", StringComparison.Ordinal);
+        List<string?> keys = [];
+
+        // Without a decider the open key runs.
+        Assert.Equal("run", twin.Decide(NavigationMenuTwin.NavigatePoint, arrowDown));
+
+        twin.NavigationDecider = snapshot =>
+        {
+            keys.Add(snapshot.Key);
+            return DecisionPolicy.Stop;
+        };
+        Assert.Equal("stop", twin.Decide(NavigationMenuTwin.NavigatePoint, arrowDown));
+        Assert.Equal("run", twin.Decide("escape", arrowDown));
+        Assert.Equal(["ArrowDown"], keys);
+    }
+
+    [Fact]
     [Trait("Requirement", "NAV-PTR-18")]
     public void Every_payload_round_trips_through_the_source_generated_context()
     {
