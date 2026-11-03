@@ -108,6 +108,12 @@ export interface DismissOptions {
   // FLT-DIS-09's cross-menu branch (NavigationMenuList.tsx:54-65); M5 track 2.
   /** A selector matched from the press target outward: a press inside a match is not outside. */
   outsidePressExemptSelector?: string | null;
+  // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01); M5 track 2.
+  /** The ids of the elements a press inside which is not outside (a combobox's Trigger, Clear, Chips and InputGroup). */
+  outsidePressExemptIds?: string[] | null;
+  // ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-DIS-01); M5 track 2.
+  /** Milliseconds after an open during which outside presses are ignored, unless the open came from a `contextmenu`. */
+  outsidePressGrace?: number | null;
 }
 
 /** The options of a `session` handle (a popup Root). */
@@ -1290,6 +1296,8 @@ interface DismissState {
   clearInsideReactTreeTimeout: Timer;
   /** Outlives the listeners' re-installs, so a pending reset cannot leave `isComposing` stuck. */
   compositionTimeout: Timer;
+  /** Runs while an open's outside-press grace lasts (ContextMenu's, M5 track 2). */
+  graceTimeout: Timer;
 }
 
 /** Re-arms a session that requested a close: C# answered a request (canceled ones included). */
@@ -1312,6 +1320,7 @@ function dismissState(record: SessionRecord): DismissState {
     currentPointerType: '',
     touchState: null,
     disarmed: false,
+    graceTimeout: createTimer(),
     cancelDismissOnEndTimeout: createTimer(),
     clearInsideReactTreeTimeout: createTimer(),
     compositionTimeout: createTimer(),
@@ -1481,6 +1490,18 @@ function passesOutsidePressGuard(record: SessionRecord, event: MouseEvent | Poin
   if (options === null) {
     return true;
   }
+  if (dismissState(record).graceTimeout.isStarted()) {
+    return false;
+  }
+  // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), M5 track 2.
+  const exemptIds = options.outsidePressExemptIds;
+  if (exemptIds != null && exemptIds.length > 0) {
+    const target = getTarget(event) as Element | null;
+    const doc = ownerDocument(record.floatingElement ?? (target as Element | null));
+    if (exemptIds.some((id) => contains(doc.getElementById(id), target))) {
+      return false;
+    }
+  }
   // NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65; NAV-PTR-17), a branch of FLT-DIS-09 as data
   // (M5 track 2): a press inside a match of the selector, such as any navigation menu's trigger, is not outside.
   const exemptSelector = options.outsidePressExemptSelector;
@@ -1574,9 +1595,17 @@ function createSessionDismissController(context: HandleContext): Controller {
   const onOpenChange = (details: SessionOpenChangeDetails) => {
     if (!details.open) {
       state.sawPressWhileOpen = false;
+      state.graceTimeout.clear();
     } else {
       // The relay brought the next open: the session may request a close again.
       state.disarmed = false;
+      // ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-DIS-01, M5 track 2): outside presses wait out the
+      // grace after an open that did not come from a `contextmenu`; the timer is the module's (ADR 01 decision 4).
+      const grace = state.options?.outsidePressGrace ?? 0;
+      state.graceTimeout.clear();
+      if (grace > 0 && details.nativeEvent?.type !== 'contextmenu') {
+        state.graceTimeout.start(grace, () => {});
+      }
     }
   };
 

@@ -130,6 +130,17 @@ internal sealed record InteractionsDismissOptions
     /// <value>A CSS selector matched from the press target outward, or <see langword="null"/> for none.</value>
     public string? OutsidePressExemptSelector { get; init; }
 
+    // M5 track 2: Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), the OwnBackdropIds precedent.
+    /// <summary>Gets the ids of the elements a press inside which is not outside the popup.</summary>
+    /// <value>The ids, such as a combobox's Trigger, Clear, Chips and InputGroup; <see langword="null"/> for none.</value>
+    public IReadOnlyList<string>? OutsidePressExemptIds { get; init; }
+
+    // M5 track 2: ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-DIS-01); the timer is the module's.
+    /// <summary>Gets the time after an open during which outside presses are ignored, unless the open came from a <c>contextmenu</c>.</summary>
+    /// <value>The grace in milliseconds; the default 0 is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int OutsidePressGrace { get; init; }
+
     /// <inheritdoc />
     public bool Equals(InteractionsDismissOptions? other) =>
         other is not null
@@ -142,10 +153,12 @@ internal sealed record InteractionsDismissOptions
         && SingleTouch == other.SingleTouch
         && Topmost == other.Topmost
         && string.Equals(OutsidePressExemptSelector, other.OutsidePressExemptSelector, StringComparison.Ordinal)
+        && OutsidePressGrace == other.OutsidePressGrace
+        && (ReferenceEquals(OutsidePressExemptIds, other.OutsidePressExemptIds) || (OutsidePressExemptIds is not null && other.OutsidePressExemptIds is not null && OutsidePressExemptIds.SequenceEqual(other.OutsidePressExemptIds, StringComparer.Ordinal)))
         && (ReferenceEquals(OwnBackdropIds, other.OwnBackdropIds) || (OwnBackdropIds is not null && other.OwnBackdropIds is not null && OwnBackdropIds.SequenceEqual(other.OwnBackdropIds, StringComparer.Ordinal)));
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(EscapeKey, OutsidePress, OutsidePressEvent, BubblesEscapeKey, BubblesOutsidePress, PrimaryButtonOnly, SingleTouch, HashCode.Combine(Topmost, OutsidePressExemptSelector));
+    public override int GetHashCode() => HashCode.Combine(EscapeKey, OutsidePress, OutsidePressEvent, BubblesEscapeKey, BubblesOutsidePress, PrimaryButtonOnly, SingleTouch, HashCode.Combine(Topmost, OutsidePressExemptSelector, OutsidePressGrace));
 }
 
 /// <summary>The press type an outside press is read as: <c>intentional</c> (a click whose press began inside the open popup's lifetime) or <c>sloppy</c> (the press itself).</summary>
