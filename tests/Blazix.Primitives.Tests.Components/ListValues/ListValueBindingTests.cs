@@ -42,6 +42,17 @@ public sealed class ListValueBindingTests : IDisposable
         Assert.Equal(["b", "d"], cut.Instance.SelectedValues);
     }
 
+    [Fact(DisplayName = "port: a one-way Values takes a List<T>, an array and a collection expression, each inferring TValue")]
+    [Trait("Requirement", "SEL-API-14")]
+    public void A_one_way_Values_takes_a_list_an_array_and_a_collection_expression()
+    {
+        IRenderedComponent<ListValueBindingHost> cut = context.Render<ListValueBindingHost>();
+
+        Assert.Equal(["l"], cut.Instance.ListRoot!.Values!);
+        Assert.Equal(["a1", "a2"], cut.Instance.ArrayRoot!.Values!);
+        Assert.Equal(["x", "y"], cut.Instance.ExpressionRoot!.Values!);
+    }
+
     [Fact(DisplayName = "port: a list root throws when Multiple is true and a single-value parameter is supplied")]
     [Trait("Requirement", "SEL-API-14")]
     public void A_list_root_throws_when_Multiple_is_true_and_a_single_value_parameter_is_supplied()
