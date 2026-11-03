@@ -12,8 +12,10 @@
       `inline-start`, `inline-end`, `top`); `keepMounted` (the Portal), `keepMountedContent`;
     - `disabled=<n>` disables trigger `<n>` (`[data-enable]` enables it again); `topLink` adds an Item with a Link
       `top-link`; `closeOnClick` on every Link;
-    - `nested=inline` puts an inline nested Root (List and Viewport `nested-viewport`, Items `nested-<n>`) in content 1,
-      `nestedDefault=nested-1` its default; `sized` gives content 1 400×200 and content 2 300×150, fixed;
+    - `nested=inline` puts an inline nested Root `nested-root` (List `nested-list` and Viewport `nested-viewport`, Items
+      `nested-<n>` with Triggers `nested-trigger-<n>`, Contents `nested-content-<n>` and Links `nested-link-<n>`) in
+      content 1; `nested=portal` gives it a Portal, a Positioner `nested-positioner` on the right and a Popup
+      `nested-popup-root` around that Viewport instead; `nestedDefault=nested-1` its default; `sized` gives content 1 400×200 and content 2 300×150, fixed;
     - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
       (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
       `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
@@ -86,7 +88,7 @@
     private string? disabled;
     private bool topLink;
     private bool closeOnClick;
-    private bool nestedInline;
+    private string? nested;
     private string? nestedDefault;
     private bool sized;
     private bool fade;
@@ -122,7 +124,7 @@
         disabled = Query("disabled");
         topLink = QueryFlag("topLink") == true;
         closeOnClick = QueryFlag("closeOnClick") == true;
-        nestedInline = Query("nested") == "inline";
+        nested = Query("nested") is "inline" or "portal" ? Query("nested") : null;
         nestedDefault = Query("nestedDefault");
         sized = QueryFlag("sized") == true;
         fade = QueryFlag("fade") == true;
@@ -183,7 +185,7 @@
                 <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@ContentClass(n)">
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
-                    @if (nestedInline && n == 1)
+                    @if (nested is not null && n == 1)
                     {
                         <NavigationMenuRoot TValue="string" DefaultValue="@nestedDefault" data-testid="nested-root">
                             <NavigationMenuList data-testid="nested-list">
@@ -198,7 +200,20 @@
                                     </NavigationMenuItem>
                                 }
                             </NavigationMenuList>
-                            <NavigationMenuViewport data-testid="nested-viewport" />
+                            @if (nested == "portal")
+                            {
+                                <NavigationMenuPortal>
+                                    <NavigationMenuPositioner Side="Side.Right" data-testid="nested-positioner">
+                                        <NavigationMenuPopup data-testid="nested-popup-root">
+                                            <NavigationMenuViewport data-testid="nested-viewport" />
+                                        </NavigationMenuPopup>
+                                    </NavigationMenuPositioner>
+                                </NavigationMenuPortal>
+                            }
+                            else
+                            {
+                                <NavigationMenuViewport data-testid="nested-viewport" />
+                            }
                         </NavigationMenuRoot>
                     }
                 </NavigationMenuContent>
