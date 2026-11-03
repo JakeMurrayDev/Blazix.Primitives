@@ -1370,10 +1370,32 @@ function markInsidePressStartPrevented(record: SessionRecord, event: MouseEvent)
 }
 
 // useDismiss.ts:169-178 (FLT-KEY-02, FLT-DIS-10): an open descendant in the session forest that does not bubble.
-function hasBlockingChild(record: SessionRecord, bubbleKey: '__escapeKeyBubbles' | '__outsidePressBubbles'): boolean {
+// Issue 156 (M5 track 2; ADR 04 Amendments 2026-11-03 (5), chosen by the user 2026-11-03): Base UI's tree node carries the
+// open state of the render before the keydown (useFloating.ts:90-118), so within one keydown a child that has just closed
+// still blocks its parent, whatever order the sessions' listeners run in. The first Escape listener of a keydown records
+// which nodes of the forest are open before any listener closes one, and every session reads that record for the keydown.
+// Design point 11.6's in-flight rule stays the hover cascade's (ADR 04 Amendments 2026-10-29), and the outside press keeps
+// the committed state.
+const openNodesAtKeydownStart = new WeakMap<Event, ReadonlySet<string>>();
+
+function recordOpenNodesAtKeydownStart(record: SessionRecord, event: KeyboardEvent): ReadonlySet<string> {
+  let open = openNodesAtKeydownStart.get(event);
+  if (open === undefined) {
+    open = new Set(record.tree.nodesRef.current.flatMap((node) => (node.id !== undefined && node.context?.open ? [node.id] : [])));
+    openNodesAtKeydownStart.set(event, open);
+  }
+  return open;
+}
+
+function hasBlockingChild(record: SessionRecord, bubbleKey: '__escapeKeyBubbles' | '__outsidePressBubbles', openAtStart?: ReadonlySet<string>): boolean {
   const nodeId = record.dataRef.current.floatingContext?.nodeId;
-  const children = getNodeChildren(record.tree.nodesRef.current, nodeId);
-  return children.some((child) => child.context?.open && !child.context.dataRef?.current[bubbleKey]);
+  if (openAtStart === undefined) {
+    const children = getNodeChildren(record.tree.nodesRef.current, nodeId);
+    return children.some((child) => child.context?.open && !child.context.dataRef?.current[bubbleKey]);
+  }
+  // The descendants of a closed child are kept, as getNodeChildren keeps them, and judged by the record.
+  const children = getNodeChildren(record.tree.nodesRef.current, nodeId, false);
+  return children.some((child) => child.id !== undefined && openAtStart.has(child.id) && !child.context?.dataRef?.current[bubbleKey]);
 }
 
 // useDismiss.ts:180-185.
@@ -1388,9 +1410,13 @@ function isEventWithinOwnElements(record: SessionRecord, event: Event): boolean 
  * before the next open arrives, is left alone.
  */
 function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
+  if (event.key !== 'Escape') {
+    return;
+  }
+  const openAtStart = recordOpenNodesAtKeydownStart(record, event);
   const state = dismissState(record);
   const options = state.options;
-  if (!record.open || options === null || options.escapeKey === false || event.key !== 'Escape') {
+  if (!record.open || options === null || options.escapeKey === false) {
     return;
   }
   const handled = (event as EscapeMarkedEvent)[escapeHandled];
@@ -1405,7 +1431,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   // The innermost open popup takes the key (FLT-KEY-02): with Escape not bubbling, an open descendant in the session
   // forest that does not bubble it blocks this popup.
   const escapeKeyBubbles = normalizeBubbles({ escapeKey: options.bubblesEscapeKey, outsidePress: options.bubblesOutsidePress }).escapeKey;
-  if (!escapeKeyBubbles && hasBlockingChild(record, '__escapeKeyBubbles')) {
+  if (!escapeKeyBubbles && hasBlockingChild(record, '__escapeKeyBubbles', openAtStart)) {
     return;
   }
   const channel = record.channel;
