@@ -22,6 +22,10 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     // No outside press: the suites click the page's own buttons while the popup is open.
     private static readonly InteractionsDismissOptions s_escapeOnly = new() { OutsidePress = false };
 
+    // M5 track 1's list hosts (issue 159, Deliverable 12): the popup-list suite presses outside the popup, so a list host
+    // turns the outside press on with the module's default events; every other page keeps Escape only.
+    private static readonly InteractionsDismissOptions s_escapeAndOutsidePress = new();
+
     private readonly PopupRootBehavior<FixturePopupStore<TPayload>, FixturePopupStoreState<TPayload>, TPayload> behavior;
     private InteractionsSessionBehavior? session;
     private SelectorSubscription<FixturePopupStoreState<TPayload>>? committed;
@@ -74,6 +78,13 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Parameter]
     public RenderFragment<TPayload?>? PayloadContent { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether an outside press closes the popup (M5 track 1's list hosts); <see langword="false"/>,
+    /// the default, keeps the dismissal to Escape.
+    /// </summary>
+    [Parameter]
+    public bool OutsidePress { get; set; }
+
     /// <summary>Gets a value indicating whether the popup is open.</summary>
     public bool IsOpen => behavior.Store.IsOpen;
 
@@ -113,6 +124,7 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
 
     protected override void OnParametersSet()
     {
+        session!.Dismiss = OutsidePress ? s_escapeAndOutsidePress : s_escapeOnly;
         behavior.ApplyParameters(new PopupRootParameters<TPayload>(
             DefaultOpen,
             DefaultTriggerId,
