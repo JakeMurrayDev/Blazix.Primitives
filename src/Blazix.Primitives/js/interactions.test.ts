@@ -5088,3 +5088,14 @@ describe('setSessionPositionReference', () => {
     setSessionPositionReference('no-such-token', { x: 1, y: 1, width: 0, height: 0 });
   });
 });
+
+// The platform flags (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01):
+// C# reads the VoiceOver hint and macOS once per circuit or runtime, for the attributes it renders that depend on them.
+describe('readPlatformFlags', () => {
+  it('port: the flags are the platform module\'s VoiceOver hint and macOS, as JSON', async () => {
+    const { readPlatformFlags } = (await import('./interactions')) as unknown as { readPlatformFlags(): string };
+    const { platform } = await import('./dom');
+
+    expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.mac });
+  });
+});
