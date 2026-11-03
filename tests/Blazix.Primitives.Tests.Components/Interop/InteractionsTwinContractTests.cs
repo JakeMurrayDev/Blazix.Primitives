@@ -324,6 +324,37 @@ public sealed class InteractionsTwinContractTests
         Assert.Contains("\"mounted\":true", mounted, StringComparison.Ordinal);
     }
 
+    // ADR 04 Amendments 2026-11-03 (7) (M5 track 2): NavigationMenu's options cross as data, by their module names, and an
+    // exempt selector that changes is a changed dismissal, so it is sent again.
+    [Fact(DisplayName = "port: NavigationMenu's options are written by their module names, and an exempt selector change is a changed dismissal")]
+    [Trait("Requirement", "NAV-PTR-10")]
+    [Trait("Requirement", "NAV-PTR-13")]
+    [Trait("Requirement", "NAV-PTR-17")]
+    public void NavigationMenus_options_are_written_by_their_module_names_and_an_exempt_selector_change_is_a_changed_dismissal()
+    {
+        InteractionsOptions options = new()
+        {
+            Trigger = new InteractionsTriggerOptions
+            {
+                Hover = new InteractionsHoverOptions
+                {
+                    PointerEventsScopeSelector = "ul",
+                    BlockPointerEventsOnEnter = true,
+                    InlineCloseContext = new InteractionsInlineCloseContext("viewport-1", "base-ui-3"),
+                },
+            },
+        };
+
+        string json = System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
+
+        Assert.Contains("\"pointerEventsScopeSelector\":\"ul\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"blockPointerEventsOnEnter\":true", json, StringComparison.Ordinal);
+        Assert.Contains("\"inlineCloseContext\":{\"floatingId\":\"viewport-1\",\"nodeToken\":\"base-ui-3\"}", json, StringComparison.Ordinal);
+        string dismiss = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressExemptSelector = "[data-trigger]" } } }, BlazixJsonContext.Default.InteractionsOptions);
+        Assert.Contains("\"outsidePressExemptSelector\":\"[data-trigger]\"", dismiss, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsDismissOptions { OutsidePressExemptSelector = "a" }, new InteractionsDismissOptions { OutsidePressExemptSelector = "b" });
+    }
+
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
     {
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
