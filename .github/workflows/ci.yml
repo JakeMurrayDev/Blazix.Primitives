@@ -2,8 +2,9 @@ name: ci
 
 # ADR 11 sections 1 to 5. The jobs and what triggers them are described in .github/CONTEXT.md.
 #   every pull request: changes (classifies the paths), docs-lint, build-and-test, scoped or full L4 in both render
-#   modes (browser-server, browser-wasm, browser-report), red-check; gate collects them into one required check.
-#   push to main: all of the above with full L4 over four shards, plus pack (the package as an artifact).
+#   modes (browser-server over two shards, browser-wasm over four, browser-report), red-check; gate collects them into
+#   one required check.
+#   push to main: all of the above with full L4 over four shards in both modes, plus pack (the package as an artifact).
 # The nightly full L4 run is nightly.yml; the BlazixSkipJsBuild check is skip-js-build.yml (manual).
 on:
   pull_request:
@@ -109,9 +110,10 @@ jobs:
       - name: Test (JavaScript)
         run: npm run test:js
 
-  # L4 (ADR 06 section 2, ADR 11 sections 1 and 2): one job per render mode, a two-shard matrix on pull requests and four
-  # shards on main, against the fixture host that Playwright's webServer starts with `dotnet run`. A scoped run passes the
-  # spec files of the changed families; a full run passes none. The steps live in .github/actions/browser-tests.
+  # L4 (ADR 06 section 2, ADR 11 sections 1 and 2): one job per render mode against the fixture host that Playwright's
+  # webServer starts with `dotnet run`. browser-server is a two-shard matrix on pull requests and four shards on main;
+  # browser-wasm has four shards on both (ADR 11 Amendments 2026-11-04, issue 158). A scoped run passes the spec files
+  # of the changed families; a full run passes none. The steps live in .github/actions/browser-tests.
   browser-server:
     needs: changes
     if: needs.changes.outputs.run-l4 == 'true'
@@ -132,6 +134,8 @@ jobs:
           shards: ${{ github.event_name == 'push' && 4 || 2 }}
           specs: ${{ needs.changes.outputs.specs }}
 
+  # Four shards on pull requests too: a worker's trace volume grows with the square of its test count, and at two shards
+  # the gate's WebAssembly contexts ran out of disk at their close (ADR 11 Amendments 2026-11-04, issue 158).
   browser-wasm:
     needs: changes
     if: needs.changes.outputs.run-l4 == 'true'
@@ -140,17 +144,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'push' && '[1,2,3,4]' || '[1,2]') }}
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Issue 158: the free space and the volume of test-results/ every 15 s while the shard runs, summarized after it,
+      # so the margin the four shards leave shows in each run's step summary.
+      - uses: ./.github/actions/disk-sampler
+        with:
+          stage: start
       - uses: ./.github/actions/browser-tests
         with:
           project: wasm
           shard: ${{ matrix.shard }}
-          shards: ${{ github.event_name == 'push' && 4 || 2 }}
+          shards: 4
           specs: ${{ needs.changes.outputs.specs }}
+      - uses: ./.github/actions/disk-sampler
+        if: always()
+        with:
+          stage: report
+          job: ${{ github.job }} (${{ matrix.shard }})
 
   # One HTML report per run from the shards' blob reports (ADR 11 section 2).
   browser-report:
