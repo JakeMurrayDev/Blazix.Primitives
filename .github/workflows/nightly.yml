@@ -18,6 +18,9 @@ permissions:
 env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  # Issue 158 (ADR 11 Amendments 2026-11-04): traces without DOM snapshots, whose network log grows with the square of a
+  # worker's test count in the worker's shared context; a failure still keeps its trace. The gate keeps the default.
+  BLAZIX_TRACE_SNAPSHOTS: "false"
 
 jobs:
   browser-server:
@@ -31,12 +34,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Issue 158: the free space and the volume of test-results/ every 15 s while the shard runs, summarized after it.
+      - uses: ./.github/actions/disk-sampler
+        with:
+          stage: start
       - uses: ./.github/actions/browser-tests
         with:
           project: server
           shard: ${{ matrix.shard }}
           shards: 4
           repeat-each: 3
+      - uses: ./.github/actions/disk-sampler
+        if: always()
+        with:
+          stage: report
+          job: ${{ github.job }} (${{ matrix.shard }})
 
   browser-wasm:
     runs-on: ubuntu-latest
@@ -49,12 +61,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Issue 158: the free space and the volume of test-results/ every 15 s while the shard runs, summarized after it.
+      - uses: ./.github/actions/disk-sampler
+        with:
+          stage: start
       - uses: ./.github/actions/browser-tests
         with:
           project: wasm
           shard: ${{ matrix.shard }}
           shards: 4
           repeat-each: 3
+      - uses: ./.github/actions/disk-sampler
+        if: always()
+        with:
+          stage: report
+          job: ${{ github.job }} (${{ matrix.shard }})
 
   report:
     needs: [browser-server, browser-wasm]
