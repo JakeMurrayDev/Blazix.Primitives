@@ -1,0 +1,29 @@
+name: Disk sampler
+description: The free disk and the volume of test-results/ every 15 s while a nightly browser shard runs (issue 158), started before the browser step and reported after it.
+inputs:
+  stage:
+    description: start (before the browser step) or report (after it, under if always()).
+    required: true
+  job:
+    description: The shard's label in the report.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Sample the disk
+      if: inputs.stage == 'start'
+      shell: bash
+      run: |
+        df -k --output=avail "$GITHUB_WORKSPACE" | tail -1 | tr -d ' ' > "$RUNNER_TEMP/disk-start"
+        : > "$RUNNER_TEMP/disk-samples"
+        nohup bash -c 'while true; do echo "$(df -k --output=avail . | tail -1 | tr -d " ") $(du -sk test-results 2>/dev/null | cut -f1)" >> "$RUNNER_TEMP/disk-samples"; sleep 15; done' > /dev/null 2>&1 &
+    - name: Report the disk
+      if: inputs.stage == 'report'
+      shell: bash
+      env:
+        JOB: ${{ inputs.job }}
+      run: |
+        awk -v start="$(cat "$RUNNER_TEMP/disk-start")" -v job="$JOB" 'NR == 1 { low = $1 } { if ($1 < low) low = $1; if ($2 > peak) peak = $2 }
+          END { printf "Disk (%s): %.1f GB free before the setup, %.1f GB at the lowest; test-results/ peaked at %.2f GB\n", job, start / 1048576, low / 1048576, peak / 1048576 }' \
+          "$RUNNER_TEMP/disk-samples" | tee -a "$GITHUB_STEP_SUMMARY"
