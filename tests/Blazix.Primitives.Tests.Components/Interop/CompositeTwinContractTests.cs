@@ -274,4 +274,108 @@ public sealed class CompositeTwinContractTests
         Assert.Equal("run", undecided.Decide(CompositeTwin.SelectPoint, FocusJson));
         Assert.Equal("run", decided.Decide("activate", KeydownJson));
     }
+
+    // M5 track 1 (issue 159; ADR 04 Amendments 2026-11-03 (1), chosen by the user): a list handle's session, list options
+    // and role are sent only when set, and each list option only when it differs from Base UI's default.
+    [Fact]
+    [Trait("Requirement", "CMP-STR-06")]
+    public void A_list_handle_sends_its_session_its_list_options_and_one_role_and_each_option_only_when_set()
+    {
+        string defaults = JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions);
+        Assert.Equal(DefaultsJson, defaults);
+
+        CompositeOptions floating = new()
+        {
+            SessionToken = "session-1",
+            List = new CompositeListOptions(),
+            Floating = new CompositeFloatingOptions(),
+            Items = [new CompositeItemRegistration("a", null) { Label = "Alpha", Index = 0 }, new CompositeItemRegistration("b", null) { Label = string.Empty, TextId = "t", OmitTabIndex = true }],
+        };
+        string json = JsonSerializer.Serialize(floating, BlazixJsonContext.Default.CompositeOptions);
+        Assert.Contains("""
+            "items":[{"id":"a","label":"Alpha","index":0},{"id":"b","label":"","textId":"t","omitTabIndex":true}]
+            """.Trim(), json, StringComparison.Ordinal);
+        Assert.EndsWith(""","sessionToken":"session-1","list":{},"floating":{}}""", json, StringComparison.Ordinal);
+
+        CompositeListOptions every = new()
+        {
+            Enabled = false,
+            LoopFocus = true,
+            Orientation = "horizontal",
+            TriggerOrientation = "vertical",
+            Rtl = true,
+            Virtual = true,
+            Nested = true,
+            ParentOrientation = "both",
+            FocusItemOnOpen = false,
+            AllowEscape = true,
+            OpenOnArrowKeyDown = false,
+            FocusItemOnHover = false,
+            ResetOnPointerLeave = false,
+            DisabledIndices = [],
+            DeriveDisabledIndices = true,
+            SelectedIndex = 2,
+            Grid = true,
+            KeepOpenOnCrossOrientationKey = true,
+            NestedReturnFocusElement = 0,
+            RelayElement = 1,
+            Highlight = new CompositeHighlightRequest(null, 3),
+            Typeahead = new CompositeTypeaheadOptions { ResetMs = 500, Skip = "element", Labels = ["one", null] },
+        };
+        Assert.Equal(
+            """{"enabled":false,"loopFocus":true,"orientation":"horizontal","triggerOrientation":"vertical","rtl":true,"virtual":true,"nested":true,"parentOrientation":"both","focusItemOnOpen":false,"allowEscape":true,"openOnArrowKeyDown":false,"focusItemOnHover":false,"resetOnPointerLeave":false,"disabledIndices":[],"deriveDisabledIndices":true,"selectedIndex":2,"grid":true,"keepOpenOnCrossOrientationKey":true,"nestedReturnFocusElement":0,"relayElement":1,"highlight":{"revision":3},"typeahead":{"resetMs":500,"skip":"element","labels":["one",null]}}""",
+            JsonSerializer.Serialize(every, BlazixJsonContext.Default.CompositeListOptions));
+        Assert.Contains(""","reference":{}}""", JsonSerializer.Serialize(new CompositeOptions { Reference = new CompositeReferenceOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Requirement", "CMP-EVT-04")]
+    [Trait("Requirement", "CMP-EVT-06")]
+    [Trait("Requirement", "CMP-EVT-10")]
+    public void The_list_reports_raise_their_events_with_the_payloads()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        List<CompositeListHighlight> highlights = [];
+        List<CompositeListOpenRequest> requests = [];
+        List<CompositeListMatch> matches = [];
+        twin.ListHighlightChanged += highlights.Add;
+        twin.ListOpenRequested += requests.Add;
+        twin.ListMatched += matches.Add;
+
+        twin.OnListHighlight($$"""{"index":2,"itemId":"base-ui-7","event":{{KeydownJson}},"revision":1}""");
+        twin.OnListHighlight("""{"index":null,"itemId":null,"event":null,"revision":1}""");
+        twin.OnListOpenRequest($$"""{"open":true,"reason":"list-navigation","event":{{KeydownJson}},"triggerId":"base-ui-1"}""");
+        twin.OnListMatch($$"""{"index":1,"event":{{KeydownJson}}}""");
+
+        Assert.Equal(2, highlights.Count);
+        Assert.Equal((2, "base-ui-7", "keydown", 1), (highlights[0].Index, highlights[0].ItemId, highlights[0].Event?.Type, highlights[0].Revision));
+        Assert.Equal((null, null, null), (highlights[1].Index, highlights[1].ItemId, highlights[1].Event));
+        CompositeListOpenRequest request = Assert.Single(requests);
+        Assert.Equal((true, "list-navigation", "base-ui-1"), (request.Open, request.Reason, request.TriggerId));
+        Assert.Equal(1, Assert.Single(matches).Index);
+    }
+
+    // ADR 04 Amendments 2026-11-03 (3): the Shift+Tab close's point, per twin.
+    [Fact]
+    [Trait("Requirement", "CMP-KEY-24")]
+    [Trait("Requirement", "CMP-EVT-08")]
+    public void Decide_on_leave_runs_the_leave_decider_and_answers_run_without_one()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        Assert.Equal("leave", CompositeTwin.LeavePoint);
+        Assert.Equal("run", twin.Decide(CompositeTwin.LeavePoint, KeydownJson));
+
+        EventSnapshot? seen = null;
+        twin.LeaveDecider = snapshot =>
+        {
+            seen = snapshot;
+            return DecisionPolicy.Stop;
+        };
+
+        Assert.Equal("stop", twin.Decide(CompositeTwin.LeavePoint, KeydownJson));
+        Assert.Equal("ArrowDown", seen?.Key);
+    }
 }
