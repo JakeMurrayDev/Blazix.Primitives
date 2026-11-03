@@ -31,12 +31,26 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Sample the disk
+        # Issue 158: the free space and the volume of test-results/ every 15 s while the shard runs, summarized below.
+        run: |
+          df -k --output=avail "$GITHUB_WORKSPACE" | tail -1 | tr -d ' ' > "$RUNNER_TEMP/disk-start"
+          : > "$RUNNER_TEMP/disk-samples"
+          nohup bash -c 'while true; do echo "$(df -k --output=avail . | tail -1 | tr -d " ") $(du -sk test-results 2>/dev/null | cut -f1)" >> "$RUNNER_TEMP/disk-samples"; sleep 15; done' > /dev/null 2>&1 &
       - uses: ./.github/actions/browser-tests
         with:
           project: server
           shard: ${{ matrix.shard }}
           shards: 4
           repeat-each: 3
+      - name: Report the disk
+        if: always()
+        run: |
+          awk -v start="$(cat "$RUNNER_TEMP/disk-start")" -v job="$JOB" 'NR == 1 { low = $1 } { if ($1 < low) low = $1; if ($2 > peak) peak = $2 }
+            END { printf "Disk (%s): %.1f GB free before the setup, %.1f GB at the lowest; test-results/ peaked at %.2f GB\n", job, start / 1048576, low / 1048576, peak / 1048576 }' \
+            "$RUNNER_TEMP/disk-samples" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          JOB: ${{ github.job }} (${{ matrix.shard }})
 
   browser-wasm:
     runs-on: ubuntu-latest
@@ -49,12 +63,26 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Sample the disk
+        # Issue 158: the free space and the volume of test-results/ every 15 s while the shard runs, summarized below.
+        run: |
+          df -k --output=avail "$GITHUB_WORKSPACE" | tail -1 | tr -d ' ' > "$RUNNER_TEMP/disk-start"
+          : > "$RUNNER_TEMP/disk-samples"
+          nohup bash -c 'while true; do echo "$(df -k --output=avail . | tail -1 | tr -d " ") $(du -sk test-results 2>/dev/null | cut -f1)" >> "$RUNNER_TEMP/disk-samples"; sleep 15; done' > /dev/null 2>&1 &
       - uses: ./.github/actions/browser-tests
         with:
           project: wasm
           shard: ${{ matrix.shard }}
           shards: 4
           repeat-each: 3
+      - name: Report the disk
+        if: always()
+        run: |
+          awk -v start="$(cat "$RUNNER_TEMP/disk-start")" -v job="$JOB" 'NR == 1 { low = $1 } { if ($1 < low) low = $1; if ($2 > peak) peak = $2 }
+            END { printf "Disk (%s): %.1f GB free before the setup, %.1f GB at the lowest; test-results/ peaked at %.2f GB\n", job, start / 1048576, low / 1048576, peak / 1048576 }' \
+            "$RUNNER_TEMP/disk-samples" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          JOB: ${{ github.job }} (${{ matrix.shard }})
 
   report:
     needs: [browser-server, browser-wasm]
