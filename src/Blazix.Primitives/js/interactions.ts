@@ -152,6 +152,9 @@ export interface ClickOptions {
   touchOpenDelay?: number | null;
   /** The reason of the request; `trigger-press` when absent. */
   reason?: 'trigger-press' | 'input-press' | null;
+  // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43); M5 track 2.
+  /** The action a `mousedown` takes elsewhere: the click after a `mousedown` that matches it (opening a closed popup, closing an open one) asks nothing. */
+  mouseDownAction?: 'open' | 'close' | null;
 }
 
 // FLT §6.7; §6.9
@@ -2219,8 +2222,30 @@ function createClickController(context: HandleContext): Controller {
     frame.request(() => setOpenWithTouchDelay(nextOpen, event, element, type));
   };
 
+  // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213): a mousedown whose action matches the popup's
+  // state arms a one-shot suppression of the trigger's next click; the next document click, which follows the trigger's
+  // own listener, disarms it.
+  let ignoreClick = false;
+  const armMixedToggle = (event: MouseEvent) => {
+    const action = clickOptions()?.mouseDownAction;
+    if ((action === 'open' && !record.open) || (action === 'close' && record.open)) {
+      ignoreClick = true;
+      ownerDocument(event.currentTarget as Element).addEventListener(
+        'click',
+        () => {
+          ignoreClick = false;
+        },
+        { once: true },
+      );
+    }
+  };
+
   // FLT-PTR-03.
   const onClick = (event: MouseEvent) => {
+    if (ignoreClick) {
+      ignoreClick = false;
+      return;
+    }
     const options = clickOptions();
     const eventOption = options?.event ?? 'click';
     if (eventOption === 'mousedown-only') {
@@ -2260,6 +2285,7 @@ function createClickController(context: HandleContext): Controller {
     const state = patient;
     cleanup = mergeCleanups(
       listen(element, 'pointerdown', onPointerDown),
+      listen(element, 'mousedown', armMixedToggle),
       listen(element, 'mousedown', onMouseDown),
       listen(element, 'click', onClick),
       listen(element, 'keydown', onKeyDown),

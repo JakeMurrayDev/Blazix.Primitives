@@ -225,6 +225,11 @@ internal sealed record InteractionsClickOptions
     /// <summary>Gets the reason of the request a press makes.</summary>
     /// <value><c>trigger-press</c> or <c>input-press</c>; <see langword="null"/>, the default, for <c>trigger-press</c>.</value>
     public string? Reason { get; init; }
+
+    // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213); M5 track 2, for Menu and Menubar.
+    /// <summary>Gets the action a <c>mousedown</c> takes elsewhere, whose following click on the trigger asks nothing.</summary>
+    /// <value><c>open</c> or <c>close</c>; <see langword="null"/>, the default, for no suppression.</value>
+    public string? MouseDownAction { get; init; }
 }
 
 /// <summary>The hover configuration of a trigger.</summary>
