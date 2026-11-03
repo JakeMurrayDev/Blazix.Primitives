@@ -2332,6 +2332,44 @@ describe('useDismiss', () => {
       });
     });
 
+    // Issue 156 (M5 track 2, brief deliverable 3): two nested popups open from the first render register their Escape
+    // listeners in either order. Base UI's blocking-child check reads the children's open state from the render before the
+    // keydown (useFloating.ts:90-118), so a child that closes inside the keydown still blocks its parent for that keydown.
+    it('port: nested sessions open from the first render, in either registration order: one Escape closes only the child, and the next closes the parent', async () => {
+      await inBothModes((synchronous) => {
+        for (const order of ['parent first', 'child first'] as const) {
+          const outer = harness({ open: true, synchronous });
+          const inner = harness({ open: true, synchronous });
+          const attachOuter = () => {
+            outer.attachSession({ session: { dismiss: {} } });
+            outer.attachFloating(element('div'));
+          };
+          const attachInner = () => {
+            inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
+            inner.attachFloating(element('div'));
+          };
+          if (order === 'parent first') {
+            attachOuter();
+            attachInner();
+          } else {
+            attachInner();
+            attachOuter();
+          }
+
+          keyDown(document.body);
+
+          expect([order, inner.open, outer.open]).toEqual([order, false, true]);
+          expect([order, outer.decisions.length, outer.requests.length]).toEqual([order, 0, 0]);
+
+          keyDown(document.body);
+
+          expect([order, outer.open]).toEqual([order, false]);
+          inner.dispose();
+          outer.dispose();
+        }
+      });
+    });
+
     it('port: one close per keydown: a script-dispatched Escape that the floating element lets propagate reaches the session\'s document listener, which asks nothing more', async () => {
       const consumers: [string, (details: { cancel(): void; allowPropagation(): void }) => void][] = [
         ['accepted with allowPropagation()', allowPropagation],
