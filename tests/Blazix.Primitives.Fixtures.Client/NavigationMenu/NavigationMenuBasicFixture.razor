@@ -19,7 +19,7 @@
       three levels there instead (`level2-trigger-<n>`, `level2-content-<n>`, `level2-link-<n>`, default `level2-1`, and
       in `level2-content-1` the same with `level3-`, default `level3-1`), all inline; `nested=falsy` puts an inline nested
       Root with `TValue` `bool?` there, its default and its first Item's value `false`, the Links closing on click;
-    - `[data-remove-first]` removes Item 1; `sized` gives content 1 400×200 and content 2 300×150, fixed;
+    - `[data-remove-first]` removes Item 1; `emptyItem` puts first an Item whose Trigger `trigger-empty` has no Content; `sized` gives content 1 400×200 and content 2 300×150, fixed;
     - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
       (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
       `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
@@ -118,6 +118,7 @@
     private bool vetoOpenKey;
     private bool scopedExit;
     private bool showFirst = true;
+    private bool emptyItem;
     private int vetoCalls;
 
     protected override IEnumerable<Task> Attachments => attachments;
@@ -157,6 +158,7 @@
         roomy = Query("side") is not null;
         vetoOpenKey = QueryFlag("vetoOpenKey") == true;
         scopedExit = QueryFlag("scopedExit") == true;
+        emptyItem = QueryFlag("emptyItem") == true;
     }
 
     private void VetoOpenKey(KeyboardEventArgs e)
@@ -207,6 +209,12 @@
 
     private RenderFragment Body => @<text>
     <NavigationMenuList data-testid="list" class="@(orientation == Orientation.Vertical ? "vertical" : null)">
+        @if (emptyItem)
+        {
+            <NavigationMenuItem TValue="string" Value="@("item-empty")">
+                <NavigationMenuTrigger data-testid="trigger-empty">Empty</NavigationMenuTrigger>
+            </NavigationMenuItem>
+        }
         @for (int i = showFirst ? 1 : 2; i <= 2; i++)
         {
             int n = i;

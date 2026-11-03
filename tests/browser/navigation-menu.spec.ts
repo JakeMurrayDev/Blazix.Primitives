@@ -1225,6 +1225,23 @@ test.describe('size', () => {
     await expect.poll(async () => Math.abs((await positioner.boundingBox())!.x - firstLeft)).toBeGreaterThan(20);
   });
 
+  test('handles positioner width correctly', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { emptyItem: true });
+
+    // Base UI's pointer: onto the trigger with content, onto the trigger without, and back.
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await hoverElement(page, page.getByTestId('trigger-empty'));
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+
+    await expect(page.getByTestId('link-1-a')).toBeVisible();
+    const positioner = page.getByTestId('positioner');
+    const contentWidth = await content(page, 1).evaluate((element) => element.getBoundingClientRect().width);
+    await expect.poll(async () => Math.abs((await pixels(positioner, '--positioner-width')) - contentWidth)).toBeLessThanOrEqual(1);
+  });
+
   test('updates popup sizing immediately when switching to a keepMounted trigger', async ({ page, mode }) => {
     await gotoMenu(page, mode, { sized: true, keepMountedContent: true });
     await trigger(page, 1).click();
