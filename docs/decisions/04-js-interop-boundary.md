@@ -473,3 +473,43 @@ Tested by `js/collapsible.test.ts` ("writes the size variables the options name 
 **2026-11-04, the popup-layer track's design points 5 and 6 (M5 track 2, [issue 160](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/160); settled by the orchestrator 2026-11-04; the user was told and may overturn; written in full by the pull request).** (5) The family-agnostic cascade of Amendments 2026-11-03 (5) is supplied by the family stores: `PopoverStore`, `PreviewCardStore` and `DialogStore` implement `IFloatingNodeContext`, so the fixed store cascade each Root already renders carries the node (one class declaration each; the three store files join track 2's touch list). A `CascadingValue<IFloatingNodeContext>` in each Root is rejected because it raises Popover's measured re-render from 1,544 to 1,624 B, over its budget, and ADR 16 rule 7 tightens budgets only. (6) Issue 156 closes on its L3 title, red in both registration orders and both synchronous settings, then green; the L4 title "nested cards open from the first render" is not added, because it is red on `main` only intermittently on WebAssembly and cannot be red on Server, so it would fail the red check that ADR 11 §3 requires of every added test. Keeping it as a regression guard would need an ADR 11 exemption, which is the user's to grant.
 
 **2026-11-04, the NavigationMenu track's design point 8 and the Content's cascade (M5 track 5, [issue 163](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/163); settled by the orchestrator 2026-11-04; the user was told and may overturn; written in full by the pull request).** (8) With a real pointer, moving onto another trigger switches the menu by hover and resets the recorded open event, so a click on that trigger then closes the menu (NAV-PTR-05, NAV-PTR-07), as Base UI does in a browser, its titles dispatching a click that never hovers; on WebAssembly the port matches; on Server the click role's toggle arrives a round trip after the hover's commit, so a click inside that window keeps the menu open: a dated Server mark on NAV-PTR-05 and NAV-PTR-07 with one measured ADR 01 row, the latency class of design point 3, and no code; the titles that click a different trigger while open dispatch the click as Base UI's do. The cascade: NavigationMenu's Content cascades its own `FloatingNodeContext`, scoped to the Content, as track 2's interface designs it for a part with no fixed context of its own; the store-supplied form of design point 5 of the same day applies to the M4 Roots only.
+
+**2026-11-04, the `navigation-menu` component module as built (M5 track 5, [issue 163](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/163); the row widened by Amendments 2026-11-03 (4) and the settlements of 2026-11-04 above, written in full by the pull request; the worker's under those settlements; the user may overturn).** (1) *Scope.* `js/navigation-menu.ts` keeps one menu state per Root element (under a symbol, reference-counted) that a handle per part joins (`part`: `root`, `trigger`, `list`, `link`, `content`, `positioner`, `popup`, `viewport`, `arrow`), and runs its pass in a microtask after its observers' records. It owns:
+  - the size pass (NAV-ANI-01..12), written in the `dom` style writer's `auto-resize` band on the Popup and the Positioner;
+  - the Trigger's activation with its direction: on the entering `mouseover` (React's `onMouseEnter`), so it runs before the hover interaction's `mouseenter`; on `click`; on the open key, after the `navigate` point;
+  - the reset of the session's recorded open event on a hover or key activation of an open menu (NAV-PTR-07), a write to `getSession(token).dataRef.current.openEvent`, the `interactions` module's key, as Base UI's Trigger writes it;
+  - the List's axis guard (NAV-KEY-06);
+  - the guards' routing, over `focus-manager`'s tabbables and the session forest (`getSession`, `getNodeChildren`);
+  - the focus-out reports, one in flight until the Root's `answered` moves;
+  - the focus return at unmount, gated by the close reason;
+  - the inline Viewport's target, its inert report and its exit watcher;
+  - the Positioner's tabbables taken out of the tab order while focus is outside, and its resize reports;
+  - the Popup's anchoring styles, in the `positioning` band;
+  - the exiting Content's `inert`;
+  - the Arrow's starting `transition: none`, in the `transitions` band.
+
+(2) *Options and reports.* `NavigationMenuOptions : TwinOptions` carries `Part` and `RootRef` (the Root's element among the references), and on the Root `Orientation`, `Rtl`, `Nested`, `Mounted`, `CloseReason`, `SessionToken` and `Answered`, on a Trigger `HasContent`, on the Viewport `HasPositioner`. The reports are:
+  - `OnActivate(NavigationMenuActivation(string? Reason, string? Direction, EventSnapshot? Event))`, invoked synchronously on WebAssembly;
+  - `OnFocusOut(NavigationMenuFocusOut(EventSnapshot? Event))`;
+  - `OnViewportInertChange(NavigationMenuViewportInertChange(bool Inert))`;
+  - `OnResize()` and `OnExitComplete()`.
+
+  The decision point is `navigate` (chosen by the user 2026-11-04). An activation's reason literals are `trigger-hover`, `trigger-press` and `list-navigation`, which `NavigationMenuLiterals` parses (the `interactions` literals have no `list-navigation`).
+
+(3) *The probe's outcome* (Amendments 2026-11-03 (4)). A lite `PortalTwin` per Content, with the Viewport's target as its container, moves the Content in and keeps the element across switches. Six L3 cases held (`spikes/navigation-menu-content-move/`): a container that leaves and comes back, a latch once moved, and the restore before Blazor removes the Content. One hazard: an `update` whose element reference revives as `null` moves the node into the body. The Content's latch renders nothing while its target is away, so no such `update` is sent ("port: a latched kept content follows a portal that unmounts and mounts again, and leaves nothing in the body", L4, both modes).
+
+(4) *Untested quirks.* The untested-quirks note of Amendments 2026-10-18 extends to NavigationMenu: its §16 Q3, Q4, Q6, Q7 and Q11–Q13 are replicated as the source does (sheet F Q17 (a), the brief's instruction).
+
+(5) *§2's ownership list* gains NavigationMenu's rows (`tests/Blazix.Primitives.Tests/Lints/OwnershipRegistry.cs`):
+  - Content's and Backdrop's `data-starting-style` and `data-ending-style`: JS;
+  - the Positioner's `data-side` and `data-align`: C# → JS; its `data-anchor-hidden`: JS; `--available-width` and `--available-height`: C# → JS; `--anchor-width`, `--anchor-height`, `--transform-origin`, `--positioner-width` and `--positioner-height`: JS;
+  - the Popup's transition attributes, `--popup-width` and `--popup-height`: JS;
+  - the Arrow's `data-side` and `data-align`: C# → JS; its `data-uncentered`: JS.
+
+(6) *The design points as built.*
+  - (2) One session per Root, every Trigger registered, `ActiveTriggerId` from the active Item.
+  - (3) The size pass is held across the Server round trip, measured in ADR 01's row (NAV-PTR-02, NAV-PTR-18, NAV-ANI-04).
+  - (5) C# renders the four guards and the owner; the owner carries `aria-owns` only while a Viewport is registered, and the module finds the guards past it either way.
+  - (6) `data-instant` is C#'s, measured in ADR 01's row (NAV-ANI-14, NAV-DOM-28).
+  - (7) `nested` is read from the cascade, and a Content cascades its own `FloatingNodeContext`.
+  - (8) The click after a hover switch carries a Server mark, measured in ADR 01's row (NAV-PTR-05, NAV-PTR-07).
