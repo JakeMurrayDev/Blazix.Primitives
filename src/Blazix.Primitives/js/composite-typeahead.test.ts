@@ -276,3 +276,71 @@ describe('typeahead on a closed list (port)', () => {
     expect(harness.highlights).toEqual([]);
   });
 });
+
+// Port titles for typeahead rows with `Test: none` (M5 track 1, issue 159), positive first.
+describe('typeahead rows without a Base UI title (port)', () => {
+  function keyDownOn(target: Element, key: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  /** The typing flag, read through its one effect: an item's Space prevented before the item's own listener runs. */
+  function typing(harness: ListHarness): boolean {
+    const item = harness.item(0);
+    // The item's own listener stops the Space there, so the floating handle's typeahead never sees it.
+    const stop = (event: Event) => event.stopPropagation();
+    item.addEventListener('keydown', stop);
+    try {
+      return keyDownOn(item, ' ').defaultPrevented;
+    } finally {
+      item.removeEventListener('keydown', stop);
+    }
+  }
+
+  // CMP-KEY-36, first clause: Space with text in the buffer is consumed and continues the session.
+  it('port: Space while the buffer holds text is consumed and keeps the typing flag', async () => {
+    const harness = combobox(['one', 'two', 'three'], { items: ['one', 'two', 'three'] });
+    harness.reference.focus();
+
+    type('t');
+    expect(typing(harness)).toBe(true);
+
+    const space = keyDownOn(harness.reference, ' ');
+    expect(space.defaultPrevented).toBe(true);
+    expect(typing(harness)).toBe(true);
+  });
+
+  // CMP-KEY-36, second clause: a key that is not Space ends the typing flag once the buffer matches no available label.
+  it('port: a key that is not Space ends the typing flag once the buffer matches no label, and keeps it while it matches', async () => {
+    const harness = combobox(['one', 'two', 'three'], { items: ['one', 'two', 'three'] });
+    harness.reference.focus();
+
+    type('t');
+    keyDownOn(harness.reference, 'Shift');
+    expect(typing(harness)).toBe(true);
+
+    // C#'s labels change under the buffer.
+    harness.update({ typeahead: { resetMs: 750, labels: ['one'] } });
+    keyDownOn(harness.reference, 'Shift');
+    expect(typing(harness)).toBe(false);
+  });
+
+  // CMP-EDGE-10, replicated as the source behaves (ADR 12 Amendments 2026-11-03 (5)): a leading Space is not consumed and
+  // stays in the buffer, so the next Space is consumed and the next character does not match on its own.
+  it('port: a typeahead session that starts with Space is not consumed and keeps the space in its buffer', async () => {
+    const harness = combobox(['one', 'two', 'three'], { items: ['one', 'two', 'three'] });
+    harness.reference.focus();
+
+    const leading = keyDownOn(harness.reference, ' ');
+    expect(leading.defaultPrevented).toBe(false);
+    const second = keyDownOn(harness.reference, ' ');
+    expect(second.defaultPrevented).toBe(true);
+
+    // The buffer reads " o", which matches nothing, and the failed character clears it.
+    type('o');
+    expect(matched(harness)).toEqual([]);
+    type('o');
+    expect(matched(harness)).toEqual([0]);
+  });
+});

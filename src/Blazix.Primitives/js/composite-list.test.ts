@@ -2128,3 +2128,236 @@ describe('useListNavigation (WebKit)', () => {
     }
   });
 });
+
+// Port titles for CMP rows with `Test: none` (M5 track 1, issue 159; the M2 "none (port L3)" precedent), positive first.
+describe('list navigation rows without a Base UI title (port)', () => {
+  // CMP-STR-06: the reference, trigger and floating roles act through their own handles, the item role through the
+  // floating handle's delegated listeners; with `enabled: false` no role acts.
+  it('port: the reference, trigger, floating and item roles act through their handles, and with enabled false none acts', async () => {
+    const harness = app({ list: { virtual: false } });
+    const trigger = document.createElement('button');
+    trigger.id = `${harness.popup.token}-second-trigger`;
+    document.body.appendChild(trigger);
+    const fake = createFakeTwin();
+    const triggerHandle = attach(trigger, listHandleOptions(harness.popup.token, {}, { trigger: {} }), fake.twin);
+    try {
+      // The trigger role: a second trigger requests the open for itself.
+      keyDown(trigger, 'ArrowDown');
+      expect(fake.reported('OnListOpenRequest')).toEqual([expect.objectContaining({ open: true, reason: 'list-navigation', triggerId: trigger.id })]);
+
+      // The reference role opens; the floating role moves the highlight; the item role follows the pointer.
+      keyDown(harness.reference, 'ArrowDown');
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      keyDown(menu(harness), 'ArrowDown');
+      expect(document.activeElement).toBe(harness.item(1));
+      mouseMove(harness.item(2));
+      expect(document.activeElement).toBe(harness.item(2));
+      expect(highlighted(harness.item(2))).toBe(true);
+
+      harness.update({ enabled: false });
+      triggerHandle.update(listHandleOptions(harness.popup.token, { enabled: false }, { trigger: {} }));
+
+      expect([0, 1, 2].some((index) => highlighted(harness.item(index)))).toBe(false);
+      const moved = keyDown(menu(harness), 'ArrowUp');
+      mouseMove(harness.item(0));
+      expect(moved.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(harness.item(2));
+      expect(highlighted(harness.item(0))).toBe(false);
+      keyDown(trigger, 'ArrowDown');
+      expect(fake.reported('OnListOpenRequest')).toHaveLength(1);
+      harness.setOpen(false);
+      const requests = harness.openRequests.length;
+      const opening = keyDown(harness.reference, 'ArrowDown');
+      expect(opening.defaultPrevented).toBe(false);
+      expect(harness.openRequests).toHaveLength(requests);
+      expect(harness.floating).toBeNull();
+    } finally {
+      triggerHandle.dispose();
+    }
+  });
+
+  // CMP-STA-32 (ADR 04 Amendments 2026-11-03 (2)): C#'s highlight requests by revision; the cursor follows a request.
+  it('port: a C# highlight request moves the highlight and the cursor, so the next key steps from it', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    harness.update({ highlight: { index: 2, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(2));
+    });
+    expect(highlighted(harness.item(2))).toBe(true);
+    expect(harness.highlights.at(-1)).toMatchObject({ index: 2, revision: 1, event: null });
+
+    keyDown(menu(harness), 'ArrowUp');
+    expect(document.activeElement).toBe(harness.item(1));
+  });
+
+  it('port: a C# highlight request whose revision was already applied is ignored, and a newer one applies', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    harness.update({ highlight: { index: 2, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(2));
+    });
+    keyDown(menu(harness), 'ArrowUp');
+    expect(highlighted(harness.item(1))).toBe(true);
+
+    // A later render resends the latest request with an unrelated change: the stale revision moves nothing.
+    harness.update({ loopFocus: true });
+    expect(highlighted(harness.item(1))).toBe(true);
+    expect(document.activeElement).toBe(harness.item(1));
+
+    harness.update({ highlight: { index: 0, revision: 2 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(harness.highlights.at(-1)).toMatchObject({ index: 0, revision: 2 });
+  });
+
+  // CMP-STA-32 with CMP-EDGE-15: a requested highlight out of bounds moves neither the focus nor the cursor; once the
+  // items reach it, the next key resynchronizes the cursor to it before it steps.
+  it('port: the next key resynchronizes the cursor to a C# highlight it could not follow while the highlight was out of bounds', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    harness.update({ highlight: { index: 4, revision: 1 } });
+    await nextTask();
+    expect(document.activeElement).toBe(harness.item(0));
+
+    harness.setItems(['one', 'two', 'three', 'four', 'five']);
+    expect(highlighted(harness.item(4))).toBe(true);
+
+    keyDown(menu(harness), 'ArrowUp');
+    expect(document.activeElement).toBe(harness.item(3));
+  });
+
+  it('port: a C# highlight request out of bounds moves neither the focus nor the cursor, while one in bounds does', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    harness.update({ highlight: { index: 1, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(1));
+    });
+
+    harness.update({ highlight: { index: 7, revision: 2 } });
+    await nextTask();
+    expect(document.activeElement).toBe(harness.item(1));
+
+    // The cursor stayed on 1: ArrowDown steps to 2, not from 7.
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(2));
+  });
+
+  // CMP-KEY-25: Chrome's IME composition repeats ArrowDown with the legacy key code 229.
+  it('port: the floating handling ignores a keydown whose legacy key code is 229, and handles the same key without it', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    const composing = keyDown(harness.item(0), 'ArrowDown', { which: 229, keyCode: 229 } as KeyboardEventInit);
+    expect(composing.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(harness.item(0));
+
+    const plain = keyDown(harness.item(0), 'ArrowDown');
+    expect(plain.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(harness.item(1));
+  });
+
+  // CMP-STA-39 through CMP-ALG-28 (`isVirtualClick`, imported from `interactions`): a click with `detail: 0` (a screen
+  // reader's or the keyboard's) opens with the first item highlighted under `focusItemOnOpen: 'auto'`.
+  it('port: a virtual click on the trigger opens with the first item highlighted, and a pointer click opens with none', async () => {
+    const virtual = app();
+    fireClick(virtual.reference);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(virtual.item(0));
+    });
+    expect(highlighted(virtual.item(0))).toBe(true);
+    virtual.dispose();
+    harnesses.splice(harnesses.indexOf(virtual), 1);
+
+    const pointer = app();
+    click(pointer.reference);
+    await opened(pointer);
+    await nextTask();
+    expect([0, 1, 2].some((index) => highlighted(pointer.item(index)))).toBe(false);
+    expect(pointer.highlights).toEqual([]);
+  });
+
+  // The focus manager's `data-tabindex` stash (CMP-DOM-01's M4 note, FLT-DOM-18): while an item carries it, the
+  // highlight's tabindex goes into the stash, which the focus manager restores.
+  it('port: the highlight\'s tabindex goes into an item\'s data-tabindex stash while it carries one, and into tabindex once it is gone', async () => {
+    const harness = app({ itemAttributes: () => ({ 'data-tabindex': '-1' }) });
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(harness.item(0).getAttribute('data-tabindex')).toBe('0');
+    expect(harness.item(0).getAttribute('tabindex')).toBe('-1');
+
+    harness.item(1).removeAttribute('data-tabindex');
+    keyDown(harness.item(0), 'ArrowDown');
+    expect(harness.item(1).getAttribute('tabindex')).toBe('0');
+    expect(harness.item(1).hasAttribute('data-tabindex')).toBe(false);
+    expect(harness.item(0).getAttribute('data-tabindex')).toBe('-1');
+  });
+
+  // CMP-EDGE-17: the popup grid's origin is the first enabled item when the cursor lies past the last enabled one.
+  it('port: the grid navigator moves from the first enabled item when the cursor lies past the last enabled one', async () => {
+    const harness = app({
+      items: ['0', '1', '2', '3', '4', '5'],
+      itemTag: 'button',
+      flat: true,
+      itemAttributes: (index) => ({ type: 'button', role: 'option', ...(index === 5 ? { 'aria-disabled': 'true' } : {}) }),
+      list: { orientation: 'horizontal', grid: true, cols: 3 },
+    });
+    click(harness.reference);
+    await opened(harness);
+    harness.update({ highlight: { index: 5, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(5));
+    });
+
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(3));
+  });
+
+  // CMP-EDGE-03..05: Base UI's development warnings, with the `Blazix: ` prefix, where the options are set.
+  it('port: warns where the options are set when allowEscape lacks loopFocus or virtual, and for a vertical grid', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    app({ list: { allowEscape: true } });
+    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` must be virtual to allow escaping.');
+
+    warn.mockClear();
+    app({ list: { grid: true } });
+    expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+
+    warn.mockClear();
+    const quiet = app({ list: { allowEscape: true, loopFocus: true, virtual: true, grid: true, orientation: 'horizontal' } });
+    expect(warn).not.toHaveBeenCalled();
+
+    // An update that sets the options warns as a render with them would.
+    quiet.update({ loopFocus: false });
+    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+    warn.mockClear();
+    quiet.update({ loopFocus: false, orientation: 'vertical' });
+    expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+  });
+});
