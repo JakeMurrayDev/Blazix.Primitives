@@ -16,7 +16,9 @@ namespace Blazix.Primitives;
 // - The `interactions` session by token (ADR 04 Amendments 2026-10-27): Escape with Prevent, outside press { mouse:
 //   intentional, or sloppy while Modal is trap-focus; touch: sloppy } (POP-DIS-01), no bubbles (POP-KEY-04); a Root inside
 //   another popover's Root joins its tree (ParentToken, POP-STR-02). The dismissal is on while open, mounted or given a
-//   Handle (POP-ANI-11; PopoverInteractions' shouldRenderInteractions).
+//   Handle (POP-ANI-11; PopoverInteractions' shouldRenderInteractions). The parent token is the enclosing popup's,
+//   whatever its family: the Root reads the family-agnostic cascade (IFloatingNodeContext; ADR 04 Amendments
+//   2026-11-03 (5), chosen by the user 2026-11-03; M5 track 2), which the store supplies to the Root's descendants.
 // - The commit path (ADR 01 Amendments 2026-10-27): a committed change reaches the session without a render of the Root,
 //   which renders only at a batch boundary the store asks for (the FixturePopupRoot shape of M4 track 3).
 /// <summary>
@@ -68,7 +70,7 @@ public sealed class PopoverRoot<TPayload> : ComponentBase, IAsyncDisposable
     private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
-    private PopoverRootContext? EnclosingRoot { get; set; }
+    private IFloatingNodeContext? FloatingParent { get; set; }
 
     // POP-API-01
     /// <summary>Gets or sets a value indicating whether the popover is open.</summary>
@@ -208,7 +210,7 @@ public sealed class PopoverRoot<TPayload> : ComponentBase, IAsyncDisposable
         }
 
         behavior.Store.SetModal(ModalKind(Modal));
-        session!.ParentToken = EnclosingRoot?.SessionToken;
+        session!.ParentToken = FloatingParent?.SessionToken;
     }
 
     /// <inheritdoc />

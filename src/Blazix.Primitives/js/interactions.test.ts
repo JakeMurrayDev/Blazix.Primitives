@@ -15,7 +15,9 @@ import {
   isTopmostOpenSession,
   nameRelayTrigger,
   releaseSession,
+  clearSessionOpenEvent,
   resetInteractionsForTest,
+  setSessionPositionReference,
   type SessionNode,
   type SessionOpenChangeDetails,
 } from './interactions';
@@ -780,6 +782,24 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     expect(popup.changes[0]?.details.reason).toBe('input-press');
   });
 
+  // PSH-ALG-20 (useMixedToggleClickHandler.ts:12-43; MenuTrigger.tsx:209-213), M5 track 2: a mousedown that matches the
+  // action arms a one-shot suppression of the next click on the trigger, and the next document click disarms it.
+  it('port: with the mixed toggle, the click after an arming mousedown asks nothing, and the document click disarms it', () => {
+    const { popup, reference } = App({ click: { mouseDownAction: 'open' } });
+
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    click(reference);
+    expect(popup.changes).toEqual([]);
+    expect(popup.open).toBe(false);
+
+    click(reference);
+    expect(popup.open).toBe(true);
+
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    click(reference);
+    expect(popup.open).toBe(false);
+  });
+
   it('stickIfOpen true keeps a hover-opened popup open on first click', () => {
     const { popup, reference } = App({ click: { stickIfOpen: true } });
 
@@ -880,6 +900,34 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     expect(popup.open).toBe(true);
   });
 
+  // The consumer's declined onmousedown (M5 track 2): Blazor dispatches the mousedown before a frame- or touch-deferred
+  // press fires, so the press says it was deferred and C# takes the consumer's verdict from that dispatch.
+  it('port: a press deferred to a frame or a touch delay is marked deferred, and a press inside its event is not', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const { popup, reference } = App({ click: { event: 'mousedown', touchOpenDelay: 100 } });
+    const deferred = () =>
+      (synchronous ? popup.pressings : popup.requests.filter((request) => request.method === 'OnPress').map((request) => request.payload)).map(
+        (press) => (press as { deferred?: boolean }).deferred ?? false,
+      );
+
+    pressMouse(reference);
+    expect(popup.open).toBe(true);
+    click(reference);
+    expect(popup.open).toBe(false);
+    reference.dispatchEvent(createPointerEvent('pointerdown', 'touch'));
+    reference.dispatchEvent(createMouseEvent('mousedown'));
+    reference.dispatchEvent(createMouseEvent('click'));
+    runFrames();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(popup.open).toBe(true);
+
+    expect(deferred()).toEqual([true, false, true]);
+  });
+
   it('port: with patientClick a hover open sticks for 500 ms after its commit, then a press closes it', async () => {
     vi.useFakeTimers();
     const { popup, reference } = App({ click: { patientClick: true } });
@@ -893,6 +941,40 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     await vi.advanceTimersByTimeAsync(500);
     click(reference);
     expect(popup.open).toBe(false);
+  });
+
+  // NavigationMenu's report (NAV-PTR-05; M5 track 2): the window is the session's, as Base UI keeps it on the Trigger
+  // (stickIfOpenTimeout) and Popover's store does, so an uninstall of the click role within it (a role off while open)
+  // leaves its timer running.
+  it('port: the patient-click window outlives an uninstall of the click role, and a press after it closes the popup', async () => {
+    vi.useFakeTimers();
+    const popup = harness({ synchronous });
+    popup.attachSession();
+    const reference = element('button', 'patient-reference');
+    const handle = popup.attachTrigger(reference, { trigger: { click: { patientClick: true } } });
+    popup.setReference(reference);
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+
+    handle.update(JSON.stringify({ sessionToken: popup.token, trigger: {} }));
+    handle.update(JSON.stringify({ sessionToken: popup.token, trigger: { click: { patientClick: true } } }));
+    await vi.advanceTimersByTimeAsync(500);
+    click(reference);
+
+    expect(popup.open).toBe(false);
+  });
+
+  // NAV-PTR-07 (M5 track 2): the session's recorded open event is this module's key, so a component module that switches
+  // without a click (NavigationMenu's hover and key switches) clears it through an export.
+  it('port: clearSessionOpenEvent forgets the open event a press recorded, and an unknown token is ignored', () => {
+    const { popup, reference } = App({ click: { stickIfOpen: true } });
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+    click(reference);
+    expect(getSession(popup.token)?.dataRef.current.openEvent?.type).toBe('click');
+
+    clearSessionOpenEvent(popup.token);
+    clearSessionOpenEvent('no-such-token');
+
+    expect(getSession(popup.token)?.dataRef.current.openEvent).toBeUndefined();
   });
 
   it('port: a press on another registered trigger of an open popup keeps it open and moves the anchor', () => {
@@ -1212,6 +1294,59 @@ describe('useDismiss', () => {
 
     it('dismisses with outside pointer press', () => {
       const { popup } = renderApp();
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+    });
+
+    // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), M5 track 2: a press inside the Trigger, the Clear, the
+    // Chips or the InputGroup, named by id, is not outside.
+    it('port: a press inside an element the exemption list names is not outside, and a press elsewhere is', () => {
+      const { popup } = renderApp({ outsidePressExemptIds: ['combobox-clear'] } as AppProps);
+      const clear = element('button', 'combobox-clear');
+      const icon = document.createElement('span');
+      clear.append(icon);
+
+      userClick(icon);
+      expect(popup.open).toBe(true);
+
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+    });
+
+    // ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-STA-08, CTX-DIS-01, CTX-DIS-02), M5 track 2: outside
+    // presses are ignored until the grace after the open has passed, unless the open came from a `contextmenu`; the timer
+    // is the module's and is cleared on close.
+    it('port: with the outside-press grace, a press within the grace after an open is not outside, one after it is, and an open from a contextmenu has none', () => {
+      vi.useFakeTimers();
+      const popup = harness();
+      popup.attachSession({ session: { dismiss: { outsidePressGrace: 500 } as never } });
+      popup.attachFloating(element('div'));
+
+      popup.setOpen(true, 'trigger-press', null, 'click');
+      userClick(document.body);
+      expect(popup.open).toBe(true);
+      vi.advanceTimersByTime(500);
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+
+      popup.setOpen(true, 'trigger-press', null, 'contextmenu');
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+      vi.useRealTimers();
+    });
+
+    // NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65; NAV-PTR-17, NavigationMenuRoot.test.tsx "does
+    // not close menu when clicking a different trigger with mouse"), a branch of FLT-DIS-09 as data (M5 track 2).
+    it('port: a press inside an element the exempt selector matches is not outside, and a press elsewhere is', () => {
+      const { popup } = renderApp({ outsidePressExemptSelector: '[data-menu-trigger]' });
+      const otherTrigger = element('button');
+      otherTrigger.setAttribute('data-menu-trigger', '');
+      const icon = document.createElement('span');
+      otherTrigger.append(icon);
+
+      userClick(icon);
+      expect(popup.open).toBe(true);
+
       userClick(document.body);
       expect(popup.open).toBe(false);
     });
@@ -2332,6 +2467,55 @@ describe('useDismiss', () => {
       });
     });
 
+    // Issue 156 (M5 track 2, brief deliverable 3): two nested popups open from the first render register their Escape
+    // listeners in either order. Base UI's blocking-child check reads the children's open state from the render before the
+    // keydown (useFloating.ts:90-118), so a child that closes inside the keydown still blocks its parent for that keydown.
+    // On WebAssembly a child's close commits inside the keydown and its popup can leave the document there, taking its node
+    // out of the forest before the parent's listener runs; the record keeps the tree of the keydown's start.
+    it('port: nested sessions open from the first render, in either registration order: one Escape closes only the child, and the next closes the parent', async () => {
+      await inBothModes((synchronous) => {
+        for (const [order, leaves] of [['parent first', false], ['child first', false], ['parent first', true], ['child first', true]] as const) {
+          const outer = harness({ open: true, synchronous });
+          let innerFloating: { dispose(): void } | null = null;
+          const inner = harness({
+            open: true,
+            synchronous,
+            onOpenChange: (open) => {
+              if (!open && leaves) {
+                innerFloating?.dispose();
+              }
+            },
+          });
+          const attachOuter = () => {
+            outer.attachSession({ session: { dismiss: {} } });
+            outer.attachFloating(element('div'));
+          };
+          const attachInner = () => {
+            inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
+            innerFloating = inner.attachFloating(element('div'));
+          };
+          if (order === 'parent first') {
+            attachOuter();
+            attachInner();
+          } else {
+            attachInner();
+            attachOuter();
+          }
+
+          keyDown(document.body);
+
+          expect([order, leaves, inner.open, outer.open]).toEqual([order, leaves, false, true]);
+          expect([order, leaves, outer.decisions.length, outer.requests.length]).toEqual([order, leaves, 0, 0]);
+
+          keyDown(document.body);
+
+          expect([order, leaves, outer.open]).toEqual([order, leaves, false]);
+          inner.dispose();
+          outer.dispose();
+        }
+      });
+    });
+
     it('port: one close per keydown: a script-dispatched Escape that the floating element lets propagate reaches the session\'s document listener, which asks nothing more', async () => {
       const consumers: [string, (details: { cancel(): void; allowPropagation(): void }) => void][] = [
         ['accepted with allowPropagation()', allowPropagation],
@@ -3170,6 +3354,158 @@ describe('useHoverReferenceInteraction', () => {
 
       popup.setOpen(false);
       expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['', '', '']);
+    });
+
+    // NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data (M5 track 2): NAV-PTR-10, NavigationMenuRoot.test.tsx
+    // "blocks pointer events on the list while traversing from a top-level trigger to the popup" and "scopes safePolygon
+    // pointer events to the document for a custom list element".
+    it('port: with the scope selector, the lock scopes to the trigger\'s nearest match, and to the document when there is none', () => {
+      const listed = render({ safePolygon: true, blockPointerEvents: true, pointerEventsScopeSelector: 'ul' });
+      const list = document.createElement('ul');
+      const item = document.createElement('li');
+      document.body.append(list);
+      list.append(item);
+      item.append(listed.button);
+
+      hoverMouse(listed.button, 'mouseenter');
+
+      expect([list.style.pointerEvents, document.body.style.pointerEvents, listed.button.style.pointerEvents]).toEqual(['none', '', 'auto']);
+      listed.popup.setOpen(false);
+      expect(list.style.pointerEvents).toBe('');
+
+      const unlisted = render({ safePolygon: true, blockPointerEvents: true, pointerEventsScopeSelector: 'ul' });
+      hoverMouse(unlisted.button, 'mouseenter');
+      expect([document.body.style.pointerEvents, unlisted.button.style.pointerEvents]).toEqual(['none', 'auto']);
+    });
+
+    // NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615, 488-501, 651-675; M5 track 2): NAV-PTR-10,
+    // NAV-PTR-11 and NAV-PTR-12, NavigationMenuRoot.test.tsx "blocks pointer events on sibling top-level triggers when opened
+    // through real hover", "clears top-level safePolygon pointer events on trigger pointerdown", "reapplies top-level
+    // safePolygon pointer events after returning from the popup and switching triggers"; NavigationMenuTrigger.test.tsx
+    // "releases the pointer-events lock when the pointer sweeps across a trigger without the menu opening".
+    it('port: entering a trigger locks pointer events while the floating element exists: at once while closed, after a microtask on a switch; a pointerdown and a closed leave release it', async () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
+      const list = document.createElement('ul');
+      document.body.append(list);
+      const first = element('button', 'nav-first');
+      const second = element('button', 'nav-second');
+      list.append(first, second);
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      const floating = element('div');
+      popup.attachFloating(floating, { floating: { hover: {} } });
+
+      hoverMouse(first, 'mouseenter');
+      expect([list.style.pointerEvents, first.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+
+      hoverMouse(first, 'mouseleave');
+      expect(list.style.pointerEvents).toBe('');
+
+      hoverMouse(first, 'mouseenter');
+      hoverPointer(first, 'pointerdown', 'mouse');
+      expect(list.style.pointerEvents).toBe('');
+
+      // A press-opened popup, so no hover hand-off moves the lock first: the switch's lock waits for the microtask.
+      popup.setOpen(true, 'trigger-press', first.id, 'click');
+      hoverMouse(second, 'mouseenter');
+      expect(second.style.pointerEvents).toBe('');
+      await Promise.resolve();
+      expect([list.style.pointerEvents, second.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+    });
+
+    // ADR 04 Amendments 2026-11-04 (2) (NavigationMenu's design point 2, settled by the orchestrator 2026-11-04): with the
+    // trigger's own lock configured, the session's lock over inactive triggers on `mousemove` (useHoverReferenceInteraction's
+    // isOverInactive path, which Base UI's per-trigger stores never take for NavigationMenu) stays off, so the lock applies
+    // once (NAV-PTR-10, NAV-PTR-12).
+    it('port: with the trigger\'s own lock, a mousemove over an inactive trigger applies no second lock, and its mouseenter\'s lock moves it', async () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
+      const list = document.createElement('ul');
+      document.body.append(list);
+      const first = element('button', 'own-lock-first');
+      const second = element('button', 'own-lock-second');
+      list.append(first, second);
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      const floating = element('div');
+      popup.attachFloating(floating, { floating: { hover: {} } });
+      popup.setOpen(true, 'trigger-press', first.id, 'click');
+
+      hoverMouse(second, 'mousemove');
+      expect(second.style.pointerEvents).toBe('');
+
+      hoverMouse(second, 'mouseenter');
+      await Promise.resolve();
+      expect([list.style.pointerEvents, second.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+    });
+
+    // NavigationMenuTrigger.tsx:488-501 (the effect's cleanup; M5 track 2): NAV-EDGE-10, NavigationMenuTrigger.test.tsx
+    // "releases the pointer-events lock on the list when the open trigger unmounts".
+    it('port: the unmount of the trigger that applied the lock releases it, and another trigger\'s unmount does not', () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
+      const list = document.createElement('ul');
+      document.body.append(list);
+      const first = element('button', 'unmount-first');
+      const second = element('button', 'unmount-second');
+      list.append(first, second);
+      const firstHandle = popup.attachTrigger(first, { trigger: { hover } });
+      const secondHandle = popup.attachTrigger(second, { trigger: { hover } });
+      popup.attachFloating(element('div'), { floating: { hover: {} } });
+      hoverMouse(first, 'mouseenter');
+      expect(list.style.pointerEvents).toBe('none');
+
+      secondHandle.dispose();
+      expect(list.style.pointerEvents).toBe('none');
+
+      firstHandle.dispose();
+      expect(list.style.pointerEvents).toBe('');
+    });
+
+    // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; M5 track 2): NAV-PTR-13,
+    // NavigationMenuRoot.test.tsx "keeps an inline submenu open while traversing toward a viewport on the right".
+    it('port: with an inline close context, leaving the trigger toward the named element keeps the popup open, placed on the dominant axis between the centers', () => {
+      const popup = harness();
+      popup.attachSession();
+      const button = element('button');
+      const viewport = element('div', 'inline-viewport');
+      popup.attachTrigger(button, { trigger: { hover: { safePolygon: true, inlineCloseContext: { floatingId: 'inline-viewport' } } } });
+      popup.setReference(button);
+      button.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
+      viewport.getBoundingClientRect = () => hoverRect(150, 0, 100, 100);
+
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+
+      hoverMouse(button, 'mouseleave', { clientX: 100, clientY: 50 });
+      hoverMouse(document.body, 'mousemove', { clientX: 120, clientY: 50 });
+      expect(popup.open).toBe(true);
+
+      hoverMouse(document.body, 'mousemove', { clientX: 50, clientY: 300 });
+      expect(popup.open).toBe(false);
+    });
+
+    // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's whole
+    // `style` when its rendered value changes, so the lock re-asserts its value after the write while it holds.
+    it('port: a style rewrite while the lock holds keeps the lock\'s pointer-events at the next microtask, and one after the release stays as written', async () => {
+      const { popup, button, tooltip } = render({ safePolygon: true, blockPointerEvents: true });
+      hoverMouse(button, 'mouseenter');
+
+      button.setAttribute('style', 'color: red');
+      document.body.setAttribute('style', 'margin: 0px');
+      await Promise.resolve();
+
+      expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents, button.style.color]).toEqual(['none', 'auto', 'auto', 'red']);
+
+      popup.setOpen(false);
+      button.setAttribute('style', 'color: blue');
+      await Promise.resolve();
+      expect([button.style.pointerEvents, button.style.color]).toEqual(['', 'blue']);
+      document.body.removeAttribute('style');
     });
 
     it('port: a trigger that attaches after the hover open was relayed gets the blockPointerEvents mutation once it is the anchor', () => {
@@ -4822,3 +5158,34 @@ describe('inlineRect', () => {
   });
 });
 // #endregion pointer tests
+
+// ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04), M5 track 2: the `context-menu` module sets a session's
+// position reference to a 0 × 0 rect at a point, or the origin rect before any gesture; the Positioner's explicit anchor
+// keeps precedence (FLT-API-11) through `positioning`, which follows the session's reference.
+describe('setSessionPositionReference', () => {
+  it('port: the setter anchors a session to a 0 × 0 rect at a point, and null clears it; an unknown token is ignored', () => {
+    const popup = harness();
+    popup.attachSession();
+    const session = getSession(popup.token)!;
+
+    setSessionPositionReference(popup.token, { x: 10, y: 20, width: 0, height: 0 });
+
+    const rect = session.positionReference?.getBoundingClientRect();
+    expect([rect?.x, rect?.y, rect?.width, rect?.height, rect?.left, rect?.top, rect?.right, rect?.bottom]).toEqual([10, 20, 0, 0, 10, 20, 10, 20]);
+
+    setSessionPositionReference(popup.token, null);
+    expect(session.positionReference).toBeNull();
+    setSessionPositionReference('no-such-token', { x: 1, y: 1, width: 0, height: 0 });
+  });
+});
+
+// The platform flags (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01):
+// C# reads the VoiceOver hint and macOS once per circuit or runtime, for the attributes it renders that depend on them.
+describe('readPlatformFlags', () => {
+  it('port: the flags are the platform module\'s VoiceOver hint and macOS, as JSON', async () => {
+    const { readPlatformFlags } = (await import('./interactions')) as unknown as { readPlatformFlags(): string };
+    const { platform } = await import('./dom');
+
+    expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+  });
+});

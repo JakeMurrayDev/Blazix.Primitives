@@ -94,7 +94,7 @@ internal sealed record PositionerInputs
     public string? SessionToken { get; init; }
 
     // M5 track 2 (brief deliverable 4): NavigationMenu's rootBoundary (NAV-POS-03) and ContextMenu's crossAxis
-    // (MenuPositioner.tsx:123-127), passed to PositioningOptions.Shift; the behavior ignores it until its commit.
+    // (MenuPositioner.tsx:123-127), passed to PositioningOptions.Shift.
     /// <summary>Gets how the popup shifts along the alignment axis to stay in view.</summary>
     /// <value>The shift configuration, or <see langword="null"/> for the default shift.</value>
     public PositioningShift? Shift { get; init; }

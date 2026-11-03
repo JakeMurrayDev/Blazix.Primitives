@@ -1,0 +1,56 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-dialog-nested` fixture (tests/browser/popover.spec.ts; M5 track 2, brief deliverable 3): the cross-family
+    floating tree. A popover open from the first render (`popover-trigger`, `popover-popup`) holds a dialog open from the
+    first render (`dialog-popup`, with the button `dialog-inside`). The container renders each root's open changes as
+    `data-popover-changes` and `data-dialog-changes` (space-separated `open:reason` entries).
+*@
+<FixtureContainer Name="popover-dialog-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-popover-changes="@string.Join(' ', popoverChanges)" data-dialog-changes="@string.Join(' ', dialogChanges)">
+    <style>
+        /* The portals render outside the container. The dialog's popup sits clear of the popover's, above the dialog's
+           internal backdrop. */
+        [data-base-ui-portal] [data-testid="dialog-popup"] { position: fixed; right: 40px; bottom: 80px; z-index: 10; padding: 16px; background: white; }
+    </style>
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0; z-index: 2" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <PopoverRoot TPayload="NoPayload" @ref="popover" DefaultOpen="true" OnOpenChange="args => Record(popoverChanges, args)">
+        <PopoverTrigger TPayload="NoPayload" @ref="popoverTrigger" data-testid="popover-trigger">Popover</PopoverTrigger>
+        <PopoverPortal>
+            <PopoverPositioner>
+                <PopoverPopup data-testid="popover-popup">
+                    <div>Popover content</div>
+                    <DialogRoot TPayload="NoPayload" @ref="dialog" DefaultOpen="true" OnOpenChange="args => Record(dialogChanges, args)">
+                        <DialogPortal>
+                            <DialogPopup data-testid="dialog-popup">
+                                <button type="button" data-testid="dialog-inside">Inside the dialog</button>
+                            </DialogPopup>
+                        </DialogPortal>
+                    </DialogRoot>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </PopoverRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> popoverChanges = [];
+    private readonly List<string> dialogChanges = [];
+    private PopoverRoot<NoPayload>? popover;
+    private PopoverTrigger<NoPayload>? popoverTrigger;
+    private DialogRoot<NoPayload>? dialog;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        popover?.SessionAttached ?? Task.CompletedTask,
+        popoverTrigger?.TwinsAttached ?? Task.CompletedTask,
+        dialog?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
+        changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+}

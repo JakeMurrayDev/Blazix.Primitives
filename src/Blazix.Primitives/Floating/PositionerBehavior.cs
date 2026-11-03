@@ -429,6 +429,8 @@ internal sealed class PositionerBehavior : IDisposable
             CollisionPadding = padding.TryGetValue(out double all) ? all : null,
             CollisionPaddingSides = padding.TryGetValue(out PaddingSides? sides) ? new PositioningPadding(sides.Top, sides.Right, sides.Bottom, sides.Left) : null,
             Sticky = inputs.Sticky,
+            // M5 track 2: NavigationMenu's rootBoundary (NAV-POS-03) and ContextMenu's crossAxis; null keeps the default shift.
+            Shift = inputs.Shift,
             ArrowPadding = inputs.ArrowPadding ?? 5,
             DisableAnchorTracking = inputs.DisableAnchorTracking,
             CollisionAvoidance = inputs.CollisionAvoidance is { } avoidance

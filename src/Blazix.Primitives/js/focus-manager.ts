@@ -871,6 +871,11 @@ function isTypeableElement(element: unknown): boolean {
   return isHTMLElement(element) && element.matches(TYPEABLE_SELECTOR);
 }
 
+// utils/element.ts (isTypeableCombobox): a typeable element with the `combobox` role.
+function isTypeableCombobox(element: Element | null): boolean {
+  return element !== null && isTypeableElement(element) && element.getAttribute('role') === 'combobox';
+}
+
 function stopEvent(event: Event): void {
   event.preventDefault();
   event.stopPropagation();
@@ -1110,15 +1115,16 @@ export function attach(
   // ---- the effects, in FloatingFocusManager.tsx's order ----
 
   // The Tab trap (FLT-KEY-04), :342-363.
-  const trapEffect = (floatingFocusElement: HTMLElement | null) => {
+  const trapEffect = (floatingFocusElement: HTMLElement | null, untrapped: boolean) => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') {
         return;
       }
-      // The focus guards have nothing to focus, so the event is stopped.
+      // The focus guards have nothing to focus, so the event is stopped; an untrapped combobox never stops it (:355).
       if (
         contains(floatingFocusElement, activeElement(ownerDocument(floatingFocusElement))) &&
-        getTabbableContent(floatingFocusElement).length === 0
+        getTabbableContent(floatingFocusElement).length === 0 &&
+        !untrapped
       ) {
         stopEvent(event);
       }
@@ -1179,6 +1185,7 @@ export function attach(
     portal: HTMLElement | null,
     modal: boolean,
     restoreFocus: FocusRestoration,
+    untrapped: boolean,
   ) => {
     // In Safari, buttons lose focus when pressing them.
     const handlePointerDown = () => {
@@ -1273,13 +1280,14 @@ export function attach(
           return;
         }
 
-        // Focus moved outside the floating tree and no portal guard handles the close.
+        // Focus moved outside the floating tree and no portal guard handles the close. An untrapped combobox closes even
+        // when modal, and whatever was focused before, so a second Tab sequence closes it again (:551-563).
         if (
-          !modal &&
+          (untrapped || !modal) &&
           relatedTarget &&
           movedToUnrelatedNode &&
           !isPointerDown &&
-          relatedTarget !== getPreviouslyFocusedElement()
+          (untrapped || relatedTarget !== getPreviouslyFocusedElement())
         ) {
           preventReturnFocus = true;
           requestFocusOutClose(snapshot);
@@ -1315,7 +1323,7 @@ export function attach(
   };
 
   // The outside marking while open (FLT-ARIA-01..03, DOM-16), :619-677.
-  const markingEffect = (floating: HTMLElement, reference: HTMLElement | null, portal: HTMLElement | null, modal: boolean) => {
+  const markingEffect = (floating: HTMLElement, reference: HTMLElement | null, portal: HTMLElement | null, modal: boolean, untrapped: boolean) => {
     // Portals nested inside this portal stay exposed.
     const portalNodes = Array.from(portal?.querySelectorAll(`[${PORTAL_ATTRIBUTE}]`) ?? []);
     const controlInsideElements = [
@@ -1326,11 +1334,20 @@ export function attach(
       ...outsideGuards(portal),
       ...insideElements(reference),
     ];
-    const inside = [...controlInsideElements, previousFocusableElement(reference), nextFocusableElement(reference)].filter(
-      (x): x is Element => x != null,
-    );
+    // :629-653: an ancestor's typeable-combobox anchor, and an untrapped combobox's own anchor, stay exposed, and an untrapped
+    // combobox hides the outside as the modal case does.
+    const nodes = session?.tree.nodesRef.current ?? [];
+    const ancestorComboboxReference =
+      session === null ? null : (getNodeAncestors(nodes, session.token).find((node) => isTypeableCombobox(node.context?.elements?.domReference ?? null))?.context?.elements?.domReference ?? null);
+    const inside = [
+      ...controlInsideElements,
+      ancestorComboboxReference,
+      previousFocusableElement(reference),
+      nextFocusableElement(reference),
+      untrapped ? reference : null,
+    ].filter((x): x is Element => x != null);
 
-    const ariaHiddenCleanup = markOthers(inside, { ariaHidden: modal, mark: false });
+    const ariaHiddenCleanup = markOthers(inside, { ariaHidden: modal || untrapped, mark: false });
     const markerCleanup = markOthers([floating, ...portalNodes]);
 
     return () => {
@@ -1630,6 +1647,8 @@ export function attach(
     const disabled = disposed || removed || options.disabled === true;
     const modal = options.modal !== false;
     const closeOnFocusOut = options.closeOnFocusOut !== false;
+    // FLT-DOM-15, FOC-11, KEY-04, ARIA-01/03 (FloatingFocusManager.tsx:295): a typeable combobox anchor with initialFocus off.
+    const untrapped = isTypeableCombobox(domReferenceElement()) && options.initialFocus === false;
     const restoreFocus = options.restoreFocus ?? 'none';
     const floating = floatingElement();
     const floatingFocusElement = getFloatingFocusElement(floating);
@@ -1656,21 +1675,21 @@ export function attach(
     runEffect('tabIndex', !disabled && !!floatingFocusElement, [floatingFocusElement], () =>
       tabIndexEffect(floatingFocusElement!),
     );
-    runEffect('trap', !disabled && modal, [floatingFocusElement], () => trapEffect(floatingFocusElement));
+    runEffect('trap', !disabled && modal, [floatingFocusElement, untrapped], () => trapEffect(floatingFocusElement, untrapped));
     runEffect('recording', !disabled && open, [floating, reference, floatingFocusElement, portal], () =>
       recordingEffect(floating, reference, portal),
     );
     runEffect(
       'focusOut',
       !disabled && closeOnFocusOut && (!!floating || !!reference),
-      [floating, floatingFocusElement, reference, portal, modal, restoreFocus, nextFocusable, triggerGuard],
-      () => focusOutEffect(floating, floatingFocusElement, reference, portal, modal, restoreFocus),
+      [floating, floatingFocusElement, reference, portal, modal, restoreFocus, nextFocusable, triggerGuard, untrapped],
+      () => focusOutEffect(floating, floatingFocusElement, reference, portal, modal, restoreFocus, untrapped),
     );
     runEffect(
       'marking',
       !disabled && !!floating && open,
-      [floating, reference, portal, modal, nextFocusable, triggerGuard, beforeGuard(), afterGuard()],
-      () => markingEffect(floating!, reference, portal, modal),
+      [floating, reference, portal, modal, nextFocusable, triggerGuard, beforeGuard(), afterGuard(), untrapped],
+      () => markingEffect(floating!, reference, portal, modal, untrapped),
     );
     syncGuards(disabled);
   };

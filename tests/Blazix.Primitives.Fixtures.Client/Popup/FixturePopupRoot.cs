@@ -45,6 +45,11 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
 
+    // ADR 04 Amendments 2026-11-03 (5): the enclosing popup of any family, whose session this root's session names as its
+    // parent.
+    [CascadingParameter]
+    private IFloatingNodeContext? FloatingParent { get; set; }
+
     [Parameter]
     public bool Open { get; set; }
 
@@ -132,7 +137,6 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     protected override void OnParametersSet()
     {
         session!.Dismiss = OutsidePress ? s_escapeAndOutsidePress : s_escapeOnly;
-        session.ParentToken = ParentToken;
         behavior.ApplyParameters(new PopupRootParameters<TPayload>(
             DefaultOpen,
             DefaultTriggerId,
@@ -175,5 +179,7 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
         session.FloatingId = popup.PopupId;
         session.Ending = popup.DerivedTransitionStatus == TransitionStatus.Ending;
         session.Relay = popup.OpenChange;
+        // Track 2's cascade (PR 169) unless a test passes its own token (track 1's nested list host, 165c764).
+        session.ParentToken = ParentToken ?? FloatingParent?.SessionToken;
     }
 }
