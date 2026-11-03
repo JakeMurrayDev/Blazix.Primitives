@@ -1955,3 +1955,176 @@ afterEach(() => {
     picker.unmount();
   }
 });
+
+/** The options a list handle in a role receives, with the module's roving fields at the twin's values. */
+function listHandleOptions(token: string, list: CompositeOptions['list'], role: Partial<CompositeOptions>): string {
+  return JSON.stringify({
+    orientation: 'both',
+    loopFocus: true,
+    enableHomeAndEndKeys: false,
+    stopEventPropagation: true,
+    highlightItemOnHover: false,
+    modifierKeys: [],
+    direction: 'ltr',
+    items: [],
+    selectOnNavigation: false,
+    reportFocusLeave: false,
+    reportHighlight: false,
+    sessionToken: token,
+    list,
+    ...role,
+  } satisfies CompositeOptions);
+}
+
+// useListNavigation.test.tsx:1396 (CMP-STA-40), on DOM built after `test/floating-ui-tests/ListboxFocus.tsx`: an open
+// popup with no reference handle (the button carries no reference props), a listbox whose floating handle holds four
+// options, the consumer's initial `activeIndex` of 1 as C#'s first highlight request, and the button's click as C#'s
+// `setSelectedIndex(1)`.
+describe('useListNavigation (ListboxFocus)', () => {
+  it('selectedIndex changing does not steal focus', async () => {
+    const popup = createPopupHarness({ open: true });
+    popup.attachSession();
+    const reference = document.createElement('button');
+    reference.type = 'button';
+    reference.setAttribute('data-testid', 'reference');
+    reference.textContent = 'Select';
+    const floating = document.createElement('div');
+    floating.id = `${popup.token}-listbox`;
+    floating.setAttribute('role', 'listbox');
+    const options = ['Apple', 'Blueberry', 'Watermelon', 'Banana'].map((label, index) => {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.id = `${popup.token}-option-${index}`;
+      element.setAttribute('role', 'option');
+      element.setAttribute('tabindex', '-1');
+      element.textContent = label;
+      return element;
+    });
+    floating.append(...options);
+    document.body.append(reference, floating);
+    popup.attachFloating(floating);
+    let selectedIndex: number | null = null;
+    const floatingOptions = (): string =>
+      listHandleOptions(
+        popup.token,
+        { focusItemOnHover: false, typeahead: { resetMs: 750 }, highlight: { index: 1, revision: 1 }, ...(selectedIndex !== null ? { selectedIndex } : {}) },
+        { floating: {}, items: options.map((element) => ({ id: element.id, tabIndex: null, label: element.textContent ?? '' })) },
+      );
+    const handle = attach(floating, floatingOptions(), createFakeTwin().twin);
+    reference.addEventListener('click', () => {
+      selectedIndex = 1;
+      handle.update(floatingOptions());
+    });
+    options.forEach((element, index) =>
+      element.addEventListener('click', () => {
+        selectedIndex = index;
+        handle.update(floatingOptions());
+      }),
+    );
+
+    try {
+      // TODO: This feels like a bug. It's the animation frame callback from `enqueueFocus` sometimes
+      // kicking in after the click instead before, which causes flakeyness in this test as the wrong
+      // element will be focused.
+      await waitFor(() => {
+        expect(document.activeElement?.getAttribute('role')).toBe('option');
+      });
+
+      await userClick(reference);
+
+      await waitFor(() => {
+        expect(reference).toBe(document.activeElement);
+      });
+      // The frames a focus would wait for have passed.
+      await nextTask();
+      await nextTask();
+      expect(reference).toBe(document.activeElement);
+    } finally {
+      handle.dispose();
+      popup.dispose();
+    }
+  });
+});
+
+// useListNavigation.webkit.test.tsx's two titles, verbatim, with `platform.engine.webkit` stubbed: the platform module is
+// mocked and the module graph re-imported for the test, as the focus-manager tests stub it. Base UI's `App` again.
+describe('useListNavigation (WebKit)', () => {
+  async function webkitHarness(): Promise<{ harness: ListHarness; cleanup: () => Promise<void> }> {
+    vi.resetModules();
+    vi.doMock('./platform', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./platform')>();
+      return { ...actual, platform: { ...actual.platform, engine: { ...actual.platform.engine, webkit: true } } };
+    });
+    const isolated = await import('./test-support/list-harness');
+    const interactions = await import('./interactions');
+    const focusManager = await import('./focus-manager');
+    const transitions = await import('./transitions');
+    const harness = isolated.createListHarness();
+    return {
+      harness,
+      cleanup: async () => {
+        harness.dispose();
+        interactions.resetInteractionsForTest();
+        focusManager.resetFocusManagerState();
+        transitions.resetFrameScheduler();
+        vi.doUnmock('./platform');
+        vi.resetModules();
+      },
+    };
+  }
+
+  /** `fireEvent.mouseMove` / `pointerMove`: no movement unless given, as WebKit's stationary events carry. */
+  function stationary<T extends MouseEvent>(type: string, Constructor: new (type: string, init: PointerEventInit) => T, target: HTMLElement, init: PointerEventInit = {}): void {
+    target.dispatchEvent(new Constructor(type, { bubbles: true, cancelable: true, composed: true, ...init }));
+  }
+
+  it('ignores stationary mousemove events fired when the list scrolls beneath the pointer', async () => {
+    const { harness, cleanup } = await webkitHarness();
+    try {
+      keyDown(harness.reference, 'ArrowDown');
+      await waitFor(() => {
+        expect(harness.item(0)).toBe(document.activeElement);
+      });
+
+      // WebKit fires a `mousemove` event with zero movement deltas on the item
+      // that moves under the stationary pointer during a keyboard-driven scroll.
+      stationary('mousemove', MouseEvent, harness.item(1));
+      expect(harness.item(0)).toBe(document.activeElement);
+      expect(highlighted(harness.item(1))).toBe(false);
+
+      // An actual pointer movement still moves the highlight.
+      stationary('mousemove', MouseEvent, harness.item(1), { movementX: 10, movementY: 10 });
+      await waitFor(() => {
+        expect(harness.item(1)).toBe(document.activeElement);
+      });
+      expect(highlighted(harness.item(1))).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('keeps keyboard modality when a stationary pointermove fires on the floating element', async () => {
+    const { harness, cleanup } = await webkitHarness();
+    try {
+      keyDown(harness.reference, 'ArrowDown');
+      await waitFor(() => {
+        expect(harness.item(0)).toBe(document.activeElement);
+      });
+
+      // The stationary sequence bubbles a `pointermove` through the floating
+      // element before the item receives the `mousemove`.
+      stationary('pointermove', PointerEvent, harness.floating!, { pointerType: 'mouse' });
+      stationary('mousemove', MouseEvent, harness.item(1));
+      expect(harness.item(0)).toBe(document.activeElement);
+
+      // Scrolling can also move the active item out from under the pointer. This
+      // must not reset the keyboard highlight as though the pointer had left it.
+      harness.item(0).dispatchEvent(
+        new PointerEvent('pointerleave', { bubbles: false, cancelable: false, composed: true, pointerType: 'mouse', relatedTarget: harness.floating }),
+      );
+      expect(highlighted(harness.item(0))).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
+});
