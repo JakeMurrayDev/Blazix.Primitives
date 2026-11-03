@@ -5,11 +5,23 @@
 // `OnAfterRender`). `waitFor` stands for Testing Library's: it polls across frames, which the stub below runs on a 0 ms
 // timeout (FloatingFocusManager.test.tsx:62-73, the focus-manager tests' precedent). Port titles say "port:".
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LEAVE_POINT, NAVIGATE_POINT } from './composite';
+import {
+  attach,
+  LEAVE_POINT,
+  LIST_HIGHLIGHT_REPORT,
+  NAVIGATE_POINT,
+  relayKeyboardEvent,
+  type CompositeListHighlightReport,
+  type CompositeOptions,
+} from './composite';
 import { resetFocusManagerState } from './focus-manager';
 import { resetInteractionsForTest } from './interactions';
 import { resetFrameScheduler } from './transitions';
+import type { DotNetTwin, TwinHandle } from './twin';
+import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
+import { createPopupHarness } from './test-support/interactions-harness';
 import { createListHarness, type ListHarness, type ListHarnessOptions } from './test-support/list-harness';
+import { createMenuTree, type MenuSpec, type MenuTree, type MenuTreeOptions } from './test-support/menu-tree-harness';
 
 const harnesses: ListHarness[] = [];
 
@@ -699,5 +711,1653 @@ describe('list highlight writer (port)', () => {
     ]);
     expect(event.defaultPrevented).toBe(false);
     expect(document.activeElement).toBe(vetoed.item(0));
+  });
+});
+
+// Virtual focus (M5 track 1, Deliverable 5; ADR 04 Amendments 2026-11-03 (2); CMP-ARIA-01, CMP-ARIA-02, CMP-KEY-20,
+// CMP-KEY-33, CMP-FOC-05). The module writes `aria-activedescendant` from the active item's own element id (a dated
+// deviation from CMP-ARIA-01's `{id}-{index}` scheme), on the reference and, unless the reference is a typeable combobox,
+// on the floating element, while the list is open with an active item and only under virtual focus; DOM focus stays on
+// the reference.
+describe('list virtual focus (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: under virtual focus writes aria-activedescendant from the active item\'s own id on the reference and the floating element, and DOM focus stays on the reference', async () => {
+    const harness = app({ list: { virtual: true } });
+    harness.reference.focus();
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(highlighted(harness.item(0))).toBe(true);
+    });
+    expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    expect(descendantOf(menu(harness))).toBe(harness.item(0).id);
+    expect(document.activeElement).toBe(harness.reference);
+
+    keyDown(harness.reference, 'ArrowDown');
+    expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    expect(descendantOf(menu(harness))).toBe(harness.item(1).id);
+    expect(document.activeElement).toBe(harness.reference);
+    expect(harness.item(1).getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('port: under virtual focus with a typeable combobox reference writes aria-activedescendant on the reference only', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+    expect(document.activeElement).toBe(harness.reference);
+  });
+
+  it('port: aria-activedescendant is removed on close and absent while open with no active item', async () => {
+    const harness = app({ list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+
+    harness.setOpen(false);
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+
+    // A pointer opening highlights nothing (CMP-STA-39).
+    click(harness.reference);
+    await waitFor(() => {
+      expect(harness.floating).not.toBeNull();
+    });
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+  });
+
+  it('port: aria-activedescendant is never written under DOM focus, and leaving virtual focus removes the one written', async () => {
+    const harness = app({ list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(menu(harness))).toBe(harness.item(0).id);
+    });
+
+    harness.update({ virtual: false });
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+
+    // Under DOM focus a key on the open reference, which holds the focus, starts at the boundary (useListNavigation.ts:
+    // 637-645: the reference contains the focused element and no item does).
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+  });
+
+  // useListNavigation.test.tsx:319, on DOM built after its `Autocomplete`: an input reference without the combobox role,
+  // `useDismiss` (the session's Escape), the consumer's `onChange` played as C# (a value clears the highlight by a request
+  // and opens; an empty value closes), and `active-index` read from C#'s mirror of the highlight.
+  it('resets indexRef to -1 upon close', async () => {
+    const data = ['a', 'ab', 'abc', 'abcd'];
+    const harness = app({ reference: 'input', items: data, list: { virtual: true, loopFocus: true } });
+    const input = harness.reference as HTMLInputElement;
+    input.removeAttribute('role');
+    input.setAttribute('aria-autocomplete', 'list');
+    harness.popup.updateSession({ session: { dismiss: {} } });
+    let revision = 0;
+    const onChange = (value: string) => {
+      input.value = value;
+      if (value) {
+        harness.update({ highlight: { index: null, revision: (revision += 1) } });
+        harness.setOpen(true);
+      } else {
+        harness.setOpen(false);
+      }
+    };
+    const typeKey = (key: string, value: string) => {
+      keyDown(input, key);
+      onChange(value);
+    };
+
+    input.focus();
+    typeKey('a', 'a');
+
+    expect(harness.floating).not.toBeNull();
+    expect(harness.activeIndex).toBe(null);
+
+    keyDown(input, 'ArrowDown');
+    keyDown(input, 'ArrowDown');
+    keyDown(input, 'ArrowDown');
+
+    expect(harness.activeIndex).toBe(2);
+
+    keyDown(input, 'Escape');
+
+    await waitFor(() => {
+      expect(harness.activeIndex).toBe(null);
+    });
+
+    typeKey('Backspace', '');
+    typeKey('a', 'a');
+
+    expect(harness.floating).not.toBeNull();
+    expect(harness.activeIndex).toBe(null);
+
+    keyDown(input, 'ArrowDown');
+
+    expect(harness.activeIndex).toBe(0);
+  });
+});
+
+// The popup grid (M5 track 1, Deliverable 9; CMP-ALG-07, ALG-08, ALG-13, KEY-29, EDGE-16, EDGE-17):
+// useListNavigation.test.tsx's grid titles, verbatim, on DOM built after `test/floating-ui-tests/Grid.tsx` (49 option
+// buttons, 5 columns), `ComplexGrid.tsx` (37, 7 columns), the file's own `VirtualizedGridRows` (an input reference, 15
+// rendered gridcells in `role="row"` rows of 5 out of a longer list) and `EmojiPicker.tsx` (an input inside the popup, 3
+// columns). The fixtures wrap Base UI's navigator with their column count (`gridNavigationWithColumns.ts`); the port
+// reads it from the list's `cols`, and a virtualized list's length (`listRef.current.length`) from `itemCount`.
+// `fireEvent.click` dispatches `detail: 0`, which `isVirtualClick` reads as a virtual click (CMP-ALG-28), so a click
+// opening highlights the first enabled item as Base UI's does; `data-active-index` is C#'s mirror of the highlight.
+function fireClick(target: HTMLElement): void {
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, button: 0 }));
+}
+
+/** `screen.getAllByRole('option')[index]` (or `gridcell`): the rendered item at an index. */
+function option(harness: ListHarness, index: number): HTMLElement {
+  return harness.item(index);
+}
+
+async function opened(harness: ListHarness): Promise<void> {
+  await waitFor(() => {
+    expect(harness.floating).not.toBeNull();
+  });
+}
+
+/** Grid.tsx's `Main`: 49 option buttons in 5 columns, 12 of them disabled, opened by a click only. */
+function gridFixture(props: { orientation?: 'horizontal' | 'both'; loopFocus?: boolean } = {}): ListHarness {
+  const disabledIndices = [0, 1, 2, 3, 4, 5, 6, 7, 10, 15, 45, 48];
+  return app({
+    items: Array.from({ length: 49 }, (_, index) => `Item ${index}`),
+    itemTag: 'button',
+    flat: true,
+    itemAttributes: (index) => ({ type: 'button', role: 'option', ...(disabledIndices.includes(index) ? { disabled: '' } : {}) }),
+    list: {
+      orientation: props.orientation ?? 'horizontal',
+      loopFocus: props.loopFocus ?? false,
+      openOnArrowKeyDown: false,
+      disabledIndices,
+      grid: true,
+      cols: 5,
+    },
+  });
+}
+
+/** ComplexGrid.tsx's `Main`: 37 option buttons in 7 columns, 11 of them disabled. */
+function complexGridFixture(props: { orientation?: 'horizontal' | 'both'; loopFocus?: boolean; rtl?: boolean } = {}): ListHarness {
+  const disabledIndices = [0, 1, 2, 3, 4, 5, 6, 9, 14, 23, 35];
+  return app({
+    items: Array.from({ length: 37 }, (_, index) => `Item ${index}`),
+    itemTag: 'button',
+    flat: true,
+    floatingRole: 'presentation',
+    itemAttributes: (index) => ({ type: 'button', role: 'option', ...(disabledIndices.includes(index) ? { disabled: '' } : {}) }),
+    list: {
+      orientation: props.orientation ?? 'horizontal',
+      loopFocus: props.loopFocus ?? false,
+      rtl: props.rtl ?? false,
+      openOnArrowKeyDown: false,
+      disabledIndices,
+      grid: true,
+      cols: 7,
+    },
+  });
+}
+
+/**
+ * useListNavigation.test.tsx's `VirtualizedGridRows`: open from the start, an input reference under virtual focus, the
+ * first three rows of five gridcells rendered out of `totalItems`, the consumer's initial `activeIndex` as C#'s first
+ * highlight request.
+ */
+function virtualizedGridRows(
+  props: { totalItems?: number; initialActiveIndex?: number; loopFocus?: boolean; disabledIndices?: number[]; hiddenIndices?: number[] } = {},
+): ListHarness {
+  const { totalItems = 100, initialActiveIndex = 0, loopFocus = true, disabledIndices, hiddenIndices } = props;
+  const COLUMNS = 5;
+  const VISIBLE_ROWS = 3;
+  const harness = app({
+    reference: 'input',
+    floatingRole: 'grid',
+    items: Array.from({ length: Math.min(totalItems, COLUMNS * VISIBLE_ROWS) }, (_, index) => `${index}`),
+    itemTag: 'button',
+    rowSize: COLUMNS,
+    itemAttributes: (index) => ({ type: 'button', role: 'gridcell', ...(hiddenIndices?.includes(index) ? { style: 'display: none' } : {}) }),
+    session: { open: true },
+    list: {
+      virtual: true,
+      loopFocus,
+      orientation: 'horizontal',
+      ...(disabledIndices ? { disabledIndices } : {}),
+      grid: true,
+      itemCount: totalItems,
+      highlight: { index: initialActiveIndex, revision: 1 },
+    },
+  });
+  harness.reference.removeAttribute('role');
+  return harness;
+}
+
+/** Presses a key on the floating element `times` times, as consecutive `fireEvent.keyDown` calls. */
+function pressOnMenu(harness: ListHarness, key: string, times = 1): void {
+  for (let count = 0; count < times; count += 1) {
+    keyDown(menu(harness), key);
+  }
+}
+
+describe('useListNavigation (grid)', () => {
+  describe('grid navigation', () => {
+    it('ArrowDown focuses first item', async () => {
+      const harness = gridFixture();
+
+      fireClick(harness.reference);
+      await opened(harness);
+      keyDown(document, 'ArrowDown');
+      await waitFor(() => {
+        expect(option(harness, 8)).toBe(document.activeElement);
+      });
+    });
+
+    it('focuses first non-disabled item in grid', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await waitFor(() => {
+        expect(option(harness, 8)).toBe(document.activeElement);
+      });
+    });
+
+    it('focuses next item using ArrowRight key, skipping disabled items', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 9)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 11)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight', 3);
+      expect(option(harness, 14)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 16)).toBe(document.activeElement);
+    });
+
+    it('focuses previous item using ArrowLeft key, skipping disabled items', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 47).focus();
+
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 46)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 44)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft', 3);
+      expect(option(harness, 41)).toBe(document.activeElement);
+    });
+
+    it('skips row and remains on same column when pressing ArrowDown', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 13)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 18)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 23)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 28)).toBe(document.activeElement);
+    });
+
+    it('skips row and remains on same column when pressing ArrowUp', async () => {
+      const harness = gridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 47).focus();
+
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 42)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 37)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 32)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowUp');
+      expect(option(harness, 27)).toBe(document.activeElement);
+    });
+
+    it('loops on the same column with ArrowDown', async () => {
+      const harness = gridFixture({ loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      pressOnMenu(harness, 'ArrowDown', 8);
+
+      expect(option(harness, 8)).toBe(document.activeElement);
+    });
+
+    it('loops on the same column with ArrowUp', async () => {
+      const harness = gridFixture({ loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 43).focus();
+
+      pressOnMenu(harness, 'ArrowUp', 8);
+
+      expect(option(harness, 43)).toBe(document.activeElement);
+    });
+
+    it('does not leave row with "both" orientation while looping', async () => {
+      const harness = gridFixture({ orientation: 'both', loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 9)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 8)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 9)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 8)).toBe(document.activeElement);
+
+      pressOnMenu(harness, 'ArrowDown');
+      expect(option(harness, 13)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 14)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 11)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 14)).toBe(document.activeElement);
+    });
+
+    it('looping works on last row', async () => {
+      const harness = gridFixture({ orientation: 'both', loopFocus: true });
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await opened(harness);
+
+      option(harness, 46).focus();
+
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 47)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowRight');
+      expect(option(harness, 46)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 47)).toBe(document.activeElement);
+      pressOnMenu(harness, 'ArrowLeft');
+      expect(option(harness, 46)).toBe(document.activeElement);
+    });
+
+    it('wraps ArrowUp to the last row in the full list for virtualized rows', async () => {
+      const harness = virtualizedGridRows();
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowUp');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(95);
+      });
+    });
+
+    it('clamps ArrowUp to the last item in a partial last row for virtualized rows', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 4 });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowUp');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(97);
+      });
+    });
+
+    it('clamps ArrowDown into a partial last row for virtualized rows', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 93 });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(97);
+      });
+    });
+
+    it('does not wrap ArrowUp when loopFocus is false for virtualized rows', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 4, loopFocus: false });
+
+      harness.reference.focus();
+
+      const event = keyDown(harness.reference, 'ArrowUp');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(4);
+      });
+      // The grid navigator consumed the key all the same (`stopEvent: true`).
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('still clamps ArrowDown into a partial last row when loopFocus is false', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 93, loopFocus: false });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(97);
+      });
+    });
+
+    it('falls back left in a partial last row when the preferred candidate is disabled', async () => {
+      const harness = virtualizedGridRows({ totalItems: 98, initialActiveIndex: 93, disabledIndices: [97] });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(96);
+      });
+    });
+
+    it('falls back left when the preferred candidate is hidden', async () => {
+      const harness = virtualizedGridRows({ initialActiveIndex: 9, hiddenIndices: [14] });
+
+      harness.reference.focus();
+
+      keyDown(harness.reference, 'ArrowDown');
+
+      await waitFor(() => {
+        expect(harness.activeIndex).toBe(13);
+      });
+    });
+  });
+
+  describe('grid navigation in a multi-column grid with disabled items', () => {
+    it('focuses first non-disabled item in grid', async () => {
+      const harness = complexGridFixture();
+      keyDown(harness.reference, 'Enter');
+      fireClick(harness.reference);
+      await waitFor(() => {
+        expect(option(harness, 7)).toBe(document.activeElement);
+      });
+    });
+
+    describe.each([
+      { rtl: false, arrowToStart: 'ArrowLeft', arrowToEnd: 'ArrowRight' },
+      { rtl: true, arrowToStart: 'ArrowRight', arrowToEnd: 'ArrowLeft' },
+    ])('with rtl $rtl', ({ rtl, arrowToStart, arrowToEnd }) => {
+      it(`focuses next item using ${arrowToEnd} key, skipping disabled items`, async () => {
+        const harness = complexGridFixture({ rtl });
+        keyDown(harness.reference, 'Enter');
+        fireClick(harness.reference);
+        await opened(harness);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 8)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 10)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 3);
+        expect(option(harness, 13)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 15)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 5);
+        expect(option(harness, 20)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 3);
+        expect(option(harness, 24)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd, 10);
+        expect(option(harness, 34)).toBe(document.activeElement);
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 36)).toBe(document.activeElement);
+      });
+
+      it(`focuses previous item using ${arrowToStart} key, skipping disabled items`, async () => {
+        const harness = complexGridFixture({ rtl });
+        keyDown(harness.reference, 'Enter');
+        fireClick(harness.reference);
+        await opened(harness);
+
+        option(harness, 36).focus();
+
+        pressOnMenu(harness, arrowToStart);
+        await waitFor(() => {
+          expect(option(harness, 34)).toBe(document.activeElement);
+        });
+        pressOnMenu(harness, arrowToStart, 6);
+        await waitFor(() => {
+          expect(option(harness, 28)).toBe(document.activeElement);
+        });
+        pressOnMenu(harness, arrowToStart, 7);
+        await waitFor(() => {
+          expect(option(harness, 20)).toBe(document.activeElement);
+        });
+        pressOnMenu(harness, arrowToStart, 11);
+        await waitFor(() => {
+          expect(option(harness, 7)).toBe(document.activeElement);
+        });
+      });
+
+      it('looping works on last row', async () => {
+        const harness = complexGridFixture({ rtl, orientation: 'both', loopFocus: true });
+        keyDown(harness.reference, 'Enter');
+        fireClick(harness.reference);
+        await opened(harness);
+
+        option(harness, 36).focus();
+
+        pressOnMenu(harness, arrowToEnd);
+        expect(option(harness, 36)).toBe(document.activeElement);
+      });
+    });
+  });
+
+  it('grid navigation with changing list items', async () => {
+    const picker = emojiPicker();
+
+    fireClick(picker.button);
+
+    await flushMicrotasks();
+
+    await waitFor(() => {
+      expect(picker.input()).toBe(document.activeElement);
+    });
+
+    picker.type('appl');
+    const initialActiveIndex = picker.activeIndex;
+    picker.press('ArrowDown');
+
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    picker.press('ArrowDown');
+
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    expect(picker.activeIndex).not.toBeNull();
+  });
+
+  it('grid navigation with disabled list items', async () => {
+    const picker = emojiPicker();
+
+    fireClick(picker.button);
+
+    await flushMicrotasks();
+
+    await waitFor(() => {
+      expect(picker.input()).toBe(document.activeElement);
+    });
+
+    picker.type('o');
+    const initialActiveIndex = picker.activeIndex;
+    picker.press('ArrowDown');
+
+    expect(picker.option('orange').hasAttribute('data-highlighted')).toBe(false);
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    picker.press('ArrowDown');
+
+    await waitFor(() => {
+      expect(picker.activeIndex).not.toBe(initialActiveIndex);
+    });
+
+    expect(picker.activeIndex).not.toBeNull();
+
+    picker.unmount();
+
+    const next = emojiPicker();
+
+    fireClick(next.button);
+
+    await flushMicrotasks();
+
+    await waitFor(() => {
+      expect(next.input()).toBe(document.activeElement);
+    });
+
+    const nextInitialActiveIndex = next.activeIndex;
+    next.press('ArrowDown');
+    next.press('ArrowDown');
+    next.press('ArrowRight');
+    next.press('ArrowUp');
+
+    await waitFor(() => {
+      expect(next.activeIndex).not.toBe(nextInitialActiveIndex);
+    });
+    expect(next.option('cherry').hasAttribute('data-highlighted')).toBe(true);
+  });
+});
+
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => queueMicrotask(resolve));
+}
+
+// Nested lists (M5 track 1, Deliverable 6; CMP-STA-41, KEY-23, KEY-27, DIS-01, EVT-07, FOC-08): useListNavigation.test.tsx's
+// three `it.skipIf(!isJSDOM)` titles, verbatim, on DOM built after `test/floating-ui-tests/Menu.tsx` and
+// `MenuOrientation.tsx` by the menu-tree harness: one session per menu linked by the parent's token, each popup portaled
+// outside its parent popup's DOM. In Base UI a portaled child popup's keydown bubbles through the React tree to its parent
+// popup's handlers; the port hands a keydown the child's floating handle did not stop to the parent list's floating
+// handle. userEvent's `click` and `keyboard` are restated as their DOM events on the focused element, each followed by the
+// task userEvent's zero delay awaits (the frame stub runs on it).
+const trees: MenuTree[] = [];
+
+afterEach(() => {
+  for (const tree of trees.splice(0)) {
+    tree.dispose();
+  }
+});
+
+function menuTree(spec: MenuSpec, options: MenuTreeOptions = {}): MenuTree {
+  const tree = createMenuTree(spec, options);
+  trees.push(tree);
+  return tree;
+}
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** userEvent's `click`: the pointer and mouse sequence, the focus on mousedown, then the click. */
+async function userClick(target: HTMLElement): Promise<void> {
+  target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse' }));
+  target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  target.focus();
+  target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse' }));
+  target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  await nextTask();
+  await nextTask();
+}
+
+/** userEvent's `keyboard('{Key}')`: a keydown on the focused element. */
+async function keyboard(key: string): Promise<void> {
+  keyDown(document.activeElement ?? document.body, key);
+  await nextTask();
+  await nextTask();
+}
+
+/** Menu.tsx's `Main`. */
+function nestedMenu(): MenuSpec {
+  return {
+    label: 'Edit',
+    items: [
+      { label: 'Undo' },
+      { label: 'Redo' },
+      { label: 'Cut', disabled: true },
+      {
+        label: 'Copy as',
+        keepMounted: true,
+        items: [
+          { label: 'Text' },
+          { label: 'Video' },
+          { label: 'Image', keepMounted: true, grid: true, orientation: 'horizontal', items: [{ label: '.png' }, { label: '.jpg' }, { label: '.svg' }, { label: '.gif' }] },
+          { label: 'Audio' },
+        ],
+      },
+      { label: 'Share', items: [{ label: 'Mail' }, { label: 'Instagram' }] },
+    ],
+  };
+}
+
+/** MenuOrientation.tsx's `HorizontalMenu`. */
+function horizontalMenu(): MenuSpec {
+  return {
+    label: 'Edit',
+    orientation: 'horizontal',
+    items: [
+      { label: 'Undo' },
+      { label: 'Redo' },
+      { label: 'Cut', disabled: true },
+      {
+        label: 'Copy as',
+        keepMounted: true,
+        items: [
+          { label: 'Text' },
+          { label: 'Video' },
+          { label: 'Image', keepMounted: true, grid: true, items: [{ label: '.png' }, { label: '.jpg' }, { label: '.svg' }, { label: '.gif' }] },
+          { label: 'Audio' },
+        ],
+      },
+      { label: 'Share', items: [{ label: 'Mail' }, { label: 'Instagram' }] },
+    ],
+  };
+}
+
+describe('useListNavigation (nested)', () => {
+  // In JSDOM it will not focus the first item, but will in the browser
+  it('focus management in nested lists', async () => {
+    const tree = menuTree(nestedMenu());
+    await userClick(tree.byText('Edit'));
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight');
+
+    expect(tree.byText('Text')).toBe(document.activeElement);
+  });
+
+  // In JSDOM it will not focus the first item, but will in the browser
+  it('keyboard navigation in nested menus lists', async () => {
+    const tree = menuTree(nestedMenu());
+
+    await userClick(tree.byText('Edit'));
+    await flushMicrotasks();
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight'); // opens first submenu
+    await flushMicrotasks();
+
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight'); // opens second submenu
+    await flushMicrotasks();
+
+    expect(tree.byText('.png')).toBe(document.activeElement);
+
+    // it navigation with orientation = 'both'
+    await keyboard('ArrowRight');
+    expect(tree.byText('.jpg')).toBe(document.activeElement);
+
+    await keyboard('ArrowDown');
+    expect(tree.byText('.gif')).toBe(document.activeElement);
+
+    await keyboard('ArrowLeft');
+    expect(tree.byText('.svg')).toBe(document.activeElement);
+
+    await keyboard('ArrowUp');
+    expect(tree.byText('.png')).toBe(document.activeElement);
+
+    // escape closes the submenu
+    await keyboard('Escape');
+    expect(tree.byText('Image')).toBe(document.activeElement);
+  });
+
+  // In JSDOM it will not focus the first item, but will in the browser
+  it('keyboard navigation in nested menus with different orientation', async () => {
+    const tree = menuTree(horizontalMenu());
+
+    await userClick(tree.byText('Edit'));
+    await flushMicrotasks();
+    await keyboard('ArrowRight');
+    await keyboard('ArrowRight');
+    await keyboard('ArrowRight');
+    await keyboard('ArrowDown'); // opens the Copy as submenu
+    await flushMicrotasks();
+
+    await keyboard('ArrowRight');
+    await keyboard('ArrowDown'); // opens the Share submenu
+    await flushMicrotasks();
+
+    expect(tree.byText('Mail')).toBe(document.activeElement);
+
+    await keyboard('ArrowLeft');
+    expect(tree.byText('Copy as')).toBe(document.activeElement);
+  });
+
+  // CTX-KEY-07 not replicated (ADR 04 Amendments 2026-10-18): ContextMenu's root menu is nested under the context-menu
+  // parent, and `keepOpenOnCrossOrientationKey` keeps it open on its cross-orientation close key (CMP-KEY-27).
+  it('port: a nested list with keepOpenOnCrossOrientationKey stays open on its cross-orientation close key, which another nested list closes on', async () => {
+    const tree = menuTree(nestedMenu());
+    await userClick(tree.byText('Edit'));
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight');
+    expect(tree.byText('Text')).toBe(document.activeElement);
+
+    // Without the option the vertical submenu closes on ArrowLeft and returns the focus to its trigger.
+    await keyboard('ArrowLeft');
+    expect(tree.menu('Copy as').openRequests.at(-1)).toMatchObject({ open: false, reason: 'list-navigation', triggerId: null });
+    expect(tree.menu('Copy as').popup.open).toBe(false);
+    expect(tree.byText('Copy as')).toBe(document.activeElement);
+
+    const kept = menuTree({ ...nestedMenu(), label: 'Edit 2', items: nestedMenu().items.map((item) => ('items' in item && item.label === 'Copy as' ? { ...item, label: 'Copy as 2', list: { keepOpenOnCrossOrientationKey: true } } : item)) });
+    await userClick(kept.byText('Edit 2'));
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight');
+    const text = Array.from(kept.menu('Copy as 2').floating!.querySelectorAll<HTMLElement>('button')).find((element) => element.textContent === 'Text')!;
+    expect(text).toBe(document.activeElement);
+
+    const event = keyDown(text, 'ArrowLeft');
+    expect(kept.menu('Copy as 2').openRequests.filter((request) => !request.open)).toEqual([]);
+    expect(kept.menu('Copy as 2').popup.open).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+// The keyboard relay (M5 track 1, Deliverable 7; CMP-KEY-14; ADR 04 Amendments 2026-11-03 (4); design point 3 (a), settled
+// by the orchestrator 2026-11-04): a composite root publishes its key resolution under a symbol on its element;
+// `relayKeyboardEvent(rootElement, event)` runs it for a keydown that did not bubble through the root and stops the event
+// when handled; a list whose `relayElement` names the root in its references relays the keydowns its floating handle did
+// not stop (MenuRoot.tsx:692-699). The host is a test-only menubar: a horizontal composite root of three buttons, whose
+// "Edit" item is the trigger of a menu (Menubar's: nested under the bar's horizontal orientation) portaled outside it.
+describe.each([false, true])('list keyboard relay (port, synchronous: %s)', (synchronous) => {
+  interface Bar {
+    root: HTMLElement;
+    items: HTMLElement[];
+    fake: FakeTwin;
+    handle: TwinHandle;
+  }
+
+  const bars: Bar[] = [];
+  const cleanups: Array<() => void> = [];
+  let barIds = 0;
+
+  afterEach(() => {
+    for (const bar of bars.splice(0)) {
+      bar.handle.dispose();
+    }
+    for (const cleanup of cleanups.splice(0)) {
+      cleanup();
+    }
+  });
+
+  /** Records whether each keydown reached the document, which a stopped event does not. */
+  function documentKeys(): string[] {
+    const keys: string[] = [];
+    const listener = (event: KeyboardEvent) => keys.push(event.key);
+    document.addEventListener('keydown', listener);
+    cleanups.push(() => document.removeEventListener('keydown', listener));
+    return keys;
+  }
+
+  function menubar(): Bar {
+    barIds += 1;
+    const root = document.createElement('div');
+    root.setAttribute('role', 'menubar');
+    const items = ['File', 'Edit', 'View'].map((label, index) => {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.id = `menubar-${barIds}-item-${index}`;
+      element.textContent = label;
+      element.setAttribute('tabindex', '-1');
+      return element;
+    });
+    root.append(...items);
+    document.body.appendChild(root);
+    const fake = createFakeTwin({ synchronous });
+    const options: CompositeOptions = {
+      orientation: 'horizontal',
+      loopFocus: true,
+      enableHomeAndEndKeys: true,
+      stopEventPropagation: true,
+      highlightItemOnHover: false,
+      modifierKeys: [],
+      direction: 'ltr',
+      items: items.map((element) => ({ id: element.id, tabIndex: null })),
+      selectOnNavigation: false,
+      reportFocusLeave: false,
+      reportHighlight: false,
+      reportHandledKeys: true,
+    };
+    const bar: Bar = { root, items, fake, handle: attach(root, JSON.stringify(options), fake.twin) };
+    bars.push(bar);
+    return bar;
+  }
+
+  function barMenu(bar: Bar, relay = true): MenuTree {
+    return menuTree(
+      {
+        label: 'Edit',
+        items: [{ label: 'Undo' }, { label: 'Redo' }],
+        list: { nested: true, parentOrientation: 'horizontal', ...(relay ? { relayElement: 0 } : {}) },
+      },
+      { synchronous, rootTrigger: bar.items[1]!, references: [bar.root] },
+    );
+  }
+
+  async function openFromBar(bar: Bar, tree: MenuTree): Promise<HTMLElement> {
+    bar.items[1]!.focus();
+    keyDown(bar.items[1]!, 'ArrowDown');
+    const undo = await vi.waitFor(() => {
+      const found = tree.byText('Undo');
+      expect(found).toBe(document.activeElement);
+      return found;
+    });
+    return undo;
+  }
+
+  it('port: a keydown the list does not stop is relayed to the composite root its relayElement names, and a key it handles is not', async () => {
+    const bar = menubar();
+    const tree = barMenu(bar);
+    const undo = await openFromBar(bar, tree);
+    expect(bar.items[1]!.getAttribute('tabindex')).toBe('0');
+
+    // The list handles ArrowDown: nothing reaches the bar.
+    keyDown(undo, 'ArrowDown');
+    expect(tree.byText('Redo')).toBe(document.activeElement);
+    expect(bar.items[1]!.getAttribute('tabindex')).toBe('0');
+
+    // ArrowRight is no key of the vertical list: the bar moves to the next item, and the event stops there.
+    const reached = documentKeys();
+    const event = keyDown(tree.byText('Redo'), 'ArrowRight');
+    expect(event.defaultPrevented).toBe(true);
+    expect(reached).toEqual([]);
+    expect(bar.items[2]!.getAttribute('tabindex')).toBe('0');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(bar.items[2]);
+
+    if (synchronous) {
+      // WebAssembly: the bar's `navigate` point runs the bar's handlers for the relayed key (option (i)).
+      expect(bar.fake.decisions.map((decision) => [decision.point, decision.event.key])).toEqual([[NAVIGATE_POINT, 'ArrowRight']]);
+      expect(bar.fake.reported('OnKeyHandled')).toEqual([]);
+    } else {
+      // Server: the bar's handled-key report runs them.
+      expect(bar.fake.reported<{ event: { key: string } }>('OnKeyHandled').map((report) => report.event.key)).toEqual(['ArrowRight']);
+    }
+  });
+
+  it('port: a nested close key that is the bar\'s main key closes the menu and is relayed, moving the bar to the previous item', async () => {
+    const bar = menubar();
+    const tree = barMenu(bar);
+    const undo = await openFromBar(bar, tree);
+
+    const event = keyDown(undo, 'ArrowLeft');
+
+    expect(tree.root.openRequests.at(-1)).toMatchObject({ open: false, reason: 'list-navigation' });
+    expect(event.defaultPrevented).toBe(true);
+    expect(bar.items[0]!.getAttribute('tabindex')).toBe('0');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(bar.items[0]);
+  });
+
+  it('port: without relayElement a keydown the list does not stop leaves the bar unchanged', async () => {
+    const bar = menubar();
+    const relayed = barMenu(bar);
+    const undo = await openFromBar(bar, relayed);
+    keyDown(undo, 'ArrowRight');
+    expect(bar.items[2]!.getAttribute('tabindex')).toBe('0');
+    relayed.dispose();
+    trees.splice(trees.indexOf(relayed), 1);
+
+    const other = menubar();
+    const tree = barMenu(other, false);
+    const otherUndo = await openFromBar(other, tree);
+    const event = keyDown(otherUndo, 'ArrowRight');
+    expect(event.defaultPrevented).toBe(false);
+    expect(other.items[1]!.getAttribute('tabindex')).toBe('0');
+    expect(other.items[2]!.getAttribute('tabindex')).toBe('-1');
+  });
+});
+
+describe('relayKeyboardEvent (port)', () => {
+  it('port: runs a composite root\'s key resolution for a keydown that did not bubble through it, stops it when handled, and returns false for an element that is no root', async () => {
+    const root = document.createElement('div');
+    const items = ['a', 'b', 'c'].map((label, index) => {
+      const element = document.createElement('button');
+      element.id = `relay-item-${index}`;
+      element.textContent = label;
+      return element;
+    });
+    root.append(...items);
+    const outside = document.createElement('button');
+    document.body.append(root, outside);
+    const fake = createFakeTwin();
+    const handle = attach(
+      root,
+      JSON.stringify({
+        orientation: 'horizontal',
+        loopFocus: true,
+        enableHomeAndEndKeys: false,
+        stopEventPropagation: false,
+        highlightItemOnHover: false,
+        modifierKeys: [],
+        direction: 'ltr',
+        items: items.map((element) => ({ id: element.id, tabIndex: null })),
+        selectOnNavigation: false,
+        reportFocusLeave: false,
+        reportHighlight: true,
+      } satisfies CompositeOptions),
+      fake.twin,
+    );
+    const reached: string[] = [];
+    const onDocumentKeyDown = (event: KeyboardEvent) => reached.push(event.key);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    try {
+      const results: boolean[] = [];
+      outside.addEventListener('keydown', (event) => {
+        results.push(relayKeyboardEvent(root, event));
+        results.push(relayKeyboardEvent(outside, event));
+      });
+
+      // The root's own `stopEventPropagation` is off: the relay stops the handled event all the same.
+      const event = keyDown(outside, 'ArrowRight');
+
+      expect(results).toEqual([true, false]);
+      expect(event.defaultPrevented).toBe(true);
+      expect(reached).toEqual([]);
+      expect(fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
+      await flushMicrotasks();
+      expect(document.activeElement).toBe(items[1]);
+
+      // A key the root does not act on is not handled, and nothing stops it.
+      keyDown(outside, 'ArrowDown');
+      expect(results.slice(2)).toEqual([false, false]);
+      expect(reached).toEqual(['ArrowDown']);
+    } finally {
+      document.removeEventListener('keydown', onDocumentKeyDown);
+      handle.dispose();
+    }
+  });
+});
+
+interface EmojiPicker {
+  readonly button: HTMLElement;
+  /** C#'s mirror of the highlight (`emoji-picker-active-index`). */
+  readonly activeIndex: number | null;
+  input(): HTMLInputElement;
+  option(name: string): HTMLElement;
+  /** userEvent's keyboard: a keydown per character on the input, and the input's change. */
+  type(text: string): void;
+  press(key: string): void;
+  unmount(): void;
+}
+
+/**
+ * EmojiPicker.tsx's `Main` as C# would render it: the button is the popup's trigger (a click opens, the session's
+ * dismissal is on), and the list's reference is the search input inside the popup, so the reference handle attaches to
+ * it with the floating handle when the popup renders; the focus manager's initial focus lands on the input. The input's
+ * change clears the highlight by a request and filters the options.
+ */
+function emojiPicker(): EmojiPicker {
+  const emojis = ['apple', 'orange', 'watermelon', 'strawberry', 'pear', 'banana', 'pineapple', 'cherry', 'peach'];
+  let render: () => void = () => {};
+  const popup = createPopupHarness({ onOpenChange: () => queueMicrotask(() => render()) });
+  const button = document.createElement('button');
+  button.setAttribute('aria-label', 'Choose emoji');
+  document.body.appendChild(button);
+  popup.attachSession({ session: { dismiss: {} } });
+  popup.attachTrigger(button, { trigger: { click: {} } });
+  popup.setReference(button);
+
+  let search = '';
+  let revision = 0;
+  let activeIndex: number | null = null;
+  let floating: HTMLElement | null = null;
+  let input: HTMLInputElement | null = null;
+  let listbox: HTMLElement | null = null;
+  let floatingHandle: TwinHandle | null = null;
+  let referenceHandle: TwinHandle | null = null;
+
+  const twin: DotNetTwin = {
+    invokeMethod<T>(): T {
+      throw new Error('The current dispatcher does not support synchronous calls from JS to .NET.');
+    },
+    invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T> {
+      if (methodName === LIST_HIGHLIGHT_REPORT) {
+        activeIndex = (JSON.parse(args[0] as string) as CompositeListHighlightReport).index;
+      }
+      return Promise.resolve(undefined as T);
+    },
+  };
+
+  const common = (): CompositeOptions =>
+    ({
+      orientation: 'both',
+      loopFocus: true,
+      enableHomeAndEndKeys: false,
+      stopEventPropagation: true,
+      highlightItemOnHover: false,
+      modifierKeys: [],
+      direction: 'ltr',
+      items: [],
+      selectOnNavigation: false,
+      reportFocusLeave: false,
+      reportHighlight: false,
+      sessionToken: popup.token,
+      list: {
+        orientation: 'horizontal',
+        loopFocus: true,
+        focusItemOnOpen: false,
+        virtual: true,
+        allowEscape: true,
+        grid: true,
+        cols: 3,
+        ...(revision > 0 ? { highlight: { index: null, revision } } : {}),
+      },
+    }) as CompositeOptions;
+
+  const renderOptions = (): void => {
+    const filtered = emojis.filter((name) => name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+    listbox!.replaceChildren(
+      ...filtered.map((name) => {
+        const element = document.createElement('button');
+        element.id = `${popup.token}-${name}`;
+        element.type = 'button';
+        element.setAttribute('role', 'option');
+        element.setAttribute('aria-label', name);
+        element.setAttribute('tabindex', '-1');
+        element.setAttribute('data-option', '');
+        element.disabled = name === 'orange';
+        element.textContent = name;
+        return element;
+      }),
+    );
+  };
+
+  const floatingOptions = (): string =>
+    JSON.stringify({
+      ...common(),
+      floating: {},
+      items: Array.from(listbox!.querySelectorAll<HTMLElement>('[data-option]'), (element) => ({ id: element.id, tabIndex: null })),
+    });
+  const referenceOptions = (): string => JSON.stringify({ ...common(), reference: {} });
+
+  // The input's onChange: `setActiveIndex(null)` and the new search, one render batch.
+  const onChange = (): void => {
+    revision += 1;
+    search = input!.value;
+    renderOptions();
+    floatingHandle?.update(floatingOptions());
+    referenceHandle?.update(referenceOptions());
+  };
+
+  render = () => {
+    if (popup.open && !floating) {
+      floating = document.createElement('div');
+      floating.id = `${popup.token}-floating`;
+      floating.setAttribute('role', 'menu');
+      input = document.createElement('input');
+      input.placeholder = 'Search emoji';
+      input.addEventListener('input', onChange);
+      listbox = document.createElement('div');
+      listbox.setAttribute('role', 'listbox');
+      floating.append(input, listbox);
+      renderOptions();
+      document.body.appendChild(floating);
+      popup.attachFloating(floating);
+      floatingHandle = attach(floating, floatingOptions(), twin);
+      referenceHandle = attach(input, referenceOptions(), twin);
+      input.focus();
+    } else if (!popup.open && floating) {
+      floatingHandle?.dispose();
+      referenceHandle?.dispose();
+      floatingHandle = null;
+      referenceHandle = null;
+      floating.remove();
+      floating = null;
+      search = '';
+    }
+  };
+
+  const picker: EmojiPicker = {
+    button,
+    get activeIndex() {
+      return activeIndex;
+    },
+    input() {
+      if (!input) {
+        throw new Error('the emoji picker is not open');
+      }
+      return input;
+    },
+    option(name) {
+      const found = listbox?.querySelector<HTMLElement>(`[aria-label="${name}"]`);
+      if (!found) {
+        throw new Error(`no option ${name}`);
+      }
+      return found;
+    },
+    type(text) {
+      for (const key of text) {
+        keyDown(picker.input(), key);
+        picker.input().value += key;
+        picker.input().dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    },
+    press(key) {
+      keyDown(document.activeElement ?? document.body, key);
+    },
+    unmount() {
+      floatingHandle?.dispose();
+      referenceHandle?.dispose();
+      popup.dispose();
+      floating?.remove();
+      button.remove();
+    },
+  };
+  pickers.push(picker);
+  return picker;
+}
+
+const pickers: EmojiPicker[] = [];
+
+afterEach(() => {
+  for (const picker of pickers.splice(0)) {
+    picker.unmount();
+  }
+});
+
+/** The options a list handle in a role receives, with the module's roving fields at the twin's values. */
+function listHandleOptions(token: string, list: CompositeOptions['list'], role: Partial<CompositeOptions>): string {
+  return JSON.stringify({
+    orientation: 'both',
+    loopFocus: true,
+    enableHomeAndEndKeys: false,
+    stopEventPropagation: true,
+    highlightItemOnHover: false,
+    modifierKeys: [],
+    direction: 'ltr',
+    items: [],
+    selectOnNavigation: false,
+    reportFocusLeave: false,
+    reportHighlight: false,
+    sessionToken: token,
+    list,
+    ...role,
+  } satisfies CompositeOptions);
+}
+
+// useListNavigation.test.tsx:1396 (CMP-STA-40), on DOM built after `test/floating-ui-tests/ListboxFocus.tsx`: an open
+// popup with no reference handle (the button carries no reference props), a listbox whose floating handle holds four
+// options, the consumer's initial `activeIndex` of 1 as C#'s first highlight request, and the button's click as C#'s
+// `setSelectedIndex(1)`.
+describe('useListNavigation (ListboxFocus)', () => {
+  it('selectedIndex changing does not steal focus', async () => {
+    const popup = createPopupHarness({ open: true });
+    popup.attachSession();
+    const reference = document.createElement('button');
+    reference.type = 'button';
+    reference.setAttribute('data-testid', 'reference');
+    reference.textContent = 'Select';
+    const floating = document.createElement('div');
+    floating.id = `${popup.token}-listbox`;
+    floating.setAttribute('role', 'listbox');
+    const options = ['Apple', 'Blueberry', 'Watermelon', 'Banana'].map((label, index) => {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.id = `${popup.token}-option-${index}`;
+      element.setAttribute('role', 'option');
+      element.setAttribute('tabindex', '-1');
+      element.textContent = label;
+      return element;
+    });
+    floating.append(...options);
+    document.body.append(reference, floating);
+    popup.attachFloating(floating);
+    let selectedIndex: number | null = null;
+    const floatingOptions = (): string =>
+      listHandleOptions(
+        popup.token,
+        { focusItemOnHover: false, typeahead: { resetMs: 750 }, highlight: { index: 1, revision: 1 }, ...(selectedIndex !== null ? { selectedIndex } : {}) },
+        { floating: {}, items: options.map((element) => ({ id: element.id, tabIndex: null, label: element.textContent ?? '' })) },
+      );
+    const handle = attach(floating, floatingOptions(), createFakeTwin().twin);
+    reference.addEventListener('click', () => {
+      selectedIndex = 1;
+      handle.update(floatingOptions());
+    });
+    options.forEach((element, index) =>
+      element.addEventListener('click', () => {
+        selectedIndex = index;
+        handle.update(floatingOptions());
+      }),
+    );
+
+    try {
+      // TODO: This feels like a bug. It's the animation frame callback from `enqueueFocus` sometimes
+      // kicking in after the click instead before, which causes flakeyness in this test as the wrong
+      // element will be focused.
+      await waitFor(() => {
+        expect(document.activeElement?.getAttribute('role')).toBe('option');
+      });
+
+      await userClick(reference);
+
+      await waitFor(() => {
+        expect(reference).toBe(document.activeElement);
+      });
+      // The frames a focus would wait for have passed.
+      await nextTask();
+      await nextTask();
+      expect(reference).toBe(document.activeElement);
+    } finally {
+      handle.dispose();
+      popup.dispose();
+    }
+  });
+});
+
+// useListNavigation.webkit.test.tsx's two titles, verbatim, with `platform.engine.webkit` stubbed: the platform module is
+// mocked and the module graph re-imported for the test, as the focus-manager tests stub it. Base UI's `App` again.
+describe('useListNavigation (WebKit)', () => {
+  async function webkitHarness(): Promise<{ harness: ListHarness; cleanup: () => Promise<void> }> {
+    vi.resetModules();
+    vi.doMock('./platform', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./platform')>();
+      return { ...actual, platform: { ...actual.platform, engine: { ...actual.platform.engine, webkit: true } } };
+    });
+    const isolated = await import('./test-support/list-harness');
+    const interactions = await import('./interactions');
+    const focusManager = await import('./focus-manager');
+    const transitions = await import('./transitions');
+    const harness = isolated.createListHarness();
+    return {
+      harness,
+      cleanup: async () => {
+        harness.dispose();
+        interactions.resetInteractionsForTest();
+        focusManager.resetFocusManagerState();
+        transitions.resetFrameScheduler();
+        vi.doUnmock('./platform');
+        vi.resetModules();
+      },
+    };
+  }
+
+  /** `fireEvent.mouseMove` / `pointerMove`: no movement unless given, as WebKit's stationary events carry. */
+  function stationary<T extends MouseEvent>(type: string, Constructor: new (type: string, init: PointerEventInit) => T, target: HTMLElement, init: PointerEventInit = {}): void {
+    target.dispatchEvent(new Constructor(type, { bubbles: true, cancelable: true, composed: true, ...init }));
+  }
+
+  it('ignores stationary mousemove events fired when the list scrolls beneath the pointer', async () => {
+    const { harness, cleanup } = await webkitHarness();
+    try {
+      keyDown(harness.reference, 'ArrowDown');
+      await waitFor(() => {
+        expect(harness.item(0)).toBe(document.activeElement);
+      });
+
+      // WebKit fires a `mousemove` event with zero movement deltas on the item
+      // that moves under the stationary pointer during a keyboard-driven scroll.
+      stationary('mousemove', MouseEvent, harness.item(1));
+      expect(harness.item(0)).toBe(document.activeElement);
+      expect(highlighted(harness.item(1))).toBe(false);
+
+      // An actual pointer movement still moves the highlight.
+      stationary('mousemove', MouseEvent, harness.item(1), { movementX: 10, movementY: 10 });
+      await waitFor(() => {
+        expect(harness.item(1)).toBe(document.activeElement);
+      });
+      expect(highlighted(harness.item(1))).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('keeps keyboard modality when a stationary pointermove fires on the floating element', async () => {
+    const { harness, cleanup } = await webkitHarness();
+    try {
+      keyDown(harness.reference, 'ArrowDown');
+      await waitFor(() => {
+        expect(harness.item(0)).toBe(document.activeElement);
+      });
+
+      // The stationary sequence bubbles a `pointermove` through the floating
+      // element before the item receives the `mousemove`.
+      stationary('pointermove', PointerEvent, harness.floating!, { pointerType: 'mouse' });
+      stationary('mousemove', MouseEvent, harness.item(1));
+      expect(harness.item(0)).toBe(document.activeElement);
+
+      // Scrolling can also move the active item out from under the pointer. This
+      // must not reset the keyboard highlight as though the pointer had left it.
+      harness.item(0).dispatchEvent(
+        new PointerEvent('pointerleave', { bubbles: false, cancelable: false, composed: true, pointerType: 'mouse', relatedTarget: harness.floating }),
+      );
+      expect(highlighted(harness.item(0))).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+// Port titles for CMP rows with `Test: none` (M5 track 1, issue 159; the M2 "none (port L3)" precedent), positive first.
+describe('list navigation rows without a Base UI title (port)', () => {
+  // CMP-STR-06: the reference, trigger and floating roles act through their own handles, the item role through the
+  // floating handle's delegated listeners; with `enabled: false` no role acts.
+  it('port: the reference, trigger, floating and item roles act through their handles, and with enabled false none acts', async () => {
+    const harness = app({ list: { virtual: false } });
+    const trigger = document.createElement('button');
+    trigger.id = `${harness.popup.token}-second-trigger`;
+    document.body.appendChild(trigger);
+    const fake = createFakeTwin();
+    const triggerHandle = attach(trigger, listHandleOptions(harness.popup.token, {}, { trigger: {} }), fake.twin);
+    try {
+      // The trigger role: a second trigger requests the open for itself.
+      keyDown(trigger, 'ArrowDown');
+      expect(fake.reported('OnListOpenRequest')).toEqual([expect.objectContaining({ open: true, reason: 'list-navigation', triggerId: trigger.id })]);
+
+      // The reference role opens; the floating role moves the highlight; the item role follows the pointer.
+      keyDown(harness.reference, 'ArrowDown');
+      await waitFor(() => {
+        expect(document.activeElement).toBe(harness.item(0));
+      });
+      keyDown(menu(harness), 'ArrowDown');
+      expect(document.activeElement).toBe(harness.item(1));
+      mouseMove(harness.item(2));
+      expect(document.activeElement).toBe(harness.item(2));
+      expect(highlighted(harness.item(2))).toBe(true);
+
+      harness.update({ enabled: false });
+      triggerHandle.update(listHandleOptions(harness.popup.token, { enabled: false }, { trigger: {} }));
+
+      expect([0, 1, 2].some((index) => highlighted(harness.item(index)))).toBe(false);
+      const moved = keyDown(menu(harness), 'ArrowUp');
+      mouseMove(harness.item(0));
+      expect(moved.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(harness.item(2));
+      expect(highlighted(harness.item(0))).toBe(false);
+      keyDown(trigger, 'ArrowDown');
+      expect(fake.reported('OnListOpenRequest')).toHaveLength(1);
+      harness.setOpen(false);
+      const requests = harness.openRequests.length;
+      const opening = keyDown(harness.reference, 'ArrowDown');
+      expect(opening.defaultPrevented).toBe(false);
+      expect(harness.openRequests).toHaveLength(requests);
+      expect(harness.floating).toBeNull();
+    } finally {
+      triggerHandle.dispose();
+    }
+  });
+
+  // CMP-STA-32 (ADR 04 Amendments 2026-11-03 (2)): C#'s highlight requests by revision; the cursor follows a request.
+  it('port: a C# highlight request moves the highlight and the cursor, so the next key steps from it', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    harness.update({ highlight: { index: 2, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(2));
+    });
+    expect(highlighted(harness.item(2))).toBe(true);
+    expect(harness.highlights.at(-1)).toMatchObject({ index: 2, revision: 1, event: null });
+
+    keyDown(menu(harness), 'ArrowUp');
+    expect(document.activeElement).toBe(harness.item(1));
+  });
+
+  it('port: a C# highlight request whose revision was already applied is ignored, and a newer one applies', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    harness.update({ highlight: { index: 2, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(2));
+    });
+    keyDown(menu(harness), 'ArrowUp');
+    expect(highlighted(harness.item(1))).toBe(true);
+
+    // A later render resends the latest request with an unrelated change: the stale revision moves nothing.
+    harness.update({ loopFocus: true });
+    expect(highlighted(harness.item(1))).toBe(true);
+    expect(document.activeElement).toBe(harness.item(1));
+
+    harness.update({ highlight: { index: 0, revision: 2 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(harness.highlights.at(-1)).toMatchObject({ index: 0, revision: 2 });
+  });
+
+  // CMP-STA-32 with CMP-EDGE-15: a requested highlight out of bounds moves neither the focus nor the cursor; once the
+  // items reach it, the next key resynchronizes the cursor to it before it steps.
+  it('port: the next key resynchronizes the cursor to a C# highlight it could not follow while the highlight was out of bounds', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    harness.update({ highlight: { index: 4, revision: 1 } });
+    await nextTask();
+    expect(document.activeElement).toBe(harness.item(0));
+
+    harness.setItems(['one', 'two', 'three', 'four', 'five']);
+    expect(highlighted(harness.item(4))).toBe(true);
+
+    keyDown(menu(harness), 'ArrowUp');
+    expect(document.activeElement).toBe(harness.item(3));
+  });
+
+  it('port: a C# highlight request out of bounds moves neither the focus nor the cursor, while one in bounds does', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    harness.update({ highlight: { index: 1, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(1));
+    });
+
+    harness.update({ highlight: { index: 7, revision: 2 } });
+    await nextTask();
+    expect(document.activeElement).toBe(harness.item(1));
+
+    // The cursor stayed on 1: ArrowDown steps to 2, not from 7.
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(2));
+  });
+
+  // CMP-KEY-25: Chrome's IME composition repeats ArrowDown with the legacy key code 229.
+  it('port: the floating handling ignores a keydown whose legacy key code is 229, and handles the same key without it', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    const composing = keyDown(harness.item(0), 'ArrowDown', { which: 229, keyCode: 229 } as KeyboardEventInit);
+    expect(composing.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(harness.item(0));
+
+    const plain = keyDown(harness.item(0), 'ArrowDown');
+    expect(plain.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(harness.item(1));
+  });
+
+  // CMP-STA-39 through CMP-ALG-28 (`isVirtualClick`, imported from `interactions`): a click with `detail: 0` (a screen
+  // reader's or the keyboard's) opens with the first item highlighted under `focusItemOnOpen: 'auto'`.
+  it('port: a virtual click on the trigger opens with the first item highlighted, and a pointer click opens with none', async () => {
+    const virtual = app();
+    fireClick(virtual.reference);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(virtual.item(0));
+    });
+    expect(highlighted(virtual.item(0))).toBe(true);
+    virtual.dispose();
+    harnesses.splice(harnesses.indexOf(virtual), 1);
+
+    const pointer = app();
+    click(pointer.reference);
+    await opened(pointer);
+    await nextTask();
+    expect([0, 1, 2].some((index) => highlighted(pointer.item(index)))).toBe(false);
+    expect(pointer.highlights).toEqual([]);
+  });
+
+  // The focus manager's `data-tabindex` stash (CMP-DOM-01's M4 note, FLT-DOM-18): while an item carries it, the
+  // highlight's tabindex goes into the stash, which the focus manager restores.
+  it('port: the highlight\'s tabindex goes into an item\'s data-tabindex stash while it carries one, and into tabindex once it is gone', async () => {
+    const harness = app({ itemAttributes: () => ({ 'data-tabindex': '-1' }) });
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(harness.item(0).getAttribute('data-tabindex')).toBe('0');
+    expect(harness.item(0).getAttribute('tabindex')).toBe('-1');
+
+    harness.item(1).removeAttribute('data-tabindex');
+    keyDown(harness.item(0), 'ArrowDown');
+    expect(harness.item(1).getAttribute('tabindex')).toBe('0');
+    expect(harness.item(1).hasAttribute('data-tabindex')).toBe(false);
+    expect(harness.item(0).getAttribute('data-tabindex')).toBe('-1');
+  });
+
+  // CMP-EDGE-17: the popup grid's origin is the first enabled item when the cursor lies past the last enabled one.
+  it('port: the grid navigator moves from the first enabled item when the cursor lies past the last enabled one', async () => {
+    const harness = app({
+      items: ['0', '1', '2', '3', '4', '5'],
+      itemTag: 'button',
+      flat: true,
+      itemAttributes: (index) => ({ type: 'button', role: 'option', ...(index === 5 ? { 'aria-disabled': 'true' } : {}) }),
+      list: { orientation: 'horizontal', grid: true, cols: 3 },
+    });
+    click(harness.reference);
+    await opened(harness);
+    harness.update({ highlight: { index: 5, revision: 1 } });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(5));
+    });
+
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(3));
+  });
+
+  // CMP-EDGE-03..05: Base UI's development warnings, with the `Blazix: ` prefix, where the options are set.
+  it('port: warns where the options are set when allowEscape lacks loopFocus or virtual, and for a vertical grid', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    app({ list: { allowEscape: true } });
+    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` must be virtual to allow escaping.');
+
+    warn.mockClear();
+    app({ list: { grid: true } });
+    expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+
+    warn.mockClear();
+    const quiet = app({ list: { allowEscape: true, loopFocus: true, virtual: true, grid: true, orientation: 'horizontal' } });
+    expect(warn).not.toHaveBeenCalled();
+
+    // An update that sets the options warns as a render with them would.
+    quiet.update({ loopFocus: false });
+    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+    warn.mockClear();
+    quiet.update({ loopFocus: false, orientation: 'vertical' });
+    expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
   });
 });

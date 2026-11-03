@@ -2300,6 +2300,59 @@ describe('composite registrations from C# (M5)', () => {
   });
 });
 
+// CMP-STA-16 (`guess`, MAY) restated (design point 4 (a), settled by the orchestrator 2026-11-04; [L2] → [L3]): React's
+// first-render guess has no counterpart under registration by id, where an item's index is -1 until the first
+// publication (CMP-STA-15). What the guess buys, a correct index on the first publication with no corrective one, holds
+// because the module's first rebuild reads the document order, whatever order C# registers in; and an explicitly
+// indexed item takes no automatic slot. Titles through C#'s registrations, each red on `main` (no explicit index from C#).
+describe('composite first publication (port, CMP-STA-16)', () => {
+  type ItemsChange = { ids: string[] };
+
+  it('port: the first publication indexes automatic items in DOM order around an explicit index, with no second publication', () => {
+    const elements = [item('a'), item('b'), item('c'), item('d')];
+    const [a, b, c, d] = elements.map((element) => element.id);
+    // C# registers in another order than the document's; `c` takes index 0 explicitly.
+    const registered: CompositeItemRegistration[] = [
+      { id: d!, tabIndex: null },
+      { id: c!, tabIndex: null, index: 0 },
+      { id: b!, tabIndex: null },
+      { id: a!, tabIndex: null },
+    ];
+    const group = mountGroup(elements, { reportItems: true, items: registered });
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [c, a, b, d] }]);
+
+    // The same registrations again: nothing is published.
+    group.update({ items: registered });
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toHaveLength(1);
+  });
+
+  it('port: an explicitly indexed item consumes no automatic slot', async () => {
+    const elements = [item('x'), item('y'), item('z')];
+    const [x, y, z] = elements.map((element) => element.id);
+    const group = mountGroup(elements, {
+      reportItems: true,
+      items: [
+        { id: x!, tabIndex: null, index: 2 },
+        { id: y!, tabIndex: null },
+        { id: z!, tabIndex: null },
+      ],
+    });
+
+    // The automatic items take 0 and 1, in document order, before and after the explicit item's element.
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [y, z, x] }]);
+    expect(byTestId('y').getAttribute('tabindex')).toBe('0');
+
+    byTestId('y').focus();
+    keyDown(byTestId('y'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('z'));
+    keyDown(byTestId('z'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('x'));
+  });
+});
+
 // --- port titles: the registration-only list (M3 track 1, E1) ----------------------------------------------------------
 // ADR 04 Amendments 2026-10-26 (chosen by the user): a root-less `CompositeList` (TabsRoot's panels, AccordionRoot's
 // items; CMP-STR-03) attaches in a registration-only mode that installs no listeners, writes no `tabindex`, keeps no

@@ -22,7 +22,7 @@
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
 import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
-import { activeElement, contains, getTarget, isElement, isElementVisible, isHiddenByStyles, isHTMLElement, ownerDocument, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElement, isElementVisible, isHiddenByStyles, isHTMLElement, ownerDocument, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import { enqueueFocus } from './focus-manager';
 import {
@@ -259,6 +259,338 @@ export function getNextListIndex(
   }
 
   return { index: isIndexOutOfListBounds(list, index) ? -1 : index, wrapped };
+}
+
+// CMP-ALG-07 (M5 track 1, the popup grid; floating-ui-react/utils/composite.ts:11-13)
+/**
+ * Determines whether an index lies in another grid row than a row number.
+ * @param index The index.
+ * @param cols The number of columns.
+ * @param prevRow The row number.
+ * @returns `true` when `floor(index / cols)` differs from `prevRow`.
+ */
+export function isDifferentGridRow(index: number, cols: number, prevRow: number): boolean {
+  return Math.floor(index / cols) !== prevRow;
+}
+
+/** The options of one grid step (`getGridNavigatedIndex`). */
+export interface GridNavigationOptions {
+  /** The keydown. */
+  event: KeyboardEvent;
+  /** The arrow keys the grid moves on horizontally: only `both` moves within a row. */
+  orientation: Orientation;
+  /** Whether a step past either end wraps. */
+  loopFocus: boolean;
+  /** Called when a step wraps, with the destination it may replace; absent for the popup grid. */
+  onLoop?: ((event: KeyboardEvent, prevIndex: number, nextIndex: number) => number) | undefined;
+  /** Whether the reading direction is right to left. */
+  rtl: boolean;
+  /** The number of columns. */
+  cols: number;
+  /** The indices to skip. */
+  disabledIndices: DisabledIndices | undefined;
+  /** The first navigable index. */
+  minIndex: number;
+  /** The last navigable index. */
+  maxIndex: number;
+  /** The index the step starts from; -1 for none. */
+  prevIndex: number;
+  /** Whether a key the grid handles is prevented and stopped. */
+  stopEvent?: boolean | undefined;
+}
+
+// CMP-ALG-08 (M5 track 1, the popup grid; floating-ui-react/utils/composite.ts:111-432): vertical moves follow
+// `[role="row"]` rows when the DOM has rows of another width than `cols`, and inferred rows of that width across a
+// virtualized list's gaps; horizontal moves stay within the row for `both`.
+/**
+ * Computes the index an arrow key moves a grid's highlight to.
+ * @param list The elements array; a virtualized list leaves the unrendered indices empty.
+ * @param options The step's options.
+ * @returns The index, `prevIndex` when the key does not move it.
+ */
+export function getGridNavigatedIndex(list: ReadonlyArray<HTMLElement | null | undefined>, options: GridNavigationOptions): number {
+  const { event, orientation, loopFocus, onLoop, rtl, cols, disabledIndices, minIndex, maxIndex, prevIndex, stopEvent: stop = false } = options;
+  let nextIndex = prevIndex;
+
+  let verticalDirection: 'up' | 'down' | undefined;
+  if (event.key === ARROW_UP) {
+    verticalDirection = 'up';
+  } else if (event.key === ARROW_DOWN) {
+    verticalDirection = 'down';
+  }
+
+  if (verticalDirection) {
+    // Detect row structure only when handling vertical navigation. This keeps the non-vertical key paths free from row
+    // inference work.
+    const rows: number[][] = [];
+    const rowIndexMap: number[] = [];
+    let hasRoleRow = false;
+    let visibleItemCount = 0;
+    {
+      let currentRowEl: Element | null = null;
+      let currentRowIndex = -1;
+
+      list.forEach((el, idx) => {
+        if (el == null) {
+          return;
+        }
+
+        visibleItemCount += 1;
+
+        const rowEl = closest(el, '[role="row"]');
+        if (rowEl) {
+          hasRoleRow = true;
+        }
+
+        if (rowEl !== currentRowEl || currentRowIndex === -1) {
+          currentRowEl = rowEl;
+          currentRowIndex += 1;
+          rows[currentRowIndex] = [];
+        }
+        rows[currentRowIndex]!.push(idx);
+        rowIndexMap[idx] = currentRowIndex;
+      });
+    }
+
+    let hasDomRows = false;
+    let inferredDomCols = 0;
+
+    if (hasRoleRow) {
+      for (const row of rows) {
+        const rowLength = row.length;
+
+        if (rowLength > inferredDomCols) {
+          inferredDomCols = rowLength;
+        }
+
+        if (rowLength !== cols) {
+          hasDomRows = true;
+        }
+      }
+    }
+
+    const hasVirtualizedGaps = hasDomRows && visibleItemCount < list.length;
+    const verticalCols = inferredDomCols || cols;
+
+    const navigateVertically = (direction: 'up' | 'down'): number | undefined => {
+      if (!hasDomRows || prevIndex === -1) {
+        return undefined;
+      }
+
+      const currentRow = rowIndexMap[prevIndex];
+      if (currentRow == null) {
+        return undefined;
+      }
+
+      const colInRow = rows[currentRow]!.indexOf(prevIndex);
+      const step = direction === 'up' ? -1 : 1;
+
+      for (let nextRow = currentRow + step, i = 0; i < rows.length; i += 1, nextRow += step) {
+        if (nextRow < 0 || nextRow >= rows.length) {
+          if (!loopFocus || hasVirtualizedGaps) {
+            return undefined;
+          }
+          nextRow = nextRow < 0 ? rows.length - 1 : 0;
+          if (onLoop) {
+            const clampedCol = Math.min(colInRow, rows[nextRow]!.length - 1);
+            const targetItemIndex = rows[nextRow]![clampedCol] ?? rows[nextRow]![0]!;
+            const returnedItemIndex = onLoop(event, prevIndex, targetItemIndex);
+            nextRow = rowIndexMap[returnedItemIndex] ?? nextRow;
+          }
+        }
+
+        const targetRow = rows[nextRow]!;
+        for (let col = Math.min(colInRow, targetRow.length - 1); col >= 0; col -= 1) {
+          const candidate = targetRow[col]!;
+          if (!isListIndexDisabled(list, candidate, disabledIndices)) {
+            return candidate;
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    const navigateVerticallyWithInferredRows = (direction: 'up' | 'down'): number | undefined => {
+      if (!hasVirtualizedGaps || prevIndex === -1) {
+        return undefined;
+      }
+
+      const colInRow = prevIndex % verticalCols;
+      const rowStep = direction === 'up' ? -verticalCols : verticalCols;
+      const lastRowStart = maxIndex - (maxIndex % verticalCols);
+      const rowCount = Math.floor(maxIndex / verticalCols) + 1;
+
+      for (let rowStart = prevIndex - colInRow + rowStep, i = 0; i < rowCount; i += 1, rowStart += rowStep) {
+        if (rowStart < 0 || rowStart > maxIndex) {
+          if (!loopFocus) {
+            return undefined;
+          }
+          rowStart = rowStart < 0 ? lastRowStart : 0;
+        }
+
+        const rowEnd = Math.min(rowStart + verticalCols - 1, maxIndex);
+        for (let candidate = Math.min(rowStart + colInRow, rowEnd); candidate >= rowStart; candidate -= 1) {
+          if (!isListIndexDisabled(list, candidate, disabledIndices)) {
+            return candidate;
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    if (stop) {
+      stopEvent(event);
+    }
+
+    const verticalCandidate = navigateVertically(verticalDirection) ?? navigateVerticallyWithInferredRows(verticalDirection);
+
+    if (verticalCandidate !== undefined) {
+      nextIndex = verticalCandidate;
+    } else if (prevIndex === -1) {
+      // CMP-EDGE-16
+      nextIndex = verticalDirection === 'up' ? maxIndex : minIndex;
+    } else {
+      nextIndex = findNonDisabledListIndex(list, {
+        startingIndex: prevIndex,
+        amount: verticalCols,
+        decrement: verticalDirection === 'up',
+        disabledIndices,
+      });
+
+      if (loopFocus) {
+        if (verticalDirection === 'up' && (prevIndex - verticalCols < minIndex || nextIndex < 0)) {
+          const col = prevIndex % verticalCols;
+          const maxCol = maxIndex % verticalCols;
+          const offset = maxIndex - (maxCol - col);
+
+          if (maxCol === col) {
+            nextIndex = maxIndex;
+          } else {
+            nextIndex = maxCol > col ? offset : offset - verticalCols;
+          }
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+
+        if (verticalDirection === 'down' && prevIndex + verticalCols > maxIndex) {
+          nextIndex = findNonDisabledListIndex(list, {
+            startingIndex: (prevIndex % verticalCols) - verticalCols,
+            amount: verticalCols,
+            disabledIndices,
+          });
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+      }
+    }
+
+    if (isIndexOutOfListBounds(list, nextIndex)) {
+      nextIndex = prevIndex;
+    }
+  }
+
+  // Remains on the same row/column (CMP-ALG-07).
+  if (orientation === 'both') {
+    const prevRow = Math.floor(prevIndex / cols);
+
+    if (event.key === (rtl ? ARROW_LEFT : ARROW_RIGHT)) {
+      if (stop) {
+        stopEvent(event);
+      }
+
+      if (prevIndex % cols !== cols - 1) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex,
+          disabledIndices,
+        });
+
+        if (loopFocus && isDifferentGridRow(nextIndex, cols, prevRow)) {
+          nextIndex = findNonDisabledListIndex(list, {
+            startingIndex: prevIndex - (prevIndex % cols) - 1,
+            disabledIndices,
+          });
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+      } else if (loopFocus) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex - (prevIndex % cols) - 1,
+          disabledIndices,
+        });
+        if (onLoop) {
+          nextIndex = onLoop(event, prevIndex, nextIndex);
+        }
+      }
+
+      if (isDifferentGridRow(nextIndex, cols, prevRow)) {
+        nextIndex = prevIndex;
+      }
+    }
+
+    if (event.key === (rtl ? ARROW_RIGHT : ARROW_LEFT)) {
+      if (stop) {
+        stopEvent(event);
+      }
+
+      if (prevIndex % cols !== 0) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex,
+          decrement: true,
+          disabledIndices,
+        });
+
+        if (loopFocus && isDifferentGridRow(nextIndex, cols, prevRow)) {
+          nextIndex = findNonDisabledListIndex(list, {
+            startingIndex: prevIndex + (cols - (prevIndex % cols)),
+            decrement: true,
+            disabledIndices,
+          });
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+      } else if (loopFocus) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex + (cols - (prevIndex % cols)),
+          decrement: true,
+          disabledIndices,
+        });
+        if (onLoop) {
+          nextIndex = onLoop(event, prevIndex, nextIndex);
+        }
+      }
+
+      if (isDifferentGridRow(nextIndex, cols, prevRow)) {
+        nextIndex = prevIndex;
+      }
+    }
+
+    const lastRow = Math.floor(maxIndex / cols) === prevRow;
+
+    if (isIndexOutOfListBounds(list, nextIndex)) {
+      if (loopFocus && lastRow) {
+        nextIndex =
+          event.key === (rtl ? ARROW_RIGHT : ARROW_LEFT)
+            ? maxIndex
+            : findNonDisabledListIndex(list, {
+                startingIndex: prevIndex - (prevIndex % cols) - 1,
+                disabledIndices,
+              });
+        if (onLoop) {
+          nextIndex = onLoop(event, prevIndex, nextIndex);
+        }
+      } else {
+        nextIndex = prevIndex;
+      }
+    }
+  }
+
+  return nextIndex;
 }
 
 // CMP-ALG-16
@@ -886,6 +1218,16 @@ export interface CompositeListOptions {
   selectedIndex?: number | undefined;
   /** Whether the items are a grid; absent for `false`. */
   grid?: boolean | undefined;
+  /**
+   * The grid's number of columns; absent for 2, the navigator Combobox passes unwrapped (CMP-ALG-13). C# sends none
+   * yet: Base UI's fixtures bind 3, 5 and 7 by wrapping the navigator.
+   */
+  cols?: number | undefined;
+  /**
+   * The list's length when the rendered items are a window of it (an externally virtualized list, Base UI's
+   * `listRef.current.length`); absent for the registered items' extent. C# sends none yet.
+   */
+  itemCount?: number | undefined;
   /** Whether a nested list that is its menu's root stays open on the nested close key; absent for `false`. */
   keepOpenOnCrossOrientationKey?: boolean | undefined;
   /** The references index of the element that takes the focus when a nested list closes; absent for the reference. */
@@ -1001,8 +1343,33 @@ export interface CompositeOptions extends TwinOptions {
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
 const attachedHandle = Symbol('blazix.composite.handle');
 
+// CMP-KEY-14 (M5 track 1, Deliverable 7; design point 3 (a), settled by the orchestrator 2026-11-04): a roving root
+// publishes its key resolution on its element, Base UI's `relayKeyboardEvent` (useCompositeRoot.ts:338), so no module
+// registry is needed (ADR 04 §3).
+const keyboardRelay = Symbol('blazix.composite.relay');
+
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
+  [keyboardRelay]?: (event: KeyboardEvent) => boolean;
+}
+
+/**
+ * Runs a composite root's key resolution for a keydown that did not bubble through the root element, such as one from a
+ * menu popup portaled outside a menubar, and stops the event when the root handles it.
+ * @param rootElement The root's element; an element with no attached root handles nothing.
+ * @param event The keydown.
+ * @returns `true` when the root moved its highlight for the key.
+ */
+export function relayKeyboardEvent(rootElement: Element | null | undefined, event: KeyboardEvent): boolean {
+  const relay = (rootElement as AttachedElement | null | undefined)?.[keyboardRelay];
+  if (!relay) {
+    return false;
+  }
+  const handled = relay(event);
+  if (handled) {
+    event.stopPropagation();
+  }
+  return handled;
 }
 
 /** What the follow last saw of one item: the dependencies of its evaluation. */
@@ -1454,21 +1821,21 @@ function attachGroup(
     }
   };
 
-  // CMP-ALG-14 without the grid branch (no consumer, CMP §10 Q1).
-  const onKeyDown = (event: KeyboardEvent): void => {
+  // CMP-ALG-14 without the grid branch (no consumer, CMP §10 Q1). Returns whether it acted, for the relay (CMP-KEY-14).
+  const onKeyDown = (event: KeyboardEvent): boolean => {
     const current = options;
     const isHomeOrEnd = event.key === HOME || event.key === END;
     if (!COMPOSITE_KEYS.has(event.key) || (!current.enableHomeAndEndKeys && isHomeOrEnd)) {
-      return;
+      return false;
     }
 
     if (isModifierKeySet(event, current.modifierKeys)) {
-      return;
+      return false;
     }
 
     // CMP-EDGE-08
     if (!root.isConnected) {
-      return;
+      return false;
     }
 
     const isRtl = current.direction === 'rtl';
@@ -1488,15 +1855,15 @@ function attachGroup(
       const textContent = target.value;
       // Native text behavior: Shift held to select, or a selection exists.
       if (selectionStart == null || event.shiftKey || selectionStart !== selectionEnd) {
-        return;
+        return false;
       }
       // Moving forward and not at the last caret position.
       if (event.key !== backwardKey && selectionStart < textContent.length) {
-        return;
+        return false;
       }
       // Moving backward and not at the first caret position.
       if (event.key !== forwardKey && selectionStart > 0) {
-        return;
+        return false;
       }
     }
 
@@ -1536,12 +1903,12 @@ function attachGroup(
 
     // CMP-KEY-10/11, CMP-EDGE-18: nothing is prevented or stopped unless the index changes.
     if (nextIndex === highlightedIndex || isIndexOutOfListBounds(elements, nextIndex)) {
-      return;
+      return false;
     }
 
     // The consumer's veto, asked only where the module is about to act (EVD-EVT-26; Server: run).
     if (decide(twin, NAVIGATE_POINT, event, 'run') !== 'run') {
-      return;
+      return false;
     }
 
     if (current.stopEventPropagation) {
@@ -1563,6 +1930,7 @@ function attachGroup(
     if (current.stopEventPropagation && current.reportHandledKeys && !twin.lastDecisionWasSynchronous) {
       twin.report('OnKeyHandled', { event: eventInfo(event) });
     }
+    return true;
   };
 
   const onFocusIn = (event: FocusEvent): void => {
@@ -1634,7 +2002,7 @@ function attachGroup(
 
   const listeners: [string, EventListener, boolean][] = [
     ['keydown', onKeyDownCapture as EventListener, true],
-    ['keydown', onKeyDown as EventListener, false],
+    ['keydown', ((event: KeyboardEvent) => void onKeyDown(event)) as EventListener, false],
     ['focusin', onFocusIn as EventListener, false],
     ['focusout', onFocusOut as EventListener, false],
     ['mousemove', onMouseMove as EventListener, false],
@@ -1644,6 +2012,9 @@ function attachGroup(
     for (const [type, listener, capture] of listeners) {
       root.addEventListener(type, listener, capture);
     }
+    // CMP-KEY-14: the relay runs the same key resolution, with the options of the latest `update` and the root's twin, so
+    // a relayed key asks the root's `navigate` point and sends the root's handled-key report (option (i)).
+    root[keyboardRelay] = onKeyDown;
   }
 
   // The first publication (CMP-STA-23..25, ALG-18).
@@ -1686,6 +2057,9 @@ function attachGroup(
       }
       disposed = true;
       delete root[attachedHandle];
+      if (root[keyboardRelay] === onKeyDown) {
+        delete root[keyboardRelay];
+      }
       for (const [type, listener, capture] of listeners) {
         root.removeEventListener(type, listener, capture);
       }
@@ -1840,6 +2214,8 @@ interface ListFloating {
   idOf(element: Element | null | undefined): string | null;
   /** The indices derived from the items' flags, in the registry's order. */
   derivedDisabledIndices(): number[];
+  /** Runs the floating handle's keydown handling for a keydown a portaled child list handed up (CMP-KEY-27). */
+  keyDown(event: KeyboardEvent): void;
 }
 
 /** A reference or trigger handle's half of a list. */
@@ -1886,6 +2262,8 @@ interface ListState {
   appliedRevision: number;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
   reportedIndex: number | null | undefined;
+  /** The elements that carry the `aria-activedescendant` the module wrote under virtual focus. */
+  readonly descendantTargets: Set<Element>;
   readonly typeahead: TypeaheadState;
   readonly onOpenChange: (details: SessionOpenChangeDetails) => void;
 }
@@ -1937,7 +2315,60 @@ function focusItemOnOpenOf(list: CompositeListOptions): boolean | 'auto' {
 }
 
 function elementsOf(state: ListState): Array<HTMLElement | null> {
-  return state.floating?.registry.elements ?? [];
+  const elements = state.floating?.registry.elements ?? [];
+  // A virtualized list's unrendered indices are empty slots of its full length (CMP-ALG-08's virtualized gaps).
+  const itemCount = currentHandle(state)?.list().itemCount;
+  if (itemCount != null && itemCount > elements.length) {
+    return Array.from({ length: itemCount }, (_, index) => elements[index] ?? null);
+  }
+  return elements;
+}
+
+// CMP-ALG-13 (M5 track 1; floating-ui-react/hooks/gridNavigation.ts:17-47): the popup grid's navigator, uniform 1x1
+// cells, `cols` 2 unless the caller binds another count.
+/**
+ * Computes the index a grid key moves a popup list's highlight to.
+ * @param event The keydown; a key the grid handles is prevented and stopped.
+ * @param prevIndex The cursor.
+ * @param list The elements array.
+ * @param orientation The list's orientation.
+ * @param loopFocus Whether a step past either end wraps.
+ * @param rtl Whether the reading direction is right to left.
+ * @param disabledIndices The indices to skip.
+ * @param minIndex The first navigable index.
+ * @param maxIndex The last navigable index.
+ * @param cols The number of columns; 2 by default.
+ * @returns The index, or `undefined` for none (an out-of-bounds result).
+ */
+export function gridNavigation(
+  event: KeyboardEvent,
+  prevIndex: number,
+  list: ReadonlyArray<HTMLElement | null | undefined>,
+  orientation: Orientation,
+  loopFocus: boolean,
+  rtl: boolean,
+  disabledIndices: DisabledIndices | undefined,
+  minIndex: number,
+  maxIndex: number,
+  cols = 2,
+): number | undefined {
+  const nextIndex = getGridNavigatedIndex(list, {
+    event,
+    orientation,
+    loopFocus,
+    rtl,
+    cols,
+    disabledIndices,
+    minIndex,
+    maxIndex,
+    // CMP-EDGE-17: an out-of-range previous index falls back to the first enabled item.
+    prevIndex: prevIndex > maxIndex ? minIndex : prevIndex,
+    stopEvent: true,
+  });
+
+  // `getGridNavigatedIndex` can return an out-of-bounds sentinel (e.g. `-1` when there is no previous item to move from);
+  // surface that as `undefined` so the caller treats it as "no navigation" rather than highlighting index `-1`.
+  return isIndexOutOfListBounds(list, nextIndex) ? undefined : nextIndex;
 }
 
 function disabledIndicesOfList(state: ListState, list: CompositeListOptions): ReadonlyArray<number> | undefined {
@@ -1955,6 +2386,13 @@ function referenceElementOf(state: ListState, session: InteractionSession): Elem
     }
   }
   return session.domReferenceElement;
+}
+
+// The floating half of the list in the parent popup's session, when that popup has one.
+function parentListFloatingOf(session: InteractionSession): ListFloating | null {
+  const parentId = session.node.parentId;
+  const parent = parentId ? getSession(parentId) : undefined;
+  return parent ? (listStateOf(parent)?.floating ?? null) : null;
 }
 
 // CMP-STA-41: the parent popup's published orientation, when the options do not name it.
@@ -1991,18 +2429,35 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
       setAttribute(element, element.hasAttribute('data-tabindex') ? 'data-tabindex' : 'tabindex', value);
     });
   }
-  if (!virtual) {
-    return;
+  // CMP-ARIA-01, CMP-ARIA-02: the attribute exists only under virtual focus. React drops the prop when it no longer
+  // applies, so the module removes what it wrote from an element it no longer targets (DOM focus, another reference, an
+  // unmounted floating element), and never touches the attribute of an element it did not write.
+  const targets = new Map<Element, string | null>();
+  if (virtual) {
+    const active = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+    const descendant = enabled && isOpen(state, handle.session) && active?.id ? active.id : null;
+    const reference = referenceElementOf(state, handle.session);
+    if (reference) {
+      targets.set(reference, descendant);
+    }
+    if (floating) {
+      targets.set(floating.element, isTypeableCombobox(reference) ? null : descendant);
+    }
   }
-  const active = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
-  const descendant = enabled && isOpen(state, handle.session) && active?.id ? active.id : null;
-  const reference = referenceElementOf(state, handle.session);
-  if (reference) {
-    setAttribute(reference, 'aria-activedescendant', descendant);
+  for (const element of state.descendantTargets) {
+    if (!targets.has(element)) {
+      setAttribute(element, 'aria-activedescendant', null);
+      state.descendantTargets.delete(element);
+    }
   }
-  if (floating) {
-    setAttribute(floating.element, 'aria-activedescendant', isTypeableCombobox(reference) ? null : descendant);
-  }
+  targets.forEach((value, element) => {
+    setAttribute(element, 'aria-activedescendant', value);
+    if (value === null) {
+      state.descendantTargets.delete(element);
+    } else {
+      state.descendantTargets.add(element);
+    }
+  });
 }
 
 // CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied.
@@ -2202,6 +2657,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     handles: new Set(),
     appliedRevision: 0,
     reportedIndex: null,
+    descendantTargets: new Set(),
     typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
     // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
     onOpenChange: (details) => {
@@ -2232,6 +2688,7 @@ function releaseListState(state: ListState, session: InteractionSession): void {
   if (state.typeahead.timer !== null) {
     clearTimeout(state.typeahead.timer);
   }
+  state.descendantTargets.clear();
   if ((session.dataRef.current as ListData)[LIST_STATE] === state) {
     delete (session.dataRef.current as ListData)[LIST_STATE];
   }
@@ -2508,6 +2965,31 @@ function commonKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispat
       stopDispatch(dispatch);
       state.index = event.key === HOME ? minIndex : maxIndex;
       navigateTo(state, handle, event);
+    }
+  }
+
+  // CMP-KEY-29, CMP-ALG-13: grid navigation runs before the main-key rule. The navigator consumes the vertical arrows,
+  // and the horizontal ones for `both`, so the veto is asked before it runs for those keys.
+  if (isGrid) {
+    const consumed =
+      event.key === ARROW_UP || event.key === ARROW_DOWN || (orientation === 'both' && (event.key === ARROW_LEFT || event.key === ARROW_RIGHT));
+    if (consumed && !proceed(dispatch, handle)) {
+      return;
+    }
+    const index = gridNavigation(event, state.index, elements, orientation, list.loopFocus === true, rtl, disabledIndices, minIndex, maxIndex, list.cols ?? 2);
+    if (consumed) {
+      dispatch.stopped = true;
+    }
+
+    // The grid navigator returns the unchanged index for keys it does not handle, and reporting that as a navigation
+    // would re-emit the current highlight on every keydown.
+    if (index != null && index !== state.index) {
+      state.index = index;
+      navigateTo(state, handle, event);
+    }
+
+    if (orientation === 'both') {
+      return;
     }
   }
 
@@ -2795,6 +3277,18 @@ function warnListOptions(list: CompositeListOptions): void {
   }
 }
 
+// Base UI warns on every render; the port warns where the options are set: at attach, and on an `update` that changed
+// an option the warnings read.
+function sameWarningInputs(a: CompositeListOptions, b: CompositeListOptions): boolean {
+  return (
+    a.allowEscape === b.allowEscape &&
+    a.loopFocus === b.loopFocus &&
+    a.virtual === b.virtual &&
+    a.grid === b.grid &&
+    orientationOf(a) === orientationOf(b)
+  );
+}
+
 /**
  * Attaches a list handle (ADR 04 Amendments 2026-11-03 (1)): it joins the popup's interactions session by token and
  * shares the list's state with the list's other handles. The floating handle resolves and orders the items, writes the
@@ -2917,6 +3411,7 @@ function attachList(
       },
       idOf: (item) => (item ? (itemsByElement.get(item)?.id ?? null) : null),
       derivedDisabledIndices: () => derived,
+      keyDown: (event) => onKeyDown(event),
     };
     // CMP-EVT-03 (E2): the ids in index order on each publication that changed them, when asked.
     registry.subscribe(() => {
@@ -2963,6 +3458,23 @@ function attachList(
     // Option (i) (ADR 04 Amendments 2026-10-22, 2026-11-03 (3)): a key stopped here never reaches Blazor's dispatcher.
     if (dispatch.stopped && options.reportHandledKeys && !channel.lastDecisionWasSynchronous) {
       channel.report('OnKeyHandled', { event: eventInfo(event) });
+    }
+    // CMP-KEY-14 (Deliverable 7; MenuRoot.tsx:692-699): a menubar's root does not hear the keydowns of a menu portaled
+    // outside it, so the floating handle relays one no listener stopped to the root its `relayElement` names; the root
+    // stops what it handles.
+    const relayElement = list.relayElement;
+    if (isFloating && relayElement != null && !event.cancelBubble) {
+      relayKeyboardEvent(resolveReference<Element>(references, relayElement, referenceCaptures), event);
+    }
+    // CMP-KEY-27, CMP-DIS-01 (Deliverable 6): React bubbles a portaled child popup's keydown through the React tree to its
+    // parent popup's handlers, so a nested list's close key that is also the parent's main key moves the parent. The
+    // port's child popup is outside the parent popup's DOM: a keydown no listener stopped is handed to the parent list's
+    // floating handle, unless its path already reaches that element.
+    if (isFloating && !event.cancelBubble) {
+      const parentFloating = parentListFloatingOf(session);
+      if (parentFloating && !event.composedPath().includes(parentFloating.element)) {
+        parentFloating.keyDown(event);
+      }
     }
   };
 
@@ -3037,6 +3549,9 @@ function attachList(
         referenceCaptures = nextCaptures;
       }
       const list = handle.list();
+      if (!sameWarningInputs(previous, list)) {
+        warnListOptions(list);
+      }
       if (registry && syncListItems(options.items)) {
         registry.flush();
       }

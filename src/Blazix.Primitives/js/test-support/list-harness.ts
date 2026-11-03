@@ -35,6 +35,12 @@ export interface ListHarnessOptions {
   items?: string[];
   /** Extra attributes of an item. */
   itemAttributes?: (index: number, label: string) => Record<string, string>;
+  /** The items' element; `li` by default. */
+  itemTag?: string;
+  /** Whether the items sit directly in the floating element instead of a `ul` (a grid fixture's buttons). */
+  flat?: boolean;
+  /** Groups the items, directly in the floating element, into `role="row"` elements of this many items each. */
+  rowSize?: number;
   /** The registration fields C# sends for an item beyond its id. */
   itemRegistration?: (index: number, label: string) => Partial<CompositeItemRegistration>;
   /** The reference element: a button (the default) or an input. */
@@ -192,9 +198,8 @@ export function createListHarness(options: ListHarnessOptions = {}): ListHarness
   };
 
   const renderItems = (target: HTMLElement): void => {
-    const ul = document.createElement('ul');
-    labels.forEach((label, index) => {
-      const li = document.createElement('li');
+    const elements = labels.map((label, index) => {
+      const li = document.createElement(options.itemTag ?? 'li');
       li.id = `${popup.token}-item-${index}`;
       li.setAttribute('data-testid', `item-${index}`);
       li.setAttribute('data-list-item', '');
@@ -203,9 +208,25 @@ export function createListHarness(options: ListHarnessOptions = {}): ListHarness
       for (const [name, value] of Object.entries(options.itemAttributes?.(index, label) ?? {})) {
         li.setAttribute(name, value);
       }
-      ul.appendChild(li);
+      return li;
     });
-    target.replaceChildren(ul);
+    const rowSize = options.rowSize;
+    if (rowSize) {
+      const rows: HTMLElement[] = [];
+      for (let start = 0; start < elements.length; start += rowSize) {
+        const row = document.createElement('div');
+        row.setAttribute('role', 'row');
+        row.append(...elements.slice(start, start + rowSize));
+        rows.push(row);
+      }
+      target.replaceChildren(...rows);
+    } else if (options.flat) {
+      target.replaceChildren(...elements);
+    } else {
+      const ul = document.createElement('ul');
+      ul.append(...elements);
+      target.replaceChildren(ul);
+    }
   };
 
   // C#'s render after a commit: the popup mounts with the open, unmounts with the close (unless kept mounted).
