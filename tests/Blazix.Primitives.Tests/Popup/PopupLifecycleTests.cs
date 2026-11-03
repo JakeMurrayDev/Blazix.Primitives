@@ -179,8 +179,9 @@ public sealed class PopupLifecycleTests
 
         Assert.Equal(1, notifications);
         Assert.Equal(["onBeforeDispatch", "dispatchOpenChange", "update"], store.Order);
+        // Mounted and the status are evaluated at the write that flips the effective open state (TRN-ALG-05).
         Assert.True(store.IsOpen);
-        Assert.False(store.Lifecycle.Mounted);
+        Assert.True(store.Lifecycle.Mounted);
         Assert.Equal(TransitionStatus.Starting, store.Lifecycle.DerivedTransitionStatus);
         Assert.Equal(new OpenChangeRelay(1, "trigger-hover", EventKind.Event, "base-ui", null, null), store.Lifecycle.OpenChange);
     }
