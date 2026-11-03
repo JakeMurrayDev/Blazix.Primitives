@@ -89,6 +89,57 @@ async function clickInPlace(page: Page): Promise<void> {
   await page.mouse.up();
 }
 
+interface AnimationState {
+  name: string;
+  testId: string | null;
+  endingStyle: boolean;
+  activationDirection: string | null;
+  sizes: Record<string, string>;
+}
+
+/**
+ * Records every `animationstart` from now on with the animated element's state and the four size variables at that
+ * moment: a state that lasts an exit animation is witnessed by a record, never by a poll of the live style (the popup
+ * suites' rule, tests/browser/CONTEXT.md).
+ */
+async function recordAnimationStates(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const records: unknown[] = [];
+    (window as unknown as { navAnimationStates: unknown[] }).navAnimationStates = records;
+    const read = (testId: string, name: string) => (document.querySelector(`[data-testid="${testId}"]`) as HTMLElement | null)?.style.getPropertyValue(name) ?? '';
+    document.addEventListener(
+      'animationstart',
+      (event) => {
+        const target = event.target as HTMLElement;
+        records.push({
+          name: (event as AnimationEvent).animationName,
+          testId: target.getAttribute('data-testid'),
+          endingStyle: target.hasAttribute('data-ending-style'),
+          activationDirection: target.getAttribute('data-activation-direction'),
+          sizes: {
+            popupWidth: read('popup-root', '--popup-width'),
+            popupHeight: read('popup-root', '--popup-height'),
+            positionerWidth: read('positioner', '--positioner-width'),
+            positionerHeight: read('positioner', '--positioner-height'),
+          },
+        });
+      },
+      true,
+    );
+  });
+}
+
+/** The animation starts recorded since recordAnimationStates with the given name. */
+async function animationStates(page: Page, name: string): Promise<AnimationState[]> {
+  const records = await page.evaluate(() => (window as unknown as { navAnimationStates?: AnimationState[] }).navAnimationStates ?? []);
+  return records.filter((record) => record.name === name);
+}
+
+/** A pixel length of an element's inline custom property, as a number. */
+function pixels(locator: Locator, property: string): Promise<number> {
+  return locator.evaluate((element: HTMLElement, name) => parseFloat(element.style.getPropertyValue(name)), property);
+}
+
 // Touch titles: Playwright taps only in a context made with `hasTouch`, and the worker's shared context is not, so each
 // touch title opens its own (on `wasm` it downloads the runtime again); the Popover spec's precedent.
 const touchTest = test.extend<{ touchPage: Page }>({
@@ -421,6 +472,142 @@ test.describe('<NavigationMenu.Trigger /> direction', () => {
   });
 });
 
+test.describe('<NavigationMenu.Root /> actions', () => {
+  test('ignores `unmount` while the popup is open', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { defaultValue: 'item-1' });
+    const popup = await page.getByTestId('popup-root').elementHandle();
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await settle(fixture);
+
+    expect(await popup!.evaluate((element) => element.isConnected)).toBe(true);
+    expect(await openChangeCompletes(fixture)).not.toContain('false');
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('automatically unmounts with an actions ref and completes closing once', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { value: 'item-1' });
+    await expect(page.getByTestId('popup-root')).toHaveCount(1);
+
+    await pressControl(fixture.locator('[data-set-value="none"]'));
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect((await openChangeCompletes(fixture)).filter((open) => open === 'false')).toHaveLength(1);
+
+    // Calling the action after the automatic unmount must not repeat the completion.
+    await pressControl(fixture.locator('[data-unmount]'));
+    await settle(fixture);
+    expect((await openChangeCompletes(fixture)).filter((open) => open === 'false')).toHaveLength(1);
+  });
+
+  test('keeps the popup mounted until the unmount action completes closing', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { value: 'item-1', fixed: true, retain: true });
+    await expect(page.getByTestId('popup-root')).toHaveCount(1);
+
+    // The close action runs onValueChange, which opts out; the page keeps its value, so the menu stays open.
+    await pressControl(fixture.locator('[data-close]'));
+    await settle(fixture);
+    await expect(page.getByTestId('popup-root')).toHaveCount(1);
+
+    await pressControl(fixture.locator('[data-set-value="none"]'));
+    await settle(fixture);
+    await expect(page.getByTestId('popup-root')).toHaveCount(1);
+    expect(await openChangeCompletes(fixture)).not.toContain('false');
+
+    await pressControl(fixture.locator('[data-unmount]'));
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect((await openChangeCompletes(fixture)).filter((open) => open === 'false')).toHaveLength(1);
+  });
+
+  test('clears activation direction when controlled value closes externally after switching triggers', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { value: 'item-1', contentFade: true, fade: true, animations: 1 });
+    await expect(content(page, 1)).toBeVisible();
+
+    await fireClick(trigger(page, 2));
+    await expect(content(page, 2)).toHaveAttribute('data-activation-direction', 'right');
+    await recordAnimationStates(page);
+
+    await pressControl(fixture.locator('[data-set-value="none"]'));
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    const exits = (await animationStates(page, 'nav-content-out')).filter((record) => record.testId === 'content-2');
+    expect(exits).toHaveLength(1);
+    expect(exits[0]).toMatchObject({ endingStyle: true, activationDirection: null });
+  });
+});
+
+test.describe('<NavigationMenu.Link /> and the guards', () => {
+  test('keeps the menu open when a link loses focus without a related target', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 1).click();
+    const link = page.getByTestId('link-1-a');
+    await expect(link).toBeVisible();
+
+    await link.focus();
+    await link.evaluate((element: HTMLElement) => element.blur());
+    await settle(fixture);
+
+    await expect(link).toBeAttached();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('returns focus to the trigger when no viewport focus guard is rendered', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { noViewport: true });
+    await trigger(page, 1).focus();
+    await trigger(page, 1).click();
+    await expect(page.getByTestId('popup-root')).toBeVisible();
+
+    const guards = page.locator('li:has(> [data-testid="trigger-1"]) > [data-base-ui-focus-guard]');
+    await expect(guards).toHaveCount(2);
+    await guards.nth(1).focus();
+
+    await expect(trigger(page, 1)).toBeFocused();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+test.describe('<NavigationMenu.Popup /> anchoring', () => {
+  for (const [side, rtl] of [['left', false], ['inline-start', false], ['inline-end', true]] as const) {
+    test(`pins the popup to the right edge when side is ${side}${rtl ? ' in RTL' : ''} so it grows leftward`, async ({ page, mode }) => {
+      await gotoMenu(page, mode, { side, rtl: rtl || undefined });
+      await trigger(page, 1).click();
+      const popup = page.getByTestId('popup-root');
+      await expect(popup).toBeVisible();
+
+      await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', side);
+      expect(await popup.evaluate((element: HTMLElement) => [element.style.position, element.style.top, element.style.right, element.style.left, element.style.bottom])).toEqual(['absolute', '0px', '0px', '', '']);
+    });
+  }
+
+  test('port: pins the popup to the bottom edge when side is top so it grows upward', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { side: 'top' });
+    await trigger(page, 1).click();
+    const popup = page.getByTestId('popup-root');
+    await expect(popup).toBeVisible();
+
+    await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'top');
+    expect(await popup.evaluate((element: HTMLElement) => [element.style.position, element.style.bottom, element.style.left, element.style.top, element.style.right])).toEqual(['absolute', '0px', '0px', '', '']);
+  });
+
+  test('disables popup and arrow transitions while a kept portal opens', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { keepMounted: true, arrow: true });
+    await freezeClock(page);
+    const popup = page.getByTestId('popup-root');
+    const arrowPart = page.getByTestId('arrow');
+
+    await trigger(page, 1).click();
+
+    await expect.poll(() => popup.evaluate((element: HTMLElement) => element.style.transition)).toBe('none');
+    await expect.poll(() => arrowPart.evaluate((element: HTMLElement) => element.style.transition)).toBe('none');
+
+    await page.clock.runFor(64);
+    await expect.poll(() => popup.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
+    expect(await arrowPart.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
+  });
+});
+
 test.describe('<NavigationMenu.Content /> move', () => {
   test('moves content into the popup and keeps it there when switching triggers', async ({ page, mode }) => {
     await gotoMenu(page, mode);
@@ -634,16 +821,75 @@ test.describe('size', () => {
     await expect.poll(() => positioner.evaluate((element) => parseFloat(element.style.getPropertyValue('--positioner-height')))).toBeCloseTo(150, 0);
   });
 
-  test('reports right activation direction when switching in either direction', async ({ page, mode }) => {
+  for (const [orientation, forward, backward] of [['horizontal', 'right', 'left'], ['vertical', 'down', 'up']] as const) {
+    test(`reports ${forward} activation direction when switching in either direction (${orientation})`, async ({ page, mode }) => {
+      await gotoMenu(page, mode, orientation === 'vertical' ? { orientation } : {});
+      await trigger(page, 1).click();
+      await expect(content(page, 1)).toBeVisible();
+
+      await fireClick(trigger(page, 2));
+      await expect(content(page, 2)).toHaveAttribute('data-activation-direction', forward);
+
+      await fireClick(trigger(page, 1));
+      await expect(content(page, 1)).toHaveAttribute('data-activation-direction', backward);
+    });
+  }
+
+  test('repositions the positioner when switching triggers via hover', async ({ page, mode }) => {
     await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(page.getByTestId('link-1-a')).toBeVisible();
+    const positioner = page.getByTestId('positioner');
+    const firstLeft = (await positioner.boundingBox())!.x;
+
+    // Base UI's pointer skips the pointer-events check; a real one crosses the panel first, which releases the
+    // safe-polygon lock on the List (NAV-PTR-11), and then reaches the other trigger.
+    const link = (await page.getByTestId('link-1-b').boundingBox())!;
+    await page.mouse.move(link.x + 2, link.y + 2);
+    await page.mouse.move(link.x + 4, link.y + 4);
+    const next = (await trigger(page, 2).boundingBox())!;
+    await page.mouse.move(next.x + 4, next.y + next.height - 3);
+    await page.mouse.move(next.x + 10, next.y + 8);
+    await expect(page.getByTestId('link-2-a')).toBeVisible();
+
+    await expect.poll(async () => Math.abs((await positioner.boundingBox())!.x - firstLeft)).toBeGreaterThan(20);
+  });
+
+  test('preserves popup size when controlled value closes externally', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { value: 'item-1', sized: true, fade: true, animations: 1 });
+    await expect(content(page, 1)).toBeVisible();
+    await expect.poll(() => pixels(page.getByTestId('positioner'), '--positioner-width')).toBeCloseTo(400, 0);
+    await recordAnimationStates(page);
+
+    await pressControl(fixture.locator('[data-set-value="none"]'));
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    const exits = await animationStates(page, 'nav-popup-out');
+    expect(exits).toHaveLength(1);
+    expect(exits[0]).toMatchObject({ endingStyle: true, sizes: { popupWidth: '400px', popupHeight: '200px', positionerWidth: '400px', positionerHeight: '200px' } });
+  });
+
+  test('updates popup sizing when the window is resized while the popup is open', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { fluid: true, keepMountedContent: true });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
+    const positioner = page.getByTestId('positioner');
+    const viewport = page.viewportSize()!;
+    await expect.poll(() => pixels(positioner, '--positioner-width')).toBeCloseTo(viewport.width * 0.4, 0);
+    await positioner.evaluate((element) => {
+      const record = { instant: false };
+      (window as unknown as { instantSeen: typeof record }).instantSeen = record;
+      new MutationObserver(() => {
+        record.instant ||= element.hasAttribute('data-instant');
+      }).observe(element, { attributes: true, attributeFilter: ['data-instant'] });
+    });
 
-    await fireClick(trigger(page, 2));
-    await expect(content(page, 2)).toHaveAttribute('data-activation-direction', 'right');
+    await page.setViewportSize({ width: 1000, height: viewport.height });
 
-    await fireClick(trigger(page, 1));
-    await expect(content(page, 1)).toHaveAttribute('data-activation-direction', 'left');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { instantSeen: { instant: boolean } }).instantSeen.instant)).toBe(true);
+    await expect(positioner).not.toHaveAttribute('data-instant');
+    await expect.poll(() => pixels(positioner, '--positioner-width')).toBeCloseTo(400, 0);
   });
 });
 

@@ -498,6 +498,37 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.Equal([false], cut.Instance.Completions);
     }
 
+    [Fact(DisplayName = "port: the Arrow joins the Root's navigation-menu handle, which suppresses its transitions while the popup starts")]
+    [Trait("Requirement", "NAV-ANI-15")]
+    public void The_Arrow_joins_the_Roots_navigation_menu_handle()
+    {
+        test.Render(p => p.Add(x => x.WithArrow, true).Add(x => x.DefaultValue, "item-1"));
+
+        Assert.Single(test.NavigationMenu.Invocations["attach"], invocation => invocation.Arguments[1] is string options && options.Contains("\"part\":\"arrow\"", StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "port: keeps a controlled close's opt-out for the value parameter's close")]
+    [Trait("Requirement", "NAV-STA-05")]
+    [Trait("Requirement", "NAV-EVT-05")]
+    public async Task Keeps_a_controlled_closes_opt_out_for_the_value_parameters_close()
+    {
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render(p => p
+            .Add(x => x.Controlled, true).Add(x => x.Value, "item-1").Add(x => x.FollowControlled, false).Add(x => x.PreventUnmount, true));
+
+        // The close action runs onValueChange, which opts out; the page keeps its value, so the menu stays open.
+        await cut.Instance.Root!.CloseAsync();
+        Assert.Equal("true", Expanded(cut, "trigger-item-1"));
+
+        await cut.Instance.SetValueAsync(null);
+        await NavigationMenuTestContext.CompleteExitAsync(cut);
+        Assert.NotNull(cut.Find("[data-testid=\"popup\"]"));
+        Assert.Empty(cut.Instance.Completions);
+
+        await cut.InvokeAsync(() => cut.Instance.Root!.Unmount());
+        Assert.Empty(cut.FindAll("[data-testid=\"popup\"]"));
+        Assert.Equal([false], cut.Instance.Completions);
+    }
+
     [Fact(DisplayName = "keeps the opt-out when the `close` action is called again while closed")]
     [Trait("Requirement", "NAV-EVT-05")]
     [Trait("Requirement", "NAV-EVT-08")]

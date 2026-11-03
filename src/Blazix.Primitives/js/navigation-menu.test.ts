@@ -40,6 +40,7 @@ const {
   isListGuardKey,
   isOpenKey,
   ACTIVATE_REPORT,
+  ARROW_PART,
   FOCUS_OUT_REPORT,
   NAVIGATE_POINT,
   RESIZE_REPORT,
@@ -985,6 +986,21 @@ describe('focus guards', () => {
     expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(1);
   });
 
+  it('routes the trailing guard after an owner that carries no aria-owns, as rendered without a Viewport', async () => {
+    const rendered = renderMenu({ open: 'item-1', values: ['item-1'] });
+    await settle();
+    const trigger = rendered.item('item-1').trigger;
+    const owner = trigger.nextElementSibling!.nextElementSibling as HTMLElement;
+    owner.removeAttribute('aria-owns');
+    const trailing = owner.nextElementSibling as HTMLElement;
+
+    // From the trigger, outside the floating element: the trailing guard forwards to the Viewport's trailing guard.
+    trigger.focus();
+    trailing.focus();
+
+    expect(document.activeElement).not.toBe(trailing);
+  });
+
   it('swaps the guards for VoiceOver on WebKit', async () => {
     flags.voiceOver = true;
     flags.webkit = true;
@@ -1103,6 +1119,24 @@ describe('the Positioner', () => {
     flushFrames();
     window.dispatchEvent(new Event('resize'));
     expect(rendered.twin.reported(RESIZE_REPORT)).toHaveLength(2);
+  });
+});
+
+describe('the Arrow', () => {
+  it('carries transition none while the Popup starts and drops it after, as a kept portal opens', async () => {
+    const rendered = renderMenu({});
+    await settle();
+    const arrow = document.createElement('div');
+    rendered.popup!.prepend(arrow);
+    handles.push(attach(arrow, JSON.stringify({ part: ARROW_PART, rootRef: 0 }), rendered.dotnet, [rendered.root]));
+
+    rendered.popup!.setAttribute('data-starting-style', '');
+    await settle();
+    expect(arrow.style.transition).toBe('none');
+
+    rendered.popup!.removeAttribute('data-starting-style');
+    await settle();
+    expect(arrow.style.transition).toBe('');
   });
 });
 
