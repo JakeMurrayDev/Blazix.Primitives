@@ -8,8 +8,7 @@
 // 22, 27 and FLT-API-05.
 // Page-global state (sanctioned, ADR 04 Amendments 2026-10-27; js/CONTEXT.md): the outside marking's counters, the
 // previously-focused stack and the queued focus; `resetFocusManagerState` drops all three for tests.
-import { isElementVisible } from './composite';
-import { activeElement, closest, contains, getTarget, isHTMLElement, isShadowRoot, ownerDocument, ownerWindow, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElementVisible, isHTMLElement, isShadowRoot, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import {
   acquireSession,
