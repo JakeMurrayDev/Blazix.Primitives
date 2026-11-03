@@ -7,7 +7,7 @@ namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
 /// List navigation's C# half (M5 track 1, issue 159; ADR 04 Amendments 2026-11-03 (1)-(3), chosen by the user): the list
-/// behaviour and its handles, composite roots in list mode, on the test-only list hosts. The handles send the session
+/// behavior and its handles, composite roots in list mode, on the test-only list hosts. The handles send the session
 /// token, the list's options and their role, after the session's handle; the items render <c>tabindex="-1"</c> and no
 /// <c>data-highlighted</c> (the module writes both) and mirror the module's highlight; C# asks for its own highlights by
 /// revision; the list's requests run the family's sequence.

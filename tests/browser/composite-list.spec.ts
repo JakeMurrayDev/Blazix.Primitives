@@ -6,7 +6,7 @@ import { popupListConformanceTests } from './suites/popupListConformanceTests';
 // ComboboxRoot.test.tsx with the options below, and each family's list options are those of its useListNavigation and
 // useTypeahead call sites (fact sheet A §3: MenuRoot.tsx:516-568, SelectRoot.tsx:371-411, AriaCombobox.tsx:1416-1449).
 // Menu and Select run on `composite-list-dom` (a button reference, DOM focus), Combobox on `composite-list-virtual` (an
-// input reference, virtual focus). A title listed open names the family behaviour the host lacks and the track that
+// input reference, virtual focus). A title listed open names the family behavior the host lacks and the track that
 // proves it.
 
 test.describe('Menu', () => {
