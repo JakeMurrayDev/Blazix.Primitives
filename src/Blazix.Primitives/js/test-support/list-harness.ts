@@ -93,7 +93,7 @@ export function createListHarness(options: ListHarnessOptions = {}): ListHarness
   // A commit from any handle (the trigger's press included) renders the popup after the store's write.
   let renderAfterCommit: () => void = () => {};
   const popup = createPopupHarness({
-    synchronous: options.synchronous,
+    synchronous: options.synchronous ?? false,
     ...options.session,
     onOpenChange: (open, details) => {
       options.session?.onOpenChange?.(open, details);
