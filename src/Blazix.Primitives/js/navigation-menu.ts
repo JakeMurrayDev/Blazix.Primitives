@@ -843,7 +843,7 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
       return;
     }
     // NavigationMenuTrigger.tsx:584-592: only an open menu is switched; the open key requested `list-navigation` itself.
-    const reason: ActivationReason | null = isOpen(menu) && event.type !== 'keydown' ? (event.type === 'mouseenter' ? 'trigger-hover' : 'trigger-press') : null;
+    const reason: ActivationReason | null = isOpen(menu) && event.type !== 'keydown' ? (event.type === 'mouseover' ? 'trigger-hover' : 'trigger-press') : null;
     if (reason !== null || direction !== null) {
       report({ reason, direction, event: eventInfo(event) });
     }
@@ -960,7 +960,16 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
   const selfObserver = new MutationObserver(() => menu.invalidate());
   selfObserver.observe(element, { attributes: true, attributeFilter: [ACTIVE_TRIGGER] });
 
-  const onMouseEnter = (event: MouseEvent) => handleOpenEvent(event);
+  // NavigationMenuTrigger.tsx:658: React's onMouseEnter, which React dispatches from the native `mouseover` of an entry
+  // (a pointer arriving from outside the trigger). So the activation runs before the hover interaction's native
+  // `mouseenter` listener, which on WebAssembly switches the menu inside the dispatch, as Base UI's runs before it.
+  const onMouseOver = (event: MouseEvent) => {
+    const from = event.relatedTarget;
+    if (from instanceof Node && element.contains(from)) {
+      return;
+    }
+    handleOpenEvent(event);
+  };
   const onClick = (event: MouseEvent) => handleOpenEvent(event);
   const onPointer = (event: PointerEvent) => {
     pointerType = event.pointerType;
@@ -1049,7 +1058,7 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
     guardObserver.observe(parent, { childList: true });
   }
 
-  element.addEventListener('mouseenter', onMouseEnter);
+  element.addEventListener('mouseover', onMouseOver);
   element.addEventListener('click', onClick);
   element.addEventListener('pointerenter', onPointer);
   element.addEventListener('pointerdown', onPointer);
@@ -1077,7 +1086,7 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
       resizeFrame.cancel();
       sizeFrame.cancel();
       cancelAutoSizeReset();
-      element.removeEventListener('mouseenter', onMouseEnter);
+      element.removeEventListener('mouseover', onMouseOver);
       element.removeEventListener('click', onClick);
       element.removeEventListener('pointerenter', onPointer);
       element.removeEventListener('pointerdown', onPointer);
