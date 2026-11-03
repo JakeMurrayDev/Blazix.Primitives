@@ -3260,6 +3260,18 @@ function warnListOptions(list: CompositeListOptions): void {
   }
 }
 
+// Base UI warns on every render; the port warns where the options are set: at attach, and on an `update` that changed
+// an option the warnings read.
+function sameWarningInputs(a: CompositeListOptions, b: CompositeListOptions): boolean {
+  return (
+    a.allowEscape === b.allowEscape &&
+    a.loopFocus === b.loopFocus &&
+    a.virtual === b.virtual &&
+    a.grid === b.grid &&
+    orientationOf(a) === orientationOf(b)
+  );
+}
+
 /**
  * Attaches a list handle (ADR 04 Amendments 2026-11-03 (1)): it joins the popup's interactions session by token and
  * shares the list's state with the list's other handles. The floating handle resolves and orders the items, writes the
@@ -3518,6 +3530,9 @@ function attachList(
         referenceCaptures = nextCaptures;
       }
       const list = handle.list();
+      if (!sameWarningInputs(previous, list)) {
+        warnListOptions(list);
+      }
       if (registry && syncListItems(options.items)) {
         registry.flush();
       }
