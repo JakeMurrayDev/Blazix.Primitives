@@ -2350,6 +2350,20 @@ function isHoverOpenEvent(openEventType: string | undefined): boolean {
 export interface SafePolygonOptions {
   /** Whether pointer events outside the trigger and the floating element are blocked while the popup is hover-open. */
   blockPointerEvents?: boolean | undefined;
+  // NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data (M5 track 2; NAV-PTR-10).
+  /** The selector of the trigger's nearest ancestor the lock scopes to; the default scope when absent or unmatched. */
+  scopeSelector?: string | null | undefined;
+}
+
+/**
+ * Returns the lock's scope a strategy's selector names for a trigger: its nearest ancestor that matches.
+ * @param options The strategy's options.
+ * @param trigger The trigger.
+ * @returns The scope, or `null` for the caller's default.
+ */
+function scopeFromSelector(options: SafePolygonOptions | undefined, trigger: Element | null): HTMLElement | SVGSVGElement | null {
+  const selector = options?.scopeSelector;
+  return selector != null && selector !== '' ? closest<HTMLElement>(trigger, selector) : null;
 }
 
 /** What a close strategy is invoked with when the pointer leaves a trigger. */
@@ -2965,6 +2979,60 @@ function createHoverReferenceController(context: HandleContext): Controller {
 
   const clearPointerEvents = () => clearSafePolygonPointerEventsMutation(instance);
 
+  // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; NAV-PTR-09, NAV-PTR-13), as data:
+  // the named element (the Viewport) is the floating element, placed on the dominant axis from the trigger's centre to
+  // its centre, and the node is the one the option names (the nested Root's), else this session's.
+  const inlineCloseContext = () => {
+    const inline = hoverOptions()?.inlineCloseContext;
+    const floating = inline == null ? null : ownerDocument(element).getElementById(inline.floatingId);
+    if (inline == null || floating === null) {
+      return undefined;
+    }
+    const reference = element.getBoundingClientRect();
+    const target = floating.getBoundingClientRect();
+    const deltaX = target.left + target.width / 2 - (reference.left + reference.width / 2);
+    const deltaY = target.top + target.height / 2 - (reference.top + reference.height / 2);
+    const placement = Math.abs(deltaX) >= Math.abs(deltaY) ? (deltaX >= 0 ? 'right' : 'left') : deltaY >= 0 ? 'bottom' : 'top';
+    return { placement, elements: { domReference: element, floating }, nodeId: inline.nodeToken ?? record.token };
+  };
+
+  // NavigationMenu's own lock (NavigationMenuTrigger.tsx:594-615, 488-501, 651-675; NAV-PTR-10..12, NAV-EDGE-10), as data:
+  // entering the trigger while the floating element exists locks pointer events, at once for a closed popup or the active
+  // trigger and in a microtask after a switch, so the switch's commit lands first; a pointerdown and a leave while closed
+  // release it.
+  const lockOnEnter = (event: MouseEvent) => {
+    const options = hoverOptions();
+    if (options?.blockPointerEventsOnEnter !== true || options.blockPointerEvents !== true || record.floatingElement === null) {
+      return;
+    }
+    const trigger = event.currentTarget as HTMLElement;
+    const apply = () => {
+      const floating = record.floatingElement;
+      if (floating !== null) {
+        const scopeElement = scopeFromSelector({ scopeSelector: options.pointerEventsScopeSelector }, trigger) ?? trigger.ownerDocument.body;
+        applySafePolygonPointerEventsMutation(instance, { scopeElement, referenceElement: trigger, floatingElement: floating });
+      }
+    };
+    // Base UI's `value != null && value !== itemValue`: the committed active trigger, which a hover hand-off has not moved.
+    if (record.open && record.activeTriggerId !== null && record.activeTriggerId !== triggerIdOf(record, trigger)) {
+      queueMicrotask(apply);
+    } else {
+      apply();
+    }
+  };
+
+  const releaseOnPointerDown = () => {
+    if (hoverOptions()?.blockPointerEventsOnEnter === true) {
+      clearPointerEvents();
+    }
+  };
+
+  const releaseOnClosedLeave = () => {
+    if (hoverOptions()?.blockPointerEventsOnEnter === true && !record.open) {
+      clearPointerEvents();
+    }
+  };
+
   // FLT-PTR-19 (useHoverReferenceInteraction.ts:156-159): the strategy, rebuilt when its options change, and its options
   // published to the shared state while this trigger is the active one. A trigger without hover publishes nothing.
   const refreshHandleClose = () => {
@@ -2972,10 +3040,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     if (options === null) {
       return;
     }
-    const key = options.safePolygon === true ? String(options.blockPointerEvents === true) : null;
+    const scopeSelector = options.pointerEventsScopeSelector ?? null;
+    const key = options.safePolygon === true ? `${options.blockPointerEvents === true}|${scopeSelector ?? ''}` : null;
     if (key !== handleCloseKey) {
       handleCloseKey = key;
-      handleClose = key === null ? null : safePolygon({ blockPointerEvents: options.blockPointerEvents === true });
+      handleClose = key === null ? null : safePolygon({ blockPointerEvents: options.blockPointerEvents === true, scopeSelector });
     }
     if (isActiveTrigger()) {
       instance.handleCloseOptions = handleClose?.__options;
@@ -3132,8 +3201,9 @@ function createHoverReferenceController(context: HandleContext): Controller {
     instance.restTimeout.clear();
     instance.restTimeoutPending = false;
 
-    // `getHandleCloseContext` has no M4 consumer: the session's published floating context is the close context.
-    const handleCloseContextBase = record.dataRef.current.floatingContext;
+    // useHoverReferenceInteraction.ts:315: the session's published floating context, else the trigger's inline one
+    // (NavigationMenu's getHandleCloseContext, M5 track 2).
+    const handleCloseContextBase = record.dataRef.current.floatingContext ?? inlineCloseContext();
 
     if (isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements)) {
       return;
@@ -3208,8 +3278,8 @@ function createHoverReferenceController(context: HandleContext): Controller {
       const floatingElement = record.floatingElement;
 
       if (floatingElement) {
-        // `getScope` has no M4 consumer (Navigation Menu's).
-        const scopeElement = trigger.ownerDocument.body;
+        // FLT-PTR-16 with NavigationMenu's getScope (M5 track 2): the strategy's scope, else the document.
+        const scopeElement = scopeFromSelector(instance.handleCloseOptions, trigger) ?? trigger.ownerDocument.body;
 
         applySafePolygonPointerEventsMutation(instance, {
           scopeElement,
@@ -3365,8 +3435,12 @@ function createHoverReferenceController(context: HandleContext): Controller {
     // The hook's native listeners first, then its prop bag, then Tooltip's handlers (React runs delegated handlers last).
     hoverCleanup = mergeCleanups(
       options.move !== false && listen(element, 'mousemove', onMouseEnter, { once: true }),
+      // NavigationMenu's own lock decides on the state before this event's switch (Base UI reads the render's `value`), so
+      // its listener runs before the hover hook's.
+      options.blockPointerEventsOnEnter === true && listen(element, 'mouseenter', lockOnEnter),
       listen(element, 'mouseenter', onMouseEnter),
       listen(element, 'mouseleave', onMouseLeave),
+      options.blockPointerEventsOnEnter === true && mergeCleanups(listen(element, 'pointerdown', releaseOnPointerDown), listen(element, 'mouseleave', releaseOnClosedLeave)),
       options.guardStaleOpen === true && listen(element, 'mouseout', onMouseOut),
       listen(element, 'pointerdown', setPointerRef),
       listen(element, 'pointerenter', setPointerRef),
@@ -3490,8 +3564,9 @@ function createHoverFloatingController(context: HandleContext): Controller {
       // would not shield sibling items in the parent menu.
       const cachedScopeElement = instance.pointerEventsScopeElement !== floatingElement ? instance.pointerEventsScopeElement : null;
       const parentScopeElement = parentFloating !== floatingElement ? parentFloating : null;
-      // `getScope` has no M4 consumer (Navigation Menu's).
-      const scopeElement = cachedScopeElement ?? parentScopeElement ?? closest<HTMLElement>(ref, '[data-rootownerid]') ?? doc.body;
+      // useHoverFloatingInteraction.ts:124-129: the strategy's scope (NavigationMenu's getScope, M5 track 2) comes first.
+      const scopeElement =
+        scopeFromSelector(instance.handleCloseOptions, ref) ?? cachedScopeElement ?? parentScopeElement ?? closest<HTMLElement>(ref, '[data-rootownerid]') ?? doc.body;
 
       applySafePolygonPointerEventsMutation(instance, {
         scopeElement,
