@@ -5096,6 +5096,6 @@ describe('readPlatformFlags', () => {
     const { readPlatformFlags } = (await import('./interactions')) as unknown as { readPlatformFlags(): string };
     const { platform } = await import('./dom');
 
-    expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.mac });
+    expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
   });
 });
