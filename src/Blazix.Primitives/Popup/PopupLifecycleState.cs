@@ -42,35 +42,55 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
     /// <summary>Gets a value indicating whether the popup's root is disabled, which keeps it effectively closed.</summary>
     public bool Disabled { get; init; }
 
+    // PSH-STA-02, TIP-STA-02.
     /// <summary>Gets the effective open state: the controlled value when controlled, else the internal one, while the root is not disabled.</summary>
-    public bool EffectiveOpen => throw new NotImplementedException();
+    public bool EffectiveOpen => IsEffectivelyOpen(Disabled, OpenProp, Open);
 
+    // PSH-STA-05, TRN-STA-14.
     /// <summary>Gets the derived transition status: starting while effectively open and not yet mounted, else the stored one.</summary>
-    public TransitionStatus? DerivedTransitionStatus => throw new NotImplementedException();
+    public TransitionStatus? DerivedTransitionStatus => EffectiveOpen && !Mounted ? Primitives.TransitionStatus.Starting : TransitionStatus;
 
     /// <summary>Determines whether two lifecycle states are equal member by member.</summary>
     /// <param name="left">The first state.</param>
     /// <param name="right">The second state.</param>
     /// <returns><see langword="true"/> if every member is equal; the relay compares by reference.</returns>
-    public static bool operator ==(PopupLifecycleState left, PopupLifecycleState right) => throw new NotImplementedException();
+    public static bool operator ==(PopupLifecycleState left, PopupLifecycleState right) =>
+        left.Open == right.Open
+        && left.OpenProp == right.OpenProp
+        && left.Mounted == right.Mounted
+        && left.TransitionStatus == right.TransitionStatus
+        && string.Equals(left.FloatingId, right.FloatingId, StringComparison.Ordinal)
+        && left.PreventUnmountingOnClose == right.PreventUnmountingOnClose
+        && left.UnmountRequests == right.UnmountRequests
+        && ReferenceEquals(left.OpenChange, right.OpenChange)
+        && left.OpenMethod == right.OpenMethod
+        && left.Disabled == right.Disabled;
 
     /// <summary>Determines whether two lifecycle states differ in any member.</summary>
     /// <param name="left">The first state.</param>
     /// <param name="right">The second state.</param>
     /// <returns><see langword="true"/> if any member differs.</returns>
-    public static bool operator !=(PopupLifecycleState left, PopupLifecycleState right) => throw new NotImplementedException();
+    public static bool operator !=(PopupLifecycleState left, PopupLifecycleState right) => !(left == right);
 
     /// <summary>Creates the initial state of a popup.</summary>
     /// <param name="floatingId">The generated id of the popup element.</param>
     /// <returns>A closed, unmounted state with no committed change.</returns>
-    public static PopupLifecycleState Initial(string? floatingId) => throw new NotImplementedException();
+    public static PopupLifecycleState Initial(string? floatingId) => new() { FloatingId = floatingId };
+
+    // PSH-STA-02, TIP-STA-02: the one definition, also read for a state a write is about to commit.
+    /// <summary>Determines the effective open state of a set of inputs.</summary>
+    /// <param name="disabled">Whether the root is disabled.</param>
+    /// <param name="openProp">The controlled open state, or <see langword="null"/> while uncontrolled.</param>
+    /// <param name="open">The internal open state.</param>
+    /// <returns><see langword="true"/> if the root is not disabled and the controlled value, else the internal one, is open.</returns>
+    public static bool IsEffectivelyOpen(bool disabled, bool? openProp, bool open) => !disabled && (openProp ?? open);
 
     /// <inheritdoc />
-    public bool Equals(PopupLifecycleState other) => throw new NotImplementedException();
+    public bool Equals(PopupLifecycleState other) => this == other;
 
     /// <inheritdoc />
-    public override bool Equals(object? obj) => throw new NotImplementedException();
+    public override bool Equals(object? obj) => obj is PopupLifecycleState other && this == other;
 
     /// <inheritdoc />
-    public override int GetHashCode() => throw new NotImplementedException();
+    public override int GetHashCode() => HashCode.Combine(Open, OpenProp, Mounted, TransitionStatus, FloatingId, UnmountRequests, OpenMethod, Disabled);
 }
