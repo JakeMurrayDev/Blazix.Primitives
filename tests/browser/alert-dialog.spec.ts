@@ -1,4 +1,4 @@
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { expect, test, throttleCpu, type Page, type RenderMode } from './helpers';
 import { delayCircuit } from './helpers/circuit';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { dialogRootSharedTests } from './suites/dialogRootSharedTests';
@@ -268,13 +268,9 @@ test.describe('the regime alert mode forces', () => {
   ];
 
   for (const { name, lock } of lockers) {
-    // Quarantined (ADR 11 §4) until 2026-11-12, issue 154, as dialog.spec.ts's hand-off titles: main's run 40872081690
-    // failed the react-remove-scroll and Ariakit variants on WebAssembly with an unlocked sample.
-    const quarantined = name !== 'silk-hq';
-    (quarantined ? test.fixme : test)(`port: an alert dialog keeps the page locked after ${name} releases it, and unlocks on close`, quarantined ? {
-      tag: '@quarantine',
-      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/154' },
-    } : {}, async ({ page, mode }) => {
+    test(`port: an alert dialog keeps the page locked after ${name} releases it, and unlocks on close`, async ({ page, mode }) => {
+      // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup.
+      await throttleCpu(page, 6);
       const fixture = await root(page, mode, { open: false });
       expect(await isPageLocked(page)).toBe(false);
 

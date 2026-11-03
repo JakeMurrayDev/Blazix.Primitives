@@ -1,4 +1,4 @@
-import { expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import { expect, Fixture, fixtureUrl, test, throttleCpu, type Page, type RenderMode } from './helpers';
 import type { Locator, Route } from '@playwright/test';
 import { delayCircuit } from './helpers/circuit';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
@@ -549,12 +549,9 @@ test.describe('external scroll lock handoff', () => {
   test.describe('when a third-party overlay is still unlocking', () => {
     for (const { name, lock } of lockers) {
       test.describe(`'${name}'`, () => {
-        // Quarantined (ADR 11 §4) until 2026-11-12, issue 154: an unlocked sample on WebAssembly in three runs (the
-        // react-remove-scroll, silk-hq and Ariakit variants).
-        test.fixme('keeps the page locked until it takes over, and unlocks on close', {
-          tag: '@quarantine',
-          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/154' },
-        }, async ({ page, mode }) => {
+        test('keeps the page locked until it takes over, and unlocks on close', async ({ page, mode }) => {
+          // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup.
+          await throttleCpu(page, 6);
           const fixture = await gotoPopupFixture(page, mode, 'dialog-root', { open: false });
           expect(`initial: ${await isPageLocked(page)}`).toBe('initial: false');
 
