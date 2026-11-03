@@ -192,6 +192,7 @@ There is no controlled/uncontrolled pair, no value normalization and no mount/un
   Source: `fieldset/root/FieldsetRoot.tsx:34-44,55-57`; see [RND-DOM-38](../architecture/rendering-and-composition.md), [RND-DOM-43](../architecture/rendering-and-composition.md). Test: [L2] `FieldsetRoot.test.tsx` "passes disabled to rendered Base UI roots".
   Port note 2026-10-22 (ADR 13 Amendments 2026-10-22, re-cited): "passes disabled to rendered Base UI roots" renders RadioGroup, CheckboxGroup and Slider. The port title "passes disabled to a rendered Button root, and the scope reaches the fields inside it" [L2] substitutes `Button`: the spread `disabled` binds to `Button.Disabled`, since Blazor matches component parameters by name case-insensitively. The RadioGroup and CheckboxGroup clauses are open to tracks 8 and 6, the Slider clause to M5.
   Port note 2026-10-23 (M2 track 8, issue 84): the RadioGroup half is green as `FieldsetTests` "passes disabled to rendered Base UI roots (RadioGroup)" [L2]: a `Fieldset.Root` substituted by a `RadioGroup` carries `aria-disabled="true"` and its radios are disabled. The Slider half stays open to M5 (incidental, ADR 13 Amendments 2026-10-22).
+  Correction 2026-11-03 (ADR 12's milestone table; ADR 12 Amendments 2026-11-03 item 4): Slider is M6, so the Slider clause and half above are open to M6, not M5.
 
 ### 5.3 ARIA
 

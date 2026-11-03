@@ -469,11 +469,13 @@ Keys handled by this mechanism (all others pass through to FLT/UBT/the component
   Source: `utils/useOpenInteractionType.ts:13-27`. Test: none.
 - **PSH-PTR-03** — MUST. Root-level variant: `useOpenInteractionType(open)` keeps `openMethod` in local state, resets it to `null` when `open` goes from `true` to `false`, and returns the same `onClick`/`onPointerDown` handlers for the trigger.
   Source: `utils/useOpenInteractionType.ts:45-63`. Test: none.
+  Note (2026-11-03; ADR 12 Amendments 2026-10-27 item 4 and 2026-11-03): open to M5. The Root-level variant's users are Menu, Select and Combobox (tracks 6, 9 and 10); each family's pull request turns it green and notes it.
 
 #### 4.7.2 Mixed mousedown/click toggle guard
 
 - **PSH-PTR-04** — MUST. When enabled with `mouseDownAction: 'open'`, a `mousedown` on the trigger while the popup is closed (or, with `'close'`, while open) arms a one-shot suppression: the next `click` dispatched to the trigger is marked as handled (`preventBaseUIHandler()`, EVD) so the toggle does not immediately reverse; the suppression is also disarmed by the next `click` anywhere in the document. When disabled, no handlers are attached.
   Source: `utils/useMixedToggleClickHandler.ts:12-43`, `menu/trigger/MenuTrigger.tsx:209-213` (Menubar only). Test: none here (see MBR).
+  Note (2026-11-03; ADR 12 Amendments 2026-10-27 item 4 and 2026-11-03): open to M5. The mixed toggle is built in `interactions` by track 2 and first used by Menubar (track 8), whose pull request turns it green.
 
 #### 4.7.3 Internal backdrop and anchored scroll lock
 
@@ -1016,6 +1018,7 @@ onClick(e): if ignoreClick: ignoreClick ← false; e.preventBaseUIHandler()
 ```
 
   Source: `utils/useMixedToggleClickHandler.ts:16-42`. Test: none.
+  Note (2026-11-03; ADR 12 Amendments 2026-10-27 item 4 and 2026-11-03): open to M5. The procedure is built by track 2 with PSH-PTR-04 and first used by Menubar (track 8).
 
 - **PSH-ALG-21** — MUST. The implementation reproduces the following procedure exactly for the internal backdrop cutout.
 

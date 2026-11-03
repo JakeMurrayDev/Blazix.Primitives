@@ -19,6 +19,7 @@ These rules apply to every file under `docs/`. They exist so that forty-odd docu
 
 **In scope:** everything exported from `packages/react/src/index.ts` (41 modules) plus the internal mechanisms they rely on.
 **Out of scope:** `filter-dropdown` and `internals/temporal*` (present in the tree but not exported in v1.9.0), the docs site itself, build tooling.
+2026-11-03 (ADR 12 Amendments 2026-11-03 item 1): Menu's exported filter parts (`Menu.FilterProvider`, `Menu.Input`, `Menu.Clear`, `Menu.Empty`, the filter `Menu.List`) run on `filter-dropdown`'s internals, so those internals are in scope through Menu (menu.md, M5 track 12); `filter-dropdown` as a component of its own stays out of scope.
 
 ## 2. Audience and purpose
 
