@@ -1,4 +1,14 @@
-import { expect, test, throttleCpu, type Page, type RenderMode } from './helpers';
+import {
+  expect,
+  externalLockers,
+  lockExternally,
+  pageLockRecords,
+  releaseExternalLockWhenPending,
+  test,
+  throttleCpu,
+  type Page,
+  type RenderMode,
+} from './helpers';
 import { delayCircuit } from './helpers/circuit';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { dialogRootSharedTests } from './suites/dialogRootSharedTests';
@@ -230,75 +240,23 @@ test.describe('the regime alert mode forces', () => {
 
   // DLG-DOM-26 with a third-party locker still releasing the page (DialogRoot.test.tsx's three lockers), under the
   // AlertDialog parts: the lock holds from the open on, with no gap.
-  const lockers = [
-    {
-      name: 'react-remove-scroll',
-      lock: () => {
-        const style = document.createElement('style');
-        style.textContent = 'body[data-scroll-locked]{overflow:hidden!important;}';
-        document.head.appendChild(style);
-        document.body.setAttribute('data-scroll-locked', '1');
-        setTimeout(() => {
-          style.remove();
-          document.body.removeAttribute('data-scroll-locked');
-        }, 200);
-      },
-    },
-    {
-      name: 'silk-hq',
-      lock: () => {
-        document.body.style.setProperty('overflow', 'hidden');
-        setTimeout(() => document.body.style.removeProperty('overflow'), 200);
-      },
-    },
-    {
-      name: 'Ariakit',
-      lock: () => {
-        const { style } = document.documentElement;
-        style.setProperty('scrollbar-gutter', 'stable');
-        style.setProperty('overflow-x', 'hidden');
-        style.setProperty('overflow-y', 'hidden');
-        setTimeout(() => {
-          style.removeProperty('scrollbar-gutter');
-          style.removeProperty('overflow-x');
-          style.removeProperty('overflow-y');
-        }, 200);
-      },
-    },
-  ];
-
-  for (const { name, lock } of lockers) {
+  for (const locker of externalLockers) {
+    const name = locker.name.split(',')[0];
     test(`port: an alert dialog keeps the page locked after ${name} releases it, and unlocks on close`, async ({ page, mode }) => {
       // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup.
       await throttleCpu(page, 6);
       const fixture = await root(page, mode, { open: false });
       expect(await isPageLocked(page)).toBe(false);
 
-      await page.evaluate((lockSource) => {
-        const samples: { at: number; locked: boolean }[] = [];
-        (window as unknown as { lockSamples: typeof samples }).lockSamples = samples;
-        const start = performance.now();
-        const sample = () => {
-          const html = document.documentElement;
-          const { overflow, overflowX, overflowY } = getComputedStyle(html);
-          const htmlScrolls = /auto|scroll|overlay|hidden|clip/.test(overflow + overflowY + overflowX);
-          samples.push({ at: performance.now() - start, locked: /hidden|clip/.test(getComputedStyle(htmlScrolls ? html : document.body).overflowY) });
-          if (performance.now() - start < 450) {
-            setTimeout(sample, 10);
-          }
-        };
-        // eslint-disable-next-line no-new-func
-        new Function(`(${lockSource})()`)();
-        sample();
-      }, lock.toString());
+      // The third-party lock holds until the dialog's own lock waits for it; every change from the lock on is recorded.
+      await lockExternally(page, locker);
       await setRootOpen(fixture, true);
       await expect(alertDialog(page)).toBeVisible();
-      await expect
-        .poll(() => page.evaluate(() => (window as unknown as { lockSamples: { at: number }[] }).lockSamples.at(-1)?.at ?? 0))
-        .toBeGreaterThanOrEqual(440);
+      await releaseExternalLockWhenPending(page);
 
-      const samples = await page.evaluate(() => (window as unknown as { lockSamples: { at: number; locked: boolean }[] }).lockSamples);
-      expect(samples.filter((s) => !s.locked).map((s) => Math.round(s.at))).toEqual([]);
+      const records = await pageLockRecords(page);
+      expect(records.at(-1)).toEqual({ locked: true, released: true });
+      expect(records.filter((record) => !record.locked)).toEqual([]);
 
       await alertDialog(page).getByRole('button', { name: 'Cancel' }).click();
       await expect(alertDialog(page)).toHaveCount(0);
