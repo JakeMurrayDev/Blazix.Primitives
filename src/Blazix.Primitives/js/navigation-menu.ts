@@ -932,14 +932,15 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
       }
       handleValueChange(size.width, size.height);
     },
-    // NAV-DOM-10: the guard, the owner and the guard C# renders after the active Trigger, found by position.
+    // NAV-DOM-10: the guard, the owner and the guard C# renders after the active Trigger, found by position. The owner
+    // carries `aria-owns` only while a Viewport is registered, so it is the element between the guards either way.
     guards() {
       const first = element.nextElementSibling;
       if (!isFocusGuard(first)) {
         return { before: null, after: null };
       }
       let second = first.nextElementSibling;
-      if (second !== null && second.hasAttribute('aria-owns')) {
+      if (second !== null && !isFocusGuard(second)) {
         second = second.nextElementSibling;
       }
       return { before: first, after: isFocusGuard(second) ? second : null };
