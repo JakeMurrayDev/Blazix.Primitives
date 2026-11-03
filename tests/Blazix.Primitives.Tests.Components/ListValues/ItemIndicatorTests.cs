@@ -60,23 +60,25 @@ public sealed class ItemIndicatorTests : IDisposable
     [Trait("Requirement", "RND-API-12")]
     public async Task Preserves_the_kept_mounted_element_across_selection_changes()
     {
+        // bUnit's element wrappers are not stable across renders; the renderer's element reference is, per element instance.
         IRenderedComponent<TestItemIndicator> cut = context.Render<TestItemIndicator>(p => p.Add(x => x.Selected, false).Add(x => x.KeepMounted, true));
-        IElement indicator = cut.Find("span");
-        Assert.False(indicator.HasAttribute("data-selected"));
+        string? indicator = cut.Instance.Element?.Id;
+        Assert.NotNull(indicator);
+        Assert.False(cut.Find("span").HasAttribute("data-selected"));
 
         cut.Render(p => p.Add(x => x.Selected, true));
-        Assert.Same(indicator, cut.Find("span"));
-        Assert.True(indicator.HasAttribute("data-selected"));
+        Assert.Equal(indicator, cut.Instance.Element?.Id);
+        Assert.True(cut.Find("span").HasAttribute("data-selected"));
 
         cut.Render(p => p.Add(x => x.Selected, false));
         await CompleteExitAsync(cut);
-        Assert.Same(indicator, cut.Find("span"));
-        Assert.False(indicator.HasAttribute("data-selected"));
-        Assert.False(indicator.HasAttribute("data-ending-style"));
+        Assert.Equal(indicator, cut.Instance.Element?.Id);
+        Assert.False(cut.Find("span").HasAttribute("data-selected"));
+        Assert.False(cut.Find("span").HasAttribute("data-ending-style"));
 
         cut.Render(p => p.Add(x => x.Selected, true));
-        Assert.Same(indicator, cut.Find("span"));
-        Assert.True(indicator.HasAttribute("data-selected"));
+        Assert.Equal(indicator, cut.Instance.Element?.Id);
+        Assert.True(cut.Find("span").HasAttribute("data-selected"));
     }
 
     [Fact(DisplayName = "updates a mounted indicator when its item becomes unselected")]
