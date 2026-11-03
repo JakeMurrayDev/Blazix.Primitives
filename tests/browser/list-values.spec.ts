@@ -1,8 +1,49 @@
 import { expect, gotoFixture, test } from './helpers';
+import { gotoPopupFixture } from './suites/popupFixture';
 
 // M5 track 4 (issue 162): the shared list value layer's L4 titles on its test-only fixtures (`list-values-*`), both render
 // modes unless a title is about one. Select, Combobox, Autocomplete and Menu's filter mode re-run the family rows on their
 // own parts (ADR 13 Amendments 2026-10-22).
+
+test.describe('item indicator', () => {
+  // RND-DOM-52, RND-ANI-03 (SelectItemIndicator.test.tsx; the family is incidental, ADR 13 Amendments 2026-10-22): the
+  // test-only indicator over ItemIndicatorBehavior, kept mounted, with a 150 ms keyframe exit on `list-values-indicator`.
+  test('settles out of its transition state after the item is deselected', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'list-values-indicator', { animations: 1 });
+    const indicator = page.getByTestId('indicator');
+    await expect(indicator).toHaveAttribute('data-selected');
+    // The exit's animationstart, recorded with the ending style the indicator carried then (ADR 06 §2's recorded marker).
+    await indicator.evaluate((element) => {
+      const starts: boolean[] = [];
+      (window as unknown as { indicatorExits: boolean[] }).indicatorExits = starts;
+      element.addEventListener('animationstart', () => starts.push(element.hasAttribute('data-ending-style')));
+    });
+
+    await page.locator('[data-select="b"]').click();
+
+    await expect(indicator).not.toHaveAttribute('data-selected');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { indicatorExits: boolean[] }).indicatorExits)).toEqual([true]);
+    // A kept-mounted indicator must not be left advertising an exit transition once the deselection has finished.
+    await expect(indicator).not.toHaveAttribute('data-ending-style');
+    await expect(indicator).toHaveCount(1);
+  });
+
+  test('preserves the kept-mounted element across selection changes', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'list-values-indicator', { animations: 1 });
+    const indicator = page.getByTestId('indicator');
+    const element = await indicator.elementHandle();
+    const same = () => element!.evaluate((node) => node === document.querySelector('[data-testid="indicator"]'));
+
+    await page.locator('[data-select="b"]').click();
+    await expect(indicator).not.toHaveAttribute('data-selected');
+    expect(await same()).toBe(true);
+    await expect(indicator).not.toHaveAttribute('data-ending-style');
+
+    await page.locator('[data-select="a"]').click();
+    await expect(indicator).toHaveAttribute('data-selected');
+    expect(await same()).toBe(true);
+  });
+});
 
 test.describe('collation', () => {
   // UTL-I18N-09..11 and ADR 01 decision 2's note of 2026-11-04: a subset of the L1 collation table
