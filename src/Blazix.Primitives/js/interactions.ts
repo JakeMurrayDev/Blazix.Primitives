@@ -4328,6 +4328,17 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
   notifyPositionListeners(record);
 }
 
+// The platform flags (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01),
+// M5 track 2: C#'s PlatformFlags service reads them once per circuit or runtime, for the attributes C# renders that depend
+// on them (the VoiceOver `aria-expanded` omission, ContextMenu's macOS branch).
+/**
+ * Returns the platform flags C# renders with: whether VoiceOver may be running, and whether the platform is macOS.
+ * @returns The JSON of `{ voiceOver, mac }`.
+ */
+export function readPlatformFlags(): string {
+  return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+}
+
 // ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04; ContextMenuTrigger.tsx:16, 58), M5 track 2: the
 // `context-menu` module anchors its session to a 0 x 0 rect at the gesture's point, or the origin rect before any. The
 // Positioner's explicit anchor keeps precedence (FLT-API-11): `positioning` follows the session's reference only without one.
