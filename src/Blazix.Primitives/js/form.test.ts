@@ -236,7 +236,7 @@ describe('custom validity ownership', () => {
 // with the text, `defaultPrevented` and the event, and the committed value is restored inside the dispatch.
 describe('control with reportAutofill', () => {
   it('reports an autofilled text once, restores the committed value in the dispatch, and reports nothing else', () => {
-    const element = input('<input id="hidden" />');
+    const element = input();
     const { fake } = attachControl(element, { reportEvents: false, reportAutofill: true, controlled: true, value: 'a' });
     expect(element.value).toBe('a');
 
@@ -252,7 +252,7 @@ describe('control with reportAutofill', () => {
   });
 
   it('reports a prevented change as prevented and writes the matched value the root commits through update', () => {
-    const element = input('<input id="hidden" />');
+    const element = input();
     const { fake, handle } = attachControl(element, { reportEvents: false, reportAutofill: true, controlled: true, value: '' });
 
     element.addEventListener('change', (event) => event.preventDefault(), { capture: true });
