@@ -816,6 +816,16 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
   // NAV-PTR-18; NavigationMenuTrigger.tsx:554-617.
   const activate = (event: Event): void => {
     const direction = directionFrom();
+    // NAV-PTR-07; NavigationMenuTrigger.tsx:571-576: a hover (or key) activation of an open menu resets the session's
+    // recorded open event, so a click-opened menu switched by hover is treated as hover-opened from then on. The
+    // session's dataRef is shared by every module of the session; the key is the interactions module's.
+    if (event.type !== 'click' && isOpen(menu)) {
+      const token = menu.options.sessionToken;
+      const session = token ? getSession(token) : undefined;
+      if (session !== undefined) {
+        session.dataRef.current.openEvent = undefined;
+      }
+    }
     // NavigationMenuTrigger.tsx:578-580: a touch mouseenter requests nothing.
     if (pointerType === 'touch' && event.type !== 'click') {
       if (direction !== null) {
