@@ -743,6 +743,61 @@ describe('size', () => {
     expect(getPopupSizeVars(popup, positioner)).toEqual({ popupWidth: 'auto', popupHeight: 'auto', positionerWidth: '250px', positionerHeight: '220px' });
   });
 
+  it('updates popup sizing when switching kept inline nested content', async () => {
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const rendered = renderMenu({ keepMounted: true });
+    const popup = rendered.popup!;
+    const positioner = rendered.positioner!;
+    rendered.commit('item-1');
+    const nested = [1, 2].map((n) => {
+      const panel = document.createElement('div');
+      panel.setAttribute('data-testid', `nested-popup-${n}`);
+      panel.hidden = n === 2;
+      rendered.item('item-1').content!.appendChild(panel);
+      return panel;
+    });
+    await settle();
+    const animations = mockAnimations(popup);
+    let size = { width: 250, height: 220 };
+    mockOffsetSize(popup, () => size);
+    primeSize(popup, positioner, 'auto', 250, 220);
+
+    // The nested Root's switch, as its render writes it: the second kept panel shows and the first hides.
+    size = { width: 250, height: 300 };
+    animations.start();
+    nested[1]!.hidden = false;
+    nested[0]!.hidden = true;
+    await settle();
+    expect(parseInt(positioner.style.getPropertyValue('--positioner-height'), 10)).toBe(300);
+
+    animations.finish();
+    await settle();
+    expect(getPopupSizeVars(popup, positioner)).toEqual({ popupWidth: 'auto', popupHeight: 'auto', positionerWidth: '250px', positionerHeight: '300px' });
+  });
+
+  it('updates popup sizing when a kept nested content hidden attribute changes', async () => {
+    vi.stubGlobal('ResizeObserver', undefined);
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const rendered = renderMenu({ keepMounted: true });
+    const popup = rendered.popup!;
+    const positioner = rendered.positioner!;
+    rendered.commit('item-1');
+    const nested = document.createElement('div');
+    nested.setAttribute('data-testid', 'nested-popup-1');
+    rendered.item('item-1').content!.appendChild(nested);
+    await settle();
+    let size = { width: 250, height: 220 };
+    mockOffsetSize(popup, () => size);
+    primeSize(popup, positioner, 'auto', 250, 220);
+
+    // The MutationObserver path, as Base UI's contract-level check: the kept nested content hides.
+    size = { width: 250, height: 300 };
+    nested.setAttribute('hidden', '');
+    await settle();
+
+    expect(getPopupSizeVars(popup, positioner)).toMatchObject({ positionerWidth: '250px', positionerHeight: '300px' });
+  });
+
   it('keeps inline mutation resize interruptible when content updates again mid-transition', async () => {
     globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
     const rendered = renderMenu();
