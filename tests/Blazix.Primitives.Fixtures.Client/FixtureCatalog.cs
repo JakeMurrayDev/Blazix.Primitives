@@ -224,5 +224,6 @@ public static class FixtureCatalog
         ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
         ["list-values-allocation"] = new(typeof(ListValuesAllocationFixture)),
         ["list-values-collation"] = new(typeof(ListValuesCollationFixture)),
+        ["list-values-indicator"] = new(typeof(ListValuesIndicatorFixture)),
     };
 }
