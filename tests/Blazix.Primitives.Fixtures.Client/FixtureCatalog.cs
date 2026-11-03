@@ -54,7 +54,7 @@ public static class FixtureCatalog
         ["interactions-press"] = new(typeof(InteractionsPressFixture)),
         ["interactions-press-late-session"] = new(typeof(InteractionsPressLateSessionFixture)),
         ["interactions-mousedown"] = new(typeof(InteractionsMouseDownFixture)),
-        ["platform-flags"] = new(typeof(PlatformFlagsFixture)),
+        ["interactions-platform-flags"] = new(typeof(InteractionsPlatformFlagsFixture)),
         ["keep-alive"] = new(typeof(KeepAliveFixture)),
         ["button-behavior"] = new(typeof(ButtonBehaviorFixture)),
         ["button-native"] = new(typeof(ButtonNativeFixture)),

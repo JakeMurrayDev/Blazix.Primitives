@@ -165,7 +165,7 @@ test.describe('mousedown press (FLT-PTR-01, FLT-PTR-02, FLT-A11Y-03)', () => {
   });
 });
 
-// The platform flags (M5 track 2, design point 4; MNU-A11Y-01) on the test-only host `platform-flags`: C#'s scoped
+// The platform flags (M5 track 2, design point 4; MNU-A11Y-01) on the test-only host `interactions-platform-flags`: C#'s scoped
 // PlatformFlags reads the platform module's VoiceOver hint and macOS from the first interactive render on, and reads
 // unread until the module answers, which a part renders as neither (ADR 01's row of 2026-11-04). The module computes
 // them from `navigator.platform` when it loads, so the init script sets it before any module runs.
@@ -180,7 +180,7 @@ test.describe('platform flags (MNU-A11Y-01)', () => {
         Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 0, configurable: true });
       }, platformName);
       const release = await stall(page, 'interactions');
-      const fixture = await gotoFixture(page, mode, 'platform-flags');
+      const fixture = await gotoFixture(page, mode, 'interactions-platform-flags');
 
       await expect(fixture).toHaveAttribute('data-reading', 'true');
       await expect(fixture).toHaveAttribute('data-mac', 'unread');
