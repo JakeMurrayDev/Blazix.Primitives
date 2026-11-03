@@ -1,4 +1,3 @@
-using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -89,9 +88,6 @@ internal sealed class TestPositioner : PartBase<TestPositionerState>
     [Parameter]
     public string? SessionToken { get; set; }
 
-    [Parameter]
-    public PositioningShift? Shift { get; set; }
-
     public PositionerBehavior Behavior => behavior!;
 
     public Task TwinAttached => behavior!.TwinAttached;
@@ -148,7 +144,6 @@ internal sealed class TestPositioner : PartBase<TestPositionerState>
             AdaptiveOrigin = AdaptiveOrigin,
             TriggerId = TriggerId,
             SessionToken = SessionToken,
-            Shift = Shift,
         });
         UpdateState();
 
