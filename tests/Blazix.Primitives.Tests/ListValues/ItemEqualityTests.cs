@@ -3,7 +3,7 @@ using Blazix.Primitives.Utilities;
 
 namespace Blazix.Primitives.Tests.ListValues;
 
-// UTL-ALG-06 (internals/itemEquality.ts, ADR 08 Amendments 2026-11-03 (2)): itemEquality.test.ts's 16 titles verbatim on the
+// UTL-ALG-06 (internals/itemEquality.ts, ADR 08 Amendments 2026-11-03 (2)): itemEquality.test.ts's 15 titles verbatim on the
 // port's view, a span of ItemSlot<TValue> in rendered order whose absent slot stands for Base UI's `undefined` item and an
 // unmounted hole, and port titles for the members Base UI tests only through the families. A null comparer is Base UI's
 // defaultItemEquality (Object.is, Equality.Is).

@@ -39,8 +39,8 @@ test.describe('form-participation input', () => {
     await expect(fixture).toHaveAttribute('data-autofills', 'Banana');
   });
 
-  // ADR 01's relaxation row "the autofill match runs after the force-mount batch, not in a microtask" (2026-11-04): the
-  // match is C#'s. On WebAssembly the report runs it synchronously, so the matched value is in the input when the change's
+  // ADR 01's relaxation row "SEL-FRM-18, CMB-EVT-11 (the autofill of a list root's hidden input matched to an item)"
+  // (added 2026-11-04): the match is C#'s. On WebAssembly the report runs it synchronously, so the matched value is in the input when the change's
   // dispatch returns; on Server it lands a round trip later (the circuit delayed 75 ms each way here), and until then the
   // input holds the committed value the module put back inside the dispatch. A MutationObserver records when
   // data-committed changes (ADR 06 §2's recorded marker).
