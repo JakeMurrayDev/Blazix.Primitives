@@ -1478,6 +1478,12 @@ function passesOutsidePressGuard(record: SessionRecord, event: MouseEvent | Poin
   if (options === null) {
     return true;
   }
+  // NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65; NAV-PTR-17), a branch of FLT-DIS-09 as data
+  // (M5 track 2): a press inside a match of the selector, such as any navigation menu's trigger, is not outside.
+  const exemptSelector = options.outsidePressExemptSelector;
+  if (exemptSelector != null && exemptSelector !== '' && closest(getTarget(event) as Element | null, exemptSelector) !== null) {
+    return false;
+  }
   // For mouse events, only the left button.
   if (options.primaryButtonOnly === true && 'button' in event && event.button !== 0) {
     return false;
