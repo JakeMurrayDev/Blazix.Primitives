@@ -6,6 +6,7 @@
 // its stubs (offset sizes, `getAnimations`, `ResizeObserver` removed); the rest are port titles. Where Server and
 // WebAssembly take different paths (the activation's report or synchronous invocation), the titles run on both.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { acquireSession, releaseSession } from './interactions';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 import type { DotNetTwin, TwinHandle } from './twin';
 
@@ -508,6 +509,24 @@ describe.each([false, true])('the activation (synchronous: %s)', (synchronous) =
     expect(reports).toHaveLength(1);
     expect(reports[0]).toMatchObject({ reason: 'trigger-hover', direction: 'right' });
     expect(reports[0]!.event.type).toBe('mouseenter');
+  });
+
+  it("resets the session's recorded open event on a hover switch, and keeps it on a click switch", async () => {
+    const session = acquireSession('nav-session');
+    try {
+      const rendered = renderMenu({ synchronous, open: 'item-1', sessionToken: 'nav-session' });
+      await settle();
+      const opened = new MouseEvent('click');
+      session.dataRef.current.openEvent = opened;
+
+      click(rendered.item('item-2').trigger);
+      expect(session.dataRef.current.openEvent).toBe(opened);
+
+      mouseEnter(rendered.item('item-1').trigger);
+      expect(session.dataRef.current.openEvent).toBeUndefined();
+    } finally {
+      releaseSession(session);
+    }
   });
 
   it('requests a click switch with trigger-press and nothing for a closed menu', async () => {

@@ -1,6 +1,6 @@
 import { type Locator, type Route } from '@playwright/test';
 import { expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
-import { gotoPopupFixture, openChangeCompletes, settle, type PopupFixtureOptions } from './suites/popupFixture';
+import { gotoPopupFixture, openChangeCompletes, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/navigation-menu.md (M5 track 5, issue 163) on the `navigation-menu-*` fixtures, every
 // title on both render modes: Base UI's titles (NavigationMenuRoot.test.tsx, NavigationMenuTrigger.test.tsx,
@@ -31,6 +31,76 @@ async function fireClick(locator: Locator): Promise<void> {
   await locator.dispatchEvent('click');
 }
 
+// navigation-menu/utils/constants.ts (OPEN_DELAY, CLOSE_DELAY) and the Trigger's PATIENT_CLICK_THRESHOLD.
+const OPEN_DELAY = 50;
+const CLOSE_DELAY = 50;
+const PATIENT_CLICK_THRESHOLD = 500;
+
+/** Rests a real mouse on a trigger: two moves inside it, so the rest timer starts (NAV-PTR-01). */
+async function hoverTrigger(page: Page, n: number): Promise<void> {
+  const box = (await trigger(page, n).boundingBox())!;
+  await page.mouse.move(box.x + 4, box.y + 4);
+  await page.mouse.move(box.x + 10, box.y + 8);
+}
+
+/** Moves the mouse in one step to an empty corner of the page and once more inside it, away from the triggers and the popup. */
+async function leaveMenu(page: Page): Promise<void> {
+  const size = page.viewportSize()!;
+  await page.mouse.move(size.width - 20, size.height - 20);
+  await page.mouse.move(size.width - 10, size.height - 10);
+}
+
+const FREEZE_MARGIN = 50;
+const frozenPages = new WeakSet<Page>();
+
+/**
+ * Pauses the page's clock (the Tooltip spec's helper): its timers fire only when the test runs it forward. The page's clock
+ * runs on while the target travels to the browser, so the target sits a margin ahead, read again if the clock passed it
+ * on a slow runner. A title that asserts a timer has not fired yet freezes first: a running clock counts the real time a
+ * Server round trip takes.
+ */
+async function freezeClock(page: Page): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    const now = await page.evaluate(() => Date.now());
+    try {
+      await page.clock.pauseAt(now + FREEZE_MARGIN);
+      break;
+    } catch (error) {
+      if (attempt === 3 || !String(error).includes('Cannot fast-forward to the past')) {
+        throw error;
+      }
+    }
+  }
+
+  frozenPages.add(page);
+}
+
+// The clock is the browser context's, which the worker's pages share: a paused one would leave the next title's page
+// frozen, and a WebAssembly page then never starts.
+test.afterEach(async ({ page }) => {
+  if (frozenPages.has(page)) {
+    await page.clock.resume();
+  }
+});
+
+/** Presses and releases the real pointer where it rests: Base UI's titles dispatch the click alone, with no move before it. */
+async function clickInPlace(page: Page): Promise<void> {
+  await page.mouse.down();
+  await page.mouse.up();
+}
+
+// Touch titles: Playwright taps only in a context made with `hasTouch`, and the worker's shared context is not, so each
+// touch title opens its own (on `wasm` it downloads the runtime again); the Popover spec's precedent.
+const touchTest = test.extend<{ touchPage: Page }>({
+  touchPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ hasTouch: true });
+    const page = await context.newPage();
+    await page.clock.install();
+    await use(page);
+    await context.close();
+  },
+});
+
 test.describe('<NavigationMenu.Root /> interactions', () => {
   test('opens on click with mouse input', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode);
@@ -45,11 +115,9 @@ test.describe('<NavigationMenu.Root /> interactions', () => {
 
   test('opens on hover with mouse input', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode);
-    const box = (await trigger(page, 1).boundingBox())!;
 
-    await page.mouse.move(box.x + 4, box.y + 4);
-    await page.mouse.move(box.x + 10, box.y + 8);
-    await page.clock.runFor(60);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
 
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
     await settle(fixture);
@@ -91,6 +159,265 @@ test.describe('<NavigationMenu.Root /> interactions', () => {
 
     await expect(trigger(page, 1)).toBeFocused();
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+test.describe('<NavigationMenu.Root /> delays and the patient click', () => {
+  test('respects custom delay value', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { delay: 100 });
+    await freezeClock(page);
+
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(75);
+    await settle(fixture);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+
+    await page.clock.runFor(50);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(content(page, 1)).toBeVisible();
+  });
+
+  test('respects custom closeDelay value', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { closeDelay: 100 });
+    await freezeClock(page);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    await leaveMenu(page);
+    await page.clock.runFor(75);
+    await settle(fixture);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await page.clock.runFor(50);
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('stays open if hovered then clicked within the patient threshold', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    await clickInPlace(page);
+    await settle(fixture);
+
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('closes if hovered then clicked after the patient threshold', async ({ page, mode }) => {
+    // Open on Server, a gap reported to the orchestrator 2026-11-04: the Trigger's click role is off between the open
+    // and the Positioner's registration a batch later (Base UI's interactionsEnabled), and the click role's last
+    // uninstall clears the session's patient timer, so stickIfOpen stays on. Base UI keeps that timer on the Trigger.
+    test.fixme(mode === 'server', 'the patient timer is cleared while the click role is off (gap to track 2)');
+    const fixture = await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+    // The patient window starts when C#'s relay of the hover open reaches the session, after the render that shows it.
+    await settle(fixture);
+
+    await page.clock.runFor(PATIENT_CLICK_THRESHOLD);
+    await clickInPlace(page);
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('restores hover open after a quick click then trigger switch', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    await clickInPlace(page);
+    await settle(fixture);
+    await hoverTrigger(page, 2);
+    await expect(content(page, 2)).toBeVisible();
+
+    await leaveMenu(page);
+    await page.clock.runFor(CLOSE_DELAY + 10);
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+  });
+
+  test('does not restore focus to the trigger when closed via hover', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    await leaveMenu(page);
+    await page.clock.runFor(CLOSE_DELAY + 10);
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(trigger(page, 1)).not.toBeFocused();
+  });
+});
+
+test.describe('<NavigationMenu.Root /> value', () => {
+  test('should be controlled by value prop', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { value: 'item-1' });
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await pressControl(fixture.locator('[data-set-value="item-2"]'));
+    await hoverTrigger(page, 2);
+
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('should call onValueChange when value changes', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode);
+
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await settle(fixture);
+    expect((await valueChanges(fixture)).map((entry) => entry.split(':')[0])).toEqual(['item-1']);
+
+    await fireClick(trigger(page, 2));
+    await expect(content(page, 2)).toBeVisible();
+    await settle(fixture);
+    expect((await valueChanges(fixture)).map((entry) => entry.split(':')[0])).toEqual(['item-1', 'item-2']);
+  });
+
+  test('closes through the `close` action so `onValueChange` can opt out', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { defaultValue: 'item-1' });
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await pressControl(fixture.locator('[data-close]'));
+
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await settle(fixture);
+    expect(await valueChanges(fixture)).toEqual(['null:imperative-action']);
+  });
+
+  test('closes the menu when clicking a link when true', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { closeOnClick: true });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await page.getByTestId('link-1-a').click();
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+test.describe('<NavigationMenu.Trigger /> disabled', () => {
+  test('does not open on hover when the trigger is disabled', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { disabled: 1 });
+
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await settle(fixture);
+
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    expect(await valueChanges(fixture)).toEqual([]);
+  });
+
+  test('does not open on click when the trigger is disabled', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { disabled: 1 });
+
+    // The disabled trigger stays focusable (aria-disabled), which Playwright's actionability check reads as disabled.
+    await trigger(page, 1).click({ force: true });
+    await settle(fixture);
+
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    expect(await valueChanges(fixture)).toEqual([]);
+  });
+
+  touchTest('does not open on touch when the trigger is disabled', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { disabled: 1 });
+
+    await trigger(page, 1).tap({ force: true });
+    await settle(fixture);
+
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    expect(await valueChanges(fixture)).toEqual([]);
+  });
+
+  test('applies the data-disabled style hook only when disabled', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { disabled: 1 });
+    await expect(trigger(page, 1)).toHaveAttribute('data-disabled', '');
+
+    await pressControl(fixture.locator('[data-enable]'));
+
+    await expect(trigger(page, 1)).not.toHaveAttribute('data-disabled');
+  });
+});
+
+test.describe('<NavigationMenu.Root /> touch', () => {
+  test('does not open on hover with touch input', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode);
+
+    // A real tap always clicks; Base UI's title dispatches a touch pointerenter and the mouse events without one.
+    await trigger(page, 1).dispatchEvent('pointerenter', { pointerType: 'touch' });
+    await trigger(page, 1).dispatchEvent('mouseenter');
+    await trigger(page, 1).dispatchEvent('mousemove');
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await settle(fixture);
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  touchTest('opens on click with touch input', async ({ touchPage: page, mode }) => {
+    await gotoMenu(page, mode);
+
+    await trigger(page, 1).tap();
+
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  touchTest('does not close menu when clicking a different trigger on touch', async ({ touchPage: page, mode }) => {
+    await gotoMenu(page, mode);
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+
+    await trigger(page, 2).tap();
+
+    await expect(content(page, 1)).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(content(page, 2)).toBeVisible();
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  touchTest('restores hover open after a touch click closes outside', async ({ touchPage: page, mode }) => {
+    await gotoMenu(page, mode);
+    await trigger(page, 1).tap();
+    await expect(content(page, 1)).toBeVisible();
+
+    await page.getByTestId('after').click();
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+
+    await hoverTrigger(page, 2);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 2)).toBeVisible();
+  });
+});
+
+test.describe('<NavigationMenu.Trigger /> direction', () => {
+  test('opens a vertical menu with the mirrored arrow key in RTL mode', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { orientation: 'vertical', rtl: true });
+
+    await trigger(page, 1).focus();
+    await page.keyboard.press('ArrowLeft');
+
+    await expect(page.getByTestId('link-1-a')).toBeVisible();
   });
 });
 
@@ -240,6 +567,22 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
     await settle(fixture);
     expect(await valueChanges(fixture)).toContain('null:focus-out');
+  });
+
+  // Open until track 1's Link registration without a tabindex lands (NAV-DOM-21, NAV-FOC-03): the Links render the
+  // composite's roving tabindex=-1, so Tab skips them.
+  test.fixme('does not restore focus to the trigger when focus moves outside', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await trigger(page, 1).focus();
+
+    await trigger(page, 1).click();
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('Tab');
+    }
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(trigger(page, 1)).not.toBeFocused();
   });
 
   test('closes the menu when tabbing back out', async ({ page, mode }) => {
