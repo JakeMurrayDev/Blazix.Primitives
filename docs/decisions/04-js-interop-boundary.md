@@ -495,7 +495,7 @@ Tested by `js/collapsible.test.ts` ("writes the size variables the options name 
 **2026-11-04, the `navigation-menu` component module as built (M5 track 5, [issue 163](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/163); the row widened by Amendments 2026-11-03 (4) and the settlements of 2026-11-04 above, written in full by the pull request; the worker's under those settlements; the user may overturn).** (1) *Scope.* `js/navigation-menu.ts` keeps one menu state per Root element (under a symbol, reference-counted) that a handle per part joins (`part`: `root`, `trigger`, `list`, `link`, `content`, `positioner`, `popup`, `viewport`, `arrow`), and runs its pass in a microtask after its observers' records. It owns:
   - the size pass (NAV-ANI-01..12), written in the `dom` style writer's `auto-resize` band on the Popup and the Positioner;
   - the Trigger's activation with its direction: on the entering `mouseover` (React's `onMouseEnter`), so it runs before the hover interaction's `mouseenter`; on `click`; on the open key, after the `navigate` point;
-  - the reset of the session's recorded open event on a hover or key activation of an open menu (NAV-PTR-07), a write to `getSession(token).dataRef.current.openEvent`, the `interactions` module's key, as Base UI's Trigger writes it;
+  - the reset of the session's recorded open event on a hover or key activation of an open menu (NAV-PTR-07), through the `interactions` module's `clearSessionOpenEvent(token)` (track 2's PR 169), as Base UI's Trigger clears it;
   - the List's axis guard (NAV-KEY-06);
   - the guards' routing, over `focus-manager`'s tabbables and the session forest (`getSession`, `getNodeChildren`);
   - the focus-out reports, one in flight until the Root's `answered` moves;

@@ -264,10 +264,6 @@ test.describe('<NavigationMenu.Root /> delays and the patient click', () => {
   });
 
   test('closes if hovered then clicked after the patient threshold', async ({ page, mode }) => {
-    // Open on Server, a gap reported to the orchestrator 2026-11-04: the Trigger's click role is off between the open
-    // and the Positioner's registration a batch later (Base UI's interactionsEnabled), and the click role's last
-    // uninstall clears the session's patient timer, so stickIfOpen stays on. Base UI keeps that timer on the Trigger.
-    test.fixme(mode === 'server', 'the patient timer is cleared while the click role is off (gap to track 2)');
     const fixture = await gotoMenu(page, mode);
     await hoverTrigger(page, 1);
     await page.clock.runFor(OPEN_DELAY + 10);
@@ -697,6 +693,8 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await expect(nestedContent(page, 2)).toBeVisible();
     await expect(nestedContent(page, 1)).toHaveCount(0);
 
+    // A real pointer crosses the nested panel first, which releases the inline lock on the nested List (NAV-PTR-13).
+    await hoverElement(page, nestedContent(page, 2));
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
     await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
