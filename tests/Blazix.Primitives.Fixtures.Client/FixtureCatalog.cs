@@ -98,6 +98,7 @@ public static class FixtureCatalog
         ["focus-manager-non-modal"] = new(typeof(FocusManagerNonModalFixture)),
         ["focus-manager-composite"] = new(typeof(FocusManagerCompositeFixture)),
         ["focus-manager-portal"] = new(typeof(FocusManagerPortalFixture)),
+        ["focus-manager-combobox"] = new(typeof(FocusManagerComboboxFixture)),
         ["field-basic"] = new(typeof(FieldBasicFixture)),
         ["field-validation"] = new(typeof(FieldValidationFixture)),
         ["field-label-non-native"] = new(typeof(FieldLabelNonNativeFixture)),

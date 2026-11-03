@@ -306,6 +306,31 @@ test.describe('focus manager', () => {
   // FloatingFocusManager.test.tsx's "non-modal + FloatingPortal" App on `focus-manager-portal`: the popup is rendered
   // inside the test-only portal, so the `portal` module moves it to the end of the body, the manager publishes its state
   // (FLT-FOC-18, both halves) and the portal renders and routes its outside guards (FLT-DOM-14, KEY-07, FOC-17).
+  // FloatingFocusManager.test.tsx's untrapped typeable combobox (M5 track 2; FLT-FOC-11, DOM-15, KEY-04) on
+  // `focus-manager-combobox`: the input keeps focus, the modal manager renders no inside guards, Tab is not prevented, and
+  // the focus-out closes the listbox although the manager is modal.
+  test.describe('the untrapped typeable combobox', () => {
+    test('untrapped typeable combobox closes on second tab sequence (click -> tab -> click -> tab)', async ({ page, mode }) => {
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-combobox');
+      const input = fixture.locator('[data-reference]');
+      const after = fixture.locator('[data-after]');
+
+      for (const closes of ['1', '2']) {
+        await input.click();
+        // The manager is attached once the outside is hidden from assistive technology; focus stayed on the input.
+        await expect(after).toHaveAttribute('aria-hidden', 'true');
+        await expect(input).toBeFocused();
+        await expect(fixture.locator('[data-base-ui-focus-guard][data-type="inside"]')).toHaveCount(0);
+
+        await page.keyboard.press('Tab');
+
+        await expect(after).toBeFocused();
+        await expect(fixture.locator('[data-popup]')).toHaveCount(0);
+        await expect(fixture).toHaveAttribute('data-focus-out-closes', closes);
+      }
+    });
+  });
+
   test.describe('non-modal + FloatingPortal', () => {
     test('does not mark reference siblings due to outside focus guards', async ({ page, mode }) => {
       const fixture = await gotoFocusManager(page, mode, 'focus-manager-portal');
