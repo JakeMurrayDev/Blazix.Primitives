@@ -1,9 +1,80 @@
-import { expect, gotoFixture, test } from './helpers';
+import { delayCircuit, expect, gotoFixture, test, type Page } from './helpers';
 import { gotoPopupFixture } from './suites/popupFixture';
 
 // M5 track 4 (issue 162): the shared list value layer's L4 titles on its test-only fixtures (`list-values-*`), both render
 // modes unless a title is about one. Select, Combobox, Autocomplete and Menu's filter mode re-run the family rows on their
 // own parts (ADR 13 Amendments 2026-10-22).
+
+test.describe('form-participation input', () => {
+  // Design point 4 of M5 track 4 (settled by the orchestrator 2026-11-04): the form module's control role with ReportAutofill
+  // on the test-only host `list-values-hidden-input`. The autofill is the browser's: the page sets the value and dispatches
+  // `change`, as an autofill does.
+  async function autofill(page: Page, text: string): Promise<void> {
+    await page.getByTestId('hidden-input').evaluate((element, value) => {
+      (element as HTMLInputElement).value = value;
+      element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+    }, text);
+  }
+
+  test('port: reports an autofilled text once and keeps the committed value when the root rejects it', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'list-values-hidden-input', { reject: 1 });
+    const hidden = page.getByTestId('hidden-input');
+    await expect(hidden).toHaveValue('apple');
+
+    await autofill(page, 'Banana');
+
+    await expect(fixture).toHaveAttribute('data-autofills', 'Banana');
+    await expect(hidden).toHaveValue('apple');
+    await expect(fixture).toHaveAttribute('data-committed', 'apple');
+  });
+
+  test('port: writes the matched value the root commits', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'list-values-hidden-input');
+    const hidden = page.getByTestId('hidden-input');
+
+    await autofill(page, 'Banana');
+
+    await expect(fixture).toHaveAttribute('data-committed', 'banana');
+    await expect(hidden).toHaveValue('banana');
+    await expect(fixture).toHaveAttribute('data-autofills', 'Banana');
+  });
+
+  // ADR 01's relaxation row "the autofill match runs after the force-mount batch, not in a microtask" (2026-11-04): the
+  // match is C#'s. On WebAssembly the report runs it synchronously, so the matched value is in the input when the change's
+  // dispatch returns; on Server it lands a round trip later (the circuit delayed 75 ms each way here), and until then the
+  // input holds the committed value the module put back inside the dispatch. A MutationObserver records when
+  // data-committed changes (ADR 06 §2's recorded marker).
+  test('port: the autofill match lands inside the change dispatch on WebAssembly and a round trip later on Server, where the input keeps the committed value until then', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, 75);
+    }
+    const fixture = await gotoPopupFixture(page, mode, 'list-values-hidden-input');
+    const timing = await page.evaluate(() => new Promise<{ restored: string; elapsed: number }>((resolve) => {
+      const container = document.querySelector('[data-fixture="list-values-hidden-input"]')!;
+      const element = document.querySelector('[data-testid="hidden-input"]') as HTMLInputElement;
+      let start = 0;
+      let restored = '';
+      new MutationObserver(() => {
+        if (container.getAttribute('data-committed') === 'banana') {
+          resolve({ restored, elapsed: performance.now() - start });
+        }
+      }).observe(container, { attributes: true, attributeFilter: ['data-committed'] });
+      element.value = 'Banana';
+      start = performance.now();
+      element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+      restored = element.value;
+    }));
+    test.info().annotations.push({ type: 'autofill match', description: `${mode}: ${Math.round(timing.elapsed)} ms after the change` });
+
+    if (mode === 'server') {
+      expect(timing.restored).toBe('apple');
+      expect(timing.elapsed).toBeGreaterThan(150);
+    } else {
+      expect(timing.restored).toBe('banana');
+    }
+    await expect(fixture).toHaveAttribute('data-committed', 'banana');
+  });
+});
 
 test.describe('item indicator', () => {
   // RND-DOM-52, RND-ANI-03 (SelectItemIndicator.test.tsx; the family is incidental, ADR 13 Amendments 2026-10-22): the
