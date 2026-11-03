@@ -508,7 +508,7 @@ Tested by `js/collapsible.test.ts` ("writes the size variables the options name 
 
 (6) *The design points as built.*
   - (2) One session per Root, every Trigger registered, `ActiveTriggerId` from the active Item.
-  - (3) The size pass is held across the Server round trip, measured in ADR 01's row (NAV-PTR-02, NAV-PTR-18, NAV-ANI-04).
+  - (3) The size pass is held across the Server round trip, measured in ADR 01's row (NAV-PTR-02, NAV-PTR-18, NAV-ANI-04). The held steps run in the first applied-batch pass where the Trigger has `data-popup-open` and the Viewport's target directly holds an open Content (the refinement accepted by the orchestrator 2026-11-04).
   - (5) C# renders the four guards and the owner; the owner carries `aria-owns` only while a Viewport is registered, and the module finds the guards past it either way.
   - (6) `data-instant` is C#'s, measured in ADR 01's row (NAV-ANI-14, NAV-DOM-28).
   - (7) `nested` is read from the cascade, and a Content cascades its own `FloatingNodeContext`.
