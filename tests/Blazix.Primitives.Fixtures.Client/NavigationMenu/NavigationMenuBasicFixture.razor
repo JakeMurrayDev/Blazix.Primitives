@@ -20,7 +20,8 @@
       (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
       `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
     - `fixed` keeps a controlled value where the page set it (ValueChanged ignored); `cancel`, `retain` (the base's);
-      `vetoOpenKey` gives trigger 1 a consumer `onkeydown` that calls `PreventPartHandler()` on ArrowDown and counts its
+      `scopedExit` gives the Popup and the Contents Base UI's scoped exit transitions (the Popup's ending style narrows its
+      transition to opacity and transform, 150 ms; with the host's `animations=1`); `vetoOpenKey` gives trigger 1 a consumer `onkeydown` that calls `PreventPartHandler()` on ArrowDown and counts its
       calls in `data-veto-calls`.
     With `side`, the menu sits 300 px down and 400 px in, so the requested side has room.
     The List is a row (a column when vertical, the Positioner then on the right), so the popup never covers a trigger.
@@ -37,6 +38,11 @@
         .fade[data-ending-style] { animation: nav-popup-out 400ms; }
         .content-fade[data-ending-style] { animation: nav-content-out 400ms; }
         .fluid { width: 40vw; }
+        .scoped-popup { transition-property: opacity, transform, width, height; transition-duration: 350ms; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+        .scoped-popup[data-starting-style], .scoped-popup[data-ending-style] { opacity: 0; transform: scale(0.9); }
+        .scoped-popup[data-ending-style] { transition-property: opacity, transform; transition-duration: 150ms; transition-timing-function: ease; }
+        .scoped-content { transition: opacity 175ms ease, transform 350ms cubic-bezier(0.4, 0, 0.2, 1); }
+        .scoped-content[data-starting-style], .scoped-content[data-ending-style] { opacity: 0; }
         .menu-frame.roomy { margin: 300px 0 0 400px; }
         [data-testid="popup-root"] { width: var(--popup-width, auto); height: var(--popup-height, auto); }
         [data-testid="list"], [data-testid="nested-list"] { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
@@ -101,6 +107,7 @@
     private bool fixedValue;
     private bool roomy;
     private bool vetoOpenKey;
+    private bool scopedExit;
     private int vetoCalls;
 
     protected override IEnumerable<Task> Attachments => attachments;
@@ -139,6 +146,7 @@
         fixedValue = QueryFlag("fixed") == true;
         roomy = Query("side") is not null;
         vetoOpenKey = QueryFlag("vetoOpenKey") == true;
+        scopedExit = QueryFlag("scopedExit") == true;
     }
 
     private void VetoOpenKey(KeyboardEventArgs e)
@@ -153,7 +161,8 @@
     private string? ContentClass(int n)
     {
         string? size = sized ? "sized-" + n.ToString(System.Globalization.CultureInfo.InvariantCulture) : fluid && n == 1 ? "fluid" : null;
-        return contentFade ? size is null ? "content-fade" : size + " content-fade" : size;
+        string? fadeClass = contentFade ? "content-fade" : scopedExit ? "scoped-content" : null;
+        return fadeClass is null ? size : size is null ? fadeClass : size + " " + fadeClass;
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -252,7 +261,7 @@
     </NavigationMenuList>
     <NavigationMenuPortal KeepMounted="keepMounted" data-testid="portal">
         <NavigationMenuPositioner Side="side" data-testid="positioner">
-            <NavigationMenuPopup data-testid="popup-root" class="@(fade ? "fade" : null)">
+            <NavigationMenuPopup data-testid="popup-root" class="@(fade ? "fade" : scopedExit ? "scoped-popup" : null)">
                 @if (arrow)
                 {
                     <NavigationMenuArrow data-testid="arrow" />

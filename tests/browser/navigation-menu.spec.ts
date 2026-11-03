@@ -1115,6 +1115,37 @@ test.describe('size', () => {
     await expect.poll(() => pixels(positioner, '--positioner-width')).toBeCloseTo(300, 0);
   });
 
+  test('closes on the short exit path after switching content', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { sized: true, scopedExit: true, animations: 1 });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await fireClick(trigger(page, 2));
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    const popup = page.getByTestId('popup-root');
+    await expect.poll(() => popup.evaluate((element) => element.getAnimations().some((animation) => animation.playState !== 'finished'))).toBe(false);
+    await settle(fixture);
+    expect(await openChangeCompletes(fixture)).toEqual([]);
+    await trigger(page, 2).focus();
+    // The close's duration, from the Escape to the recorded completion, measured in the page.
+    await fixture.evaluate((container) => {
+      const record = { start: 0, end: 0 };
+      (window as unknown as { shortExit: typeof record }).shortExit = record;
+      document.addEventListener('keydown', () => (record.start ||= performance.now()), true);
+      new MutationObserver(() => {
+        if (container.getAttribute('data-open-change-completes')?.includes('false')) {
+          record.end ||= performance.now();
+        }
+      }).observe(container, { attributes: true, attributeFilter: ['data-open-change-completes'] });
+    });
+
+    await page.keyboard.press('Escape');
+
+    await expect.poll(() => openChangeCompletes(fixture)).toEqual(['false']);
+    const { start, end } = await page.evaluate(() => (window as unknown as { shortExit: { start: number; end: number } }).shortExit);
+    expect(end - start).toBeLessThan(325);
+  });
+
   test('preserves popup size when controlled value closes externally', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode, { value: 'item-1', sized: true, fade: true, animations: 1 });
     await expect(content(page, 1)).toBeVisible();
