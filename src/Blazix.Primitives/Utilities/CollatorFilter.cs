@@ -4,15 +4,16 @@ namespace Blazix.Primitives.Utilities;
 
 // UTL-I18N-08..12, UTL-ALG-05 (internals/filter.ts; chosen by the user 2026-11-03, plan decision 10 (a)): Base UI's
 // Intl.Collator(locale, { usage: 'search', sensitivity: 'base', ignorePunctuation: true }) is CompareInfo.Compare with
-// IgnoreCase | IgnoreNonSpace | IgnoreSymbols (ADR 01 decision 2: equivalent, not byte-identical; the rows that differ are in
-// ADR 01's note of 2026-11-04). The window is Base UI's: query.Length UTF-16 code units (UTL §10 item 6). Base UI caches a
+// IgnoreCase | IgnoreNonSpace | IgnoreSymbols | IgnoreKanaType | IgnoreWidth (ICU's `base` strength ignores width and kana
+// type too; the last two joined on the collation table's evidence, design point 3 of M5 track 4, settled by the orchestrator
+// 2026-11-04; ADR 01 decision 2: equivalent, not byte-identical, with its note of 2026-11-04). The window is Base UI's: query.Length UTF-16 code units (UTL §10 item 6). Base UI caches a
 // filter per locale and options; here the filter is a value over the CompareInfo .NET already caches, so equal inputs give
-// equal filters and nothing is cached here (design point 3 of M5 track 4, pending the user).
+// equal filters and nothing is cached here (design point 3 of M5 track 4, settled by the orchestrator 2026-11-04).
 /// <summary>Matches a query against an item's text the way a list's filter does, under a culture's comparison.</summary>
 internal readonly record struct CollatorFilter
 {
-    /// <summary>Specifies the comparison of Base UI's default collator: case, non-spacing marks and symbols are ignored.</summary>
-    public const CompareOptions DefaultOptions = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreSymbols;
+    /// <summary>Specifies the comparison of Base UI's default collator: case, non-spacing marks, symbols, kana type and width are ignored.</summary>
+    public const CompareOptions DefaultOptions = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreSymbols | CompareOptions.IgnoreKanaType | CompareOptions.IgnoreWidth;
 
     private CollatorFilter(CompareInfo compareInfo, CompareOptions options)
     {
