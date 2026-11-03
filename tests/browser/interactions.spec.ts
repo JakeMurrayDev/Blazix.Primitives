@@ -59,6 +59,112 @@ test.describe('press', () => {
   });
 });
 
+/** A screen reader's press: a 0 × 0 `pointerdown` (FLT-ALG-26), then `mousedown`, `mouseup` and `click`, in one task. */
+async function pressVirtually(target: Locator): Promise<void> {
+  await target.evaluate((element) => {
+    const init = { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 0, detail: 0 };
+    const pointer = { ...init, pointerType: 'mouse', width: 0, height: 0, pressure: 0, isPrimary: true };
+    element.dispatchEvent(new PointerEvent('pointerdown', pointer));
+    element.dispatchEvent(new MouseEvent('mousedown', init));
+    element.dispatchEvent(new PointerEvent('pointerup', pointer));
+    element.dispatchEvent(new MouseEvent('mouseup', init));
+    element.dispatchEvent(new MouseEvent('click', init));
+  });
+}
+
+/** Holds every animation frame the page requests until the returned function releases them. */
+async function holdFrames(page: Page): Promise<() => Promise<void>> {
+  await page.evaluate(() => {
+    const held: FrameRequestCallback[] = [];
+    const native = window.requestAnimationFrame;
+    window.requestAnimationFrame = (callback) => {
+      held.push(callback);
+      return 0;
+    };
+    (window as unknown as { releaseFrames: () => void }).releaseFrames = () => {
+      window.requestAnimationFrame = native;
+      for (const callback of held.splice(0)) {
+        native.call(window, callback);
+      }
+    };
+  });
+  return () => page.evaluate(() => (window as unknown as { releaseFrames: () => void }).releaseFrames());
+}
+
+/** Resolves after two animation frames, so a press deferred to the next frame has fired. */
+async function afterFrames(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+}
+
+// The mousedown press (M5 track 2), on the test-only host `interactions-mousedown`: two triggers that toggle from the
+// mousedown as Menu's trigger will, one with ignoreMouse. A virtual press is a 0 × 0 `pointerdown`, which jsdom cannot
+// type (FLT-ALG-26), so these rows are proven here (ADR 13 §1). The consumer's onmousedown is declined and runs once per
+// mousedown: inside the press for a press inside its event, from Blazor's dispatch for a press deferred to a frame.
+test.describe('mousedown press (FLT-PTR-01, FLT-PTR-02, FLT-A11Y-03)', () => {
+  test('port: a virtual press is typed virtual: ignoreMouse drops a mouse press on a mousedown trigger, not a 0 × 0 pointerdown press', async ({ page, mode }) => {
+    const fixture = await gotoFixture(page, mode, 'interactions-mousedown');
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    const trigger = fixture.locator('[data-trigger-ignore-mouse]');
+
+    await trigger.click();
+    // ignoreMouse drops the press inside the mousedown, before Blazor's dispatch ran the consumer's handler.
+    await expect(fixture).toHaveAttribute('data-consumer-mousedowns', '1');
+    await expect(fixture).toHaveAttribute('data-requests', '0');
+
+    await pressVirtually(trigger.locator('[data-descendant]'));
+    await expect(fixture).toHaveAttribute('data-open', 'true');
+    await expect(fixture).toHaveAttribute('data-consumer-mousedowns', '2');
+    await expect(fixture).toHaveAttribute('data-requests', '1');
+  });
+
+  test('port: a virtual press opens from the mousedown without a frame and reports the trigger, not the pressed descendant, while a mouse press waits the frame', async ({ page, mode }) => {
+    const fixture = await gotoFixture(page, mode, 'interactions-mousedown');
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    const trigger = fixture.locator('[data-trigger-plain]');
+    const id = await trigger.getAttribute('id');
+    const box = await trigger.boundingBox();
+
+    let release = await holdFrames(page);
+    await pressVirtually(trigger.locator('[data-descendant]'));
+    await expect(fixture).toHaveAttribute('data-open', 'true');
+    await expect(fixture).toHaveAttribute('data-active-trigger', id!);
+    await pressVirtually(trigger.locator('[data-descendant]'));
+    await expect(fixture).toHaveAttribute('data-open', 'false');
+    await release();
+
+    release = await holdFrames(page);
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    // Blazor's dispatch ran the consumer's handler; the press waits the held frame.
+    await expect(fixture).toHaveAttribute('data-consumer-mousedowns', '3');
+    await expect(fixture).toHaveAttribute('data-requests', '2');
+    await expect(fixture).toHaveAttribute('data-open', 'false');
+    await release();
+    await expect(fixture).toHaveAttribute('data-open', 'true');
+    await expect(fixture).toHaveAttribute('data-requests', '3');
+  });
+
+  test('port: a consumer onmousedown veto holds for a virtual press and for a mouse press, whose deferred press runs the handler once', async ({ page, mode }) => {
+    const fixture = await gotoFixture(page, mode, 'interactions-mousedown');
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    await fixture.locator('[data-veto]').check();
+    const trigger = fixture.locator('[data-trigger-plain]');
+
+    await pressVirtually(trigger);
+    await expect(fixture).toHaveAttribute('data-consumer-mousedowns', '1');
+    await trigger.click();
+    await expect(fixture).toHaveAttribute('data-consumer-mousedowns', '2');
+    // The deferred press has fired, so on Server its report is on the circuit before the box's change.
+    await afterFrames(page);
+    await fixture.locator('[data-veto]').uncheck();
+
+    await trigger.click();
+    await expect(fixture).toHaveAttribute('data-open', 'true');
+    // The open came from the deferred press, which ran no second handler: the count is final.
+    await expect(fixture).toHaveAttribute('data-consumer-mousedowns', '3');
+    await expect(fixture).toHaveAttribute('data-requests', '1');
+  });
+});
+
 test.describe('attach order', () => {
   test('port: with js/interactions.js stalled the button handle attaches first, and the trigger toggles once when the module arrives', async ({ page, mode }) => {
     const release = await stall(page, 'interactions');

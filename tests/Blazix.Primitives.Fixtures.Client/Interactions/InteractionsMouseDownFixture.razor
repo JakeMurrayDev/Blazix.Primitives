@@ -1,0 +1,65 @@
+@*
+    The mousedown press host of M5 track 2 (FLT-PTR-01, FLT-PTR-02, FLT-A11Y-03; the consumer's declined onmousedown, ADR 01
+    row "C#-origin consumer vetoes"): two triggers that toggle from the mousedown, as Menu's trigger will, one with
+    ignoreMouse; each holds a descendant to press, and a consumer onmousedown that vetoes the press while the box is
+    checked. The popup's state and the active trigger's id are attributes. data-attached once the session and the four
+    trigger handles are attached.
+*@
+<FixtureContainer Name="interactions-mousedown"
+                  data-open="@(root?.Open == true ? "true" : "false")"
+                  data-requests="@(root?.Requests ?? 0)"
+                  data-active-trigger="@(root?.ActiveTriggerId ?? string.Empty)"
+                  data-consumer-mousedowns="@consumerMouseDowns"
+                  data-attached="@(attached ? "true" : "false")">
+    <label><input type="checkbox" data-veto @bind="veto" /> Veto the press</label>
+    <FixtureInteractionsRoot @ref="root" OnChanged="StateHasChanged">
+        <FixtureInteractionsTrigger @ref="ignoring" Event="mousedown" IgnoreMouse="true" data-trigger-ignore-mouse @onmousedown="consumerMouseDown">
+            <span data-descendant>Ignores the mouse</span>
+        </FixtureInteractionsTrigger>
+        <FixtureInteractionsTrigger @ref="plain" Event="mousedown" data-trigger-plain @onmousedown="consumerMouseDown">
+            <span data-descendant>Toggles from the mousedown</span>
+        </FixtureInteractionsTrigger>
+    </FixtureInteractionsRoot>
+    @if (root?.Open == true)
+    {
+        <div data-popup>Popup</div>
+    }
+</FixtureContainer>
+
+@code {
+    private FixtureInteractionsRoot? root;
+    private FixtureInteractionsTrigger? ignoring;
+    private FixtureInteractionsTrigger? plain;
+    private EventCallback<MouseEventArgs> consumerMouseDown;
+    private bool attached;
+    private bool veto;
+    private int consumerMouseDowns;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        consumerMouseDown = EventCallback.Factory.Create<MouseEventArgs>(this, OnConsumerMouseDown);
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive || root is null || ignoring is null || plain is null)
+        {
+            return;
+        }
+
+        await Task.WhenAll(ignoring.TwinsAttached, plain.TwinsAttached, root.SessionAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void OnConsumerMouseDown(MouseEventArgs e)
+    {
+        consumerMouseDowns++;
+        if (veto)
+        {
+            e.PreventPartHandler();
+        }
+    }
+}
