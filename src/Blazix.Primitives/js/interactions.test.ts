@@ -3296,6 +3296,30 @@ describe('useHoverReferenceInteraction', () => {
       expect([list.style.pointerEvents, second.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
     });
 
+    // NavigationMenuTrigger.tsx:488-501 (the effect's cleanup; M5 track 2): NAV-EDGE-10, NavigationMenuTrigger.test.tsx
+    // "releases the pointer-events lock on the list when the open trigger unmounts".
+    it('port: the unmount of the trigger that applied the lock releases it, and another trigger\'s unmount does not', () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
+      const list = document.createElement('ul');
+      document.body.append(list);
+      const first = element('button', 'unmount-first');
+      const second = element('button', 'unmount-second');
+      list.append(first, second);
+      const firstHandle = popup.attachTrigger(first, { trigger: { hover } });
+      const secondHandle = popup.attachTrigger(second, { trigger: { hover } });
+      popup.attachFloating(element('div'), { floating: { hover: {} } });
+      hoverMouse(first, 'mouseenter');
+      expect(list.style.pointerEvents).toBe('none');
+
+      secondHandle.dispose();
+      expect(list.style.pointerEvents).toBe('none');
+
+      firstHandle.dispose();
+      expect(list.style.pointerEvents).toBe('');
+    });
+
     // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; M5 track 2): NAV-PTR-13,
     // NavigationMenuRoot.test.tsx "keeps an inline submenu open while traversing toward a viewport on the right".
     it('port: with an inline close context, leaving the trigger toward the named element keeps the popup open, placed on the dominant axis between the centres', () => {
