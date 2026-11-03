@@ -225,5 +225,6 @@ public static class FixtureCatalog
         ["list-values-allocation"] = new(typeof(ListValuesAllocationFixture)),
         ["list-values-collation"] = new(typeof(ListValuesCollationFixture)),
         ["list-values-indicator"] = new(typeof(ListValuesIndicatorFixture)),
+        ["list-values-hidden-input"] = new(typeof(ListValuesHiddenInputFixture)),
     };
 }
