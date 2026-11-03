@@ -3288,7 +3288,8 @@ describe('useHoverReferenceInteraction', () => {
       hoverPointer(first, 'pointerdown', 'mouse');
       expect(list.style.pointerEvents).toBe('');
 
-      popup.setOpen(true, 'trigger-hover', first.id, 'mouseenter');
+      // A press-opened popup, so no hover hand-off moves the lock first: the switch's lock waits for the microtask.
+      popup.setOpen(true, 'trigger-press', first.id, 'click');
       hoverMouse(second, 'mouseenter');
       expect(second.style.pointerEvents).toBe('');
       await Promise.resolve();
