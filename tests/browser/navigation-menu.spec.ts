@@ -900,6 +900,21 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     });
   }
 
+  // Design point 4 (chosen by the user 2026-11-04): the open key asks `navigate` first. On WebAssembly the consumer's
+  // onkeydown runs inside the point and its PreventPartHandler() stops the open; on Server the point falls back to `run`
+  // (ADR 01, "C#-origin consumer vetoes"), and the consumer's handler still runs.
+  test('port: a consumer onkeydown that calls PreventPartHandler() keeps the open key from opening on WebAssembly; on Server the key opens', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { vetoOpenKey: true });
+
+    await trigger(page, 1).focus();
+    await page.keyboard.press('ArrowDown');
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-veto-calls', '1');
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', mode === 'wasm' ? 'false' : 'true');
+    await expect(trigger(page, 1)).toBeFocused();
+  });
+
   test('does not emit a duplicate onValueChange when switching items via keyboard', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode);
 

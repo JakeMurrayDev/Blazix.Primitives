@@ -19,14 +19,16 @@
     - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
       (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
       `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
-    - `fixed` keeps a controlled value where the page set it (ValueChanged ignored); `cancel`, `retain` (the base's).
+    - `fixed` keeps a controlled value where the page set it (ValueChanged ignored); `cancel`, `retain` (the base's);
+      `vetoOpenKey` gives trigger 1 a consumer `onkeydown` that calls `PreventPartHandler()` on ArrowDown and counts its
+      calls in `data-veto-calls`.
     With `side`, the menu sits 300 px down and 400 px in, so the requested side has room.
     The List is a row (a column when vertical, the Positioner then on the right), so the popup never covers a trigger.
     Around the menu: a `before` and an `after` button, in that order in the DOM but laid out in a row above the menu, so
     the popup never covers them either. `[data-unmount]` calls Unmount, `[data-close]` CloseAsync.
 *@
 <FixtureContainer Name="navigation-menu-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
-                  data-value-changes="@ValueChanges" data-open-change-completes="@OpenChangeCompletes">
+                  data-value-changes="@ValueChanges" data-open-change-completes="@OpenChangeCompletes" data-veto-calls="@vetoCalls">
     <style>
         .sized-1 { width: 400px; height: 200px; }
         .sized-2 { width: 300px; height: 150px; }
@@ -98,6 +100,8 @@
     private bool arrow;
     private bool fixedValue;
     private bool roomy;
+    private bool vetoOpenKey;
+    private int vetoCalls;
 
     protected override IEnumerable<Task> Attachments => attachments;
 
@@ -134,6 +138,16 @@
         arrow = QueryFlag("arrow") == true;
         fixedValue = QueryFlag("fixed") == true;
         roomy = Query("side") is not null;
+        vetoOpenKey = QueryFlag("vetoOpenKey") == true;
+    }
+
+    private void VetoOpenKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowDown")
+        {
+            vetoCalls++;
+            e.PreventPartHandler();
+        }
     }
 
     private string? ContentClass(int n)
@@ -178,10 +192,20 @@
         {
             int n = i;
             <NavigationMenuItem TValue="string" Value="@("item-" + n)">
-                <NavigationMenuTrigger @ref="triggers[n]" data-testid="@("trigger-" + n)" Disabled="@(disabled == n.ToString(System.Globalization.CultureInfo.InvariantCulture))">
-                    Item @n
-                    <NavigationMenuIcon />
-                </NavigationMenuTrigger>
+                @if (vetoOpenKey && n == 1)
+                {
+                    <NavigationMenuTrigger @ref="triggers[n]" data-testid="@("trigger-" + n)" @onkeydown="VetoOpenKey">
+                        Item @n
+                        <NavigationMenuIcon />
+                    </NavigationMenuTrigger>
+                }
+                else
+                {
+                    <NavigationMenuTrigger @ref="triggers[n]" data-testid="@("trigger-" + n)" Disabled="@(disabled == n.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+                        Item @n
+                        <NavigationMenuIcon />
+                    </NavigationMenuTrigger>
+                }
                 <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@ContentClass(n)">
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
