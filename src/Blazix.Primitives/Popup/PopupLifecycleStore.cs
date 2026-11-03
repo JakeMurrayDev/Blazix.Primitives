@@ -31,6 +31,7 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
     private int boundaryRevision;
     private bool lastChangeClosed;
     private bool unmountPending;
+    private bool closedSinceBoundary;
     private int boundaryParts;
     private bool seeded;
 
@@ -233,7 +234,7 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
 
         TState state = State;
         PopupLifecycleState lifecycle = CreateOpenState(state.Lifecycle, open, details.UnmountOnClosePrevented) with { OpenChange = relay };
-        Write(TState.WithLifecycle(ApplyOpenChange(state, open, details), lifecycle));
+        Write(WithCommittedOpen(state, ApplyOpenChange(state, open, details), lifecycle, open, details));
     }
 
     // TRN-ALG-01's mirrored status (ADR 04 §2): the popup's `transitions` handle reports each change once.
@@ -322,28 +323,26 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
         return new BoundaryPartRegistration(this);
     }
 
-    // The render-batch boundary (ADR 01 decision 3's amendment): the close's reset of the open interaction type (PSH-PTR-03's
-    // Root-level variant; PopupStore's reconciliation did it on main), then a pending unmount action. Called from the
+    // The render-batch boundary (ADR 01 decision 3's amendment): the reset of the open interaction type at the first boundary
+    // after a close (PSH-PTR-03's Root-level variant; PopupStore's reconciliation does it for the popup stores), then a pending
+    // unmount action. A boundary before an open keeps the type the opening interaction recorded. Called from the
     // OnAfterRender of the popup parts' behaviors and of the root.
     /// <summary>Runs the work that waits for the end of a render batch: a pending unmount action and the close's reset of the open interaction type.</summary>
     /// <returns>A task that completes when the boundary's work has run.</returns>
     public virtual Task AtBatchBoundaryAsync()
     {
-        boundaryRevision = openChangeRevision;
-        PopupLifecycleState lifecycle = State.Lifecycle;
-        if (!lifecycle.EffectiveOpen && lifecycle.OpenMethod is not null)
+        MarkBatchBoundary();
+        if (closedSinceBoundary)
         {
-            WriteLifecycle(lifecycle with { OpenMethod = null });
+            closedSinceBoundary = false;
+            PopupLifecycleState lifecycle = State.Lifecycle;
+            if (!lifecycle.EffectiveOpen && lifecycle.OpenMethod is not null)
+            {
+                WriteLifecycle(lifecycle with { OpenMethod = null });
+            }
         }
 
-        if (!unmountPending)
-        {
-            return Task.CompletedTask;
-        }
-
-        unmountPending = false;
-        lifecycle = State.Lifecycle;
-        return !lifecycle.EffectiveOpen && lifecycle.Mounted ? RunUnmountAsync() : Task.CompletedTask;
+        return RunPendingUnmountAsync();
     }
 
     /// <summary>Runs the consumer step of a request: the consumer's callback, its cancel, then <see cref="OpenChanged"/>.</summary>
@@ -421,8 +420,40 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
             RaiseUnmountPreventionChanging(next.Lifecycle.PreventUnmountingOnClose);
         }
 
-        // The lifecycle compares member by member in the record's generated ShallowEquals (its == operator), so an equal
-        // record is a no-op (UTL-STA-11).
+        if (current.Lifecycle.EffectiveOpen && !next.Lifecycle.EffectiveOpen)
+        {
+            closedSinceBoundary = true;
+        }
+
+        PublishWrite(current, next);
+    }
+
+    /// <summary>Asks the root for a render-batch boundary that no part's render will bring.</summary>
+    protected void RequestBoundary() => BoundaryRequested?.Invoke();
+
+    /// <summary>Builds the record a committed open change writes, from the record the family's step returned.</summary>
+    /// <param name="state">The record before the change.</param>
+    /// <param name="applied">The record with the family's fields applied.</param>
+    /// <param name="lifecycle">The committed open lifecycle, with the relay.</param>
+    /// <param name="open">The committed open state.</param>
+    /// <param name="details">The change's details.</param>
+    /// <returns>The record to write.</returns>
+    private protected virtual TState WithCommittedOpen(TState state, TState applied, in PopupLifecycleState lifecycle, bool open, OpenChangeEventDetails details) =>
+        TState.WithLifecycle(applied, lifecycle);
+
+    /// <summary>Builds the record the unmount action writes.</summary>
+    /// <param name="state">The current record.</param>
+    /// <param name="lifecycle">The unmounted open lifecycle.</param>
+    /// <returns>The record to write.</returns>
+    private protected virtual TState WithUnmounted(TState state, in PopupLifecycleState lifecycle) => TState.WithLifecycle(state, lifecycle);
+
+    // The lifecycle compares member by member in the record's generated ShallowEquals (its == operator), so an equal record
+    // is a no-op (UTL-STA-11).
+    /// <summary>Publishes a write whose transition evaluation and announcements have run, unless it changes nothing.</summary>
+    /// <param name="current">The current record.</param>
+    /// <param name="next">The record to publish.</param>
+    private protected virtual void PublishWrite(TState current, TState next)
+    {
         if (ReferenceEquals(current, next) || TState.ShallowEquals(current, next))
         {
             return;
@@ -431,8 +462,22 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
         SetState(next);
     }
 
-    /// <summary>Asks the root for a render-batch boundary that no part's render will bring.</summary>
-    protected void RequestBoundary() => BoundaryRequested?.Invoke();
+    /// <summary>Records that a render-batch boundary was reached, which ends the batch a coalesced close travels in.</summary>
+    private protected void MarkBatchBoundary() => boundaryRevision = openChangeRevision;
+
+    /// <summary>Runs the unmount action an open popup's request left for the boundary, if the popup is now closed.</summary>
+    /// <returns>A task that completes when the unmount cleanup has run, or at once when there is none.</returns>
+    private protected Task RunPendingUnmountAsync()
+    {
+        if (!unmountPending)
+        {
+            return Task.CompletedTask;
+        }
+
+        unmountPending = false;
+        PopupLifecycleState lifecycle = State.Lifecycle;
+        return !lifecycle.EffectiveOpen && lifecycle.Mounted ? RunUnmountAsync() : Task.CompletedTask;
+    }
 
     // TRN-ALG-01 evaluated at the write that flips the effective open state (useTransitionStatus at render; the Collapsible
     // precedent), and TRN-ANI-24: reopening by any route clears the stored opt-out.
@@ -460,13 +505,13 @@ internal class PopupLifecycleStore<TState> : ComponentStore<TState>
             return;
         }
 
-        WriteLifecycle(lifecycle with
+        Write(WithUnmounted(State, lifecycle with
         {
             Mounted = false,
             PreventUnmountingOnClose = false,
             TransitionStatus = null,
             UnmountRequests = lifecycle.UnmountRequests + 1,
-        });
+        }));
         OnUnmount();
         await OnOpenChangeComplete.InvokeAsync(false);
     }

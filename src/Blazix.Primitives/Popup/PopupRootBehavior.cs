@@ -12,7 +12,9 @@ namespace Blazix.Primitives;
 // renders no element (the DirectionProvider precedent): it cascades its store, fixed (ADR 16 rule 9), around its child
 // content and its payload template (ADR 08 Amendments 2026-10-27, issue 116's finding).
 // - The store is created once, at the first parameter set, with the popup id and the session token drawn from
-//   PartIdGenerator (PSH-STR-01; ADR 04 Amendments 2026-10-27: the token is never rendered).
+//   PartIdGenerator (PSH-STR-01; ADR 04 Amendments 2026-10-27: the token is never rendered). The store's creation, its fixed
+//   cascade, the root's renders on BoundaryRequested and the boundary at OnAfterRender are PopupLifecycleRootBehavior's,
+//   composed here (M5 track 2; ADR 05 Amendments 2026-11-04, settled by the orchestrator 2026-11-04).
 // - The handle attaches at the Root's first OnAfterRender, before any descendant's (Blazor calls a batch's OnAfterRender
 //   in render order, parent first: PSH-STR-04), and follows a change of the Handle parameter (PSH-STR-03).
 // - The render-batch boundary (ADR 01 decision 3's amendment) runs the store's reconciliation and a pending unmount
@@ -27,15 +29,11 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
     where TStore : PopupStore<TState, TPayload>
     where TState : class, IStoreState<TState>, IPopupStoreState<TState, TPayload>
 {
-    private readonly Func<string, string, ILogger?, TStore> createStore;
+    private readonly PopupLifecycleRootBehavior<TStore, TState> root;
     private readonly Action requestRender;
-    private readonly Action boundaryRequested;
-    private readonly RenderFragment content;
-    private TStore? store;
     private PopupHandle<TPayload>? handle;
     private PopupHandle<TPayload>? attachedHandle;
     private IDisposable? attachment;
-    private SelectorSubscription<TState>? subscription;
     private RenderFragment? childContent;
     private RenderFragment<TPayload?>? payloadContent;
     private bool overlapCheckScheduled;
@@ -45,28 +43,17 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
     /// <param name="requestRender">Asks the root to render, its <c>StateHasChanged</c>.</param>
     public PopupRootBehavior(Func<string, string, ILogger?, TStore> createStore, Action requestRender)
     {
-        ArgumentNullException.ThrowIfNull(createStore);
-        ArgumentNullException.ThrowIfNull(requestRender);
-        this.createStore = createStore;
+        root = new PopupLifecycleRootBehavior<TStore, TState>(createStore, requestRender) { ChildContent = RenderContent };
         this.requestRender = requestRender;
-        boundaryRequested = requestRender;
-        content = RenderContent;
     }
 
     /// <summary>Gets the root's store; available from the first parameter set.</summary>
     /// <exception cref="InvalidOperationException">The store is read before the root's first parameter set.</exception>
-    public TStore Store => store ?? throw new InvalidOperationException("Blazix: the popup root's store is created at its first parameter set.");
+    public TStore Store => root.Store;
 
     /// <summary>Renders the store's fixed cascade around the root's child content and payload template.</summary>
     /// <param name="builder">The root's render tree builder.</param>
-    public void BuildRenderTree(RenderTreeBuilder builder)
-    {
-        builder.OpenComponent<CascadingValue<TStore>>(0);
-        builder.AddComponentParameter(1, nameof(CascadingValue<TStore>.Value), Store);
-        builder.AddComponentParameter(2, nameof(CascadingValue<TStore>.IsFixed), true);
-        builder.AddComponentParameter(3, nameof(CascadingValue<TStore>.ChildContent), content);
-        builder.CloseComponent();
-    }
+    public void BuildRenderTree(RenderTreeBuilder builder) => root.BuildRenderTree(builder);
 
     /// <summary>Attaches the handle, runs the render-batch boundary and the overlap check of the handle.</summary>
     /// <returns>A task that completes when the boundary's work has run.</returns>
@@ -98,7 +85,7 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
             }
         }
 
-        return current.AtBatchBoundaryAsync();
+        return root.OnAfterRenderAsync();
     }
 
     /// <inheritdoc />
@@ -106,12 +93,7 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
     {
         attachment?.Dispose();
         attachment = null;
-        subscription?.Dispose();
-        subscription = null;
-        if (store is not null)
-        {
-            store.BoundaryRequested -= boundaryRequested;
-        }
+        root.Dispose();
     }
 
     /// <summary>Creates the store at the root's first parameter set and applies the controlled open and trigger id.</summary>
@@ -121,17 +103,8 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
     /// <remarks>Call it from the root's <c>SetParametersAsync</c>, before the parameters are assigned.</remarks>
     public void SetParameters(ParameterView parameters, PartIdGenerator ids, ILogger? logger)
     {
-        ArgumentNullException.ThrowIfNull(ids);
-        if (store is null)
-        {
-            // PSH-STA-01's floatingId (useId) first, then the session token, both from the scoped counter.
-            string popupId = ids.Next();
-            string sessionToken = ids.Next();
-            store = createStore(popupId, sessionToken, logger);
-            store.BoundaryRequested += boundaryRequested;
-            subscription = new SelectorSubscription<TState>(store, requestRender);
-        }
-
+        root.EnsureStore(ids, logger);
+        TStore store = root.Store;
         store.OpenState.SetParameters(parameters, "Open", "DefaultOpen");
         store.TriggerIdState.SetParameters(parameters, "TriggerId", "DefaultTriggerId");
     }
@@ -151,10 +124,10 @@ internal sealed class PopupRootBehavior<TStore, TState, TPayload> : IDisposable
         childContent = parameters.ChildContent;
         if (!ReferenceEquals(payloadContent, parameters.PayloadContent))
         {
-            if (payloadContent is null && subscription is not null)
+            if (payloadContent is null)
             {
                 // The payload template renders the payload, so the root renders when it changes (PSH-API-07).
-                subscription.Select(PopupSelectors<TState, TPayload>.PayloadVersion);
+                root.Subscription.Select(PopupSelectors<TState, TPayload>.PayloadVersion);
             }
 
             payloadContent = parameters.PayloadContent;

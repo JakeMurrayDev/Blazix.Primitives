@@ -23,7 +23,6 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
 {
     private readonly Func<string, string, ILogger?, TStore> createStore;
     private readonly Action requestRender;
-    private readonly RenderFragment content;
     private TStore? store;
     private SelectorSubscription<TState>? subscription;
 
@@ -36,7 +35,6 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
         ArgumentNullException.ThrowIfNull(requestRender);
         this.createStore = createStore;
         this.requestRender = requestRender;
-        content = RenderContent;
     }
 
     /// <summary>Gets the root's store; available from the first parameter set.</summary>
@@ -57,7 +55,7 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
         builder.OpenComponent<CascadingValue<TStore>>(0);
         builder.AddComponentParameter(1, nameof(CascadingValue<TStore>.Value), Store);
         builder.AddComponentParameter(2, nameof(CascadingValue<TStore>.IsFixed), true);
-        builder.AddComponentParameter(3, nameof(CascadingValue<TStore>.ChildContent), content);
+        builder.AddComponentParameter(3, nameof(CascadingValue<TStore>.ChildContent), ChildContent);
         builder.CloseComponent();
     }
 
@@ -97,5 +95,4 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
         subscription = new SelectorSubscription<TState>(store, requestRender);
     }
 
-    private void RenderContent(RenderTreeBuilder builder) => builder.AddContent(0, ChildContent);
 }
