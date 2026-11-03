@@ -19,6 +19,12 @@ public sealed class InteractionsBehaviorTests : IDisposable
          "target":{"id":"t","tagName":"BUTTON"},"defaultPrevented":false,"timeStamp":3.5}
         """;
 
+    private const string MouseDownJson = """
+        {"kind":"PointerEvent","type":"mousedown","key":null,"code":null,"altKey":false,"ctrlKey":false,
+         "metaKey":false,"shiftKey":false,"pointerType":"mouse","detail":1,"buttons":1,
+         "target":{"id":"t","tagName":"BUTTON"},"defaultPrevented":false,"timeStamp":3.5}
+        """;
+
     private const string EscapeJson = """
         {"kind":"KeyboardEvent","type":"keydown","key":"Escape","code":"Escape","altKey":false,"ctrlKey":false,
          "metaKey":false,"shiftKey":false,"pointerType":null,"detail":0,"buttons":0,
@@ -221,6 +227,131 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.True(trigger.Behavior.ForwardsConsumerHandler("onclick"));
     }
 
+    // The consumer's declined onmousedown (M5 track 2): a press from the mousedown (Click.Event mousedown or
+    // mousedown-only) runs the consumer's onmousedown, not its onclick, once, and a PreventPartHandler() there vetoes it.
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("click", true)]
+    [InlineData("mousedown", false)]
+    [InlineData("mousedown-only", false)]
+    public void The_trigger_declines_the_consumer_onmousedown_only_while_a_press_toggles_from_the_mousedown(string? clickEvent, bool forwards)
+    {
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onMouseDown: _ => { }, click: new InteractionsClickOptions { Event = clickEvent });
+        TestInteractionsTrigger trigger = cut.FindComponent<TestInteractionsTrigger>().Instance;
+
+        Assert.Equal(forwards, trigger.Behavior.ForwardsConsumerHandler("onmousedown"));
+        Assert.False(trigger.Behavior.ForwardsConsumerHandler("onclick"));
+
+        trigger.Behavior.Options = trigger.Behavior.Options with { Click = null };
+        Assert.True(trigger.Behavior.ForwardsConsumerHandler("onmousedown"));
+    }
+
+    [Fact]
+    public async Task On_WebAssembly_a_mousedown_press_runs_the_declined_consumer_onmousedown_once_and_not_its_onclick_then_the_request()
+    {
+        int consumerClicks = 0;
+        int consumerMouseDowns = 0;
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(
+            onClick: _ => consumerClicks++,
+            onMouseDown: _ => consumerMouseDowns++,
+            click: new InteractionsClickOptions { Event = "mousedown" });
+        IRenderedComponent<TestInteractionsTrigger> trigger = cut.FindComponent<TestInteractionsTrigger>();
+
+        string verdict = await cut.InvokeAsync(() =>
+        {
+            host.TriggerTwin.OnPressing("""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse"}""");
+            return host.TriggerTwin.Decide(InteractionsTwin.PressPoint, MouseDownJson);
+        });
+        trigger.Find("button").MouseDown(new MouseEventArgs { Detail = 1, Buttons = 1 });
+
+        Assert.Equal("run", verdict);
+        Assert.Equal(1, consumerMouseDowns);
+        Assert.Equal(0, consumerClicks);
+        Assert.True(Assert.Single(cut.Instance.Requests).Open);
+        Assert.True(cut.Instance.Open);
+    }
+
+    [Fact]
+    public async Task On_Server_a_mousedown_press_report_runs_the_consumer_onmousedown_once_and_its_veto_holds()
+    {
+        int consumerMouseDowns = 0;
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(
+            onMouseDown: e =>
+            {
+                consumerMouseDowns++;
+                e.PreventPartHandler();
+            },
+            click: new InteractionsClickOptions { Event = "mousedown" });
+        IRenderedComponent<TestInteractionsTrigger> trigger = cut.FindComponent<TestInteractionsTrigger>();
+
+        // The module's report of a press inside its event precedes Blazor's dispatch of the same mousedown (ADR-04/1).
+        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{MouseDownJson}}}"""));
+        trigger.Find("button").MouseDown(new MouseEventArgs { Detail = 1, Buttons = 1 });
+
+        Assert.Equal(1, consumerMouseDowns);
+        Assert.Empty(cut.Instance.Requests);
+        Assert.False(cut.Instance.Open);
+    }
+
+    // A press deferred to a frame (the mousedown path) or a touch delay fires after Blazor dispatched its event, which ran
+    // the consumer's handler: the press takes that run's verdict and does not run the handler again.
+    [Theory]
+    [InlineData("mousedown", true, false)]
+    [InlineData("mousedown", true, true)]
+    [InlineData("mousedown", false, false)]
+    [InlineData("mousedown", false, true)]
+    [InlineData("click", true, false)]
+    [InlineData("click", true, true)]
+    [InlineData("click", false, false)]
+    [InlineData("click", false, true)]
+    public async Task A_deferred_press_takes_the_consumer_verdict_from_Blazor_s_dispatch_of_its_event_and_runs_the_handler_once(string eventType, bool webAssembly, bool veto)
+    {
+        int consumerRuns = 0;
+        Action<MouseEventArgs> consumer = e =>
+        {
+            consumerRuns++;
+            if (veto)
+            {
+                e.PreventPartHandler();
+            }
+        };
+        bool mouseDown = eventType == "mousedown";
+        IRenderedComponent<TestInteractionsRoot> cut = mouseDown
+            ? RenderPopup(onMouseDown: consumer, click: new InteractionsClickOptions { Event = "mousedown" })
+            : RenderPopup(onClick: consumer, click: new InteractionsClickOptions { TouchOpenDelay = 100 });
+        IRenderedComponent<TestInteractionsTrigger> trigger = cut.FindComponent<TestInteractionsTrigger>();
+        Assert.False(trigger.Instance.Behavior.ForwardsConsumerHandler("on" + eventType));
+        string snapshot = mouseDown ? MouseDownJson : ClickJson;
+
+        if (mouseDown)
+        {
+            trigger.Find("button").MouseDown(new MouseEventArgs { Detail = 1, Buttons = 1 });
+        }
+        else
+        {
+            trigger.Find("button").Click(new MouseEventArgs { Detail = 1 });
+        }
+
+        string? verdict = null;
+        if (webAssembly)
+        {
+            verdict = await cut.InvokeAsync(() =>
+            {
+                host.TriggerTwin.OnPressing("""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"touch","deferred":true}""");
+                return host.TriggerTwin.Decide(InteractionsTwin.PressPoint, snapshot);
+            });
+        }
+        else
+        {
+            await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"touch","event":{{snapshot}},"deferred":true}"""));
+        }
+
+        Assert.Equal(1, consumerRuns);
+        Assert.Equal(webAssembly ? (veto ? "stop" : "run") : null, verdict);
+        Assert.Equal(veto ? 0 : 1, cut.Instance.Requests.Count);
+        Assert.Equal(!veto, cut.Instance.Open);
+    }
+
     [Fact]
     public async Task A_rerender_with_unchanged_inputs_sends_no_update_and_renders_the_trigger_once_per_render()
     {
@@ -322,7 +453,9 @@ public sealed class InteractionsBehaviorTests : IDisposable
     private IRenderedComponent<TestInteractionsRoot> RenderPopup(
         Action<bool, OpenChangeEventDetails>? onOpenChange = null,
         Action<MouseEventArgs>? onClick = null,
-        Action? classValue = null)
+        Action? classValue = null,
+        Action<MouseEventArgs>? onMouseDown = null,
+        InteractionsClickOptions? click = null)
     {
         return host.Context.Render<TestInteractionsRoot>(p => p
             .Add(x => x.OnOpenChange, onOpenChange)
@@ -332,6 +465,16 @@ public sealed class InteractionsBehaviorTests : IDisposable
                 if (onClick is not null)
                 {
                     t.AddUnmatched("onclick", EventCallback.Factory.Create(this, onClick));
+                }
+
+                if (onMouseDown is not null)
+                {
+                    t.AddUnmatched("onmousedown", EventCallback.Factory.Create(this, onMouseDown));
+                }
+
+                if (click is not null)
+                {
+                    t.Add(x => x.Click, click);
                 }
 
                 if (classValue is not null)

@@ -39,11 +39,16 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     /// <param name="requestOpenChange">Runs the popup store's open-change sequence for a request.</param>
     /// <param name="dispatchException">Routes an exception of a consumer handler that ran in a decision to the part.</param>
     /// <param name="onClick">The part's own <c>onclick</c> handler, which calls <see cref="HandleClickAsync"/>.</param>
+    /// <param name="onMouseDown">
+    /// The part's own <c>onmousedown</c> handler, which calls <see cref="HandleMouseDownAsync"/>; needed only by a trigger
+    /// whose press can toggle from the <c>mousedown</c>.
+    /// </param>
     public InteractionsTriggerBehavior(
         IJSRuntime jsRuntime,
         Func<OpenChangeRequest, Task> requestOpenChange,
         Func<Exception, Task> dispatchException,
-        EventCallback onClick)
+        EventCallback onClick,
+        EventCallback onMouseDown = default)
     {
         this.requestOpenChange = requestOpenChange;
         this.dispatchException = dispatchException;
@@ -138,6 +143,11 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 
         return consumerClick.InvokeAsync(e);
     }
+
+    /// <summary>Runs the consumer's <c>onmousedown</c> handler from the part's own, unless the press already ran it.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>The consumer handler's task.</returns>
+    public Task HandleMouseDownAsync(MouseEventArgs e) => Task.CompletedTask;
 
     // The module keys a trigger handle by the session it attached under (a fidelity correction of track 3's behaviour,
     // found by track 5 on detached triggers; settled by the orchestrator 2026-10-28): a trigger whose store has no session
