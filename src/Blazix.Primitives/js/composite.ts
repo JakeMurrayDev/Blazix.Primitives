@@ -22,7 +22,7 @@
 // the focus-driven selection (ADR 04 Amendments 2026-10-20).
 import { dispatchClickWithModifiers, findHiddenInput, isElementDisabled } from './button';
 import { decide } from './decide';
-import { activeElement, contains, getTarget, isElement, isHTMLElement, ownerDocument, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, platform } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
 import { enqueueFocus } from './focus-manager';
 import {
@@ -287,6 +287,338 @@ export function getNextListIndex(
   }
 
   return { index: isIndexOutOfListBounds(list, index) ? -1 : index, wrapped };
+}
+
+// CMP-ALG-07 (M5 track 1, the popup grid; floating-ui-react/utils/composite.ts:11-13)
+/**
+ * Determines whether an index lies in another grid row than a row number.
+ * @param index The index.
+ * @param cols The number of columns.
+ * @param prevRow The row number.
+ * @returns `true` when `floor(index / cols)` differs from `prevRow`.
+ */
+export function isDifferentGridRow(index: number, cols: number, prevRow: number): boolean {
+  return Math.floor(index / cols) !== prevRow;
+}
+
+/** The options of one grid step (`getGridNavigatedIndex`). */
+export interface GridNavigationOptions {
+  /** The keydown. */
+  event: KeyboardEvent;
+  /** The arrow keys the grid moves on horizontally: only `both` moves within a row. */
+  orientation: Orientation;
+  /** Whether a step past either end wraps. */
+  loopFocus: boolean;
+  /** Called when a step wraps, with the destination it may replace; absent for the popup grid. */
+  onLoop?: ((event: KeyboardEvent, prevIndex: number, nextIndex: number) => number) | undefined;
+  /** Whether the reading direction is right to left. */
+  rtl: boolean;
+  /** The number of columns. */
+  cols: number;
+  /** The indices to skip. */
+  disabledIndices: DisabledIndices | undefined;
+  /** The first navigable index. */
+  minIndex: number;
+  /** The last navigable index. */
+  maxIndex: number;
+  /** The index the step starts from; -1 for none. */
+  prevIndex: number;
+  /** Whether a key the grid handles is prevented and stopped. */
+  stopEvent?: boolean | undefined;
+}
+
+// CMP-ALG-08 (M5 track 1, the popup grid; floating-ui-react/utils/composite.ts:111-432): vertical moves follow
+// `[role="row"]` rows when the DOM has rows of another width than `cols`, and inferred rows of that width across a
+// virtualized list's gaps; horizontal moves stay within the row for `both`.
+/**
+ * Computes the index an arrow key moves a grid's highlight to.
+ * @param list The elements array; a virtualized list leaves the unrendered indices empty.
+ * @param options The step's options.
+ * @returns The index, `prevIndex` when the key does not move it.
+ */
+export function getGridNavigatedIndex(list: ReadonlyArray<HTMLElement | null | undefined>, options: GridNavigationOptions): number {
+  const { event, orientation, loopFocus, onLoop, rtl, cols, disabledIndices, minIndex, maxIndex, prevIndex, stopEvent: stop = false } = options;
+  let nextIndex = prevIndex;
+
+  let verticalDirection: 'up' | 'down' | undefined;
+  if (event.key === ARROW_UP) {
+    verticalDirection = 'up';
+  } else if (event.key === ARROW_DOWN) {
+    verticalDirection = 'down';
+  }
+
+  if (verticalDirection) {
+    // Detect row structure only when handling vertical navigation. This keeps the non-vertical key paths free from row
+    // inference work.
+    const rows: number[][] = [];
+    const rowIndexMap: number[] = [];
+    let hasRoleRow = false;
+    let visibleItemCount = 0;
+    {
+      let currentRowEl: Element | null = null;
+      let currentRowIndex = -1;
+
+      list.forEach((el, idx) => {
+        if (el == null) {
+          return;
+        }
+
+        visibleItemCount += 1;
+
+        const rowEl = closest(el, '[role="row"]');
+        if (rowEl) {
+          hasRoleRow = true;
+        }
+
+        if (rowEl !== currentRowEl || currentRowIndex === -1) {
+          currentRowEl = rowEl;
+          currentRowIndex += 1;
+          rows[currentRowIndex] = [];
+        }
+        rows[currentRowIndex]!.push(idx);
+        rowIndexMap[idx] = currentRowIndex;
+      });
+    }
+
+    let hasDomRows = false;
+    let inferredDomCols = 0;
+
+    if (hasRoleRow) {
+      for (const row of rows) {
+        const rowLength = row.length;
+
+        if (rowLength > inferredDomCols) {
+          inferredDomCols = rowLength;
+        }
+
+        if (rowLength !== cols) {
+          hasDomRows = true;
+        }
+      }
+    }
+
+    const hasVirtualizedGaps = hasDomRows && visibleItemCount < list.length;
+    const verticalCols = inferredDomCols || cols;
+
+    const navigateVertically = (direction: 'up' | 'down'): number | undefined => {
+      if (!hasDomRows || prevIndex === -1) {
+        return undefined;
+      }
+
+      const currentRow = rowIndexMap[prevIndex];
+      if (currentRow == null) {
+        return undefined;
+      }
+
+      const colInRow = rows[currentRow]!.indexOf(prevIndex);
+      const step = direction === 'up' ? -1 : 1;
+
+      for (let nextRow = currentRow + step, i = 0; i < rows.length; i += 1, nextRow += step) {
+        if (nextRow < 0 || nextRow >= rows.length) {
+          if (!loopFocus || hasVirtualizedGaps) {
+            return undefined;
+          }
+          nextRow = nextRow < 0 ? rows.length - 1 : 0;
+          if (onLoop) {
+            const clampedCol = Math.min(colInRow, rows[nextRow]!.length - 1);
+            const targetItemIndex = rows[nextRow]![clampedCol] ?? rows[nextRow]![0]!;
+            const returnedItemIndex = onLoop(event, prevIndex, targetItemIndex);
+            nextRow = rowIndexMap[returnedItemIndex] ?? nextRow;
+          }
+        }
+
+        const targetRow = rows[nextRow]!;
+        for (let col = Math.min(colInRow, targetRow.length - 1); col >= 0; col -= 1) {
+          const candidate = targetRow[col]!;
+          if (!isListIndexDisabled(list, candidate, disabledIndices)) {
+            return candidate;
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    const navigateVerticallyWithInferredRows = (direction: 'up' | 'down'): number | undefined => {
+      if (!hasVirtualizedGaps || prevIndex === -1) {
+        return undefined;
+      }
+
+      const colInRow = prevIndex % verticalCols;
+      const rowStep = direction === 'up' ? -verticalCols : verticalCols;
+      const lastRowStart = maxIndex - (maxIndex % verticalCols);
+      const rowCount = Math.floor(maxIndex / verticalCols) + 1;
+
+      for (let rowStart = prevIndex - colInRow + rowStep, i = 0; i < rowCount; i += 1, rowStart += rowStep) {
+        if (rowStart < 0 || rowStart > maxIndex) {
+          if (!loopFocus) {
+            return undefined;
+          }
+          rowStart = rowStart < 0 ? lastRowStart : 0;
+        }
+
+        const rowEnd = Math.min(rowStart + verticalCols - 1, maxIndex);
+        for (let candidate = Math.min(rowStart + colInRow, rowEnd); candidate >= rowStart; candidate -= 1) {
+          if (!isListIndexDisabled(list, candidate, disabledIndices)) {
+            return candidate;
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    if (stop) {
+      stopEvent(event);
+    }
+
+    const verticalCandidate = navigateVertically(verticalDirection) ?? navigateVerticallyWithInferredRows(verticalDirection);
+
+    if (verticalCandidate !== undefined) {
+      nextIndex = verticalCandidate;
+    } else if (prevIndex === -1) {
+      // CMP-EDGE-16
+      nextIndex = verticalDirection === 'up' ? maxIndex : minIndex;
+    } else {
+      nextIndex = findNonDisabledListIndex(list, {
+        startingIndex: prevIndex,
+        amount: verticalCols,
+        decrement: verticalDirection === 'up',
+        disabledIndices,
+      });
+
+      if (loopFocus) {
+        if (verticalDirection === 'up' && (prevIndex - verticalCols < minIndex || nextIndex < 0)) {
+          const col = prevIndex % verticalCols;
+          const maxCol = maxIndex % verticalCols;
+          const offset = maxIndex - (maxCol - col);
+
+          if (maxCol === col) {
+            nextIndex = maxIndex;
+          } else {
+            nextIndex = maxCol > col ? offset : offset - verticalCols;
+          }
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+
+        if (verticalDirection === 'down' && prevIndex + verticalCols > maxIndex) {
+          nextIndex = findNonDisabledListIndex(list, {
+            startingIndex: (prevIndex % verticalCols) - verticalCols,
+            amount: verticalCols,
+            disabledIndices,
+          });
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+      }
+    }
+
+    if (isIndexOutOfListBounds(list, nextIndex)) {
+      nextIndex = prevIndex;
+    }
+  }
+
+  // Remains on the same row/column (CMP-ALG-07).
+  if (orientation === 'both') {
+    const prevRow = Math.floor(prevIndex / cols);
+
+    if (event.key === (rtl ? ARROW_LEFT : ARROW_RIGHT)) {
+      if (stop) {
+        stopEvent(event);
+      }
+
+      if (prevIndex % cols !== cols - 1) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex,
+          disabledIndices,
+        });
+
+        if (loopFocus && isDifferentGridRow(nextIndex, cols, prevRow)) {
+          nextIndex = findNonDisabledListIndex(list, {
+            startingIndex: prevIndex - (prevIndex % cols) - 1,
+            disabledIndices,
+          });
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+      } else if (loopFocus) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex - (prevIndex % cols) - 1,
+          disabledIndices,
+        });
+        if (onLoop) {
+          nextIndex = onLoop(event, prevIndex, nextIndex);
+        }
+      }
+
+      if (isDifferentGridRow(nextIndex, cols, prevRow)) {
+        nextIndex = prevIndex;
+      }
+    }
+
+    if (event.key === (rtl ? ARROW_RIGHT : ARROW_LEFT)) {
+      if (stop) {
+        stopEvent(event);
+      }
+
+      if (prevIndex % cols !== 0) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex,
+          decrement: true,
+          disabledIndices,
+        });
+
+        if (loopFocus && isDifferentGridRow(nextIndex, cols, prevRow)) {
+          nextIndex = findNonDisabledListIndex(list, {
+            startingIndex: prevIndex + (cols - (prevIndex % cols)),
+            decrement: true,
+            disabledIndices,
+          });
+          if (onLoop) {
+            nextIndex = onLoop(event, prevIndex, nextIndex);
+          }
+        }
+      } else if (loopFocus) {
+        nextIndex = findNonDisabledListIndex(list, {
+          startingIndex: prevIndex + (cols - (prevIndex % cols)),
+          decrement: true,
+          disabledIndices,
+        });
+        if (onLoop) {
+          nextIndex = onLoop(event, prevIndex, nextIndex);
+        }
+      }
+
+      if (isDifferentGridRow(nextIndex, cols, prevRow)) {
+        nextIndex = prevIndex;
+      }
+    }
+
+    const lastRow = Math.floor(maxIndex / cols) === prevRow;
+
+    if (isIndexOutOfListBounds(list, nextIndex)) {
+      if (loopFocus && lastRow) {
+        nextIndex =
+          event.key === (rtl ? ARROW_RIGHT : ARROW_LEFT)
+            ? maxIndex
+            : findNonDisabledListIndex(list, {
+                startingIndex: prevIndex - (prevIndex % cols) - 1,
+                disabledIndices,
+              });
+        if (onLoop) {
+          nextIndex = onLoop(event, prevIndex, nextIndex);
+        }
+      } else {
+        nextIndex = prevIndex;
+      }
+    }
+  }
+
+  return nextIndex;
 }
 
 // CMP-ALG-16
@@ -871,6 +1203,16 @@ export interface CompositeListOptions {
   selectedIndex?: number | undefined;
   /** Whether the items are a grid; absent for `false`. */
   grid?: boolean | undefined;
+  /**
+   * The grid's number of columns; absent for 2, the navigator Combobox passes unwrapped (CMP-ALG-13). C# sends none
+   * yet: Base UI's fixtures bind 3, 5 and 7 by wrapping the navigator.
+   */
+  cols?: number | undefined;
+  /**
+   * The list's length when the rendered items are a window of it (an externally virtualized list, Base UI's
+   * `listRef.current.length`); absent for the registered items' extent. C# sends none yet.
+   */
+  itemCount?: number | undefined;
   /** Whether a nested list that is its menu's root stays open on the nested close key; absent for `false`. */
   keepOpenOnCrossOrientationKey?: boolean | undefined;
   /** The references index of the element that takes the focus when a nested list closes; absent for the reference. */
@@ -1922,7 +2264,60 @@ function focusItemOnOpenOf(list: CompositeListOptions): boolean | 'auto' {
 }
 
 function elementsOf(state: ListState): Array<HTMLElement | null> {
-  return state.floating?.registry.elements ?? [];
+  const elements = state.floating?.registry.elements ?? [];
+  // A virtualized list's unrendered indices are empty slots of its full length (CMP-ALG-08's virtualized gaps).
+  const itemCount = currentHandle(state)?.list().itemCount;
+  if (itemCount != null && itemCount > elements.length) {
+    return Array.from({ length: itemCount }, (_, index) => elements[index] ?? null);
+  }
+  return elements;
+}
+
+// CMP-ALG-13 (M5 track 1; floating-ui-react/hooks/gridNavigation.ts:17-47): the popup grid's navigator, uniform 1x1
+// cells, `cols` 2 unless the caller binds another count.
+/**
+ * Computes the index a grid key moves a popup list's highlight to.
+ * @param event The keydown; a key the grid handles is prevented and stopped.
+ * @param prevIndex The cursor.
+ * @param list The elements array.
+ * @param orientation The list's orientation.
+ * @param loopFocus Whether a step past either end wraps.
+ * @param rtl Whether the reading direction is right to left.
+ * @param disabledIndices The indices to skip.
+ * @param minIndex The first navigable index.
+ * @param maxIndex The last navigable index.
+ * @param cols The number of columns; 2 by default.
+ * @returns The index, or `undefined` for none (an out-of-bounds result).
+ */
+export function gridNavigation(
+  event: KeyboardEvent,
+  prevIndex: number,
+  list: ReadonlyArray<HTMLElement | null | undefined>,
+  orientation: Orientation,
+  loopFocus: boolean,
+  rtl: boolean,
+  disabledIndices: DisabledIndices | undefined,
+  minIndex: number,
+  maxIndex: number,
+  cols = 2,
+): number | undefined {
+  const nextIndex = getGridNavigatedIndex(list, {
+    event,
+    orientation,
+    loopFocus,
+    rtl,
+    cols,
+    disabledIndices,
+    minIndex,
+    maxIndex,
+    // CMP-EDGE-17: an out-of-range previous index falls back to the first enabled item.
+    prevIndex: prevIndex > maxIndex ? minIndex : prevIndex,
+    stopEvent: true,
+  });
+
+  // `getGridNavigatedIndex` can return an out-of-bounds sentinel (e.g. `-1` when there is no previous item to move from);
+  // surface that as `undefined` so the caller treats it as "no navigation" rather than highlighting index `-1`.
+  return isIndexOutOfListBounds(list, nextIndex) ? undefined : nextIndex;
 }
 
 function disabledIndicesOfList(state: ListState, list: CompositeListOptions): ReadonlyArray<number> | undefined {
@@ -2512,6 +2907,31 @@ function commonKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispat
       stopDispatch(dispatch);
       state.index = event.key === HOME ? minIndex : maxIndex;
       navigateTo(state, handle, event);
+    }
+  }
+
+  // CMP-KEY-29, CMP-ALG-13: grid navigation runs before the main-key rule. The navigator consumes the vertical arrows,
+  // and the horizontal ones for `both`, so the veto is asked before it runs for those keys.
+  if (isGrid) {
+    const consumed =
+      event.key === ARROW_UP || event.key === ARROW_DOWN || (orientation === 'both' && (event.key === ARROW_LEFT || event.key === ARROW_RIGHT));
+    if (consumed && !proceed(dispatch, handle)) {
+      return;
+    }
+    const index = gridNavigation(event, state.index, elements, orientation, list.loopFocus === true, rtl, disabledIndices, minIndex, maxIndex, list.cols ?? 2);
+    if (consumed) {
+      dispatch.stopped = true;
+    }
+
+    // The grid navigator returns the unchanged index for keys it does not handle, and reporting that as a navigation
+    // would re-emit the current highlight on every keydown.
+    if (index != null && index !== state.index) {
+      state.index = index;
+      navigateTo(state, handle, event);
+    }
+
+    if (orientation === 'both') {
+      return;
     }
   }
 
