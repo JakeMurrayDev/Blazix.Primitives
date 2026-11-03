@@ -59,13 +59,15 @@ public sealed class CollatorFilterTests
         Assert.True(filter.EndsWith("Apple pie", string.Empty));
     }
 
-    [Fact(DisplayName = "port: the default comparison ignores case, non-spacing marks and symbols, and caller options replace it")]
+    // ICU's `base` strength ignores width and kana type too, so they join the defaults on the collation table's evidence
+    // (design point 3 of M5 track 4, settled by the orchestrator 2026-11-04): without them three rows differed.
+    [Fact(DisplayName = "port: the default comparison ignores case, non-spacing marks, symbols, kana type and width, and caller options replace it")]
     [Trait("Requirement", "UTL-I18N-08")]
-    public void The_default_comparison_ignores_case_marks_and_symbols_and_caller_options_replace_it()
+    public void The_default_comparison_ignores_case_marks_symbols_kana_type_and_width_and_caller_options_replace_it()
     {
         CultureInfo culture = new("en-US");
 
-        Assert.Equal(CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreSymbols, CollatorFilter.Create(culture).Options);
+        Assert.Equal(CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreSymbols | CompareOptions.IgnoreKanaType | CompareOptions.IgnoreWidth, CollatorFilter.Create(culture).Options);
         Assert.False(CollatorFilter.Create(culture, CompareOptions.None).Contains("Résumé", "resume"));
         Assert.NotEqual(CollatorFilter.Create(culture), CollatorFilter.Create(culture, CompareOptions.IgnoreCase));
     }
@@ -77,9 +79,8 @@ public sealed class CollatorFilterTests
     public void The_collation_table_row_agrees_with_Intl_Collator(string locale, string text, string query, string rowCase, bool contains, bool startsWith, bool endsWith)
     {
         CollatorFilter filter = CollatorFilter.Create(new CultureInfo(locale));
-        (bool Contains, bool StartsWith, bool EndsWith) expected = s_divergences.TryGetValue(rowCase, out var net) ? net : (contains, startsWith, endsWith);
-
-        Assert.Equal(expected, (filter.Contains(text, query), filter.StartsWith(text, query), filter.EndsWith(text, query)));
+        Assert.Equal((contains, startsWith, endsWith), (filter.Contains(text, query), filter.StartsWith(text, query), filter.EndsWith(text, query)));
+        Assert.False(string.IsNullOrEmpty(rowCase));
     }
 
     public static TheoryData<string, string, string, string, bool, bool, bool> Rows()
@@ -93,16 +94,6 @@ public sealed class CollatorFilterTests
 
         return data;
     }
-
-    // The rows where .NET's CompareInfo answers otherwise than Intl.Collator, each listed in ADR 01's note under decision 2
-    // (equivalent, not byte-identical): what .NET answers. ICU's `base` strength also ignores width and kana type, which the
-    // default options do not (CompareOptions.IgnoreWidth | IgnoreKanaType would close all three; design point 3 of M5 track 4).
-    private static readonly Dictionary<string, (bool, bool, bool)> s_divergences = new(StringComparer.Ordinal)
-    {
-        ["full-width letters"] = (false, false, false),
-        ["katakana against hiragana"] = (false, false, false),
-        ["half-width katakana against katakana"] = (false, false, false),
-    };
 
     private static string TablePath() => Path.Combine(RepositoryRoot.Find(), "tests", "Blazix.Primitives.Tests", "ListValues", "Data", "collation-table.json");
 }

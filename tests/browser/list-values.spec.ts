@@ -7,8 +7,7 @@ import { expect, gotoFixture, test } from './helpers';
 test.describe('collation', () => {
   // UTL-I18N-09..11 and ADR 01 decision 2's note of 2026-11-04: a subset of the L1 collation table
   // (tests/Blazix.Primitives.Tests/ListValues/Data/collation-table.json) run by the collator filter in the page's runtime, as
-  // `contains,startsWith,endsWith`. The expected answers are the L1 table's: Intl.Collator's, except full-width letters and
-  // kana, which CompareInfo's default options compare exactly.
+  // `contains,startsWith,endsWith`. The expected answers are the L1 table's, Intl.Collator's.
   const subset: Record<string, string> = {
     'en-US|Résumé|resume': 'true,true,true',
     'en-US|Résumé|resume': 'false,false,false',
@@ -17,8 +16,8 @@ test.describe('collation', () => {
     'en-US|Æther|aether': 'false,true,false',
     'tr-TR|İstanbul|istanbul': 'true,true,true',
     'tr-TR|ISPARTA|isparta': 'false,false,false',
-    'en-US|ＡＢＣ|abc': 'false,false,false',
-    'ja-JP|カタカナ|かたかな': 'false,false,false',
+    'en-US|ＡＢＣ|abc': 'true,true,true',
+    'ja-JP|カタカナ|かたかな': 'true,true,true',
   };
 
   // WebAssembly loads the ICU data of the application's culture group (icudt_EFIGS.dat for en-US: English, French, Italian,
@@ -41,7 +40,7 @@ test.describe('collation', () => {
     const fixture = await gotoFixture(page, mode, 'list-values-collation');
 
     await expect(fixture.locator('[data-row="tr-TR|ISPARTA|isparta"]')).toHaveText('true,true,true (not predefined)');
-    await expect(fixture.locator('[data-row="ja-JP|カタカナ|かたかな"]')).toHaveText('false,false,false (not predefined)');
+    await expect(fixture.locator('[data-row="ja-JP|カタカナ|かたかな"]')).toHaveText('true,true,true (not predefined)');
   });
 });
 
