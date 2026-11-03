@@ -1639,14 +1639,11 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
 // from its render prop; the port renders them as data-open and data-starting-style/data-ending-style, recorded on every
 // change and deduplicated as Base UI's onState does.
 test.describe('Popover popup transition state', () => {
-  // Quarantined (ADR 11 §4) until 2026-11-12, issue 153: intermittent on Server on main too (an extra leading
-  // { open: true, transitionStatus: undefined } sample; 4 of 8 local repeats on main).
-  test.fixme('starts each opening once when the popup is kept mounted', {
-    tag: '@quarantine',
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/153' },
-  }, async ({ page, mode }) => {
-    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { keepMounted: true, popupClass: 'transition-state', animations: 1 });
-    await page.evaluate(() => {
+  test('starts each opening once when the popup is kept mounted', async ({ page, mode }) => {
+    // Issue 153: the recorder observes from the page's first script on, so its observer always runs before the
+    // `transitions` module's, which the popup's handle creates at its attach. A recorder added after the fixture was ready
+    // ran first only when that attach landed after it (on Server under latency: 10 of 12 runs with 75 ms each way).
+    await page.addInitScript(() => {
       const states: { open: boolean; transitionStatus: string | undefined }[] = [];
       (window as unknown as { popupStates: typeof states }).popupStates = states;
       const record = (popup: Element) => {
@@ -1665,8 +1662,9 @@ test.describe('Popover popup transition state', () => {
             record(entry.target as Element);
           }
         }
-      }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-open', 'data-closed', 'data-starting-style', 'data-ending-style'] });
+      }).observe(document, { attributes: true, subtree: true, attributeFilter: ['data-open', 'data-closed', 'data-starting-style', 'data-ending-style'] });
     });
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { keepMounted: true, popupClass: 'transition-state', animations: 1 });
     const states = () => page.evaluate(() => (window as unknown as { popupStates: { open: boolean; transitionStatus?: string }[] }).popupStates);
     const clearStates = () => page.evaluate(() => {
       (window as unknown as { popupStates: unknown[] }).popupStates.length = 0;
