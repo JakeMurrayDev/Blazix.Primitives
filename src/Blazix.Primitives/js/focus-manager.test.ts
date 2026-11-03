@@ -1741,6 +1741,81 @@ describe('FloatingFocusManager', () => {
     });
   });
 
+  // The untrapped typeable combobox (FloatingFocusManager.tsx:295, 340-363, 545-566, 620-660, 1003; M5 track 2): a typeable
+  // `role="combobox"` reference with `initialFocus` false keeps focus on the input; no inside guards render (FLT-DOM-15),
+  // a focus-out closes in the microtask whatever was focused before (FLT-FOC-11), Tab is never prevented (FLT-KEY-04), and
+  // the outside is hidden from assistive technology with the anchor kept in the control set (FLT-ARIA-01, ARIA-03).
+  describe('the untrapped typeable combobox', () => {
+    function renderCombobox() {
+      const input = element('input', 'input', { role: 'combobox', id: 'reference' });
+      const floating = element('div', 'floating', { role: 'listbox', 'data-open': '' });
+      const one = element('button', 'one', { tabindex: '-1' });
+      floating.append(one);
+      const after = element('button', 'after');
+      document.body.append(input, floating, after);
+      return { input, floating, after };
+    }
+
+    it('floating element closes upon tabbing out of modal combobox', async () => {
+      const { input, floating, after } = renderCombobox();
+      input.focus();
+      const manager = attachManager(floating, { modal: true, initialFocus: false });
+      await settle();
+      expect(document.activeElement).toBe(input);
+
+      await tab();
+
+      expect(document.activeElement).toBe(after);
+      expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+    });
+
+    it('untrapped typeable combobox closes on second tab sequence (click -> tab -> click -> tab)', async () => {
+      const { input, floating, after } = renderCombobox();
+      input.focus();
+      const first = attachManager(floating, { modal: true, initialFocus: false });
+      await settle();
+      await tab();
+      expect(document.activeElement).toBe(after);
+      expect(first.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+      await unmount(first);
+
+      const reopened = element('div', 'floating', { role: 'listbox', 'data-open': '' });
+      reopened.append(element('button', 'one', { tabindex: '-1' }));
+      after.before(reopened);
+      input.focus();
+      const second = attachManager(reopened, { modal: true, initialFocus: false });
+      await settle();
+      expect(document.activeElement).toBe(input);
+
+      await tab();
+
+      expect(document.activeElement).toBe(after);
+      expect(second.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+    });
+
+    it('untrapped combobox creates non-modal focus management', async () => {
+      const input = element('input', 'input', { role: 'combobox', id: 'reference' });
+      const floating = element('div', 'floating', { role: 'listbox', 'data-open': '' });
+      const one = element('button', 'one');
+      const two = element('button', 'two');
+      floating.append(one, two);
+      const outside = element('button', 'outside');
+      document.body.append(input, floating, outside);
+      input.focus();
+      attachManager(floating, { modal: false, initialFocus: false });
+      await settle();
+      expect(document.activeElement).toBe(input);
+
+      // The outside is hidden from assistive technology as in the modal case, the anchor kept in the control set.
+      expect([outside.getAttribute('aria-hidden'), input.hasAttribute('aria-hidden')]).toEqual(['true', false]);
+
+      await tab();
+      expect(document.activeElement).toBe(one);
+      await tab({ shift: true });
+      expect(document.activeElement).toBe(input);
+    });
+  });
+
   describe('prop: disabled', () => {
     it('true -> false', async () => {
       const reference = element('button', 'reference', { id: 'reference' });

@@ -30,6 +30,12 @@ internal sealed record FocusManagerInputs
     /// </value>
     public FocusTargetValue? InitialFocus { get; init; }
 
+    // M5 track 2: FLT-DOM-15's untrapped typeable combobox (FloatingFocusManager.tsx:295, 1003); the module reads the anchor
+    // itself, so this input only decides the inside guards C# renders.
+    /// <summary>Gets a value indicating whether the anchor is a typeable combobox, such as a combobox's input.</summary>
+    /// <value><see langword="true"/> for a typeable combobox anchor; the default is <see langword="false"/>.</value>
+    public bool TypeableComboboxAnchor { get; init; }
+
     /// <summary>Gets where focus returns when the popup closes, as resolved for this close.</summary>
     /// <value>
     /// <see langword="false"/> to move no focus; <see langword="true"/>, an element or an element's id; <see langword="null"/>,
@@ -105,6 +111,7 @@ internal sealed record FocusManagerInputs
             && Modal == other.Modal
             && Disabled == other.Disabled
             && SameTarget(InitialFocus, other.InitialFocus)
+            && TypeableComboboxAnchor == other.TypeableComboboxAnchor
             && SameTarget(ReturnFocus, other.ReturnFocus)
             && ExplicitReturnFocus == other.ExplicitReturnFocus
             && string.Equals(RestoreFocus, other.RestoreFocus, StringComparison.Ordinal)
@@ -130,6 +137,7 @@ internal sealed record FocusManagerInputs
         hash.Add(Open);
         hash.Add(Modal);
         hash.Add(Disabled);
+        hash.Add(TypeableComboboxAnchor);
         hash.Add(InitialFocus?.HasValue);
         hash.Add(ReturnFocus?.HasValue);
         hash.Add(ExplicitReturnFocus);

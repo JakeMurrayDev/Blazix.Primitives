@@ -8,15 +8,25 @@ namespace Blazix.Primitives;
 /// <summary>Defines a popup family's store record: the shared popup state it holds and how to replace it.</summary>
 /// <typeparam name="TSelf">The type of the family's store record.</typeparam>
 /// <typeparam name="TPayload">The type of the payload the popup's triggers carry.</typeparam>
-internal interface IPopupStoreState<TSelf, TPayload>
+// M5 track 2 (ADR 05 Amendments 2026-11-04, design point 1 (a2), settled by the orchestrator 2026-11-04): it extends the
+// open lifecycle's interface through explicit default implementations over Popup.Lifecycle, so PopupStore derives from
+// PopupLifecycleStore<TState> and no family record changes.
+internal interface IPopupStoreState<TSelf, TPayload> : IPopupLifecycleState<TSelf>
     where TSelf : class, IStoreState<TSelf>, IPopupStoreState<TSelf, TPayload>
 {
     /// <summary>Gets the shared popup state.</summary>
     PopupStoreState<TPayload> Popup { get; }
+
+    /// <inheritdoc />
+    PopupLifecycleState IPopupLifecycleState<TSelf>.Lifecycle => Popup.Lifecycle;
 
     /// <summary>Returns a copy of <paramref name="state"/> that holds <paramref name="popup"/>.</summary>
     /// <param name="state">The family's record.</param>
     /// <param name="popup">The shared popup state to hold.</param>
     /// <returns>The copy.</returns>
     static abstract TSelf WithPopup(TSelf state, PopupStoreState<TPayload> popup);
+
+    /// <inheritdoc />
+    static TSelf IPopupLifecycleState<TSelf>.WithLifecycle(TSelf state, in PopupLifecycleState lifecycle) =>
+        TSelf.WithPopup(state, state.Popup with { Lifecycle = lifecycle });
 }

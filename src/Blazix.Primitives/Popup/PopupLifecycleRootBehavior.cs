@@ -8,8 +8,8 @@ namespace Blazix.Primitives;
 
 // The root wiring of a popup built on the open lifecycle alone (ADR 05 Amendments 2026-11-03; M5 track 2 brief deliverable
 // 1; ADR 16 rule 10: an internal class, not a component): Select's, Combobox's and NavigationMenu's Roots and the standalone
-// test hosts compose it. Track 2's main pull request makes PopupRootBehavior<TStore, TState, TPayload> compose it too,
-// adding the handle attachment, the trigger id and the payload template, so the wiring exists once.
+// test hosts compose it; PopupRootBehavior<TStore, TState, TPayload> composes it too and adds the handle attachment, the
+// trigger id and the payload template, so the wiring exists once.
 // - The store is created once, at the first parameter set, with the popup id and the session token drawn from
 //   PartIdGenerator (PSH-STR-01; ADR 04 Amendments 2026-10-27: the token is never rendered).
 // - The render-batch boundary (ADR 01 decision 3's amendment) runs at the root's OnAfterRender, and the root renders when
@@ -23,7 +23,6 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
 {
     private readonly Func<string, string, ILogger?, TStore> createStore;
     private readonly Action requestRender;
-    private readonly RenderFragment content;
     private TStore? store;
     private SelectorSubscription<TState>? subscription;
 
@@ -36,7 +35,6 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
         ArgumentNullException.ThrowIfNull(requestRender);
         this.createStore = createStore;
         this.requestRender = requestRender;
-        content = RenderContent;
     }
 
     /// <summary>Gets the root's store; available from the first parameter set.</summary>
@@ -57,7 +55,7 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
         builder.OpenComponent<CascadingValue<TStore>>(0);
         builder.AddComponentParameter(1, nameof(CascadingValue<TStore>.Value), Store);
         builder.AddComponentParameter(2, nameof(CascadingValue<TStore>.IsFixed), true);
-        builder.AddComponentParameter(3, nameof(CascadingValue<TStore>.ChildContent), content);
+        builder.AddComponentParameter(3, nameof(CascadingValue<TStore>.ChildContent), ChildContent);
         builder.CloseComponent();
     }
 
@@ -97,5 +95,4 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
         subscription = new SelectorSubscription<TState>(store, requestRender);
     }
 
-    private void RenderContent(RenderTreeBuilder builder) => builder.AddContent(0, ChildContent);
 }

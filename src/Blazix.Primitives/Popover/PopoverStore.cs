@@ -11,9 +11,12 @@ namespace Blazix.Primitives;
 // - one write with the reason (POP-STA-06) and the instant type (POP-STA-07). A C# reason is never null, so §16 Q2's
 //   null-reason branch is unreachable (a dated resolution in popover.md).
 // The patient-click flag and its timer (POP-STA-11) are the `interactions` module's (ADR 04 Amendments 2026-10-27).
+// ADR 04 Amendments 2026-11-03 (5) (chosen by the user 2026-11-03; M5 track 2): the store is the Root's node in the
+// family-agnostic cascade, through the fixed store cascade the Root already renders, so a nested popup Root of any family
+// reads this popup's session token as its parent and nothing is added to the Root's render.
 /// <summary>Holds the state of one popover and runs its open-change sequence.</summary>
 /// <typeparam name="TPayload">The type of the payload the popover's triggers carry.</typeparam>
-internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPayload>, TPayload>
+internal sealed class PopoverStore<TPayload> : PopupStore<PopoverStoreState<TPayload>, TPayload>, IFloatingNodeContext
 {
     /// <summary>Initializes a new instance of the <see cref="PopoverStore{TPayload}"/> class.</summary>
     /// <param name="floatingId">The generated id of the popup element.</param>

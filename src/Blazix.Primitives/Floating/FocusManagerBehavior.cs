@@ -64,6 +64,8 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
         this.requestClose = requestClose;
     }
 
+    private bool IsUntrappedTypeableCombobox => inputs.TypeableComboboxAnchor && inputs.InitialFocus is { } focus && focus.TryGetValue(out bool move) && !move;
+
     /// <summary>Gets or sets the context of the portal the popup is rendered inside.</summary>
     /// <value>The cascaded context, or <see langword="null"/> outside any portal. Set it before <see cref="SetInputs"/>.</value>
     public PopupPortalContext? Portal
@@ -87,9 +89,11 @@ internal sealed class FocusManagerBehavior : IAsyncDisposable
         }
     }
 
+    // FLT-DOM-15 (FloatingFocusManager.tsx:1003-1004): an untrapped typeable combobox (its anchor typeable with initialFocus
+    // off, M5 track 2) renders no inside guards when modal.
     /// <summary>Gets a value indicating whether the inside focus guards render beside the popup.</summary>
-    /// <value><see langword="true"/> while the manager is enabled and modal or inside a portal.</value>
-    public bool RendersInsideGuards => !inputs.Disabled && (inputs.Modal || portal is not null);
+    /// <value><see langword="true"/> while the manager is enabled and modal or inside a portal, unless a modal manager's anchor is an untrapped typeable combobox.</value>
+    public bool RendersInsideGuards => !inputs.Disabled && (!inputs.Modal || !IsUntrappedTypeableCombobox) && (inputs.Modal || portal is not null);
 
     /// <summary>Gets the interaction type the module last recorded while the popup was open.</summary>
     /// <value>The type; <see cref="InteractionType.Unknown"/> after an open reset it; <see langword="null"/> before any report.</value>

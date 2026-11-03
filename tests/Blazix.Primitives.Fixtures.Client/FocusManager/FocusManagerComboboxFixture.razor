@@ -1,0 +1,30 @@
+@namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures
+@inherits FocusManagerFixtureBase
+
+@*
+    The `focus-manager-combobox` fixture (tests/browser/focus-manager.spec.ts; M5 track 2): FloatingFocusManager.test.tsx's
+    untrapped typeable combobox. A click on the `role="combobox"` input opens a modal listbox with initial focus off, so
+    focus stays on the input; the manager is untrapped (FLT-DOM-15, FOC-11, KEY-04): no inside guards, Tab is not
+    prevented, and a focus-out closes although the manager is modal.
+*@
+<FixtureContainer Name="focus-manager-combobox" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses">
+    <input id="fm-reference" role="combobox" aria-label="Fruit" data-reference @onclick="OpenOnClick" />
+    @if (IsOpen)
+    {
+        <FixtureFocusManaged @ref="Popup" OnFocusOutClose="OnFocusOutClose" Open="IsOpen" InitialFocus="false" TypeableComboboxAnchor="true" DomReferenceId="fm-reference" OpenInteractionType="@OpenType" CloseEvent="@CloseEvent" role="listbox" data-popup>
+            <button type="button" tabindex="-1" data-one>one</button>
+        </FixtureFocusManaged>
+    }
+    <button type="button" data-after>After</button>
+</FixtureContainer>
+
+@code {
+    // A press on the input opens the listbox and never closes it, as a combobox input does.
+    private void OpenOnClick(MouseEventArgs e)
+    {
+        if (!IsOpen)
+        {
+            Toggle(e);
+        }
+    }
+}

@@ -11,11 +11,14 @@ namespace Blazix.Primitives.Fixtures.Client.Interactions;
 /// <summary>
 /// A test-only popup trigger (M4 track 3): a <c>button</c> carrying two handles, the <c>button</c> module's
 /// (<see cref="ButtonMechanism"/>) and the <c>interactions</c> module's with press-to-toggle
-/// (<see cref="InteractionsTriggerBehavior"/>), as Popover's and Dialog's triggers will.
+/// (<see cref="InteractionsTriggerBehavior"/>), as Popover's and Dialog's triggers will. With <see cref="Event"/> set to
+/// <c>mousedown</c> it toggles from the mousedown as Menu's trigger will (M5 track 2), and declines the consumer's
+/// <c>onmousedown</c> as well as its <c>onclick</c>.
 /// </summary>
 public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
 {
     private readonly EventCallback onClick;
+    private readonly EventCallback onMouseDown;
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
     private ButtonMechanism? button;
@@ -24,6 +27,7 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
     public FixtureInteractionsTrigger()
     {
         onClick = CreateHandler<MouseEventArgs>("onclick", e => interactions!.HandleClickAsync(e));
+        onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => interactions!.HandleMouseDownAsync(e));
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => button!.HandleKeyDownAsync(e));
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => button!.HandleKeyUpAsync(e));
     }
@@ -47,6 +51,14 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
     [Parameter]
     public bool Toggle { get; set; } = true;
 
+    /// <summary>Gets or sets the event a press toggles from (<c>Click.Event</c>): <c>click</c> when null, <c>mousedown</c> or <c>mousedown-only</c>.</summary>
+    [Parameter]
+    public string? Event { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a mouse press is ignored (<c>Click.IgnoreMouse</c>).</summary>
+    [Parameter]
+    public bool IgnoreMouse { get; set; }
+
     /// <summary>Gets a task that completes when both handles are attached.</summary>
     public Task TwinsAttached => Task.WhenAll(button!.TwinAttached, interactions!.TwinAttached);
 
@@ -63,7 +75,7 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         button = new ButtonMechanism(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp);
-        interactions = new InteractionsTriggerBehavior(JSRuntime, request => Root.RequestOpenChange(request), DispatchExceptionAsync, onClick)
+        interactions = new InteractionsTriggerBehavior(JSRuntime, request => Root.RequestOpenChange(request), DispatchExceptionAsync, onClick, onMouseDown)
         {
             Options = new InteractionsTriggerOptions { Click = new InteractionsClickOptions() },
         };
@@ -74,7 +86,10 @@ public sealed class FixtureInteractionsTrigger : PartBase<EmptyState>
     protected override void OnParametersSet()
     {
         interactions!.SessionToken = Root.Session.Token;
-        interactions.Options = new InteractionsTriggerOptions { Click = new InteractionsClickOptions { Toggle = Toggle ? null : false } };
+        interactions.Options = new InteractionsTriggerOptions
+        {
+            Click = new InteractionsClickOptions { Toggle = Toggle ? null : false, Event = Event, IgnoreMouse = IgnoreMouse },
+        };
         button!.SetConsumerAttributes(AdditionalAttributes);
         interactions.SetConsumerAttributes(AdditionalAttributes);
     }

@@ -77,6 +77,13 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
     [Parameter]
     public IReadOnlyList<string>? InsideElementIds { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the reference is a typeable combobox (M5 track 2): with initial focus off the
+    /// manager is untrapped, and a modal one renders no inside guards (FLT-DOM-15).
+    /// </summary>
+    [Parameter]
+    public bool TypeableComboboxAnchor { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the popup renders <c>tabindex="-1"</c>, as every Popup part does.</summary>
     [Parameter]
     public bool RenderTabIndex { get; set; } = true;
@@ -197,6 +204,7 @@ public sealed class FixtureFocusManaged : PartBase<EmptyState>
         DomReferenceId = DomReferenceId,
         TriggerFocusGuards = TriggerFocusGuards,
         InsideElementIds = InsideElementIds,
+        TypeableComboboxAnchor = TypeableComboboxAnchor,
     };
 
     // The value union as a family resolves it: false moves no focus, an id targets that element, else the default.

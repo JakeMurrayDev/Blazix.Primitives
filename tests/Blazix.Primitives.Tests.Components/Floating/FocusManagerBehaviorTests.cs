@@ -141,6 +141,24 @@ public sealed class FocusManagerBehaviorTests : IDisposable
         Assert.Null(portal.Publication);
     }
 
+    // FLT-DOM-15 (FloatingFocusManager.tsx:1003; M5 track 2): a modal manager over a typeable combobox anchor with initialFocus
+    // off renders no inside guards; a non-modal one inside a portal still does, as does a modal one that moves focus.
+    [Fact(DisplayName = "port: a modal manager over an untrapped typeable combobox renders no inside guards, and one that moves focus does")]
+    [Trait("Requirement", "FLT-DOM-15")]
+    public void A_modal_manager_over_an_untrapped_typeable_combobox_renders_no_inside_guards_and_one_that_moves_focus_does()
+    {
+        IRenderedComponent<TestFocusManaged> untrapped = test.Context.Render<TestFocusManaged>(p => p
+            .Add(x => x.Modal, true)
+            .Add(x => x.InitialFocus, (FocusTargetValue)false)
+            .Add(x => x.TypeableComboboxAnchor, true));
+        IRenderedComponent<TestFocusManaged> trapped = test.Context.Render<TestFocusManaged>(p => p
+            .Add(x => x.Modal, true)
+            .Add(x => x.TypeableComboboxAnchor, true));
+
+        Assert.False(untrapped.Instance.Behavior.RendersInsideGuards);
+        Assert.True(trapped.Instance.Behavior.RendersInsideGuards);
+    }
+
     [Fact(DisplayName = "port: the first attach inside a portal waits for the portal's move")]
     [Trait("Requirement", "FLT-FOC-06")]
     public void The_first_attach_inside_a_portal_waits_for_the_portal_s_move()

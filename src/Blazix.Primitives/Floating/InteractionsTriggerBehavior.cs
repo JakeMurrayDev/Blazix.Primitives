@@ -18,19 +18,26 @@ namespace Blazix.Primitives;
 //   (ADR-04/1): the report runs the consumer's onclick and then the request, and the part's onclick skips the click it
 //   already ran. A dispatch with no press before it is a click the module did not turn into a press: it runs the
 //   handler and leaves nothing behind.
+// A trigger that toggles from the mousedown (Click.Event mousedown or mousedown-only; Menu's trigger, M5 track 2) declines
+// the consumer's onmousedown the same way, and a press from the mousedown runs it instead of the onclick (Base UI merges
+// the consumer's onMouseDown before useClick's, and preventBaseUIHandler() there skips the press). A press deferred to a
+// frame or a touch delay (FLT-PTR-02, FLT-PTR-04) fires after Blazor dispatched its event on both modes, so the dispatch
+// runs the handler and keeps its verdict, and the press, which says it was deferred, takes that verdict instead of
+// running the handler again.
 // Every other request the trigger's handle makes (hover, focus, reference press) arrives as a report.
 /// <summary>
-/// One trigger's handle on the <c>interactions</c> module: its options, the gate of the consumer's <c>onclick</c>, the press
-/// decision and the routing of its requests into the popup's store.
+/// One trigger's handle on the <c>interactions</c> module: its options, the gates of the consumer's <c>onclick</c> and
+/// <c>onmousedown</c>, the press decision and the routing of its requests into the popup's store.
 /// </summary>
 internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 {
     private readonly Func<OpenChangeRequest, Task> requestOpenChange;
     private readonly Func<Exception, Task> dispatchException;
     private readonly EventCallback onClick;
+    private readonly EventCallback onMouseDown;
     private readonly InteractionsAttachment attachment;
-    private AttributeValue consumerClick;
-    private ClickKey? decidedClick;
+    private readonly ConsumerGate clickGate = new();
+    private readonly ConsumerGate mouseDownGate = new();
     private string? attachedToken;
     private bool disposed;
 
@@ -39,21 +46,30 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     /// <param name="requestOpenChange">Runs the popup store's open-change sequence for a request.</param>
     /// <param name="dispatchException">Routes an exception of a consumer handler that ran in a decision to the part.</param>
     /// <param name="onClick">The part's own <c>onclick</c> handler, which calls <see cref="HandleClickAsync"/>.</param>
+    /// <param name="onMouseDown">
+    /// The part's own <c>onmousedown</c> handler, which calls <see cref="HandleMouseDownAsync"/>; needed only by a trigger
+    /// whose press can toggle from the <c>mousedown</c>.
+    /// </param>
     public InteractionsTriggerBehavior(
         IJSRuntime jsRuntime,
         Func<OpenChangeRequest, Task> requestOpenChange,
         Func<Exception, Task> dispatchException,
-        EventCallback onClick)
+        EventCallback onClick,
+        EventCallback onMouseDown = default)
     {
         this.requestOpenChange = requestOpenChange;
         this.dispatchException = dispatchException;
         this.onClick = onClick;
+        this.onMouseDown = onMouseDown;
         InteractionsTwin twin = new(jsRuntime);
         twin.RequestReported += OnRequest;
         twin.PressReported += OnPress;
         twin.PressDecider = DecidePress;
         attachment = new InteractionsAttachment(twin);
     }
+
+    // Only a part that supplies its own onmousedown declines the consumer's; another forwards it unchanged.
+    private bool TogglesFromMouseDown => Options.Click?.Event is "mousedown" or "mousedown-only" && onMouseDown.HasDelegate;
 
     /// <summary>Gets or sets the session token of the trigger's popup.</summary>
     /// <value>The token the popup root cascades.</value>
@@ -84,11 +100,12 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         await attachment.DisposeAsync();
     }
 
-    /// <summary>Reads the consumer's <c>onclick</c> handler from the unmatched attributes.</summary>
+    /// <summary>Reads the consumer's <c>onclick</c> and <c>onmousedown</c> handlers from the unmatched attributes.</summary>
     /// <param name="additionalAttributes">The part's unmatched attributes.</param>
     public void SetConsumerAttributes(IReadOnlyDictionary<string, object>? additionalAttributes)
     {
-        consumerClick = default;
+        clickGate.Handler = default;
+        mouseDownGate.Handler = default;
         if (additionalAttributes is null)
         {
             return;
@@ -96,7 +113,8 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 
         foreach (KeyValuePair<string, object> pair in additionalAttributes)
         {
-            if (!IsClick(pair.Key))
+            ConsumerGate? gate = IsClick(pair.Key) ? clickGate : IsMouseDown(pair.Key) ? mouseDownGate : null;
+            if (gate is null)
             {
                 continue;
             }
@@ -104,40 +122,44 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
             AttributeValue value = AttributeValue.FromObject(pair.Value);
             if (MergeProps.IsHandler(pair.Key, value))
             {
-                consumerClick = value;
+                gate.Handler = value;
             }
         }
     }
 
     /// <summary>Determines whether the consumer's handler for an event is rendered on the element.</summary>
     /// <param name="eventName">The event's attribute name in lowercase.</param>
-    /// <returns><see langword="false"/> for <c>onclick</c> while a press toggles the popup; otherwise <see langword="true"/>.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => !(Options.Click is not null && IsClick(eventName));
+    /// <returns>
+    /// <see langword="false"/> for <c>onclick</c> while a press toggles the popup, and for <c>onmousedown</c> while the press
+    /// toggles from the mousedown and the part supplied its own handler; otherwise <see langword="true"/>.
+    /// </returns>
+    public bool ForwardsConsumerHandler(string eventName) =>
+        !(Options.Click is not null && (IsClick(eventName) || (TogglesFromMouseDown && IsMouseDown(eventName))));
 
-    /// <summary>Adds the part's own <c>onclick</c> handler while it runs the consumer's.</summary>
+    /// <summary>Adds the part's own <c>onclick</c> and <c>onmousedown</c> handlers while they run the consumer's.</summary>
     /// <param name="attributes">The part-supplied attributes.</param>
     public void AddAttributes(AttributeList attributes)
     {
-        if (Options.Click is not null && consumerClick.IsHandler)
+        if (Options.Click is not null && clickGate.Handler.IsHandler)
         {
             attributes.Set("onclick", onClick);
+        }
+
+        if (Options.Click is not null && TogglesFromMouseDown && mouseDownGate.Handler.IsHandler)
+        {
+            attributes.Set("onmousedown", onMouseDown);
         }
     }
 
     /// <summary>Runs the consumer's <c>onclick</c> handler from the part's own, unless the press already ran it.</summary>
     /// <param name="e">The event arguments.</param>
     /// <returns>The consumer handler's task.</returns>
-    public Task HandleClickAsync(MouseEventArgs e)
-    {
-        ClickKey? decided = decidedClick;
-        decidedClick = null;
-        if (decided == DecidedClick.From(e) || !consumerClick.IsHandler)
-        {
-            return Task.CompletedTask;
-        }
+    public Task HandleClickAsync(MouseEventArgs e) => clickGate.RunFromDispatch(e);
 
-        return consumerClick.InvokeAsync(e);
-    }
+    /// <summary>Runs the consumer's <c>onmousedown</c> handler from the part's own, unless the press already ran it.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>The consumer handler's task.</returns>
+    public Task HandleMouseDownAsync(MouseEventArgs e) => mouseDownGate.RunFromDispatch(e);
 
     // The module keys a trigger handle by the session it attached under (a fidelity correction of track 3's behaviour,
     // found by track 5 on detached triggers; settled by the orchestrator 2026-10-28): a trigger whose store has no session
@@ -172,6 +194,8 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 
     private static bool IsClick(string name) => string.Equals(name, "onclick", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsMouseDown(string name) => string.Equals(name, "onmousedown", StringComparison.OrdinalIgnoreCase);
+
     private static MouseEventArgs ToArgs(EventSnapshot snapshot) => new()
     {
         Type = snapshot.Type,
@@ -188,19 +212,27 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 
     private InteractionsOptions BuildOptions() => new() { SessionToken = attachedToken, Trigger = Options };
 
-    // Runs the consumer's onclick for the click a press is about, once, and returns whether it vetoed the press.
-    private bool RunConsumerClick(EventSnapshot snapshot)
+    // Runs the consumer's handler for the event a press is about (its onmousedown for a mousedown, its onclick otherwise)
+    // once, and returns whether it vetoed the press. A deferred press takes the verdict of Blazor's dispatch of its event.
+    private bool RunConsumerHandler(EventSnapshot snapshot, bool deferred)
     {
-        if (!consumerClick.IsHandler)
+        ConsumerGate gate = string.Equals(snapshot.Type, "mousedown", StringComparison.Ordinal) ? mouseDownGate : clickGate;
+        if (!gate.Handler.IsHandler)
         {
             return false;
         }
 
         MouseEventArgs args = ToArgs(snapshot);
-        decidedClick = DecidedClick.From(args);
+        if (deferred && gate.TakeDispatchVerdict(args) is { } vetoed)
+        {
+            return vetoed;
+        }
+
+        // A press inside its event precedes Blazor's dispatch of it, which skips the event; a deferred one follows it.
+        gate.MarkDecided(args, !deferred);
         try
         {
-            Task handler = consumerClick.InvokeAsync(args);
+            Task handler = gate.Handler.InvokeAsync(args);
             if (!handler.IsCompleted)
             {
                 _ = Observe(handler);
@@ -218,7 +250,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         return args.PartHandlerPrevented();
     }
 
-    // WebAssembly only, synchronously inside the click.
+    // WebAssembly only, synchronously inside the click, the mousedown, or the frame or timer a deferred press fires from.
     private DecisionPolicy DecidePress(EventSnapshot snapshot)
     {
         if (attachment.Twin.PendingPress is not { } press)
@@ -226,7 +258,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
             return DecisionPolicy.Run;
         }
 
-        if (RunConsumerClick(snapshot))
+        if (RunConsumerHandler(snapshot, press.Deferred))
         {
             return DecisionPolicy.Stop;
         }
@@ -237,7 +269,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 
     private void OnPress(InteractionsPress press)
     {
-        if (RunConsumerClick(press.Event))
+        if (RunConsumerHandler(press.Event, press.Deferred))
         {
             return;
         }
@@ -269,6 +301,59 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         /// <param name="e">The click's arguments.</param>
         /// <returns>The click count and modifiers, matched against Blazor's dispatch of the same click.</returns>
         public static ClickKey From(MouseEventArgs e) => new(e.Detail, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
+    }
+
+    /// <summary>
+    /// One declined consumer handler, <c>onclick</c> or <c>onmousedown</c>, and what a press and Blazor's dispatch of the
+    /// same event tell each other so it runs once per event.
+    /// </summary>
+    private sealed class ConsumerGate
+    {
+        private ClickKey? decided;
+        private ClickKey? dispatched;
+        private bool dispatchVetoed;
+
+        /// <summary>Gets or sets the consumer's handler.</summary>
+        /// <value>The handler read from the unmatched attributes, or the default value when the consumer supplied none.</value>
+        public AttributeValue Handler { get; set; }
+
+        /// <summary>Runs the handler from Blazor's dispatch, unless a press inside the event already ran it.</summary>
+        /// <param name="e">The event arguments.</param>
+        /// <returns>The handler's task.</returns>
+        public Task RunFromDispatch(MouseEventArgs e)
+        {
+            ClickKey key = DecidedClick.From(e);
+            ClickKey? marked = decided;
+            decided = null;
+            if (marked == key || !Handler.IsHandler)
+            {
+                return Task.CompletedTask;
+            }
+
+            Task handler = Handler.InvokeAsync(e);
+            dispatched = key;
+            dispatchVetoed = e.PartHandlerPrevented();
+            return handler;
+        }
+
+        /// <summary>Takes the verdict of the dispatch that ran the handler for a deferred press's event.</summary>
+        /// <param name="args">The press's event arguments.</param>
+        /// <returns>Whether the dispatch's run vetoed the press, or <see langword="null"/> when no dispatch ran it.</returns>
+        public bool? TakeDispatchVerdict(MouseEventArgs args)
+        {
+            if (dispatched != DecidedClick.From(args))
+            {
+                return null;
+            }
+
+            dispatched = null;
+            return dispatchVetoed;
+        }
+
+        /// <summary>Marks the event a press runs the handler for, so Blazor's dispatch of it skips the handler.</summary>
+        /// <param name="args">The press's event arguments.</param>
+        /// <param name="dispatchFollows">Whether Blazor's dispatch of the event is still to come.</param>
+        public void MarkDecided(MouseEventArgs args, bool dispatchFollows) => decided = dispatchFollows ? DecidedClick.From(args) : null;
     }
 
     /// <summary>What matches a press's click against Blazor's dispatch of the same click.</summary>

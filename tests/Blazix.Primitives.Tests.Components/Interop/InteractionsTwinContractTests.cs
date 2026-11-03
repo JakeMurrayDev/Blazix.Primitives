@@ -324,6 +324,85 @@ public sealed class InteractionsTwinContractTests
         Assert.Contains("\"mounted\":true", mounted, StringComparison.Ordinal);
     }
 
+    // ADR 04 Amendments 2026-11-03 (7) (M5 track 2): NavigationMenu's options cross as data, by their module names, and an
+    // exempt selector that changes is a changed dismissal, so it is sent again.
+    [Fact(DisplayName = "port: NavigationMenu's options are written by their module names, and an exempt selector change is a changed dismissal")]
+    [Trait("Requirement", "NAV-PTR-10")]
+    [Trait("Requirement", "NAV-PTR-13")]
+    [Trait("Requirement", "NAV-PTR-17")]
+    public void NavigationMenus_options_are_written_by_their_module_names_and_an_exempt_selector_change_is_a_changed_dismissal()
+    {
+        InteractionsOptions options = new()
+        {
+            Trigger = new InteractionsTriggerOptions
+            {
+                Hover = new InteractionsHoverOptions
+                {
+                    PointerEventsScopeSelector = "ul",
+                    BlockPointerEventsOnEnter = true,
+                    InlineCloseContext = new InteractionsInlineCloseContext("viewport-1", "base-ui-3"),
+                },
+            },
+        };
+
+        string json = System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
+
+        Assert.Contains("\"pointerEventsScopeSelector\":\"ul\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"blockPointerEventsOnEnter\":true", json, StringComparison.Ordinal);
+        Assert.Contains("\"inlineCloseContext\":{\"floatingId\":\"viewport-1\",\"nodeToken\":\"base-ui-3\"}", json, StringComparison.Ordinal);
+        string dismiss = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressExemptSelector = "[data-trigger]" } } }, BlazixJsonContext.Default.InteractionsOptions);
+        Assert.Contains("\"outsidePressExemptSelector\":\"[data-trigger]\"", dismiss, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsDismissOptions { OutsidePressExemptSelector = "a" }, new InteractionsDismissOptions { OutsidePressExemptSelector = "b" });
+    }
+
+    // ADR 04 Amendments 2026-11-03 (7) (M5 track 2): Combobox's exemption list crosses as data by its module name, and the
+    // dismissal compares it by sequence, so an equal list in another instance is an unchanged dismissal and sends nothing.
+    [Fact(DisplayName = "port: the outside-press exemption list is written by its module name, and the dismissal compares it by sequence")]
+    [Trait("Requirement", "CMB-DIS-01")]
+    public void The_outside_press_exemption_list_is_written_by_its_module_name_and_the_dismissal_compares_it_by_sequence()
+    {
+        InteractionsDismissOptions dismiss = new() { OutsidePressExemptIds = ["clear", "chips"] };
+
+        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = dismiss } }, BlazixJsonContext.Default.InteractionsOptions);
+
+        Assert.Contains("\"outsidePressExemptIds\":[\"clear\",\"chips\"]", json, StringComparison.Ordinal);
+        InteractionsDismissOptions same = new() { OutsidePressExemptIds = new List<string> { "clear", "chips" } };
+        Assert.Equal(dismiss, same);
+        Assert.Equal(dismiss.GetHashCode(), same.GetHashCode());
+        Assert.NotEqual(dismiss, new InteractionsDismissOptions { OutsidePressExemptIds = ["chips", "clear"] });
+        Assert.NotEqual(dismiss, new InteractionsDismissOptions());
+    }
+
+    // ADR 04 Amendments 2026-11-03 (7) (M5 track 2): ContextMenu's outside-press grace crosses in milliseconds; 0, its default,
+    // is not sent, and a changed grace is a changed dismissal.
+    [Fact(DisplayName = "port: the outside-press grace is written in milliseconds by its module name, 0 is not sent, and a change is a changed dismissal")]
+    [Trait("Requirement", "CTX-STA-08")]
+    [Trait("Requirement", "CTX-DIS-01")]
+    public void The_outside_press_grace_is_written_in_milliseconds_by_its_module_name_0_is_not_sent_and_a_change_is_a_changed_dismissal()
+    {
+        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressGrace = 500 } } }, BlazixJsonContext.Default.InteractionsOptions);
+        string zero = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressGrace = 0 } } }, BlazixJsonContext.Default.InteractionsOptions);
+
+        Assert.Contains("\"outsidePressGrace\":500", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("outsidePressGrace", zero, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsDismissOptions { OutsidePressGrace = 500 }, new InteractionsDismissOptions { OutsidePressGrace = 250 });
+    }
+
+    // ADR 04 Amendments 2026-11-03 (7) (M5 track 2): the mixed toggle's action (PSH-PTR-04) crosses by its module name, and a
+    // changed action is a changed click.
+    [Fact(DisplayName = "port: the mixed toggle's mousedown action is written by its module name, and a change is a changed click")]
+    [Trait("Requirement", "PSH-PTR-04")]
+    [Trait("Requirement", "PSH-ALG-20")]
+    public void The_mixed_toggles_mousedown_action_is_written_by_its_module_name_and_a_change_is_a_changed_click()
+    {
+        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Click = new InteractionsClickOptions { MouseDownAction = "open" } } }, BlazixJsonContext.Default.InteractionsOptions);
+        string unset = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Click = new InteractionsClickOptions() } }, BlazixJsonContext.Default.InteractionsOptions);
+
+        Assert.Contains("\"mouseDownAction\":\"open\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("mouseDownAction", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsClickOptions { MouseDownAction = "open" }, new InteractionsClickOptions { MouseDownAction = "close" });
+    }
+
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
     {
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);

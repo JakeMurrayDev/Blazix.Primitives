@@ -150,11 +150,13 @@ internal sealed class TestInteractionsRoot : ComponentBase, IAsyncDisposable
 internal sealed class TestInteractionsTrigger : PartBase<EmptyState>
 {
     private readonly EventCallback onClick;
+    private readonly EventCallback onMouseDown;
     private InteractionsTriggerBehavior? behavior;
 
     public TestInteractionsTrigger()
     {
         onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
+        onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.HandleMouseDownAsync(e));
     }
 
     [Inject]
@@ -183,7 +185,7 @@ internal sealed class TestInteractionsTrigger : PartBase<EmptyState>
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        behavior = new InteractionsTriggerBehavior(JSRuntime, request => Root.RequestOpenChange(request), exception => throw exception, onClick);
+        behavior = new InteractionsTriggerBehavior(JSRuntime, request => Root.RequestOpenChange(request), exception => throw exception, onClick, onMouseDown);
         base.OnInitialized();
     }
 

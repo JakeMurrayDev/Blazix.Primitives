@@ -15,9 +15,12 @@ namespace Blazix.Primitives;
 //   (alert mode: modal, no pointer dismissal, the alertdialog role; ADL §3.5).
 // - DLG-STA-04..06: a nested root's report (ReportNestedOpen) is dropped while this dialog is neither open nor mounted;
 //   the count resets once it is closed and unmounted (ResetNestedIfClosed, called from the root's commit path).
+// ADR 04 Amendments 2026-11-03 (5) (chosen by the user 2026-11-03; M5 track 2): the store is the Root's node in the
+// family-agnostic cascade, through the fixed store cascade the Root already renders, so a nested popup Root of any family
+// reads this popup's session token as its parent and nothing is added to the Root's render.
 /// <summary>Holds the state of one dialog and runs its open-change sequence.</summary>
 /// <typeparam name="TPayload">The type of the payload the dialog's triggers carry.</typeparam>
-internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPayload>, TPayload>, IDialogRootContext
+internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPayload>, TPayload>, IDialogRootContext, IFloatingNodeContext
 {
     private EventSnapshot? lastCloseEvent;
 

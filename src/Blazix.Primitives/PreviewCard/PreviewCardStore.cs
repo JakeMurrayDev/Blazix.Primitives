@@ -38,9 +38,12 @@ internal sealed partial record PreviewCardStoreState<TPayload>(
 // preview-card/store/PreviewCardStore.ts; PRV-STA-01, PRV-STA-10, PRV-STA-11, PRV-STA-14; PSH-STA-37 (the inert fallback
 // store). The instant type is EVD-EVT-17's base change applied with every committed change; a change with an unmapped
 // reason keeps the previous value (PRV §16 Q4, replicated; chosen by the user 2026-10-27, ADR 04 Amendments 2026-10-27).
+// ADR 04 Amendments 2026-11-03 (5) (chosen by the user 2026-11-03; M5 track 2): the store is the Root's node in the
+// family-agnostic cascade, through the fixed store cascade the Root already renders, so a nested popup Root of any family
+// reads this popup's session token as its parent and nothing is added to the Root's render.
 /// <summary>Runs one preview card's open-change sequence and holds its instant type and forwarded close delay.</summary>
 /// <typeparam name="TPayload">The type of the payload the card's triggers carry.</typeparam>
-internal sealed class PreviewCardStore<TPayload> : PopupStore<PreviewCardStoreState<TPayload>, TPayload>
+internal sealed class PreviewCardStore<TPayload> : PopupStore<PreviewCardStoreState<TPayload>, TPayload>, IFloatingNodeContext
 {
     /// <summary>Initializes a new instance of the <see cref="PreviewCardStore{TPayload}"/> class.</summary>
     /// <param name="floatingId">The popup's generated id, or <see langword="null"/> for a fallback store.</param>
