@@ -3487,6 +3487,10 @@ function createHoverReferenceController(context: HandleContext): Controller {
       }
     },
     dispose() {
+      // NavigationMenuTrigger.tsx:488-501 (NAV-EDGE-10): the unmount of the trigger the lock was applied for releases it.
+      if (hoverOptions()?.blockPointerEventsOnEnter === true && instance.pointerEventsReferenceElement === element) {
+        clearPointerEvents();
+      }
       uninstallHover();
       uninstallPress();
       cleanupMouseMoveHandler();
