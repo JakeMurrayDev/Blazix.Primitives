@@ -1234,6 +1234,43 @@ describe('useDismiss', () => {
       expect(popup.open).toBe(false);
     });
 
+    // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), M5 track 2: a press inside the Trigger, the Clear, the
+    // Chips or the InputGroup, named by id, is not outside.
+    it('port: a press inside an element the exemption list names is not outside, and a press elsewhere is', () => {
+      const { popup } = renderApp({ outsidePressExemptIds: ['combobox-clear'] } as AppProps);
+      const clear = element('button', 'combobox-clear');
+      const icon = document.createElement('span');
+      clear.append(icon);
+
+      userClick(icon);
+      expect(popup.open).toBe(true);
+
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+    });
+
+    // ContextMenu's grace (MenuRoot.tsx:200-201, 322-333, 500-512; CTX-STA-08, CTX-DIS-01, CTX-DIS-02), M5 track 2: outside
+    // presses are ignored until the grace after the open has passed, unless the open came from a `contextmenu`; the timer
+    // is the module's and is cleared on close.
+    it('port: with the outside-press grace, a press within the grace after an open is not outside, one after it is, and an open from a contextmenu has none', () => {
+      vi.useFakeTimers();
+      const popup = harness();
+      popup.attachSession({ session: { dismiss: { outsidePressGrace: 500 } as never } });
+      popup.attachFloating(element('div'));
+
+      popup.setOpen(true, 'trigger-press', null, 'click');
+      userClick(document.body);
+      expect(popup.open).toBe(true);
+      vi.advanceTimersByTime(500);
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+
+      popup.setOpen(true, 'trigger-press', null, 'contextmenu');
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+      vi.useRealTimers();
+    });
+
     // NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65; NAV-PTR-17, NavigationMenuRoot.test.tsx "does
     // not close menu when clicking a different trigger with mouse"), a branch of FLT-DIS-09 as data (M5 track 2).
     it('port: a press inside an element the exempt selector matches is not outside, and a press elsewhere is', () => {
