@@ -8,8 +8,8 @@ namespace Blazix.Primitives;
 
 // The root wiring of a popup built on the open lifecycle alone (ADR 05 Amendments 2026-11-03; M5 track 2 brief deliverable
 // 1; ADR 16 rule 10: an internal class, not a component): Select's, Combobox's and NavigationMenu's Roots and the standalone
-// test hosts compose it; PopupRootBehavior<TStore, TState, TPayload> composes it too and adds the handle attachment, the
-// trigger id and the payload template, so the wiring exists once.
+// test hosts compose it. Track 2's main pull request makes PopupRootBehavior<TStore, TState, TPayload> compose it too,
+// adding the handle attachment, the trigger id and the payload template, so the wiring exists once.
 // - The store is created once, at the first parameter set, with the popup id and the session token drawn from
 //   PartIdGenerator (PSH-STR-01; ADR 04 Amendments 2026-10-27: the token is never rendered).
 // - The render-batch boundary (ADR 01 decision 3's amendment) runs at the root's OnAfterRender, and the root renders when
