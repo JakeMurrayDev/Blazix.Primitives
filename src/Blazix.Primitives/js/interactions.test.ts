@@ -5067,3 +5067,25 @@ describe('inlineRect', () => {
   });
 });
 // #endregion pointer tests
+
+// ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04), M5 track 2: the `context-menu` module sets a session's
+// position reference to a 0 × 0 rect at a point, or the origin rect before any gesture; the Positioner's explicit anchor
+// keeps precedence (FLT-API-11) through `positioning`, which follows the session's reference.
+describe('setSessionPositionReference', () => {
+  it('port: the setter anchors a session to a 0 × 0 rect at a point, and null clears it; an unknown token is ignored', async () => {
+    const { setSessionPositionReference } = await import('./interactions');
+    const popup = createPopupHarness();
+    popup.attachSession();
+    const session = getSession(popup.token)!;
+
+    setSessionPositionReference(popup.token, { x: 10, y: 20, width: 0, height: 0 });
+
+    const rect = session.positionReference?.getBoundingClientRect();
+    expect([rect?.x, rect?.y, rect?.width, rect?.height, rect?.left, rect?.top, rect?.right, rect?.bottom]).toEqual([10, 20, 0, 0, 10, 20, 10, 20]);
+
+    setSessionPositionReference(popup.token, null);
+    expect(session.positionReference).toBeNull();
+    setSessionPositionReference('no-such-token', { x: 1, y: 1, width: 0, height: 0 });
+    popup.dispose();
+  });
+});
