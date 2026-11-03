@@ -135,6 +135,16 @@ internal sealed record CompositeListOptions
     /// <summary>Gets the typeahead of the list.</summary>
     /// <value>The typeahead options, or <see langword="null"/>, the default, for no typeahead.</value>
     public CompositeTypeaheadOptions? Typeahead { get; init; }
+
+    // CMP-ALG-13: Base UI's grid navigator takes the column count of the wrapper a consumer gives it (2 by default).
+    /// <summary>Gets the number of columns of a grid without rows.</summary>
+    /// <value>The count, or <see langword="null"/>, the default, for 2.</value>
+    public int? Cols { get; init; }
+
+    // A windowed list (Combobox's `virtualized`, CMB-API-22) registers only the items it renders, by explicit index.
+    /// <summary>Gets the number of items of a windowed list, of which only some are rendered and registered.</summary>
+    /// <value>The count, or <see langword="null"/>, the default, for the registered items.</value>
+    public int? ItemCount { get; init; }
 }
 
 // ADR 04 Amendments 2026-11-03 (2): a C#-origin highlight goes through `update` with a revision, so a stale echo is

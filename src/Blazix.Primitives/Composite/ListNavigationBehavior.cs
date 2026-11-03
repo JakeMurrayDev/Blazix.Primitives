@@ -52,6 +52,8 @@ internal sealed class ListNavigationBehavior : IDisposable
     private int? selectedIndex;
     private bool grid;
     private bool keepOpenOnCrossOrientationKey;
+    private int? cols;
+    private int? itemCount;
     private int typeaheadResetMs;
     private string? typeaheadSkip;
     private IReadOnlyList<string?>? typeaheadLabels;
@@ -176,6 +178,14 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <summary>Gets or sets a value indicating whether a nested list that is its menu's root stays open on the nested close key.</summary>
     /// <value><see langword="true"/> for a context menu's root menu; the default is <see langword="false"/>.</value>
     public bool KeepOpenOnCrossOrientationKey { get => keepOpenOnCrossOrientationKey; set => Set(ref keepOpenOnCrossOrientationKey, value); }
+
+    /// <summary>Gets or sets the number of columns of a grid without rows.</summary>
+    /// <value>The count, or <see langword="null"/>, the default, for 2.</value>
+    public int? Cols { get => cols; set => Set(ref cols, value); }
+
+    /// <summary>Gets or sets the number of items of a windowed list, of which only some are rendered.</summary>
+    /// <value>The count, or <see langword="null"/>, the default, for the registered items.</value>
+    public int? ItemCount { get => itemCount; set => Set(ref itemCount, value); }
 
     /// <summary>Gets the highlighted index the module last reported.</summary>
     /// <value>The index, or <see langword="null"/> while no item is highlighted.</value>
@@ -447,6 +457,8 @@ internal sealed class ListNavigationBehavior : IDisposable
         KeepOpenOnCrossOrientationKey = keepOpenOnCrossOrientationKey,
         Highlight = highlightRequest,
         Typeahead = typeahead ? new CompositeTypeaheadOptions { ResetMs = typeaheadResetMs, Skip = typeaheadSkip, Labels = typeaheadLabels } : null,
+        Cols = cols,
+        ItemCount = itemCount,
     };
 
     private async Task ObserveAsync(Task task)

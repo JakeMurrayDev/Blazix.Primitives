@@ -1219,13 +1219,12 @@ export interface CompositeListOptions {
   /** Whether the items are a grid; absent for `false`. */
   grid?: boolean | undefined;
   /**
-   * The grid's number of columns; absent for 2, the navigator Combobox passes unwrapped (CMP-ALG-13). C# sends none
-   * yet: Base UI's fixtures bind 3, 5 and 7 by wrapping the navigator.
+   * The grid's number of columns; absent for 2, the navigator Combobox passes unwrapped (CMP-ALG-13); C#'s `Cols`.
    */
   cols?: number | undefined;
   /**
    * The list's length when the rendered items are a window of it (an externally virtualized list, Base UI's
-   * `listRef.current.length`); absent for the registered items' extent. C# sends none yet.
+   * `listRef.current.length`); absent for the registered items' extent; C#'s `ItemCount`.
    */
   itemCount?: number | undefined;
   /** Whether a nested list that is its menu's root stays open on the nested close key; absent for `false`. */
