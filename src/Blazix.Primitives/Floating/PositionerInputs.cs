@@ -1,3 +1,5 @@
+using Blazix.Primitives.Interop;
+
 namespace Blazix.Primitives;
 
 // What a family's Positioner part hands its PositionerBehavior on every parameter set (M4 track 2, brief deliverable 6):
@@ -90,4 +92,10 @@ internal sealed record PositionerInputs
     /// <summary>Gets the popup's session token.</summary>
     /// <value>The token the popup root drew, or <see langword="null"/> for none.</value>
     public string? SessionToken { get; init; }
+
+    // M5 track 2 (brief deliverable 4): NavigationMenu's rootBoundary (NAV-POS-03) and ContextMenu's crossAxis
+    // (MenuPositioner.tsx:123-127), passed to PositioningOptions.Shift; the behavior ignores it until its commit.
+    /// <summary>Gets how the popup shifts along the alignment axis to stay in view.</summary>
+    /// <value>The shift configuration, or <see langword="null"/> for the default shift.</value>
+    public PositioningShift? Shift { get; init; }
 }

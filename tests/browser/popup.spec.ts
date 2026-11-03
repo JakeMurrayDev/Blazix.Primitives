@@ -156,3 +156,96 @@ test.describe('a portal moved into a closed shadow root', () => {
     await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
   });
 });
+
+// FLT-STR-11 (M5 track 2, brief deliverable 1; ADR 05 Amendments 2026-11-03): the standalone host composes the open
+// lifecycle alone, with an `interactions` session on its token and a transitions-watched popup, and no trigger registry,
+// payload or handle. The session dismisses on Escape only while it knows the popup is open, so an Escape close proves the
+// committed state and its relay reached it.
+test.describe('the standalone lifecycle host', () => {
+  test('port: opens without a trigger and closes on Escape, the session knowing each committed change', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popup-lifecycle');
+    const popup = page.getByTestId('popup');
+
+    await fixture.locator('[data-open-button]').click();
+
+    await expect(popup).toHaveAttribute('data-open', '');
+    await expect(popup).toHaveAttribute('role', 'dialog');
+    expect(await popup.getAttribute('id')).toBeTruthy();
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true');
+
+    await page.keyboard.press('Escape');
+
+    await expect(popup).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-press false:escape-key');
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+  });
+
+  test('port: the popup is added with its enter transition and removed after its exit transition, in order', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popup-lifecycle', { animations: 1 });
+    await recordLifecycleMarks(page);
+
+    await fixture.locator('[data-open-button]').click();
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+
+    const marks = await page.evaluate(() => (window as unknown as { lifecycleMarks: string[] }).lifecycleMarks);
+    expect(marks[0]).toBe('added');
+    expect(marks.indexOf('data-starting-style')).toBeGreaterThan(0);
+    expect(marks.indexOf('data-ending-style')).toBeGreaterThan(marks.indexOf('data-starting-style'));
+    expect(marks.at(-1)).toBe('removed');
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+  });
+
+  // TRN-ANI-22's mechanism (useUnmountAfterClose.ts:102-116, useOpenChangeComplete.tsx:24-26): the unmount action while the
+  // popup is closed and still animating out unmounts it in the same commit, and its exit completes no second time.
+  test('port: an unmount while closing removes the popup at once, and its exit completes no second time', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popup-lifecycle', { animations: 1, exit: 'long' });
+    const popup = page.getByTestId('popup');
+    await fixture.locator('[data-open-button]').click();
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true');
+    await page.keyboard.press('Escape');
+    await expect(popup).toHaveAttribute('data-ending-style', '');
+
+    await fixture.locator('[data-unmount-button]').click();
+
+    await expect(popup).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-press false:escape-key');
+  });
+});
+
+/** Records, in order, the popup's insertion (`added`), its status attributes as they appear, and its removal (`removed`). */
+async function recordLifecycleMarks(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const marks: string[] = [];
+    (window as unknown as { lifecycleMarks: string[] }).lifecycleMarks = marks;
+    const isPopup = (node: Node): node is Element => node instanceof Element && node.matches('[data-testid="popup"]');
+    new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === 'childList') {
+          for (const node of record.addedNodes) {
+            if (isPopup(node)) {
+              marks.push('added');
+              for (const name of ['data-starting-style', 'data-ending-style']) {
+                if (node.hasAttribute(name)) {
+                  marks.push(name);
+                }
+              }
+            }
+          }
+
+          for (const node of record.removedNodes) {
+            if (isPopup(node)) {
+              marks.push('removed');
+            }
+          }
+        } else if (isPopup(record.target) && record.attributeName !== null && record.target.hasAttribute(record.attributeName)) {
+          marks.push(record.attributeName);
+        }
+      }
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-starting-style', 'data-ending-style'] });
+  });
+}
