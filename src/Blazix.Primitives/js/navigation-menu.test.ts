@@ -925,6 +925,36 @@ describe('size', () => {
     expect(getPopupSizeVars(popup, positioner)).toEqual({ popupWidth: 'auto', popupHeight: 'auto', positionerWidth: '250px', positionerHeight: '220px' });
   });
 
+  it('does not animate popup sizing when kept nested default content first moves into the portal', async () => {
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const rendered = renderMenu({ keepMounted: true });
+    const popup = rendered.popup!;
+    const positioner = rendered.positioner!;
+    // Base UI's order: the click's commit runs the opening before the test mocks the measurements.
+    popup.setAttribute('data-starting-style', '');
+    rendered.commit('item-1');
+    await flushMicrotasks();
+    const setProperty = vi.spyOn(popup.style, 'setProperty');
+    const heights = [120, 220];
+    let height = 220;
+    mockOffset(popup, () => 250, () => {
+      height = heights.shift() ?? height;
+      return height;
+    });
+
+    // The kept content's nested default content first moves into the portal.
+    rendered.item('item-1').content!.appendChild(document.createElement('div'));
+    await flushMicrotasks();
+    popup.removeAttribute('data-starting-style');
+    await settle();
+
+    expect(getPopupSizeVars(popup, positioner)).toEqual({ popupWidth: 'auto', popupHeight: 'auto', positionerWidth: '250px', positionerHeight: '220px' });
+    const fixedHeights = setProperty.mock.calls.filter((call) => call[0] === '--popup-height').map((call) => call[1]).filter((value) => value !== 'auto' && value !== '0px');
+    expect(fixedHeights.length).toBeGreaterThan(0);
+    expect(fixedHeights.every((value) => value === '220px')).toBe(true);
+    setProperty.mockRestore();
+  });
+
   it('updates popup sizing when the window is resized while the popup is open', async () => {
     vi.stubGlobal(
       'ResizeObserver',
