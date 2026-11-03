@@ -360,6 +360,21 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.Equal(EventReason.TriggerHover, cut.Instance.Changes[^1].Details.Reason);
     }
 
+    [Fact(DisplayName = "opens with list-navigation when the open key activates a trigger")]
+    [Trait("Requirement", "NAV-EVT-02")]
+    [Trait("Requirement", "NAV-KEY-01")]
+    public async Task Opens_with_list_navigation_when_the_open_key_activates_a_trigger()
+    {
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render();
+
+        await NavigationMenuTestContext.ActivateAsync(cut, "trigger-item-1", "list-navigation", eventJson: NavigationMenuTestContext.Key("ArrowDown"));
+
+        (string? value, OpenChangeEventDetails details) = Assert.Single(cut.Instance.Changes);
+        Assert.Equal("item-1", value);
+        Assert.Equal(EventReason.ListNavigation, details.Reason);
+        Assert.Equal("true", Expanded(cut, "trigger-item-1"));
+    }
+
     [Fact(DisplayName = "clears activation direction when controlled value closes externally after switching triggers")]
     [Trait("Requirement", "NAV-DOM-18")]
     public async Task Clears_activation_direction_when_controlled_value_closes_externally_after_switching_triggers()
