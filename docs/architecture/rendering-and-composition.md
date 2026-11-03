@@ -7,6 +7,7 @@
 | Tests | `internals/useRenderElement.test.tsx`, `internals/useRenderElement.spec.tsx`, `internals/getStateAttributesProps.test.ts`, `internals/stateAttributesMapping.test.ts`, `internals/resolveRenderedId.test.tsx`, `merge-props/mergeProps.test.ts`, `use-render/useRender.test.tsx`, `use-render/useRender.spec.tsx`, `utils/listbox-separator/ListboxSeparator.test.tsx`, `select/item-indicator/SelectItemIndicator.test.tsx`, `combobox/item-indicator/ComboboxItemIndicator.test.tsx`, `packages/utils/src/useId.test.tsx`, `packages/utils/src/useId.react17.test.tsx`, `packages/utils/src/useMergedRefs.test.tsx`, `packages/utils/src/getReactElementRef.test.tsx`, `test/describeConformance.tsx`, `test/conformanceTests/*.tsx` |
 | Prefix | `RND` |
 | Status | approved |
+| Revised | 2026-11-04 |
 | Used by | every component document (all 41 modules render through this pipeline); `architecture/transitions-and-mounting.md` (transition data attributes), `architecture/popup-store-and-handles.md` (popup state mappings), `architecture/field-and-form-infrastructure.md` (validity mapping), `architecture/button-behavior.md` (`nativeButton`, function-form props), `architecture/event-details-and-reasons.md` (`BaseUIEvent` vs event details) |
 
 Citation note: source paths are relative to `reference/base-ui/packages/react/src/` per conventions §3.1. Paths beginning with `test/` are relative to `reference/base-ui/packages/react/` (the conformance suite lives outside `src/`). Paths beginning with `packages/utils/` or `docs/` are relative to `reference/base-ui/`.
@@ -871,3 +872,14 @@ Counts: STR 11, API 13, STA 3, DOM 53, ARIA 2, ANI 3, EVT 13, ALG 15, EDGE 9 —
 7. **`describeConformance` harness error.** `test/conformanceTests/utils.ts:1-6` throws `missing "<field>" in options` when a suite is misconfigured; this is a test-harness contract, not library behavior, and is not given a requirement. Confirm the translated suite should keep it.
 8. **ARIA/`id` on element substitution.** RND-DOM-32 states callbacks are opaque and "expected to use the id passed to them" (`internals/resolveRenderedId.ts:12-14`). If a callback drops the `id`, IDREFs computed by the owner (e.g. a trigger's `aria-controls`) dangle. The same happens with a substitute *element* carrying its own `id` on every part except `Menu.Popup` and the filterable `Menu.List`, because only those two resolve the rendered id (RND-DOM-54); Dialog/Popover Title/Description, Select/Combobox labels and group labels register the computed (`id`-prop, root-derived or `useBaseUiId`) value. This is documented library behavior, not a defect, but component documents for popups should repeat the expectation.
    Resolved for Dialog (DLG-EDGE-18), Select (SEL-EDGE-21) and Combobox (CMB-EDGE-13); Menu covered by MNU-EDGE-16.
+
+**Implementation revision of 2026-11-04 (M5 track 4, [issue 162](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/162); design point 1 settled by the orchestrator 2026-11-04: the shared behaviours live in `Utilities/`).**
+- *`ListboxSeparator`* (`Utilities/ListboxSeparatorAttributes`): API-13 and DOM-53 (`ListboxSeparator.test.tsx`'s titles), ARIA-02 and STR-11's `div` (the conformance suite), green at L2 on a test-only separator.
+- *`ItemIndicator`* (`Utilities/ItemIndicatorBehavior`):
+  - green at L2 on a test-only indicator: API-12, DOM-51, ARIA-01, ANI-01 and ANI-02 (`SelectItemIndicator.test.tsx`'s and `ComboboxItemIndicator.test.tsx`'s titles, the families incidental, ADR 13 Amendments 2026-10-22), DOM-50 (a port title) and STR-10's `span` (the conformance suite);
+  - green at L4 on `list-values-indicator`, both modes: DOM-52 and ANI-03 ("settles out of its transition state after the item is deselected", "preserves the kept-mounted element across selection changes").
+- *STR-10's port note:* RND-ANI-01's mounting decision (selected, kept mounted, or through the exit) is the behaviour's, identical in both Base UI wrappers, so the shells pass only `Selected`, from their item.
+- *Open, by ID:*
+  - STR-10's family clause and its `SelectItemIndicator` conformance title → M5 track 9; the `Combobox.ItemIndicator` half → track 10;
+  - "exposes the listbox separator behavior" (STR-11, ARIA-02) → tracks 9, 10 and 11;
+  - tracks 9 and 10 re-run the indicator titles on their parts and add "also proven through" notes.
