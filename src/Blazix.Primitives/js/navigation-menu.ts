@@ -37,7 +37,7 @@ import {
 } from './dom';
 import { eventInfo } from './event-info';
 import { getNextTabbable, getPreviousTabbable, getTabbableNearElement, isOutsideEvent, disableFocusInside, enableFocusInside } from './focus-manager';
-import { getNodeChildren, getSession } from './interactions';
+import { clearSessionOpenEvent, getNodeChildren, getSession } from './interactions';
 import { platform } from './platform';
 import { getPopupAnchoringStyles, type PhysicalSide } from './popup';
 import { createAnimationsWatcher, createFrameSlot, ENDING_STYLE, STARTING_STYLE, type AnimationsWatcher, type FrameSlot } from './transitions';
@@ -371,13 +371,11 @@ function setSharedFixedSize(menu: Menu, width: number, height: number): void {
   positionerLayer(menu)?.set(POSITIONER_HEIGHT, `${height}px`);
 }
 
-// NAV-PTR-07: clears the session's recorded open event. The key is the `interactions` module's, so this is the one
-// place that writes it, until that module's `clearSessionOpenEvent(token)` reaches this branch (a known gap, ADR 04 §1).
+// NAV-PTR-07: clears the session's recorded open event, a key the `interactions` module owns, through its export.
 function clearOpenEvent(menu: Menu): void {
   const token = menu.options.sessionToken;
-  const session = token ? getSession(token) : undefined;
-  if (session !== undefined) {
-    session.dataRef.current.openEvent = undefined;
+  if (token) {
+    clearSessionOpenEvent(token);
   }
 }
 
