@@ -223,5 +223,6 @@ public static class FixtureCatalog
         ["tooltip-toolbar"] = new(typeof(TooltipToolbarFixture)),
         ["tooltip-prerender"] = new(typeof(TooltipPrerenderFixture), Prerender: true),
         ["list-values-allocation"] = new(typeof(ListValuesAllocationFixture)),
+        ["list-values-collation"] = new(typeof(ListValuesCollationFixture)),
     };
 }
