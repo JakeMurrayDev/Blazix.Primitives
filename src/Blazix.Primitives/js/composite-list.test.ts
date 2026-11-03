@@ -1568,20 +1568,35 @@ describe.each([false, true])('list keyboard relay (port, synchronous: %s)', (syn
   }
 
   const bars: Bar[] = [];
+  const cleanups: Array<() => void> = [];
+  let barIds = 0;
 
   afterEach(() => {
     for (const bar of bars.splice(0)) {
       bar.handle.dispose();
     }
+    for (const cleanup of cleanups.splice(0)) {
+      cleanup();
+    }
   });
 
+  /** Records whether each keydown reached the document, which a stopped event does not. */
+  function documentKeys(): string[] {
+    const keys: string[] = [];
+    const listener = (event: KeyboardEvent) => keys.push(event.key);
+    document.addEventListener('keydown', listener);
+    cleanups.push(() => document.removeEventListener('keydown', listener));
+    return keys;
+  }
+
   function menubar(): Bar {
+    barIds += 1;
     const root = document.createElement('div');
     root.setAttribute('role', 'menubar');
     const items = ['File', 'Edit', 'View'].map((label, index) => {
       const element = document.createElement('button');
       element.type = 'button';
-      element.id = `menubar-item-${index}`;
+      element.id = `menubar-${barIds}-item-${index}`;
       element.textContent = label;
       element.setAttribute('tabindex', '-1');
       return element;
@@ -1641,10 +1656,11 @@ describe.each([false, true])('list keyboard relay (port, synchronous: %s)', (syn
     expect(tree.byText('Redo')).toBe(document.activeElement);
     expect(bar.items[1]!.getAttribute('tabindex')).toBe('0');
 
-    // ArrowRight is no key of the vertical list: the bar moves to the next item.
+    // ArrowRight is no key of the vertical list: the bar moves to the next item, and the event stops there.
+    const reached = documentKeys();
     const event = keyDown(tree.byText('Redo'), 'ArrowRight');
     expect(event.defaultPrevented).toBe(true);
-    expect(event.cancelBubble).toBe(true);
+    expect(reached).toEqual([]);
     expect(bar.items[2]!.getAttribute('tabindex')).toBe('0');
     await flushMicrotasks();
     expect(document.activeElement).toBe(bar.items[2]);
@@ -1722,6 +1738,9 @@ describe('relayKeyboardEvent (port)', () => {
       } satisfies CompositeOptions),
       fake.twin,
     );
+    const reached: string[] = [];
+    const onDocumentKeyDown = (event: KeyboardEvent) => reached.push(event.key);
+    document.addEventListener('keydown', onDocumentKeyDown);
     try {
       const results: boolean[] = [];
       outside.addEventListener('keydown', (event) => {
@@ -1729,20 +1748,22 @@ describe('relayKeyboardEvent (port)', () => {
         results.push(relayKeyboardEvent(outside, event));
       });
 
+      // The root's own `stopEventPropagation` is off: the relay stops the handled event all the same.
       const event = keyDown(outside, 'ArrowRight');
 
       expect(results).toEqual([true, false]);
       expect(event.defaultPrevented).toBe(true);
-      expect(event.cancelBubble).toBe(true);
+      expect(reached).toEqual([]);
       expect(fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
       await flushMicrotasks();
       expect(document.activeElement).toBe(items[1]);
 
       // A key the root does not act on is not handled, and nothing stops it.
-      const ignored = keyDown(outside, 'ArrowDown');
+      keyDown(outside, 'ArrowDown');
       expect(results.slice(2)).toEqual([false, false]);
-      expect(ignored.cancelBubble).toBe(false);
+      expect(reached).toEqual(['ArrowDown']);
     } finally {
+      document.removeEventListener('keydown', onDocumentKeyDown);
       handle.dispose();
     }
   });
