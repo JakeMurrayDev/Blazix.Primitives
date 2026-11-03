@@ -7,7 +7,7 @@ namespace Blazix.Primitives;
 
 // FLT-STR-11, the port's standalone root store (useFloatingRootContext.ts:24-77, FloatingRootStore.ts:106-135), extracted
 // from PopupStore (ADR 05 Amendments 2026-11-03, chosen by the user 2026-11-03; M5 track 2 design point 1, shape (a2),
-// pending the orchestrator). PopupStore<TState, TPayload> derives from it and keeps the trigger registry, the payload and
+// settled by the orchestrator 2026-11-04). PopupStore<TState, TPayload> derives from it and keeps the trigger registry, the payload and
 // the handles; Select's, Combobox's and NavigationMenu's stores derive from it directly. Its fields and properties are the
 // store's non-reactive context (UTL-STA-15): the controlled open, the callbacks, the inert flag, the session token, the
 // relay's revision, the unmount-prevention listeners and the boundary parts.

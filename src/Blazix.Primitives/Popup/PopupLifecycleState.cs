@@ -4,7 +4,7 @@ namespace Blazix.Primitives;
 
 // FLT-STR-11 (useFloatingRootContext.ts:24-77, FloatingRootStore.ts:106-135), the store-independent open lifecycle extracted
 // from PopupStoreState<TPayload> (ADR 05 Amendments 2026-11-03, chosen by the user 2026-11-03; M5 track 2 design point 1,
-// shape (a2), pending the orchestrator): the fields of every popup's open lifecycle, whatever store holds them. A struct with
+// shape (a2), settled by the orchestrator 2026-11-04): the fields of every popup's open lifecycle, whatever store holds them. A struct with
 // a member-by-member ==, so a family record holds it as one member, the generated ShallowEquals compares it member by
 // member with no generic or EqualityComparer<T> call (nothing boxes on the interpreter, ADR 16 rule 7), and a forwarded
 // `init` copies it on the stack instead of allocating. Disabled sits here because the effective open and every transition
