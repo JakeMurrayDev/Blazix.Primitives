@@ -3468,7 +3468,7 @@ describe('useHoverReferenceInteraction', () => {
 
     // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; M5 track 2): NAV-PTR-13,
     // NavigationMenuRoot.test.tsx "keeps an inline submenu open while traversing toward a viewport on the right".
-    it('port: with an inline close context, leaving the trigger toward the named element keeps the popup open, placed on the dominant axis between the centres', () => {
+    it('port: with an inline close context, leaving the trigger toward the named element keeps the popup open, placed on the dominant axis between the centers', () => {
       const popup = harness();
       popup.attachSession();
       const button = element('button');

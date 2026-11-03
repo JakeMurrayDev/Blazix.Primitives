@@ -226,7 +226,7 @@ public sealed class PositionerBehaviorTests : IDisposable
     }
 
     // M5 track 2 (brief deliverable 4): the Positioner's shift input, NavigationMenu's rootBoundary (NAV-POS-03) and
-    // ContextMenu's crossAxis (MenuPositioner.tsx:123-127), passed to the positioning options' shift. Driven on the behaviour
+    // ContextMenu's crossAxis (MenuPositioner.tsx:123-127), passed to the positioning options' shift. Driven on the behavior
     // itself: a parameter of the shared test host adds 24 bytes to its measured re-render (PositionerAllocationBudgetTests).
     [Fact(DisplayName = "port: the shift input is sent as the positioning options' shift, and its change is sent in an update")]
     [Trait("Requirement", "NAV-POS-03")]
