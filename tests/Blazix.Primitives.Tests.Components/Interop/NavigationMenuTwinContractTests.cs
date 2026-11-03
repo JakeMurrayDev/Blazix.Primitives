@@ -90,12 +90,15 @@ public sealed class NavigationMenuTwinContractTests
     [Trait("Requirement", "NAV-FOC-10")]
     [Trait("Requirement", "NAV-FOC-07")]
     [Trait("Requirement", "NAV-ANI-14")]
+    [Trait("Requirement", "NAV-ANI-02")]
     public async Task Each_report_raises_its_event_once_with_its_payload()
     {
         await using NavigationMenuTwin twin = new(new NoRuntime());
         List<NavigationMenuFocusOut> focusOuts = [];
         List<bool> inert = [];
         int resizes = 0;
+        int exits = 0;
+        twin.ExitCompleted += () => exits++;
         twin.FocusedOut += focusOuts.Add;
         twin.ViewportInertChanged += inert.Add;
         twin.Resized += () => resizes++;
@@ -105,10 +108,12 @@ public sealed class NavigationMenuTwinContractTests
         twin.OnViewportInertChange("""{"inert":false}""");
         twin.OnResize("{}");
         twin.OnResize("{}");
+        twin.OnExitComplete("{}");
 
         Assert.Equal("focusout", Assert.Single(focusOuts).Event!.Type);
         Assert.Equal([true, false], inert);
         Assert.Equal(2, resizes);
+        Assert.Equal(1, exits);
         Assert.Equal("run", twin.Decide("escape", MouseEnterJson));
     }
 

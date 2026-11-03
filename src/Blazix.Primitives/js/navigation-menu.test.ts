@@ -41,6 +41,7 @@ const {
   ACTIVATE_REPORT,
   FOCUS_OUT_REPORT,
   RESIZE_REPORT,
+  VIEWPORT_EXIT_REPORT,
   VIEWPORT_INERT_REPORT,
 } = await import('./navigation-menu');
 const { resetFrameScheduler } = await import('./transitions');
@@ -1018,6 +1019,33 @@ describe('the Viewport', () => {
     expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toHaveLength(0);
     link.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
     expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toEqual([{ inert: true }]);
+  });
+});
+
+describe('the inline Viewport target', () => {
+  it("reports the target's exit once its animations finish after the menu closes, and not after a reopen", async () => {
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    const rendered = renderMenu({ positioner: false, open: 'item-1' });
+    await settle();
+    const animations = mockAnimations(rendered.target);
+
+    const exit = animations.start();
+    rendered.commit(null);
+    await settle();
+    expect(rendered.twin.reported(VIEWPORT_EXIT_REPORT)).toHaveLength(0);
+    animations.finish(exit);
+    await settle();
+    expect(rendered.twin.reported(VIEWPORT_EXIT_REPORT)).toHaveLength(1);
+
+    rendered.commit('item-1');
+    await settle();
+    const interrupted = animations.start();
+    rendered.commit(null);
+    await settle();
+    rendered.commit('item-2');
+    animations.finish(interrupted);
+    await settle();
+    expect(rendered.twin.reported(VIEWPORT_EXIT_REPORT)).toHaveLength(1);
   });
 });
 
