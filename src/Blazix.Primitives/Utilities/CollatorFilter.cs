@@ -1,0 +1,71 @@
+using System.Globalization;
+
+namespace Blazix.Primitives.Utilities;
+
+// UTL-I18N-08..12, UTL-ALG-05 (internals/filter.ts; chosen by the user 2026-11-03, plan decision 10 (a)): Base UI's
+// Intl.Collator(locale, { usage: 'search', sensitivity: 'base', ignorePunctuation: true }) is CompareInfo.Compare with
+// IgnoreCase | IgnoreNonSpace | IgnoreSymbols (ADR 01 decision 2: equivalent, not byte-identical; the rows that differ are in
+// ADR 01's note of 2026-11-04). The window is Base UI's: query.Length UTF-16 code units (UTL §10 item 6). Base UI caches a
+// filter per locale and options; here the filter is a value over the CompareInfo .NET already caches, so equal inputs give
+// equal filters and nothing is cached here (design point 3 of M5 track 4, pending the user).
+/// <summary>Matches a query against an item's text the way a list's filter does, under a culture's comparison.</summary>
+internal readonly record struct CollatorFilter
+{
+    /// <summary>Specifies the comparison of Base UI's default collator: case, non-spacing marks and symbols are ignored.</summary>
+    public const CompareOptions DefaultOptions = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreSymbols;
+
+    private CollatorFilter(CompareInfo compareInfo, CompareOptions options)
+    {
+        CompareInfo = compareInfo;
+        Options = options;
+    }
+
+    /// <summary>Gets the comparison of the filter's culture.</summary>
+    public CompareInfo CompareInfo { get; }
+
+    /// <summary>Gets the options every comparison uses.</summary>
+    public CompareOptions Options { get; }
+
+    /// <summary>Creates a filter for a culture.</summary>
+    /// <param name="culture">The culture, or <see langword="null"/> for <see cref="CultureInfo.CurrentCulture"/>.</param>
+    /// <param name="options">The options, which replace <see cref="DefaultOptions"/> whole; <see langword="null"/> for the default.</param>
+    /// <returns>The filter.</returns>
+    public static CollatorFilter Create(CultureInfo? culture = null, CompareOptions? options = null) =>
+        new((culture ?? CultureInfo.CurrentCulture).CompareInfo, options ?? DefaultOptions);
+
+    /// <summary>Gets a value indicating whether some window of the query's length in the text compares equal to the query.</summary>
+    /// <param name="text">The item's text.</param>
+    /// <param name="query">The query; an empty query matches every text.</param>
+    /// <returns><see langword="true"/> when a window of <paramref name="query"/>'s length compares equal to it.</returns>
+    public bool Contains(ReadOnlySpan<char> text, ReadOnlySpan<char> query)
+    {
+        if (query.IsEmpty)
+        {
+            return true;
+        }
+
+        for (int i = 0; i <= text.Length - query.Length; i++)
+        {
+            if (CompareInfo.Compare(text.Slice(i, query.Length), query, Options) == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets a value indicating whether the text's first code units, as many as the query has, compare equal to the query.</summary>
+    /// <param name="text">The item's text.</param>
+    /// <param name="query">The query; an empty query matches every text.</param>
+    /// <returns><see langword="true"/> when the text's start compares equal to <paramref name="query"/>.</returns>
+    public bool StartsWith(ReadOnlySpan<char> text, ReadOnlySpan<char> query) =>
+        query.IsEmpty || CompareInfo.Compare(text[..Math.Min(text.Length, query.Length)], query, Options) == 0;
+
+    /// <summary>Gets a value indicating whether the text is at least the query's length and its last code units compare equal to the query.</summary>
+    /// <param name="text">The item's text.</param>
+    /// <param name="query">The query; an empty query matches every text.</param>
+    /// <returns><see langword="true"/> when the text's end compares equal to <paramref name="query"/>.</returns>
+    public bool EndsWith(ReadOnlySpan<char> text, ReadOnlySpan<char> query) =>
+        query.IsEmpty || (text.Length >= query.Length && CompareInfo.Compare(text[^query.Length..], query, Options) == 0);
+}

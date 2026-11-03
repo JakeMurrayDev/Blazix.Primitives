@@ -95,8 +95,14 @@ public sealed class CollatorFilterTests
     }
 
     // The rows where .NET's CompareInfo answers otherwise than Intl.Collator, each listed in ADR 01's note under decision 2
-    // (equivalent, not byte-identical): what .NET answers.
-    private static readonly Dictionary<string, (bool, bool, bool)> s_divergences = new(StringComparer.Ordinal);
+    // (equivalent, not byte-identical): what .NET answers. ICU's `base` strength also ignores width and kana type, which the
+    // default options do not (CompareOptions.IgnoreWidth | IgnoreKanaType would close all three; design point 3 of M5 track 4).
+    private static readonly Dictionary<string, (bool, bool, bool)> s_divergences = new(StringComparer.Ordinal)
+    {
+        ["full-width letters"] = (false, false, false),
+        ["katakana against hiragana"] = (false, false, false),
+        ["half-width katakana against katakana"] = (false, false, false),
+    };
 
     private static string TablePath([CallerFilePath] string source = "") => Path.Combine(Path.GetDirectoryName(source)!, "Data", "collation-table.json");
 }
