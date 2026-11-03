@@ -868,6 +868,37 @@ test.describe('<NavigationMenu.Root /> nested', () => {
   });
 });
 
+// NAV-API-12's server-markup titles (Base UI's `renderToString` ones) on the prerendered `navigation-menu-prerender`: the
+// static markup is read with its scripts removed, then the interactive page.
+test.describe('<NavigationMenu.Content /> prerendered', () => {
+  async function staticMarkup(page: Page, mode: RenderMode, query: string): Promise<void> {
+    const response = await page.request.get(`${fixtureUrl(mode, 'navigation-menu-prerender')}${query}`);
+    await page.setContent((await response.text()).replace(/<script[\s\S]*?<\/script>/g, ''));
+  }
+
+  test('keeps the content mounted (hidden) in the DOM when keepMounted is true', async ({ page, mode }) => {
+    await staticMarkup(page, mode, '?keepMountedContent=true');
+
+    await expect(page.locator('[data-testid="content-1"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="content-1"]')).toBeHidden();
+  });
+
+  test('does not keep the content mounted in the DOM when keepMounted is false', async ({ page, mode }) => {
+    await staticMarkup(page, mode, '');
+
+    await expect(page.locator('[data-testid="trigger-1"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="content-1"]')).toHaveCount(0);
+  });
+
+  test('does not keep the content mounted post-hydration when keepMounted is false', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'navigation-menu-prerender');
+
+    await expect(page.getByTestId('content-1')).toHaveCount(0);
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+  });
+});
+
 test.describe('<NavigationMenu.Content /> move', () => {
   test('moves content into the popup and keeps it there when switching triggers', async ({ page, mode }) => {
     await gotoMenu(page, mode);
