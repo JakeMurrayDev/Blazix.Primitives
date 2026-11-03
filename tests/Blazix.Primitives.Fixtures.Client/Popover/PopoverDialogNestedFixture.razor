@@ -13,7 +13,9 @@
 <FixtureContainer Name="popover-dialog-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-popover-changes="@string.Join(' ', popoverChanges)" data-dialog-changes="@string.Join(' ', dialogChanges)">
     <style>
-        [data-fixture="popover-dialog-nested"] [data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; }
+        /* The portals render outside the container. The dialog's popup sits clear of the popover's, above the dialog's
+           internal backdrop. */
+        [data-base-ui-portal] [data-testid="dialog-popup"] { position: fixed; right: 40px; bottom: 80px; z-index: 10; padding: 16px; background: white; }
     </style>
     <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0; z-index: 2" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <PopoverRoot TPayload="NoPayload" @ref="popover" DefaultOpen="true" OnOpenChange="args => Record(popoverChanges, args)">
