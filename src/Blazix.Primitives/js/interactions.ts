@@ -105,7 +105,7 @@ export interface DismissOptions {
   ownBackdropIds?: string[] | null;
   /** Dialog's predicate: only the topmost open popup dismisses. */
   topmost?: boolean | null;
-  // FLT-DIS-09's cross-menu branch (NavigationMenuList.tsx:54-65); M5 track 2, ignored until its commit.
+  // FLT-DIS-09's cross-menu branch (NavigationMenuList.tsx:54-65); M5 track 2.
   /** A selector matched from the press target outward: a press inside a match is not outside. */
   outsidePressExemptSelector?: string | null;
 }
@@ -183,13 +183,13 @@ export interface HoverOptions {
   // FLT-ALG-23
   /** The provider token whose delay group the trigger belongs to. */
   delayGroupToken?: string | null;
-  // NavigationMenu's `getScope` (NavigationMenuTrigger.tsx:511-517); M5 track 2, ignored until its commit.
+  // NavigationMenu's `getScope` (NavigationMenuTrigger.tsx:511-517); M5 track 2.
   /** The selector of the trigger's nearest ancestor the pointer-events lock scopes to; the default scope when absent. */
   pointerEventsScopeSelector?: string | null;
-  // NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615); M5 track 2, ignored until its commit.
+  // NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615); M5 track 2.
   /** Whether entering the trigger locks pointer events while the floating element exists. */
   blockPointerEventsOnEnter?: boolean | null;
-  // NavigationMenu's `getHandleCloseContext` (NavigationMenuTrigger.tsx:503-509, 812-845); M5 track 2, ignored until its commit.
+  // NavigationMenu's `getHandleCloseContext` (NavigationMenuTrigger.tsx:503-509, 812-845); M5 track 2.
   /** The floating element (by id) and tree node the safe polygon closes against when the popup has no positioner. */
   inlineCloseContext?: InlineCloseContextOptions | null;
 }
