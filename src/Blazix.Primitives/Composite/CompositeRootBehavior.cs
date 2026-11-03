@@ -46,6 +46,9 @@ namespace Blazix.Primitives;
 internal sealed class CompositeRootBehavior : IDisposable
 {
     private static readonly IReadOnlyList<string> s_noModifierKeys = [];
+    private static readonly CompositeReferenceOptions s_referenceRole = new();
+    private static readonly CompositeTriggerOptions s_triggerRole = new();
+    private static readonly CompositeFloatingOptions s_floatingRole = new();
 
     private readonly IJSRuntime jsRuntime;
     private readonly PartIdGenerator idGenerator;
@@ -68,6 +71,9 @@ internal sealed class CompositeRootBehavior : IDisposable
     private bool renderPending;
     private bool disposed;
     private string? lateId;
+    private ListNavigationContext? list;
+    private CompositeListRole listRole;
+    private CompositeItemBehavior? highlightedItem;
 
     /// <summary>Occurs when the highlighted index the module reports changed, once per change.</summary>
     public event Action<int>? HighlightChanged;
@@ -192,6 +198,10 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <value>The index of the item that holds the tab stop; 0 until a report arrives.</value>
     public int HighlightedIndex { get; private set; }
 
+    /// <summary>Gets the list this root is a handle of, set by <see cref="SetList"/>.</summary>
+    /// <value>The cascaded list, or <see langword="null"/> for a roving group.</value>
+    public ListNavigationContext? List => list;
+
     /// <summary>Gets the id the behavior drew for a root element that a component root rendered.</summary>
     /// <value>The late id, or <see langword="null"/> while none was needed.</value>
     public string? LateId => lateId;
@@ -211,14 +221,19 @@ internal sealed class CompositeRootBehavior : IDisposable
         disposed = true;
         directionContext?.RemoveListener(stateChanged);
         directionContext = null;
+        list?.List.Unregister(this);
         if (twin is not null)
         {
             twin.HighlightChanged -= OnHighlightChange;
             twin.FocusLeft -= OnFocusLeave;
             twin.KeyHandled -= OnKeyHandled;
             twin.ItemsChanged -= OnItemsChange;
+            twin.ListHighlightChanged -= OnListHighlight;
+            twin.ListOpenRequested -= OnListOpenRequest;
+            twin.ListMatched -= OnListMatch;
             twin.NavigationDecider = null;
             twin.SelectionDecider = null;
+            twin.LeaveDecider = null;
             _ = twin.DisposeAsync().AsTask();
             twin = null;
             handle = null;
@@ -237,6 +252,26 @@ internal sealed class CompositeRootBehavior : IDisposable
         directionContext?.RemoveListener(stateChanged);
         directionContext = context;
         directionContext?.AddListener(stateChanged);
+    }
+
+    // M5 track 1 (issue 159; ADR 04 Amendments 2026-11-03 (1), chosen by the user; design point 1's C# refinement (r1) of
+    // 2026-11-04): a composite root in list mode is a list handle in one role. It joins the list's interactions session,
+    // sends the list's options with its role and, in the floating role, its items; it mirrors each item's highlight from
+    // the module's report and routes the list's reports into the list.
+    /// <summary>Makes the root a handle of a popup list in a role; called before the first render.</summary>
+    /// <param name="context">The cascaded list, or <see langword="null"/> for a roving group.</param>
+    /// <param name="role">The handle's role.</param>
+    public void SetList(ListNavigationContext? context, CompositeListRole role)
+    {
+        if (ReferenceEquals(list, context) && listRole == role)
+        {
+            return;
+        }
+
+        list?.List.Unregister(this);
+        list = context;
+        listRole = role;
+        list?.List.Register(this);
     }
 
     /// <summary>Finds the consumer's key handler, which the part declines and runs itself.</summary>
@@ -339,8 +374,19 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         twin ??= CreateTwin();
-        CompositeOptions options = BuildOptions();
         attaching = true;
+        if (list is not null)
+        {
+            // A list handle attaches after the session's handle, so the module reads the session's committed state.
+            await list.List.SessionReady;
+            if (disposed)
+            {
+                attaching = false;
+                return;
+            }
+        }
+
+        CompositeOptions options = BuildOptions();
         try
         {
             handle = elementId is null
@@ -548,6 +594,14 @@ internal sealed class CompositeRootBehavior : IDisposable
         created.FocusLeft += OnFocusLeave;
         created.KeyHandled += OnKeyHandled;
         created.ItemsChanged += OnItemsChange;
+        if (list is not null)
+        {
+            created.ListHighlightChanged += OnListHighlight;
+            created.ListOpenRequested += OnListOpenRequest;
+            created.ListMatched += OnListMatch;
+            created.LeaveDecider = DecideLeave;
+        }
+
         return created;
     }
 
@@ -592,6 +646,11 @@ internal sealed class CompositeRootBehavior : IDisposable
             ReportHandledKeys = ReportHandledKeys(),
             ReportItems = ReportItems,
             FollowActiveItem = FollowActiveItem,
+            SessionToken = list?.List.SessionToken,
+            List = list?.List.Options,
+            Reference = list is not null && listRole == CompositeListRole.Reference ? s_referenceRole : null,
+            Trigger = list is not null && listRole == CompositeListRole.Trigger ? s_triggerRole : null,
+            Floating = list is not null && listRole == CompositeListRole.Floating ? s_floatingRole : null,
         };
         sentOptions = options;
         sentItemsVersion = itemsVersion;
@@ -619,7 +678,8 @@ internal sealed class CompositeRootBehavior : IDisposable
             && sent.ReportHighlight == ReportHighlight
             && sent.ReportHandledKeys == ReportHandledKeys()
             && sent.ReportItems == ReportItems
-            && sent.FollowActiveItem == FollowActiveItem)
+            && sent.FollowActiveItem == FollowActiveItem
+            && ReferenceEquals(sent.List, list?.List.Options))
         {
             return null;
         }
@@ -640,6 +700,33 @@ internal sealed class CompositeRootBehavior : IDisposable
     }
 
     private void OnFocusLeave(EventSnapshot snapshot) => FocusLeft?.Invoke(snapshot);
+
+    // ADR 04 Amendments 2026-11-03 (2): the floating handle's items mirror the highlight the module wrote, so a move
+    // renders exactly the item that lost it and the one that gained it.
+    private void OnListHighlight(CompositeListHighlight report)
+    {
+        if (list is null || !list.List.OnHighlight(report) || listRole != CompositeListRole.Floating)
+        {
+            return;
+        }
+
+        CompositeItemBehavior? next = FindItem(report.ItemId);
+        if (ReferenceEquals(next, highlightedItem))
+        {
+            return;
+        }
+
+        CompositeItemBehavior? previous = highlightedItem;
+        highlightedItem = next;
+        previous?.SetHighlighted(false);
+        next?.SetHighlighted(true);
+    }
+
+    private void OnListOpenRequest(CompositeListOpenRequest request) => list?.List.OnOpenRequest(request);
+
+    private void OnListMatch(CompositeListMatch match) => list?.List.OnMatch(match);
+
+    private DecisionPolicy DecideLeave(EventSnapshot snapshot) => list is null ? DecisionPolicy.Run : list.List.DecideLeave(snapshot);
 
     // CMP-EVT-03 (M3 track 1, E2; design points 1 and 3, option (a), settled by the orchestrator 2026-10-26): each report is the whole sequence,
     // joined when it arrives, before or after the handle exists. An id no registration carries is ignored (an item C# has

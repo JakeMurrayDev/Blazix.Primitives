@@ -135,16 +135,6 @@ internal sealed record CompositeListOptions
     /// <summary>Gets the typeahead of the list.</summary>
     /// <value>The typeahead options, or <see langword="null"/>, the default, for no typeahead.</value>
     public CompositeTypeaheadOptions? Typeahead { get; init; }
-
-    // Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23, on the list handles (ADR 04 Amendments
-    // 2026-11-03 (3)).
-    /// <summary>Gets a value indicating whether the module reports a key it handled and stopped without running the C# chain inside the dispatch.</summary>
-    /// <value>
-    /// <see langword="true"/> to receive <see cref="CompositeTwin.KeyHandled"/>, so the consumer's key handlers run for a key
-    /// that never reaches Blazor's dispatcher; the default is <see langword="false"/>, which is not sent.
-    /// </value>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public bool ReportHandledKeys { get; init; }
 }
 
 // ADR 04 Amendments 2026-11-03 (2): a C#-origin highlight goes through `update` with a revision, so a stale echo is
@@ -188,19 +178,7 @@ internal sealed record CompositeReferenceOptions;
 /// <summary>The role of a trigger that opens the list but is not its reference.</summary>
 internal sealed record CompositeTriggerOptions;
 
-// The floating role of CMP-STR-06, with the item role's registrations (the registry is the floating handle's).
-/// <summary>The role of the list's floating element: the items, their order and their highlight.</summary>
-internal sealed record CompositeFloatingOptions
-{
-    /// <summary>Gets the items of the list.</summary>
-    /// <value>One registration per item, by element id; empty by default.</value>
-    public IReadOnlyList<CompositeItemRegistration> Items { get; init; } = [];
-
-    /// <summary>Gets a value indicating whether the module reports the items' ids in index order on each publication that changed them.</summary>
-    /// <value>
-    /// <see langword="true"/> to receive <see cref="CompositeTwin.ItemsChanged"/>; the default is <see langword="false"/>,
-    /// which is not sent.
-    /// </value>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public bool ReportItems { get; init; }
-}
+// The floating role of CMP-STR-06 (design point 1's C# refinement (r1) of 2026-11-04): the items, their order report and
+// the handled-key report travel in the handle's own `CompositeOptions.Items`, `ReportItems` and `ReportHandledKeys`.
+/// <summary>The role of the list's floating element, which holds the items and writes their highlight.</summary>
+internal sealed record CompositeFloatingOptions;

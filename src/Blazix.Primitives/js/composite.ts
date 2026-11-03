@@ -881,8 +881,6 @@ export interface CompositeListOptions {
   highlight?: CompositeHighlightRequest | undefined;
   /** The typeahead; absent for none. */
   typeahead?: CompositeTypeaheadOptions | undefined;
-  /** Whether a key handled and stopped without running the C# chain inside the dispatch is reported; absent for `false`. */
-  reportHandledKeys?: boolean | undefined;
 }
 
 /** The reference role: the active trigger, or the input under virtual focus, which carries `aria-activedescendant`. */
@@ -891,13 +889,8 @@ export type CompositeReferenceOptions = Record<string, never>;
 /** The trigger role: a trigger that opens the list but is not its reference. */
 export type CompositeTriggerOptions = Record<string, never>;
 
-/** The floating role: the list's element, with its items. */
-export interface CompositeFloatingOptions {
-  /** The items, by element id. */
-  items: CompositeItemRegistration[];
-  /** Whether the items' ids are reported in index order on each publication that changed them; absent for `false`. */
-  reportItems?: boolean | undefined;
-}
+/** The floating role: the list's element; its items are the handle's `items`, reported in order with `reportItems`. */
+export type CompositeFloatingOptions = Record<string, never>;
 
 /** The report of a list's highlight, once per change. */
 export interface CompositeListHighlightReport {

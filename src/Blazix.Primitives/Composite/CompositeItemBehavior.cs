@@ -33,6 +33,7 @@ internal sealed class CompositeItemBehavior : IDisposable
 {
     private readonly CompositeRootContext root;
     private readonly EventCallback onKeyDown;
+    private readonly Action? highlightChanged;
     private AttributeValue consumerKeyDown;
     private DecidedKey? decidedKeyDown;
     private string? elementId;
@@ -45,17 +46,28 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// The part's own <c>onkeydown</c> handler, which calls <see cref="HandleKeyDownAsync"/>; the default when the part leaves
     /// the consumer's key handler on its element.
     /// </param>
+    /// <param name="highlightChanged">
+    /// Renders the part again when <see cref="Highlighted"/> changed; the item of a popup list passes it, a roving item
+    /// leaves it out.
+    /// </param>
     /// <exception cref="InvalidOperationException"><paramref name="context"/> is <see langword="null"/>.</exception>
-    public CompositeItemBehavior(CompositeRootContext? context, string part, EventCallback onKeyDown = default)
+    public CompositeItemBehavior(CompositeRootContext? context, string part, EventCallback onKeyDown = default, Action? highlightChanged = null)
     {
         root = CompositeRootContext.Require(context, part);
         this.onKeyDown = onKeyDown;
+        this.highlightChanged = highlightChanged;
         Registration = new CompositeItemRegistration(string.Empty, null);
     }
 
     /// <summary>Gets the registration the root sends for this item.</summary>
     /// <value>The item's element id and its consumer <c>tabindex</c>.</value>
     public CompositeItemRegistration Registration { get; private set; }
+
+    // ADR 04 Amendments 2026-11-03 (2), chosen by the user: the module writes the item's `data-highlighted`; this is its
+    // mirror (ADR 01's RND-STA-01 row), for the item's state record, a round trip late on Server.
+    /// <summary>Gets a value indicating whether the item of a popup list is highlighted, as the module last reported it.</summary>
+    /// <value><see langword="true"/> while the module's highlight is on this item; <see langword="false"/> before any report.</value>
+    public bool Highlighted { get; private set; }
 
     /// <summary>Gets a value indicating whether the root runs the consumer's key handler of this item.</summary>
     /// <value><see langword="true"/> when the part declines the consumer's <c>onkeydown</c> and the consumer supplied one.</value>
@@ -208,6 +220,19 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// <param name="args">The key event, shared with the root's own handler so a veto in either is seen.</param>
     /// <returns>The consumer handler's task.</returns>
     internal Task InvokeKeyHandler(KeyboardEventArgs args) => consumerKeyDown.InvokeAsync(args);
+
+    /// <summary>Sets the mirror of the module's highlight and renders the part again when it changed.</summary>
+    /// <param name="highlighted">Whether the item is highlighted.</param>
+    internal void SetHighlighted(bool highlighted)
+    {
+        if (Highlighted == highlighted)
+        {
+            return;
+        }
+
+        Highlighted = highlighted;
+        highlightChanged?.Invoke();
+    }
 
     /// <summary>Records that a decision ran the consumer's key handler for a key Blazor dispatches afterwards.</summary>
     /// <param name="args">The key event.</param>

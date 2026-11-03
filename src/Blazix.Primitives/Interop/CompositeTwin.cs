@@ -44,6 +44,16 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     /// </summary>
     public event Action<IReadOnlyList<string>>? ItemsChanged;
 
+    // ADR 04 Amendments 2026-11-03 (1)-(3), chosen by the user: the list handle's reports (M5 track 1).
+    /// <summary>Occurs when a list handle wrote a new highlight, once per change, with the C# request it had applied.</summary>
+    public event Action<CompositeListHighlight>? ListHighlightChanged;
+
+    /// <summary>Occurs when a list handle asks to open or close its popup, from a navigation key or Shift+Tab.</summary>
+    public event Action<CompositeListOpenRequest>? ListOpenRequested;
+
+    /// <summary>Occurs when a list handle's typeahead matched an item while the list was closed.</summary>
+    public event Action<CompositeListMatch>? ListMatched;
+
     /// <summary>Gets or sets the C# handler chain of the navigation decision point.</summary>
     /// <value>
     /// A function that receives the <c>keydown</c> the module is about to handle and returns
@@ -61,6 +71,15 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     /// the dispatch, and must not await.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? SelectionDecider { get; set; }
+
+    /// <summary>Gets or sets the C# handler chain of the decision point asked before a list's Shift+Tab close returns the focus.</summary>
+    /// <value>
+    /// A function that receives the <c>keydown</c>, runs the popup's close and returns <see cref="DecisionPolicy.Run"/>
+    /// when the close was not canceled, so the module returns the focus, or <see cref="DecisionPolicy.Stop"/> when it was;
+    /// <see langword="null"/> always returns the focus. It runs only on WebAssembly, synchronously inside the dispatch,
+    /// and must not await.
+    /// </value>
+    public Func<EventSnapshot, DecisionPolicy>? LeaveDecider { get; set; }
 
     /// <summary>Receives a change of the highlighted index.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="CompositeHighlightChange"/>.</param>
@@ -102,10 +121,40 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
         ItemsChanged?.Invoke(change.Ids);
     }
 
+    /// <summary>Receives a list's highlight.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="CompositeListHighlight"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnListHighlight(string payloadJson)
+    {
+        CompositeListHighlight highlight = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeListHighlight);
+        ListHighlightChanged?.Invoke(highlight);
+    }
+
+    /// <summary>Receives a list's request to open or close its popup.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="CompositeListOpenRequest"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnListOpenRequest(string payloadJson)
+    {
+        CompositeListOpenRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeListOpenRequest);
+        ListOpenRequested?.Invoke(request);
+    }
+
+    /// <summary>Receives a typeahead match of a closed list.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="CompositeListMatch"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnListMatch(string payloadJson)
+    {
+        CompositeListMatch match = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeListMatch);
+        ListMatched?.Invoke(match);
+    }
+
     /// <inheritdoc />
     /// <remarks>
-    /// The module has two decision points, <see cref="NavigatePoint"/> and <see cref="SelectPoint"/>; any other point, or a
-    /// point without a decider, answers <see cref="DecisionPolicy.Run"/>.
+    /// The module has three decision points, <see cref="NavigatePoint"/>, <see cref="SelectPoint"/> and
+    /// <see cref="LeavePoint"/>; any other point, or a point without a decider, answers <see cref="DecisionPolicy.Run"/>.
     /// </remarks>
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
@@ -113,6 +162,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
         {
             NavigatePoint => NavigationDecider,
             SelectPoint => SelectionDecider,
+            LeavePoint => LeaveDecider,
             _ => null,
         };
         return decider is null ? DecisionPolicy.Run : decider(snapshot);

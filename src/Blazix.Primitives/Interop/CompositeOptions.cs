@@ -135,7 +135,7 @@ internal sealed record CompositeOptions : TwinOptions
     public CompositeTriggerOptions? Trigger { get; init; }
 
     /// <summary>Gets the options of a list's floating handle.</summary>
-    /// <value>The floating role with the list's items, or <see langword="null"/> for another role.</value>
+    /// <value>The floating role, whose items are <see cref="Items"/>, or <see langword="null"/> for another role.</value>
     public CompositeFloatingOptions? Floating { get; init; }
 }
 
