@@ -2696,6 +2696,8 @@ interface PointerEventsMutationState {
   pointerEventsScopeElement: HTMLElement | SVGSVGElement | null;
   pointerEventsReferenceElement: HTMLElement | SVGSVGElement | null;
   pointerEventsFloatingElement: HTMLElement | null;
+  /** The observer that re-asserts the mutation after a write of the elements' `style` while it holds. */
+  pointerEventsObserver?: MutationObserver | null | undefined;
 }
 
 /** The hover state of a session, shared by its trigger and floating hover controllers. */
@@ -2729,6 +2731,8 @@ function clearSafePolygonPointerEventsMutation(instance: PointerEventsMutationSt
 
   const scopeElement = instance.pointerEventsScopeElement as PointerEventsScope | null;
 
+  instance.pointerEventsObserver?.disconnect();
+  instance.pointerEventsObserver = null;
   if (scopeElement && scopeElement[pointerEventsOwner] === instance) {
     instance.pointerEventsScopeElement?.style.removeProperty('pointer-events');
     instance.pointerEventsReferenceElement?.style.removeProperty('pointer-events');
@@ -2770,6 +2774,30 @@ function applySafePolygonPointerEventsMutation(
   scopeElement.style.pointerEvents = 'none';
   referenceElement.style.pointerEvents = 'auto';
   floatingElement.style.pointerEvents = 'auto';
+
+  // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's
+  // whole `style` attribute when its rendered value changes (a Trigger's or a List's C#-rendered `style`), which drops the
+  // three values. While this state owns the scope, the observer re-asserts a value that differs at the microtask after
+  // the write, before the next input task; a matching value is left alone, so its own writes end the loop.
+  if (typeof MutationObserver === 'function') {
+    const reassert = (element: HTMLElement | SVGSVGElement, value: string) => {
+      if (element.style.pointerEvents !== value) {
+        element.style.pointerEvents = value;
+      }
+    };
+    const observer = new MutationObserver(() => {
+      if (scopeElement[pointerEventsOwner] !== instance) {
+        return;
+      }
+      reassert(scopeElement, 'none');
+      reassert(referenceElement, 'auto');
+      reassert(floatingElement, 'auto');
+    });
+    for (const element of [scopeElement, referenceElement, floatingElement]) {
+      observer.observe(element, { attributes: true, attributeFilter: ['style'] });
+    }
+    instance.pointerEventsObserver = observer;
+  }
 }
 
 /**
