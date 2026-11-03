@@ -523,9 +523,10 @@ test.describe('external scroll lock handoff', () => {
     for (const locker of externalLockers) {
       test.describe(`'${locker.name}'`, () => {
         test('keeps the page locked until it takes over, and unlocks on close', async ({ page, mode }) => {
-          // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup.
-          await throttleCpu(page, 6);
           const fixture = await gotoPopupFixture(page, mode, 'dialog-root', { open: false });
+          // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup;
+          // throttled once the page is ready, so the boot is not slowed.
+          await throttleCpu(page, 6);
           expect(`initial: ${await isPageLocked(page)}`).toBe('initial: false');
 
           // The third-party lock holds until the dialog's own lock waits for it; every change from the lock on is recorded.

@@ -243,9 +243,10 @@ test.describe('the regime alert mode forces', () => {
   for (const locker of externalLockers) {
     const name = locker.name.split(',')[0];
     test(`port: an alert dialog keeps the page locked after ${name} releases it, and unlocks on close`, async ({ page, mode }) => {
-      // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup.
-      await throttleCpu(page, 6);
       const fixture = await root(page, mode, { open: false });
+      // Issue 154: a slow host, as a CI runner's WebAssembly page is, where the dialog's lock lands after its popup;
+      // throttled once the page is ready, so the boot is not slowed.
+      await throttleCpu(page, 6);
       expect(await isPageLocked(page)).toBe(false);
 
       // The third-party lock holds until the dialog's own lock waits for it; every change from the lock on is recorded.
