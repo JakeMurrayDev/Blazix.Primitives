@@ -1470,6 +1470,32 @@ describe('composite root (port)', () => {
     expect(byTestId('3').getAttribute('tabindex')).toBe('0');
   });
 
+  // NAV-DOM-21, NAV-FOC-03 (sheet F Q15 (a); M5 track 1, issue 159): an item registered without a tabindex, a navigation
+  // menu link, keeps none whether or not it is highlighted, and the arrow keys still reach it.
+  it('writes no tabindex on an item registered without one, and the arrow keys still reach it', async () => {
+    const link = item('2', { href: '#2' }, 'a');
+    link.removeAttribute('tabindex');
+    const content = [item('1'), link, item('3')];
+    mountGroup(content, { items: content.map((element) => ({ id: element.id, tabIndex: null, ...(element === link ? { omitTabIndex: true } : {}) })) });
+
+    expect(byTestId('1').getAttribute('tabindex')).toBe('0');
+    expect(byTestId('3').getAttribute('tabindex')).toBe('-1');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+
+    byTestId('1').focus();
+    keyDown(byTestId('1'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(link);
+    expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+
+    keyDown(link, 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('3'));
+    expect(byTestId('3').getAttribute('tabindex')).toBe('0');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+  });
+
   // CMP-STA-10 with ids: a rendered element replaced under the same id is found again on the next `update`.
   it('resolves the items again on update, so a replaced element takes over its id', () => {
     const group = mountItems(['1', '2']);
