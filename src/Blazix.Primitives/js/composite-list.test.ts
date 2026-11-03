@@ -10,6 +10,7 @@ import {
   LEAVE_POINT,
   LIST_HIGHLIGHT_REPORT,
   NAVIGATE_POINT,
+  relayKeyboardEvent,
   type CompositeListHighlightReport,
   type CompositeOptions,
 } from './composite';
@@ -17,6 +18,7 @@ import { resetFocusManagerState } from './focus-manager';
 import { resetInteractionsForTest } from './interactions';
 import { resetFrameScheduler } from './transitions';
 import type { DotNetTwin, TwinHandle } from './twin';
+import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 import { createPopupHarness } from './test-support/interactions-harness';
 import { createListHarness, type ListHarness, type ListHarnessOptions } from './test-support/list-harness';
 import { createMenuTree, type MenuSpec, type MenuTree, type MenuTreeOptions } from './test-support/menu-tree-harness';
@@ -1548,6 +1550,201 @@ describe('useListNavigation (nested)', () => {
     expect(kept.menu('Copy as 2').openRequests.filter((request) => !request.open)).toEqual([]);
     expect(kept.menu('Copy as 2').popup.open).toBe(true);
     expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+// The keyboard relay (M5 track 1, Deliverable 7; CMP-KEY-14; ADR 04 Amendments 2026-11-03 (4); design point 3 (a), settled
+// by the orchestrator 2026-11-04): a composite root publishes its key resolution under a symbol on its element;
+// `relayKeyboardEvent(rootElement, event)` runs it for a keydown that did not bubble through the root and stops the event
+// when handled; a list whose `relayElement` names the root in its references relays the keydowns its floating handle did
+// not stop (MenuRoot.tsx:692-699). The host is a test-only menubar: a horizontal composite root of three buttons, whose
+// "Edit" item is the trigger of a menu (Menubar's: nested under the bar's horizontal orientation) portaled outside it.
+describe.each([false, true])('list keyboard relay (port, synchronous: %s)', (synchronous) => {
+  interface Bar {
+    root: HTMLElement;
+    items: HTMLElement[];
+    fake: FakeTwin;
+    handle: TwinHandle;
+  }
+
+  const bars: Bar[] = [];
+
+  afterEach(() => {
+    for (const bar of bars.splice(0)) {
+      bar.handle.dispose();
+    }
+  });
+
+  function menubar(): Bar {
+    const root = document.createElement('div');
+    root.setAttribute('role', 'menubar');
+    const items = ['File', 'Edit', 'View'].map((label, index) => {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.id = `menubar-item-${index}`;
+      element.textContent = label;
+      element.setAttribute('tabindex', '-1');
+      return element;
+    });
+    root.append(...items);
+    document.body.appendChild(root);
+    const fake = createFakeTwin({ synchronous });
+    const options: CompositeOptions = {
+      orientation: 'horizontal',
+      loopFocus: true,
+      enableHomeAndEndKeys: true,
+      stopEventPropagation: true,
+      highlightItemOnHover: false,
+      modifierKeys: [],
+      direction: 'ltr',
+      items: items.map((element) => ({ id: element.id, tabIndex: null })),
+      selectOnNavigation: false,
+      reportFocusLeave: false,
+      reportHighlight: false,
+      reportHandledKeys: true,
+    };
+    const bar: Bar = { root, items, fake, handle: attach(root, JSON.stringify(options), fake.twin) };
+    bars.push(bar);
+    return bar;
+  }
+
+  function barMenu(bar: Bar, relay = true): MenuTree {
+    return menuTree(
+      {
+        label: 'Edit',
+        items: [{ label: 'Undo' }, { label: 'Redo' }],
+        list: { nested: true, parentOrientation: 'horizontal', ...(relay ? { relayElement: 0 } : {}) },
+      },
+      { synchronous, rootTrigger: bar.items[1]!, references: [bar.root] },
+    );
+  }
+
+  async function openFromBar(bar: Bar, tree: MenuTree): Promise<HTMLElement> {
+    bar.items[1]!.focus();
+    keyDown(bar.items[1]!, 'ArrowDown');
+    const undo = await vi.waitFor(() => {
+      const found = tree.byText('Undo');
+      expect(found).toBe(document.activeElement);
+      return found;
+    });
+    return undo;
+  }
+
+  it('port: a keydown the list does not stop is relayed to the composite root its relayElement names, and a key it handles is not', async () => {
+    const bar = menubar();
+    const tree = barMenu(bar);
+    const undo = await openFromBar(bar, tree);
+    expect(bar.items[1]!.getAttribute('tabindex')).toBe('0');
+
+    // The list handles ArrowDown: nothing reaches the bar.
+    keyDown(undo, 'ArrowDown');
+    expect(tree.byText('Redo')).toBe(document.activeElement);
+    expect(bar.items[1]!.getAttribute('tabindex')).toBe('0');
+
+    // ArrowRight is no key of the vertical list: the bar moves to the next item.
+    const event = keyDown(tree.byText('Redo'), 'ArrowRight');
+    expect(event.defaultPrevented).toBe(true);
+    expect(event.cancelBubble).toBe(true);
+    expect(bar.items[2]!.getAttribute('tabindex')).toBe('0');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(bar.items[2]);
+
+    if (synchronous) {
+      // WebAssembly: the bar's `navigate` point runs the bar's handlers for the relayed key (option (i)).
+      expect(bar.fake.decisions.map((decision) => [decision.point, decision.event.key])).toEqual([[NAVIGATE_POINT, 'ArrowRight']]);
+      expect(bar.fake.reported('OnKeyHandled')).toEqual([]);
+    } else {
+      // Server: the bar's handled-key report runs them.
+      expect(bar.fake.reported<{ event: { key: string } }>('OnKeyHandled').map((report) => report.event.key)).toEqual(['ArrowRight']);
+    }
+  });
+
+  it('port: a nested close key that is the bar\'s main key closes the menu and is relayed, moving the bar to the previous item', async () => {
+    const bar = menubar();
+    const tree = barMenu(bar);
+    const undo = await openFromBar(bar, tree);
+
+    const event = keyDown(undo, 'ArrowLeft');
+
+    expect(tree.root.openRequests.at(-1)).toMatchObject({ open: false, reason: 'list-navigation' });
+    expect(event.defaultPrevented).toBe(true);
+    expect(bar.items[0]!.getAttribute('tabindex')).toBe('0');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(bar.items[0]);
+  });
+
+  it('port: without relayElement a keydown the list does not stop leaves the bar unchanged', async () => {
+    const bar = menubar();
+    const relayed = barMenu(bar);
+    const undo = await openFromBar(bar, relayed);
+    keyDown(undo, 'ArrowRight');
+    expect(bar.items[2]!.getAttribute('tabindex')).toBe('0');
+    relayed.dispose();
+    trees.splice(trees.indexOf(relayed), 1);
+
+    const other = menubar();
+    const tree = barMenu(other, false);
+    const otherUndo = await openFromBar(other, tree);
+    const event = keyDown(otherUndo, 'ArrowRight');
+    expect(event.defaultPrevented).toBe(false);
+    expect(other.items[1]!.getAttribute('tabindex')).toBe('0');
+    expect(other.items[2]!.getAttribute('tabindex')).toBe('-1');
+  });
+});
+
+describe('relayKeyboardEvent (port)', () => {
+  it('port: runs a composite root\'s key resolution for a keydown that did not bubble through it, stops it when handled, and returns false for an element that is no root', async () => {
+    const root = document.createElement('div');
+    const items = ['a', 'b', 'c'].map((label, index) => {
+      const element = document.createElement('button');
+      element.id = `relay-item-${index}`;
+      element.textContent = label;
+      return element;
+    });
+    root.append(...items);
+    const outside = document.createElement('button');
+    document.body.append(root, outside);
+    const fake = createFakeTwin();
+    const handle = attach(
+      root,
+      JSON.stringify({
+        orientation: 'horizontal',
+        loopFocus: true,
+        enableHomeAndEndKeys: false,
+        stopEventPropagation: false,
+        highlightItemOnHover: false,
+        modifierKeys: [],
+        direction: 'ltr',
+        items: items.map((element) => ({ id: element.id, tabIndex: null })),
+        selectOnNavigation: false,
+        reportFocusLeave: false,
+        reportHighlight: true,
+      } satisfies CompositeOptions),
+      fake.twin,
+    );
+    try {
+      const results: boolean[] = [];
+      outside.addEventListener('keydown', (event) => {
+        results.push(relayKeyboardEvent(root, event));
+        results.push(relayKeyboardEvent(outside, event));
+      });
+
+      const event = keyDown(outside, 'ArrowRight');
+
+      expect(results).toEqual([true, false]);
+      expect(event.defaultPrevented).toBe(true);
+      expect(event.cancelBubble).toBe(true);
+      expect(fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
+      await flushMicrotasks();
+      expect(document.activeElement).toBe(items[1]);
+
+      // A key the root does not act on is not handled, and nothing stops it.
+      const ignored = keyDown(outside, 'ArrowDown');
+      expect(results.slice(2)).toEqual([false, false]);
+      expect(ignored.cancelBubble).toBe(false);
+    } finally {
+      handle.dispose();
+    }
   });
 });
 
