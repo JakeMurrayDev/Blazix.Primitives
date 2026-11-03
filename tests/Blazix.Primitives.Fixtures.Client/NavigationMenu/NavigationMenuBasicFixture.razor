@@ -30,7 +30,7 @@
     Around the menu: a `before` and an `after` button, in that order in the DOM but laid out in a row above the menu, so
     the popup never covers them either. `[data-unmount]` calls Unmount, `[data-close]` CloseAsync.
 *@
-<FixtureContainer Name="navigation-menu-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+<FixtureContainer Name="@FixtureName" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-value-changes="@ValueChanges" data-open-change-completes="@OpenChangeCompletes" data-veto-calls="@vetoCalls">
     <style>
         .sized-1 { width: 400px; height: 200px; }
@@ -83,6 +83,10 @@
 
 @code {
     private readonly List<Task> attachments = [];
+
+    /// <summary>Gets or sets the fixture's name on its container: `navigation-menu-prerender` reuses this page prerendered.</summary>
+    [Parameter]
+    public string FixtureName { get; set; } = "navigation-menu-basic";
     private readonly NavigationMenuTrigger?[] triggers = new NavigationMenuTrigger?[3];
     private NavigationMenuRoot<string>? root;
     private bool controlled;
