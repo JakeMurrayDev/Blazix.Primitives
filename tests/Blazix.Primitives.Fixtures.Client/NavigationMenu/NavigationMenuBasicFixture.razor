@@ -15,7 +15,9 @@
     - `nested=inline` puts an inline nested Root `nested-root` (List `nested-list` and Viewport `nested-viewport`, Items
       `nested-<n>` with Triggers `nested-trigger-<n>`, Contents `nested-content-<n>` and Links `nested-link-<n>`) in
       content 1; `nested=portal` gives it a Portal, a Positioner `nested-positioner` on the right and a Popup
-      `nested-popup-root` around that Viewport instead; `nestedDefault=nested-1` its default; `sized` gives content 1 400×200 and content 2 300×150, fixed;
+      `nested-popup-root` around that Viewport instead; `nestedDefault=nested-1` its default; `nested=deep` puts Base UI's
+      three levels there instead (`level2-trigger-<n>`, `level2-content-<n>`, `level2-link-<n>`, default `level2-1`, and
+      in `level2-content-1` the same with `level3-`, default `level3-1`), all inline; `sized` gives content 1 400×200 and content 2 300×150, fixed;
     - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
       (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
       `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
@@ -135,7 +137,7 @@
         disabled = Query("disabled");
         topLink = QueryFlag("topLink") == true;
         closeOnClick = QueryFlag("closeOnClick") == true;
-        nested = Query("nested") is "inline" or "portal" ? Query("nested") : null;
+        nested = Query("nested") is "inline" or "portal" or "deep" ? Query("nested") : null;
         nestedDefault = Query("nestedDefault");
         sized = QueryFlag("sized") == true;
         fade = QueryFlag("fade") == true;
@@ -218,7 +220,11 @@
                 <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@ContentClass(n)">
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
                     <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
-                    @if (nested is not null && n == 1)
+                    @if (nested == "deep" && n == 1)
+                    {
+                        @DeepLevel2
+                    }
+                    else if (nested is not null && n == 1)
                     {
                         <NavigationMenuRoot TValue="string" DefaultValue="@nestedDefault" data-testid="nested-root">
                             <NavigationMenuList data-testid="nested-list">
@@ -277,5 +283,45 @@
             </NavigationMenuPopup>
         </NavigationMenuPositioner>
     </NavigationMenuPortal>
+</text>;
+
+    private RenderFragment DeepLevel2 => @<text>
+    <NavigationMenuRoot TValue="string" DefaultValue="@("level2-1")" data-testid="level2-root">
+        <NavigationMenuList>
+            @for (int i = 1; i <= 2; i++)
+            {
+                int m = i;
+                <NavigationMenuItem TValue="string" Value="@("level2-" + m)">
+                    <NavigationMenuTrigger data-testid="@("level2-trigger-" + m)">Level 2 item @m</NavigationMenuTrigger>
+                    <NavigationMenuContent data-testid="@("level2-content-" + m)">
+                        <NavigationMenuLink href="@(PageUrl + "#level2-" + m)" CloseOnClick="closeOnClick" data-testid="@("level2-link-" + m)">Level 2 link @m</NavigationMenuLink>
+                        @if (m == 1)
+                        {
+                            @DeepLevel3
+                        }
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+            }
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="level2-viewport" />
+    </NavigationMenuRoot>
+</text>;
+
+    private RenderFragment DeepLevel3 => @<text>
+    <NavigationMenuRoot TValue="string" DefaultValue="@("level3-1")" data-testid="level3-root">
+        <NavigationMenuList>
+            @for (int i = 1; i <= 2; i++)
+            {
+                int m = i;
+                <NavigationMenuItem TValue="string" Value="@("level3-" + m)">
+                    <NavigationMenuTrigger data-testid="@("level3-trigger-" + m)">Level 3 item @m</NavigationMenuTrigger>
+                    <NavigationMenuContent data-testid="@("level3-content-" + m)">
+                        <NavigationMenuLink href="@(PageUrl + "#level3-" + m)" CloseOnClick="closeOnClick" data-testid="@("level3-link-" + m)">Level 3 link @m</NavigationMenuLink>
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+            }
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="level3-viewport" />
+    </NavigationMenuRoot>
 </text>;
 }

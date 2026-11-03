@@ -760,6 +760,53 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await expect(link).toBeFocused();
   });
 
+  test('allows arrow key navigation with 3+ levels of nesting', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'deep' });
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    const level2Link = page.getByTestId('level2-link-1');
+    await expect(page.getByTestId('level3-content-1')).toBeVisible();
+
+    // Base UI's Content has one Link before the nested Root; this one has two, so the walk starts from the second.
+    const link = page.getByTestId('link-1-b');
+    await link.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('level2-trigger-1')).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('level2-trigger-2')).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(page.getByTestId('level2-trigger-1')).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(link).toBeFocused();
+
+    await level2Link.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('level3-trigger-1')).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('level3-trigger-2')).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(page.getByTestId('level3-trigger-1')).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(level2Link).toBeFocused();
+  });
+
+  test('closes all levels when a deeply nested link with closeOnClick is clicked', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { nested: 'deep', closeOnClick: true });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await expect(page.getByTestId('level2-content-1')).toBeVisible();
+    await expect(page.getByTestId('level3-content-1')).toBeVisible();
+
+    await page.getByTestId('level3-link-1').click();
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(page.getByTestId('level2-content-1')).toHaveCount(0);
+    await expect(page.getByTestId('level3-content-1')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await settle(fixture);
+    expect((await valueChanges(fixture)).at(-1)).toBe('null:link-press');
+  });
+
   test('opens nested menu on hover and stays open when hovering over nested popup', async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'portal' });
     await hoverOpen(page, trigger(page, 1));
