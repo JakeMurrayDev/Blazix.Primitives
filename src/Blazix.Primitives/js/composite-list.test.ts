@@ -19,6 +19,7 @@ import { resetFrameScheduler } from './transitions';
 import type { DotNetTwin, TwinHandle } from './twin';
 import { createPopupHarness } from './test-support/interactions-harness';
 import { createListHarness, type ListHarness, type ListHarnessOptions } from './test-support/list-harness';
+import { createMenuTree, type MenuSpec, type MenuTree, type MenuTreeOptions } from './test-support/menu-tree-harness';
 
 const harnesses: ListHarness[] = [];
 
@@ -1353,6 +1354,202 @@ describe('useListNavigation (grid)', () => {
 function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => queueMicrotask(resolve));
 }
+
+// Nested lists (M5 track 1, Deliverable 6; CMP-STA-41, KEY-23, KEY-27, DIS-01, EVT-07, FOC-08): useListNavigation.test.tsx's
+// three `it.skipIf(!isJSDOM)` titles, verbatim, on DOM built after `test/floating-ui-tests/Menu.tsx` and
+// `MenuOrientation.tsx` by the menu-tree harness: one session per menu linked by the parent's token, each popup portaled
+// outside its parent popup's DOM. In Base UI a portaled child popup's keydown bubbles through the React tree to its parent
+// popup's handlers; the port hands a keydown the child's floating handle did not stop to the parent list's floating
+// handle. userEvent's `click` and `keyboard` are restated as their DOM events on the focused element, each followed by the
+// task userEvent's zero delay awaits (the frame stub runs on it).
+const trees: MenuTree[] = [];
+
+afterEach(() => {
+  for (const tree of trees.splice(0)) {
+    tree.dispose();
+  }
+});
+
+function menuTree(spec: MenuSpec, options: MenuTreeOptions = {}): MenuTree {
+  const tree = createMenuTree(spec, options);
+  trees.push(tree);
+  return tree;
+}
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** userEvent's `click`: the pointer and mouse sequence, the focus on mousedown, then the click. */
+async function userClick(target: HTMLElement): Promise<void> {
+  target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse' }));
+  target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  target.focus();
+  target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse' }));
+  target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, detail: 1 }));
+  await nextTask();
+  await nextTask();
+}
+
+/** userEvent's `keyboard('{Key}')`: a keydown on the focused element. */
+async function keyboard(key: string): Promise<void> {
+  keyDown(document.activeElement ?? document.body, key);
+  await nextTask();
+  await nextTask();
+}
+
+/** Menu.tsx's `Main`. */
+function nestedMenu(): MenuSpec {
+  return {
+    label: 'Edit',
+    items: [
+      { label: 'Undo' },
+      { label: 'Redo' },
+      { label: 'Cut', disabled: true },
+      {
+        label: 'Copy as',
+        keepMounted: true,
+        items: [
+          { label: 'Text' },
+          { label: 'Video' },
+          { label: 'Image', keepMounted: true, grid: true, orientation: 'horizontal', items: [{ label: '.png' }, { label: '.jpg' }, { label: '.svg' }, { label: '.gif' }] },
+          { label: 'Audio' },
+        ],
+      },
+      { label: 'Share', items: [{ label: 'Mail' }, { label: 'Instagram' }] },
+    ],
+  };
+}
+
+/** MenuOrientation.tsx's `HorizontalMenu`. */
+function horizontalMenu(): MenuSpec {
+  return {
+    label: 'Edit',
+    orientation: 'horizontal',
+    items: [
+      { label: 'Undo' },
+      { label: 'Redo' },
+      { label: 'Cut', disabled: true },
+      {
+        label: 'Copy as',
+        keepMounted: true,
+        items: [
+          { label: 'Text' },
+          { label: 'Video' },
+          { label: 'Image', keepMounted: true, grid: true, items: [{ label: '.png' }, { label: '.jpg' }, { label: '.svg' }, { label: '.gif' }] },
+          { label: 'Audio' },
+        ],
+      },
+      { label: 'Share', items: [{ label: 'Mail' }, { label: 'Instagram' }] },
+    ],
+  };
+}
+
+describe('useListNavigation (nested)', () => {
+  // In JSDOM it will not focus the first item, but will in the browser
+  it('focus management in nested lists', async () => {
+    const tree = menuTree(nestedMenu());
+    await userClick(tree.byText('Edit'));
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight');
+
+    expect(tree.byText('Text')).toBe(document.activeElement);
+  });
+
+  // In JSDOM it will not focus the first item, but will in the browser
+  it('keyboard navigation in nested menus lists', async () => {
+    const tree = menuTree(nestedMenu());
+
+    await userClick(tree.byText('Edit'));
+    await flushMicrotasks();
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight'); // opens first submenu
+    await flushMicrotasks();
+
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight'); // opens second submenu
+    await flushMicrotasks();
+
+    expect(tree.byText('.png')).toBe(document.activeElement);
+
+    // it navigation with orientation = 'both'
+    await keyboard('ArrowRight');
+    expect(tree.byText('.jpg')).toBe(document.activeElement);
+
+    await keyboard('ArrowDown');
+    expect(tree.byText('.gif')).toBe(document.activeElement);
+
+    await keyboard('ArrowLeft');
+    expect(tree.byText('.svg')).toBe(document.activeElement);
+
+    await keyboard('ArrowUp');
+    expect(tree.byText('.png')).toBe(document.activeElement);
+
+    // escape closes the submenu
+    await keyboard('Escape');
+    expect(tree.byText('Image')).toBe(document.activeElement);
+  });
+
+  // In JSDOM it will not focus the first item, but will in the browser
+  it('keyboard navigation in nested menus with different orientation', async () => {
+    const tree = menuTree(horizontalMenu());
+
+    await userClick(tree.byText('Edit'));
+    await flushMicrotasks();
+    await keyboard('ArrowRight');
+    await keyboard('ArrowRight');
+    await keyboard('ArrowRight');
+    await keyboard('ArrowDown'); // opens the Copy as submenu
+    await flushMicrotasks();
+
+    await keyboard('ArrowRight');
+    await keyboard('ArrowDown'); // opens the Share submenu
+    await flushMicrotasks();
+
+    expect(tree.byText('Mail')).toBe(document.activeElement);
+
+    await keyboard('ArrowLeft');
+    expect(tree.byText('Copy as')).toBe(document.activeElement);
+  });
+
+  // CTX-KEY-07 not replicated (ADR 04 Amendments 2026-10-18): ContextMenu's root menu is nested under the context-menu
+  // parent, and `keepOpenOnCrossOrientationKey` keeps it open on its cross-orientation close key (CMP-KEY-27).
+  it('port: a nested list with keepOpenOnCrossOrientationKey stays open on its cross-orientation close key, which another nested list closes on', async () => {
+    const tree = menuTree(nestedMenu());
+    await userClick(tree.byText('Edit'));
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight');
+    expect(tree.byText('Text')).toBe(document.activeElement);
+
+    // Without the option the vertical submenu closes on ArrowLeft and returns the focus to its trigger.
+    await keyboard('ArrowLeft');
+    expect(tree.menu('Copy as').openRequests.at(-1)).toMatchObject({ open: false, reason: 'list-navigation', triggerId: null });
+    expect(tree.menu('Copy as').popup.open).toBe(false);
+    expect(tree.byText('Copy as')).toBe(document.activeElement);
+
+    const kept = menuTree({ ...nestedMenu(), label: 'Edit 2', items: nestedMenu().items.map((item) => ('items' in item && item.label === 'Copy as' ? { ...item, label: 'Copy as 2', list: { keepOpenOnCrossOrientationKey: true } } : item)) });
+    await userClick(kept.byText('Edit 2'));
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowDown');
+    await keyboard('ArrowRight');
+    const text = Array.from(kept.menu('Copy as 2').floating!.querySelectorAll<HTMLElement>('button')).find((element) => element.textContent === 'Text')!;
+    expect(text).toBe(document.activeElement);
+
+    const event = keyDown(text, 'ArrowLeft');
+    expect(kept.menu('Copy as 2').openRequests.filter((request) => !request.open)).toEqual([]);
+    expect(kept.menu('Copy as 2').popup.open).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
 
 interface EmojiPicker {
   readonly button: HTMLElement;
