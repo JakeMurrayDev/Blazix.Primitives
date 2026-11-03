@@ -701,3 +701,141 @@ describe('list highlight writer (port)', () => {
     expect(document.activeElement).toBe(vetoed.item(0));
   });
 });
+
+// Virtual focus (M5 track 1, Deliverable 5; ADR 04 Amendments 2026-11-03 (2); CMP-ARIA-01, CMP-ARIA-02, CMP-KEY-20,
+// CMP-KEY-33, CMP-FOC-05). The module writes `aria-activedescendant` from the active item's own element id (a dated
+// deviation from CMP-ARIA-01's `{id}-{index}` scheme), on the reference and, unless the reference is a typeable combobox,
+// on the floating element, while the list is open with an active item and only under virtual focus; DOM focus stays on
+// the reference.
+describe('list virtual focus (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: under virtual focus writes aria-activedescendant from the active item\'s own id on the reference and the floating element, and DOM focus stays on the reference', async () => {
+    const harness = app({ list: { virtual: true } });
+    harness.reference.focus();
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(highlighted(harness.item(0))).toBe(true);
+    });
+    expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    expect(descendantOf(menu(harness))).toBe(harness.item(0).id);
+    expect(document.activeElement).toBe(harness.reference);
+
+    keyDown(harness.reference, 'ArrowDown');
+    expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    expect(descendantOf(menu(harness))).toBe(harness.item(1).id);
+    expect(document.activeElement).toBe(harness.reference);
+    expect(harness.item(1).getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('port: under virtual focus with a typeable combobox reference writes aria-activedescendant on the reference only', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+    expect(document.activeElement).toBe(harness.reference);
+  });
+
+  it('port: aria-activedescendant is removed on close and absent while open with no active item', async () => {
+    const harness = app({ list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+
+    harness.setOpen(false);
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+
+    // A pointer opening highlights nothing (CMP-STA-39).
+    click(harness.reference);
+    await waitFor(() => {
+      expect(harness.floating).not.toBeNull();
+    });
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+  });
+
+  it('port: aria-activedescendant is never written under DOM focus, and leaving virtual focus removes the one written', async () => {
+    const harness = app({ list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(menu(harness))).toBe(harness.item(0).id);
+    });
+
+    harness.update({ virtual: false });
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+
+    // Under DOM focus a key on the open reference, which holds the focus, starts at the boundary (useListNavigation.ts:
+    // 637-645: the reference contains the focused element and no item does).
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(harness.reference.hasAttribute('aria-activedescendant')).toBe(false);
+    expect(menu(harness).hasAttribute('aria-activedescendant')).toBe(false);
+  });
+
+  // useListNavigation.test.tsx:319, on DOM built after its `Autocomplete`: an input reference without the combobox role,
+  // `useDismiss` (the session's Escape), the consumer's `onChange` played as C# (a value clears the highlight by a request
+  // and opens; an empty value closes), and `active-index` read from C#'s mirror of the highlight.
+  it('resets indexRef to -1 upon close', async () => {
+    const data = ['a', 'ab', 'abc', 'abcd'];
+    const harness = app({ reference: 'input', items: data, list: { virtual: true, loopFocus: true } });
+    const input = harness.reference as HTMLInputElement;
+    input.removeAttribute('role');
+    input.setAttribute('aria-autocomplete', 'list');
+    harness.popup.updateSession({ session: { dismiss: {} } });
+    let revision = 0;
+    const onChange = (value: string) => {
+      input.value = value;
+      if (value) {
+        harness.update({ highlight: { index: null, revision: (revision += 1) } });
+        harness.setOpen(true);
+      } else {
+        harness.setOpen(false);
+      }
+    };
+    const typeKey = (key: string, value: string) => {
+      keyDown(input, key);
+      onChange(value);
+    };
+
+    input.focus();
+    typeKey('a', 'a');
+
+    expect(harness.floating).not.toBeNull();
+    expect(harness.activeIndex).toBe(null);
+
+    keyDown(input, 'ArrowDown');
+    keyDown(input, 'ArrowDown');
+    keyDown(input, 'ArrowDown');
+
+    expect(harness.activeIndex).toBe(2);
+
+    keyDown(input, 'Escape');
+
+    await waitFor(() => {
+      expect(harness.activeIndex).toBe(null);
+    });
+
+    typeKey('Backspace', '');
+    typeKey('a', 'a');
+
+    expect(harness.floating).not.toBeNull();
+    expect(harness.activeIndex).toBe(null);
+
+    keyDown(input, 'ArrowDown');
+
+    expect(harness.activeIndex).toBe(0);
+  });
+});
