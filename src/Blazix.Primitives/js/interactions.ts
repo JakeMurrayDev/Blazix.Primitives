@@ -2320,9 +2320,10 @@ function createClickController(context: HandleContext): Controller {
       listen(element, 'keydown', onKeyDown),
       () => {
         state.listening -= 1;
+        // NAV-PTR-05 (M5 track 2): the window is the session's, as Base UI keeps it on the Trigger (stickIfOpenTimeout) and
+        // Popover's store does, so the last uninstall leaves a running timer to end it.
         if (state.listening === 0) {
           record.events.off('openchange', state.onOpenChange);
-          state.timer.clear();
         }
       },
     );
@@ -4327,6 +4328,20 @@ function setPositionReference(record: SessionRecord, reference: SessionVirtualEl
   }
   record.positionReference = reference;
   notifyPositionListeners(record);
+}
+
+// NAV-PTR-07 (M5 track 2; settled by the orchestrator 2026-11-04 under ADR 04 §1): the recorded open event is this
+// module's key (`dataRef.current.openEvent`), so a component module that switches without a click (NavigationMenu's hover
+// and key switches) clears it through this export.
+/**
+ * Forgets the open event recorded on the session of a token.
+ * @param token The session token; an unknown token is ignored.
+ */
+export function clearSessionOpenEvent(token: string): void {
+  const record = sessions.get(token);
+  if (record !== undefined) {
+    record.dataRef.current.openEvent = undefined;
+  }
 }
 
 // The platform flags (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01),
