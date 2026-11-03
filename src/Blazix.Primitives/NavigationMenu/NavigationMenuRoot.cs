@@ -356,6 +356,13 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
 
         if (changed)
         {
+            if (closing && valueState.IsControlled)
+            {
+                // NAV-STA-05: recorded before the page answers, so the value parameter's close, inside the commit when the
+                // page follows or later when it does not, honors the opt-out.
+                store.RecordUnmountPrevention(details.UnmountOnClosePrevented);
+            }
+
             await valueState.CommitAsync(next, ValueChanged);
             if (!valueState.IsControlled || current is not null && next is not null)
             {

@@ -211,6 +211,20 @@ internal sealed class NavigationMenuStore : PopupLifecycleStore<NavigationMenuSt
     /// <summary>Counts one more of the module's focus-out reports answered.</summary>
     public void Answer() => Write(State with { Answered = State.Answered + 1 });
 
+    // NAV-STA-05; NavigationMenuRoot.tsx:221-227: a close request of a set value records whether its callback opted out,
+    // even when a controlled root's page keeps the value; the value parameter's later close honors it. The lifecycle
+    // keeps the flag while the effective open state does not flip.
+    /// <summary>Records whether a close request's callback kept the popup mounted after the close.</summary>
+    /// <param name="prevent">Whether the callback called <c>PreventUnmountOnClose()</c>.</param>
+    public void RecordUnmountPrevention(bool prevent)
+    {
+        PopupLifecycleState lifecycle = State.Lifecycle;
+        if (lifecycle.PreventUnmountingOnClose != prevent)
+        {
+            WriteLifecycle(lifecycle with { PreventUnmountingOnClose = prevent });
+        }
+    }
+
     /// <inheritdoc />
     /// <remarks>The open state is derived from the root's value, so the root's value step runs instead of a controlled open.</remarks>
     protected override Task<bool> RunConsumerStepAsync(bool open, OpenChangeEventDetails details) =>
