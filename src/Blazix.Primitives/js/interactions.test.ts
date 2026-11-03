@@ -1216,6 +1216,22 @@ describe('useDismiss', () => {
       expect(popup.open).toBe(false);
     });
 
+    // NavigationMenu's cross-menu outside press (NavigationMenuList.tsx:54-65; NAV-PTR-17, NavigationMenuRoot.test.tsx "does
+    // not close menu when clicking a different trigger with mouse"), a branch of FLT-DIS-09 as data (M5 track 2).
+    it('port: a press inside an element the exempt selector matches is not outside, and a press elsewhere is', () => {
+      const { popup } = renderApp({ outsidePressExemptSelector: '[data-menu-trigger]' });
+      const otherTrigger = element('button');
+      otherTrigger.setAttribute('data-menu-trigger', '');
+      const icon = document.createElement('span');
+      otherTrigger.append(icon);
+
+      userClick(icon);
+      expect(popup.open).toBe(true);
+
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+    });
+
     it.each([false, true])('clears the inside marker when the interaction owner unmounts (strict: %s)', (strict) => {
       // Restated: the interaction owner is the session handle's dismissal half (the Root's `useDismiss`); the root store
       // (the session) outlives it because the floating handle holds the session. Strict Mode's mount, unmount and
@@ -3219,6 +3235,106 @@ describe('useHoverReferenceInteraction', () => {
 
       popup.setOpen(false);
       expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['', '', '']);
+    });
+
+    // NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data (M5 track 2): NAV-PTR-10, NavigationMenuRoot.test.tsx
+    // "blocks pointer events on the list while traversing from a top-level trigger to the popup" and "scopes safePolygon
+    // pointer events to the document for a custom list element".
+    it('port: with the scope selector, the lock scopes to the trigger\'s nearest match, and to the document when there is none', () => {
+      const listed = render({ safePolygon: true, blockPointerEvents: true, pointerEventsScopeSelector: 'ul' });
+      const list = document.createElement('ul');
+      const item = document.createElement('li');
+      document.body.append(list);
+      list.append(item);
+      item.append(listed.button);
+
+      hoverMouse(listed.button, 'mouseenter');
+
+      expect([list.style.pointerEvents, document.body.style.pointerEvents, listed.button.style.pointerEvents]).toEqual(['none', '', 'auto']);
+      listed.popup.setOpen(false);
+      expect(list.style.pointerEvents).toBe('');
+
+      const unlisted = render({ safePolygon: true, blockPointerEvents: true, pointerEventsScopeSelector: 'ul' });
+      hoverMouse(unlisted.button, 'mouseenter');
+      expect([document.body.style.pointerEvents, unlisted.button.style.pointerEvents]).toEqual(['none', 'auto']);
+    });
+
+    // NavigationMenu's own lock on `mouseenter` (NavigationMenuTrigger.tsx:594-615, 488-501, 651-675; M5 track 2): NAV-PTR-10,
+    // NAV-PTR-11 and NAV-PTR-12, NavigationMenuRoot.test.tsx "blocks pointer events on sibling top-level triggers when opened
+    // through real hover", "clears top-level safePolygon pointer events on trigger pointerdown", "reapplies top-level
+    // safePolygon pointer events after returning from the popup and switching triggers"; NavigationMenuTrigger.test.tsx
+    // "releases the pointer-events lock when the pointer sweeps across a trigger without the menu opening".
+    it('port: entering a trigger locks pointer events while the floating element exists: at once while closed, after a microtask on a switch; a pointerdown and a closed leave release it', async () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, blockPointerEventsOnEnter: true, pointerEventsScopeSelector: 'ul', move: false, delayOpen: 1000 };
+      const list = document.createElement('ul');
+      document.body.append(list);
+      const first = element('button');
+      const second = element('button');
+      list.append(first, second);
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      const floating = element('div');
+      popup.attachFloating(floating, { floating: { hover: {} } });
+
+      hoverMouse(first, 'mouseenter');
+      expect([list.style.pointerEvents, first.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+
+      hoverMouse(first, 'mouseleave');
+      expect(list.style.pointerEvents).toBe('');
+
+      hoverMouse(first, 'mouseenter');
+      hoverPointer(first, 'pointerdown', 'mouse');
+      expect(list.style.pointerEvents).toBe('');
+
+      popup.setOpen(true, 'trigger-hover', first.id, 'mouseenter');
+      hoverMouse(second, 'mouseenter');
+      expect(second.style.pointerEvents).toBe('');
+      await Promise.resolve();
+      expect([list.style.pointerEvents, second.style.pointerEvents, floating.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+    });
+
+    // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; M5 track 2): NAV-PTR-13,
+    // NavigationMenuRoot.test.tsx "keeps an inline submenu open while traversing toward a viewport on the right".
+    it('port: with an inline close context, leaving the trigger toward the named element keeps the popup open, placed on the dominant axis between the centres', () => {
+      const popup = harness();
+      popup.attachSession();
+      const button = element('button');
+      const viewport = element('div', 'inline-viewport');
+      popup.attachTrigger(button, { trigger: { hover: { safePolygon: true, inlineCloseContext: { floatingId: 'inline-viewport' } } } });
+      popup.setReference(button);
+      button.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
+      viewport.getBoundingClientRect = () => hoverRect(150, 0, 100, 100);
+
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+
+      hoverMouse(button, 'mouseleave', { clientX: 100, clientY: 50 });
+      hoverMouse(document.body, 'mousemove', { clientX: 120, clientY: 50 });
+      expect(popup.open).toBe(true);
+
+      hoverMouse(document.body, 'mousemove', { clientX: 50, clientY: 300 });
+      expect(popup.open).toBe(false);
+    });
+
+    // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's whole
+    // `style` when its rendered value changes, so the lock re-asserts its value after the write while it holds.
+    it('port: a style rewrite while the lock holds keeps the lock\'s pointer-events at the next microtask, and one after the release stays as written', async () => {
+      const { popup, button, tooltip } = render({ safePolygon: true, blockPointerEvents: true });
+      hoverMouse(button, 'mouseenter');
+
+      button.setAttribute('style', 'color: red');
+      document.body.setAttribute('style', 'margin: 0px');
+      await Promise.resolve();
+
+      expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents, button.style.color]).toEqual(['none', 'auto', 'auto', 'red']);
+
+      popup.setOpen(false);
+      button.setAttribute('style', 'color: blue');
+      await Promise.resolve();
+      expect([button.style.pointerEvents, button.style.color]).toEqual(['', 'blue']);
+      document.body.removeAttribute('style');
     });
 
     it('port: a trigger that attaches after the hover open was relayed gets the blockPointerEvents mutation once it is the anchor', () => {
