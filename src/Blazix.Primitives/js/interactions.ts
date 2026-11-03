@@ -1296,7 +1296,8 @@ interface DismissState {
   clearInsideReactTreeTimeout: Timer;
   /** Outlives the listeners' re-installs, so a pending reset cannot leave `isComposing` stuck. */
   compositionTimeout: Timer;
-  /** Runs while an open's outside-press grace lasts (ContextMenu's, M5 track 2). */
+  // ContextMenu's outside-press grace (M5 track 2).
+  /** Runs while an open's outside-press grace lasts. */
   graceTimeout: Timer;
 }
 
@@ -2153,14 +2154,14 @@ function patientClickState(record: SessionRecord): PatientClickState {
   });
 }
 
-// FLT-ALG-16
+// FLT-ALG-16. The deferred press: M5 track 2, the consumer's declined onmousedown (ADR 01 Amendments 2026-11-04).
 /**
  * useClick on a trigger (useClick.ts) with the decision point `press`: the trigger computes the next open value from the
  * relayed state and asks `press` on its own twin, fallback `run`. On WebAssembly it first hands the press
  * over (`OnPressing`) and C# runs the consumer's declined `onclick` and the request inside the dispatch; on Server it
  * reports the press (`OnPress`) with its snapshot and interaction type, and C# runs both a round trip later. A press
  * deferred to a frame or a touch delay fires after Blazor dispatched its event, so it says `deferred` and C# takes the
- * consumer's verdict from that dispatch (M5 track 2).
+ * consumer's verdict from that dispatch.
  */
 function createClickController(context: HandleContext): Controller {
   const { record, channel, twinReference } = context;
@@ -3044,8 +3045,8 @@ function createHoverReferenceController(context: HandleContext): Controller {
   const clearPointerEvents = () => clearSafePolygonPointerEventsMutation(instance);
 
   // NavigationMenu's getHandleCloseContext (NavigationMenuTrigger.tsx:503-509, 812-845; NAV-PTR-09, NAV-PTR-13), as data:
-  // the named element (the Viewport) is the floating element, placed on the dominant axis from the trigger's centre to
-  // its centre, and the node is the one the option names (the nested Root's), else this session's.
+  // the named element (the Viewport) is the floating element, placed on the dominant axis from the trigger's center to
+  // its center, and the node is the one the option names (the nested Root's), else this session's.
   const inlineCloseContext = () => {
     const inline = hoverOptions()?.inlineCloseContext;
     const floating = inline == null ? null : ownerDocument(element).getElementById(inline.floatingId);
