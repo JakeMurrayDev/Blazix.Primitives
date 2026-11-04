@@ -1,0 +1,152 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-triggerless` fixture (tests/browser/menu.popups.spec.ts, M5 track 6): MenuRoot.triggerless.test.tsx. `case`:
+    - `nested`: a default-open, non-modal root anchored to the body, its portal `keepMounted` by query, under `dir`; a submenu
+      "More" (not open on hover, delay 0) holding "Leaf".
+    - `anchor`: a controlled root opened by the button `open-anchor`, anchored to it, its portal `keepMounted` by query; closes
+      clear the anchor; "More" holds "Nested".
+    - `siblings`: two submenus "First" and "Second", `method=click|hover` deciding their OpenOnHover.
+    - `initial`: a default-open submenu "More".
+    - `registration`: "More" whose F2 keydown mounts a real trigger "Options"; `initialTrigger` starts with it.
+    The container records `data-open-changes`, `data-first-open-changes` (the first submenu) and
+    `data-submenu-open-change-completes`, and `data-popup-attached` once the root's popup attached.
+*@
+<FixtureContainer Name="menu-triggerless" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-popup-attached="@(popupAttached ? "true" : "false")"
+                  data-open-changes="@OpenChanges" data-first-open-changes="@string.Join(' ', firstChanges)"
+                  data-submenu-open-change-completes="@string.Join(' ', submenuCompletes)">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <DirectionProvider Direction="@direction">
+        @if (Case == "anchor")
+        {
+            <button type="button" data-testid="open-anchor" @ref="anchorButton" @onclick="OpenAnchored">Open</button>
+            <MenuRoot TPayload="NoPayload" @ref="root" Open="@(anchor is not null)" OnOpenChange="AnchoredChange">
+                <MenuPortal KeepMounted="@keepMounted">
+                    <MenuPositioner Anchor="@anchor">
+                        <MenuPopup @ref="popup" data-testid="menu">
+                            @Submenu("More", @<MenuItem>Nested</MenuItem>)
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        }
+        else
+        {
+            <MenuRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" Modal="false" OnOpenChange="RecordOpenChange">
+                @if (hasTrigger)
+                {
+                    <MenuTrigger TPayload="NoPayload" data-testid="trigger">Options</MenuTrigger>
+                }
+                <MenuPortal KeepMounted="@keepMounted">
+                    <MenuPositioner Anchor="@s_body">
+                        <MenuPopup @ref="popup" data-testid="menu">
+                            @switch (Case)
+                            {
+                                case "siblings":
+                                    <MenuSubmenuRoot OnOpenChange="RecordFirstChange">
+                                        <MenuSubmenuTrigger OpenOnHover="@(Query("method") == "hover")" Delay="0">First</MenuSubmenuTrigger>
+                                        @SubmenuPortal(@<MenuItem>First item</MenuItem>)
+                                    </MenuSubmenuRoot>
+                                    <MenuSubmenuRoot>
+                                        <MenuSubmenuTrigger OpenOnHover="@(Query("method") == "hover")" Delay="0">Second</MenuSubmenuTrigger>
+                                        @SubmenuPortal(@<MenuItem>Second item</MenuItem>)
+                                    </MenuSubmenuRoot>
+                                    break;
+                                case "initial":
+                                    <MenuSubmenuRoot DefaultOpen="true" OnOpenChangeComplete="RecordSubmenuComplete">
+                                        <MenuSubmenuTrigger OpenOnHover="false" Delay="0">More</MenuSubmenuTrigger>
+                                        @SubmenuPortal(@<MenuItem>Nested</MenuItem>)
+                                    </MenuSubmenuRoot>
+                                    break;
+                                case "registration":
+                                    <MenuSubmenuRoot>
+                                        <MenuSubmenuTrigger OpenOnHover="false" @onkeydown="MountTrigger">More</MenuSubmenuTrigger>
+                                        @SubmenuPortal(@<MenuItem>Nested</MenuItem>)
+                                    </MenuSubmenuRoot>
+                                    break;
+                                default:
+                                    @Submenu("More", @<MenuItem>Leaf</MenuItem>)
+                                    break;
+                            }
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        }
+    </DirectionProvider>
+</FixtureContainer>
+
+@code {
+    private static readonly AnchorValue s_body = "body";
+    private readonly List<string> firstChanges = [];
+    private readonly List<string> submenuCompletes = [];
+    private TextDirection direction = TextDirection.Ltr;
+    private bool keepMounted;
+    private bool hasTrigger;
+    private bool popupAttached;
+    private AnchorValue? anchor;
+    private ElementReference anchorButton;
+    private MenuRoot<NoPayload>? root;
+    private MenuPopup? popup;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        direction = Query("dir") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+        keepMounted = QueryFlag("keepMounted") == true;
+        hasTrigger = QueryFlag("initialTrigger") == true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!popupAttached && popup is { } mounted && RendererInfo.IsInteractive)
+        {
+            await mounted.TwinAttached;
+            popupAttached = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenAnchored() => anchor = anchorButton;
+
+    private void AnchoredChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value)
+        {
+            anchor = null;
+        }
+    }
+
+    private void MountTrigger(KeyboardEventArgs args)
+    {
+        if (args.Key == "F2")
+        {
+            hasTrigger = true;
+        }
+    }
+
+    private void RecordFirstChange(ValueChangeEventArgs<bool> args) =>
+        firstChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private void RecordSubmenuComplete(bool completed) => submenuCompletes.Add(completed ? "true" : "false");
+
+    private static RenderFragment SubmenuPortal(RenderFragment content) => @<MenuPortal>
+        <MenuPositioner>
+            <MenuPopup>@content</MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>;
+
+    private static RenderFragment Submenu(string label, RenderFragment content) => @<MenuSubmenuRoot>
+        <MenuSubmenuTrigger OpenOnHover="false" Delay="0">@label</MenuSubmenuTrigger>
+        @SubmenuPortal(content)
+    </MenuSubmenuRoot>;
+}
