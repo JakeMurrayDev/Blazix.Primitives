@@ -3644,7 +3644,13 @@ function createHoverFloatingController(context: HandleContext): Controller {
         floatingElement,
       });
 
-      pointerEventsCleanup = clearPointerEvents;
+      // G1 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): Base UI keeps a hover state per
+      // trigger, so this run's cleanup clears only the lock it applied, never one a hover switch moved to another trigger.
+      pointerEventsCleanup = () => {
+        if (instance.pointerEventsReferenceElement === ref) {
+          clearPointerEvents();
+        }
+      };
     }
   };
 
