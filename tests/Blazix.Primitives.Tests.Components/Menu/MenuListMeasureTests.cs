@@ -31,8 +31,8 @@ public sealed class MenuListMeasureTests : IDisposable
     [InlineData(500, "plain")]
     [InlineData(500, "substitute")]
     [InlineData(500, "bag")]
-    [Trait("Verifies", "ADR02-list-part")]
-    [Trait("Verifies", "ADR16-B")]
+    [Trait("Verifies", "ADR02-3")]
+    [Trait("Verifies", "ADR16-1")]
     public void Measures_the_render_cost_per_item(int count, string form)
     {
         IRenderedComponent<MenuMeasureHost> cut = context.Render<MenuMeasureHost>(p => p
