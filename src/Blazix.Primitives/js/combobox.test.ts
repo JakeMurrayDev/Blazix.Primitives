@@ -146,6 +146,18 @@ describe('the input', () => {
     expect(outside).toEqual([]);
   });
 
+  it('port: on Server the Escape after a close clears once the popup list left the document, though the update still says mounted', () => {
+    const list = document.createElement('div');
+    list.id = 'gone-list';
+    document.body.append(list);
+    const { input, fake } = setupInput('apple', { hasValue: true, mounted: true, listId: 'gone-list' });
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(fake.reported('OnClear')).toHaveLength(0);
+    list.remove();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(fake.reported('OnClear')).toHaveLength(1);
+  });
+
   it('port: on Server the closed Escape lets the keydown bubble when there is nothing to clear, or the root is inline', () => {
     const { input } = setupInput('', { hasValue: false, mounted: false });
     const outside: string[] = [];
