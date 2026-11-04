@@ -198,6 +198,7 @@ public static class FixtureCatalog
         ["menu-positioner"] = new(typeof(MenuPositionerFixture)),
         ["menu-list"] = new(typeof(MenuListFixture)),
         ["menu-nested"] = new(typeof(MenuNestedFixture)),
+        ["menu-root"] = new(typeof(MenuRootFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
         ["preview-card-conformance"] = new(typeof(PreviewCardConformanceFixture)),
