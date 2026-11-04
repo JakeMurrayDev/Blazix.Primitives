@@ -184,6 +184,8 @@ interface RenderOptions {
   sessionToken?: string;
   open?: string | null;
   verdict?: 'run' | 'stop';
+  /** `false` leaves the Positioner's and Popup's handles unattached, as on Server before their attach arrives. */
+  popupHandles?: boolean;
 }
 
 interface Rendered {
@@ -389,7 +391,7 @@ function renderMenu(options: RenderOptions = {}): Rendered {
   if (!options.nested) {
     handles.push(attach(list, part('list'), rendered.dotnet, [root]));
   }
-  if (positioner !== null && popup !== null) {
+  if (positioner !== null && popup !== null && options.popupHandles !== false) {
     handles.push(attach(positioner, part('positioner'), rendered.dotnet, [root]));
     handles.push(attach(popup, part('popup'), rendered.dotnet, [root]));
   }
@@ -1169,6 +1171,22 @@ describe('focus guards', () => {
 });
 
 describe('focus-out', () => {
+  // CI run 41810354439 (issue-114 rule): on Server the Positioner's and Popup's handles attach a round trip or two after
+  // the open's render, and the focus-out check waited for them. The active Trigger's `aria-controls` names the Popup from
+  // the open's render on (NAV-ARIA-02).
+  it('closes the menu when the trigger blurs outside before the popup handles attach, by the popup its aria-controls names', async () => {
+    const rendered = renderMenu({ open: 'item-1', popupHandles: false });
+    await settle();
+    const trigger = rendered.item('item-1').trigger;
+    trigger.setAttribute('aria-controls', rendered.popup!.id);
+    const inside = rendered.item('item-1').content!.querySelector('a')!;
+
+    trigger.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: inside }));
+    expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(0);
+    trigger.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
+    expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(1);
+  });
+
   it('closes the menu when the trigger blurs to an element outside the root and the popup, and only once in flight', async () => {
     const rendered = renderMenu({ open: 'item-1' });
     await settle();

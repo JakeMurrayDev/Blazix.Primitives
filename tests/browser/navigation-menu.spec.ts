@@ -1949,6 +1949,25 @@ test.describe('Server relaxations', () => {
     await expect(page.getByTestId('positioner')).not.toHaveAttribute('data-instant');
   });
 
+  // "closes the menu when tabbing back out" failed on Server in CI run 41810354439 (issue-114 rule): the Trigger's focus-out
+  // check waited for the Popup's and Positioner's handles, which attach a round trip or two after the open's render.
+  // With the circuit delayed, a Shift+Tab right after the Content shows lands in that window every time.
+  test('port: tabbing back out right after the open closes the menu, before the Popup\'s handle attaches', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, DELAY);
+    }
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+
+    await page.keyboard.press('Shift+Tab');
+
+    await expect(page.getByTestId('before')).toBeFocused();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await settle(fixture);
+    expect(await valueChanges(fixture)).toContain('null:focus-out');
+  });
+
   test('port: a click on the trigger a hover switch just activated closes the menu on WebAssembly, and keeps it open within the round trip on Server', async ({ page, mode }) => {
     if (mode === 'server') {
       await delayCircuit(page, DELAY);
@@ -1993,55 +2012,58 @@ test.describe('attach order', () => {
     };
   }
 
-  test('port: with js/interactions.js stalled the navigation-menu handle attaches first, and a click on another trigger of a click-opened menu switches to it', async ({ page, mode }) => {
-    const stalled = await stall(page, 'interactions');
-    await page.goto(fixtureUrl(mode, FIXTURE), { waitUntil: 'commit' });
+  /**
+   * Pins the order of trigger 2's two click listeners with a stalled load, then waits for the page to attach. With
+   * js/interactions.js stalled, an ArrowDown open on trigger 2 marks its navigation-menu handle attached first (the open
+   * key is that handle's alone, NAV-KEY-01); with js/navigation-menu.js stalled, a click open on trigger 2 marks its
+   * interactions handle attached first. Each marker is the clicked trigger's own handle.
+   */
+  async function pinListenerOrder(page: Page, mode: RenderMode, first: 'navigation-menu' | 'interactions', controlled: boolean): Promise<void> {
+    const stalled = await stall(page, first === 'navigation-menu' ? 'interactions' : 'navigation-menu');
+    await page.goto(`${fixtureUrl(mode, FIXTURE)}${controlled ? '?value=none' : ''}`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
     await expect.poll(stalled.hits).toBeGreaterThan(0);
-    // The open key is the navigation-menu handle's alone (NAV-KEY-01), so the open marks trigger 1's handle attached while
-    // the interactions ones wait: its click listener comes first.
-    await trigger(page, 1).focus();
-    await page.keyboard.press('ArrowDown');
-    await expect(content(page, 1)).toBeVisible();
+    if (first === 'navigation-menu') {
+      await trigger(page, 2).focus();
+      await page.keyboard.press('ArrowDown');
+    } else {
+      await trigger(page, 2).click();
+    }
+    await expect(content(page, 2)).toBeVisible();
     await pressControl(page.locator(Fixture.container(FIXTURE)).locator('[data-close]'));
     await expect(page.getByTestId('popup-root')).toHaveCount(0);
     await stalled.release();
     await expect(page.locator(Fixture.container(FIXTURE))).toHaveAttribute('data-attached', 'true');
+  }
 
-    await trigger(page, 1).click();
-    await expect(content(page, 1)).toBeVisible();
-    await fireClick(trigger(page, 2));
+  // Base UI's click role reads the toggle of the render before the click whichever listener runs first (B1 of the review
+  // of PR 168). A trusted click (Enter on the focused trigger, with no pointer moving, as Base UI's fireEvent.click) runs
+  // a microtask checkpoint after each listener, which a dispatched click does not; a controlled Root re-renders the page
+  // inside the dispatch, which sets the Trigger's parameters again.
+  for (const controlled of [false, true]) {
+    for (const first of ['navigation-menu', 'interactions'] as const) {
+      for (const trusted of [false, true]) {
+        const stalledModule = first === 'navigation-menu' ? 'interactions' : 'navigation-menu';
+        const title = `port: ${controlled ? 'in a controlled menu, ' : ''}with js/${stalledModule}.js stalled the ${first} handle attaches first, and a ${trusted ? 'trusted ' : ''}click on another trigger of a click-opened menu switches to it`;
+        test(title, async ({ page, mode }) => {
+          await pinListenerOrder(page, mode, first, controlled);
 
-    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
-    await expect(content(page, 2)).toBeVisible();
-  });
+          await trigger(page, 1).click();
+          await expect(content(page, 1)).toBeVisible();
+          if (trusted) {
+            await trigger(page, 2).focus();
+            await page.keyboard.press('Enter');
+          } else {
+            await fireClick(trigger(page, 2));
+          }
 
-  // The same order with a trusted click: Enter on a focused trigger clicks it with no pointer moving, as Base UI's
-  // fireEvent.click does, and the browser runs a microtask checkpoint after each listener of a trusted event, which a
-  // dispatched click does not.
-  test('port: with js/interactions.js stalled the navigation-menu handle attaches first, and a trusted click on another trigger of a click-opened menu switches to it', async ({ page, mode }) => {
-    const stalled = await stall(page, 'interactions');
-    await page.goto(fixtureUrl(mode, FIXTURE), { waitUntil: 'commit' });
-    await page.locator(Fixture.started).waitFor({ state: 'attached' });
-    await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
-    await expect.poll(stalled.hits).toBeGreaterThan(0);
-    await trigger(page, 1).focus();
-    await page.keyboard.press('ArrowDown');
-    await expect(content(page, 1)).toBeVisible();
-    await pressControl(page.locator(Fixture.container(FIXTURE)).locator('[data-close]'));
-    await expect(page.getByTestId('popup-root')).toHaveCount(0);
-    await stalled.release();
-    await expect(page.locator(Fixture.container(FIXTURE))).toHaveAttribute('data-attached', 'true');
-
-    await trigger(page, 1).click();
-    await expect(content(page, 1)).toBeVisible();
-    await trigger(page, 2).focus();
-    await page.keyboard.press('Enter');
-
-    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
-    await expect(content(page, 2)).toBeVisible();
-  });
+          await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+          await expect(content(page, 2)).toBeVisible();
+        });
+      }
+    }
+  }
 
   test('port: with js/navigation-menu.js stalled the trigger opens on click, and the size pass runs once the module arrives', async ({ page, mode }) => {
     const stalled = await stall(page, 'navigation-menu');

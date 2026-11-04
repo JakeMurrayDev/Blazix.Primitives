@@ -4,6 +4,7 @@ using Blazix.Primitives.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives.Tests.Components;
 
@@ -693,6 +694,46 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.Contains("\"rootBoundary\":\"layoutViewport\"", positioning, StringComparison.Ordinal);
     }
 
+    // A Content outlives its element: it renders nothing once its exit is done and a new element at its next open
+    // (NAV-STA-12, NAV-ANI-20). The precedent is FocusManagerBehavior's: a replaced element is let go and the new one attached.
+    [Fact(DisplayName = "port: a Content that mounts again attaches its navigation-menu handle to its new element")]
+    [Trait("Requirement", "NAV-DOM-17")]
+    [Trait("Requirement", "NAV-FOC-09")]
+    public async Task A_content_that_mounts_again_attaches_its_handle_to_its_new_element()
+    {
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render();
+        await test.PressAsync(cut, "trigger-item-1", open: true);
+        await test.SessionRequestAsync(cut, open: false, "escape-key");
+        await NavigationMenuTestContext.CompleteExitAsync(cut);
+        Assert.Empty(cut.FindAll("[data-testid=\"content-item-1\"]"));
+
+        await test.PressAsync(cut, "trigger-item-1", open: true);
+
+        string[] elements = ContentAttaches().Select(attach => ((ElementReference)attach.Arguments[0]!).Id).ToArray();
+        Assert.Equal(2, elements.Length);
+        Assert.NotEqual(elements[0], elements[1]);
+    }
+
+    // The attach of a Content that closed while its module loaded arrives after its element left (FocusManagerBehavior's and
+    // CollapsiblePanelBehavior's precedent): the attach is dropped, so no exception reaches OnAfterRenderAsync (on Server one
+    // ends the circuit), and the next element attaches.
+    [Fact(DisplayName = "port: a part handle whose element left before its attach arrived drops that attach and attaches the next element")]
+    [Trait("Requirement", "NAV-DOM-17")]
+    public async Task A_handle_whose_element_left_before_its_attach_drops_it()
+    {
+        RefusingFirstAttachRuntime runtime = new();
+        NavigationMenuModule module = new(runtime);
+        NavigationMenuOptions options = new() { Part = NavigationMenuTwin.ContentPart };
+
+        await module.SyncAsync(new ElementReference("content-first"), options, new ElementReference("root"));
+        Assert.False(module.Attached.IsCompleted);
+
+        await module.SyncAsync(new ElementReference("content-second"), options, new ElementReference("root"));
+
+        Assert.True(module.Attached.IsCompletedSuccessfully);
+        Assert.Equal(["content-first", "content-second"], runtime.Attached);
+    }
+
     [Fact(DisplayName = "port: a controlled open's relay reaches the session with the value the page sets, so the session records the hover open event")]
     [Trait("Requirement", "NAV-PTR-10")]
     [Trait("Requirement", "NAV-STA-01")]
@@ -947,4 +988,46 @@ public sealed class NavigationMenuRootTests : IDisposable
         }));
         builder.CloseComponent();
     }
+
+    private JSRuntimeInvocation[] ContentAttaches() =>
+        test.NavigationMenu.Invocations["attach"]
+            .Where(attach => attach.Arguments[1] is string json && json.Contains("\"part\":\"content\"", StringComparison.Ordinal))
+            .ToArray();
+
+    // The module import and its `attach`, the first of which fails as the browser's does for an element that left. BL0016 asks
+    // callers of JS interop to guard the call; this is the runtime itself, which only answers (HeldAttachRuntime's precedent).
+#pragma warning disable BL0016
+    private sealed class RefusingFirstAttachRuntime : IJSRuntime
+    {
+        public List<string> Attached { get; } = [];
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => new((TValue)(object)new Module(this));
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            new((TValue)(object)new Module(this));
+
+        private sealed class Module(RefusingFirstAttachRuntime runtime) : IJSObjectReference
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier, args);
+
+            private ValueTask<TValue> Answer<TValue>(string identifier, object?[]? args)
+            {
+                if (identifier == "attach")
+                {
+                    runtime.Attached.Add(((ElementReference)args![0]!).Id);
+                    if (runtime.Attached.Count == 1)
+                    {
+                        throw new JSException("Blazix: no element for the reference");
+                    }
+                }
+
+                return new((TValue)(object)this);
+            }
+        }
+    }
+#pragma warning restore BL0016
 }
