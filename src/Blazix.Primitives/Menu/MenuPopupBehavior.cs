@@ -132,6 +132,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     {
         MenuRootContext menu = root!;
         this.element = element;
+        Task listSync = Task.CompletedTask;
         if (element is { } target)
         {
             menu.SetPopupElement(target, id);
@@ -140,15 +141,17 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
             // MNU-KEY-20 (MenuPopup.tsx:169-173): inside a toolbar the composite keys stop at the popup.
             Task moduleSync = module.SyncAsync(target, toolbar is null ? s_freeKeys : s_stoppedKeys);
-            Task listSync = list.AfterRenderAsync(true, target, id);
+
+            // The list's handle waits for the session inside track 1's behavior; the batch boundary does not wait for it.
+            listSync = list.AfterRenderAsync(true, target, id);
             focus!.SetInputs(FocusInputs());
             await focus.AfterRenderAsync(target, id);
             await moduleSync;
-            await listSync;
             await transitionsSync;
         }
 
         await menu.AtBatchBoundaryAsync();
+        await listSync;
     }
 
     /// <inheritdoc />

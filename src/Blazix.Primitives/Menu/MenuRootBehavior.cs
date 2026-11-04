@@ -199,7 +199,18 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     {
         MenuStore<TPayload> store = root.Store;
         MenuRootContext<TPayload> rootContext = context!;
+        PopupStoreState<TPayload> before = store.State.Popup;
         root.ApplyParameters(parameters.Popup);
+
+        // TRN-ANI-28 (useTriggerSwitchTransition.ts), Popover's step: a controlled `TriggerId` that moves the open menu to
+        // another trigger clears the instant type in this parameter set, before the parts render.
+        PopupStoreState<TPayload> after = store.State.Popup;
+        if (before.EffectiveOpen && after.EffectiveOpen && before.EffectiveActiveTriggerId is { } previous
+            && after.EffectiveActiveTriggerId is { } next && !string.Equals(previous, next, StringComparison.Ordinal))
+        {
+            store.BeginTriggerChange();
+        }
+
         rootContext.Handled = parameters.Popup.Handle is not null;
         rootContext.RootOrientation = parameters.Orientation;
         onItemHighlighted = parameters.OnItemHighlighted;
