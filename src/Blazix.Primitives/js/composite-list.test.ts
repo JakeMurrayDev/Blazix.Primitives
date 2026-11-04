@@ -693,6 +693,23 @@ describe('list highlight writer (port)', () => {
     expect(harness.activeIndex).toBe(1);
   });
 
+  // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-04): the report
+  // carries the highlighted item's label, its registered label else its text (Menu's onItemHighlighted, MNU-EVT-10).
+  it('port: the highlight report carries the highlighted item\'s label, its registered label else its text', async () => {
+    const harness = app({ items: ['one', 'two', 'three'], itemRegistration: (index) => (index === 1 ? { label: 'Second' } : {}) });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    keyDown(harness.item(0), 'ArrowDown');
+
+    expect(harness.highlights.map((report) => [report.index, report.label])).toEqual([
+      [0, 'one'],
+      [1, 'Second'],
+    ]);
+  });
+
   it('port: requests the open with the reason list-navigation and the trigger, and the leave close with focus-out', async () => {
     const harness = app();
 

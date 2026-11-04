@@ -1262,6 +1262,9 @@ export interface CompositeListHighlightReport {
   event: EventInfo | null;
   /** The revision of the last C# highlight request applied; 0 before any. */
   revision: number;
+  // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): Menu's onItemHighlighted label.
+  /** The highlighted item's label, its registered label else its text; absent when no item is highlighted or it has none. */
+  label?: string;
 }
 
 /** The request to open or close a list's popup. */

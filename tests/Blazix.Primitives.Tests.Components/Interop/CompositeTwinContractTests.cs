@@ -359,6 +359,24 @@ public sealed class CompositeTwinContractTests
         Assert.Equal(1, Assert.Single(matches).Index);
     }
 
+    // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-04): the highlight
+    // report's label, absent when no item is highlighted or the item has none.
+    [Fact(DisplayName = "port: the highlight report's label is read by its module name, and an absent one is null")]
+    [Trait("Requirement", "CMP-EVT-10")]
+    [Trait("Requirement", "MNU-EVT-10")]
+    public void The_highlight_reports_label_is_read_by_its_module_name_and_an_absent_one_is_null()
+    {
+        using BunitContext context = new();
+        CompositeTwin twin = new(context.JSInterop.JSRuntime);
+        List<CompositeListHighlight> highlights = [];
+        twin.ListHighlightChanged += highlights.Add;
+
+        twin.OnListHighlight("""{"index":1,"itemId":"base-ui-7","event":null,"revision":0,"label":"Second"}""");
+        twin.OnListHighlight("""{"index":null,"itemId":null,"event":null,"revision":0}""");
+
+        Assert.Equal(["Second", null], highlights.Select(highlight => highlight.Label));
+    }
+
     // ADR 04 Amendments 2026-11-03 (3): the Shift+Tab close's point, per twin.
     [Fact]
     [Trait("Requirement", "CMP-KEY-24")]
