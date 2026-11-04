@@ -241,6 +241,18 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     return true;
   };
 
+  // Base UI's `mounted`: on Server the update that carries a finished close can trail the next keydown, so a popup list no
+  // longer in the document counts as unmounted (an inline list stays in the document and reads the options alone).
+  const isMounted = (): boolean => {
+    if (!options.mounted) {
+      return false;
+    }
+    if (options.inline || !options.listId) {
+      return true;
+    }
+    return doc.getElementById(options.listId) !== null;
+  };
+
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
       return;
@@ -261,7 +273,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       element.scrollLeft = event.key === 'Home' ? 0 : rtl ? -scrollAmount : scrollAmount;
       return;
     }
-    if (!options.mounted && event.key === 'Escape') {
+    if (event.key === 'Escape' && !isMounted()) {
       // CMB-KEY-05, EVT-09: the closed Escape clears; the point's fallback stops the keydown when there is something to
       // clear and the root is not inline. On Server the clear runs from the report a round trip later.
       const fallback: DecisionPolicy = options.hasValue && !options.inline ? 'stop' : 'run';
