@@ -49,6 +49,9 @@ public sealed class MenuBackdrop : PartBase<MenuBackdropState>
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
 
+    [CascadingParameter]
+    private IMenuParentContext? ParentContext { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
@@ -75,7 +78,7 @@ public sealed class MenuBackdrop : PartBase<MenuBackdropState>
     protected override void OnInitialized()
     {
         behavior = new MenuBackdropBehavior("Menu", JSRuntime, StateHasChanged, InvokeAsync);
-        behavior.Subscribe(RootContext);
+        behavior.Subscribe(RootContext, ParentContext);
         base.OnInitialized();
     }
 
