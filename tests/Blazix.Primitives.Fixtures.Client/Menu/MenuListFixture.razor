@@ -1,0 +1,118 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-list` fixture (tests/browser/menu.spec.ts, M5 track 6): popupListConformanceTests on Menu's parts, as
+    MenuRoot.test.tsx:267-294 renders them: Before and After buttons, a trigger, and in the popup a `MenuList` scroller
+    (`data-testid="scroller"`) of `MenuItem`s labelled "Item 0".."Item 11" by default. The query is the suite's contract
+    (tests/browser/CONTEXT.md): `items`, `disabledItems` (`|`-separated, `+` read as a space), `itemStyle`,
+    `scrollerStyle`, `onItemClick` (each activated item's text recorded as `data-item-clicks`), `modal` (absent: Base UI's
+    default, modal), `wrap=form|dialog`, `defaultOpen`; the After button's clicks are `data-outside-clicks`.
+*@
+<FixtureContainer Name="menu-list" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-item-clicks="@string.Join('|', itemClicks)" data-outside-clicks="@outsideClicks" data-submits="@submits">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (wrap == "form")
+    {
+        <form @onsubmit="() => submits++">
+            @ListPage
+            <button type="submit">Submit</button>
+        </form>
+    }
+    else if (wrap == "dialog")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="dialog" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup data-testid="dialog">@ListPage</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else
+    {
+        @ListPage
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = [.. Enumerable.Range(0, 12).Select(i => $"Item {i}")];
+    private readonly List<string> itemClicks = [];
+    private string[] items = s_items;
+    private HashSet<string> disabledItems = [];
+    private string? itemStyle;
+    private string? scrollerStyle;
+    private bool recordItemClicks;
+    private bool? modal;
+    private string? wrap;
+    private bool defaultOpen;
+    private int outsideClicks;
+    private int submits;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private DialogRoot<NoPayload>? dialog;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, dialog?.SessionAttached ?? Task.CompletedTask];
+
+    // The suites' query is URLSearchParams's, which writes a space as `+`; the base class unescapes percent escapes only.
+    private string? Text(string name) => Query(name)?.Replace('+', ' ');
+
+    protected override void OnInitialized()
+    {
+        if (Text("items") is { } list)
+        {
+            items = list.Length == 0 ? [] : list.Split('|');
+        }
+
+        if (Text("disabledItems") is { } disabled && disabled.Length > 0)
+        {
+            disabledItems = [.. disabled.Split('|')];
+        }
+
+        itemStyle = Text("itemStyle");
+        scrollerStyle = Text("scrollerStyle");
+        recordItemClicks = QueryFlag("onItemClick") == true;
+        modal = QueryFlag("modal");
+        wrap = Query("wrap");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+    }
+
+    private Dictionary<string, object> ItemAttributes(string label)
+    {
+        Dictionary<string, object> attributes = [];
+        if (itemStyle is not null)
+        {
+            attributes["style"] = itemStyle;
+        }
+
+        if (recordItemClicks)
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => itemClicks.Add(label));
+        }
+
+        return attributes;
+    }
+
+    private RenderFragment ListPage => @<div>
+        <button type="button" data-testid="before">Before</button>
+        <MenuRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Open</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup">
+                        <MenuList data-testid="scroller" style="@scrollerStyle">
+                            @foreach (string label in items)
+                            {
+                                <MenuItem @key="label" Disabled="@disabledItems.Contains(label)" @attributes="ItemAttributes(label)">@label</MenuItem>
+                            }
+                        </MenuList>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        <button type="button" data-testid="after" @onclick="() => outsideClicks++">After</button>
+    </div>;
+}

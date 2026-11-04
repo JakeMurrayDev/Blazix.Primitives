@@ -1,6 +1,7 @@
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
+import { popupListConformanceTests } from './suites/popupListConformanceTests';
 import { positionerConformanceTests } from './suites/positioner-conformance';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
 
@@ -39,4 +40,12 @@ positionerConformanceTests({
 popupFocusPropsTests({
   fixture: 'menu-focus',
   initialFocus: false,
+});
+
+// MenuRoot.test.tsx:267-294: the popup-list suite with Menu's options, on Menu's own parts (track 1 ran it on its test-only
+// host, composite-list.spec.ts:13).
+popupListConformanceTests({
+  fixture: 'menu-list',
+  itemRole: 'menuitem',
+  listEnd: 'wrap',
 });
