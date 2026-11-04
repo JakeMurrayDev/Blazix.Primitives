@@ -50,27 +50,44 @@ internal sealed class NavigationMenuModule : IAsyncDisposable
     /// <returns>A task that completes when the module has the options.</returns>
     public async Task SyncAsync(ElementReference element, NavigationMenuOptions options, ElementReference? root)
     {
-        if (disposed)
-        {
-            return;
-        }
-
         if (root is not null)
         {
             options = options with { RootRef = 0 };
         }
 
-        if (handle is null)
+        while (!disposed)
         {
-            attaching ??= AttachAsync(element, options, root);
-            await attaching;
-            return;
-        }
+            if (attaching is { IsCompleted: false } pending)
+            {
+                // A render during the pending attach waits for it, then checks the element again.
+                await pending;
+                continue;
+            }
 
-        if (options != sent)
-        {
-            sent = options;
-            await handle.UpdateAsync(options, References(root));
+            if (handle is not null && !string.Equals(handle.Key, element.Id, StringComparison.Ordinal))
+            {
+                // The part's element was replaced (a Content that mounts again): the module lets go of the old one
+                // (FocusManagerBehavior's precedent).
+                TwinHandle<NavigationMenuOptions> previous = handle;
+                handle = null;
+                sent = null;
+                await previous.DisposeAsync();
+            }
+
+            if (handle is null)
+            {
+                attaching = AttachAsync(element, options, root);
+                await attaching;
+                return;
+            }
+
+            if (options != sent)
+            {
+                sent = options;
+                await handle.UpdateAsync(options, References(root));
+            }
+
+            return;
         }
     }
 
@@ -88,9 +105,19 @@ internal sealed class NavigationMenuModule : IAsyncDisposable
 
     private async Task AttachAsync(ElementReference element, NavigationMenuOptions options, ElementReference? root)
     {
+        try
+        {
+            handle = await Twin.AttachAsync(element, options, References(root));
+        }
+        catch (JSException)
+        {
+            // The element left the document before the attach arrived (a Content closed while the module loaded): there is
+            // nothing to attach to, and the next render with an element attaches again (FocusManagerBehavior's and
+            // CollapsiblePanelBehavior's precedent). An exception here would end a Server circuit.
+            return;
+        }
+
         sent = options;
-        handle = await Twin.AttachAsync(element, options, References(root));
-        attaching = null;
         attached.TrySetResult();
     }
 }
@@ -123,7 +150,7 @@ internal sealed class NavigationMenuTransitions : IAsyncDisposable
     public Task Attached => attached.Task;
 
     /// <summary>Gets a value indicating whether the handle has attached or is attaching, so the part's style is the module's.</summary>
-    public bool HandedOver => handle is not null || attaching is not null;
+    public bool HandedOver => handle is not null || attaching is { IsCompleted: false };
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -143,23 +170,40 @@ internal sealed class NavigationMenuTransitions : IAsyncDisposable
     /// <returns>A task that completes when the module has the options.</returns>
     public async Task SyncAsync(ElementReference element, Func<TransitionsOptions> options)
     {
-        if (disposed)
+        while (!disposed)
         {
-            return;
-        }
+            if (attaching is { IsCompleted: false } pending)
+            {
+                // A render during the pending attach waits for it, then checks the element again.
+                await pending;
+                continue;
+            }
 
-        if (handle is null)
-        {
-            attaching ??= AttachAsync(element, options);
-            await attaching;
-            return;
-        }
+            if (handle is not null && !string.Equals(handle.Key, element.Id, StringComparison.Ordinal))
+            {
+                // The part's element was replaced (a Content that mounts again): the module lets go of the old one.
+                TwinHandle<TransitionsOptions> previous = handle;
+                handle = null;
+                sent = null;
+                announcedRetain = false;
+                await previous.DisposeAsync();
+            }
 
-        TransitionsOptions next = options();
-        if (next != sent)
-        {
-            sent = next;
-            await handle.UpdateAsync(next);
+            if (handle is null)
+            {
+                attaching = AttachAsync(element, options);
+                await attaching;
+                return;
+            }
+
+            TransitionsOptions next = options();
+            if (next != sent)
+            {
+                sent = next;
+                await handle.UpdateAsync(next);
+            }
+
+            return;
         }
     }
 
@@ -169,7 +213,7 @@ internal sealed class NavigationMenuTransitions : IAsyncDisposable
     /// <param name="retain">Whether the close is retained.</param>
     public void AnnounceRetainExit(ElementReference? element, bool retain)
     {
-        if (disposed || element is not { } target || (handle is null && attaching is null) || announcedRetain == retain)
+        if (disposed || element is not { } target || (handle is null && attaching is not { IsCompleted: false }) || announcedRetain == retain)
         {
             return;
         }
@@ -187,9 +231,17 @@ internal sealed class NavigationMenuTransitions : IAsyncDisposable
         }
 
         TransitionsOptions first = options();
+        try
+        {
+            handle = await Twin.AttachAsync(element, first);
+        }
+        catch (JSException)
+        {
+            // The element left the document before the attach arrived: the next render with an element attaches again.
+            return;
+        }
+
         sent = first;
-        handle = await Twin.AttachAsync(element, first);
-        attaching = null;
         attached.TrySetResult();
     }
 }
