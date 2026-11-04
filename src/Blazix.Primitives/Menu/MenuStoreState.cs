@@ -85,11 +85,11 @@ internal sealed partial record MenuStoreState<TPayload>(
 
     // MNU-STA-07 (MenuStore.ts:77-80).
     /// <inheritdoc />
-    bool IMenuState.Disabled => throw new NotImplementedException();
+    bool IMenuState.Disabled => Disabled || (Parent.Kind == MenuParentKind.Menubar && Parent.Context!.Disabled);
 
     // MNU-STA-06 (MenuStore.ts:81-83).
     /// <inheritdoc />
-    bool IMenuState.Modal => throw new NotImplementedException();
+    bool IMenuState.Modal => Parent.Kind is MenuParentKind.None or MenuParentKind.ContextMenu && Modal != false;
 
     /// <inheritdoc />
     bool IMenuState.ModalSupplied => Modal is not null;
@@ -102,14 +102,19 @@ internal sealed partial record MenuStoreState<TPayload>(
 
     // MenuStore.ts:91-97.
     /// <inheritdoc />
-    string? IMenuState.RootId => throw new NotImplementedException();
+    string? IMenuState.RootId => Parent.Kind switch
+    {
+        MenuParentKind.Menu => Parent.Menu!.State.RootId,
+        MenuParentKind.None => RootId,
+        _ => Parent.Context!.RootId,
+    };
 
     /// <inheritdoc />
     string? IMenuState.ListElementId => ListElementId;
 
     // MNU-STA-04, TRN-ANI-29 (MenuStore.ts:122-130).
     /// <inheritdoc />
-    MenuInstantType? IMenuState.PublicInstantType => throw new NotImplementedException();
+    MenuInstantType? IMenuState.PublicInstantType => InstantType == MenuInstantType.TriggerChange && !Popup.EffectiveOpen ? null : InstantType;
 
     /// <inheritdoc />
     MenuInstantType? IMenuState.InstantType => InstantType;
@@ -133,7 +138,7 @@ internal sealed partial record MenuStoreState<TPayload>(
     EventSnapshot? IMenuState.CloseEvent => CloseEvent;
 
     /// <inheritdoc />
-    string? IMenuState.TriggerPopupId(string? triggerId) => throw new NotImplementedException();
+    string? IMenuState.TriggerPopupId(string? triggerId) => Popup.TriggerPopupId(triggerId);
 
     /// <summary>Creates the initial state of a store.</summary>
     /// <param name="floatingId">The generated id of the popup element.</param>
@@ -243,6 +248,7 @@ internal interface IMenuState
     /// <summary>Gets the snapshot of the event that caused the last committed close.</summary>
     EventSnapshot? CloseEvent { get; }
 
+    // PSH-STA-10: the popup id a trigger names while it owns the open popup, or is the lone trigger of a trigger-less one.
     /// <summary>Gets the popup id the trigger with the given id names in its <c>aria-controls</c>.</summary>
     /// <param name="triggerId">The trigger's id.</param>
     /// <returns>The popup id, or <see langword="null"/>.</returns>
@@ -324,13 +330,18 @@ internal static class MenuSelectors
 
     // MenuStore.ts:100-103 (MNU-ARIA-03): the list when one holds the `menu` role, else the popup.
     /// <summary>Selects the id a trigger with the given id names in its <c>aria-controls</c>.</summary>
-    public static readonly Func<IMenuState, string?, string?> TriggerControlsId = static (state, triggerId) => throw new NotImplementedException();
+    public static readonly Func<IMenuState, string?, string?> TriggerControlsId = static (state, triggerId) =>
+        state.TriggerPopupId(triggerId) is { } popupId ? (string.IsNullOrEmpty(state.ListElementId) ? popupId : state.ListElementId) : null;
 
-    // MNU-DOM-01 (pressableTriggerOpenStateMapping): data-pressed beside data-popup-open.
-    /// <summary>Selects whether the menu is open, owned by the trigger with the given id, and was opened by a press.</summary>
-    public static readonly Func<IMenuState, string?, bool> IsPressOpenedByTrigger = static (state, triggerId) => throw new NotImplementedException();
+    // MNU-DOM-01 (pressableTriggerOpenStateMapping): data-popup-open and data-pressed while the trigger owns the open menu.
+    /// <summary>Selects whether the menu is open and owned by the trigger with the given id.</summary>
+    public static readonly Func<IMenuState, string?, bool> IsOpenedByTrigger = static (state, triggerId) => IsOpenedBy(state, triggerId);
 
     // MNU-STR-16: the guards around the trigger that owns the open popup (never in a menubar).
     /// <summary>Selects whether the trigger with the given id renders focus guards.</summary>
-    public static readonly Func<IMenuState, string?, bool> HasTriggerFocusGuards = static (state, triggerId) => throw new NotImplementedException();
+    public static readonly Func<IMenuState, string?, bool> HasTriggerFocusGuards = static (state, triggerId) =>
+        IsOpenedBy(state, triggerId) && state.Parent.Kind != MenuParentKind.Menubar;
+
+    private static bool IsOpenedBy(IMenuState state, string? triggerId) =>
+        triggerId is not null && state.Open && string.Equals(state.ActiveTriggerId, triggerId, StringComparison.Ordinal);
 }

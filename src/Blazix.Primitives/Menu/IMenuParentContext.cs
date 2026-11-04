@@ -120,6 +120,19 @@ internal readonly record struct MenuParent(MenuParentKind Kind, MenuRootContext?
     /// <param name="enclosingMenu">The nearest enclosing menu's context, or <see langword="null"/>.</param>
     /// <param name="parent">The nearest enclosing menubar's or context menu's context, or <see langword="null"/>.</param>
     /// <returns>A menu parent for a submenu inside a menu; else a menubar parent; else a context-menu parent with no enclosing menu; else none.</returns>
-    public static MenuParent Resolve(bool isSubmenu, MenuRootContext? enclosingMenu, IMenuParentContext? parent) =>
-        throw new NotImplementedException();
+    public static MenuParent Resolve(bool isSubmenu, MenuRootContext? enclosingMenu, IMenuParentContext? parent)
+    {
+        if (isSubmenu && enclosingMenu is not null)
+        {
+            return new MenuParent(MenuParentKind.Menu, enclosingMenu, null);
+        }
+
+        if (parent?.Kind == MenuParentKind.Menubar)
+        {
+            return new MenuParent(MenuParentKind.Menubar, null, parent);
+        }
+
+        // A plain menu inside a context menu's popup has the context menu's menu above it: it is not its child.
+        return parent?.Kind == MenuParentKind.ContextMenu && enclosingMenu is null ? new MenuParent(MenuParentKind.ContextMenu, null, parent) : None;
+    }
 }

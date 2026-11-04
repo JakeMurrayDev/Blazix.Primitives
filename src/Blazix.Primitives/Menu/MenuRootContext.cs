@@ -1,3 +1,4 @@
+using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
@@ -41,6 +42,12 @@ internal abstract class MenuRootContext
 
     /// <summary>Gets the root's <c>Orientation</c>.</summary>
     public abstract Orientation Orientation { get; }
+
+    /// <summary>Gets the registered submenus, for the tree's closes.</summary>
+    internal IReadOnlyList<MenuRootContext> ChildMenus => Children;
+
+    /// <summary>Gets the registered submenus.</summary>
+    private protected abstract IReadOnlyList<MenuRootContext> Children { get; }
 
     /// <summary>Throws the error of a menu part rendered outside a menu root.</summary>
     /// <param name="context">The cascaded context, or <see langword="null"/>.</param>
@@ -128,6 +135,14 @@ internal abstract class MenuRootContext
     /// <param name="child">The submenu's context.</param>
     /// <returns>The registration; disposing it unregisters the submenu.</returns>
     public abstract IDisposable RegisterChild(MenuRootContext child);
+
+    /// <summary>Tells the menu that one of its submenus opened, which closes its other open submenus.</summary>
+    /// <param name="opened">The submenu that opened.</param>
+    internal void ChildOpened(MenuRootContext opened) => OnSiblingOpened(opened);
+
+    /// <summary>Closes the open submenus other than the one that opened.</summary>
+    /// <param name="opened">The submenu that opened.</param>
+    private protected abstract void OnSiblingOpened(MenuRootContext opened);
 }
 
 /// <summary>A part's subscription to a menu's state, independent of its payload type.</summary>
@@ -166,4 +181,253 @@ internal abstract class MenuSelection<TArg, TValue> : MenuSelection<TValue>
 {
     /// <summary>Gets or sets the selector's argument.</summary>
     public abstract TArg Arg { get; set; }
+}
+
+// The context of a menu root whose triggers carry TPayload (the PopoverRootContext<TPayload> form), with the tree's C#
+// work (plan §Settled; sheet B Q9 (c)):
+// - CloseTreeAsync closes the tree's root and every open descendant, root first, with the reason (Base UI's `close` event,
+//   which every mounted popup of the tree hears, MenuPopup.tsx:104-120);
+// - when the menu's open state changes, by any path (a request, a controlled parameter), it closes its open children with
+//   its last reason, else `sibling-open` (MenuPositioner.tsx:155-175, `menuopenchange`'s parent branch), and, on an open,
+//   asks its parent menu to close its other open children with `sibling-open` (MenuPositioner.tsx:134-153); a menubar or
+//   context menu parent hears the change through OnMenuOpenChange (Menubar.tsx:120).
+/// <summary>The context of a menu root whose triggers carry <typeparamref name="TPayload"/>.</summary>
+/// <typeparam name="TPayload">The type of the payload.</typeparam>
+internal sealed class MenuRootContext<TPayload> : MenuRootContext
+{
+    private readonly MenuStore<TPayload> store;
+    private readonly List<MenuRootContext> children = [];
+    private readonly IDisposable openObservation;
+
+    /// <summary>Initializes a new instance of the <see cref="MenuRootContext{TPayload}"/> class.</summary>
+    /// <param name="store">The root's store.</param>
+    /// <param name="familyName">The root's family.</param>
+    public MenuRootContext(MenuStore<TPayload> store, string familyName)
+    {
+        this.store = store;
+        FamilyName = familyName;
+        openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (_, open, _) => OnOpenChanged(open));
+    }
+
+    /// <summary>Gets the root's store.</summary>
+    public MenuStore<TPayload> Store => store;
+
+    /// <inheritdoc />
+    public override IMenuState State => store.State;
+
+    /// <inheritdoc />
+    public override string? SessionToken => store.SessionToken;
+
+    /// <inheritdoc />
+    public override ILogger? Logger => store.Logger;
+
+    /// <inheritdoc />
+    public override string FamilyName { get; }
+
+    /// <inheritdoc />
+    public override MenuParent Parent => store.State.Parent;
+
+    /// <inheritdoc />
+    public override bool Virtual => false;
+
+    /// <inheritdoc />
+    public override bool HasHandle => Handled;
+
+    /// <summary>Gets or sets a value indicating whether the root was given a handle.</summary>
+    public bool Handled { get; set; }
+
+    /// <inheritdoc />
+    public override ListNavigationContext List => ListNavigation?.Context ?? throw new InvalidOperationException("Blazix: the menu's list is created with its root.");
+
+    /// <summary>Gets or sets the root's list navigation.</summary>
+    public ListNavigationBehavior? ListNavigation { get; set; }
+
+    /// <inheritdoc />
+    public override string? HighlightedItemId => ListNavigation?.HighlightedItemId;
+
+    /// <inheritdoc />
+    public override Orientation Orientation => RootOrientation;
+
+    /// <summary>Gets or sets the root's <c>Orientation</c>.</summary>
+    public Orientation RootOrientation { get; set; } = Orientation.Vertical;
+
+    /// <summary>Gets or sets the delegate that routes an exception of a cascaded request to the root.</summary>
+    public Func<Exception, Task>? DispatchException { get; set; }
+
+    /// <inheritdoc />
+    private protected override IReadOnlyList<MenuRootContext> Children => children;
+
+    /// <inheritdoc />
+    public override MenuSubscription Subscribe(Action changed) => new Subscription(store, changed);
+
+    /// <inheritdoc />
+    public override IDisposable RegisterBoundaryPart() => store.RegisterBoundaryPart();
+
+    /// <inheritdoc />
+    public override IDisposable OnUnmountPreventionChanging(Action<bool> listener) => store.OnUnmountPreventionChanging(listener);
+
+    /// <inheritdoc />
+    public override Task AtBatchBoundaryAsync() => store.AtBatchBoundaryAsync();
+
+    /// <inheritdoc />
+    public override Task<bool> RequestOpenAsync(bool open, OpenChangeEventDetails details) => store.RequestOpenAsync(open, details);
+
+    /// <inheritdoc />
+    public override async Task CloseTreeAsync(EventReason reason, EventSnapshot? snapshot)
+    {
+        MenuRootContext root = this;
+        while (root.Parent is { Kind: MenuParentKind.Menu, Menu: { } parent })
+        {
+            root = parent;
+        }
+
+        List<MenuRootContext> tree = [];
+        CollectOpen(root, tree);
+        foreach (MenuRootContext menu in tree)
+        {
+            OpenChangeEventDetails details = snapshot is null ? new OpenChangeEventDetails(reason) : new OpenChangeEventDetails(reason, snapshot);
+            await menu.RequestOpenAsync(false, details);
+        }
+    }
+
+    /// <inheritdoc />
+    public override void SetPopupElement(ElementReference? element, string? id) => store.SetPopupElement(element, id);
+
+    /// <inheritdoc />
+    public override void ClearPopupElement() => store.ClearPopupElement();
+
+    /// <inheritdoc />
+    public override void SetPositionerElement(ElementReference? element) => store.SetPositionerElement(element);
+
+    /// <inheritdoc />
+    public override void MirrorStatus(TransitionStatus? status) => store.MirrorStatus(status);
+
+    /// <inheritdoc />
+    public override Task CompleteTransitionAsync(bool opened) => store.CompleteTransitionAsync(opened);
+
+    /// <inheritdoc />
+    public override void SetListElementId(string? id) => store.SetListElementId(id);
+
+    /// <inheritdoc />
+    public override void SetAdaptiveOrigin(bool adaptiveOrigin) => store.SetAdaptiveOrigin(adaptiveOrigin);
+
+    /// <inheritdoc />
+    public override void CompleteTriggerChange() => store.CompleteTriggerChange();
+
+    /// <inheritdoc />
+    public override void ClearTriggerChangeWhenClosed() => store.ClearTriggerChangeWhenClosed();
+
+    /// <inheritdoc />
+    public override ElementReference? TriggerElement(string? triggerId) => store.Triggers.GetById(triggerId)?.Element;
+
+    /// <inheritdoc />
+    public override IDisposable RegisterChild(MenuRootContext child)
+    {
+        children.Add(child);
+        return new ChildRegistration(children, child);
+    }
+
+    /// <summary>Releases the context's observation of its store.</summary>
+    public void Release() => openObservation.Dispose();
+
+    /// <inheritdoc />
+    private protected override void OnSiblingOpened(MenuRootContext opened)
+    {
+        foreach (MenuRootContext child in children.ToArray())
+        {
+            if (!ReferenceEquals(child, opened) && child.State.Open)
+            {
+                Run(child.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.SiblingOpen)));
+            }
+        }
+    }
+
+    private static void CollectOpen(MenuRootContext menu, List<MenuRootContext> tree)
+    {
+        if (menu.State.Open)
+        {
+            tree.Add(menu);
+        }
+
+        foreach (MenuRootContext child in menu.ChildMenus)
+        {
+            CollectOpen(child, tree);
+        }
+    }
+
+    private void OnOpenChanged(bool open)
+    {
+        EventReason reason = store.State.OpenChangeReason ?? EventReason.SiblingOpen;
+        MenuParent parent = store.State.Parent;
+        if (open)
+        {
+            if (parent is { Kind: MenuParentKind.Menu, Menu: { } menu })
+            {
+                menu.ChildOpened(this);
+            }
+        }
+        else
+        {
+            foreach (MenuRootContext child in children.ToArray())
+            {
+                if (child.State.Open)
+                {
+                    Run(child.RequestOpenAsync(false, new OpenChangeEventDetails(reason)));
+                }
+            }
+        }
+
+        parent.Context?.OnMenuOpenChange(this, open, reason);
+    }
+
+    private void Run(Task<bool> request)
+    {
+        if (!request.IsCompleted)
+        {
+            _ = request.ContinueWith(
+                t => DispatchException?.Invoke(t.Exception!.GetBaseException()) ?? Task.CompletedTask,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+        }
+        else if (request.IsFaulted && DispatchException is { } dispatch)
+        {
+            _ = dispatch(request.Exception!.GetBaseException());
+        }
+    }
+
+    private sealed class ChildRegistration(List<MenuRootContext> children, MenuRootContext child) : IDisposable
+    {
+        /// <inheritdoc />
+        public void Dispose() => children.Remove(child);
+    }
+
+    private sealed class Subscription(MenuStore<TPayload> store, Action changed) : MenuSubscription
+    {
+        private readonly SelectorSubscription<MenuStoreState<TPayload>> inner = new(store, changed);
+
+        /// <inheritdoc />
+        public override void Dispose() => inner.Dispose();
+
+        /// <inheritdoc />
+        public override MenuSelection<TValue> Select<TValue>(Func<IMenuState, TValue> selector) => new Selection<TValue>(inner.Select<TValue>(selector));
+
+        /// <inheritdoc />
+        public override MenuSelection<TArg, TValue> Select<TArg, TValue>(Func<IMenuState, TArg, TValue> selector, TArg arg) => new ArgSelection<TArg, TValue>(inner.Select<TArg, TValue>(selector, arg));
+    }
+
+    private sealed class Selection<TValue>(StoreSelection<MenuStoreState<TPayload>, TValue> inner) : MenuSelection<TValue>
+    {
+        /// <inheritdoc />
+        public override TValue Value => inner.Value;
+    }
+
+    private sealed class ArgSelection<TArg, TValue>(StoreSelection<MenuStoreState<TPayload>, TArg, TValue> inner) : MenuSelection<TArg, TValue>
+    {
+        /// <inheritdoc />
+        public override TValue Value => inner.Value;
+
+        /// <inheritdoc />
+        public override TArg Arg { get => inner.Arg; set => inner.Arg = value; }
+    }
 }
