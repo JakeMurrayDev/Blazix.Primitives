@@ -1135,8 +1135,10 @@ describe('positioning module: the pre-position style (FLT-DOM-02, FLT-ANI-02)', 
 
   // G5 of PR 168 (settled by the orchestrator 2026-11-04): Base UI positions in a layout effect before paint, so its
   // transparent Positioner at the origin is never under a pointer. The port's first pass lands after attach, and until it a
-  // pointer resting over the origin would land on the invisible popup.
-  it('port: keeps an open Positioner from taking the pointer until the pass of each mount', async () => {
+  // pointer resting over the origin would land on the invisible popup. With nothing to position against no pass is
+  // pending: Base UI's never-positioned popup (its reference gone, PopoverRoot.detached-triggers.test.tsx "returns focus
+  // to the previous element when the trigger unmounts while open") stays transparent at the origin and takes the pointer.
+  it('port: keeps an open Positioner from taking the pointer until the pass of each mount, and leaves one with nothing to position against taking it', async () => {
     stubViewport();
     const { positioner } = setup({ keepMounted: true });
     expect(positioner.style.opacity).toBe('0');
@@ -1158,16 +1160,11 @@ describe('positioning module: the pre-position style (FLT-DOM-02, FLT-ANI-02)', 
     await settle();
     expect(positioner.style.opacity).toBe('');
     expect(positioner.style.pointerEvents).toBe('');
-  });
 
-  // Base UI's never-positioned popup (its reference gone, PopoverRoot.detached-triggers.test.tsx "returns focus to the
-  // previous element when the trigger unmounts while open") stays transparent at the origin and takes the pointer.
-  it('port: leaves an open Positioner with nothing to position against taking the pointer, as Base UI does', async () => {
-    stubViewport();
-    const { positioner } = setup({ triggerId: 'missing' });
+    const { positioner: unanchored } = setup({ triggerId: 'missing' });
     await settle();
-    expect(positioner.style.opacity).toBe('0');
-    expect(positioner.style.pointerEvents).toBe('');
+    expect(unanchored.style.opacity).toBe('0');
+    expect(unanchored.style.pointerEvents).toBe('');
   });
 });
 
