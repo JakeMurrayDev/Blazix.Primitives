@@ -680,6 +680,8 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ## 5. Rendered DOM and ARIA
 
+Note 2026-11-04 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); ADR 04 §2 and Amendments 2026-10-27): Writer tables were added to §5.6, §5.7, §5.9, §5.10, §5.12, §5.13 and §5.15, and the Popup's two grouped rows were split by attribute, so the ownership lint reads every part a module writes. The writers: `transitions` for the transition attributes and `transition: none`; `positioning` for the Positioner's and the Arrow's placement, style and CSS variables from attach; `composite` for the items' `data-highlighted` and `tabindex`; `popup` for the internal backdrop's `clip-path`; `select` for the aligned placement and layout styles, `--transform-origin`, the List's style under them and the scroll arrows' `data-visible`.
+
 ### 5.1 Trigger element
 
 | Attribute | Value / present when | Req | Writer |
@@ -744,10 +746,29 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ### 5.6 Backdrop element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="presentation"`, inline `user-select: none` | always | SEL-DOM-17 | C# |
+| `hidden` | the popup is not mounted | SEL-DOM-17 | C# |
+| `data-open` / `data-closed` | open / closed | SEL-DOM-17 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | SEL-DOM-17 | JS |
+
 - **SEL-DOM-17** — MUST. `Select.Backdrop` renders `<div role="presentation">` with inline `user-select: none; -webkit-user-select: none`, the `hidden` attribute while the popup is not mounted, `data-open=""`/`data-closed=""` (PSH-DOM-03) and the transition attributes (TRN-DOM-01…03).
   Source: `select/backdrop/SelectBackdrop.tsx:11-14,39-54`. Test: [L2] `SelectBackdrop.test.tsx` conformance suite (L4 for the transition-attribute clause).
 
 ### 5.7 Positioner element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="presentation"`, `hidden` | always; `hidden` while not mounted | SEL-DOM-18 | C# |
+| inline `pointer-events: none` | effective open is `false` | SEL-DOM-18 | C# → JS |
+| `data-open` / `data-closed` | open / closed | SEL-DOM-19 | C# |
+| `data-side`, `data-align` | resolved placement; `data-side="none"` while aligned | SEL-DOM-19 | C# → JS |
+| `data-anchor-hidden` | anchor hidden | SEL-DOM-19 | JS |
+| positioning styles and CSS variables | FLT | SEL-DOM-20, SEL-DOM-22 | C# → JS |
+| aligned placement styles | aligned mode: `position: fixed`, the offsets, `height`, `max-height`, the margins | SEL-DOM-20 | JS |
+| inline `transition: none` | `transitionStatus === 'starting'` | SEL-DOM-21 | JS |
+| internal backdrop `clip-path` | cut-out of the trigger | SEL-DOM-54 | JS |
 
 - **SEL-DOM-18** — MUST. `Select.Positioner` renders `<div role="presentation">` (shared positioner host, FLT `usePositioner`) with the `hidden` attribute while not mounted and inline `pointer-events: none` while not open (so a closing popup ignores pointer input).
   Source: `select/positioner/SelectPositioner.tsx:130-137`, `utils/usePositioner.tsx:21-42`. Test: [L2] `SelectPositioner.test.tsx` "does not retain stale coordinates while closed" (`hidden`); `SelectItem.test.tsx` "should select the item and close popup when clicked" (not visible after close) (L4 for the `pointer-events` clause).
@@ -770,8 +791,10 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 | `aria-readonly` | `"true"` when readOnly, no List | SEL-DOM-23 | C# |
 | `tabindex` | `-1` | SEL-DOM-25 | C# |
 | `data-base-ui-focusable` | `""` | SEL-DOM-25 | C# |
-| data attributes | `data-open`/`data-closed`, `data-starting-style`/`data-ending-style`, `data-side`, `data-align` | SEL-DOM-26 | C#; JS for `data-starting-style`/`data-ending-style` |
-| inline style | aligned mode: `height: 100%` (with List) or `position: relative; max-height: 100%; overflow-x: hidden; overflow-y: auto` (without List); `transition: none` while starting | SEL-DOM-27/30 | C# → JS |
+| `data-open` / `data-closed`, `data-side`, `data-align` | open / closed; the positioner's placement (`"none"` while aligned) | SEL-DOM-26 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | SEL-DOM-26 | JS |
+| aligned layout styles | aligned mode: `height: 100%` (with List) or `position: relative; max-height: 100%; overflow-x: hidden; overflow-y: auto` (without List) | SEL-DOM-27 | JS |
+| inline `transition: none` | `transitionStatus === 'starting'` | SEL-DOM-30 | JS |
 | class | `base-ui-disable-scrollbar` when aligned and no List | SEL-DOM-28 | C# |
 | `--transform-origin` | inline, aligned mode | SEL-DOM-29 | JS |
 
@@ -794,6 +817,12 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ### 5.9 List element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `id`, `role="listbox"`, `aria-multiselectable`, `aria-readonly` | always; the last two when set | SEL-DOM-31 | C# |
+| `style` | the consumer's; under the aligned layout styles while aligned | SEL-DOM-32 | C# → JS |
+| class | `base-ui-disable-scrollbar` per SEL-DOM-33 | SEL-DOM-33 | C# |
+
 - **SEL-DOM-31** — MUST. `Select.List` renders `<div id="${rootId}-list" role="listbox">` with `aria-multiselectable="true"` iff `multiple` and `aria-readonly="true"` iff `readOnly`, and no `aria-orientation`.
   Source: `select/list/SelectList.tsx:31-35`. Test: [L2] `SelectPopup.test.tsx` "places aria attributes on Select.List instead if it is present"; `SelectRoot.test.tsx` "marks the listbox as readonly when rendered with Select.List".
 - **SEL-DOM-32** — MUST. While aligned positioning is active the List's built-in inline style is `position: relative; max-height: 100%; overflow-x: hidden; overflow-y: auto`; otherwise none.
@@ -802,6 +831,13 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
   Source: `select/list/SelectList.tsx:42-43`. Test: none. Docs: `CHANGELOG.md v1.8.0 "Hide group labels and scrollbars from the accessibility tree"`.
 
 ### 5.10 Item element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="option"`, `aria-selected`, `aria-disabled` | always; `aria-disabled` while disabled | SEL-DOM-34, SEL-DOM-37 | C# |
+| `data-selected`, `data-disabled` | selected / disabled | SEL-DOM-35 | C# |
+| `data-highlighted` | highlighted | SEL-DOM-35 | JS |
+| `tabindex` | `0` while open and highlighted, `-1` otherwise | SEL-DOM-36 | C# → JS |
 
 - **SEL-DOM-34** — MUST. `Select.Item` renders `<div role="option">` (the button mechanism's `role="button"` is overridden, UBT-DOM-09) with `aria-selected="true"`/`"false"` (SEL-ARIA-09).
   Source: `select/item/SelectItem.tsx:158-159,239-243`. Test: [L2] `SelectItem.test.tsx` conformance suite; `SelectPopup.test.tsx` "places aria attributes on Select.List instead if it is present" (options found by role).
@@ -819,10 +855,22 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ### 5.12 ItemIndicator element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"`, `data-selected` | always; `data-selected` while selected | SEL-DOM-39 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | SEL-DOM-39 | JS |
+
 - **SEL-DOM-39** — MUST. `Select.ItemIndicator` renders the shared indicator: `<span aria-hidden="true">` with default content `✔️`, `data-selected=""` while selected, the transition attributes, and no `selected` attribute (RND-DOM-50…52, RND-ARIA-01).
   Source: `select/item-indicator/SelectItemIndicator.tsx:25`, `utils/ItemIndicator.tsx:16-39`. Test: [L2] `SelectItemIndicator.test.tsx` "mounts only while selected when keepMounted is false" (L4 for the transition-attribute clause).
 
 ### 5.13 Arrow element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"`, `data-open` / `data-closed` | always | SEL-DOM-40 | C# |
+| `data-side`, `data-align` | resolved placement | SEL-DOM-40 | C# → JS |
+| `data-uncentered` | arrow not centered on the anchor | SEL-DOM-40 | C# → JS |
+| `style` | arrow position | SEL-DOM-40 | C# → JS |
 
 - **SEL-DOM-40** — MUST. `Select.Arrow` renders `<div aria-hidden="true">` with the mechanism's arrow position styles inline (FLT), `data-open`/`data-closed`, `data-side` (`"none"` is impossible here because the part renders nothing while aligned), `data-align` and `data-uncentered=""` while the arrow cannot be centered; it never carries `data-anchor-hidden` or transition attributes (not in its state).
   Source: `select/arrow/SelectArrow.tsx:28-40`, `select/arrow/SelectArrowDataAttributes.ts:1-24`. Test: [L4] `SelectArrow.test.tsx` conformance suite.
@@ -835,6 +883,12 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
   Source: `select/group-label/SelectGroupLabel.tsx:32-35`. Test: [L2] `SelectGroupLabel.test.tsx` "is hidden from the accessibility tree by default", "allows overriding aria-hidden".
 
 ### 5.15 Scroll-arrow elements
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"`, inline `position: absolute`, `data-direction`, `data-side` | always | SEL-DOM-43, SEL-DOM-44 | C# |
+| `data-visible` | the list scrolls further in the arrow's direction | SEL-DOM-44 | C# → JS |
+| `data-starting-style` / `data-ending-style` | the arrow's transition status | SEL-DOM-45 | JS |
 
 - **SEL-DOM-43** — MUST. Each scroll arrow renders `<div aria-hidden="true">` with inline `position: absolute` and default content `▲` (up) / `▼` (down).
   Source: `select/scroll-arrow/SelectScrollArrow.tsx:80-85`. Test: [L2] `SelectRoot.test.tsx` "normalizes overlapping fractional scroll ranges…" (found by `▲`/`▼`).
