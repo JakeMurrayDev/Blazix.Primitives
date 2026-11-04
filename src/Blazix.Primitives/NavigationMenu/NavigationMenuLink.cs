@@ -117,7 +117,8 @@ public sealed class NavigationMenuLink : PartBase<NavigationMenuLinkState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        composite!.SetRegistration(Id, AdditionalAttributes);
+        // NAV-DOM-21, NAV-FOC-03: no tabindex, so a Link is tabbable by native rules and stays a composite item for the arrows.
+        composite!.SetRegistration(Id, AdditionalAttributes, omitTabIndex: true);
         composite.SetConsumerAttributes(AdditionalAttributes);
     }
 
