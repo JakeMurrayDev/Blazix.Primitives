@@ -10,6 +10,8 @@ namespace Blazix.Primitives;
 /// <remarks>Place it inside a <see cref="MenuGroup"/> or a <see cref="MenuRadioGroup{TValue}"/>.</remarks>
 public sealed class MenuGroupLabel : PartBase<EmptyState>
 {
+    private string? registeredId;
+
     [CascadingParameter]
     private MenuGroupContext? Group { get; set; }
 
@@ -35,14 +37,30 @@ public sealed class MenuGroupLabel : PartBase<EmptyState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => Group!.SetLabelId(Id);
+    protected override void OnParametersSet()
+    {
+        // MenuGroupLabel.tsx:25-30: an effect on the id, so a render of the group that changes nothing sets nothing, and two
+        // mounted labels do not take the group's label from each other.
+        if (string.Equals(registeredId, Id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (registeredId is not null)
+        {
+            Group!.SetLabelId(null, registeredId);
+        }
+
+        registeredId = Id;
+        Group!.SetLabelId(Id);
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            Group?.SetLabelId(null, Id);
+            Group?.SetLabelId(null, registeredId);
         }
 
         base.Dispose(disposing);
