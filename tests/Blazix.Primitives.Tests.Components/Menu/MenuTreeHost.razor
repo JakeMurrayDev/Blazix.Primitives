@@ -1,0 +1,94 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The general Menu tree of the L2 ports: a Root (controlled when `Open` is set, else `DefaultOpen`), an optional Trigger,
+   `BeforePortal` content, then Portal > Positioner > Popup with `PopupContent`. `NoPositioner` renders the Popup directly
+   under the Root. The Root's open changes are recorded. *@
+<MenuRoot TPayload="NoPayload" Open="open" OpenChanged="v => open = v" OnOpenChange="RecordOpenChange" Modal="Modal"
+          Orientation="Orientation" LoopFocus="LoopFocus" Disabled="RootDisabled">
+    @if (WithTrigger)
+    {
+        <MenuTrigger TPayload="NoPayload" data-testid="trigger" @attributes="TriggerAttributes">@TriggerText</MenuTrigger>
+    }
+    @BeforePortal
+    @if (NoPositioner)
+    {
+        <MenuPopup @attributes="PopupAttributes">@PopupContent</MenuPopup>
+    }
+    else
+    {
+        <MenuPortal KeepMounted="KeepMounted">
+            <MenuPositioner @attributes="PositionerAttributes">
+                @if (PopupRenderFunction is { } render)
+                {
+                    <MenuPopup @attributes="PopupAttributes" RenderFunction="render">@PopupContent</MenuPopup>
+                }
+                else
+                {
+                    <MenuPopup @attributes="PopupAttributes">@PopupContent</MenuPopup>
+                }
+            </MenuPositioner>
+        </MenuPortal>
+    }
+</MenuRoot>
+
+@code {
+    private bool open;
+
+    [Parameter]
+    public bool Open { get; set; } = true;
+
+    [Parameter]
+    public bool? Modal { get; set; }
+
+    [Parameter]
+    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Vertical;
+
+    [Parameter]
+    public bool LoopFocus { get; set; } = true;
+
+    [Parameter]
+    public bool RootDisabled { get; set; }
+
+    [Parameter]
+    public bool WithTrigger { get; set; }
+
+    [Parameter]
+    public string TriggerText { get; set; } = "Open";
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? TriggerAttributes { get; set; }
+
+    [Parameter]
+    public RenderFragment? BeforePortal { get; set; }
+
+    [Parameter]
+    public bool NoPositioner { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? PositionerAttributes { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? PopupAttributes { get; set; }
+
+    [Parameter]
+    public RenderFragment<RenderProps<MenuPopupState>>? PopupRenderFunction { get; set; }
+
+    [Parameter]
+    public RenderFragment? PopupContent { get; set; }
+
+    public List<string> OpenChanges { get; } = [];
+
+    /// <summary>Opens or closes the menu as a trigger's press would.</summary>
+    public void SetOpen(bool value)
+    {
+        open = value;
+        StateHasChanged();
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => open = Open;
+
+    private void RecordOpenChange(ValueChangeEventArgs<bool> args) => OpenChanges.Add($"{args.Value}:{args.Details.Reason}");
+}
