@@ -40,7 +40,7 @@ internal readonly record struct MenuItemParameters(bool Disabled, string? Label,
 //   label: Label)); C# renders tabindex="-1" and no data-highlighted (ADR 04 Amendments 2026-11-03 (2), chosen by the
 //   user); Highlighted is the mirror, a mirrored field of each item's state record;
 // - ButtonBehavior in composite mode (Enter and Space; a typed Space is prevented and skipped, button.ts:516-523), native
-//   only with NativeButton, focusable when disabled; a LinkItem is an anchor with no button behaviour;
+//   only with NativeButton, focusable when disabled; a LinkItem's button is never native (MenuLinkItem.tsx:41-44);
 // - activation: a C# onclick per item (plan §Settled; the Popover and Dialog Close precedent) runs the consumer's handler
 //   (PreventBaseUIHandler() keeps the menu open), the part's toggle (a checkbox or radio item's) and, with CloseOnClick, the
 //   tree's `item-press` close (MenuRootContext.CloseTreeAsync). It does not fire inside a shadow-root container (ADR 04
@@ -53,7 +53,8 @@ internal sealed class MenuItemBehavior : IDisposable
     private readonly Action requestRender;
     private readonly EventCallback onClick;
     private readonly EventCallback onKeyDown;
-    private readonly ButtonBehavior? button;
+    private readonly ButtonBehavior button;
+    private readonly bool linkItem;
     private CompositeItemBehavior? item;
     private MenuRootContext? root;
     private MenuSubscription? rootSubscription;
@@ -100,11 +101,10 @@ internal sealed class MenuItemBehavior : IDisposable
             _ => "Item",
         };
 
-        // MNU-API-40: a link item is an anchor with no button behavior.
-        if (kind != MenuItemKind.LinkItem)
-        {
-            button = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, requestRender, dispatchException, onKeyDown, onKeyUp);
-        }
+        // MNU-API-40 (MenuLinkItem.tsx:41-44): a link item's button is composite and never native, so Space activates it.
+        linkItem = kind == MenuItemKind.LinkItem;
+        button = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, requestRender, dispatchException, onKeyDown, onKeyUp);
+    
     }
 
     /// <summary>Gets or sets the work an activation runs before the close, such as a checkbox item's toggle.</summary>
@@ -160,8 +160,8 @@ internal sealed class MenuItemBehavior : IDisposable
         item = new CompositeItemBehavior(list, partName, onKeyDown, requestRender);
 
         // MenuItem.tsx:32-37, MenuCheckboxItem.tsx:41-46, MenuRadioItem.tsx:47-49: the root's disabled state disables an item
-        // too, and follows it. A LinkItem, which has no button behavior, has no disabled state.
-        if (button is not null)
+        // too, and follows it. A LinkItem has no disabled state.
+        if (!linkItem)
         {
             rootSubscription = this.root.Subscribe(OnRootChanged);
             rootDisabled = rootSubscription.Select(MenuSelectors.Disabled);
@@ -245,7 +245,7 @@ internal sealed class MenuItemBehavior : IDisposable
 
         if (button is not null)
         {
-            button.Native = parameters.NativeButton;
+            button.Native = !linkItem && parameters.NativeButton;
             button.Disabled = disabled;
             button.FocusableWhenDisabled = true;
             button.SetConsumerAttributes(attributes);
