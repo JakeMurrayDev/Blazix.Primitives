@@ -199,7 +199,13 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
         // NAV-DOM-06: the consumer form of the registration, `tabindex="0"`, so the module never writes this item's tabindex.
         composite!.SetRegistration(Id, RegistrationAttributes(), Disabled, focusableWhenDisabled: true);
         composite.SetConsumerAttributes(Disabled ? null : AdditionalAttributes);
-        SyncInteractions();
+
+        // A controlled Root's page re-renders inside the click's dispatch and sets these parameters again: the hold of a
+        // click activation covers this path too (ReleaseInteractionsAsync's ordering).
+        if (!holdInteractions)
+        {
+            SyncInteractions();
+        }
     }
 
     /// <inheritdoc />
@@ -403,7 +409,10 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
         //   listener, the interactions click role's included, and the microtask checkpoint a trusted event runs after each.
         // - Server: the activation is a message the module sends from its listener, so C# runs only after the browser's
         //   whole dispatch, and this continuation is posted to the circuit's RendererSynchronizationContext.
-        // The stalled-load titles pin the order with a dispatched click and with a trusted one (Enter).
+        // The hold covers both places the options are set, OnParametersSet (a controlled Root's page re-renders inside the
+        // dispatch) and OnAfterRenderAsync, so nothing reaches the interactions module before this continuation. The
+        // stalled-load titles pin both listener orders, uncontrolled and controlled, with a dispatched click and a trusted
+        // one (Enter).
         await Task.Yield();
         await InvokeAsync(() =>
         {
