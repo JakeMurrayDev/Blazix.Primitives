@@ -449,6 +449,26 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsMenuFloatingOptions { DisableHoverOnMove = true }, new InteractionsMenuFloatingOptions());
     }
 
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (2): the item hover and the
+    // sibling close delay cross by their module names; a delay of 0 (close at once) is sent and an absent one is not.
+    [Fact(DisplayName = "port: Menu's item hover and sibling close delay are written by their module names, a 0 delay is sent, and a change is a changed option")]
+    [Trait("Requirement", "MNU-PTR-11")]
+    [Trait("Requirement", "MNU-EDGE-12")]
+    public void Menus_item_hover_and_sibling_close_delay_are_written_by_their_module_names_a_0_delay_is_sent_and_a_change_is_a_changed_option()
+    {
+        string delayed = Serialize(new InteractionsOptions { Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions { ItemHover = true, SiblingCloseDelay = 100 } } });
+        string atOnce = Serialize(new InteractionsOptions { Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions { SiblingCloseDelay = 0 } } });
+        string unset = Serialize(new InteractionsOptions { Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions() } });
+
+        Assert.Contains("\"itemHover\":true", delayed, StringComparison.Ordinal);
+        Assert.Contains("\"siblingCloseDelay\":100", delayed, StringComparison.Ordinal);
+        Assert.Contains("\"siblingCloseDelay\":0", atOnce, StringComparison.Ordinal);
+        Assert.DoesNotContain("itemHover", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("siblingCloseDelay", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { SiblingCloseDelay = 100 }, new InteractionsMenuFloatingOptions { SiblingCloseDelay = 0 });
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { ItemHover = true }, new InteractionsMenuFloatingOptions());
+    }
+
     private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
 
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)

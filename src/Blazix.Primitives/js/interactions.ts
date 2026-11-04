@@ -3926,7 +3926,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
 // #endregion hover
 
 // ---------------------------------------------------------------------------------------------------------------
-// #region menu: Menu's hover gates (MNU-STA-11, MNU-STA-12, MNU-PTR-08, MNU-PTR-09); M5 track 6
+// #region menu: Menu's hover gates and the tree's item hover (MNU-STA-11, MNU-STA-12, MNU-PTR-08, MNU-PTR-09, MNU-PTR-11); M5 track 6
 // ---------------------------------------------------------------------------------------------------------------
 // ADR 04 Amendments 2026-11-04 (3). Each menu session keeps Base UI's `hoverEnabled` and `allowMouseEnter` store fields
 // (MenuStore.ts:24, 42) in its `menu` slot: pointer state that no C# decision reads. A popup's pointer move and click, a
@@ -3934,6 +3934,15 @@ function createHoverFloatingController(context: HandleContext): Controller {
 // 640-690; MenuPositioner.tsx:134-140). React's synthetic events bubble through portals, so Base UI's popup handlers also
 // see a child popup's moves and clicks; the child's open already turned these menus' hover off, so the port listens on
 // each popup alone.
+
+// The roles of the items a pointer move over which tells the tree (every part over useMenuItemCommonProps).
+const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"]';
+
+/** The tree's `itemhover`: the session of the menu whose item the pointer moved over, and the item. */
+interface MenuItemHoverEvent {
+  nodeId: string;
+  target: Element;
+}
 
 interface MenuSessionState {
   hoverEnabled: boolean;
@@ -4006,22 +4015,32 @@ function createMenuTriggerController(context: HandleContext): Controller {
 }
 
 /**
- * A menu popup's half: a pointer move over it counts as a move over the menu and, in a submenu, turns its hover off; a
- * click in it turns its hover off (MenuRoot.tsx:665-690). The slot exists from the attach, so a child's open finds it.
+ * A menu popup's half: a pointer move over an item tells the tree (`floating.menu.itemHover`); a pointer move over the
+ * popup counts as a move over the menu and, in a submenu, turns its hover off; a click in it turns its hover off
+ * (MenuRoot.tsx:665-690). A submenu (`floating.menu.siblingCloseDelay`) closes with `sibling-open` when the pointer moves
+ * over another item of its parent menu. The slot exists from the attach, so a child's open finds it.
  */
 function createMenuFloatingController(context: HandleContext): Controller {
-  const { record } = context;
+  const { record, channel } = context;
   const floatingElement = context.element as HTMLElement;
+  const siblingCloseTimeout = createTimer();
+  let treeEvents: SessionEvents | null = null;
   const menuOptions = () => context.options.floating?.menu ?? null;
-  const ensureSlot = () => {
-    if (menuOptions() !== null) {
-      menuSessionState(record);
-    }
-  };
-  const onMouseMove = () => {
+
+  // The menu's own popup, whose items are this menu's (a nested popup inside the floating element has its own).
+  const ownPopup = (): Element | null => (floatingElement.matches('[data-rootownerid]') ? floatingElement : floatingElement.querySelector('[data-rootownerid]'));
+
+  // useMenuItemCommonProps.ts:89-101: the item's move first, then the popup's (React's bubbling order).
+  const onMouseMove = (event: MouseEvent) => {
     const options = menuOptions();
     if (options === null) {
       return;
+    }
+    const target = getTarget(event);
+    const item = options.itemHover === true && isElement(target) ? target.closest(MENU_ITEM_SELECTOR) : null;
+    if (item !== null && contains(floatingElement, item) && item.closest('[data-rootownerid]') === ownPopup()) {
+      const hover: MenuItemHoverEvent = { nodeId: record.token, target: item };
+      record.tree.events.emit('itemhover', hover);
     }
     const state = menuSessionState(record);
     state.allowMouseEnter = true;
@@ -4034,10 +4053,69 @@ function createMenuFloatingController(context: HandleContext): Controller {
       setMenuHoverEnabled(record, menuSessionState(record), false);
     }
   };
+
+  // MenuPositioner.tsx:187-216: an item hover in the parent menu closes this submenu unless the item is its trigger; a
+  // pending close is not restarted by further hovers, and hovering the trigger cancels it.
+  const onItemHover = (event: MenuItemHoverEvent) => {
+    const delay = menuOptions()?.siblingCloseDelay;
+    if (delay == null || !record.open || event.nodeId !== record.parentToken) {
+      return;
+    }
+    const trigger = record.domReferenceElement;
+    if (trigger !== null && trigger !== event.target) {
+      if (delay <= 0) {
+        requestOpenChange(record, channel, false, 'sibling-open', undefined);
+      } else if (!siblingCloseTimeout.isStarted()) {
+        siblingCloseTimeout.start(delay, () => {
+          requestOpenChange(record, channel, false, 'sibling-open', undefined);
+        });
+      }
+    } else {
+      siblingCloseTimeout.clear();
+    }
+  };
+
+  // MenuPositioner.tsx:180-185: a close clears the pending sibling close.
+  const onOpenChange = (details: SessionOpenChangeDetails) => {
+    if (!details.open) {
+      siblingCloseTimeout.clear();
+    }
+  };
+
+  // The tree's bus is the forest root's, which a new parent token changes.
+  const syncTreeEvents = () => {
+    const events = record.tree.events;
+    if (events !== treeEvents) {
+      treeEvents?.off('itemhover', onItemHover);
+      events.on('itemhover', onItemHover);
+      treeEvents = events;
+    }
+  };
+
+  const ensureSlot = () => {
+    if (menuOptions() !== null) {
+      menuSessionState(record);
+    }
+  };
+
   ensureSlot();
+  syncTreeEvents();
+  record.events.on('openchange', onOpenChange);
+  const stopListening = onSessionChange(record, syncTreeEvents);
+  const cleanup = mergeCleanups(listen(floatingElement, 'mousemove', onMouseMove), listen(floatingElement, 'click', onClick));
   return {
-    update: ensureSlot,
-    dispose: mergeCleanups(listen(floatingElement, 'mousemove', onMouseMove), listen(floatingElement, 'click', onClick)),
+    update() {
+      ensureSlot();
+      syncTreeEvents();
+    },
+    dispose() {
+      cleanup();
+      stopListening();
+      record.events.off('openchange', onOpenChange);
+      treeEvents?.off('itemhover', onItemHover);
+      treeEvents = null;
+      siblingCloseTimeout.clear();
+    },
   };
 }
 
