@@ -28,7 +28,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     public ComboboxStore Store => throw new NotImplementedException();
 
     /// <summary>Gets the field's state the trigger projects.</summary>
-    public ComboboxFieldState Field => throw new NotImplementedException();
+    public FieldStateSnapshot Field => throw new NotImplementedException();
 
     /// <summary>Gets a value indicating whether the trigger is disabled, by the part, the root or the field.</summary>
     public bool Disabled => throw new NotImplementedException();

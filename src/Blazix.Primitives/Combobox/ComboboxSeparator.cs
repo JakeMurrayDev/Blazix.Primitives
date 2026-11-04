@@ -1,4 +1,5 @@
 using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
 
@@ -15,4 +16,37 @@ public static class ComboboxSeparatorDataAttributes
 {
     /// <summary>Represents the attribute whose value is the separator's orientation: <c>data-orientation</c>.</summary>
     public const string Orientation = "data-orientation";
+}
+
+// Base UI's Combobox.Separator (combobox/separator/ComboboxSeparator.tsx; CMB §3.26, STR-08): the listbox separator's
+// attributes (ListboxSeparatorAttributes, UTL), data-orientation from the state.
+/// <summary>Represents a separator between a combobox's items, Base UI's <c>Combobox.Separator</c>, rendered as a <c>div</c>.</summary>
+public sealed class ComboboxSeparator : PartBase<ComboboxSeparatorState>
+{
+    private ComboboxSeparatorState state = new(Primitives.Orientation.Horizontal);
+
+    /// <summary>Gets or sets the separator's orientation.</summary>
+    /// <value>The default is <see cref="Orientation.Horizontal"/>.</value>
+    [Parameter]
+    public Orientation Orientation { get; set; } = Primitives.Orientation.Horizontal;
+
+    /// <inheritdoc />
+    protected override string DefaultTagName => "div";
+
+    /// <inheritdoc />
+    protected override ComboboxSeparatorState State
+    {
+        get
+        {
+            if (state.Orientation != Orientation)
+            {
+                state = new ComboboxSeparatorState(Orientation);
+            }
+
+            return state;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes) => ComboboxStaticAttributes.WriteSeparator(attributes);
 }

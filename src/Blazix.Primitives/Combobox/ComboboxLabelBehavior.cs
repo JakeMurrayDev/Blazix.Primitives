@@ -14,7 +14,7 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     public ComboboxLabelBehavior(ComboboxPartServices services) => throw new NotImplementedException();
 
     /// <summary>Gets the field's state the label projects.</summary>
-    public ComboboxFieldState Field => throw new NotImplementedException();
+    public FieldStateSnapshot Field => throw new NotImplementedException();
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => throw new NotImplementedException();

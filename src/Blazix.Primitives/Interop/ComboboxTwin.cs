@@ -44,8 +44,6 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the part literal of a popup's handle.</summary>
     public const string PopupPart = "popup";
 
-    // The interface commit declares the events; the reports raise them from their own commits.
-#pragma warning disable CS0067
     /// <summary>Occurs when the module classified a change of the input text.</summary>
     public event Action<ComboboxInputChange>? InputChanged;
 
@@ -57,7 +55,9 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when a press that opened from the trigger ended outside it, Base UI's <c>cancel-open</c>.</summary>
     public event Action<EventSnapshot>? OpenCanceled;
-#pragma warning restore CS0067
+
+    /// <summary>Occurs when an internal dismiss button was pressed, Base UI's <c>close-press</c>.</summary>
+    public event Action<EventSnapshot>? DismissPressed;
 
     /// <summary>Gets or sets the C# chain of the <c>clear</c> and <c>remove</c> points on WebAssembly.</summary>
     /// <value>A function from the point and the event to the verdict, or <see langword="null"/> for each point's fallback.</value>
@@ -66,23 +66,33 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Receives a classified change of the input text.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxInputChange"/>.</param>
     [JSInvokable]
-    public void OnInputChange(string payloadJson) => throw new NotImplementedException();
+    public void OnInputChange(string payloadJson) => InputChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxInputChange));
 
     /// <summary>Receives a clear the module started.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxRequest"/>.</param>
     [JSInvokable]
-    public void OnClear(string payloadJson) => throw new NotImplementedException();
+    public void OnClear(string payloadJson) => ClearRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxRequest));
 
     /// <summary>Receives a removal the module started.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxRequest"/>.</param>
     [JSInvokable]
-    public void OnRemove(string payloadJson) => throw new NotImplementedException();
+    public void OnRemove(string payloadJson) => RemoveRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxRequest));
 
     /// <summary>Receives the end of a trigger press outside its bounds.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnCancelOpen(string payloadJson) => throw new NotImplementedException();
+    public void OnCancelOpen(string payloadJson) => OpenCanceled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+
+    /// <summary>Receives a press of the internal dismiss button beside the handle's element.</summary>
+    /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
+    [JSInvokable]
+    public void OnDismiss(string payloadJson) => DismissPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
 
     /// <inheritdoc />
-    protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) => throw new NotImplementedException();
+    /// <remarks>
+    /// The <see cref="ClearPoint"/> and <see cref="RemovePoint"/> points are answered by <see cref="Decider"/> on WebAssembly;
+    /// without one, or for any other point, the verdict is <see cref="DecisionPolicy.Run"/>, and the module applies the
+    /// point's fallback on Server.
+    /// </remarks>
+    protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) => Decider is { } decider ? decider(point, snapshot) : DecisionPolicy.Run;
 }

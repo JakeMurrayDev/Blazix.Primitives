@@ -19,7 +19,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
     public ComboboxStore Store => throw new NotImplementedException();
 
     /// <summary>Gets the field's state the group projects.</summary>
-    public ComboboxFieldState Field => throw new NotImplementedException();
+    public FieldStateSnapshot Field => throw new NotImplementedException();
 
     /// <summary>Gets a task that completes once the group's handle has attached.</summary>
     public Task TwinAttached => throw new NotImplementedException();

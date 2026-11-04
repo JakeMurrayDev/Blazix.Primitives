@@ -73,7 +73,7 @@ internal sealed partial record ComboboxStoreState(
     public static readonly Func<ComboboxStoreState, Side?> PopupSideSelector = static state => state.PopupSide;
 
     /// <summary>Selects whether the filtered list of a root with items is empty.</summary>
-    public static readonly Func<ComboboxStoreState, bool> ListEmpty = static state => state.HasItems && state.FilteredCount == 0;
+    public static readonly Func<ComboboxStoreState, bool> ListEmpty = static state => state.FilteredCount == 0;
 
     /// <summary>Selects the committed input text's revision.</summary>
     public static readonly Func<ComboboxStoreState, int> InputRevisionSelector = static state => state.InputRevision;
@@ -101,8 +101,31 @@ internal sealed partial record ComboboxStoreState(
     /// <param name="id">The root's id.</param>
     /// <param name="mode">The selection mode.</param>
     /// <returns>The state before the root's first parameter set is applied.</returns>
-    public static ComboboxStoreState Initial(string floatingId, string id, ComboboxSelectionMode mode) =>
-        throw new NotImplementedException();
+    public static ComboboxStoreState Initial(string floatingId, string id, ComboboxSelectionMode mode) => new(
+        PopupLifecycleState.Initial(floatingId),
+        id,
+        mode,
+        Inline: false,
+        InputInsidePopup: true,
+        Disabled: false,
+        ReadOnly: false,
+        Required: false,
+        Grid: false,
+        Virtualized: false,
+        Modal: false,
+        ActiveIndex: null,
+        SelectedIndex: null,
+        PopupSide: null,
+        ForceMounted: false,
+        InputValue: string.Empty,
+        InputRevision: 0,
+        HasSelectedValue: false,
+        HasItems: false,
+        FilteredCount: 0,
+        MembershipRevision: 0,
+        SelectionRevision: 0,
+        EmptyMounted: false,
+        ElementIds: default);
 }
 
 /// <summary>The rendered ids of the parts the modules, the dismissal and the ARIA read.</summary>
@@ -114,6 +137,8 @@ internal sealed partial record ComboboxStoreState(
 /// <param name="Label">The label's id, or <see langword="null"/>.</param>
 /// <param name="Popup">The popup's id, or <see langword="null"/>.</param>
 /// <param name="List">The list's id, or <see langword="null"/> while no list renders.</param>
+/// <param name="StartDismiss">The input's dismiss button's id, or <see langword="null"/>.</param>
+/// <param name="EndDismiss">The popup's dismiss button's id, or <see langword="null"/>.</param>
 internal readonly record struct ComboboxElementIds(
     string? Input,
     string? Trigger,
@@ -122,4 +147,6 @@ internal readonly record struct ComboboxElementIds(
     string? InputGroup,
     string? Label,
     string? Popup,
-    string? List);
+    string? List,
+    string? StartDismiss,
+    string? EndDismiss);

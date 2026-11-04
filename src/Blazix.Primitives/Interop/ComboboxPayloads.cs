@@ -8,8 +8,9 @@ namespace Blazix.Primitives.Interop;
 /// Whether the change is typed input (an <c>inputType</c> other than <c>insertReplacementText</c>, or a composition's end);
 /// otherwise it is autofill-like and opens nothing.
 /// </param>
+/// <param name="Composing">Whether a composition is in progress, so the text is shown but not committed.</param>
 /// <param name="Event">The snapshot of the <c>input</c> or <c>compositionend</c>.</param>
-internal sealed record ComboboxInputChange(string Text, bool Typed, EventSnapshot Event);
+internal sealed record ComboboxInputChange(string Text, bool Typed, bool Composing, EventSnapshot Event);
 
 // CMB-KEY-05, KEY-10, PTR-10, EVT-09: on Server the point's fallback ran in the dispatch, and C# runs the request now.
 /// <summary>The payload of a clear or a removal the module started.</summary>

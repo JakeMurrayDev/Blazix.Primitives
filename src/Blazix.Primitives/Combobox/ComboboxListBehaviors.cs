@@ -1,5 +1,7 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
@@ -8,139 +10,419 @@ namespace Blazix.Primitives;
 
 // combobox/list/ComboboxList.tsx (CMB §3.19, STR-05, STR-06): tabindex="-1", id = the floating id, role listbox or grid,
 // aria-multiselectable, aria-readonly (not grid), data-empty. The `composite` floating list handle (the registry, the items'
-// listeners by delegation, the highlight's writes), attached after PopupPortalContext.WhenMoved; inline, the list is the
-// floating element. Its `combobox` handle: the items' pointerdown/mousedown default, the drag-select release, the scroll
-// reset (CMB-PTR-03..05, PTR-12). The template and the virtualized window follow design points 1 and 2.
+// listeners by delegation, the highlight's writes), attached after PopupPortalContext.WhenMoved (M4 track 1's design point
+// 3). Without Items the module reports the rendered order, which the store joins to the items' values. Its `combobox`
+// handle: the items' pointerdown/mousedown default, the drag-select release, the scroll reset (CMB-PTR-03..05, PTR-12).
 /// <summary>The behavior of a combobox-family list.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
 {
+    private readonly ComboboxPartServices services;
+
+    private readonly CompositeRootBehavior composite;
+
+    private ComboboxStore<TValue>? store;
+
+    private PopupPortalContext? portal;
+
+    private ComboboxTwin? twin;
+
+    private TwinHandle<ComboboxOptions>? handle;
+
+    private ComboboxOptions? sentOptions;
+
+    private RenderFragment? cascadedContent;
+
+    private RenderFragment? cascade;
+
+    private string? id;
+
+    private bool disposed;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxListBehavior{TValue}"/> class.</summary>
     /// <param name="services">The part's services.</param>
-    public ComboboxListBehavior(ComboboxPartServices services) => throw new NotImplementedException();
+    /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler.</param>
+    public ComboboxListBehavior(ComboboxPartServices services, EventCallback onKeyDown)
+    {
+        this.services = services;
+        composite = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown);
+        composite.ItemsChanged += OnItemsChanged;
+    }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore<TValue> Store => throw new NotImplementedException();
+    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException("Blazix: the combobox list is used before its first render.");
 
     /// <summary>Gets the composite context the items register in.</summary>
-    public CompositeRootContext Composite => throw new NotImplementedException();
+    public CompositeRootContext Composite => composite.Context;
 
     /// <summary>Gets a value indicating whether the filtered list is empty.</summary>
-    public bool Empty => throw new NotImplementedException();
+    public bool Empty => Store.State.FilteredCount == 0;
+
+    /// <summary>Gets the id the list renders.</summary>
+    public string? Id => id;
 
     /// <summary>Gets a task that completes once the list's handles have attached.</summary>
-    public Task TwinAttached => throw new NotImplementedException();
+    public Task TwinAttached => composite.TwinAttached;
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => throw new NotImplementedException();
+    public async ValueTask DisposeAsync()
+    {
+        if (disposed)
+        {
+            return;
+        }
 
-    /// <summary>Reads the root, the positioner and the portal and subscribes the part.</summary>
-    /// <param name="store">The cascaded store, or <see langword="null"/> outside a root.</param>
-    /// <param name="positioner">The cascaded positioner context, or <see langword="null"/>.</param>
-    /// <param name="portal">The cascaded portal context, or <see langword="null"/>.</param>
+        disposed = true;
+        composite.ItemsChanged -= OnItemsChanged;
+        composite.Dispose();
+        if (store is not null && id is not null)
+        {
+            string own = id;
+            store.SetElementIds(ids => ids.List == own ? ids with { List = null } : ids);
+        }
+
+        if (twin is not null)
+        {
+            await twin.DisposeAsync();
+        }
+    }
+
+    /// <summary>Reads the root and the portal and subscribes the part.</summary>
+    /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
+    /// <param name="portalContext">The cascaded portal context, or <see langword="null"/>.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    public void Subscribe(ComboboxStore? store, PositionerContext? positioner, PopupPortalContext? portal, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe) =>
-        throw new NotImplementedException();
+    public void Subscribe(ComboboxStore? cascaded, PopupPortalContext? portalContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
+    {
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, services.Family);
+        portal = portalContext;
+        SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
 
-    /// <summary>Applies the id the part renders.</summary>
-    /// <param name="id">The consumer's id, or <see langword="null"/> for the floating id.</param>
-    public void Apply(string? id) => throw new NotImplementedException();
+        // Decision 11 (CMB-API-55, EDGE-10): the membership, not the query, renders the list's items.
+        subscription.Select(ComboboxStoreState.Membership);
+        subscription.Select(ComboboxStoreState.ListEmpty);
+        subscription.Select(static state => state.SelectionMode);
+        subscription.Select(static state => state.ReadOnly);
+        subscription.Select(static state => state.Grid);
+        composite.SetList(store.ListNavigation, CompositeListRole.Floating);
+        composite.ReportItems = !store.State.HasItems;
+        twin = new ComboboxTwin(services.JSRuntime);
+    }
+
+    /// <summary>Applies the id the part renders and the consumer's attributes.</summary>
+    /// <param name="consumerId">The consumer's id, or <see langword="null"/> for the floating id.</param>
+    /// <param name="consumerAttributes">The consumer's attributes.</param>
+    public void Apply(string? consumerId, IReadOnlyDictionary<string, object>? consumerAttributes)
+    {
+        ComboboxStore<TValue> root = Store;
+
+        // CMB-DOM-08 (ComboboxList.tsx:94): the floating id, which the input's aria-controls names.
+        id = consumerId ?? root.Lifecycle.FloatingId;
+        string? own = id;
+        root.SetElementIds(ids => ids with { List = own });
+        composite.ReportItems = !root.State.HasItems;
+        composite.SetConsumerAttributes(consumerAttributes);
+    }
 
     /// <summary>Adds the list's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes) => throw new NotImplementedException();
+    public void AddPartAttributes(AttributeList attributes)
+    {
+        ComboboxStoreState state = Store.State;
 
-    /// <summary>Renders the composite context around the list's content.</summary>
-    /// <param name="builder">The part's render tree builder.</param>
+        // CMB-DOM-08, ARIA-08 (ComboboxList.tsx:94-111): no aria-orientation, aria-readonly only as a listbox.
+        attributes.Set("tabindex", "-1");
+        attributes.Set("id", id);
+        attributes.Set("role", state.Grid ? "grid" : "listbox");
+        if (state.SelectionMode == ComboboxSelectionMode.Multiple)
+        {
+            attributes.Set("aria-multiselectable", "true");
+        }
+
+        if (state.ReadOnly && !state.Grid)
+        {
+            attributes.Set("aria-readonly", "true");
+        }
+
+        composite.AddAttributes(attributes, id);
+    }
+
+    /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
+    /// <param name="eventName">The event's attribute name.</param>
+    /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
+    public bool ForwardsConsumerHandler(string eventName) => composite.ForwardsConsumerHandler(eventName);
+
+    /// <summary>Wraps the list's content in the composite context the items read.</summary>
     /// <param name="content">The list's content.</param>
-    public void BuildContent(RenderTreeBuilder builder, RenderFragment? content) => throw new NotImplementedException();
+    /// <returns>The content inside the cascade, cached while the content is the same.</returns>
+    public RenderFragment Cascade(RenderFragment? content)
+    {
+        if (cascade is null || !ReferenceEquals(cascadedContent, content))
+        {
+            cascadedContent = content;
+            cascade = composite.Context.Cascade(content);
+        }
+
+        return cascade;
+    }
 
     /// <summary>Attaches the handles after the portal moved, and sends their changed options.</summary>
     /// <param name="element">The list's element.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
-    public Task AfterRenderAsync(ElementReference? element) => throw new NotImplementedException();
+    public async Task AfterRenderAsync(ElementReference? element)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        // A portaled part's handle attaches once the portal has moved its node (M4 track 1's design point 3): in place the
+        // node is `display: none`, where every item is invisible.
+        if (!composite.TwinAttached.IsCompleted)
+        {
+            await PopupPortalContext.WhenMoved(portal);
+        }
+
+        Task compositeSync = composite.AfterRenderAsync(true, element, id);
+        Task twinSync = SyncTwinAsync(element);
+        await Task.WhenAll(compositeSync, twinSync);
+    }
+
+    private async Task SyncTwinAsync(ElementReference? element)
+    {
+        if (twin is null || element is not { } target)
+        {
+            return;
+        }
+
+        ComboboxStoreState state = Store.State;
+        ComboboxOptions options = new()
+        {
+            Part = ComboboxTwin.ListPart,
+            SessionToken = Store.SessionToken,
+            Inline = state.Inline,
+            Disabled = state.Disabled,
+            ReadOnly = state.ReadOnly,
+            Virtualized = state.Virtualized,
+            InsidePopup = state.InputInsidePopup,
+        };
+        if (handle is null)
+        {
+            sentOptions = options;
+            handle = await twin.AttachAsync(target, options);
+            return;
+        }
+
+        if (options != sentOptions)
+        {
+            sentOptions = options;
+            await handle.UpdateAsync(options);
+        }
+    }
+
+    // CMB-STA-25 (ComboboxItem.tsx:92-121): without Items the rendered items' values, in the reported order, are the registry
+    // the selected index and the highlight read.
+    private void OnItemsChanged()
+    {
+        if (store is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<CompositeItemBehavior> ordered = composite.OrderedItems;
+        ItemSlot<TValue>[] slots = new ItemSlot<TValue>[ordered.Count];
+        for (int i = 0; i < slots.Length; i++)
+        {
+            slots[i] = store.RenderedValueOf(ordered[i]);
+        }
+
+        store.SetRenderedValues(slots);
+    }
 }
 
 // combobox/collection/ComboboxCollection.tsx (CMB §3.20, STR-06): maps the enclosing Group's items, else the root's filtered
 // items, subscribed to the membership only (decision 11; CMB-API-55, EDGE-10: an unchanged membership renders no item).
-/// <summary>The behavior of a combobox-family collection.</summary>
+/// <summary>The behavior of a combobox-family collection, and of a list's item template.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxCollectionBehavior<TValue> : IDisposable
 {
+    private readonly string family;
+
+    private readonly Action requestRender;
+
+    private ComboboxStore<TValue>? store;
+
+    private ComboboxGroupContext<TValue>? group;
+
+    private SelectorSubscription<ComboboxStoreState>? subscription;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxCollectionBehavior{TValue}"/> class.</summary>
     /// <param name="family">The family whose parts the diagnostics name.</param>
     /// <param name="requestRender">Asks the part to render.</param>
-    public ComboboxCollectionBehavior(string family, Action requestRender) => throw new NotImplementedException();
+    public ComboboxCollectionBehavior(string family, Action requestRender)
+    {
+        this.family = family;
+        this.requestRender = requestRender;
+    }
 
-    /// <summary>Gets the items the collection maps.</summary>
-    public IReadOnlyList<TValue> Items => throw new NotImplementedException();
+    /// <summary>Gets the items the collection maps, or <see langword="null"/> for none.</summary>
+    /// <remarks>A group without items maps nothing.</remarks>
+    public IReadOnlyList<TValue>? Items => group is not null ? group.Items : store?.FilteredValues;
+
+    /// <summary>Gets the root's filtered groups, for a list's group template.</summary>
+    public IReadOnlyList<ComboboxItemGroup<TValue>>? Groups => store?.FilteredGroups;
 
     /// <inheritdoc />
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+        subscription?.Dispose();
+        subscription = null;
+    }
 
     /// <summary>Reads the root and the enclosing group and subscribes to the membership.</summary>
-    /// <param name="store">The cascaded store, or <see langword="null"/> outside a root.</param>
-    /// <param name="group">The cascaded group context, or <see langword="null"/>.</param>
-    public void Subscribe(ComboboxStore? store, ComboboxGroupContext<TValue>? group) => throw new NotImplementedException();
+    /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
+    /// <param name="groupContext">The cascaded group context, or <see langword="null"/>.</param>
+    public void Subscribe(ComboboxStore? cascaded, ComboboxGroupContext<TValue>? groupContext)
+    {
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, family);
+        group = groupContext;
+        subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
+        subscription.Select(ComboboxStoreState.Membership);
+    }
 }
 
-// combobox/group/ComboboxGroup.tsx (CMB §3.21): role group (rowgroup in a grid), aria-labelledby its label's id (a LabelIdSlot),
-// and its items for a Collection inside.
+// combobox/group/ComboboxGroup.tsx (CMB §3.21): role group (rowgroup in a grid), aria-labelledby its label's id (a
+// LabelIdSlot), and its items for a Collection inside.
 /// <summary>The behavior of a combobox-family group.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxGroupBehavior<TValue> : IDisposable
 {
+    private readonly ComboboxPartServices services;
+
+    private readonly ComboboxGroupContext<TValue> context;
+
+    private ComboboxStore? store;
+
+    private RenderFragment? cascadedContent;
+
+    private RenderFragment? cascade;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxGroupBehavior{TValue}"/> class.</summary>
     /// <param name="services">The part's services.</param>
-    public ComboboxGroupBehavior(ComboboxPartServices services) => throw new NotImplementedException();
+    public ComboboxGroupBehavior(ComboboxPartServices services)
+    {
+        this.services = services;
+        context = new ComboboxGroupContext<TValue>(services.RequestRender);
+    }
 
     /// <summary>Gets the group context the label and a collection read.</summary>
-    public ComboboxGroupContext<TValue> Context => throw new NotImplementedException();
+    public ComboboxGroupContext<TValue> Context => context;
 
     /// <inheritdoc />
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+    }
 
     /// <summary>Reads the root and subscribes the part.</summary>
-    /// <param name="store">The cascaded store, or <see langword="null"/> outside a root.</param>
+    /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    public void Subscribe(ComboboxStore? store, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe) => throw new NotImplementedException();
+    public void Subscribe(ComboboxStore? cascaded, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
+    {
+        store = ComboboxParts.RequireRoot(cascaded, services.Family);
+        subscribe(store).Select(static state => state.Grid);
+    }
 
     /// <summary>Applies the group's items.</summary>
     /// <param name="items">The part's <c>Items</c>, or <see langword="null"/>.</param>
-    public void Apply(IReadOnlyList<TValue>? items) => throw new NotImplementedException();
+    public void Apply(IReadOnlyList<TValue>? items) => context.Items = items;
 
     /// <summary>Adds the group's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes) => throw new NotImplementedException();
+    public void AddPartAttributes(AttributeList attributes)
+    {
+        attributes.Set("role", store!.State.Grid ? "rowgroup" : "group");
+        if (context.LabelId.Id is { } labelId)
+        {
+            attributes.Set("aria-labelledby", labelId);
+        }
+    }
 
-    /// <summary>Renders the group context around the group's content.</summary>
-    /// <param name="builder">The part's render tree builder.</param>
+    /// <summary>Wraps the group's content in the group context.</summary>
     /// <param name="content">The group's content.</param>
-    public void BuildContent(RenderTreeBuilder builder, RenderFragment? content) => throw new NotImplementedException();
+    /// <returns>The content inside the cascade, cached while the content is the same.</returns>
+    public RenderFragment Cascade(RenderFragment? content)
+    {
+        if (cascade is null || !ReferenceEquals(cascadedContent, content))
+        {
+            cascadedContent = content;
+            RenderFragment? inner = content;
+            ComboboxGroupContext<TValue> value = context;
+            cascade = builder =>
+            {
+                builder.OpenComponent<CascadingValue<ComboboxGroupContext<TValue>>>(0);
+                builder.AddComponentParameter(1, nameof(CascadingValue<ComboboxGroupContext<TValue>>.Value), value);
+                builder.AddComponentParameter(2, nameof(CascadingValue<ComboboxGroupContext<TValue>>.IsFixed), true);
+                builder.AddComponentParameter(3, nameof(CascadingValue<ComboboxGroupContext<TValue>>.ChildContent), inner);
+                builder.CloseComponent();
+            };
+        }
+
+        return cascade;
+    }
 }
 
 // combobox/group-label/ComboboxGroupLabel.tsx (CMB §3.22): aria-hidden, its id written into the group's slot.
 /// <summary>The behavior of a combobox-family group label.</summary>
 internal sealed class ComboboxGroupLabelBehavior : IDisposable
 {
+    private readonly string family;
+
+    private IComboboxGroupContext? group;
+
+    private string? id;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxGroupLabelBehavior"/> class.</summary>
     /// <param name="family">The family whose parts the diagnostics name.</param>
-    public ComboboxGroupLabelBehavior(string family) => throw new NotImplementedException();
+    public ComboboxGroupLabelBehavior(string family)
+    {
+        this.family = family;
+    }
 
     /// <inheritdoc />
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+        if (group is not null && id is not null)
+        {
+            group.LabelId.Withdraw(id);
+        }
+    }
 
     /// <summary>Reads the enclosing group, throwing the missing-group error outside one.</summary>
-    /// <param name="group">The cascaded group context, or <see langword="null"/>.</param>
-    public void Subscribe(IComboboxGroupContext? group) => throw new NotImplementedException();
+    /// <param name="cascaded">The cascaded group context, or <see langword="null"/>.</param>
+    public void Subscribe(IComboboxGroupContext? cascaded) => group = cascaded ?? throw ComboboxParts.MissingGroup(family);
 
     /// <summary>Writes the label's id into the group's slot.</summary>
-    /// <param name="id">The id the label renders.</param>
-    public void Apply(string? id) => throw new NotImplementedException();
+    /// <param name="labelId">The id the label renders.</param>
+    public void Apply(string? labelId)
+    {
+        if (id is not null && !string.Equals(id, labelId, StringComparison.Ordinal))
+        {
+            group!.LabelId.Withdraw(id);
+        }
+
+        id = labelId;
+        if (labelId is not null)
+        {
+            group!.LabelId.Publish(labelId);
+        }
+    }
 
     /// <summary>Adds the label's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes) => throw new NotImplementedException();
+    public void AddPartAttributes(AttributeList attributes)
+    {
+        attributes.Set("id", id);
+        attributes.Set("aria-hidden", "true");
+    }
 }
 
 // combobox/item/ComboboxItem.tsx (CMB §3.24): role option (gridcell), a stable generated id (the {rootId}-{index} deviation
@@ -151,74 +433,219 @@ internal sealed class ComboboxGroupLabelBehavior : IDisposable
 /// <typeparam name="TValue">The type of the item's value.</typeparam>
 internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 {
+    private readonly ComboboxPartServices services;
+
+    private readonly ButtonBehavior button;
+
+    private readonly EventCallback onKeyDown;
+
+    private readonly ComboboxItemContext context;
+
+    private CompositeItemBehavior? item;
+
+    private ComboboxStore<TValue>? store;
+
+    private StoreSelection<ComboboxStoreState, ComboboxItemBehavior<TValue>, bool>? selected;
+
+    private RenderFragment? cascadedContent;
+
+    private RenderFragment? cascade;
+
+    private TValue value = default!;
+
+    private bool disabledParameter;
+
+    private bool isRow;
+
+    private string? id;
+
+    private bool disposed;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxItemBehavior{TValue}"/> class.</summary>
     /// <param name="services">The part's services.</param>
     /// <param name="developmentLog">The button mechanism's development log.</param>
     /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler.</param>
     /// <param name="onKeyUp">The part's own <c>onkeyup</c> handler.</param>
-    /// <param name="onClick">The part's own <c>onclick</c> handler, which calls <see cref="HandleClickAsync"/>.</param>
-    public ComboboxItemBehavior(ComboboxPartServices services, ButtonDevelopmentLog developmentLog, EventCallback onKeyDown, EventCallback onKeyUp, EventCallback onClick) =>
-        throw new NotImplementedException();
+    public ComboboxItemBehavior(ComboboxPartServices services, ButtonDevelopmentLog developmentLog, EventCallback onKeyDown, EventCallback onKeyUp)
+    {
+        this.services = services;
+        this.onKeyDown = onKeyDown;
+        button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
+        context = new ComboboxItemContext();
+    }
 
     /// <summary>Gets the item context the indicator reads.</summary>
-    public ComboboxItemContext Context => throw new NotImplementedException();
+    public ComboboxItemContext Context => context;
 
     /// <summary>Gets a value indicating whether the item is selected.</summary>
-    public bool Selected => throw new NotImplementedException();
+    public bool Selected => selected?.Value ?? false;
 
     /// <summary>Gets a value indicating whether the item is disabled, by the part or the root.</summary>
-    public bool Disabled => throw new NotImplementedException();
+    public bool Disabled => disabledParameter || (store?.State.Disabled ?? false);
 
     /// <summary>Gets the mirrored highlight.</summary>
-    public bool Highlighted => throw new NotImplementedException();
+    public bool Highlighted => item?.Highlighted ?? false;
 
     /// <summary>Gets a task that completes once the item's button handle has attached.</summary>
-    public Task TwinAttached => throw new NotImplementedException();
+    public Task TwinAttached => button.TwinAttached;
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => throw new NotImplementedException();
+    public ValueTask DisposeAsync()
+    {
+        if (disposed)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        disposed = true;
+        if (item is not null)
+        {
+            store?.UnregisterRenderedValue(item);
+            item.Dispose();
+        }
+
+        button.Dispose();
+        return ValueTask.CompletedTask;
+    }
 
     /// <summary>Reads the root and the list's composite context and subscribes the part.</summary>
-    /// <param name="store">The cascaded store, or <see langword="null"/> outside a root.</param>
+    /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
     /// <param name="composite">The list's composite context, or <see langword="null"/>.</param>
+    /// <param name="row">Whether the item is inside a row.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    public void Subscribe(ComboboxStore? store, CompositeRootContext? composite, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe) =>
-        throw new NotImplementedException();
+    public void Subscribe(ComboboxStore? cascaded, CompositeRootContext? composite, bool row, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
+    {
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, services.Family);
+        isRow = row;
+        item = new CompositeItemBehavior(composite, services.Family + "Item", onKeyDown, services.RequestRender);
+        SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
+        subscription.Select(static state => state.Disabled);
+        subscription.Select(static state => state.SelectionMode);
+
+        // Base UI's `isSelected` selector with the item as its argument: re-evaluated on a selection change only.
+        selected = subscription.Select(static (state, owner) => owner.EvaluateSelected(state.SelectionRevision), this);
+    }
 
     /// <summary>Applies the part's parameters.</summary>
-    /// <param name="value">The part's <c>Value</c>.</param>
-    /// <param name="valueSupplied">Whether <paramref name="value"/> was supplied.</param>
+    /// <param name="itemValue">The part's <c>Value</c>.</param>
+    /// <param name="valueSupplied">Whether <paramref name="itemValue"/> was supplied.</param>
     /// <param name="index">The part's <c>Index</c>.</param>
     /// <param name="disabled">The part's <c>Disabled</c>.</param>
     /// <param name="nativeButton">The part's <c>NativeButton</c>.</param>
-    /// <param name="id">The id the part renders.</param>
+    /// <param name="itemId">The id the part renders.</param>
     /// <param name="consumerAttributes">The consumer's attributes.</param>
-    public void Apply(TValue value, bool valueSupplied, int? index, bool disabled, bool nativeButton, string? id, IReadOnlyDictionary<string, object>? consumerAttributes) =>
-        throw new NotImplementedException();
+    public void Apply(TValue itemValue, bool valueSupplied, int? index, bool disabled, bool nativeButton, string? itemId, IReadOnlyDictionary<string, object>? consumerAttributes)
+    {
+        _ = valueSupplied;
+        ComboboxStore<TValue> root = store!;
+        bool valueChanged = !Equality.Is(value, itemValue);
+        value = itemValue;
+        disabledParameter = disabled;
+        id = itemId;
+        if (valueChanged && selected is not null)
+        {
+            selected.Arg = this;
+        }
+
+        button.Disabled = Disabled;
+        button.Native = nativeButton;
+        button.FocusableWhenDisabled = true;
+        button.SetConsumerAttributes(consumerAttributes);
+        item!.SetRegistration(itemId, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(itemValue), index: index);
+        item.SetConsumerAttributes(Disabled ? null : consumerAttributes);
+        root.RegisterRenderedValue(item, itemValue);
+        context.Set(Selected, index ?? -1);
+    }
 
     /// <summary>Adds the item's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes) => throw new NotImplementedException();
+    public void AddPartAttributes(AttributeList attributes)
+    {
+        button.AddAttributes(attributes, id, composite: true);
+        attributes.Set("id", id);
+        attributes.Set("role", isRow ? "gridcell" : "option");
+        if (store!.State.SelectionMode != ComboboxSelectionMode.None)
+        {
+            attributes.Set("aria-selected", Selected ? "true" : "false");
+        }
+
+        item!.AddAttributes(attributes);
+    }
 
     /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => throw new NotImplementedException();
+    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName) && item!.ForwardsConsumerHandler(eventName);
 
-    /// <summary>Runs the declined consumer <c>onclick</c>, then the selection unless it called <c>PreventPartHandler()</c>.</summary>
+    /// <summary>Runs the selection after the consumer's <c>onclick</c>, unless it called <c>PreventPartHandler()</c>.</summary>
     /// <param name="args">The click.</param>
     /// <returns>A task that completes when the selection has run.</returns>
-    public Task HandleClickAsync(MouseEventArgs args) => throw new NotImplementedException();
+    public Task HandleClickAsync(MouseEventArgs args)
+    {
+        // CMB-EVT-12 (ComboboxItem.tsx:159-165): a disabled item's click never reaches here (the button behavior suppresses
+        // it); readOnly runs the consumer's onclick and selects nothing.
+        ComboboxStore<TValue> root = store!;
+        if (Disabled || root.State.ReadOnly)
+        {
+            return Task.CompletedTask;
+        }
 
-    /// <summary>Renders the item context around the item's content.</summary>
-    /// <param name="builder">The part's render tree builder.</param>
+        return root.SelectAsync(value, EventSnapshot.FromEventArgs(args));
+    }
+
+    /// <summary>Forwards a key to the button behavior.</summary>
+    /// <param name="args">The key event.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) => button.HandleKeyDownAsync(args);
+
+    /// <summary>Forwards a key release to the button behavior.</summary>
+    /// <param name="args">The key event.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleKeyUpAsync(KeyboardEventArgs args) => button.HandleKeyUpAsync(args);
+
+    /// <summary>Wraps the item's content in the item context the indicator reads.</summary>
     /// <param name="content">The item's content.</param>
-    public void BuildContent(RenderTreeBuilder builder, RenderFragment? content) => throw new NotImplementedException();
+    /// <returns>The content inside the cascade, cached while the content is the same.</returns>
+    public RenderFragment Cascade(RenderFragment? content)
+    {
+        if (cascade is null || !ReferenceEquals(cascadedContent, content))
+        {
+            cascadedContent = content;
+            RenderFragment? inner = content;
+            ComboboxItemContext itemContext = context;
+            cascade = builder =>
+            {
+                builder.OpenComponent<CascadingValue<ComboboxItemContext>>(0);
+                builder.AddComponentParameter(1, nameof(CascadingValue<ComboboxItemContext>.Value), itemContext);
+                builder.AddComponentParameter(2, nameof(CascadingValue<ComboboxItemContext>.IsFixed), true);
+                builder.AddComponentParameter(3, nameof(CascadingValue<ComboboxItemContext>.ChildContent), inner);
+                builder.CloseComponent();
+            };
+        }
+
+        return cascade;
+    }
 
     /// <summary>Attaches the button handle and sends the registration.</summary>
     /// <param name="element">The item's element.</param>
     /// <returns>A task that completes when the handle has its options.</returns>
-    public Task AfterRenderAsync(ElementReference? element) => throw new NotImplementedException();
+    public async Task AfterRenderAsync(ElementReference? element)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        context.Set(Selected, context.Index);
+        await button.AfterRenderAsync(true, element, id, composite: true);
+        await item!.AfterRenderAsync(element);
+    }
+
+    private bool EvaluateSelected(int revision)
+    {
+        _ = revision;
+        return store is not null && store.State.SelectionMode != ComboboxSelectionMode.None && store.IsSelected(value);
+    }
 }
 
 // combobox/item-indicator/ComboboxItemIndicator.tsx (CMB §3.25) over ItemIndicatorBehavior (Utilities/, the
@@ -226,38 +653,85 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 /// <summary>The behavior of a combobox item indicator.</summary>
 internal sealed class ComboboxItemIndicatorBehavior : IAsyncDisposable
 {
+    private readonly ComboboxPartServices services;
+
+    private readonly ItemIndicatorBehavior indicator;
+
+    private readonly Action changed;
+
+    private ComboboxItemContext? item;
+
+    private bool keepMounted;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxItemIndicatorBehavior"/> class.</summary>
     /// <param name="services">The part's services.</param>
-    public ComboboxItemIndicatorBehavior(ComboboxPartServices services) => throw new NotImplementedException();
+    public ComboboxItemIndicatorBehavior(ComboboxPartServices services)
+    {
+        this.services = services;
+        indicator = new ItemIndicatorBehavior(services.JSRuntime, action => services.InvokeAsync(() => { action(); return Task.CompletedTask; }), services.RequestRender);
+        changed = OnItemChanged;
+    }
 
     /// <summary>Gets a value indicating whether the item is selected.</summary>
-    public bool Selected => throw new NotImplementedException();
+    public bool Selected => item?.Selected ?? false;
 
     /// <summary>Gets a value indicating whether the indicator renders.</summary>
-    public bool Shown => throw new NotImplementedException();
+    public bool Shown => indicator.Shown;
 
     /// <summary>Gets the mirrored transition status.</summary>
-    public TransitionStatus? TransitionStatus => throw new NotImplementedException();
+    public TransitionStatus? TransitionStatus => indicator.TransitionStatus;
+
+    /// <summary>Gets the indicator's default content, <c>✔️</c>.</summary>
+    public static RenderFragment DefaultContent => ItemIndicatorBehavior.DefaultContent;
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => throw new NotImplementedException();
+    public ValueTask DisposeAsync()
+    {
+        item?.RemoveListener(changed);
+        indicator.Dispose();
+        return ValueTask.CompletedTask;
+    }
 
     /// <summary>Reads the enclosing item, throwing the missing-item error outside one.</summary>
-    /// <param name="item">The cascaded item context, or <see langword="null"/>.</param>
-    public void Subscribe(ComboboxItemContext? item) => throw new NotImplementedException();
+    /// <param name="cascaded">The cascaded item context, or <see langword="null"/>.</param>
+    public void Subscribe(ComboboxItemContext? cascaded)
+    {
+        item = cascaded ?? throw ComboboxParts.MissingItem(services.Family);
+        item.AddListener(changed);
+    }
 
-    /// <summary>Applies the part's <c>KeepMounted</c>.</summary>
-    /// <param name="keepMounted">Whether the indicator stays mounted while not selected.</param>
-    public void Apply(bool keepMounted) => throw new NotImplementedException();
+    /// <summary>Applies the part's <c>KeepMounted</c>, at the first parameter set and later.</summary>
+    /// <param name="mounted">Whether the indicator stays mounted while not selected.</param>
+    /// <param name="first">Whether this is the first parameter set.</param>
+    public void Apply(bool mounted, bool first)
+    {
+        keepMounted = mounted;
+        if (first)
+        {
+            indicator.Initialize(Selected, mounted);
+        }
+        else
+        {
+            indicator.Update(Selected, mounted);
+        }
+    }
 
     /// <summary>Adds the indicator's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes) => throw new NotImplementedException();
+    public void AddPartAttributes(AttributeList attributes) => indicator.AddPartAttributes(attributes);
 
     /// <summary>Attaches the transitions handle.</summary>
     /// <param name="element">The indicator's element.</param>
     /// <returns>A task that completes when the handle has its options.</returns>
-    public Task AfterRenderAsync(ElementReference? element) => throw new NotImplementedException();
+    public Task AfterRenderAsync(ElementReference? element) => indicator.AfterRenderAsync(element);
+
+    private void OnItemChanged()
+    {
+        if (indicator.Update(Selected, keepMounted))
+        {
+            services.RequestRender();
+        }
+    }
 }
 
 // combobox/value/ComboboxValue.tsx (CMB §3.10, API-46/47): the selected value's label (ValueLabels), or the template, or
@@ -266,20 +740,56 @@ internal sealed class ComboboxItemIndicatorBehavior : IAsyncDisposable
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxValueBehavior<TValue> : IDisposable
 {
+    private readonly Action requestRender;
+
+    private ComboboxStore<TValue>? store;
+
+    private SelectorSubscription<ComboboxStoreState>? subscription;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxValueBehavior{TValue}"/> class.</summary>
     /// <param name="requestRender">Asks the part to render.</param>
-    public ComboboxValueBehavior(Action requestRender) => throw new NotImplementedException();
+    public ComboboxValueBehavior(Action requestRender)
+    {
+        this.requestRender = requestRender;
+    }
+
+    /// <summary>Gets the root's store.</summary>
+    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException("Blazix: the combobox value is used before its first render.");
 
     /// <summary>Gets a value indicating whether a value is selected.</summary>
-    public bool HasValue => throw new NotImplementedException();
+    public bool HasValue => Store.State.HasSelectedValue;
 
     /// <summary>Gets the selected value's label, or the labels joined with <c>", "</c> in multiple mode.</summary>
-    public string Label => throw new NotImplementedException();
+    public string Label
+    {
+        get
+        {
+            ComboboxStore<TValue> root = Store;
+            if (root.State.SelectionMode == ComboboxSelectionMode.Multiple)
+            {
+                IReadOnlyList<TValue> values = root.SelectedValues;
+                return string.Join(", ", values.Select(root.LabelOf));
+            }
+
+            return root.State.HasSelectedValue ? root.LabelOf(root.SelectedValue) : string.Empty;
+        }
+    }
 
     /// <inheritdoc />
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+        subscription?.Dispose();
+        subscription = null;
+    }
 
     /// <summary>Reads the root and subscribes to the selection.</summary>
-    /// <param name="store">The cascaded store, or <see langword="null"/> outside a root.</param>
-    public void Subscribe(ComboboxStore? store) => throw new NotImplementedException();
+    /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
+    /// <param name="family">The family whose parts the diagnostics name.</param>
+    public void Subscribe(ComboboxStore? cascaded, string family)
+    {
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, family);
+        subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
+        subscription.Select(ComboboxStoreState.Selection);
+        subscription.Select(ComboboxStoreState.Membership);
+    }
 }
