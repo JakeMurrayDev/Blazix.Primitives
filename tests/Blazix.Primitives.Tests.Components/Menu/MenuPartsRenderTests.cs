@@ -146,4 +146,32 @@ public sealed class MenuPartsRenderTests : BunitContext
         Assert.Equal(portal.Id, owner.GetAttribute("aria-owns"));
         Assert.False(cut.Find("[data-testid=submenu-trigger]").HasAttribute("aria-owns"));
     }
+
+    [Fact(DisplayName = "disables submenu triggers when controlled open")]
+    [Trait("Requirement", "MNU-API-52")]
+    public void Root_disabled_disables_the_submenu_trigger()
+    {
+        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p.Add(x => x.RootDisabled, true));
+
+        IElement trigger = cut.Find("[data-testid=submenu-trigger]");
+        Assert.True(trigger.HasAttribute("data-disabled"));
+        trigger.Click();
+        Assert.Empty(cut.FindAll("[data-testid=submenu]"));
+    }
+
+    [Theory(DisplayName = "prop: modal")]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Requirement", "MNU-API-08")]
+    [Trait("Requirement", "MNU-STR-17")]
+    public void Modal_renders_the_internal_backdrop_only_when_true(bool modal)
+    {
+        // "should render an internal backdrop when `true`" and "should not render an internal backdrop when `false`".
+        IRenderedComponent<MenuTreeHost> cut = Render<MenuTreeHost>(p => p
+            .Add(x => x.Modal, modal)
+            .Add(x => x.PositionerAttributes, new Dictionary<string, object> { ["data-testid"] = "positioner" }));
+
+        IElement? previous = cut.Find("[data-testid=positioner]").PreviousElementSibling;
+        Assert.Equal(modal, previous?.GetAttribute("role") == "presentation");
+    }
 }

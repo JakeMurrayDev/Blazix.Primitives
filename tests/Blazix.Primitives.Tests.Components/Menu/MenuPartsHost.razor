@@ -46,7 +46,7 @@
         </MenuSubmenuRoot>
         break;
     case "submenu":
-        <MenuRoot TPayload="NoPayload" Open="true">
+        <MenuRoot TPayload="NoPayload" Open="true" Disabled="RootDisabled">
             <MenuTrigger TPayload="NoPayload">Open menu</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
@@ -82,6 +82,9 @@
 
     [Parameter]
     public bool SubmenuDisabled { get; set; }
+
+    [Parameter]
+    public bool RootDisabled { get; set; }
 
     private static RenderFragment AsSpan(RenderProps<MenuTriggerState> props) =>
         @<span @attributes="props.Attributes">@props.ChildContent</span>;
