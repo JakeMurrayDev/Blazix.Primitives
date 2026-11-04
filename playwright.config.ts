@@ -9,12 +9,6 @@ type Options = { mode: RenderMode };
 const host = 'http://127.0.0.1:5197';
 const inCi = !!process.env.CI;
 
-// ADR 11 Amendments 2026-11-04 (issue 158): the nightly sets BLAZIX_TRACE_SNAPSHOTS=false. Every test of a worker shares
-// one browser context, and a trace of a long-lived context carries its whole network log into each test's chunk, so with
-// DOM snapshots (which turn the network log on) the traces grow with the square of a worker's test count. Without them a
-// failure still keeps its trace: the actions, the screenshots, the console and the sources. The gate keeps the default.
-const traceSnapshots = process.env.BLAZIX_TRACE_SNAPSHOTS !== 'false';
-
 export default defineConfig<Options>({
   testDir: 'tests/browser',
   fullyParallel: true,
@@ -26,7 +20,9 @@ export default defineConfig<Options>({
   reporter: inCi ? [['blob'], ['github']] : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: host,
-    trace: traceSnapshots ? 'retain-on-failure' : { mode: 'retain-on-failure', snapshots: false },
+    // A failure keeps its trace, DOM snapshots included, on the gate and the nightly alike: tests/browser/helpers/test.ts
+    // gives each test a trace of its own on the worker's shared context (ADR 11 Amendments 2026-11-04, issue 158).
+    trace: 'retain-on-failure',
     // The host sets BASE_UI_ANIMATIONS_DISABLED by default (ADR 06 §2); the switch itself is the transitions module (M1).
   },
   webServer: {
