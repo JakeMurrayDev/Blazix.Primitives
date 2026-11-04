@@ -389,17 +389,26 @@ function clearOpenEvent(menu: Menu): void {
 }
 
 // NAV-FOC-10, 11, KEY-13; utils/isOutsideMenuEvent.ts over the session forest.
-function isOutsideMenuEvent(menu: Menu, currentTarget: Element, relatedTarget: Element | null): boolean {
+function isOutsideMenuEvent(menu: Menu, currentTarget: Element, relatedTarget: Element | null, popup: Element | null = menu.popup): boolean {
   const token = menu.options.sessionToken;
   const session = token ? getSession(token) : undefined;
   const childContains =
     session !== undefined &&
     getNodeChildren(session.tree.nodesRef.current, token ?? undefined).some((node) => contains(node.context?.elements?.floating ?? null, relatedTarget));
-  const popup = menu.popup;
   if (popup === null) {
     return !contains(menu.root, relatedTarget) && !childContains;
   }
   return !contains(popup, currentTarget) && !contains(popup, relatedTarget) && !contains(menu.root, relatedTarget) && !childContains;
+}
+
+/**
+ * Finds the Popup a Trigger's `aria-controls` names.
+ * @param trigger The Trigger.
+ * @returns The Popup, or `null` when the Trigger names none or it is not in the document.
+ */
+function controlledPopup(trigger: Element): Element | null {
+  const id = trigger.getAttribute('aria-controls');
+  return id ? trigger.ownerDocument.getElementById(id) : null;
 }
 
 function getMenu(root: HTMLElement): MenuState {
@@ -1015,11 +1024,15 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
 
   // NAV-FOC-10, KEY-13; NavigationMenuTrigger.tsx:694-708. A closed menu still gets the request, whose redundant close
   // only records the reason (NAV-EVT-05, EVT-06).
+  // The Popup is the one the active Trigger's `aria-controls` names (NAV-ARIA-02), which C# renders with the open; the
+  // Popup's own handle attaches a round trip or two later on Server, and Base UI reads the element at the commit. A Popup
+  // is always inside a Positioner (NAV-STR-11), so it stands for both of Base UI's checks.
   const onFocusOut = (event: FocusEvent) => {
-    if (event.target !== element || menu.positioner === null || menu.popup === null) {
+    const popup = menu.popup ?? controlledPopup(element);
+    if (event.target !== element || popup === null) {
       return;
     }
-    if (isOutsideMenuEvent(menu, element, event.relatedTarget as Element | null)) {
+    if (isOutsideMenuEvent(menu, element, event.relatedTarget as Element | null, popup)) {
       reportFocusOut(event);
     }
   };
