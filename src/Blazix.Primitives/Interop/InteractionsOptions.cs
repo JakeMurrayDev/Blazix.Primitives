@@ -203,6 +203,30 @@ internal sealed record InteractionsTriggerOptions
     /// <value><see langword="true"/> for a preview card trigger; the default <see langword="false"/> is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HoveredLine { get; init; }
+
+    // M5 track 6 (ADR 04 Amendments 2026-11-03 (4), chosen by the user 2026-11-03): Menu's trigger additions
+    // (MenuTrigger.tsx:121-171, 240-256; MenuRoot.tsx:640-648); the module ignores them until their commits.
+    /// <summary>Gets a menu trigger's configuration: the press-drag-release arm and the pointer move it records.</summary>
+    /// <value>The configuration, or <see langword="null"/> for a trigger that is not a menu's.</value>
+    public InteractionsMenuTriggerOptions? Menu { get; init; }
+}
+
+/// <summary>The menu configuration of a trigger.</summary>
+internal sealed record InteractionsMenuTriggerOptions
+{
+    /// <summary>Gets the id of the menu tree's root, which the popups render as <c>data-rootownerid</c>.</summary>
+    /// <value>The root's id; a release over an element of the tree does not cancel the open.</value>
+    public string? RootId { get; init; }
+
+    /// <summary>Gets a value indicating whether a press arms the tree's release activation and a release elsewhere cancels the open.</summary>
+    /// <value><see langword="true"/> for a top-level menu trigger; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Release { get; init; }
+
+    /// <summary>Gets a value indicating whether a pointer move over the active trigger allows its submenus to open on hover.</summary>
+    /// <value><see langword="true"/> for a menu trigger; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool TrackMouseEnter { get; init; }
 }
 
 /// <summary>The press-to-toggle configuration of a trigger.</summary>
@@ -310,6 +334,18 @@ internal sealed record InteractionsHoverOptions
     /// <summary>Gets the floating element and tree node the safe triangle closes against when the popup has no positioner.</summary>
     /// <value>The context, or <see langword="null"/> for the session's published one.</value>
     public InteractionsInlineCloseContext? InlineCloseContext { get; init; }
+
+    // M5 track 6: a submenu trigger's `shouldOpen` with a delay (MenuSubmenuTrigger.tsx:193-197; MNU-STA-12).
+    /// <summary>Gets a value indicating whether a hover opens only after a pointer move over the parent menu.</summary>
+    /// <value><see langword="true"/> for a submenu trigger with a delay; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RequireParentMouseEnter { get; init; }
+
+    // M5 track 6: a submenu trigger's hover is enabled only while its menu's hover is (MenuSubmenuTrigger.tsx:177; MNU-STA-11).
+    /// <summary>Gets a value indicating whether the hover is off while the popup's pointer or click turned its hover off.</summary>
+    /// <value><see langword="true"/> for a submenu trigger; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RequireHoverEnabled { get; init; }
 }
 
 /// <summary>The floating element and tree node a trigger's safe triangle closes against when its popup has no positioner.</summary>
@@ -335,11 +371,43 @@ internal sealed record InteractionsFloatingOptions
     /// <summary>Gets the hover configuration of the floating element.</summary>
     /// <value>The configuration, or <see langword="null"/> when leaving the floating element does nothing.</value>
     public InteractionsFloatingHoverOptions? Hover { get; init; }
+
+    // M5 track 6 (ADR 04 Amendments 2026-11-03 (4), chosen by the user 2026-11-03): Menu's floating additions
+    // (useMenuItemCommonProps.ts:89-143; MenuPositioner.tsx:187-216; MenuRoot.tsx:665-678); ignored until their commits.
+    /// <summary>Gets a menu popup's configuration: the tree's item hover, the sibling close and the release activation.</summary>
+    /// <value>The configuration, or <see langword="null"/> for a floating element that is not a menu's.</value>
+    public InteractionsMenuFloatingOptions? Menu { get; init; }
+}
+
+/// <summary>The menu configuration of a floating element.</summary>
+internal sealed record InteractionsMenuFloatingOptions
+{
+    /// <summary>Gets a value indicating whether a pointer move over an item tells the tree, which closes other branches.</summary>
+    /// <value><see langword="true"/> for a menu; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ItemHover { get; init; }
+
+    /// <summary>Gets the delay before hovering another item of the parent menu closes this submenu.</summary>
+    /// <value>The delay in milliseconds, 0 for at once; <see langword="null"/>, the default, for a menu with no parent menu.</value>
+    public int? SiblingCloseDelay { get; init; }
+
+    /// <summary>Gets a value indicating whether releasing a press over an item activates it while the tree's release is armed.</summary>
+    /// <value><see langword="true"/> for a menu; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Release { get; init; }
+
+    /// <summary>Gets a value indicating whether a pointer move over the popup turns its hover off, as a submenu's does.</summary>
+    /// <value><see langword="true"/> for a submenu; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool DisableHoverOnMove { get; init; }
 }
 
 /// <summary>The hover configuration of the floating element.</summary>
 /// <param name="CloseDelay">The delay in milliseconds before leaving closes the popup, or <see langword="null"/> for none.</param>
-internal sealed record InteractionsFloatingHoverOptions(int? CloseDelay = null);
+/// <param name="RequireHoverEnabled">Whether the hover is off while the popup's pointer or click turned its hover off; the default <see langword="false"/> is not sent.</param>
+internal sealed record InteractionsFloatingHoverOptions(
+    int? CloseDelay = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool RequireHoverEnabled = false);
 
 /// <summary>The options of a tooltip provider: its token and the group's delays.</summary>
 internal sealed record InteractionsProviderOptions

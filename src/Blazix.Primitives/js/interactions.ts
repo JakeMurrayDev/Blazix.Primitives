@@ -201,6 +201,12 @@ export interface HoverOptions {
   // NavigationMenu's `getHandleCloseContext` (NavigationMenuTrigger.tsx:503-509, 812-845); M5 track 2.
   /** The floating element (by id) and tree node the safe polygon closes against when the popup has no positioner. */
   inlineCloseContext?: InlineCloseContextOptions | null;
+  // A submenu trigger's `shouldOpen` with a delay (MenuSubmenuTrigger.tsx:193-197; MNU-STA-12); M5 track 6.
+  /** Whether a hover opens only after a pointer move over the parent menu (its `allowMouseEnter`). */
+  requireParentMouseEnter?: boolean | null;
+  // A submenu trigger's hover gate (MenuSubmenuTrigger.tsx:177; MNU-STA-11); M5 track 6.
+  /** Whether the hover is off while the session's `hoverEnabled` is off. */
+  requireHoverEnabled?: boolean | null;
 }
 
 /** The inline close context of a trigger whose popup has no positioner (NavigationMenu's nested content). */
@@ -242,6 +248,20 @@ export interface TriggerRoleOptions {
   clientPoint?: ClientPointOptions | null;
   /** Whether the trigger records the hovered line for the inline middleware (PreviewCard). */
   hoveredLine?: boolean | null;
+  // MenuTrigger.tsx:121-171, 240-256; MenuRoot.tsx:640-648; M5 track 6.
+  /** A menu trigger's press-drag-release arm and the pointer move it records. */
+  menu?: MenuTriggerOptions | null;
+}
+
+// M5 track 6 (ADR 04 Amendments 2026-11-03 (4)): Menu's trigger additions.
+/** The menu options of a trigger handle; mirrors `InteractionsMenuTriggerOptions` in C#. */
+export interface MenuTriggerOptions {
+  /** The id of the menu tree's root, which its popups render as `data-rootownerid`. */
+  rootId?: string | null;
+  /** Whether a press arms the tree's release activation and a release elsewhere cancels the open. */
+  release?: boolean | null;
+  /** Whether a pointer move over the active trigger sets the session's `allowMouseEnter`. */
+  trackMouseEnter?: boolean | null;
 }
 
 // FLT §6.8
@@ -250,6 +270,9 @@ export interface FloatingHoverOptions {
   // FLT-PTR-24
   /** The close delay in milliseconds after the pointer leaves the floating element. */
   closeDelay?: number | null;
+  // MenuPopup.tsx:123-126 (MNU-STA-11); M5 track 6.
+  /** Whether the hover is off while the session's `hoverEnabled` is off. */
+  requireHoverEnabled?: boolean | null;
 }
 
 /** The options of a `floating` handle. */
@@ -258,6 +281,35 @@ export interface FloatingRoleOptions {
   /** Whether the session registers a tree node for this floating element; `true` when absent. */
   node?: boolean | null;
   hover?: FloatingHoverOptions | null;
+  // useMenuItemCommonProps.ts:89-143; MenuPositioner.tsx:187-216; MenuRoot.tsx:665-678; M5 track 6.
+  /** A menu popup's item hover, sibling close and release activation. */
+  menu?: MenuFloatingOptions | null;
+}
+
+// M5 track 6 (ADR 04 Amendments 2026-11-03 (4)): Menu's floating additions.
+/** The menu options of a floating handle; mirrors `InteractionsMenuFloatingOptions` in C#. */
+export interface MenuFloatingOptions {
+  /** Whether a pointer move over an item emits the tree's `itemhover`. */
+  itemHover?: boolean | null;
+  /** The delay before hovering another item of the parent menu closes this submenu; absent for no parent menu. */
+  siblingCloseDelay?: number | null;
+  /** Whether releasing a press over an item activates it while the tree's release is armed. */
+  release?: boolean | null;
+  /** Whether a pointer move over the popup turns the session's `hoverEnabled` off (a submenu's). */
+  disableHoverOnMove?: boolean | null;
+}
+
+// Design point 2 (a) of M5 track 6 (pending the user): ContextMenu's release rules, set as data on the tree's slot.
+/** The release rules a context menu sets on its tree (CTX-PTR-09..12). */
+export interface MenuReleaseRules {
+  /** The button a release must use to activate an item, or `null` for any. */
+  button: number | null;
+  /** A button whose release never activates an item (the opening gesture's own), or `null`. */
+  skipButton: number | null;
+  /** The distance in pixels around `initialPoint` within which the first release does nothing. */
+  slop: number;
+  /** The point the gesture started at, consumed by the first release, or `null`. */
+  initialPoint: { x: number; y: number } | null;
 }
 
 // FLT §6.9
@@ -4362,6 +4414,21 @@ export function clearSessionOpenEvent(token: string): void {
  */
 export function readPlatformFlags(): string {
   return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+}
+
+// The tree's release slot (design point 2 (a) of M5 track 6, pending the user; ADR 04 Amendments 2026-11-03 (4)): Menu's
+// trigger arms it 200 ms after a press (MenuTrigger.tsx:240-256); a context menu arms it with its own rules (track 7).
+/**
+ * Arms or disarms the release activation of the menu tree a session belongs to, with optional rules.
+ * @param token The session token of a menu of the tree.
+ * @param armed Whether a release over an item activates it.
+ * @param rules The rules a release must meet, or `null` for a plain menu's.
+ */
+export function armMenuRelease(token: string, armed: boolean, rules?: MenuReleaseRules | null): void {
+  void token;
+  void armed;
+  void rules;
+  throw new Error('Blazix: armMenuRelease is not built yet.');
 }
 
 // ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04; ContextMenuTrigger.tsx:16, 58), M5 track 2: the
