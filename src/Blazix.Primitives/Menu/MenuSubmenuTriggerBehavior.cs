@@ -39,6 +39,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private PopupTriggerBehavior<MenuStore<NoPayload>, MenuStoreState<NoPayload>, NoPayload>? trigger;
     private CompositeItemBehavior? item;
     private MenuRootContext<NoPayload>? submenu;
+    private MenuSubscription? parentSubscription;
+    private MenuSelection<bool>? parentDisabled;
     private MenuSubmenuTriggerParameters parameters;
     private string? id;
     private bool disposed;
@@ -88,7 +90,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private int CloseDelayMilliseconds => (int)(parameters.CloseDelay?.ToMilliseconds() ?? 0);
 
     /// <summary>Gets a value indicating whether the trigger ignores user interaction.</summary>
-    public bool Disabled => parameters.Item.Disabled || (submenu?.State.Disabled ?? false);
+    public bool Disabled => parameters.Item.Disabled || (submenu?.State.Disabled ?? false) || (parentDisabled?.Value ?? false);
 
     /// <summary>Gets a value indicating whether the trigger is highlighted in its parent's list, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
@@ -133,6 +135,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
 
         disposed = true;
         submenu?.Parent.Menu?.Items.Remove(this);
+        parentSubscription?.Dispose();
         trigger?.Dispose();
         button.Dispose();
         reference.Dispose();
@@ -153,6 +156,14 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         this.submenu = context;
+
+        // MenuSubmenuTrigger.tsx:129-132: the parent menu's disabled state disables the trigger too, and follows it.
+        if (context.Parent.Menu is { } parent)
+        {
+            parentSubscription = parent.Subscribe(requestRender);
+            parentDisabled = parentSubscription.Select(MenuSelectors.Disabled);
+        }
+
         trigger = new(this, familyName + "SubmenuTrigger", requestRender);
         item = new CompositeItemBehavior(parentList, familyName + "SubmenuTrigger", onKeyDown, requestRender);
     }
