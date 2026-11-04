@@ -17,8 +17,10 @@ import {
   getNodeChildren,
   isVirtualClick,
   isVirtualPointerEvent,
+  LIST_OPEN_FOCUS_KEY,
   releaseSession,
   type InteractionSession,
+  type ListOpenFocus,
   type SessionData,
   type SessionOpenChangeDetails,
 } from './interactions';
@@ -1456,12 +1458,18 @@ export function attach(
   // Return focus, armed while enabled and released when the manager stops (FLT-FOC-07, FOC-08, FOC-20, FOC-21,
   // ALG-21, KEY-09, EDGE-07), :771-952.
   const returnFocusEffect = (floating: HTMLElement | null, floatingFocusElement: HTMLElement, reference: HTMLElement | null) => {
+    // A re-arm while open finds the cleanup's return still pending (Base UI's own test of a dependency change).
+    const rearmed = pendingReturnFocus !== null;
     if (pendingReturnFocus) {
       pendingReturnFocus.cancelled = true;
       pendingReturnFocus = null;
     }
 
-    const elementFocusedBeforeOpen = activeElement(doc);
+    // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): at the open's first arm, focus the `composite` module's
+    // open focus moved in is replaced by the element it came from, which Base UI's layout effect records before that focus.
+    const active = activeElement(doc);
+    const listFocus = rearmed ? undefined : (session?.dataRef.current[LIST_OPEN_FOCUS_KEY] as ListOpenFocus | undefined);
+    const elementFocusedBeforeOpen = listFocus !== undefined && active === listFocus.element ? listFocus.origin : active;
     // Only `null` is a programmatic open; an absent value is Base UI's `''`.
     const preferPreviousFocus = options.openInteractionType === null;
 

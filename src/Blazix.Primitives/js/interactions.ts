@@ -602,6 +602,21 @@ export interface SessionData {
   [key: string]: unknown;
 }
 
+/**
+ * The key of the session data slot where the `composite` module marks, while open, the item its focus moved to and the
+ * element focus came from; a focus manager reads it at the open's first arm (F1 of PR 183, settled by the orchestrator
+ * 2026-11-04 as (b)).
+ */
+export const LIST_OPEN_FOCUS_KEY = 'blazix.composite.openFocus';
+
+/** The `composite` module's open-focus mark. */
+export interface ListOpenFocus {
+  /** The item the list module last moved focus to while open. */
+  readonly element: Element;
+  /** The element that had focus before the list module first moved it this open, or `null` for the body. */
+  readonly origin: Element | null;
+}
+
 // FLT-STA-02
 /** The payload of the session bus's `openchange`. */
 export interface SessionOpenChangeDetails {
@@ -991,6 +1006,8 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     }
   }
   record.mounted = mounted;
+  // G4 of M5 track 5 (settled by the orchestrator 2026-11-04): a press still pending when the open it raced commits.
+  let laterPress: PendingRequest | null = null;
   if (relay !== null && relay.revision !== record.lastRevision) {
     record.closeInFlight = null;
     const first = record.lastRevision === undefined;
@@ -1003,6 +1020,11 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     }
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
+      // Only the open's commit the press raced: a press made while the session held the open is never kept.
+      const optimistic = record.optimisticOpenEvent;
+      if (open && !record.open && optimistic !== null && record.pending === optimistic.request && event !== optimistic.request.event) {
+        laterPress = optimistic.request;
+      }
       record.pending = null;
       record.optimisticOpenEvent = null;
       syncOpenEvent(record, open, event);
@@ -1039,6 +1061,12 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.namedTrigger = null;
     rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
+  }
+  // A press that landed before this open's commit (a hover open on Server) comes after it, as Base UI's click upgrades
+  // the open its store already holds: its click-like open event is recorded again on its request, still pending.
+  if (open && laterPress !== null) {
+    record.pending = laterPress;
+    recordOptimisticOpenEvent(record, laterPress);
   }
   if (record.domReferenceElement !== reference) {
     notifyPositionListeners(record);
@@ -3333,8 +3361,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     instance.restTimeoutPending = false;
 
     // useHoverReferenceInteraction.ts:315: the session's published floating context, else the trigger's inline one
-    // (NavigationMenu's getHandleCloseContext, M5 track 2).
-    const handleCloseContextBase = record.dataRef.current.floatingContext ?? inlineCloseContext();
+    // (NavigationMenu's getHandleCloseContext, M5 track 2). G3 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the
+    // orchestrator 2026-11-04): only Base UI's useFloating publishes a context, so a published one with no placement (an
+    // unpositioned floating element, NavigationMenu's inline Viewport) yields to the inline one.
+    const published = record.dataRef.current.floatingContext;
+    const handleCloseContextBase = (published?.placement != null ? published : undefined) ?? inlineCloseContext() ?? published;
 
     if (isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements)) {
       return;
@@ -3733,7 +3764,13 @@ function createHoverFloatingController(context: HandleContext): Controller {
         floatingElement,
       });
 
-      pointerEventsCleanup = clearPointerEvents;
+      // G1 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): Base UI keeps a hover state per
+      // trigger, so this run's cleanup clears only the lock it applied, never one a hover switch moved to another trigger.
+      pointerEventsCleanup = () => {
+        if (instance.pointerEventsReferenceElement === ref) {
+          clearPointerEvents();
+        }
+      };
     }
   };
 

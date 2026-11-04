@@ -127,7 +127,8 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.Equal("center", positioner.GetAttribute("data-align"));
         Assert.True(positioner.HasAttribute("data-open"));
         Assert.False(positioner.HasAttribute("hidden"));
-        Assert.DoesNotContain("pointer-events", positioner.GetAttribute("style"), StringComparison.Ordinal);
+        // An open Positioner's one pointer-events declaration before attach is the unpositioned one (G5 of PR 168).
+        Assert.Equal(1, positioner.GetAttribute("style")!.Split("pointer-events").Length - 1);
         JsonElement options = PositioningOptions();
         Assert.Equal("top", options.GetProperty("side").GetString());
         Assert.Equal(5, options.GetProperty("collisionPadding").GetDouble());
@@ -147,8 +148,9 @@ public sealed class TooltipPopupPartsTests : IDisposable
     {
         IRenderedComponent<TooltipBasicHost> cut = host.Context.Render<TooltipBasicHost>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.DisableHoverablePopup, disableHoverablePopup).Add(x => x.TrackCursorAxis, axis));
 
+        // The unpositioned Positioner's declaration comes first (G5 of PR 168), the Tooltip's own after it.
         string style = cut.Find("[data-testid=\"positioner\"]").GetAttribute("style")!;
-        Assert.Equal(inert, style.Contains("pointer-events: none", StringComparison.Ordinal));
+        Assert.Equal(inert ? 2 : 1, style.Split("pointer-events: none").Length - 1);
         Assert.Equal(inert, PositioningOptions().TryGetProperty("style", out JsonElement sent) && sent.GetString()!.StartsWith("pointer-events: none;", StringComparison.Ordinal));
     }
 

@@ -23,7 +23,7 @@ import {
 } from './focus-manager';
 import { attach as attachComposite, type CompositeOptions } from './composite';
 import { attach as attachPortal, getPortalState } from './portal';
-import { resetInteractionsForTest } from './interactions';
+import { getSession, resetInteractionsForTest } from './interactions';
 import { createPopupHarness, type PopupHarness } from './test-support/interactions-harness';
 import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
@@ -2999,6 +2999,73 @@ describe('FloatingFocusManager', () => {
       popups.push(popup);
       return popup;
     }
+
+    // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): Base UI records the element focused before the open in a
+    // layout effect, before list navigation moves focus in. The port's handle can attach after the `composite` module's
+    // open focus moved focus in, so the manager takes the element focus came from, which the module marked in the session.
+    // Only that element is replaced, and only at the open's first arm: an element the author focused, or a re-arm while
+    // open, keeps Base UI's record.
+    it('port: at the first arm the list module’s open focus gives the element focus came from; the author’s focus and a re-arm keep Base UI’s record', async () => {
+      const reference = element('button', 'reference', { id: 'reference' });
+      const second = element('button', 'second', { id: 'second' });
+      const elsewhere = element('input', 'elsewhere');
+      document.body.append(elsewhere, reference, second);
+      const options: FocusManagerOptions = { modal: false, initialFocus: false, openInteractionType: null, domReferenceId: 'reference' };
+      const open = () => {
+        const popup = sessionPopup({ open: true });
+        popup.attachSession();
+        const floating = element('div', undefined, { 'data-open': '' });
+        const one = element('button', 'one');
+        const two = element('button', 'two');
+        floating.append(one, two);
+        document.body.append(floating);
+        return { popup, floating, one, two, data: getSession(popup.token)!.dataRef.current };
+      };
+
+      // The list's open focus moved focus from `elsewhere` (a programmatic open) to its first item before the attach.
+      elsewhere.focus();
+      const listed = open();
+      listed.data['blazix.composite.openFocus'] = { element: listed.one, origin: elsewhere };
+      listed.one.focus();
+      const late = attachManager(listed.floating, { ...options, sessionToken: listed.popup.token });
+      await settle();
+      late.update({ ...options, sessionToken: listed.popup.token, disabled: true });
+      await settle();
+      expect(document.activeElement).toBe(elsewhere);
+      late.handle.dispose();
+      listed.floating.remove();
+
+      // A re-arm while open (a detached trigger switch) records the item inside, as Base UI's effect does; a kept-mounted
+      // popup's close returns focus to it.
+      elsewhere.focus();
+      const switched = open();
+      const manager = attachManager(switched.floating, { ...options, sessionToken: switched.popup.token });
+      await settle();
+      switched.data['blazix.composite.openFocus'] = { element: switched.one, origin: elsewhere };
+      switched.one.focus();
+      manager.update({ ...options, sessionToken: switched.popup.token, domReferenceId: 'second' });
+      await settle();
+      // The close hides the kept-mounted popup, which drops focus to the body.
+      switched.one.blur();
+      manager.update({ ...options, sessionToken: switched.popup.token, domReferenceId: 'second', disabled: true });
+      await settle();
+      expect(document.activeElement).toBe(switched.one);
+      manager.handle.dispose();
+      switched.floating.remove();
+
+      // The author focused another element inside before the attach, after the list's open focus marked its item: Base UI
+      // records the author's element, and the return is lost when the popup leaves the document.
+      elsewhere.focus();
+      const authored = open();
+      authored.data['blazix.composite.openFocus'] = { element: authored.one, origin: elsewhere };
+      authored.two.focus();
+      const author = attachManager(authored.floating, { ...options, sessionToken: authored.popup.token });
+      await settle();
+      author.update({ ...options, sessionToken: authored.popup.token, disabled: true });
+      authored.floating.remove();
+      await settle();
+      expect(document.activeElement).toBe(document.body);
+    });
 
     // `fireEvent`'s defaults: the events bubble (but mouseenter and mouseleave), are cancelable and composed.
     const mouse = (target: EventTarget, type: string, init: MouseEventInit = {}) => {

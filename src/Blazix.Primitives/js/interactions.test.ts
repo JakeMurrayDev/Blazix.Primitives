@@ -852,6 +852,66 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     expect(openEvent()).toBe('mouseenter');
   });
 
+  // G4 (M5 track 5, settled by the orchestrator 2026-11-04): on Server a press can land after a hover open was requested
+  // and before C# commits it. Base UI's click upgrades the hover open its store already holds, so the hover's commit,
+  // relayed after the press, keeps the press's click as the open event; an answer that leaves the press pending still rolls
+  // it back (gap 16). A press made while the session already held the open is never kept by a later commit: C# answers it
+  // with no relay, and NavigationMenu's switch clears the open event as Base UI's trigger does (NAV-PTR-07).
+  it('port: a hover commit relayed after a press keeps the press’s click until an answer leaves it pending, and never keeps a press on an open popup', () => {
+    let cancel = false;
+    const options = {
+      synchronous,
+      commit: false,
+      onOpenChange: (_open: boolean, details: HarnessChangeDetails) => {
+        if (cancel) {
+          details.cancel();
+        }
+      },
+    };
+    const popup = harness(options);
+    popup.attachSession();
+    const reference = element('button');
+    popup.attachTrigger(reference, { trigger: { click: { stickIfOpen: true } } });
+    popup.setReference(reference);
+    const openEvent = () => getSession(popup.token)?.dataRef.current.openEvent?.type;
+
+    click(reference);
+    expect(openEvent()).toBe('click');
+
+    options.commit = true;
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+
+    expect(popup.open).toBe(true);
+    expect(openEvent()).toBe('click');
+
+    // C# answers a request without a commit (a cancel), and the press is still pending.
+    cancel = true;
+    popup.setOpen(true, 'trigger-press', reference.id, 'click');
+    expect(openEvent()).toBe('mouseenter');
+
+    // NavigationMenu's quick click, then a hover switch: the press on the hover-open popup gets no relay, the switch clears
+    // the open event, and the switch's commit does not bring the click back.
+    const switching = { synchronous, commit: true };
+    const menu = harness(switching);
+    menu.attachSession();
+    const first = element('button', 'first-trigger');
+    const second = element('button', 'second-trigger');
+    menu.attachTrigger(first, { trigger: { click: { stickIfOpen: true } } });
+    menu.attachTrigger(second, { trigger: { click: { stickIfOpen: true } } });
+    menu.setReference(first);
+    menu.setOpen(true, 'trigger-hover', first.id, 'mouseenter');
+    const menuOpenEvent = () => getSession(menu.token)?.dataRef.current.openEvent?.type;
+
+    switching.commit = false;
+    click(first);
+    expect(menuOpenEvent()).toBe('click');
+    clearSessionOpenEvent(menu.token);
+    switching.commit = true;
+    menu.setOpen(true, 'trigger-hover', second.id, 'mouseenter');
+
+    expect(menuOpenEvent()).toBeUndefined();
+  });
+
   it('stickIfOpen false closes a hover-opened popup on first click', () => {
     const { popup, reference } = App({ click: { stickIfOpen: false } });
 
@@ -3490,6 +3550,31 @@ describe('useHoverReferenceInteraction', () => {
       expect(popup.open).toBe(false);
     });
 
+    // G3 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): only Base UI's useFloating publishes
+    // a floating context, so an unpositioned floating handle (NavigationMenu's inline Viewport, `node: false`) whose
+    // published context has no placement does not replace the trigger's inline close context.
+    it('port: with an unpositioned floating element attached, leaving toward the inline close context\'s element keeps the popup open, and leaving elsewhere closes it', () => {
+      const popup = harness();
+      popup.attachSession();
+      const button = element('button');
+      const viewport = element('div', 'inline-viewport-unpositioned');
+      popup.attachTrigger(button, { trigger: { hover: { safePolygon: true, inlineCloseContext: { floatingId: 'inline-viewport-unpositioned' } } } });
+      popup.attachFloating(viewport, { floating: { node: false, hover: null } });
+      popup.setReference(button);
+      button.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
+      viewport.getBoundingClientRect = () => hoverRect(150, 0, 100, 100);
+
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+
+      hoverMouse(button, 'mouseleave', { clientX: 100, clientY: 50 });
+      hoverMouse(document.body, 'mousemove', { clientX: 120, clientY: 50 });
+      expect(popup.open).toBe(true);
+
+      hoverMouse(document.body, 'mousemove', { clientX: 50, clientY: 300 });
+      expect(popup.open).toBe(false);
+    });
+
     // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's whole
     // `style` when its rendered value changes, so the lock re-asserts its value after the write while it holds.
     it('port: a style rewrite while the lock holds keeps the lock\'s pointer-events at the next microtask, and one after the release stays as written', async () => {
@@ -3562,6 +3647,29 @@ describe('useHoverReferenceInteraction', () => {
         'auto',
         '',
       ]);
+    });
+
+    // G1 of PR 168 (settled by the orchestrator 2026-11-04): Base UI keeps a hover state per trigger, so the floating
+    // element's effect cleanup clears only the lock its own run applied (useHoverFloatingInteraction.ts:111-154). A switch
+    // whose commit carries no hover open event (NavigationMenu clears it, NAV-PTR-07) keeps the new trigger's lock.
+    it('port: a hover switch keeps the lock the new trigger applied when the switch commit re-runs the floating effects', () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, move: false };
+      const first = element('button');
+      const second = element('button');
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      const tooltip = element('div');
+      popup.attachFloating(tooltip, { floating: { hover: {} } });
+      popup.setOpen(true, 'trigger-hover', first.id, 'mouseenter');
+      expect([document.body.style.pointerEvents, first.style.pointerEvents]).toEqual(['none', 'auto']);
+
+      hoverMouse(second, 'mousemove');
+      clearSessionOpenEvent(popup.token);
+      popup.setOpen(true, 'trigger-hover', second.id);
+
+      expect([document.body.style.pointerEvents, second.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
     });
 
     it('port: a hand-off makes the new trigger the session reference at once, and a canceled one reverts when its request settles', async () => {
