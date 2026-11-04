@@ -3563,6 +3563,29 @@ describe('useHoverReferenceInteraction', () => {
       ]);
     });
 
+    // G1 of PR 168 (settled by the orchestrator 2026-11-04): Base UI keeps a hover state per trigger, so the floating
+    // element's effect cleanup clears only the lock its own run applied (useHoverFloatingInteraction.ts:111-154). A switch
+    // whose commit carries no hover open event (NavigationMenu clears it, NAV-PTR-07) keeps the new trigger's lock.
+    it('port: a hover switch keeps the lock the new trigger applied when the switch commit re-runs the floating effects', () => {
+      const popup = harness();
+      popup.attachSession();
+      const hover: HoverTestOptions = { safePolygon: true, blockPointerEvents: true, move: false };
+      const first = element('button');
+      const second = element('button');
+      popup.attachTrigger(first, { trigger: { hover } });
+      popup.attachTrigger(second, { trigger: { hover } });
+      const tooltip = element('div');
+      popup.attachFloating(tooltip, { floating: { hover: {} } });
+      popup.setOpen(true, 'trigger-hover', first.id, 'mouseenter');
+      expect([document.body.style.pointerEvents, first.style.pointerEvents]).toEqual(['none', 'auto']);
+
+      hoverMouse(second, 'mousemove');
+      clearSessionOpenEvent(popup.token);
+      popup.setOpen(true, 'trigger-hover', second.id);
+
+      expect([document.body.style.pointerEvents, second.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['none', 'auto', 'auto']);
+    });
+
     it('port: a hand-off makes the new trigger the session reference at once, and a canceled one reverts when its request settles', async () => {
       // ADR 04 Amendments 2026-10-28 (design point 13.4 (1) of M4 track 6): ADR 01's hand-off row, where the module
       // re-anchors at once and C#'s active trigger follows. `commit: false` plays a commit that never comes (a cancel).
