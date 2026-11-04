@@ -550,6 +550,21 @@ export interface SessionData {
   [key: string]: unknown;
 }
 
+/**
+ * The key of the session data slot where the `composite` module marks, while open, the item its focus moved to and the
+ * element focus came from; a focus manager reads it at the open's first arm (F1 of PR 183, settled by the orchestrator
+ * 2026-11-04 as (b)).
+ */
+export const LIST_OPEN_FOCUS_KEY = 'blazix.composite.openFocus';
+
+/** The `composite` module's open-focus mark. */
+export interface ListOpenFocus {
+  /** The item the list module last moved focus to while open. */
+  readonly element: Element;
+  /** The element that had focus before the list module first moved it this open, or `null` for the body. */
+  readonly origin: Element | null;
+}
+
 // FLT-STA-02
 /** The payload of the session bus's `openchange`. */
 export interface SessionOpenChangeDetails {
