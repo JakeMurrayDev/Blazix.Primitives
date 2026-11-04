@@ -96,6 +96,23 @@ describe('useListNavigation', () => {
     });
   });
 
+  // MNU-FOC-03 (M2's repro on PR 183): a kept-mounted list's handle attaches before the open, and the relay of the open reaches it
+  // before the batch that shows the popup (ADR 01's commit path). Base UI's effect runs after the commit, so its list is showing.
+  it('port: a kept-mounted list still hidden when the open arrives focuses its first item once it shows', async () => {
+    const harness = app({ keepMounted: true });
+    const floating = menu(harness);
+    floating.style.display = 'none';
+
+    keyDown(harness.reference, 'ArrowDown');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement).not.toBe(harness.item(0));
+
+    floating.style.display = '';
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+  });
+
   // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
   // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
   // to and the element focus came from, in the session's data slot; the close clears it.
