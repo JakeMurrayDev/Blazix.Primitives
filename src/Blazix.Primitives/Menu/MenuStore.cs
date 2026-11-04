@@ -45,6 +45,10 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    /// <summary>Gets the context the root created over this store, which a detached trigger reaches its list through.</summary>
+    /// <value>The context, or <see langword="null"/> for a handle's fallback store.</value>
+    public MenuRootContext? Context { get; private set; }
+
     // MNU-STA-04 (MenuRoot.tsx:404, 422-437; isKeyboardOpen.ts).
     /// <summary>Derives the instant type an applied open change writes.</summary>
     /// <param name="parent">The menu's parent kind.</param>
@@ -82,7 +86,7 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
     /// <summary>Creates the context the menu's root cascades to its parts.</summary>
     /// <param name="familyName">The root's family, such as <c>Menu</c>.</param>
     /// <returns>The context.</returns>
-    public MenuRootContext CreateContext(string familyName) => new MenuRootContext<TPayload>(this, familyName);
+    public MenuRootContext CreateContext(string familyName) => Context = new MenuRootContext<TPayload>(this, familyName);
 
     /// <inheritdoc />
     public override async Task<bool> RequestOpenAsync(bool open, OpenChangeEventDetails details)

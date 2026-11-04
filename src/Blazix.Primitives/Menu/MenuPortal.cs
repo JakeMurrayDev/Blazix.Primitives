@@ -61,7 +61,7 @@ public sealed class MenuPortal : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         behavior = new MenuPortalBehavior("Menu", JSRuntime, StateHasChanged);
-        behavior.Subscribe(RootContext);
+        behavior.Subscribe(RootContext, StateHasChanged);
         base.OnInitialized();
     }
 

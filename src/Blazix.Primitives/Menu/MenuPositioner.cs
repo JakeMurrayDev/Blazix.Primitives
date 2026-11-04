@@ -105,6 +105,9 @@ public sealed class MenuPositioner : PartBase<MenuPositionerState>
     [CascadingParameter]
     private DirectionProviderContext? DirectionContext { get; set; }
 
+    [CascadingParameter]
+    private IMenuParentContext? ParentContext { get; set; }
+
     // MNU-API-30
     /// <summary>Gets or sets the element or point the menu is positioned against.</summary>
     /// <value>An element, an element's id or a virtual element; <see langword="null"/>, the default, for the active trigger.</value>
@@ -225,7 +228,7 @@ public sealed class MenuPositioner : PartBase<MenuPositionerState>
     protected override void OnInitialized()
     {
         behavior = new MenuPositionerBehavior("Menu", JSRuntime, Logger, StateHasChanged, OnMirrorChanged, InvokeAsync, DispatchExceptionAsync);
-        behavior.Subscribe(RootContext, PortalContext, Portal);
+        behavior.Subscribe(RootContext, PortalContext, Portal, ParentContext);
         base.OnInitialized();
     }
 
