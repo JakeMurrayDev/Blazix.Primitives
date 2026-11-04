@@ -1,0 +1,89 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-nested` fixture (tests/browser/menu.spec.ts, M5 track 6): Menu's own [L4] titles on a menu with two items, a
+    checkbox item, a radio group of two items, a submenu of two items (MenuRoot.test.tsx's nested menu) and a last item.
+    Records the root's open changes (`data-open-changes`), the submenu's (`data-submenu-open-changes`), each activated
+    item's text and its click's `detail` (`data-item-clicks`, `|`-separated `Text:detail`), the checkbox item's state
+    (`data-checked`) and the radio group's value (`data-radio`). The query: `modal=true|false` (absent: Base UI's default,
+    modal), `openOnHover` (the root trigger's), `closeParentOnEsc` (the submenu's), `submenuDelay` and `submenuCloseDelay`
+    (the submenu trigger's, in milliseconds; absent for its defaults, 100 and 0). The Outside button counts its clicks
+    (`data-outside-clicks`).
+*@
+<FixtureContainer Name="menu-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-submenu-open-changes="@string.Join(' ', submenuChanges)"
+                  data-item-clicks="@string.Join('|', itemClicks)" data-checked="@(isChecked ? "true" : "false")"
+                  data-radio="@radioValue" data-outside-clicks="@outsideClicks">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <MenuRoot TPayload="NoPayload" @ref="root" Modal="@modal" OnOpenChange="RecordOpenChange">
+        <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" OpenOnHover="@openOnHover">Toggle</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner data-testid="positioner">
+                <MenuPopup data-testid="popup">
+                    <MenuItem data-testid="item-one" @onclick="@(e => Click(e, "One"))">One</MenuItem>
+                    <MenuItem data-testid="item-two" @onclick="@(e => Click(e, "Two"))">Two</MenuItem>
+                    <MenuCheckboxItem data-testid="checkbox" @bind-Checked="isChecked">Check</MenuCheckboxItem>
+                    <MenuRadioGroup TValue="string" @bind-Value="radioValue">
+                        <MenuRadioItem TValue="string" data-testid="radio-alpha" Value="@("alpha")">Alpha</MenuRadioItem>
+                        <MenuRadioItem TValue="string" data-testid="radio-beta" Value="@("beta")">Beta</MenuRadioItem>
+                    </MenuRadioGroup>
+                    <MenuSubmenuRoot @ref="submenu" CloseParentOnEsc="@closeParentOnEsc" OnOpenChange="RecordSubmenuChange">
+                        <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="@submenuDelay" CloseDelay="@submenuCloseDelay">More</MenuSubmenuTrigger>
+                        <MenuPortal>
+                            <MenuPositioner data-testid="submenu-positioner">
+                                <MenuPopup data-testid="submenu-popup">
+                                    <MenuItem data-testid="sub-one" @onclick="@(e => Click(e, "Sub one"))">Sub one</MenuItem>
+                                    <MenuItem data-testid="sub-two" @onclick="@(e => Click(e, "Sub two"))">Sub two</MenuItem>
+                                </MenuPopup>
+                            </MenuPositioner>
+                        </MenuPortal>
+                    </MenuSubmenuRoot>
+                    <MenuItem data-testid="item-last" @onclick="@(e => Click(e, "Last"))">Last</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+    <button type="button" data-testid="outside" @onclick="() => outsideClicks++">Outside</button>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> itemClicks = [];
+    private readonly List<string> submenuChanges = [];
+    private bool? modal;
+    private bool? openOnHover;
+    private bool closeParentOnEsc;
+    private Duration? submenuDelay;
+    private Duration? submenuCloseDelay;
+    private bool isChecked;
+    private string radioValue = "alpha";
+    private int outsideClicks;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private MenuSubmenuRoot? submenu;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        modal = QueryFlag("modal");
+        openOnHover = QueryFlag("openOnHover");
+        closeParentOnEsc = QueryFlag("closeParentOnEsc") == true;
+        submenuDelay = Milliseconds("submenuDelay");
+        submenuCloseDelay = Milliseconds("submenuCloseDelay");
+    }
+
+    private Duration? Milliseconds(string name) =>
+        Query(name) is { } value ? int.Parse(value, CultureInfo.InvariantCulture) : null;
+
+    private void Click(MouseEventArgs args, string text) =>
+        itemClicks.Add(string.Create(CultureInfo.InvariantCulture, $"{text}:{args.Detail}"));
+
+    private void RecordSubmenuChange(ValueChangeEventArgs<bool> args) =>
+        submenuChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+}
