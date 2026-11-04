@@ -1346,6 +1346,25 @@ test.describe('attach order', () => {
     };
   }
 
+  test('port: with js/interactions.js stalled the navigation-menu handle attaches first, and a click on another trigger of a click-opened menu switches to it', async ({ page, mode }) => {
+    const stalled = await stall(page, 'interactions');
+    await page.goto(fixtureUrl(mode, FIXTURE), { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
+    await expect.poll(stalled.hits).toBeGreaterThan(0);
+    // Let the navigation-menu handles attach before the interactions ones: their click listeners come first.
+    await page.waitForTimeout(500);
+    await stalled.release();
+    await expect(page.locator(Fixture.container(FIXTURE))).toHaveAttribute('data-attached', 'true');
+
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await fireClick(trigger(page, 2));
+
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(content(page, 2)).toBeVisible();
+  });
+
   test('port: with js/navigation-menu.js stalled the trigger opens on click, and the size pass runs once the module arrives', async ({ page, mode }) => {
     const stalled = await stall(page, 'navigation-menu');
     await page.goto(`${fixtureUrl(mode, FIXTURE)}?sized=true`, { waitUntil: 'commit' });
