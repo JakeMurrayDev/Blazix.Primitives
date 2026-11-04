@@ -246,6 +246,14 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <returns>A task that completes when the press has run.</returns>
     public Task HandleMouseDownAsync(MouseEventArgs args) => interactions.HandleMouseDownAsync(args);
 
+    /// <summary>Handles the trigger's <c>blur</c>: a highlighted trigger gives up the parent's highlight.</summary>
+    /// <returns>A task that completes when the parent's list has the request.</returns>
+    public Task HandleBlurAsync()
+    {
+        // MenuSubmenuTrigger.tsx:254-258: `if (highlighted) parentMenuStore.setActiveIndex(null, none)`.
+        return Highlighted && submenu?.Parent.Menu is { } parent ? parent.RequestHighlightAsync(null) : Task.CompletedTask;
+    }
+
     /// <summary>Handles the trigger's <c>keydown</c>.</summary>
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the key has run.</returns>

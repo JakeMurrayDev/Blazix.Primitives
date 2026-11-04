@@ -46,6 +46,7 @@ public sealed class MenuSubmenuTrigger : PartBase<MenuSubmenuTriggerState>
     private readonly EventCallback onMouseDown;
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
+    private readonly EventCallback onBlur;
     private MenuSubmenuTriggerBehavior? behavior;
     private MenuSubmenuTriggerState state = new(false, false, false);
 
@@ -56,6 +57,7 @@ public sealed class MenuSubmenuTrigger : PartBase<MenuSubmenuTriggerState>
         onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.HandleMouseDownAsync(e));
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => behavior!.HandleKeyUpAsync(e));
+        onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.HandleBlurAsync());
     }
 
     [Inject]
@@ -167,7 +169,11 @@ public sealed class MenuSubmenuTrigger : PartBase<MenuSubmenuTriggerState>
     }
 
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddAttributes(attributes, Id);
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        behavior!.AddAttributes(attributes, Id);
+        attributes.Set("onblur", onBlur);
+    }
 
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName) => behavior!.ForwardsConsumerHandler(eventName);

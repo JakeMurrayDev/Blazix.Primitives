@@ -65,6 +65,11 @@ internal abstract class MenuRootContext
     /// <returns>The subscription; the part disposes it with itself.</returns>
     public abstract MenuSubscription Subscribe(Action changed);
 
+    /// <summary>Asks the menu's list to highlight an item, or nothing.</summary>
+    /// <param name="index">The item's index, or <see langword="null"/> for no highlight.</param>
+    /// <returns>A task that completes when the list has the request.</returns>
+    public abstract Task RequestHighlightAsync(int? index);
+
     /// <summary>Registers a part that selects the open or mounted state and brings the render-batch boundary.</summary>
     /// <returns>The registration; disposing it unregisters the part.</returns>
     public abstract IDisposable RegisterBoundaryPart();
@@ -262,6 +267,9 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
 
     /// <inheritdoc />
     public override MenuSubscription Subscribe(Action changed) => new Subscription(store, changed);
+
+    /// <inheritdoc />
+    public override Task RequestHighlightAsync(int? index) => ListNavigation?.RequestHighlightAsync(index) ?? Task.CompletedTask;
 
     /// <inheritdoc />
     public override IDisposable RegisterBoundaryPart() => store.RegisterBoundaryPart();
