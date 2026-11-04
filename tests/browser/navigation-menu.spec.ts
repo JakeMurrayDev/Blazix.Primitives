@@ -145,6 +145,35 @@ function pixels(locator: Locator, property: string): Promise<number> {
   return locator.evaluate((element: HTMLElement, name) => parseFloat(element.style.getPropertyValue(name)), property);
 }
 
+/** An element's inline `pointer-events`, the lock's write (NAV-PTR-10). */
+function inlinePointerEvents(locator: Locator): Promise<string> {
+  return locator.evaluate((element: HTMLElement) => element.style.pointerEvents);
+}
+
+/** An element's computed `pointer-events`: a locked list's other children inherit `none`. */
+function computedPointerEvents(locator: Locator): Promise<string> {
+  return locator.evaluate((element) => getComputedStyle(element).pointerEvents);
+}
+
+/**
+ * Base UI's `fireEvent` for a step a real pointer cannot take: a press with no release (a real one always clicks), or an
+ * enter on a trigger the lock has given `pointer-events: none`. `mouseenter` and `mouseleave` come with React's
+ * `mouseover` and `mouseout`, as Testing Library's do.
+ */
+async function fire(locator: Locator, type: 'mouseenter' | 'mouseleave' | 'mousemove' | 'pointerdown'): Promise<void> {
+  await locator.evaluate((element, eventType) => {
+    const init = { bubbles: true, cancelable: true, composed: true, view: window };
+    if (eventType === 'pointerdown') {
+      element.dispatchEvent(new PointerEvent(eventType, { ...init, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 1 }));
+    } else if (eventType === 'mousemove') {
+      element.dispatchEvent(new MouseEvent(eventType, init));
+    } else {
+      element.dispatchEvent(new MouseEvent(eventType, { ...init, bubbles: false, cancelable: false }));
+      element.dispatchEvent(new MouseEvent(eventType === 'mouseenter' ? 'mouseover' : 'mouseout', init));
+    }
+  }, type);
+}
+
 // Touch titles: Playwright taps only in a context made with `hasTouch`, and the worker's shared context is not, so each
 // touch title opens its own (on `wasm` it downloads the runtime again); the Popover spec's precedent.
 const touchTest = test.extend<{ touchPage: Page }>({
@@ -313,6 +342,161 @@ test.describe('<NavigationMenu.Root /> delays and the patient click', () => {
   });
 });
 
+test.describe('<NavigationMenu.Link /> pointerdown', () => {
+  test('closes after pointerdown on a link in a hover-open popup when pointer leaves', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    const link = page.getByTestId('link-1-a');
+    await hoverElement(page, link);
+    await fire(link, 'pointerdown');
+    await leaveMenu(page);
+    await page.clock.runFor(CLOSE_DELAY + 10);
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+  });
+});
+
+test.describe('<NavigationMenu.Root /> pointer-events lock', () => {
+  const list = (page: Page) => page.getByTestId('list');
+  const body = (page: Page) => page.locator('body');
+
+  async function hoverOpen(page: Page, n: number): Promise<void> {
+    await hoverTrigger(page, n);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, n)).toBeVisible();
+  }
+
+  test('blocks pointer events on the list while traversing from a top-level trigger to the popup', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await hoverOpen(page, 1);
+
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+    expect(await inlinePointerEvents(body(page))).toBe('');
+    expect(await computedPointerEvents(trigger(page, 2))).toBe('none');
+
+    await hoverElement(page, page.getByTestId('positioner'));
+
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('');
+  });
+
+  test('reapplies top-level safePolygon pointer events after returning from the popup and switching triggers', async ({ page, mode }) => {
+    test.fixme(mode === 'server', "Server: the session's hover-switch commit clears the new trigger's lock (track 2's interactions, runLayoutEffects' cleanup; PR 168 review, gap G1)");
+    await gotoMenu(page, mode, { topLink: true });
+    const topLink = page.getByTestId('top-link');
+    const positioner = page.getByTestId('positioner');
+    await hoverOpen(page, 1);
+
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+    expect(await inlinePointerEvents(body(page))).toBe('');
+    expect(await computedPointerEvents(topLink)).toBe('none');
+
+    await hoverElement(page, positioner);
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('');
+
+    await hoverTrigger(page, 1);
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+    expect(await inlinePointerEvents(body(page))).toBe('');
+    expect(await computedPointerEvents(topLink)).toBe('none');
+
+    await hoverElement(page, positioner);
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('');
+
+    await hoverTrigger(page, 2);
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(content(page, 2)).toBeVisible();
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+    expect(await inlinePointerEvents(body(page))).toBe('');
+    expect(await computedPointerEvents(topLink)).toBe('none');
+  });
+
+  test('keeps top-level safePolygon pointer events active when switching directly to a different trigger', async ({ page, mode }) => {
+    test.fixme(mode === 'server', "Server: the session's hover-switch commit clears the new trigger's lock (track 2's interactions, runLayoutEffects' cleanup; PR 168 review, gap G1)");
+    await gotoMenu(page, mode, { topLink: true });
+    await fire(trigger(page, 1), 'mouseenter');
+    await fire(trigger(page, 1), 'mousemove');
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    // The lock gives trigger 2 `pointer-events: none`, so a real pointer cannot enter it from trigger 1.
+    await fire(trigger(page, 2), 'mouseenter');
+    await fire(trigger(page, 2), 'mousemove');
+
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(content(page, 2)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+    expect(await inlinePointerEvents(body(page))).toBe('');
+    expect(await computedPointerEvents(trigger(page, 1))).toBe('none');
+    expect(await computedPointerEvents(page.getByTestId('top-link'))).toBe('none');
+  });
+
+  test('clears top-level safePolygon pointer events on trigger pointerdown', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await hoverOpen(page, 1);
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+
+    await fire(trigger(page, 1), 'pointerdown');
+
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('');
+  });
+
+  test('scopes safePolygon pointer events to the document for a custom list element', async ({ page, mode }) => {
+    test.fixme(mode === 'server', "Server: the session's hover-switch commit clears the new trigger's lock (track 2's interactions, runLayoutEffects' cleanup; PR 168 review, gap G1)");
+    await gotoMenu(page, mode, { customList: true });
+    await hoverOpen(page, 1);
+
+    await expect.poll(() => inlinePointerEvents(body(page))).toBe('none');
+    expect(await inlinePointerEvents(page.getByTestId('custom-list'))).toBe('');
+
+    await fire(trigger(page, 1), 'pointerdown');
+    await expect.poll(() => inlinePointerEvents(body(page))).toBe('');
+
+    await hoverTrigger(page, 2);
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => inlinePointerEvents(body(page))).toBe('none');
+
+    await fire(trigger(page, 2), 'pointerdown');
+    await expect.poll(() => inlinePointerEvents(body(page))).toBe('');
+  });
+
+  test('blocks pointer events on sibling top-level triggers when opened through real hover', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await hoverOpen(page, 1);
+
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+    expect(await computedPointerEvents(trigger(page, 2))).toBe('none');
+  });
+
+  test('releases the pointer-events lock on the list when the open trigger unmounts', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { value: 'none' });
+    await hoverOpen(page, 1);
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('none');
+
+    // One update removes trigger 1 and closes the menu while the pointer rests on the trigger, so none of the trigger's
+    // own release paths runs before it unmounts.
+    await pressControl(fixture.locator('[data-drop-first]'));
+
+    await expect(trigger(page, 1)).toHaveCount(0);
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('');
+  });
+
+  test('releases the pointer-events lock when the pointer sweeps across a trigger without the menu opening', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { keepMounted: true });
+    await freezeClock(page);
+
+    // The kept Portal's floating element exists while closed, so the enter locks the list at once; the leave comes
+    // before the rest delay.
+    await hoverTrigger(page, 1);
+    await leaveMenu(page);
+
+    await expect.poll(() => inlinePointerEvents(list(page))).toBe('');
+    await expect(page.getByTestId('link-1-a')).toHaveCount(0);
+  });
+});
+
 test.describe('<NavigationMenu.Root /> value', () => {
   test('should be controlled by value prop', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode, { value: 'item-1' });
@@ -459,6 +643,22 @@ test.describe('<NavigationMenu.Root /> touch', () => {
     await hoverTrigger(page, 2);
     await page.clock.runFor(OPEN_DELAY + 10);
     await expect(content(page, 2)).toBeVisible();
+  });
+
+  touchTest('restores hover open after touching a nested submenu trigger and closing outside', async ({ touchPage: page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
+    await trigger(page, 1).tap();
+    await expect(content(page, 1)).toBeVisible();
+
+    await page.getByTestId('nested-trigger-2').tap();
+    await expect(page.getByTestId('nested-content-2')).toBeVisible();
+
+    await page.getByTestId('after').click();
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
   });
 });
 
@@ -895,6 +1095,203 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await settle(fixture);
     expect((await valueChanges(fixture)).at(-1)).toBe('null:link-press');
   });
+
+  test('treats a falsy value (false) as open for inline nested trigger interactions', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { nested: 'falsy' });
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    await fireClick(nestedTrigger(page, 1));
+    await settle(fixture);
+
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+  });
+
+  test('port: Escape closes the nested portaled menu first', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'portal' });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await nestedTrigger(page, 1).click();
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(page.getByTestId('nested-popup-root')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('nested-popup-root')).toHaveCount(0);
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+// The inline nested lock (NAV-PTR-13): Base UI places the nested Viewport by mocked rects; the fixture's `nestedSide` lays
+// it out 20 px from nested trigger 1, and a real pointer leaves through that edge. The clock is frozen, so a close delay
+// fires only when a title runs it.
+test.describe('<NavigationMenu.Root /> inline nested lock', () => {
+  const nestedTrigger = (page: Page, n: number) => page.getByTestId(`nested-trigger-${n}`);
+  const nestedContent = (page: Page, n: number) => page.getByTestId(`nested-content-${n}`);
+  const nestedList = (page: Page) => page.getByTestId('nested-list');
+  const nestedViewport = (page: Page) => page.getByTestId('nested-viewport');
+
+  async function hoverOpen(page: Page, locator: Locator): Promise<void> {
+    await hoverElement(page, locator);
+    await page.clock.runFor(OPEN_DELAY + 10);
+  }
+
+  async function openNested(page: Page, mode: RenderMode, options: PopupFixtureOptions): Promise<void> {
+    await gotoMenu(page, mode, { nested: 'inline', ...options });
+    await freezeClock(page);
+    await hoverOpen(page, trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+  }
+
+  type Side = 'right' | 'left' | 'bottom' | 'top';
+
+  /**
+   * Leaves nested trigger 1 through the edge that faces `side`: Base UI's leave point is on the edge, and a real pointer's
+   * leave lands 1 px past it, the safe polygon's apex; the move after it is 10 px past the edge, into the gap.
+   */
+  async function leaveToward(page: Page, side: Side): Promise<void> {
+    const box = (await nestedTrigger(page, 1).boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    const points: Record<Side, [number, number][]> = {
+      right: [[box.x + box.width - 1, y], [box.x + box.width + 1, y], [box.x + box.width + 10, y]],
+      left: [[box.x + 1, y], [box.x - 1, y], [box.x - 10, y]],
+      bottom: [[x, box.y + box.height - 1], [x, box.y + box.height + 1], [x, box.y + box.height + 10]],
+      top: [[x, box.y + 1], [x, box.y - 1], [x, box.y - 10]],
+    };
+    for (const [pointX, pointY] of points[side]) {
+      await page.mouse.move(pointX, pointY);
+    }
+  }
+
+  test('scopes inline safePolygon pointer events to the submenu list while traversing to the viewport', async ({ page, mode }) => {
+    await openNested(page, mode, { nestedDefault: 'nested-1', nestedSide: 'right' });
+
+    await hoverElement(page, nestedTrigger(page, 1));
+    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('none');
+
+    await leaveToward(page, 'right');
+
+    expect(await inlinePointerEvents(nestedList(page))).toBe('none');
+    expect(await inlinePointerEvents(page.locator('body'))).toBe('');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+
+    await hoverElement(page, nestedViewport(page));
+
+    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('');
+  });
+
+  for (const side of ['right', 'left', 'bottom', 'top'] as const) {
+    test(`keeps an inline submenu open while traversing toward a viewport on the ${side}`, async ({ page, mode }) => {
+      await openNested(page, mode, { nestedSide: side });
+
+      await hoverOpen(page, nestedTrigger(page, 1));
+      await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+      await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('none');
+
+      await leaveToward(page, side);
+      expect(await inlinePointerEvents(nestedList(page))).toBe('none');
+      await page.clock.runFor(CLOSE_DELAY + 10);
+
+      await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+      await expect(nestedContent(page, 1)).toBeVisible();
+    });
+  }
+
+  // Fixme: the inline nested Trigger's leave builds no safe polygon: track 2's interactions publishes the unpositioned
+  // Viewport's floating context, whose placement is null, over the inline close context (PR 168 review, gap G3).
+  test.fixme('clears inline safePolygon pointer events when the pointer leaves the traversal path', async ({ page, mode }) => {
+    await openNested(page, mode, { nestedDefault: 'nested-1', nestedSide: 'right' });
+
+    await hoverElement(page, nestedTrigger(page, 1));
+    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('none');
+    const box = (await nestedTrigger(page, 1).boundingBox())!;
+    await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2);
+    await page.mouse.move(box.x + box.width + 1, box.y + box.height / 2);
+    expect(await inlinePointerEvents(nestedList(page))).toBe('none');
+
+    // Away from the Viewport on the right, and still inside content 1: its first Link.
+    const away = (await page.getByTestId('link-1-a').boundingBox())!;
+    await page.mouse.move(away.x + 4, away.y + 4);
+
+    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedContent(page, 1)).toBeVisible();
+  });
+
+  test('keeps inline safePolygon pointer events when returning to the original trigger before traversing again', async ({ page, mode }) => {
+    await openNested(page, mode, { nestedDefault: 'nested-1', nestedSide: 'right' });
+
+    await hoverElement(page, nestedTrigger(page, 1));
+    await leaveToward(page, 'right');
+    await hoverElement(page, nestedViewport(page));
+    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('');
+
+    await hoverOpen(page, nestedTrigger(page, 2));
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    // The lock now gives nested trigger 1 `pointer-events: none`, so a real pointer cannot enter it from trigger 2.
+    await fire(nestedTrigger(page, 1), 'mouseenter');
+    await fire(nestedTrigger(page, 1), 'mousemove');
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('none');
+
+    await leaveToward(page, 'right');
+
+    expect(await inlinePointerEvents(nestedList(page))).toBe('none');
+    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
+    await expect(nestedContent(page, 1)).toBeVisible();
+    await expect(nestedContent(page, 2)).toHaveCount(0);
+  });
+});
+
+// A Dialog or a Popover inside a Content is the menu's child through the floating-node cascade (NAV-DIS-07, NAV-FOC-12,
+// NAV-PTR-16; ADR 04 Amendments 2026-11-03 (5)).
+test.describe('<NavigationMenu.Content /> nested popups', () => {
+  test('keeps a hover-open menu open when pointerdown happens on a nested dialog trigger', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nestedPopup: 'dialog' });
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+    const dialogTrigger = page.getByTestId('dialog-trigger');
+
+    await fire(dialogTrigger, 'pointerdown');
+    await fire(content(page, 1), 'mouseleave');
+    await dialogTrigger.click();
+
+    await expect(page.getByTestId('dialog-popup')).toBeVisible();
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  for (const [kind, name] of [['dialog', 'dialog'], ['popover', 'popover']] as const) {
+    test(`keeps the menu open when interacting with a nested ${name}`, async ({ page, mode }) => {
+      await gotoMenu(page, mode, { nestedPopup: kind });
+      await trigger(page, 1).click();
+      await expect(content(page, 1)).toBeVisible();
+      await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+
+      await page.getByTestId(`${kind}-trigger`).click();
+      await expect(page.getByTestId(`${kind}-popup`)).toBeVisible();
+
+      await page.getByTestId(`${kind}-button`).click();
+
+      await expect(content(page, 1)).toBeVisible();
+      await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    });
+  }
 });
 
 // NAV-API-12's server-markup titles (Base UI's `renderToString` ones) on the prerendered `navigation-menu-prerender`: the
@@ -1115,6 +1512,99 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await settle(fixture);
     expect(await valueChanges(fixture)).toContain('null:focus-out');
   });
+
+  test('closes after tabbing out of arbitrary tabbable content', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { actionContent: true });
+    await trigger(page, 2).focus();
+    await fireClick(trigger(page, 2));
+    await expect(content(page, 2)).toBeVisible();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('action')).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('returns to the last submenu item when shift+tabbing after tabbing out of it', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await trigger(page, 1).focus();
+    await fireClick(trigger(page, 1));
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('link-1-a')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('link-1-b')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(trigger(page, 2)).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByTestId('link-1-b')).toBeFocused();
+  });
+
+  test('tabs from the last link of the last nested panel to the next top-level trigger', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'tabBoundary' });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    const lastLink = page.getByTestId('nested-last-link');
+    await lastLink.focus();
+    await expect(lastLink).toBeFocused();
+
+    await page.keyboard.press('Tab');
+
+    await expect(trigger(page, 2)).toBeFocused();
+    await expect(page.getByTestId('nested-content-2')).toHaveCount(1);
+    await expect(page.getByTestId('nested-trigger-2')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  // Fixme: a Shift+Tab out of an inline nested panel leaves its Links at tabindex -1, so the guards skip them: track 2's
+  // portal module disables focus inside a Lite portal, which Base UI's FloatingPortalLite does not (PR 168 review, gap G2).
+  test.fixme('tabs between nested triggers and links without opening inactive panels', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'tabFlow' });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    const developers = page.getByTestId('nested-trigger-developers');
+    await developers.focus();
+    await expect(developers).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(developers).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-trigger-design-systems')).toBeFocused();
+    await expect(page.getByTestId('nested-content-design-systems')).toHaveCount(0);
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-trigger-engineering-leads')).toBeFocused();
+  });
+
+  // Fixme: a Shift+Tab out of an inline nested panel leaves its Links at tabindex -1, so the guards skip them: track 2's
+  // portal module disables focus inside a Lite portal, which Base UI's FloatingPortalLite does not (PR 168 review, gap G2).
+  test.fixme('returns to the last inline submenu item when shift+tabbing after leaving it', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { nested: 'tabFlow' });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-trigger-developers')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-trigger-design-systems')).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+  });
 });
 
 test.describe('<NavigationMenu.List />', () => {
@@ -1286,19 +1776,23 @@ test.describe('size', () => {
     expect(end - start).toBeLessThan(325);
   });
 
-  test('preserves popup size when controlled value closes externally', async ({ page, mode }) => {
-    const fixture = await gotoMenu(page, mode, { value: 'item-1', sized: true, fade: true, animations: 1 });
-    await expect(content(page, 1)).toBeVisible();
-    await expect.poll(() => pixels(page.getByTestId('positioner'), '--positioner-width')).toBeCloseTo(400, 0);
-    await recordAnimationStates(page);
+  for (const keepMounted of [false, true]) {
+    test(`preserves popup size when controlled value closes externally${keepMounted ? ' with keepMounted portal' : ''}`, async ({ page, mode }) => {
+      const fixture = await gotoMenu(page, mode, { value: 'item-1', sized: true, fade: true, animations: 1, keepMounted });
+      await expect(content(page, 1)).toBeVisible();
+      await expect.poll(() => pixels(page.getByTestId('positioner'), '--positioner-width')).toBeCloseTo(400, 0);
+      await recordAnimationStates(page);
 
-    await pressControl(fixture.locator('[data-set-value="none"]'));
+      await pressControl(fixture.locator('[data-set-value="none"]'));
 
-    await expect(page.getByTestId('popup-root')).toHaveCount(0);
-    const exits = await animationStates(page, 'nav-popup-out');
-    expect(exits).toHaveLength(1);
-    expect(exits[0]).toMatchObject({ endingStyle: true, sizes: { popupWidth: '400px', popupHeight: '200px', positionerWidth: '400px', positionerHeight: '200px' } });
-  });
+      // A kept Portal keeps the Popup, hidden, once its exit ends.
+      await expect(page.getByTestId('popup-root')).toHaveCount(keepMounted ? 1 : 0);
+      await expect(page.getByTestId('popup-root')).toBeHidden();
+      const exits = await animationStates(page, 'nav-popup-out');
+      expect(exits).toHaveLength(1);
+      expect(exits[0]).toMatchObject({ endingStyle: true, sizes: { popupWidth: '400px', popupHeight: '200px', positionerWidth: '400px', positionerHeight: '200px' } });
+    });
+  }
 
   test('updates popup sizing when the window is resized while the popup is open', async ({ page, mode }) => {
     await gotoMenu(page, mode, { fluid: true, keepMountedContent: true });
@@ -1352,8 +1846,13 @@ test.describe('attach order', () => {
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
     await expect.poll(stalled.hits).toBeGreaterThan(0);
-    // Let the navigation-menu handles attach before the interactions ones: their click listeners come first.
-    await page.waitForTimeout(500);
+    // The open key is the navigation-menu handle's alone (NAV-KEY-01), so the open marks trigger 1's handle attached while
+    // the interactions ones wait: its click listener comes first.
+    await trigger(page, 1).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(content(page, 1)).toBeVisible();
+    await pressControl(page.locator(Fixture.container(FIXTURE)).locator('[data-close]'));
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
     await stalled.release();
     await expect(page.locator(Fixture.container(FIXTURE))).toHaveAttribute('data-attached', 'true');
 
@@ -1382,6 +1881,27 @@ test.describe('attach order', () => {
     await expect(content(page, 2)).toBeVisible();
     const positioner = page.getByTestId('positioner');
     await expect.poll(() => positioner.evaluate((element) => parseFloat(element.style.getPropertyValue('--positioner-height')))).toBeCloseTo(150, 0);
+  });
+
+  // The Content's handles: its navigation-menu one attaches on mount from the loaded module, its transitions one waits
+  // for js/transitions.js, which the first popup part to mount loads. The title above takes the other order.
+  test('port: with js/transitions.js stalled the Content\'s navigation-menu handle attaches first, and the switch and the close complete once the module arrives', async ({ page, mode }) => {
+    const stalled = await stall(page, 'transitions');
+    await gotoMenu(page, mode);
+
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await expect.poll(stalled.hits).toBeGreaterThan(0);
+
+    await stalled.release();
+    await fireClick(trigger(page, 2));
+    await expect(content(page, 1)).toHaveCount(0);
+    await expect(content(page, 2)).toBeVisible();
+    await expect(content(page, 2)).toHaveAttribute('data-activation-direction', 'right');
+
+    await fireClick(trigger(page, 2));
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
   });
 });
 

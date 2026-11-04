@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { acquireSession, releaseSession } from './interactions';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
+import { createPopupHarness } from './test-support/interactions-harness';
 import type { DotNetTwin, TwinHandle } from './twin';
 
 const flags = vi.hoisted(() => ({ voiceOver: false, webkit: false }));
@@ -1221,6 +1222,22 @@ describe('the Viewport', () => {
     link.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
     expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toEqual([{ inert: true }]);
   });
+
+  // NavigationMenuViewport.tsx:104-118 then NavigationMenuTrigger.tsx:665-670: Base UI sets viewportInert on the
+  // Viewport's blur and clears it on the active Trigger's focus, in that order. The report is asynchronous and the
+  // Trigger's C# onfocus is not, so the Trigger's focus reports the clear after an outstanding set, in the set's queue.
+  it('reports the clear after the set when focus leaves an inline Viewport through a guard for its active trigger', async () => {
+    const rendered = renderMenu({ positioner: false, open: 'item-1' });
+    await settle();
+    const link = rendered.item('item-1').content!.querySelector('a')!;
+    const trigger = rendered.item('item-1').trigger;
+    link.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
+    trigger.dispatchEvent(new FocusEvent('focus'));
+    expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toEqual([{ inert: true }, { inert: false }]);
+
+    trigger.dispatchEvent(new FocusEvent('focus'));
+    expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toHaveLength(2);
+  });
 });
 
 describe('the inline Viewport target', () => {
@@ -1324,5 +1341,73 @@ describe('the Content', () => {
 
     link.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
     expect(content.hasAttribute('inert')).toBe(true);
+  });
+});
+
+// NAV-EDGE-11; NavigationMenuRoot.webkit.test.tsx with Base UI's engine flag mocked (sheet F Q16 (a)): the lock the
+// Trigger's hover options configure (NavigationMenuTrigger.cs: the safe polygon with blocked pointer events, the lock on
+// enter, the `ul` scope) on the interactions harness, with the WebKit flag set. Neither module branches on the engine.
+describe('WebKit', () => {
+  const hover: import('./interactions').HoverOptions = {
+    safePolygon: true,
+    blockPointerEvents: true,
+    blockPointerEventsOnEnter: true,
+    pointerEventsScopeSelector: 'ul',
+    move: false,
+  };
+
+  function mouseEnterTrigger(element: HTMLElement): void {
+    element.dispatchEvent(new MouseEvent('mouseenter', { relatedTarget: null }));
+  }
+
+  it('blocks top-level pointer events for hover-open menus', () => {
+    flags.webkit = true;
+    const popup = createPopupHarness();
+    try {
+      popup.attachSession();
+      const list = document.createElement('ul');
+      const trigger = document.createElement('button');
+      trigger.id = 'webkit-trigger';
+      list.append(trigger);
+      const floating = document.createElement('div');
+      document.body.append(list, floating);
+      popup.attachTrigger(trigger, { trigger: { hover } });
+      popup.attachFloating(floating, { floating: { hover: {} } });
+
+      mouseEnterTrigger(trigger);
+      popup.setOpen(true, 'trigger-hover', trigger.id, 'mouseenter');
+
+      expect(popup.open).toBe(true);
+      expect([list.style.pointerEvents, document.body.style.pointerEvents]).toEqual(['none', '']);
+    } finally {
+      popup.dispose();
+    }
+  });
+
+  it('keeps nested safePolygon pointer events scoped on WebKit', () => {
+    flags.webkit = true;
+    const popup = createPopupHarness();
+    try {
+      popup.attachSession();
+      // A top-level List and, inside its open content, the inline nested List with its trigger and Viewport.
+      const list = document.createElement('ul');
+      const content = document.createElement('div');
+      const nestedList = document.createElement('ul');
+      const nestedTrigger = document.createElement('button');
+      nestedTrigger.id = 'webkit-nested-trigger';
+      const nestedViewport = document.createElement('div');
+      nestedList.append(nestedTrigger);
+      content.append(nestedList, nestedViewport);
+      list.append(document.createElement('li'));
+      document.body.append(list, content);
+      popup.attachTrigger(nestedTrigger, { trigger: { hover } });
+      popup.attachFloating(nestedViewport, { floating: { node: false, hover: {} } });
+
+      mouseEnterTrigger(nestedTrigger);
+
+      expect([nestedList.style.pointerEvents, list.style.pointerEvents, document.body.style.pointerEvents]).toEqual(['none', '', '']);
+    } finally {
+      popup.dispose();
+    }
   });
 });

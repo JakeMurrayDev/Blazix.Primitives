@@ -175,6 +175,18 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.Equal("true", cut.Find("[data-testid=\"trigger-0\"]").GetAttribute("aria-expanded"));
     }
 
+    [Fact(DisplayName = "treats a falsy value (0) as open for inline nested trigger interactions")]
+    [Trait("Requirement", "NAV-STA-03")]
+    public void Treats_a_falsy_value_0_as_open_for_inline_nested_trigger_interactions() => AssertFalsyNestedOpen<int?>(0);
+
+    [Fact(DisplayName = "treats a falsy value (empty string) as open for inline nested trigger interactions")]
+    [Trait("Requirement", "NAV-STA-03")]
+    public void Treats_a_falsy_value_empty_string_as_open_for_inline_nested_trigger_interactions() => AssertFalsyNestedOpen<string>(string.Empty);
+
+    [Fact(DisplayName = "treats a falsy value (false) as open for inline nested trigger interactions")]
+    [Trait("Requirement", "NAV-STA-03")]
+    public void Treats_a_falsy_value_false_as_open_for_inline_nested_trigger_interactions() => AssertFalsyNestedOpen<bool?>(false);
+
     [Fact(DisplayName = "a non-nullable value type has no closed state, an error at the first parameter set")]
     [Trait("Requirement", "NAV-STA-02")]
     public void A_non_nullable_value_type_has_no_closed_state()
@@ -681,6 +693,37 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.Contains("\"rootBoundary\":\"layoutViewport\"", positioning, StringComparison.Ordinal);
     }
 
+    [Fact(DisplayName = "port: a controlled open's relay reaches the session with the value the page sets, so the session records the hover open event")]
+    [Trait("Requirement", "NAV-PTR-10")]
+    [Trait("Requirement", "NAV-STA-01")]
+    public async Task A_controlled_opens_relay_reaches_the_session_with_the_value_the_page_sets()
+    {
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render(p => p.Add(x => x.Controlled, true));
+
+        await test.HoverAsync(cut, "trigger-item-1", open: true);
+
+        Assert.Equal("true", Expanded(cut, "trigger-item-1"));
+        string[] relayed = test.InteractionsHandle.Invocations["update"]
+            .Select(update => update.Arguments[0] as string)
+            .OfType<string>()
+            .Where(json => json.Contains("\"session\":", StringComparison.Ordinal) && json.Contains("\"reason\":\"trigger-hover\"", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(relayed);
+        Assert.All(relayed, json => Assert.Contains("\"open\":true", json, StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "port: a controlled open the page does not follow relays nothing to the session")]
+    [Trait("Requirement", "NAV-STA-01")]
+    public async Task A_controlled_open_the_page_does_not_follow_relays_nothing()
+    {
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render(p => p.Add(x => x.Controlled, true).Add(x => x.FollowControlled, false));
+
+        await test.HoverAsync(cut, "trigger-item-1", open: true);
+
+        Assert.Equal("false", Expanded(cut, "trigger-item-1"));
+        Assert.DoesNotContain("\"reason\":\"trigger-hover\"", test.LastSessionOptions(), StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "the session joins the enclosing menu's tree and enables the dismissal only while a positioner is registered or closed")]
     [Trait("Requirement", "NAV-STA-08")]
     [Trait("Requirement", "NAV-PTR-16")]
@@ -836,4 +879,72 @@ public sealed class NavigationMenuRootTests : IDisposable
     }
 
     private static string? Expanded(IRenderedComponent<NavigationMenuHarness> cut, string testId) => cut.Find($"[data-testid=\"{testId}\"]").GetAttribute("aria-expanded");
+
+    // NavigationMenuRoot.test.tsx's TestInlineNestedNavigationMenu with the nested default and first Item value `falsy`:
+    // the nested Item is open, and while it is its Trigger has no click role (no Positioner), so a click cannot toggle it
+    // closed; the L4 title runs the click for `false`.
+    private void AssertFalsyNestedOpen<TValue>(TValue falsy)
+    {
+        IRenderedComponent<NavigationMenuRoot<string>> cut = test.Context.Render<NavigationMenuRoot<string>>(p => p
+            .Add(x => x.DefaultValue, "item-1")
+            .Add(x => x.ChildContent, (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<NavigationMenuList>(0);
+                builder.AddComponentParameter(1, nameof(NavigationMenuList.ChildContent), (RenderFragment)(list =>
+                {
+                    list.OpenComponent<NavigationMenuItem<string>>(0);
+                    list.AddComponentParameter(1, nameof(NavigationMenuItem<string>.Value), "item-1");
+                    list.AddComponentParameter(2, nameof(NavigationMenuItem<string>.ChildContent), (RenderFragment)(item =>
+                    {
+                        item.OpenComponent<NavigationMenuTrigger>(0);
+                        item.AddAttribute(1, "data-testid", "trigger-1");
+                        item.CloseComponent();
+                        item.OpenComponent<NavigationMenuContent>(2);
+                        item.AddAttribute(3, "data-testid", "popup-1");
+                        item.AddComponentParameter(4, nameof(NavigationMenuContent.ChildContent), (RenderFragment)(content => RenderFalsyNested(content, falsy)));
+                        item.CloseComponent();
+                    }));
+                    list.CloseComponent();
+                }));
+                builder.CloseComponent();
+                builder.OpenComponent<NavigationMenuViewport>(2);
+                builder.AddAttribute(3, "data-testid", "viewport");
+                builder.CloseComponent();
+            })));
+
+        IElement nestedTrigger = cut.Find("[data-testid=\"nested-trigger-1\"]");
+        Assert.Equal("true", nestedTrigger.GetAttribute("aria-expanded"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"nested-popup-1\"]"));
+        Assert.DoesNotContain("\"toggle\":", test.LastTriggerOptions(nestedTrigger.Id!), StringComparison.Ordinal);
+    }
+
+    private static void RenderFalsyNested<TValue>(RenderTreeBuilder builder, TValue falsy)
+    {
+        builder.OpenComponent<NavigationMenuRoot<TValue>>(0);
+        builder.AddComponentParameter(1, nameof(NavigationMenuRoot<TValue>.DefaultValue), falsy);
+        builder.AddComponentParameter(2, nameof(NavigationMenuRoot<TValue>.ChildContent), (RenderFragment)(root =>
+        {
+            root.OpenComponent<NavigationMenuList>(0);
+            root.AddComponentParameter(1, nameof(NavigationMenuList.ChildContent), (RenderFragment)(list =>
+            {
+                list.OpenComponent<NavigationMenuItem<TValue>>(0);
+                list.AddComponentParameter(1, nameof(NavigationMenuItem<TValue>.Value), falsy);
+                list.AddComponentParameter(2, nameof(NavigationMenuItem<TValue>.ChildContent), (RenderFragment)(item =>
+                {
+                    item.OpenComponent<NavigationMenuTrigger>(0);
+                    item.AddAttribute(1, "data-testid", "nested-trigger-1");
+                    item.CloseComponent();
+                    item.OpenComponent<NavigationMenuContent>(2);
+                    item.AddAttribute(3, "data-testid", "nested-popup-1");
+                    item.CloseComponent();
+                }));
+                list.CloseComponent();
+            }));
+            root.CloseComponent();
+            root.OpenComponent<NavigationMenuViewport>(2);
+            root.AddAttribute(3, "data-testid", "inline-nested-viewport");
+            root.CloseComponent();
+        }));
+        builder.CloseComponent();
+    }
 }
