@@ -88,7 +88,7 @@ public sealed class ComboboxItemFilteringTests
     {
         ComboboxItemGroup<string>[] groups = [new("fruit", ["apple"]), new("vegetables", ["broccoli"])];
 
-        ComboboxFilteredItems<string> result = ComboboxItemFiltering.Derive(Inputs(groups, "app"));
+        ComboboxFilteredItems<string> result = ComboboxItemFiltering.Derive(GroupInputs(groups, "app"));
 
         ComboboxItemGroup<string> only = Assert.Single(result.Groups!);
         Assert.Equal("fruit", only.Value);
@@ -102,7 +102,7 @@ public sealed class ComboboxItemFilteringTests
     {
         ComboboxItemGroup<string>[] groups = [new("citrus", ["orange", "lemon", "lime"]), new("berries", ["strawberry", "blueberry", "raspberry"])];
 
-        ComboboxFilteredItems<string> result = ComboboxItemFiltering.Derive(Inputs(groups, "", limit: 4));
+        ComboboxFilteredItems<string> result = ComboboxItemFiltering.Derive(GroupInputs(groups, "", limit: 4));
 
         Assert.Equal(["orange", "lemon", "lime", "strawberry"], result.Flat);
         Assert.Equal(2, result.Groups!.Count);
@@ -115,7 +115,7 @@ public sealed class ComboboxItemFilteringTests
     {
         ComboboxItemGroup<string>[] groups = [new("groupA", ["A1", "A2"]), new("groupB", ["B1", "B2", "B3"])];
 
-        ComboboxFilteredItems<string> result = ComboboxItemFiltering.Derive(Inputs(groups, "", limit: 3));
+        ComboboxFilteredItems<string> result = ComboboxItemFiltering.Derive(GroupInputs(groups, "", limit: 3));
 
         Assert.Equal(["A1", "A2", "B1"], result.Flat);
     }
@@ -175,6 +175,6 @@ public sealed class ComboboxItemFilteringTests
         ComboboxItemPredicate<T>? filter = null) =>
         new(items, null, external, null, ignoreExternal, query, limit, filter ?? ComboboxItemPredicate<T>.Collator(s_collator, null));
 
-    private static ComboboxFilterInputs<T> Inputs<T>(IReadOnlyList<ComboboxItemGroup<T>> groups, string query, int limit = -1) =>
+    private static ComboboxFilterInputs<T> GroupInputs<T>(IReadOnlyList<ComboboxItemGroup<T>> groups, string query, int limit = -1) =>
         new(null, groups, null, null, false, query, limit, ComboboxItemPredicate<T>.Collator(s_collator, null));
 }
