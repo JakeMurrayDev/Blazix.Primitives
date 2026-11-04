@@ -36,12 +36,12 @@
             @Nest(0)
             @if (phase is "outgoing" or "overlap")
             {
-                <MenuRoot TPayload="string" @key="@("outgoing")" Handle="@handle" OnOpenChange="RecordOpenChange" PayloadContent="@Popup" />
+                <MenuRoot TPayload="string" Modal="@modal" @key="@("outgoing")" Handle="@handle" OnOpenChange="RecordOpenChange" PayloadContent="@Popup" />
             }
 
             @if (phase is "overlap" or "incoming")
             {
-                <MenuRoot TPayload="string" @key="@("incoming")" Handle="@handle" OnOpenChange="RecordOpenChange" PayloadContent="@Popup" />
+                <MenuRoot TPayload="string" Modal="@modal" @key="@("incoming")" Handle="@handle" OnOpenChange="RecordOpenChange" PayloadContent="@Popup" />
                 <OpenOnMount Run='() => HandleOpenAsync("trigger-2")' />
             }
         }
@@ -54,7 +54,7 @@
         {
             @if (controlled)
             {
-                <MenuRoot TPayload="string" @ref="root" Handle="@(detached ? handle : null)" Open="@open" TriggerId="@triggerId"
+                <MenuRoot TPayload="string" Modal="@modal" @ref="root" Handle="@(detached ? handle : null)" Open="@open" TriggerId="@triggerId"
                                   OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
                     @if (!detached)
                     {
@@ -64,7 +64,7 @@
             }
             else
             {
-                <MenuRoot TPayload="string" @ref="root" Handle="@(detached ? handle : null)" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId"
+                <MenuRoot TPayload="string" Modal="@modal" @ref="root" Handle="@(detached ? handle : null)" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId"
                                   OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
                     @if (!detached)
                     {
@@ -89,6 +89,11 @@
 </FixtureContainer>
 
 @code {
+    // A real pointer where Base UI fires a synthetic one (the lesson of PR 168): user-event's click reaches a trigger the modal
+    // menu's internal backdrop covers, a Playwright click lands on the backdrop, so the switching titles open the menu
+    // non-modal unless the query sets `modal=true` (MNU-API-08's default is modal; a dated note on the rows).
+    private bool? modal = false;
+
     private readonly MenuTrigger<string>?[] triggerRefs = new MenuTrigger<string>?[8];
     private MenuRoot<string>? root;
     private MenuHandle<string>? handle;
@@ -114,6 +119,7 @@
 
     protected override void OnInitialized()
     {
+        modal = QueryFlag("modal") ?? false;
         handle = new MenuHandle<string>();
         detached = Query("mode") == "detached";
         controlled = Case == "controlled" || QueryFlag("open") is not null;

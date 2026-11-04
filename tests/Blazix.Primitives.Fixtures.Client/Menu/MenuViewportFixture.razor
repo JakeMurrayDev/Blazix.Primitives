@@ -30,6 +30,11 @@
 </FixtureContainer>
 
 @code {
+    // A real pointer where Base UI fires a synthetic one (the lesson of PR 168): user-event's click reaches a trigger the modal
+    // menu's internal backdrop covers, a Playwright click lands on the backdrop, so the switching titles open the menu
+    // non-modal unless the query sets `modal=true` (MNU-API-08's default is modal; a dated note on the rows).
+    private bool? modal = false;
+
     private readonly MenuTrigger<string>?[] triggerRefs = new MenuTrigger<string>?[8];
     private MenuRoot<string>? root;
     private bool controlled;
@@ -50,6 +55,7 @@
 
     protected override void OnInitialized()
     {
+        modal = QueryFlag("modal") ?? false;
         controlled = QueryFlag("open") is not null || Case == "controlled";
         open = QueryFlag("open") == true;
         defaultOpen = QueryFlag("defaultOpen") == true;
@@ -73,13 +79,13 @@
     private RenderFragment Root => @<text>
         @if (controlled)
         {
-            <MenuRoot TPayload="string" @ref="root" Open="@open" DefaultTriggerId="@defaultTriggerId" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+            <MenuRoot TPayload="string" Modal="@modal" @ref="root" Open="@open" DefaultTriggerId="@defaultTriggerId" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
                 @Triggers
             </MenuRoot>
         }
         else
         {
-            <MenuRoot TPayload="string" @ref="root" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId" OnOpenChange="RetainOrRecord" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+            <MenuRoot TPayload="string" Modal="@modal" @ref="root" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId" OnOpenChange="RetainOrRecord" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
                 @Triggers
             </MenuRoot>
         }
