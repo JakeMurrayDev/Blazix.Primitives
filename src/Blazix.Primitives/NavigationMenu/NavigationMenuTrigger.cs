@@ -392,6 +392,18 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
 
     private async Task ReleaseInteractionsAsync()
     {
+        // The release runs after the click's dispatch by construction, not by timing:
+        // - WebAssembly: the module's click listener invokes the activation synchronously. WebAssemblyRenderer has no
+        //   synchronization context single-threaded (NullDispatcher), so Task.Yield queues this continuation to the thread
+        //   pool (YieldAwaitable.QueueContinuation). The browser thread pool's EnsureWorkerRequested calls
+        //   MainThreadScheduleBackgroundJob, which the runtime implements as SystemJS_ScheduleBackgroundJobImpl:
+        //   `Module.safeSetTimeout(mono_background_exec_until_done, 0)` (runtime pack 11.0.0-rc.2.26504.105, built from
+        //   dotnet/dotnet@820230c3, src/runtime/src/mono/browser/runtime/scheduling.ts:60-65). That is a task. The browser
+        //   runs no task inside a running one, so the continuation waits until the click's dispatch has ended: every
+        //   listener, the interactions click role's included, and the microtask checkpoint a trusted event runs after each.
+        // - Server: the activation is a message the module sends from its listener, so C# runs only after the browser's
+        //   whole dispatch, and this continuation is posted to the circuit's RendererSynchronizationContext.
+        // The stalled-load titles pin the order with a dispatched click and with a trusted one (Enter).
         await Task.Yield();
         await InvokeAsync(() =>
         {
