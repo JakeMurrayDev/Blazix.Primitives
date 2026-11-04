@@ -82,14 +82,14 @@ internal interface IMenuParentContext
     int OutsidePressGrace { get; }
 
     // MNU-DOM-10, MNU-EDGE-15 (MenuBackdrop.tsx:29, 37-39).
-    /// <summary>Records the id of the menu's backdrop, which a context menu checks its own presses against.</summary>
-    /// <param name="id">The backdrop's id, or <see langword="null"/> when it went away.</param>
-    void SetBackdropId(string? id);
+    /// <summary>Records the menu's backdrop, which a context menu checks its own presses against.</summary>
+    /// <param name="element">The backdrop's element, or <see langword="null"/> when it went away.</param>
+    void SetBackdropElement(ElementReference? element);
 
     // MenuPositioner.tsx:283.
-    /// <summary>Records the id of the menu's internal backdrop.</summary>
-    /// <param name="id">The internal backdrop's id, or <see langword="null"/> when it went away.</param>
-    void SetInternalBackdropId(string? id);
+    /// <summary>Records the menu's internal backdrop.</summary>
+    /// <param name="element">The internal backdrop's element, or <see langword="null"/> when it went away.</param>
+    void SetInternalBackdropElement(ElementReference? element);
 
     // Menubar.tsx:120's `menuopenchange` listener as a C# call from the menu's commit path (plan §Settled, sheet C Q7):
     // the bar's HasSubmenuOpen and its sibling close.

@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
@@ -21,14 +22,23 @@ internal sealed class MenuCheckboxItemBehavior
     /// <summary>Gets the context the item cascades to its indicator.</summary>
     public MenuCheckableItemContext ItemContext => throw new NotImplementedException();
 
-    /// <summary>Applies the checked parameters; control is fixed at the first call.</summary>
-    /// <param name="parameters">The part's parameters, from which whether <c>Checked</c> was supplied is read.</param>
-    /// <param name="value">The <c>Checked</c> parameter.</param>
-    /// <param name="defaultValue">The <c>DefaultChecked</c> parameter.</param>
-    /// <param name="valueChanged">The <c>CheckedChanged</c> callback.</param>
-    /// <param name="onValueChange">The <c>OnCheckedChange</c> callback.</param>
-    public void Apply(ParameterView parameters, bool value, bool defaultValue, EventCallback<bool> valueChanged, EventCallback<ValueChangeEventArgs<bool>> onValueChange) =>
+    /// <summary>Reads whether <c>Checked</c> was supplied, fixing control at the first call; call it from the part's <c>SetParametersAsync</c>.</summary>
+    /// <param name="parameters">The part's parameters.</param>
+    /// <param name="logger">The part's logger, which receives the controlled-state warnings.</param>
+    public void SetParameters(ParameterView parameters, ILogger? logger) => throw new NotImplementedException();
+
+    /// <summary>Applies the callbacks and the item's state its indicator reads.</summary>
+    /// <param name="checkedChanged">The <c>CheckedChanged</c> callback.</param>
+    /// <param name="onCheckedChange">The <c>OnCheckedChange</c> callback.</param>
+    /// <param name="disabled">The item's <c>Disabled</c>.</param>
+    /// <param name="highlighted">Whether the item is highlighted.</param>
+    public void Apply(EventCallback<bool> checkedChanged, EventCallback<ValueChangeEventArgs<bool>> onCheckedChange, bool disabled, bool highlighted) =>
         throw new NotImplementedException();
+
+    /// <summary>Wraps the item's content in its indicator's cascade.</summary>
+    /// <param name="content">The consumer's content.</param>
+    /// <returns>The content to render inside the item.</returns>
+    public RenderFragment? CascadeContent(RenderFragment? content) => throw new NotImplementedException();
 
     /// <summary>Requests the toggle an activation causes.</summary>
     /// <param name="snapshot">The snapshot of the activating click.</param>
@@ -55,15 +65,22 @@ internal sealed class MenuRadioGroupBehavior<TValue>
     /// <summary>Gets the group context its group label reads.</summary>
     public MenuGroupContext LabelContext => throw new NotImplementedException();
 
-    /// <summary>Applies the group's parameters; control is fixed at the first call.</summary>
-    /// <param name="parameters">The part's parameters, from which whether <c>Value</c> was supplied is read.</param>
-    /// <param name="value">The <c>Value</c> parameter.</param>
-    /// <param name="defaultValue">The <c>DefaultValue</c> parameter.</param>
+    /// <summary>Reads whether <c>Value</c> was supplied, fixing control at the first call; call it from the part's <c>SetParametersAsync</c>.</summary>
+    /// <param name="parameters">The part's parameters.</param>
+    /// <param name="logger">The part's logger, which receives the controlled-state warnings.</param>
+    public void SetParameters(ParameterView parameters, ILogger? logger) => throw new NotImplementedException();
+
+    /// <summary>Applies the group's callbacks and disabled state.</summary>
     /// <param name="valueChanged">The <c>ValueChanged</c> callback.</param>
     /// <param name="onValueChange">The <c>OnValueChange</c> callback.</param>
     /// <param name="disabled">The group's <c>Disabled</c>.</param>
-    public void Apply(ParameterView parameters, TValue value, TValue defaultValue, EventCallback<TValue> valueChanged, EventCallback<ValueChangeEventArgs<TValue>> onValueChange, bool disabled) =>
+    public void Apply(EventCallback<TValue> valueChanged, EventCallback<ValueChangeEventArgs<TValue>> onValueChange, bool disabled) =>
         throw new NotImplementedException();
+
+    /// <summary>Wraps the group's content in its items' and label's cascades.</summary>
+    /// <param name="content">The consumer's content.</param>
+    /// <returns>The content to render inside the group.</returns>
+    public RenderFragment? CascadeContent(RenderFragment? content) => throw new NotImplementedException();
 
     /// <summary>Adds the group's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
@@ -121,9 +138,16 @@ internal sealed class MenuRadioItemBehavior<TValue> : IDisposable
     /// <exception cref="InvalidOperationException">The part is outside a radio group.</exception>
     public void Subscribe(MenuRadioGroupContext<TValue>? group) => throw new NotImplementedException();
 
-    /// <summary>Applies the item's value.</summary>
+    /// <summary>Applies the item's value and the item's state its indicator reads.</summary>
     /// <param name="value">The item's <c>Value</c>.</param>
-    public void Apply(TValue value) => throw new NotImplementedException();
+    /// <param name="disabled">The item's <c>Disabled</c>.</param>
+    /// <param name="highlighted">Whether the item is highlighted.</param>
+    public void Apply(TValue value, bool disabled, bool highlighted) => throw new NotImplementedException();
+
+    /// <summary>Wraps the item's content in its indicator's cascade.</summary>
+    /// <param name="content">The consumer's content.</param>
+    /// <returns>The content to render inside the item.</returns>
+    public RenderFragment? CascadeContent(RenderFragment? content) => throw new NotImplementedException();
 
     /// <summary>Requests the selection an activation causes.</summary>
     /// <param name="snapshot">The snapshot of the activating click.</param>
@@ -204,9 +228,15 @@ internal sealed class MenuGroupContext
     /// <summary>Gets the id of the group's label, or <see langword="null"/>.</summary>
     public string? LabelId { get; private set; }
 
+    /// <summary>Wraps a group's content in the label's cascade.</summary>
+    /// <param name="content">The consumer's content.</param>
+    /// <returns>The content to render inside the group.</returns>
+    public RenderFragment? Cascade(RenderFragment? content) => throw new NotImplementedException();
+
     /// <summary>Records the label's id and tells the group.</summary>
     /// <param name="id">The label's id, or <see langword="null"/> when it went away.</param>
-    public void SetLabelId(string? id) => throw new NotImplementedException();
+    /// <param name="previous">When <paramref name="id"/> is <see langword="null"/>, the id of the label that went away: the id is cleared only while it is still that one.</param>
+    public void SetLabelId(string? id, string? previous = null) => throw new NotImplementedException();
 
     /// <summary>Subscribes the group to changes of its label's id.</summary>
     /// <param name="changed">Called after a change.</param>

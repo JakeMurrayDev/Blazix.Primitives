@@ -29,11 +29,12 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     /// <param name="jsRuntime">The runtime the twins import their modules through.</param>
     /// <param name="logger">The part's logger, which receives development warnings.</param>
     /// <param name="idGenerator">The scoped id generator.</param>
-    /// <param name="requestRender">Asks the part to render.</param>
+    /// <param name="requestRender">Asks the part to render, after a change of the menu's state.</param>
+    /// <param name="mirrorChanged">Tells the part that the positioner's mirrored placement changed, which renders only when its state record changed.</param>
     /// <param name="invokeAsync">Runs work on the part's renderer.</param>
     /// <param name="dispatchException">Routes an exception to the part.</param>
     /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler, which calls <see cref="HandleKeyDownAsync"/>.</param>
-    public MenuPopupBehavior(string familyName, IJSRuntime jsRuntime, ILogger logger, PartIdGenerator idGenerator, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException, EventCallback onKeyDown) =>
+    public MenuPopupBehavior(string familyName, IJSRuntime jsRuntime, ILogger logger, PartIdGenerator idGenerator, Action requestRender, Action mirrorChanged, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException, EventCallback onKeyDown) =>
         throw new NotImplementedException();
 
     /// <summary>Gets the root's context.</summary>
@@ -89,6 +90,10 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     /// <param name="attributes">The part's attributes.</param>
     /// <param name="hasConsumerId">Whether the consumer supplied an <c>id</c>.</param>
     public void AddAttributes(AttributeList attributes, bool hasConsumerId) => throw new NotImplementedException();
+
+    /// <summary>Finishes the popup's attributes after the consumer's: the handover of its style at attach.</summary>
+    /// <param name="attributes">The part's attributes.</param>
+    public void FinishAttributes(AttributeList attributes) => throw new NotImplementedException();
 
     /// <summary>Determines whether the part forwards a consumer handler of the given event.</summary>
     /// <param name="eventName">The event's attribute name, such as <c>onkeydown</c>.</param>

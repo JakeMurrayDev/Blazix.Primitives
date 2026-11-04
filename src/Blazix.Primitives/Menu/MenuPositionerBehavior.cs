@@ -51,10 +51,11 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
     /// <param name="familyName">The positioner's family, such as <c>Menu</c>.</param>
     /// <param name="jsRuntime">The runtime the twins import their modules through.</param>
     /// <param name="logger">The part's logger.</param>
-    /// <param name="requestRender">Asks the part to render.</param>
+    /// <param name="requestRender">Asks the part to render, after a change of the menu's state.</param>
+    /// <param name="mirrorChanged">Tells the part that the mirrored placement changed, which renders only when its state record changed.</param>
     /// <param name="invokeAsync">Runs work on the part's renderer.</param>
     /// <param name="dispatchException">Routes an exception to the part.</param>
-    public MenuPositionerBehavior(string familyName, IJSRuntime jsRuntime, ILogger logger, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException) =>
+    public MenuPositionerBehavior(string familyName, IJSRuntime jsRuntime, ILogger logger, Action requestRender, Action mirrorChanged, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException) =>
         throw new NotImplementedException();
 
     /// <summary>Gets the root's context.</summary>
@@ -107,6 +108,10 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
     /// <summary>Adds the positioner's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
     public void AddAttributes(AttributeList attributes) => throw new NotImplementedException();
+
+    /// <summary>Finishes the positioner's attributes after the consumer's: the handover at attach.</summary>
+    /// <param name="attributes">The part's attributes.</param>
+    public void FinishAttributes(AttributeList attributes) => throw new NotImplementedException();
 
     /// <summary>Renders the internal backdrop before the positioner.</summary>
     /// <param name="builder">The part's render tree builder.</param>
