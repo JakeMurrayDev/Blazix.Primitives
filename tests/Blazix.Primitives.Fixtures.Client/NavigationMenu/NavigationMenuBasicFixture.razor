@@ -39,14 +39,15 @@
     - `fixed` keeps a controlled value where the page set it (ValueChanged ignored); `cancel`, `retain` (the base's);
       `scopedExit` gives the Popup and the Contents Base UI's scoped exit transitions (the Popup's ending style narrows its
       transition to opacity and transform, 150 ms; with the host's `animations=1`); `vetoOpenKey` gives trigger 1 a consumer `onkeydown` that calls `PreventPartHandler()` on ArrowDown and counts its
-      calls in `data-veto-calls`.
+      calls in `data-veto-calls`; `data-handles` lists each trigger's attached `navigation-menu` and `interactions` handles
+      (`trigger-2:navigation-menu`), the marker of the attach-order titles.
     With `side`, the menu sits 300 px down and 400 px in, so the requested side has room.
     The List is a row (a column when vertical, the Positioner then on the right), so the popup never covers a trigger.
     Around the menu: a `before` and an `after` button, in that order in the DOM but laid out in a row above the menu, so
     the popup never covers them either. `[data-unmount]` calls Unmount, `[data-close]` CloseAsync.
 *@
 <FixtureContainer Name="@FixtureName" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
-                  data-value-changes="@ValueChanges" data-open-change-completes="@OpenChangeCompletes" data-veto-calls="@vetoCalls">
+                  data-value-changes="@ValueChanges" data-open-change-completes="@OpenChangeCompletes" data-veto-calls="@vetoCalls" data-handles="@string.Join(' ', handles)">
     <style>
         .sized-1 { width: 400px; height: 200px; }
         .sized-2 { width: 300px; height: 150px; }
@@ -108,6 +109,7 @@
 
 @code {
     private readonly List<Task> attachments = [];
+    private readonly List<string> handles = [];
 
     /// <summary>Gets or sets the fixture's name on its container: `navigation-menu-prerender` reuses this page prerendered.</summary>
     [Parameter]
@@ -198,6 +200,13 @@
         controlledValue = null;
     }
 
+    private async Task MarkAsync(Task attached, string handle)
+    {
+        await attached;
+        handles.Add(handle);
+        await InvokeAsync(StateHasChanged);
+    }
+
     private void VetoOpenKey(KeyboardEventArgs e)
     {
         if (e.Key == "ArrowDown")
@@ -224,6 +233,9 @@
                 if (trigger is not null)
                 {
                     attachments.Add(trigger.TwinsAttached);
+                    int n = Array.IndexOf(triggers, trigger);
+                    _ = MarkAsync(trigger.ModuleAttached, $"trigger-{n}:navigation-menu");
+                    _ = MarkAsync(trigger.InteractionsAttached, $"trigger-{n}:interactions");
                 }
             }
         }

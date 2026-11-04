@@ -2016,14 +2016,25 @@ test.describe('attach order', () => {
    * Pins the order of trigger 2's two click listeners with a stalled load, then waits for the page to attach. With
    * js/interactions.js stalled, an ArrowDown open on trigger 2 marks its navigation-menu handle attached first (the open
    * key is that handle's alone, NAV-KEY-01); with js/navigation-menu.js stalled, a click open on trigger 2 marks its
-   * interactions handle attached first. Each marker is the clicked trigger's own handle.
+   * interactions handle attached first. Each marker is the clicked trigger's own handle, pressed once the fixture's
+   * `data-handles` shows that handle attached and not the stalled one.
    */
   async function pinListenerOrder(page: Page, mode: RenderMode, first: 'navigation-menu' | 'interactions', controlled: boolean): Promise<void> {
-    const stalled = await stall(page, first === 'navigation-menu' ? 'interactions' : 'navigation-menu');
+    // On Server the circuit is delayed, so the handles attach round trips after the page is interactive every time, as on
+    // the loaded runner of CI run 41815930860, where a marker press could land before the handle it marks.
+    if (mode === 'server') {
+      await delayCircuit(page, 150);
+    }
+    const stalledModule = first === 'navigation-menu' ? 'interactions' : 'navigation-menu';
+    const stalled = await stall(page, stalledModule);
     await page.goto(`${fixtureUrl(mode, FIXTURE)}${controlled ? '?value=none' : ''}`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
     await expect.poll(stalled.hits).toBeGreaterThan(0);
+    // On Server the handle attaches round trips after the page is interactive: the fixture renders it once C# has it.
+    const container = page.locator(Fixture.container(FIXTURE));
+    await expect(container).toHaveAttribute('data-handles', new RegExp(`(^| )trigger-2:${first}( |$)`));
+    expect(await container.getAttribute('data-handles')).not.toContain(`trigger-2:${stalledModule}`);
     if (first === 'navigation-menu') {
       await trigger(page, 2).focus();
       await page.keyboard.press('ArrowDown');

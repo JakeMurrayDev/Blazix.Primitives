@@ -164,6 +164,12 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
     /// <summary>Gets a task that completes once the trigger's handles have attached.</summary>
     internal Task TwinsAttached => Task.WhenAll(button!.TwinAttached, interactions!.TwinAttached, module!.Attached);
 
+    /// <summary>Gets a task that completes once the trigger's <c>navigation-menu</c> handle has attached.</summary>
+    internal Task ModuleAttached => module!.Attached;
+
+    /// <summary>Gets a task that completes once the trigger's <c>interactions</c> handle has attached.</summary>
+    internal Task InteractionsAttached => interactions!.TwinAttached;
+
     /// <summary>Gets the trigger's <c>navigation-menu</c> twin, whose reports the tests play.</summary>
     internal NavigationMenuTwin ModuleTwin => module!.Twin;
 
