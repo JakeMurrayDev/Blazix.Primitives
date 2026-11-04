@@ -94,7 +94,8 @@ public sealed class PreviewCardPopupPartsTests : IDisposable
         Assert.True(positioner.HasAttribute("data-open"));
         Assert.False(positioner.HasAttribute("hidden"));
         Assert.False(positioner.HasAttribute("data-instant"));
-        Assert.DoesNotContain("pointer-events", positioner.GetAttribute("style") ?? string.Empty, StringComparison.Ordinal);
+        // An open Positioner's one pointer-events declaration before attach is the unpositioned one (G5 of PR 168).
+        Assert.Equal(1, positioner.GetAttribute("style")!.Split("pointer-events").Length - 1);
         JsonElement options = PositioningOptions();
         Assert.Equal("bottom", options.GetProperty("side").GetString());
         Assert.Equal(5, options.GetProperty("collisionPadding").GetDouble());
