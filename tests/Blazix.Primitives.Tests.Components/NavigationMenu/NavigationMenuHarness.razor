@@ -1,0 +1,162 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The NavigationMenu tests' configurable tree, Base UI's TestNavigationMenu (NavigationMenuRoot.test.tsx:21-110) over the
+   port's parts: a Root, a List with Items of a Trigger (with an Icon) and a Content of links, an optional top-level Link,
+   and a Portal with a Positioner, a Popup, a Viewport and an optional Arrow and Backdrop. Nested adds an inline nested Root
+   (List and Viewport, no Positioner) inside the first Content. The Root's callbacks are recorded for the assertions. *@
+@if (Controlled)
+{
+    <NavigationMenuRoot TValue="string" @ref="Root" Value="@Value" ValueChanged="FollowValueChanged"
+                        OnValueChange="OnValueChangeAsync" OnOpenChangeComplete="OnComplete" Orientation="Orientation"
+                        Delay="Delay" CloseDelay="CloseDelay" data-testid="root">
+        @Body
+    </NavigationMenuRoot>
+}
+else
+{
+    <NavigationMenuRoot TValue="string" @ref="Root" DefaultValue="@DefaultValue"
+                        OnValueChange="OnValueChangeAsync" OnOpenChangeComplete="OnComplete" Orientation="Orientation"
+                        Delay="Delay" CloseDelay="CloseDelay" data-testid="root">
+        @Body
+    </NavigationMenuRoot>
+}
+
+@code {
+    private RenderFragment Body => @<text>
+    <NavigationMenuList data-testid="list">
+        @foreach (string value in Values)
+        {
+            <NavigationMenuItem Value="@value" data-testid="@("item-" + value)">
+                <NavigationMenuTrigger data-testid="@("trigger-" + value)" Disabled="@(DisabledValue == value)">
+                    @value
+                    <NavigationMenuIcon data-testid="@("icon-" + value)" />
+                </NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="@("content-" + value)" KeepMounted="KeepMountedContent">
+                    <NavigationMenuLink href="@("#" + value)" CloseOnClick="CloseOnClick" Active="@(ActiveLink == value)" data-testid="@("link-" + value)">@("Link " + value)</NavigationMenuLink>
+                    @if (Nested && value == Values[0])
+                    {
+                        <NavigationMenuRoot TValue="string" DefaultValue="@NestedDefaultValue" data-testid="nested-root" OnValueChange="OnNestedValueChangeAsync">
+                            <NavigationMenuList data-testid="nested-list">
+                                <NavigationMenuItem Value="@("nested-1")">
+                                    <NavigationMenuTrigger data-testid="nested-trigger-1">Nested 1</NavigationMenuTrigger>
+                                    <NavigationMenuContent data-testid="nested-content-1">
+                                        <NavigationMenuLink href="#nested-1" CloseOnClick="CloseOnClick" data-testid="nested-link-1">Nested link 1</NavigationMenuLink>
+                                    </NavigationMenuContent>
+                                </NavigationMenuItem>
+                            </NavigationMenuList>
+                            <NavigationMenuViewport data-testid="nested-viewport" />
+                        </NavigationMenuRoot>
+                    }
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+        }
+        @if (TopLevelLink)
+        {
+            <NavigationMenuItem TValue="string">
+                <NavigationMenuLink href="#top" data-testid="top-link">Top</NavigationMenuLink>
+            </NavigationMenuItem>
+        }
+    </NavigationMenuList>
+    <NavigationMenuPortal KeepMounted="KeepMountedPortal" data-testid="portal">
+        @if (WithBackdrop)
+        {
+            <NavigationMenuBackdrop data-testid="backdrop" />
+        }
+        <NavigationMenuPositioner data-testid="positioner">
+            <NavigationMenuPopup data-testid="popup">
+                @if (WithArrow)
+                {
+                    <NavigationMenuArrow data-testid="arrow" />
+                }
+                <NavigationMenuViewport data-testid="viewport" />
+            </NavigationMenuPopup>
+        </NavigationMenuPositioner>
+    </NavigationMenuPortal>
+</text>;
+
+    public NavigationMenuRoot<string>? Root { get; private set; }
+
+    public List<(string? Value, OpenChangeEventDetails Details)> Changes { get; } = [];
+
+    public List<(string? Value, OpenChangeEventDetails Details)> NestedChanges { get; } = [];
+
+    public List<bool> Completions { get; } = [];
+
+    [Parameter] public string[] Values { get; set; } = ["item-1", "item-2"];
+
+    [Parameter] public bool Controlled { get; set; }
+
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public bool FollowControlled { get; set; } = true;
+
+    [Parameter] public string? DefaultValue { get; set; }
+
+    [Parameter] public string? NestedDefaultValue { get; set; }
+
+    [Parameter] public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Horizontal;
+
+    [Parameter] public Duration? Delay { get; set; }
+
+    [Parameter] public Duration? CloseDelay { get; set; }
+
+    [Parameter] public string? DisabledValue { get; set; }
+
+    [Parameter] public string? ActiveLink { get; set; }
+
+    [Parameter] public bool CloseOnClick { get; set; }
+
+    [Parameter] public bool TopLevelLink { get; set; }
+
+    [Parameter] public bool KeepMountedContent { get; set; }
+
+    [Parameter] public bool KeepMountedPortal { get; set; }
+
+    [Parameter] public bool WithBackdrop { get; set; }
+
+    [Parameter] public bool WithArrow { get; set; }
+
+    [Parameter] public bool Nested { get; set; }
+
+    [Parameter] public bool Cancel { get; set; }
+
+    [Parameter] public bool PreventUnmount { get; set; }
+
+    public Task SetValueAsync(string? value)
+    {
+        Value = value;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnValueChangeAsync(ValueChangeEventArgs<string?> args)
+    {
+        OpenChangeEventDetails details = (OpenChangeEventDetails)args.Details;
+        Changes.Add((args.Value, details));
+        if (Cancel)
+        {
+            details.Cancel();
+        }
+
+        if (PreventUnmount && args.Value is null)
+        {
+            details.PreventUnmountOnClose();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnNestedValueChangeAsync(ValueChangeEventArgs<string?> args)
+    {
+        NestedChanges.Add((args.Value, (OpenChangeEventDetails)args.Details));
+        return Task.CompletedTask;
+    }
+
+    private void FollowValueChanged(string? value)
+    {
+        if (FollowControlled)
+        {
+            Value = value;
+        }
+    }
+
+    private void OnComplete(bool open) => Completions.Add(open);
+}
