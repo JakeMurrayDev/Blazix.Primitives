@@ -194,3 +194,21 @@ Members of every class follow the eleven-group order of the old port: constants,
   - *The mismatch, an always-on error.* The root's `SetParametersAsync` reads the parameter names before any assignment and throws `InvalidOperationException` at every parameter set. With `Multiple` true and a single-mode parameter supplied: "Blazix: `<Root>` received `<Parameter>` while `Multiple` is true. In multiple mode, use `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange`." With `Multiple` false and a multiple-mode parameter supplied: "Blazix: `<Root>` received `<Parameter>` while `Multiple` is false. Set `Multiple="true"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value." `<Root>` is the family's root (`SelectRoot`, `ComboboxRoot`, `AutocompleteRoot`).
   - *Items.* An item's omitted `Value` is told from `default(TValue)` by `parameters.TryGetValue<TValue>(nameof(Value), out _)` (the supplied flag; false for `<Item />`, true for `<Item Value="0" />` under `TValue="int"`).
   - *What consumers write.* A single-value list writes `@bind-Value="field"` or `Value`/`DefaultValue` and lets `TValue` be inferred. A multiple list writes `Multiple="true"` and `@bind-Values="field"` with an `IReadOnlyList<T>` field, or `Values`/`DefaultValues` with any list. A list whose root sets none of these, or only a method-group `OnValueChange`, writes `TValue="…"`. Items in another component or a `RenderFragment` field write `TValue` or their own `Value`. The permanent evidence is one L2 test that binds both triples and an item on test-only roots; the spike stays excluded from the solution.
+
+**2026-11-04, Menu's parts and shapes as built (M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); Amendments 2026-11-03 (3) and (4), chosen by the user 2026-11-03; design points 1 and 3 settled by the orchestrator 2026-11-04, the user told and able to overturn).**
+- *The parts.* Twenty-one public parts, each a thin sealed shell over an internal behaviour that takes the family name, so ContextMenu (track 7) and Menubar (track 8) compose the same behaviours under their own names:
+  - `MenuRoot<TPayload>` and `MenuSubmenuRoot`;
+  - `MenuTrigger<TPayload>`, `MenuPortal`, `MenuBackdrop`, `MenuPositioner`, `MenuPopup`, `MenuViewport`, `MenuArrow`, `MenuList`;
+  - `MenuItem`, `MenuLinkItem`, `MenuCheckboxItem`, `MenuRadioGroup<TValue>`, `MenuRadioItem<TValue>`, `MenuCheckboxItemIndicator`, `MenuRadioItemIndicator`;
+  - `MenuGroup`, `MenuGroupLabel`, `MenuSeparator`, `MenuSubmenuTrigger`.
+  - Each comes with its state record and `<Part>DataAttributes` class, plus `MenuPositionerCssVars` and `MenuViewportCssVars`.
+- *The handle.* `MenuHandle<TPayload> : PopupHandle<TPayload>`.
+- *The instant enum* (§3's companion table, the `PopoverInstantType` precedent of Amendments 2026-10-27): `MenuInstantType { Dismiss, Click, Group, TriggerChange }`, rendered as `data-instant` with Base UI's literals.
+- *Design point 1 (a), the tri-state parameters:*
+  - `MenuRoot.Modal` is `bool?`: `null` behaves as `true`, and a supplied value is observable for MNU-EDGE-02's warning.
+  - `MenuTrigger.OpenOnHover` is `bool?`: `null` is `false` outside a bar, and the bar's `HasSubmenuOpen` inside one.
+  - `MenuSubmenuRoot` has no `Modal`, as Base UI's props type omits it (`MenuSubmenuRoot.tsx:41-66`); EDGE-02 is reached through a bar's or a context menu's Root.
+- *Design point 3 (a), the highlight's details:*
+  - `MenuHighlightEventDetails : GenericEventDetails` adds `string? Label` and carries no index.
+  - `OnItemHighlighted` is an `EventCallback<MenuItemHighlightedEventArgs>`, where `MenuItemHighlightedEventArgs(string? ItemId, MenuHighlightEventDetails Details)`.
+  - `Events/HighlightEventDetails`, which carries an index, stays Combobox's; EVT §3.7 gains a dated note naming both types.
