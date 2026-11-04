@@ -1,0 +1,457 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@using Microsoft.AspNetCore.Components.Web
+@*
+    L2: SelectRoot.test.tsx's "prop: disabled", "prop: readOnly" and "prop: id" blocks, and the L2-cited title of its
+    "select inside popover" block (M5 track 9). A press is the interactions module's report, an item activation the
+    select module's, a closed or open typeahead the composite module's; the Tab and key presses themselves, the focus and
+    the popover's outside-press tree are L4 (tests/browser/select.spec.ts). Not ported here: the "scroll arrows" titles
+    (L3 geometry, L4), the other five "select inside popover" titles (L4) and "opens the popup with $name" (L4).
+*@
+
+@code {
+    [Fact(DisplayName = "sets the disabled state")]
+    [Trait("Requirement", "SEL-API-13")]
+    [Trait("Requirement", "SEL-DOM-03")]
+    [Trait("Requirement", "SEL-DOM-07")]
+    public async Task Sets_the_disabled_state()
+    {
+        int openChanges = 0;
+        bool disabled = true;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")" OnOpenChange="_ => openChanges++" Disabled="disabled">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IElement trigger = Trigger(cut);
+        Assert.True(trigger.HasAttribute("disabled"));
+        Assert.True(trigger.HasAttribute("data-disabled"));
+
+        // The Tab press that skips the trigger is the browser's: a native `disabled` button is out of the tab order (L4).
+        // The click that must not open the popup is the interactions module's report, which a disabled trigger's handle
+        // is never given a press to make.
+        Assert.DoesNotContain("\"click\":", TriggerInteractionOptions(cut), StringComparison.Ordinal);
+        Assert.Equal(0, openChanges);
+
+        // List navigation and the typeahead are the composite module's and are turned off with the root.
+        Assert.Contains("\"enabled\":false", ReferenceListOptions(), StringComparison.Ordinal);
+        Assert.DoesNotContain("\"typeahead\":", ReferenceListOptions(), StringComparison.Ordinal);
+
+        // The positive control of the absences above: enabled, the same handles carry the press, the navigation and the typeahead.
+        disabled = false;
+        await RefreshAsync(cut);
+        Assert.Contains("\"click\":", TriggerInteractionOptions(cut), StringComparison.Ordinal);
+        Assert.DoesNotContain("\"enabled\":false", ReferenceListOptions(), StringComparison.Ordinal);
+        Assert.Contains("\"typeahead\":", ReferenceListOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "updates the disabled state when the disabled prop changes")]
+    [Trait("Requirement", "SEL-API-13")]
+    public async Task Updates_the_disabled_state_when_the_disabled_prop_changes()
+    {
+        int openChanges = 0;
+        bool disabled = true;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")" OnOpenChange="_ => openChanges++" Disabled="disabled">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IElement trigger = Trigger(cut);
+        Assert.True(trigger.HasAttribute("disabled"));
+        Assert.True(trigger.HasAttribute("data-disabled"));
+        Assert.DoesNotContain("\"click\":", TriggerInteractionOptions(cut), StringComparison.Ordinal);
+        Assert.Equal(0, openChanges);
+
+        // Base UI's toggle button sets the state the tree reads.
+        disabled = !disabled;
+        await RefreshAsync(cut);
+
+        trigger = Trigger(cut);
+        Assert.False(trigger.HasAttribute("disabled"));
+        Assert.False(trigger.HasAttribute("data-disabled"));
+
+        // The Tab press that focuses the trigger is the browser's (L4); the press that opens it is the module's report,
+        // which the enabled trigger's handle makes.
+        Assert.Contains("\"click\":", TriggerInteractionOptions(cut), StringComparison.Ordinal);
+        await PressAsync(cut);
+        Assert.Equal(1, openChanges);
+    }
+
+    [Fact(DisplayName = "sets the readOnly state")]
+    [Trait("Requirement", "SEL-API-12")]
+    [Trait("Requirement", "SEL-ARIA-06")]
+    [Trait("Requirement", "SEL-DOM-03")]
+    public void Sets_the_readOnly_state()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")" ReadOnly="true">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        // The trigger stays in the tab order (the Tab press is L4): nothing but the value is locked.
+        IElement trigger = Trigger(cut);
+        Assert.Equal("true", trigger.GetAttribute("aria-readonly"));
+        Assert.True(trigger.HasAttribute("data-readonly"));
+        Assert.Equal("0", trigger.GetAttribute("tabindex"));
+        Assert.False(trigger.HasAttribute("disabled"));
+    }
+
+    [Fact(DisplayName = "opens the popup when clicked")]
+    [Trait("Requirement", "SEL-API-12")]
+    [Trait("Requirement", "SEL-DOM-23")]
+    public async Task Opens_the_popup_when_clicked()
+    {
+        int openChanges = 0;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" OnOpenChange="_ => openChanges++" ReadOnly="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        IElement listbox = cut.Find("[role=\"listbox\"]");
+        Assert.Equal("true", listbox.GetAttribute("aria-readonly"));
+        Assert.Equal(1, openChanges);
+    }
+
+    [Fact(DisplayName = "marks the listbox as readonly when rendered with Select.List")]
+    [Trait("Requirement", "SEL-API-12")]
+    [Trait("Requirement", "SEL-DOM-31")]
+    public async Task Marks_the_listbox_as_readonly_when_rendered_with_Select_List()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" ReadOnly="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectList>
+                            <SelectItem Value="@("a")">a</SelectItem>
+                        </SelectList>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        // The listbox role moves to the list, and with it `aria-readonly`.
+        IElement listbox = cut.Find("[role=\"listbox\"]");
+        Assert.Equal("true", listbox.GetAttribute("aria-readonly"));
+    }
+
+    [Fact(DisplayName = "does not commit a value when an item is clicked in a popup the user opened")]
+    [Trait("Requirement", "SEL-API-12")]
+    public async Task Does_not_commit_a_value_when_an_item_is_clicked_in_a_popup_the_user_opened()
+    {
+        int valueChanges = 0;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" OnValueChange="_ => valueChanges++" ReadOnly="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        await ClickOptionAsync(cut, "b");
+
+        Assert.Equal(0, valueChanges);
+        Assert.False(OptionNamed(cut, "b").HasAttribute("data-selected"));
+        Assert.Equal(string.Empty, cut.Find("[data-testid=\"value\"]").TextContent);
+    }
+
+    [Fact(DisplayName = "does not commit a value with Enter on a highlighted item")]
+    [Trait("Requirement", "SEL-API-12")]
+    public async Task Does_not_commit_a_value_with_Enter_on_a_highlighted_item()
+    {
+        int valueChanges = 0;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" OnValueChange="_ => valueChanges++" ReadOnly="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")" ClassValue="Mirror">a</SelectItem>
+                        <SelectItem Value="@("b")" ClassValue="Mirror">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        // ArrowDown on the focused trigger opens the popup and highlights the first item (the composite module's, L4); the
+        // popup open and the highlight reported:
+        await OpenAsync(cut);
+        await HighlightAsync(cut, 0);
+
+        // `data-highlighted` is the composite module's write; C# renders the highlight it reports as the item's state.
+        Assert.Contains(HighlightedClass, OptionNamed(cut, "a").ClassList);
+
+        // Enter on the highlighted item is the button mechanism's click on it, which the select module classifies and
+        // reports as a virtual activation (the keyboard path itself is L4).
+        await ClickOptionAsync(cut, OptionNamed(cut, "a"), pointerType: string.Empty);
+
+        Assert.Equal(0, valueChanges);
+        Assert.Equal(string.Empty, cut.Find("[data-testid=\"value\"]").TextContent);
+        Assert.False(OptionNamed(cut, "a").HasAttribute("data-selected"));
+    }
+
+    [Fact(DisplayName = "does not commit a value with typeahead on a closed trigger")]
+    [Trait("Requirement", "SEL-API-12")]
+    public async Task Does_not_commit_a_value_with_typeahead_on_a_closed_trigger()
+    {
+        int valueChanges = 0;
+        bool readOnly = true;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" OnValueChange="_ => valueChanges++" ReadOnly="readOnly">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("apple")">apple</SelectItem>
+                        <SelectItem Value="@("banana")">banana</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await cut.Find("[data-testid=\"trigger\"]").FocusAsync(new FocusEventArgs());
+
+        // The key 'b' is the composite module's typeahead on the trigger's handle; a read-only select leaves that
+        // typeahead off, so the module reports no match and nothing is committed (the key press itself is L4).
+        Assert.NotNull(ReferenceListOptions());
+        Assert.DoesNotContain("\"typeahead\":", ReferenceListOptions(), StringComparison.Ordinal);
+        Assert.Equal(0, valueChanges);
+        Assert.Equal(string.Empty, cut.Find("[data-testid=\"value\"]").TextContent);
+
+        // The positive control of that absence: the same trigger of a select that is not read-only carries the typeahead.
+        readOnly = false;
+        await RefreshAsync(cut);
+        Assert.Contains("\"typeahead\":", ReferenceListOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "moves the highlight with typeahead while the popup is open")]
+    [Trait("Requirement", "SEL-API-12")]
+    public async Task Moves_the_highlight_with_typeahead_while_the_popup_is_open()
+    {
+        int valueChanges = 0;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true" OnValueChange="_ => valueChanges++" ReadOnly="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("apple")" ClassValue="Mirror">apple</SelectItem>
+                        <SelectItem Value="@("banana")" ClassValue="Mirror">banana</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await PublishOrderAsync(cut);
+
+        // The typeahead on the open popup is the composite module's and stays on while the select is read-only (SEL-API-12:
+        // the popup can be browsed); the key 'b' and the highlight it moves are L4. The module's highlight report for the
+        // matched item is what C# renders: `data-highlighted` is the module's write, the item's state the mirror.
+        Assert.Contains("\"typeahead\":", PopupListOptions(), StringComparison.Ordinal);
+        await HighlightAsync(cut, 1);
+
+        Assert.Contains(HighlightedClass, OptionNamed(cut, "banana").ClassList);
+        Assert.DoesNotContain(HighlightedClass, OptionNamed(cut, "apple").ClassList);
+        Assert.Equal(0, valueChanges);
+        Assert.Equal(string.Empty, cut.Find("[data-testid=\"value\"]").TextContent);
+    }
+
+    [Fact(DisplayName = "sets the id on the trigger")]
+    [Trait("Requirement", "SEL-API-10")]
+    [Trait("Requirement", "SEL-DOM-09")]
+    public void Sets_the_id_on_the_trigger()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Id="test-id">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("test-id", Trigger(cut).GetAttribute("id"));
+    }
+
+    [Fact(DisplayName = "sets a hidden input id when name is not provided")]
+    [Trait("Requirement", "SEL-API-10")]
+    [Trait("Requirement", "SEL-DOM-48")]
+    public void Sets_a_hidden_input_id_when_name_is_not_provided()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Id="test-id">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        IElement hiddenInput = HiddenInput(cut);
+        Assert.Equal("test-id-hidden-input", hiddenInput.GetAttribute("id"));
+        Assert.False(hiddenInput.HasAttribute("name"));
+    }
+
+    [Fact(DisplayName = "does not set a hidden input id when name is provided")]
+    [Trait("Requirement", "SEL-DOM-48")]
+    public void Does_not_set_a_hidden_input_id_when_name_is_provided()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Id="test-id" Name="country">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        IElement hiddenInput = HiddenInput(cut);
+        Assert.Equal("country", hiddenInput.GetAttribute("name"));
+        Assert.False(hiddenInput.HasAttribute("id"));
+    }
+
+    // The popover is the enclosing floating node of the select, so its outside-press tree and the scroll lock's absence are the
+    // modules' (L4); what C# decides: a non-modal select renders no internal backdrop, hands its session to the popover's as
+    // the parent, and choosing an item closes the select alone.
+    [Fact(DisplayName = "keeps a modal popover open when choosing a non-modal aligned select item")]
+    [Trait("Requirement", "SEL-API-16")]
+    public async Task Keeps_a_modal_popover_open_when_choosing_a_non_modal_aligned_select_item()
+    {
+        int popoverOpenChanges = 0;
+        string? selected = null;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<PopoverRoot TPayload="int" DefaultOpen="true" Modal="true" OnOpenChange="_ => popoverOpenChanges++">
+            <PopoverTrigger TPayload="int">Open popover</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup data-testid="popover-popup">
+                        <SelectRoot TValue="string" Modal="false" OnValueChange="e => selected = e.Value">
+                            <SelectTrigger data-testid="select-trigger">
+                                <SelectValue>
+                                    <Placeholder>Pick one</Placeholder>
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectPortal>
+                                <SelectPositioner AlignItemWithTrigger="true">
+                                    <SelectPopup>
+                                        <SelectItem Value="@("one")">One</SelectItem>
+                                        <SelectItem Value="@("two")">Two</SelectItem>
+                                    </SelectPopup>
+                                </SelectPositioner>
+                            </SelectPortal>
+                        </SelectRoot>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>);
+
+        await OpenAsync(cut);
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+
+        // The select's session joins the popover's tree as its child (the module decides the outside press with it, L4).
+        string selectId = cut.Find("[data-testid=\"select-trigger\"]").Id!;
+        Assert.Contains("\"parentToken\":", SessionOptions(selectId), StringComparison.Ordinal);
+
+        await ClickOptionAsync(cut, "Two");
+        await CompleteTransitionAsync<string>(cut);
+
+        Assert.Equal("two", selected);
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.NotEmpty(cut.FindAll("[data-testid=\"popover-popup\"]"));
+        Assert.Equal(0, popoverOpenChanges);
+    }
+
+    // The latest options of the trigger's `interactions` handle: its attach's, or its latest update's.
+    private string TriggerInteractionOptions(IRenderedComponent<SelectHost> cut)
+    {
+        string triggerId = Trigger(cut).Id!;
+        string marker = "\"triggerId\":\"" + triggerId + "\"";
+        string options = (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal)).Arguments[1]!;
+        foreach (JSRuntimeInvocation update in InteractionsHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        return options;
+    }
+
+    // The options of the `interactions` session attach of the root whose popup id is `floatingId`.
+    private string SessionOptions(string floatingId) =>
+        (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains("\"floatingId\":\"" + floatingId + "\"", StringComparison.Ordinal)).Arguments[1]!;
+
+    // The latest options of the composite handle on the trigger (its reference role) or on the popup (its floating role).
+    private string? ReferenceListOptions() => LastCompositeOptions("\"reference\":");
+
+    private string? PopupListOptions() => LastCompositeOptions("\"floating\":");
+
+    private string? LastCompositeOptions(string marker)
+    {
+        string? options = Composite.Invocations["attach"].Select(i => i.Arguments[1] as string).LastOrDefault(json => json is not null && json.Contains(marker, StringComparison.Ordinal));
+        foreach (JSRuntimeInvocation update in CompositeHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        return options;
+    }
+
+    private const string HighlightedClass = "mirrors-highlight";
+
+    private static string? Mirror(SelectItemState state) => state.Highlighted ? HighlightedClass : null;
+
+    private static IElement OptionNamed(IRenderedComponent<SelectHost> cut, string text) =>
+        cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == text);
+
+    private static IElement HiddenInput(IRenderedComponent<SelectHost> cut) => cut.Find("input[aria-hidden=\"true\"]");
+}
