@@ -1382,6 +1382,33 @@ describe('styleWriter', () => {
     expect(element.style.getPropertyValue('transition')).toBe('transform 2s');
   });
 
+  // SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), pending the user):
+  // Select's aligned placement writes the positioner's coordinates and size over the consumer's style and every other
+  // band, as Base UI's after-render `style.*` writes do (select/popup/SelectPopup.tsx:195-387).
+  it('places the aligned band last: over the consumer, the auto-resize band and the positioning bands', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('positioning').set('top', '10px');
+    writer.layer('positioning-measured').set('--transform-origin', '0px 0px');
+    writer.layer('auto-resize').set('height', '50px');
+    writer.setConsumer('top: 20px; height: 30px; color: red');
+    writer.layer('aligned').set('top', '40px');
+    writer.layer('aligned').set('height', '60px');
+    writer.layer('aligned').set('--transform-origin', '50% 40%');
+
+    expect(element.style.getPropertyValue('top')).toBe('40px');
+    expect(element.style.getPropertyValue('height')).toBe('60px');
+    expect(element.style.getPropertyValue('--transform-origin')).toBe('50% 40%');
+    expect(element.style.getPropertyValue('color')).toBe('red');
+
+    // Clearing the band hands each property back to the next writer, the consumer first.
+    writer.layer('aligned').clear();
+    expect(element.style.getPropertyValue('top')).toBe('20px');
+    expect(element.style.getPropertyValue('height')).toBe('50px');
+    expect(element.style.getPropertyValue('--transform-origin')).toBe('0px 0px');
+  });
+
   it('writes only the properties whose winning value changed', () => {
     const { element, writes } = spiedElement();
     const writer = styleWriter(element);
