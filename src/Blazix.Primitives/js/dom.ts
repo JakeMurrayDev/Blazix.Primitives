@@ -534,12 +534,15 @@ export function observeIntersection(
 /**
  * A named layer of declarations a module writes on an element. `positioning` and `transitions` lose to the consumer's
  * style (Base UI merges the positioner styles, then `transition: none`, then the consumer's props); `positioning-measured`
- * and `auto-resize` win over it (Base UI writes those variables with `setProperty` after render). Within a band the
- * later name wins.
+ * and `auto-resize` win over it (Base UI writes those variables with `setProperty` after render), and `aligned` wins over
+ * every other band (Select's aligned placement writes the positioner's coordinates and size last). Within a band the later
+ * name wins.
  */
-export type StyleLayerName = 'positioning' | 'transitions' | 'positioning-measured' | 'auto-resize';
+export type StyleLayerName = 'positioning' | 'transitions' | 'positioning-measured' | 'auto-resize' | 'aligned';
 
-const styleLayerOrder: readonly StyleLayerName[] = ['positioning', 'transitions', 'positioning-measured', 'auto-resize'];
+// SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), pending the user): the
+// aligned band is the last.
+const styleLayerOrder: readonly StyleLayerName[] = ['positioning', 'transitions', 'positioning-measured', 'auto-resize', 'aligned'];
 const consumerRank = 2;
 
 /** One module's declarations on an element. */
@@ -597,8 +600,8 @@ export function styleWriter(element: HTMLElement): StyleWriter {
     return existing;
   }
 
-  // Index 0..1 the under layers, 2 the consumer, 3..4 the over layers; a higher rank wins.
-  const sources: Array<Map<string, Declaration>> = [new Map(), new Map(), new Map(), new Map(), new Map()];
+  // Index 0..1 the under layers, 2 the consumer, 3..5 the over layers; a higher rank wins.
+  const sources: Array<Map<string, Declaration>> = [new Map(), new Map(), new Map(), new Map(), new Map(), new Map()];
   const applied = new Map<string, string>();
 
   const apply = (properties: Iterable<string>) => {
