@@ -5189,3 +5189,132 @@ describe('readPlatformFlags', () => {
     expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
   });
 });
+
+// Menu's additions (M5 track 6; ADR 04 Amendments 2026-11-04 (3)). The hover gates: each menu session keeps
+// `hoverEnabled` and `allowMouseEnter` (MenuStore.ts:24, 42), which the popup's pointer move and click, a child menu's open
+// and close, the active trigger's move and the unmount set (MenuRoot.tsx:230, 336-339, 640-690; MenuPositioner.tsx:134-140);
+// a submenu trigger's hover and a menu popup's hover are off while `hoverEnabled` is (MenuSubmenuTrigger.tsx:177,
+// MenuPopup.tsx:123-126), and a submenu trigger with a delay opens only once `allowMouseEnter` is on (MenuSubmenuTrigger.tsx:183).
+describe('Menu', () => {
+  // A parent menu, open, with its popup; a submenu whose trigger sits in it, hover-opened.
+  function menuTree(options: { delayOpen?: number; submenuOpen?: boolean } = {}) {
+    const parent = harness({ open: true });
+    parent.attachSession();
+    const parentPopup = element('div', `${parent.token}-popup`);
+    parent.attachFloating(parentPopup, { floating: { hover: null, menu: {} } });
+    const submenu = harness({ open: options.submenuOpen === true });
+    submenu.attachSession({ session: { parentToken: parent.token } });
+    const trigger = document.createElement('div');
+    trigger.id = `${submenu.token}-trigger`;
+    parentPopup.append(trigger);
+    const hover: HoverTestOptions = { mouseOnly: true, move: true, delayClose: 0, requireHoverEnabled: true };
+    if (options.delayOpen !== undefined) {
+      Object.assign(hover, { delayOpen: options.delayOpen, restMs: options.delayOpen, requireParentMouseEnter: true });
+    }
+    submenu.attachTrigger(trigger, { trigger: { hover } });
+    const popup = element('div', `${submenu.token}-popup`);
+    submenu.attachFloating(popup, { floating: { hover: { closeDelay: 0, requireHoverEnabled: true }, menu: { disableHoverOnMove: true } } });
+    return { parent, parentPopup, submenu, trigger, popup };
+  }
+
+  function hoverOpen(target: HTMLElement): void {
+    hoverPointer(target, 'pointerenter', 'mouse');
+    hoverMouse(target, 'mouseenter');
+  }
+
+  // The open changes a harness recorded after `mark`, as [open, reason].
+  const changesSince = (popup: PopupHarness, mark: number) => popup.changes.slice(mark).map((change) => [change.open, change.details.reason]);
+
+  describe('hover gates', () => {
+    it('port: leaving a hover-opened submenu\'s trigger closes it, until a pointer move over its popup turns its hover off', () => {
+      const closing = menuTree();
+      closing.submenu.setOpen(true, 'trigger-hover', closing.trigger.id, 'mouseenter');
+      const closingMark = closing.submenu.changes.length;
+      hoverOpen(closing.trigger);
+      hoverMouse(closing.trigger, 'mouseleave');
+      expect(changesSince(closing.submenu, closingMark)).toEqual([[false, 'trigger-hover']]);
+
+      const kept = menuTree();
+      kept.submenu.setOpen(true, 'trigger-hover', kept.trigger.id, 'mouseenter');
+      const keptMark = kept.submenu.changes.length;
+      hoverOpen(kept.trigger);
+      hoverMouse(kept.popup, 'mousemove');
+      hoverMouse(kept.trigger, 'mouseleave');
+      hoverMouse(kept.popup, 'mouseleave');
+      expect(changesSince(kept.submenu, keptMark)).toEqual([]);
+    });
+
+    it('port: a click in a menu\'s popup turns its hover off, so leaving the popup does not close it', () => {
+      const closing = menuTree();
+      closing.submenu.setOpen(true, 'trigger-hover', closing.trigger.id, 'mouseenter');
+      const closingMark = closing.submenu.changes.length;
+      hoverMouse(closing.popup, 'mouseleave');
+      expect(changesSince(closing.submenu, closingMark)).toEqual([[false, 'trigger-hover']]);
+
+      const kept = menuTree();
+      kept.submenu.setOpen(true, 'trigger-hover', kept.trigger.id, 'mouseenter');
+      const keptMark = kept.submenu.changes.length;
+      hoverMouse(kept.popup, 'click');
+      hoverMouse(kept.popup, 'mouseleave');
+      expect(changesSince(kept.submenu, keptMark)).toEqual([]);
+    });
+
+    it('port: a child menu opening turns its parent\'s hover off, and the parent\'s close turns it back on', () => {
+      const tree = menuTree();
+      tree.submenu.setOpen(true, 'trigger-hover', tree.trigger.id, 'mouseenter');
+      const child = harness();
+      child.attachSession({ session: { parentToken: tree.submenu.token } });
+      child.attachFloating(element('div'), { floating: { hover: null, menu: {} } });
+
+      child.setOpen(true, 'trigger-press');
+      const openMark = tree.submenu.changes.length;
+      hoverOpen(tree.trigger);
+      hoverMouse(tree.trigger, 'mouseleave');
+      expect(changesSince(tree.submenu, openMark)).toEqual([]);
+
+      tree.submenu.setOpen(false, 'sibling-open');
+      tree.submenu.setOpen(true, 'trigger-hover', tree.trigger.id, 'mouseenter');
+      const reopenMark = tree.submenu.changes.length;
+      hoverOpen(tree.trigger);
+      hoverMouse(tree.trigger, 'mouseleave');
+      expect(changesSince(tree.submenu, reopenMark)).toEqual([[false, 'trigger-hover']]);
+    });
+
+    it('port: a submenu trigger with a delay opens on hover only after a pointer move over its parent\'s popup', async () => {
+      vi.useFakeTimers();
+      const tree = menuTree({ delayOpen: 100 });
+
+      hoverOpen(tree.trigger);
+      await vi.advanceTimersByTimeAsync(150);
+      expect(changesSince(tree.submenu, 0)).toEqual([]);
+
+      hoverMouse(tree.trigger, 'mouseleave');
+      hoverMouse(tree.parentPopup, 'mousemove');
+      hoverOpen(tree.trigger);
+      await vi.advanceTimersByTimeAsync(150);
+      expect(changesSince(tree.submenu, 0)).toEqual([[true, 'trigger-hover']]);
+    });
+
+    it('port: a pointer move over the active trigger counts as a move over the menu, and the menu\'s unmount forgets it', async () => {
+      vi.useFakeTimers();
+      const tree = menuTree({ delayOpen: 100 });
+      const rootTrigger = element('button', `${tree.parent.token}-trigger`);
+      tree.parent.attachTrigger(rootTrigger, { trigger: { menu: { trackMouseEnter: true } } });
+      tree.parent.setReference(rootTrigger);
+      tree.parent.updateSession({ session: { mounted: true } });
+
+      hoverMouse(rootTrigger, 'mousemove');
+      hoverOpen(tree.trigger);
+      await vi.advanceTimersByTimeAsync(150);
+      expect(changesSince(tree.submenu, 0)).toEqual([[true, 'trigger-hover']]);
+
+      tree.submenu.setOpen(false, 'trigger-hover');
+      const mark = tree.submenu.changes.length;
+      tree.parent.updateSession({ session: { mounted: false } });
+      hoverMouse(tree.trigger, 'mouseleave');
+      hoverOpen(tree.trigger);
+      await vi.advanceTimersByTimeAsync(150);
+      expect(changesSince(tree.submenu, mark)).toEqual([]);
+    });
+  });
+});
