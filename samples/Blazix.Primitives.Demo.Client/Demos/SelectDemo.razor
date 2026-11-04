@@ -1,0 +1,128 @@
+<DemoFrame Slug="select" Note="Press the trigger to place the list over it, the selected apple's text over the value, or open it with the arrow keys and type to jump to an item. A press, Enter or Space selects and closes; Escape or a press outside closes without selecting.">
+    <Hero>
+        <div class="flex flex-col items-start gap-1">
+            <SelectRoot TValue="string" Items="s_apples">
+                <SelectLabel class="cursor-default text-sm font-bold text-neutral-950 dark:text-white">Apple</SelectLabel>
+                <SelectTrigger class="@TriggerClass">
+                    <SelectValue class="data-placeholder:text-neutral-500 dark:data-placeholder:text-neutral-400">
+                        <Placeholder>Select apple</Placeholder>
+                    </SelectValue>
+                    <SelectIcon>@CaretUpDownIcon</SelectIcon>
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner class="outline-hidden select-none z-10" SideOffset="4">
+                        <SelectPopup class="@PopupClass">
+                            <SelectScrollUpArrow class="@ScrollUpArrowClass">@CaretUpIcon</SelectScrollUpArrow>
+                            <SelectList class="relative py-1 scroll-py-6 overflow-y-auto max-h-[var(--available-height)]">
+                                @foreach (LabeledValue<string> apple in s_apples)
+                                {
+                                    <SelectItem @key="apple.Label" Value="@apple.Value" class="@ItemClass">
+                                        <SelectItemIndicator class="col-start-1">@CheckIcon</SelectItemIndicator>
+                                        <SelectItemText class="col-start-2">@apple.Label</SelectItemText>
+                                    </SelectItem>
+                                }
+                            </SelectList>
+                            <SelectScrollDownArrow class="@ScrollDownArrowClass">@CaretDownIcon</SelectScrollDownArrow>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <SelectRoot TValue="string" Items="s_apples" Multiple="true" DefaultValues="s_twoApples">
+                <SelectTrigger class="@TriggerClass">
+                    <SelectValue class="data-placeholder:text-neutral-500 dark:data-placeholder:text-neutral-400">
+                        <Placeholder>Select apples</Placeholder>
+                    </SelectValue>
+                    <SelectIcon>@CaretUpDownIcon</SelectIcon>
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner class="outline-hidden select-none z-10" SideOffset="4" AlignItemWithTrigger="false">
+                        <SelectPopup class="@PopupClass">
+                            <SelectList class="relative py-1 overflow-y-auto max-h-[var(--available-height)]">
+                                @foreach (LabeledValue<string> apple in s_apples)
+                                {
+                                    <SelectItem @key="apple.Label" Value="@apple.Value" class="@ItemClass">
+                                        <SelectItemIndicator class="col-start-1">@CheckIcon</SelectItemIndicator>
+                                        <SelectItemText class="col-start-2">@apple.Label</SelectItemText>
+                                    </SelectItem>
+                                }
+                            </SelectList>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <span class="VariantName">Multiple="true" and AlignItemWithTrigger="false": the list opens below the trigger and stays open while items are toggled</span>
+        </div>
+        <div class="Variant">
+            <SelectRoot TValue="string" ItemGroups="s_produce" DefaultValue="@("carrot")">
+                <SelectTrigger class="@TriggerClass">
+                    <SelectValue />
+                    <SelectIcon>@CaretUpDownIcon</SelectIcon>
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner class="outline-hidden select-none z-10" SideOffset="4">
+                        <SelectPopup class="@PopupClass">
+                            <SelectList class="relative py-1 overflow-y-auto max-h-[var(--available-height)]">
+                                @foreach (LabeledValueGroup<string> group in s_produce)
+                                {
+                                    <SelectGroup @key="group.Label">
+                                        <SelectGroupLabel class="px-2.5 py-1 text-xs font-bold text-neutral-500 dark:text-neutral-400">@group.Label</SelectGroupLabel>
+                                        @foreach (LabeledValue<string> item in group.Items)
+                                        {
+                                            <SelectItem @key="item.Label" Value="@item.Value" Disabled="@(item.Value == "kale")" class="@ItemClass">
+                                                <SelectItemIndicator class="col-start-1">@CheckIcon</SelectItemIndicator>
+                                                <SelectItemText class="col-start-2">@item.Label</SelectItemText>
+                                            </SelectItem>
+                                        }
+                                    </SelectGroup>
+                                    <SelectSeparator class="my-1 h-px bg-neutral-200 last:hidden dark:bg-neutral-800" />
+                                }
+                            </SelectList>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <span class="VariantName">Groups with labels and a separator, and a disabled item (Kale) the keyboard skips</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string TriggerClass = "flex h-8 min-w-40 items-center justify-between gap-3 pl-2 pr-1 text-sm leading-none whitespace-nowrap border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 text-neutral-950 dark:text-white select-none hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:bg-neutral-200 dark:active:not-data-disabled:bg-neutral-700 data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400 data-pressed:bg-neutral-100 dark:data-pressed:bg-neutral-800 font-normal focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string PopupClass = "group min-w-[var(--anchor-width)] origin-[var(--transform-origin)] bg-clip-padding border border-neutral-950 bg-white text-neutral-950 outline-hidden shadow-[0.25rem_0.25rem_0] shadow-black/12 transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-[side=none]:translate-y-px data-[side=none]:min-w-[calc(var(--anchor-width)+1.75rem)] data-[side=none]:data-ending-style:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 data-[side=none]:data-starting-style:scale-100 data-[side=none]:data-starting-style:opacity-100 data-[side=none]:data-starting-style:transition-none dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+    private const string ScrollUpArrowClass = "top-0 z-[1] flex h-4 w-full cursor-default items-center justify-center bg-white text-center text-xs before:absolute data-[side=none]:before:top-[-100%] before:left-0 before:h-full before:w-full before:content-[''] dark:bg-neutral-950";
+    private const string ScrollDownArrowClass = "bottom-0 z-[1] flex h-4 w-full cursor-default items-center justify-center bg-white text-center text-xs before:absolute before:left-0 before:h-full before:w-full before:content-[''] data-[side=none]:before:bottom-[-100%] dark:bg-neutral-950";
+    private const string ItemClass = "grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 py-1.5 pr-4 pl-2.5 text-sm outline-hidden select-none data-highlighted:bg-neutral-950 data-highlighted:text-white data-disabled:text-neutral-400 dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950";
+
+    private static readonly LabeledValue<string>[] s_apples =
+    [
+        new("gala", "Gala"),
+        new("fuji", "Fuji"),
+        new("honeycrisp", "Honeycrisp"),
+        new("granny-smith", "Granny Smith"),
+        new("pink-lady", "Pink Lady"),
+    ];
+
+    private static readonly string[] s_twoApples = ["fuji", "pink-lady"];
+
+    private static readonly LabeledValueGroup<string>[] s_produce =
+    [
+        new("Fruits", [new("apple", "Apple"), new("banana", "Banana"), new("cherry", "Cherry")]),
+        new("Vegetables", [new("carrot", "Carrot"), new("kale", "Kale"), new("leek", "Leek")]),
+    ];
+
+    private static readonly RenderFragment CaretUpDownIcon =
+        @<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display: block"><path d="M11 10H5l3 3.5zm0-4H5l3-3.5z" /></svg>;
+
+    private static readonly RenderFragment CheckIcon =
+        @<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" style="display: block"><path d="m2.5 8.5 4 4 7-9" /></svg>;
+
+    private static readonly RenderFragment CaretUpIcon =
+        @<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display: block"><path d="M12 10H4l4-4.5z" /></svg>;
+
+    private static readonly RenderFragment CaretDownIcon =
+        @<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display: block"><path d="M12 6H4l4 4.5z" /></svg>;
+}
