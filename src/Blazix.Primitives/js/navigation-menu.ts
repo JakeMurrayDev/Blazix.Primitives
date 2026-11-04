@@ -254,29 +254,36 @@ interface TriggerGuards {
   after: HTMLElement | null;
 }
 
-/** The Root's shared state and the parts registered with it (NAV-STA-08). */
+// NAV-STA-08.
+/** The Root's shared state and the parts registered with it. */
 interface Menu {
   readonly root: HTMLElement;
   options: NavigationMenuOptions;
   readonly triggers: Set<TriggerController>;
-  /** The handles that run first in every pass: the Arrows (NAV-ANI-15) and the Contents (their exiting style). */
+  // NAV-ANI-15 (the Arrows).
+  /** The handles that run first in every pass: the Arrows and the Contents (their exiting style). */
   readonly followers: Set<() => void>;
   popup: HTMLElement | null;
   positioner: HTMLElement | null;
   viewport: HTMLElement | null;
   target: HTMLElement | null;
   viewportGuards: TriggerGuards;
-  /** The last size the Popup's resize observer recorded (NAV-ANI-11). */
+  // NAV-ANI-11.
+  /** The last size the Popup's resize observer recorded. */
   prevSize: Dimensions;
-  /** The pending auto-size reset and the trigger that owns it (NAV-ANI-05). */
+  // NAV-ANI-05.
+  /** The pending auto-size reset and the trigger that owns it. */
   readonly autoSizeReset: AutoSizeReset;
-  /** The previous active trigger element (NAV-STA-07). */
+  // NAV-STA-07.
+  /** The previous active trigger element. */
   prevTrigger: HTMLElement | null;
   /** The Popup that was mounted while the popup last closed, for focus return. */
   closingPopup: HTMLElement | null;
-  /** The close reason seen while mounted, for focus return (NAV-STA-15). */
+  // NAV-STA-15.
+  /** The close reason seen while mounted, for focus return. */
   closeReason: string | null;
-  /** Whether a `focus-out` report is in flight: sent and not yet answered (ADR 04 Amendments 2026-10-28, 2026-10-29). */
+  // ADR 04 Amendments 2026-10-28, 2026-10-29.
+  /** Whether a `focus-out` report is in flight: sent and not yet answered. */
   closeInFlight: boolean;
   /** Whether the inline Viewport reported `viewportInert` set and no clear has followed. */
   inertReported: boolean;

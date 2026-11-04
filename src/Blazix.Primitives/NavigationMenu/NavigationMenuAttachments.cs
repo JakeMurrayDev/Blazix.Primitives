@@ -163,7 +163,8 @@ internal sealed class NavigationMenuTransitions : IAsyncDisposable
         }
     }
 
-    /// <summary>Announces a change of the retained close ahead of its render (issue 147 (B1)).</summary>
+    // Issue 147 (B1).
+    /// <summary>Announces a change of the retained close ahead of its render.</summary>
     /// <param name="element">The part's element, or <see langword="null"/> while it has none.</param>
     /// <param name="retain">Whether the close is retained.</param>
     public void AnnounceRetainExit(ElementReference? element, bool retain)
