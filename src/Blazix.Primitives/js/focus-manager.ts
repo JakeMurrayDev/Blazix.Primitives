@@ -1521,8 +1521,12 @@ export function attach(
       }
 
       const referenceReturnElement = reference?.isConnected ? reference : null;
+      // F1 (settled by the orchestrator 2026-11-04): an element inside the popup counts as not connected. Base UI records
+      // it before anything inside can hold focus; the port's handle can attach after another module moved focus in.
       const previousReturnElement =
-        elementFocusedBeforeOpen?.isConnected && getNodeName(elementFocusedBeforeOpen) !== 'body'
+        elementFocusedBeforeOpen?.isConnected &&
+        getNodeName(elementFocusedBeforeOpen) !== 'body' &&
+        !contains(floating, elementFocusedBeforeOpen)
           ? elementFocusedBeforeOpen
           : null;
 
