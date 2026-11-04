@@ -949,7 +949,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     hoveredLineRef(record).current = undefined;
   }
   record.mounted = mounted;
-  // G4 of M5 track 5 (settled by the orchestrator 2026-11-04): a press still pending when another commit arrives.
+  // G4 of M5 track 5 (settled by the orchestrator 2026-11-04): a press still pending when the open it raced commits.
   let laterPress: PendingRequest | null = null;
   if (relay !== null && relay.revision !== record.lastRevision) {
     record.closeInFlight = null;
@@ -963,8 +963,9 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     }
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
+      // Only the open's commit the press raced: a press made while the session held the open is never kept.
       const optimistic = record.optimisticOpenEvent;
-      if (optimistic !== null && record.pending === optimistic.request && event !== optimistic.request.event) {
+      if (open && !record.open && optimistic !== null && record.pending === optimistic.request && event !== optimistic.request.event) {
         laterPress = optimistic.request;
       }
       record.pending = null;
