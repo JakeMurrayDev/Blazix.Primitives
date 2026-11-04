@@ -1,0 +1,126 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The Combobox tests' tree over string values: a Root given only the parameters a test supplies (`RootParameters`, splatted, so
+   controlled and uncontrolled are told apart as Blazor tells them), an Input, a Portal > Positioner > Popup with an optional
+   Empty, and a List that renders the root's Items through ItemContent, or `StaticItems` as direct children. The value, values,
+   input value and open changes are recorded with their reasons. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="Parameters">
+    @if (WithInput && !InputInsidePopup)
+    {
+        <ComboboxInput data-testid="input" />
+    }
+    @Extra
+    <ComboboxPortal KeepMounted="KeepMounted">
+        <ComboboxPositioner>
+            <ComboboxPopup data-testid="popup">
+                @if (WithInput && InputInsidePopup)
+                {
+                    <ComboboxInput data-testid="input" />
+                }
+                @if (WithEmpty)
+                {
+                    <ComboboxEmpty data-testid="empty">No items.</ComboboxEmpty>
+                }
+                @if (StaticItems is { } items)
+                {
+                    <ComboboxList TValue="string" data-testid="list">
+                        @foreach (string item in items)
+                        {
+                            <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@item</ComboboxItem>
+                        }
+                    </ComboboxList>
+                }
+                else
+                {
+                    <ComboboxList TValue="string" data-testid="list">
+                        <ItemContent>
+                            <ComboboxItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value</ComboboxItem>
+                        </ItemContent>
+                    </ComboboxList>
+                }
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<string>? StaticItems { get; set; }
+
+    [Parameter]
+    public bool WithInput { get; set; } = true;
+
+    [Parameter]
+    public bool InputInsidePopup { get; set; }
+
+    [Parameter]
+    public bool WithEmpty { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public RenderFragment? Extra { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    public List<(string? Value, EventReason Reason)> ValueChanges { get; } = [];
+
+    public List<(IReadOnlyList<string> Values, EventReason Reason)> ValuesChanges { get; } = [];
+
+    public List<(string Text, EventReason Reason, bool? IsItemPress)> InputChanges { get; } = [];
+
+    public List<(bool Open, EventReason Reason)> OpenChanges { get; } = [];
+
+    /// <summary>Gets or sets a step run inside OnValueChange, to cancel or record more.</summary>
+    public Action<ValueChangeEventArgs<string>>? OnValue { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnInputValueChange.</summary>
+    public Action<ValueChangeEventArgs<string>>? OnInput { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnOpenChange.</summary>
+    public Action<ValueChangeEventArgs<bool>>? OnOpen { get; set; }
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new(RootParameters);
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnInputValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordInput));
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnOpenChange), EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpen));
+            bool multiple = parameters.TryGetValue(nameof(ComboboxRoot<string>.Multiple), out object? flag) && flag is true;
+            if (multiple)
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<string>.OnValuesChange), EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, RecordValues));
+            }
+            else
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<string>.OnValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValue));
+            }
+
+            return parameters;
+        }
+    }
+
+    private void RecordValue(ValueChangeEventArgs<string> args)
+    {
+        ValueChanges.Add((args.Value, args.Details.Reason));
+        OnValue?.Invoke(args);
+    }
+
+    private void RecordValues(ValueChangeEventArgs<IReadOnlyList<string>> args) => ValuesChanges.Add((args.Value, args.Details.Reason));
+
+    private void RecordInput(ValueChangeEventArgs<string> args)
+    {
+        InputChanges.Add((args.Value, args.Details.Reason, (args.Details as ComboboxChangeEventDetails)?.IsItemPress));
+        OnInput?.Invoke(args);
+    }
+
+    private void RecordOpen(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add((args.Value, args.Details.Reason));
+        OnOpen?.Invoke(args);
+    }
+}
