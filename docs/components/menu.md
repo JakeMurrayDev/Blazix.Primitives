@@ -393,9 +393,13 @@ Source: `menu/viewport/MenuViewport.tsx:34-38,48-61`.
 
 | Attribute / variable | Where | Req | Writer |
 |---|---|---|---|
-| `data-activation-direction`, `data-transitioning`, `data-instant` | Viewport element | MNU-DOM-12 | C# |
-| `data-current`, `data-previous` | child containers | MNU-DOM-12 | C# |
-| `--popup-width`, `--popup-height` | `data-previous` container | MNU-DOM-12 | C# |
+| `data-activation-direction`, `data-transitioning` | Viewport element | MNU-DOM-12 | JS |
+| `data-instant` | Viewport element | MNU-DOM-12 | C# |
+| `data-current` | child container | MNU-DOM-12 | C# |
+| `data-previous` | child container (the outgoing content's clone) | MNU-DOM-12 | JS |
+| `--popup-width`, `--popup-height` | `data-previous` container | MNU-DOM-12 | JS |
+
+Writer note (2026-11-04, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); ADR 04 Amendments 2026-10-27, chosen by the user 2026-10-27): the Viewport is Popover's over the menu's store (`MenuViewport`). C# renders `[data-current]` and `data-instant`; the `popup` module writes the `[data-previous]` clone and its size variables, the direction and `data-transitioning`, mirrored in `MenuViewportState`. The cells above read C# before this note.
 
 ### 3.8 `Menu.Arrow`
 
@@ -461,9 +465,11 @@ Source: `menu/item/MenuItem.tsx:50-53,81-90`.
 
 | Attribute | Present when / value | Req | Writer |
 |---|---|---|---|
-| `data-highlighted` | highlighted | MNU-DOM-13 | C# |
+| `data-highlighted` | highlighted | MNU-DOM-13 | C# → JS |
 | `data-disabled` | disabled | MNU-DOM-13 | C# |
-| `tabindex` | `0` when open, highlighted and not virtual focus; otherwise `-1` | MNU-DOM-14 | C# |
+| `tabindex` | `0` when open, highlighted and not virtual focus; otherwise `-1` | MNU-DOM-14 | C# → JS |
+
+Writer note (2026-11-04, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); ADR 04 Amendments 2026-11-03 (2), chosen by the user 2026-11-03): `data-highlighted` and `tabindex` are written by the list handle of `composite` from attach, in the same task as the focus move; C# renders the initial values and mirrors the highlight in the part's `Highlighted` state field (ADR 01's RND-STA-01 row). The `data-highlighted` and `tabindex` cells of this section and of §3.10, §3.11, §3.15 and §3.20 read C# before this note.
 
 ### 3.10 `Menu.LinkItem`
 
@@ -480,6 +486,13 @@ Source: `menu/item/MenuItem.tsx:50-53,81-90`.
   Source: `menu/link-item/MenuLinkItem.tsx:41-44,97-116`. Test: [L4] `MenuLinkItem.test.tsx` "react-router <Link> activates with Enter and Space", "does not navigate when Space is pressed during an active typeahead session"; `MenuLinkItem.spec.tsx`.
 
 State object (`Menu.LinkItem.State`): `{ highlighted: boolean }`. Source: `menu/link-item/MenuLinkItem.tsx:61,90-95`. Data attributes: `data-highlighted` (MNU-DOM-15); `tabindex` per MNU-DOM-14.
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-highlighted` | highlighted | MNU-DOM-15 | C# → JS |
+| `tabindex` | per MNU-DOM-14 | MNU-DOM-14 | C# → JS |
+
+Writer note (2026-11-04, M5 track 6): the table is added for the Writer column; its writers are §3.9's note.
 
 ### 3.11 `Menu.CheckboxItem`
 
@@ -517,7 +530,9 @@ Source: `menu/checkbox-item/MenuCheckboxItem.tsx:59-67,143-156`.
 | Attribute | Present when / value | Req | Writer |
 |---|---|---|---|
 | `data-checked` / `data-unchecked` | checked / not checked (exactly one is present) | MNU-DOM-16 | C# |
-| `data-disabled`, `data-highlighted` | | MNU-DOM-16 | C# |
+| `data-disabled` | | MNU-DOM-16 | C# |
+| `data-highlighted` | | MNU-DOM-16 | C# → JS |
+| `tabindex` | per MNU-DOM-14 | MNU-DOM-14 | C# → JS |
 
 ### 3.12 `Menu.CheckboxItemIndicator` and 3.13 `Menu.RadioItemIndicator`
 
@@ -585,6 +600,15 @@ State object (`Menu.RadioGroup.State`): `{ disabled: boolean }` (default project
   Source: `menu/radio-item/MenuRadioItem.tsx:29,72-78,135-139`. Test: [L2] `MenuRadioItem.test.tsx` "calls `onValueChange` when the item is clicked" (`value={1}` → `1`).
 
 State object (`Menu.RadioItem.State`): `{ disabled, highlighted, checked }` as CheckboxItem. Source: `menu/radio-item/MenuRadioItem.tsx:63-70,118-131`. Data attributes: as CheckboxItem (MNU-DOM-16).
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-checked` / `data-unchecked` | checked / not checked (exactly one is present) | MNU-DOM-16 | C# |
+| `data-disabled` | | MNU-DOM-16 | C# |
+| `data-highlighted` | | MNU-DOM-16 | C# → JS |
+| `tabindex` | per MNU-DOM-14 | MNU-DOM-14 | C# → JS |
+
+Writer note (2026-11-04, M5 track 6): the table is added for the Writer column; its writers are §3.9's note.
 
 ### 3.16 `Menu.Group` and 3.17 `Menu.GroupLabel`
 
@@ -656,8 +680,9 @@ Source: `menu/submenu-trigger/MenuSubmenuTrigger.tsx:210,291-304`.
 | Attribute | Present when / value | Req | Writer |
 |---|---|---|---|
 | `data-popup-open` | submenu open | MNU-DOM-18 | C# |
-| `data-highlighted`, `data-disabled` | | MNU-DOM-18 | C# |
-| `tabindex` | `0` when (open or highlighted) and the parent is not virtual-focus; otherwise `-1` | MNU-DOM-18 | C# |
+| `data-highlighted` | | MNU-DOM-18 | C# → JS |
+| `data-disabled` | | MNU-DOM-18 | C# |
+| `tabindex` | `0` when (open or highlighted) and the parent is not virtual-focus; otherwise `-1` | MNU-DOM-18 | C# → JS |
 
 ### 3.21 `Menu.FilterProvider` (Preview)
 
