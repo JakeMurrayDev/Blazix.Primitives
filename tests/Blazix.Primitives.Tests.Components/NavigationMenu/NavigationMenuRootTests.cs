@@ -714,6 +714,47 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.NotEqual(elements[0], elements[1]);
     }
 
+    // The Content's transitions handle follows its element the same way (NAV-STA-12's data-starting-style and
+    // data-ending-style on the new element).
+    [Fact(DisplayName = "port: a Content that mounts again attaches its transitions handle to its new element")]
+    [Trait("Requirement", "NAV-STA-12")]
+    [Trait("Requirement", "NAV-DOM-15")]
+    public async Task A_content_that_mounts_again_attaches_its_transitions_handle_to_its_new_element()
+    {
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        transitions.SetupModule("attach", _ => true);
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render();
+        await test.PressAsync(cut, "trigger-item-1", open: true);
+        string first = ContentElementId(cut, "content-item-1");
+        await test.SessionRequestAsync(cut, open: false, "escape-key");
+        await NavigationMenuTestContext.CompleteExitAsync(cut);
+
+        await test.PressAsync(cut, "trigger-item-1", open: true);
+
+        string second = ContentElementId(cut, "content-item-1");
+        Assert.NotEqual(first, second);
+        string[] attached = transitions.Invocations["attach"].Select(attach => ((ElementReference)attach.Arguments[0]!).Id).ToArray();
+        Assert.Contains(first, attached);
+        Assert.Contains(second, attached);
+    }
+
+    [Fact(DisplayName = "port: a transitions handle whose element left before its attach arrived drops that attach and attaches the next element")]
+    [Trait("Requirement", "NAV-STA-12")]
+    public async Task A_transitions_handle_whose_element_left_before_its_attach_drops_it()
+    {
+        RefusingFirstAttachRuntime runtime = new();
+        NavigationMenuTransitions transitions = new(runtime);
+        static TransitionsOptions Options() => new() { Open = true, Mounted = true };
+
+        await transitions.SyncAsync(new ElementReference("content-first"), Options);
+        Assert.False(transitions.Attached.IsCompleted);
+
+        await transitions.SyncAsync(new ElementReference("content-second"), Options);
+
+        Assert.True(transitions.Attached.IsCompletedSuccessfully);
+        Assert.Equal(["content-first", "content-second"], runtime.Attached);
+    }
+
     // The attach of a Content that closed while its module loaded arrives after its element left (FocusManagerBehavior's and
     // CollapsiblePanelBehavior's precedent): the attach is dropped, so no exception reaches OnAfterRenderAsync (on Server one
     // ends the circuit), and the next element attaches.
@@ -988,6 +1029,11 @@ public sealed class NavigationMenuRootTests : IDisposable
         }));
         builder.CloseComponent();
     }
+
+    private static string ContentElementId(IRenderedComponent<NavigationMenuHarness> cut, string testId) =>
+        cut.FindComponents<NavigationMenuContent>()
+            .Single(content => (string?)content.Instance.AdditionalAttributes?["data-testid"] == testId)
+            .Instance.Element!.Value.Id;
 
     private JSRuntimeInvocation[] ContentAttaches() =>
         test.NavigationMenu.Invocations["attach"]
