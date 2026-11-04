@@ -71,6 +71,9 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
     private StoreSelection<NavigationMenuStoreState, bool>? open;
     private NavigationMenuRootState? state;
     private RenderFragment? cascadedContent;
+    private OpenChangeEventDetails? controlledRelay;
+    private TValue? controlledRelayValue;
+    private bool applyingParameters;
     private bool rendered;
     private bool disposed;
 
@@ -240,14 +243,24 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
         store.OnOpenChangeComplete = OnOpenChangeComplete;
 
         // NAV-STA-01, NAV-EVT-11: a controlled value is applied as it arrives, with no callback, no close reason, no opt-out;
-        // the lifecycle's open follows it.
+        // the lifecycle's open follows it. The session hears the open state and its relay together, from the render that
+        // follows: a relay after the open state could no longer record a hover open event.
         bool wasActiveValue = context.Value is not null;
         context.SetValue(valueState!.Value);
-        store.ApplyOpenParameters(valueState.IsControlled ? valueState.Value is not null : null, DefaultValue is not null);
-        if (wasActiveValue != (context.Value is not null))
+        applyingParameters = true;
+        try
         {
-            // NavigationMenuRoot.tsx:198-200: viewportInert resets on every value change.
-            store.SetViewportInert(false);
+            store.ApplyOpenParameters(valueState.IsControlled ? valueState.Value is not null : null, DefaultValue is not null);
+            if (wasActiveValue != (context.Value is not null))
+            {
+                // NavigationMenuRoot.tsx:198-200: viewportInert resets on every value change.
+                store.SetViewportInert(false);
+                RelayControlledChange();
+            }
+        }
+        finally
+        {
+            applyingParameters = false;
         }
 
         session!.ParentToken = FloatingParent?.SessionToken;
@@ -356,6 +369,15 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
 
         if (changed)
         {
+            // A controlled open change is relayed with the value parameter the page sets, so the session applies its open
+            // event with the open state (Base UI's openEvent, set by the request whether or not the root is controlled).
+            bool relayWithParameter = valueState.IsControlled && (current is null || next is null);
+            if (relayWithParameter)
+            {
+                controlledRelay = details;
+                controlledRelayValue = next;
+            }
+
             if (closing && valueState.IsControlled)
             {
                 // NAV-STA-05: recorded before the page answers, so the value parameter's close, inside the commit when the
@@ -364,10 +386,10 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
             }
 
             await valueState.CommitAsync(next, ValueChanged);
-            if (!valueState.IsControlled || current is not null && next is not null)
+            if (!relayWithParameter)
             {
                 // The lifecycle's commit: an open change, or a switch between two open values, relayed as a revision (design
-                // point 2); a controlled open change follows the parameter that the consumer sets.
+                // point 2).
                 store.CommitOpenChange(!closing, details);
             }
 
@@ -382,6 +404,25 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
         }
 
         return true;
+    }
+
+    // The value parameter brought a controlled open change: the request that asked for this value relays it, a parameter no
+    // request asked for relays nothing, and the change consumes the request either way.
+    private void RelayControlledChange()
+    {
+        OpenChangeEventDetails? details = controlledRelay;
+        if (details is null)
+        {
+            return;
+        }
+
+        bool requested = Equality.StrictEquals(valueState!.Value, controlledRelayValue);
+        controlledRelay = null;
+        controlledRelayValue = default;
+        if (requested)
+        {
+            behavior.Store.CommitOpenChange(valueState.Value is not null, details);
+        }
     }
 
     // A request the lifecycle itself starts (its CloseAsync): only a close has a value to request.
@@ -399,7 +440,7 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
 
     private void OnCommitted()
     {
-        if (rendered && !disposed)
+        if (rendered && !disposed && !applyingParameters)
         {
             CopySessionInputs();
             _ = session!.AfterRenderAsync();
