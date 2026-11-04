@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   acquireSession,
+  armMenuRelease,
   attach,
   createEventEmitter,
   getNodeAncestors,
@@ -5398,6 +5399,132 @@ describe('Menu', () => {
       const reopenedMark = tree.submenu.changes.length;
       hoverMouse(tree.sibling, 'mousemove');
       expect(changesSince(tree.submenu, reopenedMark)).toEqual([[false, 'sibling-open']]);
+    });
+  });
+
+  // Release activation (MNU-PTR-02..04, MNU-DIS-07; MenuTrigger.tsx:121-171, 240-256; useMenuItemCommonProps.ts:107-145) in
+  // the tree's slot (design point 2 (a)): a press on a closed menu's trigger arms the tree's release after 200 ms and
+  // listens for the release once; a release over an item of the tree then clicks it (`detail: 1`, `pointerType: mouse`),
+  // a release outside the trigger, its bounds and the tree cancels the open, and so does one after the trigger's hover
+  // open. A context menu sets its rules through `armMenuRelease` (track 7).
+  function releaseTree() {
+    const menu = harness();
+    menu.attachSession();
+    const trigger = element('button', `${menu.token}-trigger`);
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(hoverRect(0, 0, 50, 20));
+    menu.attachTrigger(trigger, { trigger: { menu: { rootId: 'root', release: true, trackMouseEnter: true } } });
+    menu.setReference(trigger);
+    const positioner = element('div');
+    const popup = document.createElement('div');
+    popup.setAttribute('data-rootownerid', 'root');
+    positioner.append(popup);
+    const item = (id: string, submenuTrigger = false) => {
+      const created = document.createElement('div');
+      created.id = `${menu.token}-${id}`;
+      created.setAttribute('role', 'menuitem');
+      if (submenuTrigger) {
+        created.setAttribute('aria-haspopup', 'menu');
+      }
+      popup.append(created);
+      return created;
+    };
+    const plain = item('plain');
+    const submenuTrigger = item('submenu', true);
+    menu.attachFloating(positioner, { floating: { hover: null, menu: { itemHover: true, release: true } } });
+    const clicks: { id: string; detail: number; pointerType: string }[] = [];
+    for (const target of [plain, submenuTrigger]) {
+      target.addEventListener('click', (event) => clicks.push({ id: target.id, detail: event.detail, pointerType: (event as PointerEvent).pointerType }));
+    }
+    const outside = element('div', `${menu.token}-outside`);
+    return { menu, trigger, plain, submenuTrigger, clicks, outside };
+  }
+
+  function mouse(target: EventTarget, type: string, init: MouseEventInit = {}): void {
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, ...init }));
+  }
+
+  describe('release activation', () => {
+    it('port: a press on a closed menu\'s trigger arms the release after 200 ms, and a release over an item then clicks it once with detail 1', async () => {
+      vi.useFakeTimers();
+      const early = releaseTree();
+      mouse(early.trigger, 'mousedown');
+      early.menu.setOpen(true, 'trigger-press', early.trigger.id);
+      await vi.advanceTimersByTimeAsync(150);
+      mouse(early.plain, 'mouseup');
+      expect(early.clicks).toEqual([]);
+
+      const armed = releaseTree();
+      mouse(armed.trigger, 'mousedown');
+      armed.menu.setOpen(true, 'trigger-press', armed.trigger.id);
+      await vi.advanceTimersByTimeAsync(200);
+      mouse(armed.plain, 'mouseup', { clientX: 10, clientY: 40 });
+      expect(armed.clicks).toEqual([{ id: armed.plain.id, detail: 1, pointerType: 'mouse' }]);
+    });
+
+    it('port: a release over a submenu trigger clicks nothing, the first release disarms the tree, and the next press arms it again', async () => {
+      vi.useFakeTimers();
+      const tree = releaseTree();
+      mouse(tree.trigger, 'mousedown');
+      tree.menu.setOpen(true, 'trigger-press', tree.trigger.id);
+      await vi.advanceTimersByTimeAsync(200);
+
+      mouse(tree.submenuTrigger, 'mouseup', { clientX: 10, clientY: 60 });
+      mouse(tree.plain, 'mouseup', { clientX: 10, clientY: 40 });
+      expect(tree.clicks).toEqual([]);
+
+      tree.menu.setOpen(false, 'trigger-press', tree.trigger.id);
+      mouse(tree.trigger, 'mousedown');
+      tree.menu.setOpen(true, 'trigger-press', tree.trigger.id);
+      await vi.advanceTimersByTimeAsync(200);
+      mouse(tree.plain, 'mouseup', { clientX: 10, clientY: 40 });
+      expect(tree.clicks.map((click) => click.id)).toEqual([tree.plain.id]);
+    });
+
+    it('port: a release outside the trigger, its bounds and the tree cancels the open with cancel-open; one within them does not', async () => {
+      vi.useFakeTimers();
+      const inside = releaseTree();
+      const otherPopup = element('div');
+      otherPopup.setAttribute('data-rootownerid', 'root');
+      mouse(inside.trigger, 'mousedown');
+      inside.menu.setOpen(true, 'trigger-press', inside.trigger.id);
+      const mark = inside.menu.changes.length;
+      mouse(otherPopup, 'mouseup', { clientX: 300, clientY: 300 });
+      mouse(inside.trigger, 'mousedown');
+      mouse(inside.outside, 'mouseup', { clientX: 25, clientY: 10 });
+      expect(changesSince(inside.menu, mark)).toEqual([]);
+
+      const outside = releaseTree();
+      mouse(outside.trigger, 'mousedown');
+      outside.menu.setOpen(true, 'trigger-press', outside.trigger.id);
+      const outsideMark = outside.menu.changes.length;
+      mouse(outside.outside, 'mouseup', { clientX: 300, clientY: 300 });
+      expect(changesSince(outside.menu, outsideMark)).toEqual([[false, 'cancel-open']]);
+      expect(outside.menu.changes.at(-1)?.details.event?.type).toBe('mouseup');
+    });
+
+    it('port: after the trigger\'s hover open, a release outside the trigger, its bounds and the tree cancels the open', () => {
+      const tree = releaseTree();
+      tree.menu.setOpen(true, 'trigger-hover', tree.trigger.id, 'mouseenter');
+      const mark = tree.menu.changes.length;
+
+      mouse(tree.outside, 'mouseup', { clientX: 300, clientY: 300 });
+      expect(changesSince(tree.menu, mark)).toEqual([[false, 'cancel-open']]);
+    });
+
+    it('port: a context menu\'s rules: the first release within the slop of the gesture\'s point, another button and the skipped button click nothing', () => {
+      const tree = releaseTree();
+      tree.menu.setOpen(true, 'trigger-press', tree.trigger.id);
+      armMenuRelease(tree.menu.token, true, { button: 2, skipButton: null, slop: 1, initialPoint: { x: 10, y: 40 } });
+
+      mouse(tree.plain, 'mouseup', { button: 2, clientX: 11, clientY: 41 });
+      mouse(tree.plain, 'mouseup', { button: 0, clientX: 30, clientY: 40 });
+      expect(tree.clicks).toEqual([]);
+      mouse(tree.plain, 'mouseup', { button: 2, clientX: 11, clientY: 41 });
+      expect(tree.clicks).toEqual([{ id: tree.plain.id, detail: 1, pointerType: 'mouse' }]);
+
+      armMenuRelease(tree.menu.token, true, { button: 2, skipButton: 2, slop: 1, initialPoint: null });
+      mouse(tree.plain, 'mouseup', { button: 2, clientX: 30, clientY: 40 });
+      expect(tree.clicks).toHaveLength(1);
     });
   });
 });
