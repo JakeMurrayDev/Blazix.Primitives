@@ -7,6 +7,7 @@ using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+using Blazix.Primitives.Fixtures.Client.ComboboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.DialogFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
@@ -243,5 +244,7 @@ public static class FixtureCatalog
         ["composite-list-relay"] = new(typeof(CompositeListRelayFixture)),
         ["composite-list-selected"] = new(typeof(CompositeListSelectedFixture)),
         ["composite-list-measure"] = new(typeof(CompositeListMeasureFixture)),
+        // M5 track 10 (issue 174): Combobox.
+        ["combobox-root"] = new(typeof(ComboboxRootFixture)),
     };
 }
