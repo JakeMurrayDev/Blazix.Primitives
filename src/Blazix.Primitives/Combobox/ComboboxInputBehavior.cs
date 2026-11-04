@@ -47,6 +47,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private string? dismissId;
 
+    private ElementReference? lastElement;
+
     private bool disabledParameter;
 
     private bool insidePopup;
@@ -99,6 +101,11 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             store.SetElementIds(ids => ids.Input == own ? ids with { Input = null } : ids);
         }
 
+        if (store is not null)
+        {
+            store.InputValueCommitted -= OnInputValueCommitted;
+        }
+
         reference.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         await Task.WhenAll(interactions.DisposeAsync().AsTask(), twinDisposal);
@@ -133,6 +140,10 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         twin.ClearRequested += request => _ = Observe(services.InvokeAsync(() => Store.ClearAsync(EventReason.EscapeKey, request.Event)));
         twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => Store.RemoveLastAsync(request.Index, request.Event)));
         twin.SelectionEventReported += snapshot => Store.SetSelectionEvent(snapshot);
+        twin.Decider = Decide;
+
+        // ADR 04 Amendments 2026-11-03 (6): a committed text reaches the module's writer without a render of the input.
+        store.InputValueCommitted += OnInputValueCommitted;
         twin.EnterCloseRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.None, snapshot))));
         twin.DismissPressed += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot))));
     }
@@ -291,6 +302,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
         Task interactionsSync = interactions.AfterRenderAsync(true, element, id);
         Task referenceSync = reference.AfterRenderAsync(true, element, id);
+        lastElement = element;
         Task twinSync = SyncTwinAsync(element);
         await Task.WhenAll(interactionsSync, referenceSync, twinSync);
     }
@@ -321,7 +333,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             Disabled = Disabled,
             ReadOnly = state.ReadOnly,
             Multiple = state.SelectionMode == ComboboxSelectionMode.Multiple,
-            HasValue = state.HasSelectedValue || state.InputValue.Length != 0,
+            HasValue = state.HasSelectedValue,
             Grid = state.Grid,
             Virtualized = state.Virtualized,
             ChipsId = state.ElementIds.Chips,
@@ -346,6 +358,35 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         {
             sentOptions = options;
             await handle.UpdateAsync(options);
+        }
+    }
+
+    // CMB-KEY-05, EVT-09 (ComboboxInput.tsx:347-362): on WebAssembly the closed Escape's clear runs inside the dispatch, and
+    // the keydown stops when a value was selected, the root is not inline and the callbacks did not allow propagation.
+    private DecisionPolicy Decide(string point, EventSnapshot snapshot)
+    {
+        if (!string.Equals(point, ComboboxTwin.ClearPoint, StringComparison.Ordinal))
+        {
+            return DecisionPolicy.Run;
+        }
+
+        ComboboxStore root = Store;
+        bool stops = root.State.HasSelectedValue && !root.State.Inline;
+        Task<ChangeEventDetails> clearing = root.ClearAsync(EventReason.EscapeKey, snapshot);
+        if (!clearing.IsCompleted)
+        {
+            _ = Observe(clearing);
+            return stops ? DecisionPolicy.Stop : DecisionPolicy.Run;
+        }
+
+        return stops && !clearing.Result.IsPropagationAllowed ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    private void OnInputValueCommitted()
+    {
+        if (!disposed && handle is not null)
+        {
+            _ = Observe(SyncTwinAsync(lastElement));
         }
     }
 

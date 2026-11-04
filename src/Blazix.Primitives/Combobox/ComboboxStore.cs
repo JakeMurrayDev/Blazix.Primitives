@@ -20,6 +20,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Occurs when a part that the session's options read registered or left, such as an empty state.</summary>
     public event Action? SessionInputsChanged;
 
+    /// <summary>Occurs when the committed input text changed, for the input's <c>value</c> writer.</summary>
+    public event Action? InputValueCommitted;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxStore"/> class.</summary>
     /// <param name="state">The initial state.</param>
     /// <param name="family">The family whose parts the diagnostics name.</param>
@@ -153,6 +156,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Mounts the list while closed, for typeahead or autofill.</summary>
     public abstract void ForceMount();
 
+    /// <summary>Raises <see cref="InputValueCommitted"/>.</summary>
+    protected void NotifyInputValueCommitted() => InputValueCommitted?.Invoke();
+
     /// <summary>Raises <see cref="SessionInputsChanged"/>.</summary>
     protected void NotifySessionInputsChanged() => SessionInputsChanged?.Invoke();
 
@@ -249,9 +255,6 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private string lastSelectedLabel = string.Empty;
 
     private bool initialized;
-
-    /// <summary>Occurs when the committed input text changed, for the input's <c>value</c> writer.</summary>
-    public event Action? InputValueCommitted;
 
     /// <summary>Occurs when the selected value or values changed, for the hidden inputs and the field.</summary>
     public event Action? SelectionCommitted;
@@ -929,7 +932,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             Write(state with { ActiveIndex = activeIndex, SelectedIndex = clearSelectedIndex ? null : state.SelectedIndex });
         }
 
-        if (!fromModule && requestHighlight is not null)
+        // A request equal to the module's mirror is not sent: on Server a typed change's clear, answered a round trip late,
+        // would otherwise overwrite a highlight the user moved since (the mirror already shows none for the typing).
+        if (!fromModule && requestHighlight is not null && listBehavior?.HighlightedIndex != activeIndex)
         {
             await requestHighlight(activeIndex);
         }
@@ -1115,7 +1120,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             RefreshDerivation(State);
         }
 
-        InputValueCommitted?.Invoke();
+        NotifyInputValueCommitted();
     }
 
     private IReadOnlyList<TValue> CandidateValues()
