@@ -193,7 +193,12 @@ for (const { name, triggers } of triggerModes) {
           element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
         }, selector);
 
-      test('closing via intentional outside press with user backdrop (modal=true): works when portaled into a shadow DOM', async ({ page, mode }) => {
+      // Quarantined (ADR 11 §4) until 2026-11-18, issue 166 (the closed-shadow-root family): intermittent on Server (nightly
+      // dispatch 41685879786, main's push run 41740993182).
+      test.fixme('closing via intentional outside press with user backdrop (modal=true): works when portaled into a shadow DOM', {
+        tag: '@quarantine',
+        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
+      }, async ({ page, mode }) => {
         const fixture = await root(page, mode, { defaultOpen: true, modal: true, backdrop: true, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
 
@@ -230,7 +235,12 @@ for (const { name, triggers } of triggerModes) {
         expect(await openChanges(fixture)).toEqual(['false:outside-press']);
       });
 
-      test('closing via outside press: works for a modal dialog when clicking outside the shadow root', async ({ page, mode }) => {
+      // Quarantined (ADR 11 §4) until 2026-11-18, issue 166 (the closed-shadow-root family): intermittent on both modes
+      // (nightly dispatch 41685879786).
+      test.fixme('closing via outside press: works for a modal dialog when clicking outside the shadow root', {
+        tag: '@quarantine',
+        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
+      }, async ({ page, mode }) => {
         const fixture = await root(page, mode, { defaultOpen: true, modal: true, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
 
@@ -814,7 +824,14 @@ test.describe('closed shadow root', () => {
         // never runs. Where the nested popup sits in the shadow root, the port title closes it through the modules' paths.
         const nestedInShadow = nested === 'shadow root' || (outer === 'shadow root' && nested === undefined);
         if (!nestedInShadow) {
-          test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+          // Quarantined (ADR 11 §4) until 2026-11-18, issue 166, where the outer dialog sits in the shadow root: intermittent
+          // on Server (nightly dispatch 41685879786, the alert dialog's variant). The variant in the document stays.
+          const quarantined = outer === 'shadow root';
+          test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, quarantined ? {
+            tag: '@quarantine',
+            annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
+          } : {}, async ({ page, mode }) => {
+            test.fixme(quarantined, 'issue 166');
             const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
 
             await click(page, 'open-nested');
