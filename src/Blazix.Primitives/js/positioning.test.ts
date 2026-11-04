@@ -18,6 +18,7 @@ import {
   getLogicalSide,
   hide,
   readPlacement,
+  setAligned,
   transformOrigin,
   update as updatePosition,
   type OffsetData,
@@ -1159,6 +1160,32 @@ describe('positioning module: the attribute writes', () => {
     await settle();
     expect(positioner.getAttribute('data-side')).toBe('top');
     expect(records).toEqual(['data-side']);
+  });
+});
+
+// SEL-STA-20, SEL-POS-14, SEL-STA-28 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the user
+// 2026-11-03; design point 2 (i), pending the user): Select's module tells the Positioner it is placed over the trigger.
+describe('positioning module: setAligned', () => {
+  it('writes data-side none while told aligned, then the resolved side again, and keeps reporting the resolved side', async () => {
+    stubViewport();
+    const { positioner, fake } = setup();
+    await settle();
+    expect(positioner.getAttribute('data-side')).toBe('bottom');
+
+    let passes = 0;
+    setAligned(positioner, true, () => passes++);
+    expect(positioner.getAttribute('data-side')).toBe('none');
+    expect(passes).toBe(1);
+
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(positioner.getAttribute('data-side')).toBe('none');
+    expect(readPlacement(positioner)).toMatchObject({ side: 'bottom' });
+    expect(fake.reported<{ side: string }>('OnPlacementChange').every((entry) => entry.side !== 'none')).toBe(true);
+
+    setAligned(positioner, false);
+    expect(positioner.getAttribute('data-side')).toBe('bottom');
+    expect(setAligned(document.createElement('div'), true)).toBe(false);
   });
 });
 
