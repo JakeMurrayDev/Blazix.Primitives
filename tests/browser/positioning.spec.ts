@@ -362,8 +362,9 @@ test.describe('positioning module', () => {
     expect(positionerTag).toContain('role="presentation"');
     expect(positionerTag).toContain('data-side="top"');
     expect(positionerTag).toContain('data-align="start"');
+    // G5 of PR 168 (ADR 04 Amendments 2026-11-04): nothing is positioned before attach, so the open Positioner takes no pointer.
     expect(positionerTag).toContain(
-      'style="position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0; color: rgb(1, 2, 3)"',
+      'style="position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0; pointer-events: none; color: rgb(1, 2, 3)"',
     );
     expect(positionerTag).not.toContain('transform');
 
