@@ -72,6 +72,10 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <returns>A task that completes when the change and its follow-ups have run.</returns>
     public abstract Task HandleInputChangeAsync(string text, bool typed, bool composing, EventSnapshot @event);
 
+    /// <summary>Records the keydown the next item press is attributed to, as Enter's synthetic click is.</summary>
+    /// <param name="event">The keydown.</param>
+    public abstract void SetSelectionEvent(EventSnapshot @event);
+
     /// <summary>Clears the selection and the input text, as the clear button and the closed Escape do.</summary>
     /// <param name="reason">The request's reason: <see cref="EventReason.ClearPress"/> or <see cref="EventReason.EscapeKey"/>.</param>
     /// <param name="event">The native event, or <see langword="null"/>.</param>
@@ -233,7 +237,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private string syncedLabel = string.Empty;
 
     private bool labelSynced;
+
     private bool labelSyncPending;
+
+    private EventSnapshot? selectionEvent;
 
     private IReadOnlyList<TValue>? lastItems;
 
@@ -329,14 +336,19 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Gets a value indicating whether the root was given an input value or a default input value at its first render.</summary>
     public bool HasInputValue => HasInputValueParameter;
 
+    /// <inheritdoc />
+    public override void SetSelectionEvent(EventSnapshot @event) => selectionEvent = @event;
+
     /// <summary>Selects or toggles an item, as an item press does.</summary>
     /// <param name="value">The item's value.</param>
     /// <param name="event">The press, or the keydown that started it.</param>
     /// <returns>A task that completes when the selection and its follow-ups have run.</returns>
     public async Task SelectAsync(TValue value, EventSnapshot @event)
     {
-        // AriaCombobox.tsx:880-950 (handleSelection).
-        ChangeEventDetails details = CreateDetails(EventReason.ItemPress, @event);
+        // AriaCombobox.tsx:880-950 (handleSelection): Enter's synthetic click is attributed to its keydown.
+        EventSnapshot source = selectionEvent ?? @event;
+        selectionEvent = null;
+        ChangeEventDetails details = CreateDetails(EventReason.ItemPress, source);
         if (Multiple)
         {
             IReadOnlyList<TValue> current = SelectedValues;

@@ -432,6 +432,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     private ComboboxTwin? twin;
 
     private TwinHandle<ComboboxOptions>? twinHandle;
+    private ComboboxOptions? sentTwinOptions;
 
     private IDisposable? boundaryPart;
 
@@ -700,14 +701,30 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private async Task SyncTwinAsync(ElementReference element)
     {
-        if (twinHandle is not null)
+        ComboboxStoreState state = Store.State;
+        ComboboxOptions options = new()
         {
+            Part = ComboboxTwin.PopupPart,
+            SessionToken = Store.SessionToken,
+            InsidePopup = state.InputInsidePopup,
+            InputId = state.ElementIds.Input,
+            ListId = state.ElementIds.List,
+            TouchOpened = state.Lifecycle.OpenMethod == InteractionType.Touch,
+        };
+        if (twinHandle is null)
+        {
+            twin = new ComboboxTwin(services.JSRuntime);
+            twin.DismissPressed += snapshot => _ = services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot)));
+            sentTwinOptions = options;
+            twinHandle = await twin.AttachAsync(element, options);
             return;
         }
 
-        twin = new ComboboxTwin(services.JSRuntime);
-        twin.DismissPressed += snapshot => _ = services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot)));
-        twinHandle = await twin.AttachAsync(element, new ComboboxOptions { Part = ComboboxTwin.PopupPart, SessionToken = Store.SessionToken, InsidePopup = Store.State.InputInsidePopup });
+        if (options != sentTwinOptions)
+        {
+            sentTwinOptions = options;
+            await twinHandle.UpdateAsync(options);
+        }
     }
 }
 

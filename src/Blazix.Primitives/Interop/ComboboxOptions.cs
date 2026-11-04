@@ -62,4 +62,19 @@ internal sealed record ComboboxOptions : TwinOptions
 
     /// <summary>Gets a value indicating whether the module asks the <c>clear</c> and <c>remove</c> points inside the dispatch.</summary>
     public bool Decide { get; init; }
+
+    /// <summary>Gets a value indicating whether the popup is open, for Enter's activation.</summary>
+    public bool Open { get; init; }
+
+    /// <summary>Gets a value indicating whether the popup is mounted; the Escape of a closed, unmounted popup clears.</summary>
+    public bool Mounted { get; init; }
+
+    /// <summary>Gets a value indicating whether the reading direction is right to left, for Home and End.</summary>
+    public bool Rtl { get; init; }
+
+    /// <summary>Gets the id of the input, which a press elsewhere keeps the focus on.</summary>
+    public string? InputId { get; init; }
+
+    /// <summary>Gets a value indicating whether the popup was opened by touch, so the focus is not redirected to the input.</summary>
+    public bool TouchOpened { get; init; }
 }

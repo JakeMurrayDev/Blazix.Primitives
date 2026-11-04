@@ -59,6 +59,12 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when an internal dismiss button was pressed, Base UI's <c>close-press</c>.</summary>
     public event Action<EventSnapshot>? DismissPressed;
 
+    /// <summary>Occurs before Enter's synthetic click on the highlighted item, with the keydown the selection is attributed to.</summary>
+    public event Action<EventSnapshot>? SelectionEventReported;
+
+    /// <summary>Occurs when Enter on an open list without a highlight closes the popup, with the reason <c>none</c>.</summary>
+    public event Action<EventSnapshot>? EnterCloseRequested;
+
     /// <summary>Gets or sets the C# chain of the <c>clear</c> and <c>remove</c> points on WebAssembly.</summary>
     /// <value>A function from the point and the event to the verdict, or <see langword="null"/> for each point's fallback.</value>
     public Func<string, EventSnapshot, DecisionPolicy>? Decider { get; set; }
@@ -87,6 +93,16 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
     public void OnDismiss(string payloadJson) => DismissPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+
+    /// <summary>Receives the keydown Enter's synthetic click on the highlighted item is attributed to.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
+    [JSInvokable]
+    public void OnSelectionEvent(string payloadJson) => SelectionEventReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event);
+
+    /// <summary>Receives Enter on an open list without a highlight.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
+    [JSInvokable]
+    public void OnEnterClose(string payloadJson) => EnterCloseRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event);
 
     /// <inheritdoc />
     /// <remarks>

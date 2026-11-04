@@ -124,6 +124,9 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     [CascadingParameter]
     private FieldRootContext? Field { get; set; }
 
+    [CascadingParameter]
+    private DirectionProviderContext? Direction { get; set; }
+
     // CMB-API-38
     /// <summary>Gets or sets a value indicating whether the input is disabled; the combobox's and the field's disabled state also apply.</summary>
     [Parameter]
@@ -174,7 +177,8 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     protected override void OnParametersSet()
     {
         string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-        behavior!.Apply(Disabled, consumerId, GeneratedId, AdditionalAttributes);
+        behavior!.Rtl = DirectionProviderContext.Read(Direction) == TextDirection.Rtl;
+        behavior.Apply(Disabled, consumerId, GeneratedId, AdditionalAttributes);
     }
 
     /// <inheritdoc />

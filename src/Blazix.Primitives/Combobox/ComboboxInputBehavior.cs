@@ -18,24 +18,39 @@ namespace Blazix.Primitives;
 internal sealed class ComboboxInputBehavior : IAsyncDisposable
 {
     private const string InputPress = "input-press";
+
     private const string MouseDownOnly = "mousedown-only";
 
     private static readonly InteractionsClickOptions s_clickOutside = new() { Event = MouseDownOnly, Toggle = false, TouchOpenDelay = 100, Reason = InputPress };
+
     private static readonly InteractionsClickOptions s_clickInside = new() { Event = MouseDownOnly, Toggle = false, Reason = InputPress };
 
     private readonly ComboboxPartServices services;
+
     private readonly InteractionsTriggerBehavior interactions;
+
     private readonly CompositeRootBehavior reference;
+
     private ComboboxStore? store;
+
     private FieldRootContext? fieldScope;
+
     private ComboboxTwin? twin;
+
     private TwinHandle<ComboboxOptions>? handle;
+
     private ComboboxOptions? sentOptions;
+
     private string? id;
+
     private string? renderedValue;
+
     private string? dismissId;
+
     private bool disabledParameter;
+
     private bool insidePopup;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxInputBehavior"/> class.</summary>
@@ -59,6 +74,9 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     /// <summary>Gets the field's state the input projects (the default state inside the popup).</summary>
     public FieldStateSnapshot Field => insidePopup || fieldScope is null ? FieldStateSnapshot.Default with { Disabled = Disabled } : fieldScope.State with { Disabled = Disabled };
+
+    /// <summary>Gets or sets a value indicating whether the reading direction is right to left.</summary>
+    public bool Rtl { get; set; }
 
     /// <summary>Gets the id the input renders.</summary>
     public string? Id => id;
@@ -114,6 +132,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         twin.InputChanged += change => _ = Observe(services.InvokeAsync(() => Store.HandleInputChangeAsync(change.Text, change.Typed, change.Composing, change.Event)));
         twin.ClearRequested += request => _ = Observe(services.InvokeAsync(() => Store.ClearAsync(EventReason.EscapeKey, request.Event)));
         twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => Store.RemoveLastAsync(request.Index, request.Event)));
+        twin.SelectionEventReported += snapshot => Store.SetSelectionEvent(snapshot);
+        twin.EnterCloseRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.None, snapshot))));
         twin.DismissPressed += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot))));
     }
 
@@ -310,6 +330,10 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             Value = state.InputValue,
             ValueRevision = state.InputRevision,
             Controlled = root.InputControlled,
+            Open = state.Lifecycle.EffectiveOpen,
+            Mounted = state.Lifecycle.Mounted,
+            Rtl = Rtl,
+            InputId = id,
         };
         if (handle is null)
         {

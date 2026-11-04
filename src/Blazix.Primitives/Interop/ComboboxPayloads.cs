@@ -17,3 +17,8 @@ internal sealed record ComboboxInputChange(string Text, bool Typed, bool Composi
 /// <param name="Index">The chip's index for a removal, or <c>-1</c> for a clear or the last value.</param>
 /// <param name="Event">The snapshot of the keydown or click.</param>
 internal sealed record ComboboxRequest(int Index, EventSnapshot Event);
+
+// CMB-KEY-04 (parts.ts:46-58: the selection is attributed to the keydown) and the close without a highlight (FRM-07).
+/// <summary>The payload of a keydown the module handled.</summary>
+/// <param name="Event">The snapshot of the keydown.</param>
+internal sealed record ComboboxKeyReport(EventSnapshot Event);

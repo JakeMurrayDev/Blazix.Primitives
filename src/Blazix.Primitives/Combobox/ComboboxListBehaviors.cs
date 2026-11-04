@@ -103,6 +103,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         subscription.Select(static state => state.SelectionMode);
         subscription.Select(static state => state.ReadOnly);
         subscription.Select(static state => state.Grid);
+        subscription.Select(ComboboxStoreState.Open);
         composite.SetList(store.ListNavigation, CompositeListRole.Floating);
         composite.ReportItems = !store.State.HasItems;
         twin = new ComboboxTwin(services.JSRuntime);
@@ -204,6 +205,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
             ReadOnly = state.ReadOnly,
             Virtualized = state.Virtualized,
             InsidePopup = state.InputInsidePopup,
+            Open = state.Lifecycle.EffectiveOpen,
         };
         if (handle is null)
         {
