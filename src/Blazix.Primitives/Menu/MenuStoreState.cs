@@ -132,6 +132,9 @@ internal sealed partial record MenuStoreState<TPayload>(
     /// <inheritdoc />
     EventSnapshot? IMenuState.CloseEvent => CloseEvent;
 
+    /// <inheritdoc />
+    string? IMenuState.TriggerPopupId(string? triggerId) => throw new NotImplementedException();
+
     /// <summary>Creates the initial state of a store.</summary>
     /// <param name="floatingId">The generated id of the popup element.</param>
     /// <returns>A closed top-level menu with no trigger, modal by default.</returns>
@@ -239,6 +242,11 @@ internal interface IMenuState
 
     /// <summary>Gets the snapshot of the event that caused the last committed close.</summary>
     EventSnapshot? CloseEvent { get; }
+
+    /// <summary>Gets the popup id the trigger with the given id names in its <c>aria-controls</c>.</summary>
+    /// <param name="triggerId">The trigger's id.</param>
+    /// <returns>The popup id, or <see langword="null"/>.</returns>
+    string? TriggerPopupId(string? triggerId);
 }
 
 // The parts' selections (MenuStore.ts:76-149) as named selectors over the non-generic view (ADR 05 §1).

@@ -28,10 +28,9 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
     /// <param name="sessionToken">The session token the root drew, or <see langword="null"/> for a fallback store.</param>
     /// <param name="inert">Whether this is a handle's fallback store.</param>
     /// <param name="logger">The root's logger, or <see langword="null"/>.</param>
-    public MenuStore(string? floatingId, string? sessionToken, bool inert = false, ILogger? logger = null)
-        : base(MenuStoreState<TPayload>.Initial(floatingId), "Menu", sessionToken, inert, logger)
-    {
-    }
+    /// <param name="timeProvider">The clock of the touch guard, or <see langword="null"/> for the system's.</param>
+    public MenuStore(string? floatingId, string? sessionToken, bool inert = false, ILogger? logger = null, TimeProvider? timeProvider = null)
+        : base(MenuStoreState<TPayload>.Initial(floatingId), "Menu", sessionToken, inert, logger) => throw new NotImplementedException();
 
     // MNU-STA-04 (MenuRoot.tsx:404, 422-437; isKeyboardOpen.ts).
     /// <summary>Derives the instant type an applied open change writes.</summary>
@@ -48,6 +47,11 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
     /// <param name="details">The change's details.</param>
     /// <returns><see langword="true"/> for an open by a navigation key or by a press whose event has no detail.</returns>
     public static bool IsKeyboardOpen(bool open, OpenChangeEventDetails details) => throw new NotImplementedException();
+
+    /// <summary>Creates the context the menu's root cascades to its parts.</summary>
+    /// <param name="familyName">The root's family, such as <c>Menu</c>.</param>
+    /// <returns>The context.</returns>
+    public MenuRootContext CreateContext(string familyName) => throw new NotImplementedException();
 
     /// <inheritdoc />
     public override Task<bool> RequestOpenAsync(bool open, OpenChangeEventDetails details) => throw new NotImplementedException();
