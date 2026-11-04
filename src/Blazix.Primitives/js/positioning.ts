@@ -698,6 +698,7 @@ const attachedHandle = Symbol('blazix.positioning.handle');
 interface PositioningHandle extends TwinHandle {
   placement(): RenderedPlacement;
   position(): void;
+  aligned(aligned: boolean, onPositioned: (() => void) | undefined): void;
 }
 
 interface AttachedElement extends HTMLElement {
@@ -739,6 +740,23 @@ export function readPlacement(element: Element): RenderedPlacement | null {
  */
 export function update(element: Element): void {
   (element as AttachedElement)[attachedHandle]?.position();
+}
+
+// SEL-STA-20, SEL-POS-14 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the user 2026-11-03;
+// design point 2 (i), pending the user): Select's aligned placement replaces the Positioner's coordinates, and its side
+// reads `none` (select/positioner/SelectPositioner.tsx:114); the report keeps the resolved side (SEL-STA-28).
+/**
+ * Tells an attached Positioner whether Select's module places it over its trigger: while aligned, `data-side` reads `none`
+ * and `onPositioned` runs after each positioning pass, at once when the current mount is already positioned.
+ * @param element The Positioner element.
+ * @param aligned Whether the Positioner is placed over the trigger.
+ * @param onPositioned Called after each pass while aligned, in the pass's task, or `undefined`.
+ * @returns `true` when a handle is attached to the element.
+ */
+export function setAligned(element: Element, aligned: boolean, onPositioned?: () => void): boolean {
+  const handle = (element as AttachedElement)[attachedHandle];
+  handle?.aligned(aligned, onPositioned);
+  return handle !== undefined;
 }
 
 interface PassData {
@@ -831,6 +849,8 @@ export function attach(
   let arrowDeclarations: Declarations = new Map();
 
   let open = element.matches(options.openSelector || '[data-open]');
+  let alignedActive = false;
+  let onAlignedPass: (() => void) | undefined;
   let mounted = !element.hidden;
   let isPositioned = false;
   let data: PassData | null = null;
@@ -1204,7 +1224,7 @@ export function attach(
     const placementNow = data?.placement ?? placement;
     const sideAttribute = getLogicalSide(sideParam(), getSide(placementNow), isRtl());
     const alignAttribute = getAlignment(placementNow) || 'center';
-    writeAttribute(element, 'data-side', sideAttribute);
+    writeAttribute(element, 'data-side', alignedActive ? 'none' : sideAttribute);
     writeAttribute(element, 'data-align', alignAttribute);
     writeAttribute(element, 'data-anchor-hidden', data?.middlewareData.hide?.referenceHidden ? '' : null);
 
@@ -1258,6 +1278,9 @@ export function attach(
       session?.setPlacement(next.placement);
       report();
       lockPlacement();
+      if (alignedActive && isPositioned) {
+        onAlignedPass?.();
+      }
     });
   };
 
@@ -1376,6 +1399,17 @@ export function attach(
       };
     },
     position,
+    aligned(next, onPositioned) {
+      if (disposed) {
+        return;
+      }
+      alignedActive = next;
+      onAlignedPass = next ? onPositioned : undefined;
+      render();
+      if (next && isPositioned && data !== null) {
+        onPositioned?.();
+      }
+    },
     dispose() {
       if (disposed) {
         return;
