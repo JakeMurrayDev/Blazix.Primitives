@@ -215,6 +215,14 @@ Source: `combobox/root/AriaCombobox.tsx:1964`; `combobox/root/ComboboxRoot.tsx:1
 
 None (no element).
 
+The hidden `<input>` the Root appends (§5.2) has one JavaScript-written attribute:
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `value` (the hidden input) | the serialized committed value | CMB-DOM-18 | C# → JS |
+
+2026-11-04 (M5 track 10, issue 174; ADR 04 Amendments 2026-11-04, the `form` module's list additions, settled by the orchestrator 2026-11-04): the hidden input's `value` is rendered by C# under the handover, then written by the `form` module from `update` and restored inside an autofill's `change` dispatch (the `Field.Control` rule of ADR 04 Amendments 2026-10-22).
+
 #### CSS variables
 
 None.
@@ -433,6 +441,10 @@ None.
 | `data-popup-side="<side>"` | popup mounted | CMB-DOM-02 | C# |
 | `data-list-empty` | filtered list empty | CMB-DOM-02 | C# |
 | `data-valid`/`data-invalid`, `data-touched`, `data-dirty`, `data-filled`, `data-focused` | field state (outside popup only) | CMB-DOM-02 | C# |
+| `aria-activedescendant` | the highlighted item's id while open (outside the popup) | CMB-ARIA-03 | JS |
+| `value` | the committed input text | CMB-API-09 | C# → JS |
+
+2026-11-04 (M5 track 10, issue 174): two rows added. `aria-activedescendant` is the list handle's, written from the active item's own id (ADR 04 Amendments 2026-11-03 (2), chosen by the user 2026-11-03; the ownership list's row of 2026-11-04). `value` is rendered by C# once under the handover and then written by the `combobox` module from `update` only when the committed text differs from the live text since its last write, re-asserting a controlled value the consumer did not apply (ADR 04 Amendments 2026-11-03 (6), chosen by the user 2026-11-03).
 
 #### CSS variables
 
@@ -788,7 +800,9 @@ None (the Positioner carries them).
 |---|---|---|---|
 | `data-open` / `data-closed` | open state | CMB-DOM-15 | C# |
 | `data-side`, `data-align` | rendered placement | CMB-DOM-15 | C# → JS |
-| `data-uncentered` | arrow uncentered | CMB-DOM-15 | JS |
+| `data-uncentered` | arrow uncentered | CMB-DOM-15 | C# → JS |
+
+2026-11-04 (M5 track 10, issue 174): `data-uncentered` was `JS`; it is `C# → JS` as Popover's Arrow (`OwnershipRegistry.cs`'s popover row; ADR 04 §2's positioner row): C# renders it from the mirrored state under the handover and the `positioning` module writes it from attach.
 
 #### CSS variables
 
@@ -1029,8 +1043,10 @@ None.
 | Attribute | Present when / value | Req | Writer |
 |---|---|---|---|
 | `data-selected` | selected | CMB-DOM-09 | C# |
-| `data-highlighted` | highlighted | CMB-DOM-09 | C# |
+| `data-highlighted` | highlighted | CMB-DOM-09 | C# → JS |
 | `data-disabled` | disabled | CMB-DOM-09 | C# |
+
+2026-11-04 (M5 track 10, issue 174): `data-highlighted` was `C#`; it is `C# → JS` (ADR 04 Amendments 2026-11-03 (2), chosen by the user 2026-11-03; the ownership list's popup-list-item row of 2026-11-04): the floating list handle writes it from attach in the task that moves the highlight, C# renders none and mirrors `Highlighted`. The Item renders no `tabindex` (registered with `OmitTabIndex`, ADR 04 Amendments 2026-11-04).
 
 #### CSS variables
 
