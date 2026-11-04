@@ -38,6 +38,12 @@ export interface DetachedTriggersConfig {
   only?: readonly string[];
 }
 
+// Quarantined (ADR 11 §4) until 2026-11-18, for every family that runs the suite: test.fixme with the @quarantine tag and
+// the issue. Issue 177: intermittent on both modes (a re-attach race or a test-side wait, not yet known).
+const quarantined: Record<string, string> = {
+  'keeps a detached trigger working when reparented during Fast Refresh-like handle recreation': 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/177',
+};
+
 export function detachedTriggersConformanceTests(config: DetachedTriggersConfig): void {
   const { fixture: fixtureName, openInteractions, ariaExpanded, throwOnMissingTrigger, close, positioner = false, viewport = false, open: listedOpen = {}, only } = config;
   const primaryInteraction = openInteractions[0];
@@ -128,6 +134,14 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
   /** Declares a title; one listed open is skipped with its reason. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
     if (only && !only.includes(title)) {
+      return;
+    }
+
+    const issue = quarantined[title];
+    if (issue) {
+      test.fixme(title, { tag: '@quarantine', annotation: { type: 'issue', description: issue } }, async ({ page, mode }) => {
+        await body({ page, mode });
+      });
       return;
     }
 
