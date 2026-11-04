@@ -314,7 +314,7 @@ describe('the published state and the outside guards', () => {
 // from the focus manager's publication (design point 3 of the focus-manager track, settled by the orchestrator
 // 2026-10-27). The cases publish what the focus manager would.
 describe('the outside guards and the focus inside a non-modal portal', () => {
-  function renderRouted({ guards = true } = {}) {
+  function renderRouted({ guards = true, lite = false } = {}) {
     const prev = document.createElement('button');
     prev.setAttribute('data-testid', 'prev');
     const reference = document.createElement('button');
@@ -333,7 +333,7 @@ describe('the outside guards and the focus inside a non-modal portal', () => {
     afterInside.setAttribute('data-type', 'inside');
     rendered.floating.before(beforeInside);
     rendered.floating.after(afterInside);
-    attach(rendered.node, '{}', createFakeTwin().twin);
+    attach(rendered.node, lite ? JSON.stringify({ lite: true }) : '{}', createFakeTwin().twin);
     const close = vi.fn();
     const publish = (modal: boolean, open = true) => {
       getPortalState(rendered.node)!.focusManager = {
@@ -417,6 +417,26 @@ describe('the outside guards and the focus inside a non-modal portal', () => {
     expect(app.content.hasAttribute('tabindex')).toBe(false);
     expect(app.content.hasAttribute('data-tabindex')).toBe(false);
     expect(app.beforeInside.getAttribute('tabindex')).toBe('0');
+  });
+
+  // G2 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): Base UI's FloatingPortalLite has no
+  // tabbable logic (FloatingPortalLite.tsx:21-37), so focus leaving a lite node leaves its tabbables as they are; the
+  // contrast, a plain node, takes them out.
+  it('port: focus leaving a lite node for the outside leaves its tabbables tabbable, where a plain node takes them out', () => {
+    const lite = renderRouted({ guards: false, lite: true });
+    lite.publish(false);
+    lite.content.focus();
+    lite.next.focus();
+
+    expect(lite.content.hasAttribute('tabindex')).toBe(false);
+    expect(lite.content.hasAttribute('data-tabindex')).toBe(false);
+
+    const plain = renderRouted({ guards: false });
+    plain.publish(false);
+    plain.content.focus();
+    plain.next.focus();
+
+    expect(plain.content.getAttribute('tabindex')).toBe('-1');
   });
 
   // The contrast makes the title red where nothing is disabled at all (the red check).

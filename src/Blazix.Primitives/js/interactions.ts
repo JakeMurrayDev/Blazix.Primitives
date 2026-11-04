@@ -3267,8 +3267,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     instance.restTimeoutPending = false;
 
     // useHoverReferenceInteraction.ts:315: the session's published floating context, else the trigger's inline one
-    // (NavigationMenu's getHandleCloseContext, M5 track 2).
-    const handleCloseContextBase = record.dataRef.current.floatingContext ?? inlineCloseContext();
+    // (NavigationMenu's getHandleCloseContext, M5 track 2). G3 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the
+    // orchestrator 2026-11-04): only Base UI's useFloating publishes a context, so a published one with no placement (an
+    // unpositioned floating element, NavigationMenu's inline Viewport) yields to the inline one.
+    const published = record.dataRef.current.floatingContext;
+    const handleCloseContextBase = (published?.placement != null ? published : undefined) ?? inlineCloseContext() ?? published;
 
     if (isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements)) {
       return;
@@ -3644,7 +3647,13 @@ function createHoverFloatingController(context: HandleContext): Controller {
         floatingElement,
       });
 
-      pointerEventsCleanup = clearPointerEvents;
+      // G1 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): Base UI keeps a hover state per
+      // trigger, so this run's cleanup clears only the lock it applied, never one a hover switch moved to another trigger.
+      pointerEventsCleanup = () => {
+        if (instance.pointerEventsReferenceElement === ref) {
+          clearPointerEvents();
+        }
+      };
     }
   };
 
