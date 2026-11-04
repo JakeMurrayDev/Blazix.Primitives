@@ -135,8 +135,13 @@ internal sealed class MenuRadioGroupBehavior<TValue>
     {
         this.valueChanged = valueChanged;
         this.onValueChange = onValueChange;
-        this.disabled = disabled;
-        group.Notify();
+
+        // The items render again only when what they read changed (a controlled value is read at their render).
+        if (this.disabled != disabled)
+        {
+            this.disabled = disabled;
+            group.Notify();
+        }
     }
 
     /// <summary>Wraps the group's content in its items' and label's cascades.</summary>

@@ -220,7 +220,7 @@ public sealed class MenuRoot<TPayload> : ComponentBase, IAsyncDisposable
     protected override void BuildRenderTree(RenderTreeBuilder builder) => behavior!.BuildRenderTree(builder);
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(firstRender, RendererInfo.IsInteractive);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(firstRender);
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => behavior?.DisposeAsync() ?? ValueTask.CompletedTask;

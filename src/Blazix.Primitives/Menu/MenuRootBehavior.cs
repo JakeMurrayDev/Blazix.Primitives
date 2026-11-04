@@ -120,16 +120,19 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
 
     /// <summary>Syncs the session and the list after the render and runs the batch boundary.</summary>
     /// <param name="firstRender">Whether this is the root's first render.</param>
-    /// <param name="interactive">Whether the renderer is interactive.</param>
     /// <returns>A task that completes when the modules have their options.</returns>
-    public async Task OnAfterRenderAsync(bool firstRender, bool interactive)
+    public async Task OnAfterRenderAsync(bool firstRender)
     {
+        _ = firstRender;
         rendered = true;
-        if (interactive && !flagsRequested)
+        if (!flagsRequested)
         {
-            // ADR 04 Amendments 2026-11-04: the platform hints the submenu triggers render with, read once per scope.
+            // ADR 04 Amendments 2026-11-04: the platform hints the submenu triggers render with, read once per scope from the
+            // first after-render, which a prerender never runs.
             flagsRequested = true;
-            _ = platform.EnsureAsync(jsRuntime).ContinueWith(t => dispatchException(t.Exception!.GetBaseException()), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            // The flags are hints: a read that fails leaves the defaults (ADR 01's row of 2026-11-04), so its fault is
+            // observed and not routed to the root.
+            _ = platform.EnsureAsync(jsRuntime).ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
 
         CopySessionInputs();
