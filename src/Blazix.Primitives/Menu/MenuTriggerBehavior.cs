@@ -370,7 +370,6 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         focusGuards = subscription.Select(MenuSelectors.HasTriggerFocusGuards, id);
         controlsId = subscription.Select(MenuSelectors.TriggerControlsId, id);
         rootDisabled = subscription.Select(MenuSelectors.Disabled);
-        subscription.Select(MenuSelectors.OpenChangeReason);
     }
 
     // The interactions handle's options (MenuTrigger.tsx:173-213).
