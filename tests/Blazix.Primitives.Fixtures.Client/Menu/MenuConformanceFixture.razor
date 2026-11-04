@@ -1,0 +1,83 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-conformance` fixture (tests/browser/menu.spec.ts, M5 track 6): popupConformanceTests on Menu's parts, as
+    MenuRoot.test.tsx renders them (a trigger, a portal, a positioner and a popup holding one item). The query sets the
+    root's props: `open=true|false` (controlled, changed by the `[data-set-open]` buttons), `defaultOpen`, `cancelOpen`,
+    `cancelClose`, `allowPropagation`, `popupId`, `keepMounted`, `modal=true|false` (absent: Base UI's default, modal),
+    `animated` (200 ms keyframes on `[data-open]` and `[data-ending-style]`).
+*@
+
+<FixtureContainer Name="menu-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes menu-conformance-enter { from { opacity: 0; } }
+        @@keyframes menu-conformance-exit { to { opacity: 0; } }
+        .popup-animated[data-open] { animation: menu-conformance-enter 200ms; }
+        .popup-animated[data-ending-style] { animation: menu-conformance-exit 200ms; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
+    <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+
+    @if (controlled)
+    {
+        <MenuRoot TPayload="NoPayload" @ref="root" Open="@open" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </MenuRoot>
+    }
+    else
+    {
+        <MenuRoot TPayload="NoPayload" @ref="root" DefaultOpen="@defaultOpen" Modal="@modal" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </MenuRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private bool? modal;
+    private Dictionary<string, object> popupAttributes = [];
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        modal = QueryFlag("modal");
+        popupAttributes["data-testid"] = "popup";
+        if (Query("popupId") is { } id)
+        {
+            popupAttributes["id"] = id;
+        }
+
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "popup-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Trigger</MenuTrigger>
+        <MenuPortal KeepMounted="@keepMounted">
+            <MenuPositioner data-testid="positioner">
+                <MenuPopup @attributes="popupAttributes">
+                    <span>Popup content</span>
+                    <MenuItem data-testid="close">Close popup</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </text>;
+}

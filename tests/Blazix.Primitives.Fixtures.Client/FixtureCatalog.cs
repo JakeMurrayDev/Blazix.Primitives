@@ -19,6 +19,7 @@ using Blazix.Primitives.Fixtures.Client.ListValuesFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.MenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
@@ -187,6 +188,13 @@ public static class FixtureCatalog
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
         ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
+
+        // M5 track 6 (issue 172): Menu's fixtures.
+        ["menu-conformance"] = new(typeof(MenuConformanceFixture)),
+        ["menu-triggers"] = new(typeof(MenuTriggersFixture)),
+        ["menu-viewport"] = new(typeof(MenuViewportFixture)),
+        ["menu-focus"] = new(typeof(MenuFocusFixture)),
+        ["menu-positioner"] = new(typeof(MenuPositionerFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
         ["preview-card-conformance"] = new(typeof(PreviewCardConformanceFixture)),
