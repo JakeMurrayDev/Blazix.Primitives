@@ -401,6 +401,85 @@ function isOutsideMenuEvent(menu: Menu, currentTarget: Element, relatedTarget: E
   return !contains(popup, currentTarget) && !contains(popup, relatedTarget) && !contains(menu.root, relatedTarget) && !childContains;
 }
 
+// NavigationMenuViewport.tsx:21-64: a guard of the Viewport routes focus in from outside and back to the active Trigger's
+// guards from inside.
+/**
+ * Routes a focus that landed on one of the Viewport's guards.
+ * @param menu The menu.
+ * @param guards The Viewport's guards.
+ * @param container The Positioner, else the Viewport.
+ * @param event The focus.
+ */
+function routeViewportGuard(menu: MenuState, guards: TriggerGuards, container: Element | null, event: FocusEvent): void {
+  const target = event.target;
+  if (target === null || (target !== guards.before && target !== guards.after)) {
+    return;
+  }
+  const fromOutside = container !== null && isOutsideEvent(event, container);
+  const active = findActiveTrigger(menu)?.guards() ?? { before: null, after: null };
+  if (target === guards.before) {
+    if (fromOutside) {
+      getNextTabbable(container)?.focus();
+    } else {
+      active.before?.focus();
+    }
+    return;
+  }
+  if (fromOutside) {
+    getPreviousTabbable(container)?.focus();
+  } else {
+    active.after?.focus();
+  }
+}
+
+// NAV-ARIA-06, NAV-ARIA-02: C# renders the owner's `aria-owns` and the active Trigger's `aria-controls` with the open, so
+// the Viewport, its guards and the Positioner are found from the Trigger until their handles attach (a round trip or two
+// later on Server; Base UI reads the elements at the commit). The guards are found by position, as attachViewport finds
+// them: the Viewport's siblings inside a Popup, else its first and last children.
+/**
+ * Finds the Viewport parts the guards route through: the attached ones, else the ones the active Trigger names.
+ * @param menu The menu.
+ * @param trigger The active Trigger.
+ * @returns The Viewport's guards, the container of the outside checks, and whether a Positioner holds it.
+ */
+function viewportParts(menu: MenuState, trigger: Element): { guards: TriggerGuards; reference: Element | null; positioned: boolean } {
+  const popup = menu.popup ?? controlledPopup(trigger);
+  const positioner = menu.positioner ?? popup?.parentElement ?? null;
+  if (menu.viewport !== null) {
+    return { guards: menu.viewportGuards, reference: menu.positioner ?? menu.viewport, positioned: positioner !== null };
+  }
+  const viewport = ownedViewport(trigger);
+  if (viewport === null) {
+    return { guards: { before: null, after: null }, reference: positioner, positioned: positioner !== null };
+  }
+  const before = viewport.previousElementSibling;
+  const after = viewport.nextElementSibling;
+  const first = viewport.firstElementChild;
+  const last = viewport.lastElementChild;
+  const guards: TriggerGuards = isFocusGuard(before) && isFocusGuard(after)
+    ? { before, after }
+    : isFocusGuard(first) && isFocusGuard(last) && first !== last
+      ? { before: first, after: last }
+      : { before: null, after: null };
+  return { guards, reference: positioner ?? viewport, positioned: positioner !== null };
+}
+
+/**
+ * Finds the Viewport the owner after a Trigger names in `aria-owns`.
+ * @param trigger The Trigger.
+ * @returns The Viewport, or `null` when the owner names none or it is not in the document.
+ */
+function ownedViewport(trigger: Element): HTMLElement | null {
+  let sibling = trigger.nextElementSibling;
+  for (let step = 0; sibling !== null && step < 3; step += 1, sibling = sibling.nextElementSibling) {
+    const id = sibling.getAttribute('aria-owns');
+    if (id) {
+      return trigger.ownerDocument.getElementById(id);
+    }
+  }
+  return null;
+}
+
 /**
  * Finds the Popup a Trigger's `aria-controls` names.
  * @param trigger The Trigger.
@@ -1045,11 +1124,12 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
     if (target === null || (target !== before && target !== after)) {
       return;
     }
-    const reference = menu.positioner ?? menu.viewport;
+    const viewport = viewportParts(menu, element);
+    const reference = viewport.reference;
     const fromOutside = reference !== null && isOutsideEvent(event, reference);
     if (target === before) {
       if (fromOutside) {
-        menu.viewportGuards.before?.focus();
+        viewport.guards.before?.focus();
       } else {
         getPreviousTabbable(element)?.focus();
       }
@@ -1057,19 +1137,30 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
     }
     if (fromOutside) {
       clearViewportInert(menu, channel);
-      (menu.viewportGuards.after ?? element).focus();
+      (viewport.guards.after ?? element).focus();
       return;
     }
     const nested = menu.options.nested === true;
     let next = getNextTabbable(element);
-    if (nested && menu.positioner === null && reference !== null && next !== null && contains(reference, next)) {
-      next = getTabbableNearElement(menu.viewportGuards.after, 1);
+    if (nested && !viewport.positioned && reference !== null && next !== null && contains(reference, next)) {
+      next = getTabbableNearElement(viewport.guards.after, 1);
     }
     next?.focus();
-    if ((!nested || menu.positioner !== null) && !contains(menu.root, next)) {
+    if ((!nested || viewport.positioned) && !contains(menu.root, next)) {
       reportFocusOut(event);
     }
   };
+
+  // Until the Viewport's handle attaches (a round trip or two after the open's render on Server), the active Trigger's
+  // handle routes the Viewport's guards, as that handle would.
+  const onUnattachedViewportGuard = (event: FocusEvent) => {
+    if (menu.viewport !== null || !isActive()) {
+      return;
+    }
+    const viewport = viewportParts(menu, element);
+    routeViewportGuard(menu, viewport.guards, viewport.reference, event);
+  };
+  element.ownerDocument.addEventListener('focusin', onUnattachedViewportGuard);
 
   // NAV-ARIA-05: the guards C# renders after the Trigger while it is active.
   const guardObserver =
@@ -1129,6 +1220,7 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
       element.removeEventListener('keydown', onKeyDown);
       element.removeEventListener('focusout', onFocusOut);
       parent?.removeEventListener('focusin', onGuardFocus as EventListener);
+      element.ownerDocument.removeEventListener('focusin', onUnattachedViewportGuard);
       menu.triggers.delete(controller);
       menu.invalidate();
       releaseMenu(menu);
@@ -1484,29 +1576,7 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
   };
   const reference = () => menu.positioner ?? menu.viewport;
   // NavigationMenuViewport.tsx:21-64.
-  const onGuardFocus = (event: FocusEvent) => {
-    const { before, after } = menu.viewportGuards;
-    const target = event.target;
-    if (target !== before && target !== after) {
-      return;
-    }
-    const container = reference();
-    const fromOutside = container !== null && isOutsideEvent(event, container);
-    const active = findActiveTrigger(menu)?.guards() ?? { before: null, after: null };
-    if (target === before) {
-      if (fromOutside) {
-        getNextTabbable(container)?.focus();
-      } else {
-        active.before?.focus();
-      }
-      return;
-    }
-    if (fromOutside) {
-      getPreviousTabbable(container)?.focus();
-    } else {
-      active.after?.focus();
-    }
-  };
+  const onGuardFocus = (event: FocusEvent) => routeViewportGuard(menu, menu.viewportGuards, reference(), event);
   // NavigationMenuViewport.tsx:104-118: focus leaving the Viewport for neither its inside nor the active trigger.
   const onFocusOut = (event: FocusEvent) => {
     const related = event.relatedTarget as Element | null;
