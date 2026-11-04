@@ -403,6 +403,54 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsClickOptions { MouseDownAction = "open" }, new InteractionsClickOptions { MouseDownAction = "close" });
     }
 
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (1): the hover gates cross by
+    // their module names, each only when true; an empty menu record still crosses, and a changed gate is a changed option.
+    [Fact(DisplayName = "port: Menu's hover gates are written by their module names only when true, and a change is a changed option")]
+    [Trait("Requirement", "MNU-STA-11")]
+    [Trait("Requirement", "MNU-STA-12")]
+    [Trait("Requirement", "MNU-PTR-09")]
+    public void Menus_hover_gates_are_written_by_their_module_names_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string trigger = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions
+            {
+                Hover = new InteractionsHoverOptions { RequireParentMouseEnter = true, RequireHoverEnabled = true },
+                Menu = new InteractionsMenuTriggerOptions { TrackMouseEnter = true },
+            },
+        });
+        string floating = Serialize(new InteractionsOptions
+        {
+            Floating = new InteractionsFloatingOptions
+            {
+                Hover = new InteractionsFloatingHoverOptions(0, RequireHoverEnabled: true),
+                Menu = new InteractionsMenuFloatingOptions { DisableHoverOnMove = true },
+            },
+        });
+        string unset = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions { Hover = new InteractionsHoverOptions(), Menu = new InteractionsMenuTriggerOptions() },
+            Floating = new InteractionsFloatingOptions { Hover = new InteractionsFloatingHoverOptions(0), Menu = new InteractionsMenuFloatingOptions() },
+        });
+
+        Assert.Contains("\"requireParentMouseEnter\":true", trigger, StringComparison.Ordinal);
+        Assert.Contains("\"requireHoverEnabled\":true", trigger, StringComparison.Ordinal);
+        Assert.Contains("\"trackMouseEnter\":true", trigger, StringComparison.Ordinal);
+        Assert.Contains("\"requireHoverEnabled\":true", floating, StringComparison.Ordinal);
+        Assert.Contains("\"disableHoverOnMove\":true", floating, StringComparison.Ordinal);
+        Assert.DoesNotContain("requireParentMouseEnter", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("requireHoverEnabled", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("trackMouseEnter", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("disableHoverOnMove", unset, StringComparison.Ordinal);
+        Assert.Contains("\"menu\":{}", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsHoverOptions { RequireHoverEnabled = true }, new InteractionsHoverOptions());
+        Assert.NotEqual(new InteractionsHoverOptions { RequireParentMouseEnter = true }, new InteractionsHoverOptions());
+        Assert.NotEqual(new InteractionsFloatingHoverOptions(0, RequireHoverEnabled: true), new InteractionsFloatingHoverOptions(0));
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { DisableHoverOnMove = true }, new InteractionsMenuFloatingOptions());
+    }
+
+    private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
+
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
     {
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);

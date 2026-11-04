@@ -984,6 +984,11 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   const mounted = role.mounted === true;
   if (record.mounted && !mounted) {
     hoveredLineRef(record).current = undefined;
+    // MenuRoot.tsx:226-231 (M5 track 6): a menu's unmount forgets the pointer move over it.
+    const menu = record.slots.get('menu') as MenuSessionState | undefined;
+    if (menu !== undefined) {
+      menu.allowMouseEnter = false;
+    }
   }
   record.mounted = mounted;
   if (relay !== null && relay.revision !== record.lastRevision) {
@@ -3025,8 +3030,13 @@ function createHoverReferenceController(context: HandleContext): Controller {
   let hoverCleanup: Cleanup | null = null;
   let hoverKey: string | null = null;
   let pressCleanup: Cleanup | null = null;
+  let gateCleanup: Cleanup | null = null;
 
-  const hoverOptions = (): HoverOptions | null => context.options.trigger?.hover ?? null;
+  // Menu's gate (M5 track 6): a submenu trigger's hover is off while its menu's is (MenuSubmenuTrigger.tsx:177).
+  const hoverOptions = (): HoverOptions | null => {
+    const options = context.options.trigger?.hover ?? null;
+    return options !== null && isMenuHoverGated(record, options.requireHoverEnabled) ? null : options;
+  };
 
   // Base UI's `isActiveTrigger`: this trigger is the session's anchor, or no anchor is set yet.
   const isActiveTrigger = () => record.domReferenceElement === null || record.domReferenceElement === element;
@@ -3058,8 +3068,12 @@ function createHoverReferenceController(context: HandleContext): Controller {
 
   const isClickLikeOpen = () => isClickLikeOpenEvent(record.dataRef.current.openEvent?.type, instance.interactedInside);
 
-  // FLT-PTR-12's `shouldOpen`: Tooltip's veto while a nested trigger is hovered (TooltipTrigger.tsx:161-163).
-  const checkShouldOpen = () => !(hoverOptions()?.nestedTooltipTriggers === true && isNestedTriggerHovered);
+  // FLT-PTR-12's `shouldOpen`: Tooltip's veto while a nested trigger is hovered (TooltipTrigger.tsx:161-163), and a
+  // delayed submenu trigger's wait for a pointer move over its parent menu (MenuSubmenuTrigger.tsx:183; M5 track 6).
+  const checkShouldOpen = () => {
+    const options = hoverOptions();
+    return !(options?.nestedTooltipTriggers === true && isNestedTriggerHovered) && !(options?.requireParentMouseEnter === true && !parentAllowsMouseEnter(record));
+  };
 
   // A hover open of this session awaiting its commit (a round trip on Blazor Server) counts as open for the leave.
   const isHoverOpenPending = () => record.pending !== null && record.pending.open && record.pending.reason === 'trigger-hover';
@@ -3589,16 +3603,33 @@ function createHoverReferenceController(context: HandleContext): Controller {
     pressCleanup = null;
   };
 
+  // What an `update` re-runs, and a change of the menu's `hoverEnabled` too (the hook's `enabled`).
+  const refreshHover = () => {
+    refreshHandleClose();
+    if (hoverListenerKey(hoverOptions()) !== hoverKey) {
+      uninstallHover();
+      installHover();
+    }
+  };
+
+  const syncGate = () => {
+    const gated = context.options.trigger?.hover?.requireHoverEnabled === true;
+    if (gated && gateCleanup === null) {
+      gateCleanup = onMenuHoverGateChange(record, refreshHover);
+    } else if (!gated && gateCleanup !== null) {
+      gateCleanup();
+      gateCleanup = null;
+    }
+  };
+
+  syncGate();
   refreshHandleClose();
   installHover();
   installPress();
   return {
     update() {
-      refreshHandleClose();
-      if (hoverListenerKey(hoverOptions()) !== hoverKey) {
-        uninstallHover();
-        installHover();
-      }
+      syncGate();
+      refreshHover();
       if ((context.options.trigger?.cancelPendingOpenOnPress === true) !== (pressCleanup !== null)) {
         uninstallPress();
         installPress();
@@ -3609,6 +3640,7 @@ function createHoverReferenceController(context: HandleContext): Controller {
       if (hoverOptions()?.blockPointerEventsOnEnter === true && instance.pointerEventsReferenceElement === element) {
         clearPointerEvents();
       }
+      gateCleanup?.();
       uninstallHover();
       uninstallPress();
       cleanupMouseMoveHandler();
@@ -3637,8 +3669,13 @@ function createHoverFloatingController(context: HandleContext): Controller {
   let cleanup: Cleanup | null = null;
   let pointerEventsCleanup: Cleanup | null = null;
   let subscribedTreeEvents: SessionEvents | null = null;
+  let gateCleanup: Cleanup | null = null;
 
-  const hoverOptions = (): FloatingHoverOptions | null => context.options.floating?.hover ?? null;
+  // Menu's gate (M5 track 6): a menu popup's hover is off while its menu's is (MenuPopup.tsx:123-126).
+  const hoverOptions = (): FloatingHoverOptions | null => {
+    const options = context.options.floating?.hover ?? null;
+    return options !== null && isMenuHoverGated(record, options.requireHoverEnabled) ? null : options;
+  };
   // ADR 04 Amendments 2026-10-29 (design point 11.6 of M4 track 7, a fidelity correction): Base UI's hook reads
   // `useFloatingParentNodeId()` in the Popup, inside the Positioner's floating node, so the parent it reads is the popup's
   // own node when it has one (Popover, PreviewCard, Menu) and the enclosing popup's otherwise (Tooltip).
@@ -3840,22 +3877,42 @@ function createHoverFloatingController(context: HandleContext): Controller {
     cleanup = null;
   };
 
+  // The hook's `enabled`: an `update` and a change of the menu's `hoverEnabled` re-run the effects when it flips.
+  let enabled = hoverOptions() !== null;
+  const refreshEnabled = () => {
+    const next = hoverOptions() !== null;
+    if (next !== enabled) {
+      enabled = next;
+      runLayoutEffects(record.open, record.domReferenceElement, false);
+      if (next) {
+        install();
+      } else {
+        uninstall();
+      }
+    }
+  };
+
+  const syncGate = () => {
+    const gated = context.options.floating?.hover?.requireHoverEnabled === true;
+    if (gated && gateCleanup === null) {
+      gateCleanup = onMenuHoverGateChange(record, refreshEnabled);
+    } else if (!gated && gateCleanup !== null) {
+      gateCleanup();
+      gateCleanup = null;
+    }
+  };
+
   const stopListening = onSessionChange(record, onSessionApplied);
+  syncGate();
   runLayoutEffects(record.open, record.domReferenceElement, true);
   install();
   return {
-    update(previous) {
-      const enabled = hoverOptions() !== null;
-      if ((previous.floating?.hover ?? null) !== null !== enabled) {
-        runLayoutEffects(record.open, record.domReferenceElement, false);
-        if (enabled) {
-          install();
-        } else {
-          uninstall();
-        }
-      }
+    update() {
+      syncGate();
+      refreshEnabled();
     },
     dispose() {
+      gateCleanup?.();
       stopListening();
       uninstall();
       pointerEventsCleanup = null;
@@ -3867,6 +3924,124 @@ function createHoverFloatingController(context: HandleContext): Controller {
 }
 
 // #endregion hover
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region menu: Menu's hover gates (MNU-STA-11, MNU-STA-12, MNU-PTR-08, MNU-PTR-09); M5 track 6
+// ---------------------------------------------------------------------------------------------------------------
+// ADR 04 Amendments 2026-11-04 (3). Each menu session keeps Base UI's `hoverEnabled` and `allowMouseEnter` store fields
+// (MenuStore.ts:24, 42) in its `menu` slot: pointer state that no C# decision reads. A popup's pointer move and click, a
+// child menu's open, the menu's close, the active trigger's move and the unmount set them (MenuRoot.tsx:230, 336-339,
+// 640-690; MenuPositioner.tsx:134-140). React's synthetic events bubble through portals, so Base UI's popup handlers also
+// see a child popup's moves and clicks; the child's open already turned these menus' hover off, so the port listens on
+// each popup alone.
+
+interface MenuSessionState {
+  hoverEnabled: boolean;
+  allowMouseEnter: boolean;
+  /** Told when `hoverEnabled` changes, so a hover handle that requires it re-runs as on an `update`. */
+  readonly gateListeners: Set<() => void>;
+}
+
+function menuSessionState(record: SessionRecord): MenuSessionState {
+  return sessionSlot(record, 'menu', () => {
+    const state: MenuSessionState = { hoverEnabled: true, allowMouseEnter: false, gateListeners: new Set() };
+    record.events.on('openchange', (details: SessionOpenChangeDetails) => {
+      if (details.open) {
+        // MenuPositioner.tsx:134-140: a menu opening turns its parent menu's hover off.
+        const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+        const parentState = parent?.slots.get('menu') as MenuSessionState | undefined;
+        if (parent !== undefined && parentState !== undefined) {
+          setMenuHoverEnabled(parent, parentState, false);
+        }
+      } else {
+        setMenuHoverEnabled(record, state, true);
+      }
+    });
+    return state;
+  });
+}
+
+function setMenuHoverEnabled(record: SessionRecord, state: MenuSessionState, hoverEnabled: boolean): void {
+  // MenuRoot.tsx:336-339: a layout effect turns a closed menu's hover back on at once, so turning it off while closed is
+  // no change.
+  if (state.hoverEnabled === hoverEnabled || (!hoverEnabled && !record.open)) {
+    return;
+  }
+  state.hoverEnabled = hoverEnabled;
+  for (const listener of [...state.gateListeners]) {
+    listener();
+  }
+}
+
+/** Whether a hover handle that requires its menu's hover is off. */
+function isMenuHoverGated(record: SessionRecord, requireHoverEnabled: boolean | null | undefined): boolean {
+  return requireHoverEnabled === true && !menuSessionState(record).hoverEnabled;
+}
+
+/** Whether the parent menu had a pointer move since it mounted, which a delayed submenu trigger's hover open needs. */
+function parentAllowsMouseEnter(record: SessionRecord): boolean {
+  const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+  return parent === undefined || menuSessionState(parent).allowMouseEnter;
+}
+
+function onMenuHoverGateChange(record: SessionRecord, listener: () => void): Cleanup {
+  const state = menuSessionState(record);
+  state.gateListeners.add(listener);
+  return () => {
+    state.gateListeners.delete(listener);
+  };
+}
+
+/** A menu trigger's half: the active trigger's pointer move counts as a move over the menu (MenuRoot.tsx:646-649). */
+function createMenuTriggerController(context: HandleContext): Controller {
+  const { record } = context;
+  const element = context.element as HTMLElement;
+  const onMouseMove = () => {
+    const isActive = record.domReferenceElement === null || record.domReferenceElement === element;
+    if (context.options.trigger?.menu?.trackMouseEnter === true && isActive) {
+      menuSessionState(record).allowMouseEnter = true;
+    }
+  };
+  return { dispose: listen(element, 'mousemove', onMouseMove) };
+}
+
+/**
+ * A menu popup's half: a pointer move over it counts as a move over the menu and, in a submenu, turns its hover off; a
+ * click in it turns its hover off (MenuRoot.tsx:665-690). The slot exists from the attach, so a child's open finds it.
+ */
+function createMenuFloatingController(context: HandleContext): Controller {
+  const { record } = context;
+  const floatingElement = context.element as HTMLElement;
+  const menuOptions = () => context.options.floating?.menu ?? null;
+  const ensureSlot = () => {
+    if (menuOptions() !== null) {
+      menuSessionState(record);
+    }
+  };
+  const onMouseMove = () => {
+    const options = menuOptions();
+    if (options === null) {
+      return;
+    }
+    const state = menuSessionState(record);
+    state.allowMouseEnter = true;
+    if (options.disableHoverOnMove === true) {
+      setMenuHoverEnabled(record, state, false);
+    }
+  };
+  const onClick = () => {
+    if (menuOptions() !== null) {
+      setMenuHoverEnabled(record, menuSessionState(record), false);
+    }
+  };
+  ensureSlot();
+  return {
+    update: ensureSlot,
+    dispose: mergeCleanups(listen(floatingElement, 'mousemove', onMouseMove), listen(floatingElement, 'click', onClick)),
+  };
+}
+
+// #endregion menu
 
 // ---------------------------------------------------------------------------------------------------------------
 // #region delay-group: FloatingDelayGroup and useDelayGroup (FLT-ALG-23, FLT-EVT-07, FLT-ANI-01)
@@ -5052,6 +5227,7 @@ function attachTrigger(element: HTMLElement, token: string, initialOptions: Inte
       createFocusController,
       createClientPointController,
       createHoveredLineController,
+      createMenuTriggerController,
     ],
     (options) => {
       const nextId = options.trigger?.triggerId ?? element.id;
@@ -5086,7 +5262,7 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
     element,
     initialOptions,
     twinReference,
-    [createFloatingDismissController, createHoverFloatingController],
+    [createFloatingDismissController, createHoverFloatingController, createMenuFloatingController],
     (options) => {
       record.hasNode = options.floating?.node !== false;
     },
