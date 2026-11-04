@@ -9,12 +9,13 @@
     MenuRoot.test.tsx:267-294 renders them: Before and After buttons, a trigger, and in the popup a `MenuList` scroller
     (`data-testid="scroller"`) of `MenuItem`s labelled "Item 0".."Item 11" by default. The query is the suite's contract
     (tests/browser/CONTEXT.md): `items`, `disabledItems` (`|`-separated, `+` read as a space), `itemStyle`,
-    `scrollerStyle`, `onItemClick` (each activated item's text recorded as `data-item-clicks`), `modal` (absent: Base UI's
-    default, modal), `wrap=form|dialog`, `defaultOpen`; the After button's clicks are `data-outside-clicks`.
+    `scrollerStyle`, `onItemClick` (each activated item's text recorded as `data-item-clicks`; a menu records no value, so
+    `data-value-changes` stays empty), `modal` (absent: Base UI's default, modal), `wrap=form|dialog`, `defaultOpen`;
+    the After button's clicks are `data-outside-clicks`.
 *@
 <FixtureContainer Name="menu-list" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
-                  data-item-clicks="@string.Join('|', itemClicks)" data-outside-clicks="@outsideClicks" data-submits="@submits">
+                  data-item-clicks="@string.Join('|', itemClicks)" data-value-changes="" data-outside-clicks="@outsideClicks" data-submits="@submits">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     @if (wrap == "form")
     {

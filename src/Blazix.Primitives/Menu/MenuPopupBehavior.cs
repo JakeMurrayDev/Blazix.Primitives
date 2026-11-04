@@ -58,6 +58,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private MenuSelection<bool>? retainExit;
     private MenuSelection<string?>? listElementId;
     private MenuSelection<EventReason?>? openChangeReason;
+    private MenuSelection<bool>? keyboardOpen;
     private IDisposable? boundaryPart;
     private IDisposable? retainRegistration;
     private FocusManagerBehavior? focus;
@@ -205,6 +206,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         retainExit = subscription.Select(MenuSelectors.PreventUnmountingOnClose);
         listElementId = subscription.Select(MenuSelectors.ListElementId);
         openChangeReason = subscription.Select(MenuSelectors.OpenChangeReason);
+        keyboardOpen = subscription.Select(MenuSelectors.KeyboardOpen);
         subscription.Select(MenuSelectors.RootId);
         retainRegistration = menu.OnUnmountPreventionChanging(AnnounceRetainExit);
         focus = new FocusManagerBehavior(jsRuntime, invokeAsync, snapshot =>
@@ -351,10 +353,13 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         ElementReference? preGuard = trigger?.PreGuard;
 
         // The initial focus: none for a submenu (list navigation highlights), else the list element when no item is
-        // highlighted (a pointer open lands on the list), else the default.
+        // highlighted (a pointer open lands on the list), else the default. Base UI decides when the focus manager runs,
+        // after a keyboard open's highlight; the highlight reaches C# later, so a keyboard open of a list with items
+        // counts as highlighted.
+        bool highlighted = menu.HighlightedItemId is not null || (keyboardOpen!.Value && menu.Items.Count > 0);
         FocusTargetValue? initial = kind == MenuParentKind.Menu
             ? new FocusTargetValue(false)
-            : !string.IsNullOrEmpty(listElementId!.Value) ? (menu.HighlightedItemId is null ? new FocusTargetValue(listElementId.Value!) : new FocusTargetValue(false)) : default(FocusTargetValue?);
+            : !string.IsNullOrEmpty(listElementId!.Value) ? (highlighted ? new FocusTargetValue(false) : new FocusTargetValue(listElementId.Value!)) : default(FocusTargetValue?);
 
         // The return focus: the consumer's, else the trigger for a top-level or context menu, a menu with an active
         // trigger, or a bar's menu not closed by an outside press.

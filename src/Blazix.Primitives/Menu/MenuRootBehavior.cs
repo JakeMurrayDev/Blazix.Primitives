@@ -64,7 +64,6 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     private readonly RenderFragment listCascade;
     private readonly RenderFragment storeCascade;
     private readonly MenuHighlightReporter reporter = new();
-    private readonly Dictionary<string, string?> labels = new(StringComparer.Ordinal);
     private MenuRootContext<TPayload>? context;
     private InteractionsSessionBehavior? session;
     private ListNavigationBehavior? list;
@@ -358,7 +357,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     // registry's label, else the item's text); until that grant, only an explicit Label is reported (a dated note on EVT-10).
     private void OnHighlightChanged(CompositeListHighlight report)
     {
-        string? label = report.ItemId is { } itemId && labels.TryGetValue(itemId, out string? known) ? known : null;
+        string? label = context!.Items.LabelOf(report.ItemId);
         if (reporter.Report(report.Index, report.ItemId, report.Event, label) is { } args && onItemHighlighted.HasDelegate)
         {
             _ = invokeAsync(() => onItemHighlighted.InvokeAsync(args));

@@ -132,6 +132,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         disposed = true;
+        submenu?.Parent.Menu?.Items.Remove(this);
         trigger?.Dispose();
         button.Dispose();
         reference.Dispose();
@@ -170,6 +171,11 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         bool disabled = Disabled;
         item!.SetRegistration(id, attributes, disabled, focusableWhenDisabled: true, label: parameters.Item.Label);
         item.SetConsumerAttributes(attributes);
+        if (id is not null)
+        {
+            submenu.Parent.Menu?.Items.Set(this, id, parameters.Item.Label);
+        }
+
         button.Native = parameters.Item.NativeButton;
         button.Disabled = disabled;
         button.FocusableWhenDisabled = true;

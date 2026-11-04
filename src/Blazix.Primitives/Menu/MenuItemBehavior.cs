@@ -136,6 +136,7 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        root?.Items.Remove(this);
         button?.Dispose();
         item?.Dispose();
     }
@@ -162,6 +163,11 @@ internal sealed class MenuItemBehavior : IDisposable
         // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
         item!.SetRegistration(id, attributes, parameters.Disabled, focusableWhenDisabled: true, label: parameters.Label);
         item.SetConsumerAttributes(attributes);
+        if (id is not null)
+        {
+            root!.Items.Set(this, id, parameters.Label);
+        }
+
         if (button is not null)
         {
             button.Native = parameters.NativeButton;
@@ -176,9 +182,11 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <param name="id">The item's id.</param>
     public void AddAttributes(AttributeList attributes, string? id)
     {
-        attributes.Set("role", "menuitem");
+        // The button mechanism writes role="button" on a non-native element; the item's role is written after it, as
+        // useMenuItem's props are merged over useButton's.
         attributes.Set("onclick", onClick);
         button?.AddAttributes(attributes, id, composite: true);
+        attributes.Set("role", "menuitem");
         item!.AddAttributes(attributes);
     }
 
