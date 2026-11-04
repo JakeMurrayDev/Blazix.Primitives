@@ -861,6 +861,24 @@ test.describe('<Menu.Root />', () => {
         });
 
         test.describe('modal behavior', () => {
+          test('treats hover-opened menus as modal after a click', async ({ page, mode }) => {
+            await render(page, mode, { ...base, openOnHover: true, delay: 0, content: 'items', items: 'Item 1' });
+            const positioner = page.getByTestId('menu-positioner');
+            const previousRole = () => positioner.evaluate((element) => element.previousElementSibling?.getAttribute('role') ?? null);
+            await withClock(page, async () => {
+              await moveTo(page, trigger(page));
+              await expect(page.getByRole('menu')).toBeVisible();
+              expect(await previousRole()).toBe(null);
+
+              // As in "reopens on hover after an impatient click closes via item press": the press lands inside the window.
+              await holdClock(page);
+              await clickThrough(page, trigger(page));
+              await page.clock.resume();
+
+              await expect.poll(previousRole).toBe('presentation');
+            });
+          });
+
           test('reopens on hover after an impatient click closes via item press', async ({ page, mode }) => {
             await render(page, mode, { ...base, openOnHover: true, delay: 100 });
             await withClock(page, async () => {
@@ -902,6 +920,60 @@ test.describe('<Menu.Root />', () => {
             await page.clock.runFor(60);
             await page.clock.resume();
             await expect(page.getByTestId('item-1')).toHaveCount(0);
+          });
+        });
+      });
+
+      // MNU-PTR-11, L4 open (settled by the orchestrator 2026-11-04; menu.md's port note): in a real browser the parent item's
+      // hover moves DOM focus and the hover-opened submenu closes with `focus-out` before its close delay. Dispatched as Base
+      // UI does (MenuRoot.test.tsx:2496), which the safe polygon's `pointer-events: none` also asks for.
+      test.describe('prop: closeDelay, a sibling item', () => {
+        const openRow = 'MNU-PTR-11, L4 open: the submenu closes with `focus-out` before its close delay (settled 2026-11-04, a real-browser probe of Base UI pending)';
+
+        test('should close submenu after delay when hovering a sibling item', async ({ page, mode }) => {
+          test.skip(true, openRow);
+          await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
+          await moveTo(page, trigger(page));
+          await expect(popup(page)).toBeVisible();
+          await moveTo(page, item(page, 'Item 4'));
+          await expect(submenu(page)).toBeVisible();
+
+          await withClock(page, async () => {
+            await fire(item(page, 'Item 1'), 'mousemove');
+
+            // Submenu should still be open after partial delay.
+            await page.clock.runFor(50);
+            await expect(submenu(page)).toBeAttached();
+
+            // Submenu should close after the full delay.
+            await page.clock.runFor(60);
+            await page.clock.resume();
+            await expect(submenu(page)).toHaveCount(0);
+          });
+        });
+
+        test('should not restart closeDelay on repeated mousemove over sibling items', async ({ page, mode }) => {
+          test.skip(true, openRow);
+          await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
+          await moveTo(page, trigger(page));
+          await expect(popup(page)).toBeVisible();
+          await moveTo(page, item(page, 'Item 4'));
+          await expect(submenu(page)).toBeVisible();
+
+          await withClock(page, async () => {
+            await fire(item(page, 'Item 1'), 'mousemove');
+
+            // Most of the delay, then move again over the sibling.
+            await page.clock.runFor(80);
+            await expect(submenu(page)).toBeAttached();
+
+            // Move again: this should NOT restart the timer.
+            await fire(item(page, 'Item 1'), 'mousemove');
+
+            // 100 ms from the first move, the submenu should close.
+            await page.clock.runFor(30);
+            await page.clock.resume();
+            await expect(submenu(page)).toHaveCount(0);
           });
         });
       });
@@ -1004,6 +1076,30 @@ test.describe('<Menu.Root />', () => {
     });
   }
 
+  for (const { name, detached } of [
+    { name: 'contained triggers', detached: undefined },
+    { name: 'detached triggers', detached: true },
+  ]) {
+    test.describe(`when using ${name}, BaseUIChangeEventDetails`, () => {
+      test('unmounts on a later normal close after a preventUnmountOnClose cycle and reopen', async ({ page, mode }) => {
+        await render(page, mode, { detached, retainFirstClose: true });
+
+        await trigger(page).click();
+        await expect(page.getByRole('menu')).toBeAttached();
+
+        await trigger(page).click({ force: true });
+        await expect(trigger(page)).not.toHaveAttribute('data-popup-open', /.*/);
+        await expect(popup(page)).toBeAttached();
+
+        await trigger(page).click({ force: true });
+        await expect(trigger(page)).toHaveAttribute('data-popup-open', '');
+
+        await trigger(page).click({ force: true });
+        await expect(popup(page)).toHaveCount(0);
+      });
+    });
+  }
+
   test('does not leave a tabbable item after tabbing out of a keepMounted menu before close', async ({ page, mode }) => {
     const fixture = await render(page, mode, { detached: true, modal: false, keepMounted: true, inputs: true });
     await trigger(page).focus();
@@ -1077,6 +1173,18 @@ test.describe('<Menu.Root />', () => {
 
       await expect(beta).not.toHaveAttribute('data-highlighted', /.*/);
       await expect(beta).not.toBeFocused();
+    });
+
+    test('disables submenu triggers when controlled open', async ({ page, mode }) => {
+      const fixture = await renderOpen(page, mode, { noTrigger: true, disabled: true, subOpenOnHover: false, content: 'lone-submenu' });
+      const submenuTrigger = page.getByTestId('submenu-trigger');
+
+      await expect(submenuTrigger).toHaveAttribute('data-disabled', '');
+
+      await submenuTrigger.click({ force: true });
+      await settle(fixture);
+
+      await expect(page.getByTestId('submenu-popup')).toHaveCount(0);
     });
 
     test('does not close or activate items when controlled open', async ({ page, mode }) => {
@@ -1186,6 +1294,20 @@ test.describe('<Menu.Root />', () => {
     });
 
     test.describe('reporting after the callback or the list changes', () => {
+      test('does not report a stale highlight reason for a later list change', async ({ page, mode }) => {
+        const fixture = await render(page, mode, { content: 'reporting' });
+        await openWithKeyboard(page);
+        await page.keyboard.press('ArrowDown');
+        await expect(item(page, 'Two')).toBeFocused();
+        await expect.poll(async () => (await recorded(fixture, 'data-highlights', '|')).at(-1)).toBe('Two:keyboard:keydown:ArrowDown');
+        const before = (await recorded(fixture, 'data-highlights', '|')).length;
+
+        await fixture.locator('[data-insert-item]').evaluate((control) => control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true })));
+
+        await expect.poll(async () => (await recorded(fixture, 'data-highlights', '|')).length).toBeGreaterThan(before);
+        expect((await recorded(fixture, 'data-highlights', '|')).at(-1)).toMatch(/:none:/);
+      });
+
       test('reports highlights correctly after onItemHighlighted is removed and added back', async ({ page, mode }) => {
         const fixture = await render(page, mode, { content: 'items', items: 'One|Two' });
         const toggle = fixture.locator('[data-observe-highlights]');
