@@ -56,7 +56,11 @@ internal sealed class MenuItemBehavior : IDisposable
     private readonly ButtonBehavior? button;
     private CompositeItemBehavior? item;
     private MenuRootContext? root;
+    private MenuSubscription? rootSubscription;
+    private MenuSelection<bool>? rootDisabled;
     private MenuItemParameters parameters;
+    private string? id;
+    private IReadOnlyDictionary<string, object>? attributes;
 
     /// <summary>Initializes a new instance of the <see cref="MenuItemBehavior"/> class.</summary>
     /// <param name="familyName">The item's family, such as <c>Menu</c>.</param>
@@ -110,6 +114,9 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <summary>Gets the root's context.</summary>
     public MenuRootContext Context => root!;
 
+    /// <summary>Gets a value indicating whether the item ignores user interaction: its own <c>Disabled</c>, or its root's.</summary>
+    public bool Disabled => parameters.Disabled || (rootDisabled?.Value ?? false);
+
     /// <summary>Gets a value indicating whether the item is highlighted, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
 
@@ -126,7 +133,7 @@ internal sealed class MenuItemBehavior : IDisposable
         Task itemSync = item!.AfterRenderAsync(element);
         if (button is not null)
         {
-            button.Disabled = parameters.Disabled;
+            button.Disabled = Disabled;
             await button.AfterRenderAsync(enabled, element, id, composite: true);
         }
 
@@ -137,6 +144,7 @@ internal sealed class MenuItemBehavior : IDisposable
     public void Dispose()
     {
         root?.Items.Remove(this);
+        rootSubscription?.Dispose();
         button?.Dispose();
         item?.Dispose();
     }
@@ -150,6 +158,14 @@ internal sealed class MenuItemBehavior : IDisposable
         // MNU-EDGE-03: the Root context error, before the composite item's own.
         this.root = MenuRootContext.Require(root, familyName);
         item = new CompositeItemBehavior(list, partName, onKeyDown, requestRender);
+
+        // MenuItem.tsx:32-37, MenuCheckboxItem.tsx:41-46, MenuRadioItem.tsx:47-49: the root's disabled state disables an item
+        // too, and follows it. A LinkItem, which has no button behavior, has no disabled state.
+        if (button is not null)
+        {
+            rootSubscription = this.root.Subscribe(OnRootChanged);
+            rootDisabled = rootSubscription.Select(MenuSelectors.Disabled);
+        }
     }
 
     /// <summary>Applies the item's parameters and its registration.</summary>
@@ -159,22 +175,9 @@ internal sealed class MenuItemBehavior : IDisposable
     public void Apply(string? id, in MenuItemParameters parameters, IReadOnlyDictionary<string, object>? attributes)
     {
         this.parameters = parameters;
-
-        // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
-        item!.SetRegistration(id, attributes, parameters.Disabled, focusableWhenDisabled: true, label: parameters.Label);
-        item.SetConsumerAttributes(attributes);
-        if (id is not null)
-        {
-            root!.Items.Set(this, id);
-        }
-
-        if (button is not null)
-        {
-            button.Native = parameters.NativeButton;
-            button.Disabled = parameters.Disabled;
-            button.FocusableWhenDisabled = true;
-            button.SetConsumerAttributes(attributes);
-        }
+        this.id = id;
+        this.attributes = attributes;
+        Register();
     }
 
     /// <summary>Adds the item's attributes.</summary>
@@ -200,7 +203,7 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <returns>A task that completes when the activation has run.</returns>
     public async Task HandleClickAsync(MouseEventArgs args)
     {
-        if (parameters.Disabled)
+        if (Disabled)
         {
             return;
         }
@@ -228,4 +231,30 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the key has run.</returns>
     public Task HandleKeyUpAsync(KeyboardEventArgs args) => button?.HandleKeyUpAsync(args) ?? Task.CompletedTask;
+
+    // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
+    private void Register()
+    {
+        bool disabled = Disabled;
+        item!.SetRegistration(id, attributes, disabled, focusableWhenDisabled: true, label: parameters.Label);
+        item.SetConsumerAttributes(attributes);
+        if (id is not null)
+        {
+            root!.Items.Set(this, id);
+        }
+
+        if (button is not null)
+        {
+            button.Native = parameters.NativeButton;
+            button.Disabled = disabled;
+            button.FocusableWhenDisabled = true;
+            button.SetConsumerAttributes(attributes);
+        }
+    }
+
+    private void OnRootChanged()
+    {
+        Register();
+        requestRender();
+    }
 }
