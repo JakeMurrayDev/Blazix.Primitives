@@ -14,7 +14,9 @@ import {
 } from './button';
 import type { EventInfo } from './event-info';
 import type { TwinHandle } from './twin';
+import { resetInteractionsForTest } from './interactions';
 import { createFakeTwin, type FakeTwin, type FakeTwinOptions } from './test-support/fake-twin';
+import { createListHarness } from './test-support/list-harness';
 
 const handles: TwinHandle[] = [];
 
@@ -1510,5 +1512,43 @@ describe('classifyClick (port)', () => {
     expect(classifyClick(new PointerEvent('click', { detail: 1, pointerType: 'pen' }), 'mouse')).toBe('pen');
     expect(classifyClick(new MouseEvent('click', { detail: 1 }), 'touch')).toBe('touch');
     expect(classifyClick(new MouseEvent('click', { detail: 1 }), '')).toBe('');
+  });
+});
+
+// Design point 2 (c) of M5 track 1 (issue 159; ADR 04 Amendments 2026-11-03 (1), chosen by the user: the `button` module's
+// Space path reads the typing flag): the composite list handle keeps the flag and prevents an item's Space while typing
+// in a capture listener on its floating element, which runs before the item's own `button` listener; the Space path's
+// existing branch skips a prevented Space on a `menuitem*`, `option` or `gridcell`, as useButton does after Base UI's
+// item handler (useMenuItemCommonProps.ts:85-88).
+describe('with the composite list handle\'s typing flag (port)', () => {
+  afterEach(() => {
+    resetInteractionsForTest();
+  });
+
+  it('port: an item\'s Space while typing is typed, not activated, because the list handle prevents it before the item\'s own listener', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const harness = createListHarness({
+      list: { typeahead: { resetMs: 500, skip: 'element' } },
+      session: { open: true },
+      itemAttributes: () => ({ role: 'menuitem' }),
+    });
+    try {
+      const item = harness.item(1);
+      const fake = createFakeTwin();
+      handles.push(attach(item, optionsJson({ native: false, composite: true }), fake.twin));
+      const onClick = vi.fn();
+      item.addEventListener('click', onClick);
+      item.focus();
+
+      keyDown(item, 't');
+      keyDown(item, SPACE);
+      expect(onClick).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(500);
+      keyDown(item, SPACE);
+      expect(onClick).toHaveBeenCalledTimes(1);
+    } finally {
+      harness.dispose();
+    }
   });
 });

@@ -22,6 +22,10 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     // No outside press: the suites click the page's own buttons while the popup is open.
     private static readonly InteractionsDismissOptions s_escapeOnly = new() { OutsidePress = false };
 
+    // M5 track 1's list hosts (issue 159, Deliverable 12): the popup-list suite presses outside the popup, so a list host
+    // turns the outside press on with the module's default events; every other page keeps Escape only.
+    private static readonly InteractionsDismissOptions s_escapeAndOutsidePress = new();
+
     private readonly PopupRootBehavior<FixturePopupStore<TPayload>, FixturePopupStoreState<TPayload>, TPayload> behavior;
     private InteractionsSessionBehavior? session;
     private SelectorSubscription<FixturePopupStoreState<TPayload>>? committed;
@@ -79,6 +83,20 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Parameter]
     public RenderFragment<TPayload?>? PayloadContent { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether an outside press closes the popup (M5 track 1's list hosts); <see langword="false"/>,
+    /// the default, keeps the dismissal to Escape.
+    /// </summary>
+    [Parameter]
+    public bool OutsidePress { get; set; }
+
+    /// <summary>
+    /// Gets or sets the session token of the enclosing popup, which makes this popup's session its child (M5 track 1's
+    /// nested list hosts, issue 159, Deliverable 6: the test-only parent token until track 2's cascade is on <c>main</c>).
+    /// </summary>
+    [Parameter]
+    public string? ParentToken { get; set; }
+
     /// <summary>Gets a value indicating whether the popup is open.</summary>
     public bool IsOpen => behavior.Store.IsOpen;
 
@@ -118,6 +136,7 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
 
     protected override void OnParametersSet()
     {
+        session!.Dismiss = OutsidePress ? s_escapeAndOutsidePress : s_escapeOnly;
         behavior.ApplyParameters(new PopupRootParameters<TPayload>(
             DefaultOpen,
             DefaultTriggerId,
@@ -160,6 +179,7 @@ public sealed class FixturePopupRoot<TPayload> : ComponentBase, IAsyncDisposable
         session.FloatingId = popup.PopupId;
         session.Ending = popup.DerivedTransitionStatus == TransitionStatus.Ending;
         session.Relay = popup.OpenChange;
-        session.ParentToken = FloatingParent?.SessionToken;
+        // Track 2's cascade (PR 169) unless a test passes its own token (track 1's nested list host, 165c764).
+        session.ParentToken = ParentToken ?? FloatingParent?.SessionToken;
     }
 }

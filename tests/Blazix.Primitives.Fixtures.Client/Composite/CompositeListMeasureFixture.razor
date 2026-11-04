@@ -1,0 +1,122 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `composite-list-measure` fixture (tests/browser/composite-list-figures.spec.ts; M5 track 1, issue 159, Deliverable
+    13's measurement fixture; ADR 14 Amendments 2026-11-03): `?n=` test-only items (`Item 0`..), each with a `Render`
+    substitute (a `div` the part re-emits with its merged attributes), in a 300 px scroller, on the DOM-focus host with
+    Menu's list options (loop, typeahead with a 500 ms reset, skip by element). The specs count the circuit's frames
+    (Server) or the interop calls (WebAssembly) per held arrow key and per typeahead burst.
+
+    The ADR 01 figures' page too (Deliverable 14): `addItem` (a control, `data-key-control`) appends an item, and
+    `highlightFromCSharp` (a control) asks for the highlight on the item `?highlight=` names (1 by default) from C#; the
+    container renders `data-items` (the count) and `data-matches` (each closed-list typeahead match C# received, by
+    index); each item renders C#'s mirror as `data-mirrored-highlighted`. `?reportItems=true` has the module report the
+    items' order (`data-order` is the last report's count, `data-order-reports` the reports); `?labels=true` sends the
+    labels from C# (the closed list's typeahead, whose items are not rendered); `?veto=true` puts a consumer `onkeydown`
+    on the list that calls `PreventPartHandler()` (`data-vetoes` counts its runs); the base class's `cancelClose=true`
+    cancels every close.
+*@
+<FixtureContainer Name="composite-list-measure" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-items="@labels.Count" data-matches="@string.Join(' ', matches)"
+                  data-order="@orderCount" data-order-reports="@orderReports" data-vetoes="@vetoes">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-add-item data-key-control @onclick="AddItem" @onkeydown="OnShift(AddItem)">Add item</button>
+    <button type="button" data-highlight-from-csharp data-key-control @onclick="HighlightAsync" @onkeydown="OnShift(HighlightAsync)">Highlight</button>
+    <FixtureListRoot @ref="root" Items="@labels" LoopFocus="true" Typeahead="true" TypeaheadResetMs="500" TypeaheadSkip="element"
+                     TypeaheadLabels="@(sendLabels ? labels.ToArray() : null)"
+                     OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete"
+                     OnAttached="() => listAttached.TrySetResult()">
+        <FixtureListTrigger id="list-trigger" data-testid="trigger" HasPopup="menu">Open</FixtureListTrigger>
+        <FixturePopupPortal TPayload="NoPayload">
+            <FixtureListPopup data-testid="popup" TriggerId="list-trigger" ListId="list-floating">
+                <FixtureListBox id="list-floating" data-testid="scroller" Role="menu" style="height: 300px; overflow-y: auto"
+                                ReportItems="@reportItems" OnItemsChange="RecordOrder" @attributes="ListAttributes">
+                    @foreach (string label in labels)
+                    {
+                        <FixtureListItem @key="label" Label="@label" Render="@s_substitute" style="height: 30px">@label</FixtureListItem>
+                    }
+                </FixtureListBox>
+            </FixtureListPopup>
+        </FixturePopupPortal>
+    </FixtureListRoot>
+</FixtureContainer>
+
+@code {
+    // The substitute: one root element the part re-emits with its attributes and child content.
+    private static readonly RenderFragment s_substitute = builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.CloseElement();
+    };
+
+    private readonly TaskCompletionSource listAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly List<string> labels = [];
+    private readonly List<string> matches = [];
+    private FixtureListRoot? root;
+    private bool reportItems;
+    private bool sendLabels;
+    private Dictionary<string, object>? listAttributes;
+    private int orderCount;
+    private int orderReports;
+    private int vetoes;
+
+    private IReadOnlyDictionary<string, object>? ListAttributes => listAttributes;
+
+    protected override IEnumerable<Task> Attachments => [listAttached.Task];
+
+    protected override void OnInitialized()
+    {
+        int count = Query("n") is { } n ? int.Parse(n, System.Globalization.CultureInfo.InvariantCulture) : 100;
+        for (int i = 0; i < count; i++)
+        {
+            labels.Add(Label(i));
+        }
+
+        reportItems = QueryFlag("reportItems") == true;
+        sendLabels = QueryFlag("labels") == true;
+        if (QueryFlag("veto") == true)
+        {
+            listAttributes = new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, Veto) };
+        }
+    }
+
+    // ADR 01's "C#-origin consumer vetoes" row: the handler asks to keep the part from handling the key.
+    private void Veto(KeyboardEventArgs e)
+    {
+        vetoes++;
+        e.PreventPartHandler();
+    }
+
+    private void RecordOrder(int count)
+    {
+        orderCount = count;
+        orderReports++;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            root!.List.Matched += match =>
+            {
+                matches.Add(match.Index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                StateHasChanged();
+            };
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private static string Label(int index) => "Item " + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private void AddItem() => labels.Add(Label(labels.Count));
+
+    private Task HighlightAsync()
+    {
+        int index = Query("highlight") is { } value ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : 1;
+        return root!.List.RequestHighlightAsync(index);
+    }
+}
