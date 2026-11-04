@@ -1503,6 +1503,34 @@ describe('FloatingFocusManager', () => {
 
       expect(document.activeElement).toBe(app.reference);
     });
+
+    // F1 (B'), settled by the orchestrator 2026-11-04: only the open's first arm can be late. A re-arm while open (a detached
+    // trigger switch) records the element inside the popup as Base UI's effect does, and a kept-mounted popup closed with
+    // Escape returns focus to it: in a browser that element is hidden, so focus ends on the body there.
+    it('port: a re-arm while open keeps the element it recorded inside the popup as the return element', async () => {
+      const first = element('button', 'first', { id: 'first' });
+      const second = element('button', 'second', { id: 'second' });
+      const floating = element('div', undefined, { 'data-open': '' });
+      const child = element('button', 'child');
+      floating.append(child);
+      document.body.append(first, second, floating);
+      first.focus();
+
+      const options: FocusManagerOptions = { modal: false, initialFocus: false, openInteractionType: null, domReferenceId: 'first' };
+      const manager = attachManager(floating, options);
+      await settle();
+      child.focus();
+      manager.update({ ...options, domReferenceId: 'second' });
+      await settle();
+      expect(document.activeElement).toBe(child);
+
+      // Kept mounted: the close hides the popup, which drops focus to the body, and the popup stays connected.
+      child.blur();
+      manager.update({ ...options, domReferenceId: 'second', disabled: true });
+      await settle();
+
+      expect(document.activeElement).toBe(child);
+    });
   });
 
   describe('prop: modal', () => {
