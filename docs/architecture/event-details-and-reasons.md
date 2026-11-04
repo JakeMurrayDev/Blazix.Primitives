@@ -173,6 +173,8 @@ Components with **no** event-details callbacks: Avatar (`onLoadingStatusChange(s
 | `index` | `Combobox.Root` / `Autocomplete.Root` `onItemHighlighted` | `number` | Index of the highlighted item (`-1` when the highlight is cleared). | `combobox/root/AriaCombobox.tsx:606-619, 2014-2017` |
 | `label` | `Menu.Root` `onItemHighlighted` | `string \| undefined` | "The highlighted item's `label` prop, or its text content when the prop is not set." | `menu/root/MenuRoot.tsx:605-613, 947-955` |
 
+Port note (2026-11-04, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); design point 3 (a), settled by the orchestrator 2026-11-04; ADR 08 Amendments 2026-11-04, Menu's parts and shapes as built): the port has two highlight-details types where this section names one. `Events/HighlightEventDetails` carries `Index` and is Combobox's and Autocomplete's. Menu's `MenuHighlightEventDetails` (`Menu/`) carries `Label` and no index, as `Menu.Root.HighlightEventDetails` has none. The label is `composite`'s highlight report's (design point 9 (a), PR 185): the item's `Label`, else its text content.
+
 ### 3.8 Public props whose semantics are defined here
 
 Component documents cite `EVD-API-13` for these props and only add their own prop pair names and reason lists.

@@ -1380,7 +1380,8 @@ export function attach(
         if (focusableElements == null) {
           focusableElements = getTabbableContent(floatingFocusElement);
         }
-        return focusableElements[0] || floatingFocusElement;
+        // D10 of PR 183: a guard inside the popup is a nested portal not yet moved; in Base UI it is in the body.
+        return focusableElements.find((element) => !isFocusGuard(element)) || floatingFocusElement;
       };
 
       const target = resolveTarget(options.initialFocusElement, options.initialFocusId);

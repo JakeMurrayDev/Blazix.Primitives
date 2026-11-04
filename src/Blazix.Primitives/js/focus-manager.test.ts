@@ -1465,6 +1465,23 @@ describe('FloatingFocusManager', () => {
       expect(document.activeElement).toBe(parentReference);
     });
 
+    // D10 of PR 183 (MNU-DIS-04): a default-open submenu's portal content, guards included, sits inside the parent's popup until
+    // the `portal` module moves it; in Base UI those guards are in the body. A guard is never the initial focus target.
+    it('port: the default initial focus skips a nested portal\'s focus guard inside the popup', async () => {
+      const app = renderApp({ modal: false });
+      const nested = insideGuard();
+      app.floating.prepend(nested);
+      for (const button of [app.one, app.two, app.three]) {
+        button.remove();
+      }
+      app.reference.focus();
+
+      app.open({ modal: false, openInteractionType: 'mouse' });
+      await settle();
+
+      expect(document.activeElement).toBe(app.floating);
+    });
+
     // FLT-FOC-20 has no Base UI title: a programmatic open (`null`) prefers the element focused before the open.
     it('prefers the previously focused element over the reference after a programmatic open', async () => {
       const app = renderApp();

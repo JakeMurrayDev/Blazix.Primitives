@@ -17,9 +17,9 @@
 // FloatingTreeStore.ts, FloatingTree.tsx, FloatingDelayGroup.tsx; hooks/useClick.ts, useDismiss.ts, useFocus.ts,
 // useClientPoint.ts, useHoverReferenceInteraction.ts, useHoverFloatingInteraction.ts, useHoverShared.ts,
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
-import { classifyClick, type InteractionType } from './button';
+import { classifyClick, dispatchClickWithModifiers, type InteractionType } from './button';
 import { decide } from './decide';
-import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, isMouseWithinBounds, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
 import {
@@ -201,6 +201,12 @@ export interface HoverOptions {
   // NavigationMenu's `getHandleCloseContext` (NavigationMenuTrigger.tsx:503-509, 812-845); M5 track 2.
   /** The floating element (by id) and tree node the safe polygon closes against when the popup has no positioner. */
   inlineCloseContext?: InlineCloseContextOptions | null;
+  // A submenu trigger's `shouldOpen` with a delay (MenuSubmenuTrigger.tsx:193-197; MNU-STA-12); M5 track 6.
+  /** Whether a hover opens only after a pointer move over the parent menu (its `allowMouseEnter`). */
+  requireParentMouseEnter?: boolean | null;
+  // A submenu trigger's hover gate (MenuSubmenuTrigger.tsx:177; MNU-STA-11); M5 track 6.
+  /** Whether the hover is off while the session's `hoverEnabled` is off. */
+  requireHoverEnabled?: boolean | null;
 }
 
 /** The inline close context of a trigger whose popup has no positioner (NavigationMenu's nested content). */
@@ -242,6 +248,20 @@ export interface TriggerRoleOptions {
   clientPoint?: ClientPointOptions | null;
   /** Whether the trigger records the hovered line for the inline middleware (PreviewCard). */
   hoveredLine?: boolean | null;
+  // MenuTrigger.tsx:121-171, 240-256; MenuRoot.tsx:640-648; M5 track 6.
+  /** A menu trigger's press-drag-release arm and the pointer move it records. */
+  menu?: MenuTriggerOptions | null;
+}
+
+// M5 track 6 (ADR 04 Amendments 2026-11-03 (4)): Menu's trigger additions.
+/** The menu options of a trigger handle; mirrors `InteractionsMenuTriggerOptions` in C#. */
+export interface MenuTriggerOptions {
+  /** The id of the menu tree's root, which its popups render as `data-rootownerid`. */
+  rootId?: string | null;
+  /** Whether a press arms the tree's release activation and a release elsewhere cancels the open. */
+  release?: boolean | null;
+  /** Whether a pointer move over the active trigger sets the session's `allowMouseEnter`. */
+  trackMouseEnter?: boolean | null;
 }
 
 // FLT §6.8
@@ -250,6 +270,9 @@ export interface FloatingHoverOptions {
   // FLT-PTR-24
   /** The close delay in milliseconds after the pointer leaves the floating element. */
   closeDelay?: number | null;
+  // MenuPopup.tsx:123-126 (MNU-STA-11); M5 track 6.
+  /** Whether the hover is off while the session's `hoverEnabled` is off. */
+  requireHoverEnabled?: boolean | null;
 }
 
 /** The options of a `floating` handle. */
@@ -258,6 +281,35 @@ export interface FloatingRoleOptions {
   /** Whether the session registers a tree node for this floating element; `true` when absent. */
   node?: boolean | null;
   hover?: FloatingHoverOptions | null;
+  // useMenuItemCommonProps.ts:89-143; MenuPositioner.tsx:187-216; MenuRoot.tsx:665-678; M5 track 6.
+  /** A menu popup's item hover, sibling close and release activation. */
+  menu?: MenuFloatingOptions | null;
+}
+
+// M5 track 6 (ADR 04 Amendments 2026-11-03 (4)): Menu's floating additions.
+/** The menu options of a floating handle; mirrors `InteractionsMenuFloatingOptions` in C#. */
+export interface MenuFloatingOptions {
+  /** Whether a pointer move over an item emits the tree's `itemhover`. */
+  itemHover?: boolean | null;
+  /** The delay before hovering another item of the parent menu closes this submenu; absent for no parent menu. */
+  siblingCloseDelay?: number | null;
+  /** Whether releasing a press over an item activates it while the tree's release is armed. */
+  release?: boolean | null;
+  /** Whether a pointer move over the popup turns the session's `hoverEnabled` off (a submenu's). */
+  disableHoverOnMove?: boolean | null;
+}
+
+// Design point 2 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): ContextMenu's release rules, set as data on the tree's slot.
+/** The release rules a context menu sets on its tree (CTX-PTR-09..12). */
+export interface MenuReleaseRules {
+  /** The button a release must use to activate an item, or `null` for any. */
+  button: number | null;
+  /** A button whose release never activates an item (the opening gesture's own), or `null`. */
+  skipButton: number | null;
+  /** The distance in pixels around `initialPoint` within which the first release does nothing. */
+  slop: number;
+  /** The point the gesture started at, consumed by the first release, or `null`. */
+  initialPoint: { x: number; y: number } | null;
 }
 
 // FLT §6.9
@@ -947,6 +999,11 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   const mounted = role.mounted === true;
   if (record.mounted && !mounted) {
     hoveredLineRef(record).current = undefined;
+    // MenuRoot.tsx:226-231 (M5 track 6): a menu's unmount forgets the pointer move over it.
+    const menu = record.slots.get('menu') as MenuSessionState | undefined;
+    if (menu !== undefined) {
+      menu.allowMouseEnter = false;
+    }
   }
   record.mounted = mounted;
   // G4 of M5 track 5 (settled by the orchestrator 2026-11-04): a press still pending when the open it raced commits.
@@ -3001,8 +3058,13 @@ function createHoverReferenceController(context: HandleContext): Controller {
   let hoverCleanup: Cleanup | null = null;
   let hoverKey: string | null = null;
   let pressCleanup: Cleanup | null = null;
+  let gateCleanup: Cleanup | null = null;
 
-  const hoverOptions = (): HoverOptions | null => context.options.trigger?.hover ?? null;
+  // Menu's gate (M5 track 6): a submenu trigger's hover is off while its menu's is (MenuSubmenuTrigger.tsx:177).
+  const hoverOptions = (): HoverOptions | null => {
+    const options = context.options.trigger?.hover ?? null;
+    return options !== null && isMenuHoverGated(record, options.requireHoverEnabled) ? null : options;
+  };
 
   // Base UI's `isActiveTrigger`: this trigger is the session's anchor, or no anchor is set yet.
   const isActiveTrigger = () => record.domReferenceElement === null || record.domReferenceElement === element;
@@ -3034,8 +3096,12 @@ function createHoverReferenceController(context: HandleContext): Controller {
 
   const isClickLikeOpen = () => isClickLikeOpenEvent(record.dataRef.current.openEvent?.type, instance.interactedInside);
 
-  // FLT-PTR-12's `shouldOpen`: Tooltip's veto while a nested trigger is hovered (TooltipTrigger.tsx:161-163).
-  const checkShouldOpen = () => !(hoverOptions()?.nestedTooltipTriggers === true && isNestedTriggerHovered);
+  // FLT-PTR-12's `shouldOpen`: Tooltip's veto while a nested trigger is hovered (TooltipTrigger.tsx:161-163), and a
+  // delayed submenu trigger's wait for a pointer move over its parent menu (MenuSubmenuTrigger.tsx:183; M5 track 6).
+  const checkShouldOpen = () => {
+    const options = hoverOptions();
+    return !(options?.nestedTooltipTriggers === true && isNestedTriggerHovered) && !(options?.requireParentMouseEnter === true && !parentAllowsMouseEnter(record));
+  };
 
   // A hover open of this session awaiting its commit (a round trip on Blazor Server) counts as open for the leave.
   const isHoverOpenPending = () => record.pending !== null && record.pending.open && record.pending.reason === 'trigger-hover';
@@ -3570,16 +3636,33 @@ function createHoverReferenceController(context: HandleContext): Controller {
     pressCleanup = null;
   };
 
+  // What an `update` re-runs, and a change of the menu's `hoverEnabled` too (the hook's `enabled`).
+  const refreshHover = () => {
+    refreshHandleClose();
+    if (hoverListenerKey(hoverOptions()) !== hoverKey) {
+      uninstallHover();
+      installHover();
+    }
+  };
+
+  const syncGate = () => {
+    const gated = context.options.trigger?.hover?.requireHoverEnabled === true;
+    if (gated && gateCleanup === null) {
+      gateCleanup = onMenuHoverGateChange(record, refreshHover);
+    } else if (!gated && gateCleanup !== null) {
+      gateCleanup();
+      gateCleanup = null;
+    }
+  };
+
+  syncGate();
   refreshHandleClose();
   installHover();
   installPress();
   return {
     update() {
-      refreshHandleClose();
-      if (hoverListenerKey(hoverOptions()) !== hoverKey) {
-        uninstallHover();
-        installHover();
-      }
+      syncGate();
+      refreshHover();
       if ((context.options.trigger?.cancelPendingOpenOnPress === true) !== (pressCleanup !== null)) {
         uninstallPress();
         installPress();
@@ -3590,6 +3673,7 @@ function createHoverReferenceController(context: HandleContext): Controller {
       if (hoverOptions()?.blockPointerEventsOnEnter === true && instance.pointerEventsReferenceElement === element) {
         clearPointerEvents();
       }
+      gateCleanup?.();
       uninstallHover();
       uninstallPress();
       cleanupMouseMoveHandler();
@@ -3618,8 +3702,13 @@ function createHoverFloatingController(context: HandleContext): Controller {
   let cleanup: Cleanup | null = null;
   let pointerEventsCleanup: Cleanup | null = null;
   let subscribedTreeEvents: SessionEvents | null = null;
+  let gateCleanup: Cleanup | null = null;
 
-  const hoverOptions = (): FloatingHoverOptions | null => context.options.floating?.hover ?? null;
+  // Menu's gate (M5 track 6): a menu popup's hover is off while its menu's is (MenuPopup.tsx:123-126).
+  const hoverOptions = (): FloatingHoverOptions | null => {
+    const options = context.options.floating?.hover ?? null;
+    return options !== null && isMenuHoverGated(record, options.requireHoverEnabled) ? null : options;
+  };
   // ADR 04 Amendments 2026-10-29 (design point 11.6 of M4 track 7, a fidelity correction): Base UI's hook reads
   // `useFloatingParentNodeId()` in the Popup, inside the Positioner's floating node, so the parent it reads is the popup's
   // own node when it has one (Popover, PreviewCard, Menu) and the enclosing popup's otherwise (Tooltip).
@@ -3827,22 +3916,42 @@ function createHoverFloatingController(context: HandleContext): Controller {
     cleanup = null;
   };
 
+  // The hook's `enabled`: an `update` and a change of the menu's `hoverEnabled` re-run the effects when it flips.
+  let enabled = hoverOptions() !== null;
+  const refreshEnabled = () => {
+    const next = hoverOptions() !== null;
+    if (next !== enabled) {
+      enabled = next;
+      runLayoutEffects(record.open, record.domReferenceElement, false);
+      if (next) {
+        install();
+      } else {
+        uninstall();
+      }
+    }
+  };
+
+  const syncGate = () => {
+    const gated = context.options.floating?.hover?.requireHoverEnabled === true;
+    if (gated && gateCleanup === null) {
+      gateCleanup = onMenuHoverGateChange(record, refreshEnabled);
+    } else if (!gated && gateCleanup !== null) {
+      gateCleanup();
+      gateCleanup = null;
+    }
+  };
+
   const stopListening = onSessionChange(record, onSessionApplied);
+  syncGate();
   runLayoutEffects(record.open, record.domReferenceElement, true);
   install();
   return {
-    update(previous) {
-      const enabled = hoverOptions() !== null;
-      if ((previous.floating?.hover ?? null) !== null !== enabled) {
-        runLayoutEffects(record.open, record.domReferenceElement, false);
-        if (enabled) {
-          install();
-        } else {
-          uninstall();
-        }
-      }
+    update() {
+      syncGate();
+      refreshEnabled();
     },
     dispose() {
+      gateCleanup?.();
       stopListening();
       uninstall();
       pointerEventsCleanup = null;
@@ -3854,6 +3963,345 @@ function createHoverFloatingController(context: HandleContext): Controller {
 }
 
 // #endregion hover
+
+// ---------------------------------------------------------------------------------------------------------------
+// #region menu: Menu's hover gates, the tree's item hover and release activation (MNU-STA-11, MNU-STA-12, MNU-PTR-02..04,
+// MNU-PTR-08, MNU-PTR-09, MNU-PTR-11, MNU-DIS-07); M5 track 6
+// ---------------------------------------------------------------------------------------------------------------
+// ADR 04 Amendments 2026-11-04 (3). Each menu session keeps Base UI's `hoverEnabled` and `allowMouseEnter` store fields
+// (MenuStore.ts:24, 42) in its `menu` slot: pointer state that no C# decision reads. A popup's pointer move and click, a
+// child menu's open, the menu's close, the active trigger's move and the unmount set them (MenuRoot.tsx:230, 336-339,
+// 640-690; MenuPositioner.tsx:134-140). React's synthetic events bubble through portals, so Base UI's popup handlers also
+// see a child popup's moves and clicks; the child's open already turned these menus' hover off, so the port listens on
+// each popup alone.
+
+// The roles of the items a pointer move over which tells the tree (every part over useMenuItemCommonProps).
+const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"]';
+
+/** The tree's `itemhover`: the session of the menu whose item the pointer moved over, and the item. */
+interface MenuItemHoverEvent {
+  nodeId: string;
+  target: Element;
+}
+
+// The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04): Base UI's
+// `allowMouseUpTriggerRef`, shared by every menu of a tree (MenuStore.ts:173-181), and ContextMenu's rules and
+// `initialCursorPointRef`, in the forest root session's `dataRef.current`, so a menu inside a context menu reads its rules.
+const MENU_RELEASE_KEY = 'blazix.interactions.menuRelease';
+
+interface MenuReleaseSlot {
+  armed: boolean;
+  rules: MenuReleaseRules | null;
+  initialPoint: { x: number; y: number } | null;
+}
+
+function menuReleaseSlot(record: SessionRecord): MenuReleaseSlot {
+  const data = forestRoot(record).dataRef.current;
+  let slot = data[MENU_RELEASE_KEY] as MenuReleaseSlot | undefined;
+  if (slot === undefined) {
+    slot = { armed: false, rules: null, initialPoint: null };
+    data[MENU_RELEASE_KEY] = slot;
+  }
+  return slot;
+}
+
+interface MenuSessionState {
+  hoverEnabled: boolean;
+  allowMouseEnter: boolean;
+  /** Told when `hoverEnabled` changes, so a hover handle that requires it re-runs as on an `update`. */
+  readonly gateListeners: Set<() => void>;
+}
+
+function menuSessionState(record: SessionRecord): MenuSessionState {
+  return sessionSlot(record, 'menu', () => {
+    const state: MenuSessionState = { hoverEnabled: true, allowMouseEnter: false, gateListeners: new Set() };
+    record.events.on('openchange', (details: SessionOpenChangeDetails) => {
+      if (details.open) {
+        // MenuPositioner.tsx:134-140: a menu opening turns its parent menu's hover off.
+        const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+        const parentState = parent?.slots.get('menu') as MenuSessionState | undefined;
+        if (parent !== undefined && parentState !== undefined) {
+          setMenuHoverEnabled(parent, parentState, false);
+        }
+      } else {
+        setMenuHoverEnabled(record, state, true);
+      }
+    });
+    return state;
+  });
+}
+
+function setMenuHoverEnabled(record: SessionRecord, state: MenuSessionState, hoverEnabled: boolean): void {
+  // MenuRoot.tsx:336-339: a layout effect turns a closed menu's hover back on at once, so turning it off while closed is
+  // no change.
+  if (state.hoverEnabled === hoverEnabled || (!hoverEnabled && !record.open)) {
+    return;
+  }
+  state.hoverEnabled = hoverEnabled;
+  for (const listener of [...state.gateListeners]) {
+    listener();
+  }
+}
+
+/** Whether a hover handle that requires its menu's hover is off. */
+function isMenuHoverGated(record: SessionRecord, requireHoverEnabled: boolean | null | undefined): boolean {
+  return requireHoverEnabled === true && !menuSessionState(record).hoverEnabled;
+}
+
+/** Whether the parent menu had a pointer move since it mounted, which a delayed submenu trigger's hover open needs. */
+function parentAllowsMouseEnter(record: SessionRecord): boolean {
+  const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+  return parent === undefined || menuSessionState(parent).allowMouseEnter;
+}
+
+function onMenuHoverGateChange(record: SessionRecord, listener: () => void): Cleanup {
+  const state = menuSessionState(record);
+  state.gateListeners.add(listener);
+  return () => {
+    state.gateListeners.delete(listener);
+  };
+}
+
+/**
+ * A menu trigger's half: the active trigger's pointer move counts as a move over the menu (MenuRoot.tsx:646-649); with
+ * `trigger.menu.release`, a press on the closed menu arms the tree's release after 200 ms, and a release outside the
+ * trigger, its bounds and the tree, after that press or after this trigger's hover open, cancels the open
+ * (MenuTrigger.tsx:121-171, 240-256).
+ */
+function createMenuTriggerController(context: HandleContext): Controller {
+  const { record, channel } = context;
+  const element = context.element as HTMLElement;
+  const releaseArmTimeout = createTimer();
+  let documentMouseUp: Cleanup | null = null;
+  let lastReason: string | null = null;
+  let openedByThisTrigger = false;
+  const menuOptions = () => context.options.trigger?.menu ?? null;
+
+  const onMouseMove = () => {
+    const isActive = record.domReferenceElement === null || record.domReferenceElement === element;
+    if (menuOptions()?.trackMouseEnter === true && isActive) {
+      menuSessionState(record).allowMouseEnter = true;
+    }
+  };
+
+  const removeDocumentMouseUp = () => {
+    documentMouseUp?.();
+    documentMouseUp = null;
+  };
+
+  // MenuTrigger.tsx:129-157: the release disarms the tree, and one outside the trigger, its bounds and the tree cancels.
+  const onDocumentMouseUp = (event: MouseEvent) => {
+    removeDocumentMouseUp();
+    releaseArmTimeout.clear();
+    menuReleaseSlot(record).armed = false;
+    const target = getTarget(event);
+    const targetElement = isElement(target) ? target : null;
+    if (targetElement === element || contains(element, targetElement) || contains(record.floatingElement, targetElement)) {
+      return;
+    }
+    const rootId = menuOptions()?.rootId;
+    if (targetElement !== null && rootId != null && closest(targetElement, '[data-rootownerid]')?.getAttribute('data-rootownerid') === rootId) {
+      return;
+    }
+    if (isMouseWithinBounds(event, element)) {
+      return;
+    }
+    requestOpenChange(record, channel, false, 'cancel-open', event);
+  };
+
+  // One listener for both paths, as Base UI adds the same function for both and the document keeps one.
+  const addDocumentMouseUp = () => {
+    if (documentMouseUp === null) {
+      documentMouseUp = listen(ownerDocument(element), 'mouseup', onDocumentMouseUp);
+    }
+  };
+
+  const onMouseDown = () => {
+    if (menuOptions()?.release !== true || record.open) {
+      return;
+    }
+    // A press and a release over an item within 200 ms does not activate it.
+    releaseArmTimeout.start(200, () => {
+      menuReleaseSlot(record).armed = true;
+    });
+    addDocumentMouseUp();
+  };
+
+  const onOpenChange = (details: SessionOpenChangeDetails) => {
+    lastReason = details.reason;
+  };
+
+  // MenuTrigger.tsx:120-124, 159-171: when this trigger's open ends, the tree is disarmed and the listener removed; a
+  // hover open by this trigger listens for the release.
+  const onSessionApplied = () => {
+    const opened = record.open && record.domReferenceElement === element;
+    if (opened === openedByThisTrigger) {
+      return;
+    }
+    openedByThisTrigger = opened;
+    if (menuOptions()?.release !== true) {
+      return;
+    }
+    if (!opened) {
+      menuReleaseSlot(record).armed = false;
+      removeDocumentMouseUp();
+    } else if (lastReason === 'trigger-hover') {
+      addDocumentMouseUp();
+    }
+  };
+
+  record.events.on('openchange', onOpenChange);
+  const stopListening = onSessionChange(record, onSessionApplied);
+  const cleanup = mergeCleanups(listen(element, 'mousemove', onMouseMove), listen(element, 'mousedown', onMouseDown));
+  return {
+    dispose() {
+      cleanup();
+      stopListening();
+      record.events.off('openchange', onOpenChange);
+      removeDocumentMouseUp();
+      releaseArmTimeout.clear();
+    },
+  };
+}
+
+/**
+ * A menu popup's half: a pointer move over an item tells the tree (`floating.menu.itemHover`); a pointer move over the
+ * popup counts as a move over the menu and, in a submenu, turns its hover off; a click in it turns its hover off
+ * (MenuRoot.tsx:665-690). A submenu (`floating.menu.siblingCloseDelay`) closes with `sibling-open` when the pointer moves
+ * over another item of its parent menu. The slot exists from the attach, so a child's open finds it.
+ */
+function createMenuFloatingController(context: HandleContext): Controller {
+  const { record, channel } = context;
+  const floatingElement = context.element as HTMLElement;
+  const siblingCloseTimeout = createTimer();
+  let treeEvents: SessionEvents | null = null;
+  const menuOptions = () => context.options.floating?.menu ?? null;
+
+  // The menu's own popup, whose items are this menu's (a nested popup inside the floating element has its own).
+  const ownPopup = (): Element | null => (floatingElement.matches('[data-rootownerid]') ? floatingElement : floatingElement.querySelector('[data-rootownerid]'));
+
+  // useMenuItemCommonProps.ts:89-101: the item's move first, then the popup's (React's bubbling order).
+  const onMouseMove = (event: MouseEvent) => {
+    const options = menuOptions();
+    if (options === null) {
+      return;
+    }
+    const target = getTarget(event);
+    const item = options.itemHover === true && isElement(target) ? target.closest(MENU_ITEM_SELECTOR) : null;
+    if (item !== null && contains(floatingElement, item) && item.closest('[data-rootownerid]') === ownPopup()) {
+      const hover: MenuItemHoverEvent = { nodeId: record.token, target: item };
+      record.tree.events.emit('itemhover', hover);
+    }
+    const state = menuSessionState(record);
+    state.allowMouseEnter = true;
+    if (options.disableHoverOnMove === true) {
+      setMenuHoverEnabled(record, state, false);
+    }
+  };
+  const onClick = () => {
+    if (menuOptions() !== null) {
+      setMenuHoverEnabled(record, menuSessionState(record), false);
+    }
+  };
+
+  // useMenuItemCommonProps.ts:107-145: a release over an item while the tree is armed clicks it as a mouse gesture; a
+  // submenu trigger takes no click. A context menu's rules consume the gesture's point and gate the button.
+  const onMouseUp = (event: MouseEvent) => {
+    if (menuOptions()?.release !== true) {
+      return;
+    }
+    const target = getTarget(event);
+    const item = isElement(target) ? target.closest(MENU_ITEM_SELECTOR) : null;
+    if (item === null || !contains(floatingElement, item) || item.closest('[data-rootownerid]') !== ownPopup()) {
+      return;
+    }
+    const slot = menuReleaseSlot(record);
+    const rules = slot.rules;
+    if (rules !== null) {
+      const point = slot.initialPoint;
+      slot.initialPoint = null;
+      if (point !== null && Math.abs(event.clientX - point.x) <= rules.slop && Math.abs(event.clientY - point.y) <= rules.slop) {
+        return;
+      }
+      if (rules.skipButton !== null && event.button === rules.skipButton) {
+        return;
+      }
+    }
+    if (slot.armed && (rules === null || rules.button === null || event.button === rules.button) && item.getAttribute('aria-haspopup') !== 'menu') {
+      dispatchClickWithModifiers(item, event, { detail: 1, pointerType: 'mouse' });
+    }
+  };
+
+  // MenuPositioner.tsx:187-216: an item hover in the parent menu closes this submenu unless the item is its trigger; a
+  // pending close is not restarted by further hovers, and hovering the trigger cancels it.
+  const onItemHover = (event: MenuItemHoverEvent) => {
+    const delay = menuOptions()?.siblingCloseDelay;
+    if (delay == null || !record.open || event.nodeId !== record.parentToken) {
+      return;
+    }
+    const trigger = record.domReferenceElement;
+    if (trigger !== null && trigger !== event.target) {
+      if (delay <= 0) {
+        requestOpenChange(record, channel, false, 'sibling-open', undefined);
+      } else if (!siblingCloseTimeout.isStarted()) {
+        siblingCloseTimeout.start(delay, () => {
+          requestOpenChange(record, channel, false, 'sibling-open', undefined);
+        });
+      }
+    } else {
+      siblingCloseTimeout.clear();
+    }
+  };
+
+  // MenuPositioner.tsx:180-185: a close clears the pending sibling close.
+  const onOpenChange = (details: SessionOpenChangeDetails) => {
+    if (!details.open) {
+      siblingCloseTimeout.clear();
+    }
+  };
+
+  // The tree's bus is the forest root's, which a new parent token changes.
+  const syncTreeEvents = () => {
+    const events = record.tree.events;
+    if (events !== treeEvents) {
+      treeEvents?.off('itemhover', onItemHover);
+      events.on('itemhover', onItemHover);
+      treeEvents = events;
+    }
+  };
+
+  const ensureSlot = () => {
+    if (menuOptions() !== null) {
+      menuSessionState(record);
+    }
+  };
+
+  ensureSlot();
+  syncTreeEvents();
+  record.events.on('openchange', onOpenChange);
+  const stopListening = onSessionChange(record, syncTreeEvents);
+  const cleanup = mergeCleanups(
+    listen(floatingElement, 'mousemove', onMouseMove),
+    listen(floatingElement, 'click', onClick),
+    listen(floatingElement, 'mouseup', onMouseUp),
+  );
+  return {
+    update() {
+      ensureSlot();
+      syncTreeEvents();
+    },
+    dispose() {
+      cleanup();
+      stopListening();
+      record.events.off('openchange', onOpenChange);
+      treeEvents?.off('itemhover', onItemHover);
+      treeEvents = null;
+      siblingCloseTimeout.clear();
+    },
+  };
+}
+
+// #endregion menu
 
 // ---------------------------------------------------------------------------------------------------------------
 // #region delay-group: FloatingDelayGroup and useDelayGroup (FLT-ALG-23, FLT-EVT-07, FLT-ANI-01)
@@ -4401,6 +4849,28 @@ export function clearSessionOpenEvent(token: string): void {
  */
 export function readPlatformFlags(): string {
   return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+}
+
+// The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-03 (4)): Menu's
+// trigger arms it 200 ms after a press (MenuTrigger.tsx:240-256); a context menu arms it with its own rules (track 7).
+/**
+ * Arms or disarms the release activation of the menu tree a session belongs to, with optional rules.
+ * @param token The session token of a menu of the tree; an unknown token is ignored.
+ * @param armed Whether a release over an item activates it.
+ * @param rules The rules a release must meet, whose `initialPoint` the first release consumes; `null` for a plain menu's;
+ * absent to keep the rules set before.
+ */
+export function armMenuRelease(token: string, armed: boolean, rules?: MenuReleaseRules | null): void {
+  const record = sessions.get(token);
+  if (record === undefined) {
+    return;
+  }
+  const slot = menuReleaseSlot(record);
+  slot.armed = armed;
+  if (rules !== undefined) {
+    slot.rules = rules;
+    slot.initialPoint = rules?.initialPoint ?? null;
+  }
 }
 
 // ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04; ContextMenuTrigger.tsx:16, 58), M5 track 2: the
@@ -5024,6 +5494,7 @@ function attachTrigger(element: HTMLElement, token: string, initialOptions: Inte
       createFocusController,
       createClientPointController,
       createHoveredLineController,
+      createMenuTriggerController,
     ],
     (options) => {
       const nextId = options.trigger?.triggerId ?? element.id;
@@ -5058,7 +5529,7 @@ function attachFloating(element: HTMLElement, token: string, initialOptions: Int
     element,
     initialOptions,
     twinReference,
-    [createFloatingDismissController, createHoverFloatingController],
+    [createFloatingDismissController, createHoverFloatingController, createMenuFloatingController],
     (options) => {
       record.hasNode = options.floating?.node !== false;
     },

@@ -2560,6 +2560,9 @@ function navigateTo(state: ListState, handle: ListHandle, event?: Event): void {
   commitHighlight(state, handle, state.index === -1 ? null : state.index, event);
 }
 
+// How long an open list waits for its batch to show it, in frames; past that it gives up as CMP-FOC-09 does.
+const HIDDEN_LIST_WAIT_FRAMES = 120;
+
 // useListNavigation.ts:407-477 for one value of `activeIndex`: the item focus while open, and the initial sync.
 function syncActiveIndex(state: ListState, handle: ListHandle, activeIndex: number | null): void {
   const list = handle.list();
@@ -2588,6 +2591,7 @@ function syncActiveIndex(state: ListState, handle: ListHandle, activeIndex: numb
     const focusOnOpen = state.focusItemOnOpen;
     if ((!state.previousOpen || !state.previousMounted) && focusOnOpen && (state.key != null || (focusOnOpen === true && state.key == null))) {
       let runs = 0;
+      let hiddenFrames = 0;
       const waitForListPopulated = (): void => {
         if (elementsOf(state)[0] == null) {
           // Before paint if possible, then one frame; no more than that (CMP-FOC-09: give up silently).
@@ -2599,6 +2603,17 @@ function syncActiveIndex(state: ListState, handle: ListHandle, activeIndex: numb
             }
           }
           runs += 1;
+          return;
+        }
+        // CMP-ALG-24's dated note (M5 track 6, MNU-FOC-03): a kept-mounted list's handle is attached before the open, and the
+        // relay reaches it before the batch that shows the popup (ADR 01's commit path), where Base UI's effect runs after
+        // the commit. The search below skips invisible items, so it waits for the list to show, while the session stays open.
+        if (!isOpen(state, handle.session)) {
+          return;
+        }
+        if (state.floating && !isElementVisible(state.floating.element) && hiddenFrames < HIDDEN_LIST_WAIT_FRAMES) {
+          hiddenFrames += 1;
+          state.waitFrame.request(waitForListPopulated);
           return;
         }
         const current = handle.list();
