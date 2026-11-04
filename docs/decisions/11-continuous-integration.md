@@ -85,3 +85,10 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 - *Not chosen.*
   - Snapshots off on the gate: a one-line change, but the gate's failure traces would lose the DOM snapshots and the network log.
   - Per-test tracing in `tests/browser/helpers/test.ts`: this bounds the volume whatever a shard's size, so it stays open as the lasting fix if the four-shard margin runs out.
+
+**2026-11-04, per-test tracing (chosen by the user 2026-11-04, "Do recommended"; the first small-runner sighting).** The gate's paragraph above left per-test tracing open as the lasting fix. It is now to be built, for two reasons:
+- *A small runner.* The sampler's first push run on `main` (run 41740993182 at 82dcdf51) showed `browser-wasm (3)` starting with 18.8 GB free, while the other three shards started with 87.5 GB. Its `test-results/` peaked at 16.42 GB and it ran out of space after all 446 tests passed. Four shards hold only on a full-size runner.
+- *The margin left.* The four-shard peak of about 21 GB per shard leaves roughly a doubling of the WebAssembly suite, and wave 2 adds Menu, Select and Combobox.
+- *The mechanism is the implementing pull request's*, in `tests/browser/helpers/test.ts` and `playwright.config.ts`. It must keep ADR 06 §2's shared browser context and its HTTP cache. If it cannot, that is a design point for the user. It must bound a worker's trace volume per test rather than letting it grow with the worker's test count, and keep each failure's trace.
+- *The nightly.* Whether the nightly's `BLAZIX_TRACE_SNAPSHOTS=false` (the issue 158 paragraph) can then return to full snapshots is decided in that pull request from the sampler's figures.
+- *The owner.* Session V, as a follow-up of track 3, in a pull request of its own after the quarantine pull request. Its evidence is the sampler's figures before and after, on the gate and on a nightly dispatch.
