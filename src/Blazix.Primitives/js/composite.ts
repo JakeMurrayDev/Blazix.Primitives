@@ -2475,11 +2475,15 @@ function reportHighlight(state: ListState, handle: ListHandle, event: Event | un
   }
   state.reportedIndex = state.activeIndex;
   const element = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+  // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): the registry's label, resolved on every
+  // rebuild (CMP-STA-06/07), sent only for a highlighted item that has one.
+  const label = state.activeIndex != null ? state.floating?.registry.labels[state.activeIndex] : null;
   const payload: CompositeListHighlightReport = {
     index: state.activeIndex,
     itemId: state.floating?.idOf(element) ?? null,
     event: event ? eventInfo(event) : null,
     revision: state.appliedRevision,
+    ...(label != null ? { label } : {}),
   };
   (state.floating?.channel ?? handle.channel).report(LIST_HIGHLIGHT_REPORT, payload);
 }
