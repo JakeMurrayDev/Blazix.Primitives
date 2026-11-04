@@ -184,7 +184,7 @@ interface RenderOptions {
   sessionToken?: string;
   open?: string | null;
   verdict?: 'run' | 'stop';
-  /** `false` leaves the Positioner's and Popup's handles unattached, as on Server before their attach arrives. */
+  /** `false` leaves the Positioner's, Popup's and Viewport's handles unattached, as on Server before their attach arrives. */
   popupHandles?: boolean;
 }
 
@@ -395,7 +395,9 @@ function renderMenu(options: RenderOptions = {}): Rendered {
     handles.push(attach(positioner, part('positioner'), rendered.dotnet, [root]));
     handles.push(attach(popup, part('popup'), rendered.dotnet, [root]));
   }
-  handles.push(attach(viewport, part('viewport', { hasPositioner }), rendered.dotnet, [root]));
+  if (options.popupHandles !== false) {
+    handles.push(attach(viewport, part('viewport', { hasPositioner }), rendered.dotnet, [root]));
+  }
 
   if (options.open != null) {
     rendered.commit(options.open);
@@ -1137,6 +1139,28 @@ describe('focus guards', () => {
     link.focus();
     trailing.focus();
 
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('after');
+    expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(1);
+  });
+
+  // CI run 41828715253 (issue-114 rule): on Server the Viewport's handle attaches a round trip or two after the open's
+  // render, and the guards routed only through it. Until it attaches, the active Trigger's handle routes the Viewport's
+  // guards, found by the Viewport its owner's aria-owns names (NAV-ARIA-06), which C# renders with the open.
+  it('routes the guards by the owner\'s aria-owns before the viewport handle attaches, into the panel and out past the trigger', async () => {
+    const rendered = renderMenu({ open: 'item-1', values: ['item-1'], popupHandles: false });
+    await settle();
+    const trigger = rendered.item('item-1').trigger;
+    trigger.setAttribute('aria-controls', rendered.popup!.id);
+    const leading = trigger.nextElementSibling as HTMLElement;
+    const link = rendered.item('item-1').content!.querySelector('a')!;
+
+    // Tab from the trigger: its leading guard from outside, then the Viewport's leading guard, then the first link.
+    trigger.focus();
+    leading.focus();
+    expect(document.activeElement).toBe(link);
+
+    // Tab from the last link: the Viewport's trailing guard from inside, the trigger's trailing guard, and out of the menu.
+    rendered.viewportGuards!.after.focus();
     expect(document.activeElement?.getAttribute('data-testid')).toBe('after');
     expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(1);
   });

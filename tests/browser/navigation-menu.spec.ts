@@ -174,6 +174,15 @@ async function fire(locator: Locator, type: 'mouseenter' | 'mouseleave' | 'mouse
   }, [type, point] as const);
 }
 
+/**
+ * Waits until a nested Content sits inside its inline Viewport. On Server its portal handle moves it there a round trip
+ * or two after the open's render, where Base UI's portal places it at the commit; until then it is not between the
+ * Viewport's guards.
+ */
+async function nestedPanelMoved(page: Page, testId: string): Promise<void> {
+  await expect(page.getByTestId('nested-viewport').getByTestId(testId)).toHaveCount(1);
+}
+
 /** Base UI's `fireEvent.mouseMove(document, { clientX, clientY })`: a move the safe polygon reads, at a point. */
 async function fireDocumentMove(page: Page, point: { x: number; y: number }): Promise<void> {
   await page.evaluate((at) => {
@@ -1568,6 +1577,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await gotoMenu(page, mode, { nested: 'tabBoundary' });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
+    await nestedPanelMoved(page, 'nested-content-2');
     const lastLink = page.getByTestId('nested-last-link');
     await lastLink.focus();
     await expect(lastLink).toBeFocused();
@@ -1584,6 +1594,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
+    await nestedPanelMoved(page, 'nested-content-developers');
     const developers = page.getByTestId('nested-trigger-developers');
     await developers.focus();
     await expect(developers).toBeFocused();
@@ -1608,6 +1619,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
+    await nestedPanelMoved(page, 'nested-content-developers');
 
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('nested-trigger-developers')).toBeFocused();
@@ -1974,6 +1986,29 @@ test.describe('Server relaxations', () => {
 
     await expect(page.getByTestId('before')).toBeFocused();
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await settle(fixture);
+    expect(await valueChanges(fixture)).toContain('null:focus-out');
+  });
+
+  // "closes the menu when tabbing forward out" failed on Server in CI run 41828715253 (issue-114 rule): the guards after
+  // the active Trigger route into the Viewport through the Viewport's handle, which attaches a round trip or two after the
+  // open's render. With the circuit delayed, the Tabs right after the Content shows land in that window every time.
+  test('port: tabbing forward out right after the open closes the menu, before the Viewport\'s handle attaches', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, DELAY);
+    }
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 2).click();
+    await expect(content(page, 2)).toBeVisible();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('link-2-a')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('link-2-b')).toBeFocused();
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
     await settle(fixture);
     expect(await valueChanges(fixture)).toContain('null:focus-out');
   });
