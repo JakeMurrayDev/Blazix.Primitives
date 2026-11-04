@@ -2,7 +2,7 @@ namespace Blazix.Primitives;
 
 // MNU-API-05, MNU-EVT-10/11 (menu/root/MenuRoot.tsx:580-622, 934-944; Menu.Root.HighlightEventDetails, MenuRoot.spec.tsx
 // "no `index`"). ADR 08 Amendments 2026-11-03 (4) (chosen by the user 2026-11-03): Menu's OnItemHighlighted carries the
-// item's id and label. Design point 3 (a) of M5 track 6 (pending the user): Menu's own details type beside its first
+// item's id and label. Design point 3 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): Menu's own details type beside its first
 // consumer, with no index; Events/HighlightEventDetails, which carries one, stays Combobox's (EVD §3.7 by a dated note).
 /// <summary>
 /// Represents the details of a menu's <c>OnItemHighlighted</c> notification: the reason, the native event and the

@@ -350,7 +350,9 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         return bubbles || grace > 0 ? new InteractionsDismissOptions { BubblesEscapeKey = bubbles ? true : null, OutsidePressGrace = grace } : s_dismiss;
     }
 
-    // MNU-EVT-10/11: a highlight report of the list's mirror becomes an OnItemHighlighted notification.
+    // MNU-EVT-10/11: a highlight report of the list's mirror becomes an OnItemHighlighted notification. Design point 9
+    // (settled by the orchestrator 2026-11-04 as (a)): the label will come with the composite module's report (the
+    // registry's label, else the item's text); until that grant, only an explicit Label is reported (a dated note on EVT-10).
     private void OnHighlightChanged(CompositeListHighlight report)
     {
         string? label = report.ItemId is { } itemId && labels.TryGetValue(itemId, out string? known) ? known : null;

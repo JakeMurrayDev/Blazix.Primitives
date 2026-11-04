@@ -299,7 +299,7 @@ export interface MenuFloatingOptions {
   disableHoverOnMove?: boolean | null;
 }
 
-// Design point 2 (a) of M5 track 6 (pending the user): ContextMenu's release rules, set as data on the tree's slot.
+// Design point 2 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): ContextMenu's release rules, set as data on the tree's slot.
 /** The release rules a context menu sets on its tree (CTX-PTR-09..12). */
 export interface MenuReleaseRules {
   /** The button a release must use to activate an item, or `null` for any. */
@@ -4416,7 +4416,7 @@ export function readPlatformFlags(): string {
   return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
 }
 
-// The tree's release slot (design point 2 (a) of M5 track 6, pending the user; ADR 04 Amendments 2026-11-03 (4)): Menu's
+// The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-03 (4)): Menu's
 // trigger arms it 200 ms after a press (MenuTrigger.tsx:240-256); a context menu arms it with its own rules (track 7).
 /**
  * Arms or disarms the release activation of the menu tree a session belongs to, with optional rules.

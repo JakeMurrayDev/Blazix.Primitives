@@ -8,7 +8,7 @@ namespace Blazix.Primitives;
 // - an identical request is dropped (MNU-STA-01): the same open state, from the active trigger, with the last reason. A
 //   trigger-less request never matches a null active trigger (Base UI's `undefined === null` is false), for ContextMenu;
 // - a close without a trigger reports the active one (MNU-STA-02), then the consumer's OnOpenChange and a cancel;
-// - the 300 ms touch guard after a `trigger-focus` open (MNU-STA-05; design point 7 of M5 track 6, pending the user): a
+// - the 300 ms touch guard after a `trigger-focus` open (MNU-STA-05; design point 7 of M5 track 6, settled by the orchestrator 2026-11-04): a
 //   touch `click` closing the menu for a reason other than `item-press` is dropped after the consumer's callback, as Base
 //   UI drops it after `onOpenChange`; a controlled consumer's `OpenChanged` still runs, as its state change would in
 //   Base UI. A timestamp under the store's TimeProvider stands for Base UI's timeout (the timer's only result is state);

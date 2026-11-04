@@ -10,7 +10,7 @@ namespace Blazix.Primitives;
 // ComponentBase (the PopoverRoot precedent) over MenuRootBehavior, which ContextMenuRoot (track 7) and MenuSubmenuRoot
 // compose too (decision 12 of the M5 plan; ADR 08 Amendments 2026-11-03 (3)). The parent kind is resolved from the
 // enclosing menu (a submenu's only), menubar or context menu (MNU-STR-19). Modal is `bool?` and OpenOnHover's twin on the
-// Trigger likewise (design point 1 (a), pending the user; ADR 08 Amendments 2026-11-03 (4)).
+// Trigger likewise (design point 1 (a), settled by the orchestrator 2026-11-04; ADR 08 Amendments 2026-11-03 (4)).
 /// <summary>
 /// Groups all parts of a menu and owns its open state, Base UI's <c>Menu.Root</c>. It renders no element.
 /// </summary>

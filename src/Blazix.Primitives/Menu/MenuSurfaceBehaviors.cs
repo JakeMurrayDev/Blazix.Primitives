@@ -64,10 +64,8 @@ internal sealed class MenuBackdropBehavior : IAsyncDisposable
     public async Task OnAfterRenderAsync(ElementReference? element)
     {
         this.element = element;
-        if (root!.Parent.Kind == MenuParentKind.ContextMenu || parentContext?.Kind == MenuParentKind.ContextMenu)
-        {
-            parentContext?.SetBackdropElement(element);
-        }
+        // MNU-EDGE-15 (MenuBackdrop.tsx:29-38): registered with the nearest context menu, whatever the parent kind.
+        MenuParent.Find(parentContext, MenuParentKind.ContextMenu)?.SetBackdropElement(element);
 
         if (element is not { } target || disposed)
         {
@@ -94,10 +92,7 @@ internal sealed class MenuBackdropBehavior : IAsyncDisposable
         subscription?.Dispose();
         subscription = null;
         retainRegistration?.Dispose();
-        if (parentContext?.Kind == MenuParentKind.ContextMenu)
-        {
-            parentContext.SetBackdropElement(null);
-        }
+        MenuParent.Find(parentContext, MenuParentKind.ContextMenu)?.SetBackdropElement(null);
 
         if (transitions is not null)
         {

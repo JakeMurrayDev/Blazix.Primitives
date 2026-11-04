@@ -133,12 +133,30 @@ internal readonly record struct MenuParent(MenuParentKind Kind, MenuRootContext?
             return new MenuParent(MenuParentKind.Menu, enclosingMenu, null);
         }
 
-        if (parent?.Kind == MenuParentKind.Menubar)
+        // Base UI reads the nearest menubar first, then the nearest context menu, through the chain of parents.
+        if (Find(parent, MenuParentKind.Menubar) is { } bar)
         {
-            return new MenuParent(MenuParentKind.Menubar, null, parent);
+            return new MenuParent(MenuParentKind.Menubar, null, bar);
         }
 
         // A plain menu inside a context menu's popup has the context menu's menu above it: it is not its child.
-        return parent?.Kind == MenuParentKind.ContextMenu && enclosingMenu is null ? new MenuParent(MenuParentKind.ContextMenu, null, parent) : None;
+        return Find(parent, MenuParentKind.ContextMenu) is { } contextMenu && enclosingMenu is null ? new MenuParent(MenuParentKind.ContextMenu, null, contextMenu) : None;
+    }
+
+    /// <summary>Finds the nearest context of a kind in a chain of parents.</summary>
+    /// <param name="parent">The nearest parent context, or <see langword="null"/>.</param>
+    /// <param name="kind">The kind to find.</param>
+    /// <returns>The nearest context of the kind, or <see langword="null"/>.</returns>
+    public static IMenuParentContext? Find(IMenuParentContext? parent, MenuParentKind kind)
+    {
+        for (IMenuParentContext? current = parent; current is not null; current = current.Enclosing)
+        {
+            if (current.Kind == kind)
+            {
+                return current;
+            }
+        }
+
+        return null;
     }
 }

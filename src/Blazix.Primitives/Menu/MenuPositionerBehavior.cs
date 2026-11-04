@@ -102,7 +102,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
             action();
             return Task.CompletedTask;
         }));
-        captureInternalBackdrop = backdrop => parentContext?.SetInternalBackdropElement(backdrop);
+        captureInternalBackdrop = backdrop => root?.Parent.Context?.SetInternalBackdropElement(backdrop);
     }
 
     private MenuParentKind Kind => root!.Parent.Kind;
@@ -160,7 +160,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
 
         if (!backdropRendered && Kind == MenuParentKind.ContextMenu)
         {
-            parentContext?.SetInternalBackdropElement(null);
+            menu.Parent.Context!.SetInternalBackdropElement(null);
         }
 
         // The three handles start in the same render; the positioning one awaits the portal's move inside its behavior.
@@ -303,7 +303,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
             Anchor = parameters.Anchor,
 
             // MNU-EDGE-15 (MenuPositioner.tsx:59, 109): fixed inside any context menu, whatever the parent kind.
-            PositionMethod = parentContext?.Kind == MenuParentKind.ContextMenu ? Primitives.PositionMethod.Fixed : parameters.PositionMethod,
+            PositionMethod = MenuParent.Find(parentContext, MenuParentKind.ContextMenu) is not null ? Primitives.PositionMethod.Fixed : parameters.PositionMethod,
             Side = side,
             SideOffset = sideOffset,
             Align = align,

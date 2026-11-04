@@ -9,7 +9,7 @@ namespace Blazix.Primitives;
 // Base UI's Menu.SubmenuRoot (menu/submenu-root/MenuSubmenuRoot.tsx); the contract is docs/components/menu.md §3.17
 // (MNU-STR-11, STR-12, API-49). A separate menu with its own store (MNU-STR-12), a MenuStore<NoPayload> whose parent is the
 // enclosing menu (MNU-STA-08), over the same MenuRootBehavior as MenuRoot. Its parameters are the Root's less Handle,
-// TriggerId, DefaultTriggerId, the payload template and Modal (design point 1 (a), pending the user; Base UI's props type
+// TriggerId, DefaultTriggerId, the payload template and Modal (design point 1 (a), settled by the orchestrator 2026-11-04; Base UI's props type
 // omits `modal`, MenuSubmenuRoot.tsx:41-66).
 /// <summary>
 /// Groups the parts of a submenu, Base UI's <c>Menu.SubmenuRoot</c>: a menu opened from an item of its parent menu. It
