@@ -1483,6 +1483,26 @@ describe('FloatingFocusManager', () => {
 
       expect(document.activeElement).toBe(app.reference);
     });
+
+    // F1 (M5 track 6, settled by the orchestrator 2026-11-04): Base UI records the element focused before the open in a
+    // layout effect, before list navigation moves focus in. The port's handle can attach after another module (Menu's list
+    // on a keyboard open) moved focus into the popup, and its close can run while the popup is still connected.
+    it('port: a manager attached after focus moved into the popup returns focus to the reference, not to the element inside', async () => {
+      const app = renderApp({ modal: false });
+      app.reference.focus();
+      app.floating.setAttribute('data-open', '');
+      app.last.before(app.floating);
+      app.two.focus();
+
+      const manager = attachManager(app.floating, { modal: false, initialFocus: false, openInteractionType: null });
+      await settle();
+      expect(document.activeElement).toBe(app.two);
+
+      manager.update({ modal: false, initialFocus: false, openInteractionType: null, disabled: true });
+      await settle();
+
+      expect(document.activeElement).toBe(app.reference);
+    });
   });
 
   describe('prop: modal', () => {
