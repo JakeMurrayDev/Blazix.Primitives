@@ -854,8 +854,9 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
   // G4 (M5 track 5, settled by the orchestrator 2026-11-04): on Server a press can land after a hover open was requested
   // and before C# commits it. Base UI's click upgrades the hover open its store already holds, so the hover's commit,
   // relayed after the press, keeps the press's click as the open event; an answer that leaves the press pending still rolls
-  // it back (gap 16).
-  it('port: a hover commit relayed after a press keeps the press’s click as the open event, until an answer leaves the press pending', () => {
+  // it back (gap 16). A press made while the session already held the open is never kept by a later commit: C# answers it
+  // with no relay, and NavigationMenu's switch clears the open event as Base UI's trigger does (NAV-PTR-07).
+  it('port: a hover commit relayed after a press keeps the press’s click until an answer leaves it pending, and never keeps a press on an open popup', () => {
     let cancel = false;
     const options = {
       synchronous,
@@ -886,6 +887,28 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     cancel = true;
     popup.setOpen(true, 'trigger-press', reference.id, 'click');
     expect(openEvent()).toBe('mouseenter');
+
+    // NavigationMenu's quick click, then a hover switch: the press on the hover-open popup gets no relay, the switch clears
+    // the open event, and the switch's commit does not bring the click back.
+    const switching = { synchronous, commit: true };
+    const menu = harness(switching);
+    menu.attachSession();
+    const first = element('button', 'first-trigger');
+    const second = element('button', 'second-trigger');
+    menu.attachTrigger(first, { trigger: { click: { stickIfOpen: true } } });
+    menu.attachTrigger(second, { trigger: { click: { stickIfOpen: true } } });
+    menu.setReference(first);
+    menu.setOpen(true, 'trigger-hover', first.id, 'mouseenter');
+    const menuOpenEvent = () => getSession(menu.token)?.dataRef.current.openEvent?.type;
+
+    switching.commit = false;
+    click(first);
+    expect(menuOpenEvent()).toBe('click');
+    clearSessionOpenEvent(menu.token);
+    switching.commit = true;
+    menu.setOpen(true, 'trigger-hover', second.id, 'mouseenter');
+
+    expect(menuOpenEvent()).toBeUndefined();
   });
 
   it('stickIfOpen false closes a hover-opened popup on first click', () => {
