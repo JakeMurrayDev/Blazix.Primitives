@@ -5317,4 +5317,87 @@ describe('Menu', () => {
       expect(changesSince(tree.submenu, mark)).toEqual([]);
     });
   });
+
+  // The tree's `itemhover` (useMenuItemCommonProps.ts:89-101) and a submenu's sibling close (MenuPositioner.tsx:187-216):
+  // a pointer move over an item of a menu tells the tree; an open submenu of that menu whose trigger is another item
+  // closes with `sibling-open`, after its trigger's close delay, a timer further hovers do not restart, which hovering its
+  // own trigger cancels.
+  function itemTree(siblingCloseDelay: number) {
+    const parent = harness({ open: true });
+    parent.attachSession();
+    const parentPositioner = element('div');
+    const parentPopup = document.createElement('div');
+    parentPopup.setAttribute('data-rootownerid', 'root');
+    parentPositioner.append(parentPopup);
+    const item = (id: string, container: HTMLElement) => {
+      const created = document.createElement('div');
+      created.id = id;
+      created.setAttribute('role', 'menuitem');
+      container.append(created);
+      return created;
+    };
+    const ownTrigger = item(`${parent.token}-a`, parentPopup);
+    const sibling = item(`${parent.token}-b`, parentPopup);
+    parent.attachFloating(parentPositioner, { floating: { hover: null, menu: { itemHover: true } } });
+    const submenu = harness({ open: true });
+    submenu.attachSession({ session: { parentToken: parent.token } });
+    submenu.attachTrigger(ownTrigger);
+    submenu.setReference(ownTrigger);
+    const positioner = element('div');
+    const popup = document.createElement('div');
+    popup.setAttribute('data-rootownerid', 'root');
+    positioner.append(popup);
+    const inner = item(`${submenu.token}-c`, popup);
+    submenu.attachFloating(positioner, { floating: { hover: null, menu: { itemHover: true, siblingCloseDelay } } });
+    return { parent, submenu, ownTrigger, sibling, inner };
+  }
+
+  describe('item hover', () => {
+    it('port: a pointer move over another item of the parent menu closes its open submenu with sibling-open, and one over its own trigger does not', () => {
+      const tree = itemTree(0);
+
+      hoverMouse(tree.ownTrigger, 'mousemove');
+      expect(changesSince(tree.submenu, 0)).toEqual([]);
+
+      hoverMouse(tree.sibling, 'mousemove');
+      expect(changesSince(tree.submenu, 0)).toEqual([[false, 'sibling-open']]);
+      expect(changesSince(tree.parent, 0)).toEqual([]);
+    });
+
+    it('port: with a close delay the sibling close waits, further hovers do not restart it, and hovering the own trigger cancels it', async () => {
+      vi.useFakeTimers();
+      const restarted = itemTree(100);
+      hoverMouse(restarted.sibling, 'mousemove');
+      await vi.advanceTimersByTimeAsync(60);
+      hoverMouse(restarted.sibling, 'mousemove');
+      await vi.advanceTimersByTimeAsync(39);
+      expect(changesSince(restarted.submenu, 0)).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(changesSince(restarted.submenu, 0)).toEqual([[false, 'sibling-open']]);
+
+      const canceled = itemTree(100);
+      hoverMouse(canceled.sibling, 'mousemove');
+      await vi.advanceTimersByTimeAsync(50);
+      hoverMouse(canceled.ownTrigger, 'mousemove');
+      await vi.advanceTimersByTimeAsync(200);
+      expect(changesSince(canceled.submenu, 0)).toEqual([]);
+    });
+
+    it('port: an item hover inside the submenu itself, or while the submenu is closed, closes nothing; reopened, it closes again', () => {
+      const tree = itemTree(0);
+
+      hoverMouse(tree.inner, 'mousemove');
+      expect(changesSince(tree.submenu, 0)).toEqual([]);
+
+      tree.submenu.setOpen(false, 'escape-key');
+      const closedMark = tree.submenu.changes.length;
+      hoverMouse(tree.sibling, 'mousemove');
+      expect(changesSince(tree.submenu, closedMark)).toEqual([]);
+
+      tree.submenu.setOpen(true, 'trigger-press', tree.ownTrigger.id);
+      const reopenedMark = tree.submenu.changes.length;
+      hoverMouse(tree.sibling, 'mousemove');
+      expect(changesSince(tree.submenu, reopenedMark)).toEqual([[false, 'sibling-open']]);
+    });
+  });
 });
