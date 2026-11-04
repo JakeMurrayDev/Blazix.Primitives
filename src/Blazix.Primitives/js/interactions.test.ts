@@ -851,6 +851,28 @@ describe.each([false, true])('useClick (synchronous: %s)', (synchronous) => {
     expect(openEvent()).toBe('mouseenter');
   });
 
+  // G4 (M5 track 5, settled by the orchestrator 2026-11-04): on Server a press can land after a hover open was requested
+  // and before C# commits it. Base UI's click upgrades the hover open its store already holds, so the hover's commit,
+  // relayed after the press, keeps the press's click as the open event.
+  it('port: a hover commit relayed after a press keeps the press’s click as the open event', () => {
+    const options = { synchronous, commit: false };
+    const popup = harness(options);
+    popup.attachSession();
+    const reference = element('button');
+    popup.attachTrigger(reference, { trigger: { click: { stickIfOpen: true } } });
+    popup.setReference(reference);
+    const openEvent = () => getSession(popup.token)?.dataRef.current.openEvent?.type;
+
+    click(reference);
+    expect(openEvent()).toBe('click');
+
+    options.commit = true;
+    popup.setOpen(true, 'trigger-hover', reference.id, 'mouseenter');
+
+    expect(popup.open).toBe(true);
+    expect(openEvent()).toBe('click');
+  });
+
   it('stickIfOpen false closes a hover-opened popup on first click', () => {
     const { popup, reference } = App({ click: { stickIfOpen: false } });
 
