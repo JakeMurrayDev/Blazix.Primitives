@@ -3053,10 +3053,11 @@ describe('FloatingFocusManager', () => {
       manager.handle.dispose();
       switched.floating.remove();
 
-      // The author focused an element inside before the attach: Base UI records it, and the return is lost when the popup
-      // leaves the document.
+      // The author focused another element inside before the attach, after the list's open focus marked its item: Base UI
+      // records the author's element, and the return is lost when the popup leaves the document.
       elsewhere.focus();
       const authored = open();
+      authored.data['blazix.composite.openFocus'] = { element: authored.one, origin: elsewhere };
       authored.two.focus();
       const author = attachManager(authored.floating, { ...options, sessionToken: authored.popup.token });
       await settle();
