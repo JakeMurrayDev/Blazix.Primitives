@@ -1050,9 +1050,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(trigger(page, 1)).toBeFocused();
   });
 
-  // Open until track 1's Link registration without a tabindex lands (NAV-DOM-21, NAV-FOC-03): the Links render the
-  // composite's roving tabindex=-1, so Tab skips them.
-  test.fixme('moves focus through the menu correctly', async ({ page, mode }) => {
+  test('moves focus through the menu correctly', async ({ page, mode }) => {
     await gotoMenu(page, mode);
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
@@ -1074,9 +1072,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(trigger(page, 1)).toBeFocused();
   });
 
-  // Open until track 1's Link registration without a tabindex lands (NAV-DOM-21, NAV-FOC-03): the Links render the
-  // composite's roving tabindex=-1, so Tab skips them.
-  test.fixme('closes the menu when tabbing forward out', async ({ page, mode }) => {
+  test('closes the menu when tabbing forward out', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode);
     await trigger(page, 2).click();
     await expect(content(page, 2)).toBeVisible();
@@ -1091,13 +1087,13 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     expect(await valueChanges(fixture)).toContain('null:focus-out');
   });
 
-  // Open until track 1's Link registration without a tabindex lands (NAV-DOM-21, NAV-FOC-03): the Links render the
-  // composite's roving tabindex=-1, so Tab skips them.
-  test.fixme('does not restore focus to the trigger when focus moves outside', async ({ page, mode }) => {
+  test('does not restore focus to the trigger when focus moves outside', async ({ page, mode }) => {
     await gotoMenu(page, mode);
     await trigger(page, 1).focus();
 
     await trigger(page, 1).click();
+    // Base UI's click commits at once; here the open render, which brings the guards after the trigger, is waited for.
+    await expect(content(page, 1)).toBeVisible();
     for (let i = 0; i < 4; i += 1) {
       await page.keyboard.press('Tab');
     }
