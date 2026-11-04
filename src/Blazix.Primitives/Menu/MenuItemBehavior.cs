@@ -165,7 +165,7 @@ internal sealed class MenuItemBehavior : IDisposable
         item.SetConsumerAttributes(attributes);
         if (id is not null)
         {
-            root!.Items.Set(this, id, parameters.Label);
+            root!.Items.Set(this, id);
         }
 
         if (button is not null)

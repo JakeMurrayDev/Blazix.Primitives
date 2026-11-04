@@ -173,7 +173,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         item.SetConsumerAttributes(attributes);
         if (id is not null)
         {
-            submenu.Parent.Menu?.Items.Set(this, id, parameters.Item.Label);
+            submenu.Parent.Menu?.Items.Set(this, id);
         }
 
         button.Native = parameters.Item.NativeButton;

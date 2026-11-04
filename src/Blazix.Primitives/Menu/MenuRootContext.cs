@@ -43,7 +43,7 @@ internal abstract class MenuRootContext
     /// <summary>Gets the root's <c>Orientation</c>.</summary>
     public abstract Orientation Orientation { get; }
 
-    /// <summary>Gets the menu's items, with their explicit labels.</summary>
+    /// <summary>Gets the menu's items, by rendered id.</summary>
     public MenuItemRegistry Items { get; } = new();
 
     /// <summary>Gets the registered submenus, for the tree's closes.</summary>

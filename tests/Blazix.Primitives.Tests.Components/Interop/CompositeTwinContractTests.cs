@@ -362,7 +362,7 @@ public sealed class CompositeTwinContractTests
     // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-04): the highlight
     // report's label, absent when no item is highlighted or the item has none.
     [Fact(DisplayName = "port: the highlight report's label is read by its module name, and an absent one is null")]
-    [Trait("Requirement", "CMP-EVT-10")]
+    [Trait("Requirement", "CMP-EVT-04")]
     [Trait("Requirement", "MNU-EVT-10")]
     public void The_highlight_reports_label_is_read_by_its_module_name_and_an_absent_one_is_null()
     {
