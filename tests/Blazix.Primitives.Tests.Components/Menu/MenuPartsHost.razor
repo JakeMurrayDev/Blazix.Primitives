@@ -12,8 +12,19 @@
         </MenuRoot>
         break;
     case "trigger-disabled":
-        <MenuRoot TPayload="NoPayload">
-            <MenuTrigger TPayload="NoPayload" Disabled="true" />
+        <MenuRoot TPayload="NoPayload" Disabled="RootDisabled">
+            <MenuTrigger TPayload="NoPayload" Disabled="TriggerDisabled" />
+        </MenuRoot>
+        break;
+    case "radio-group":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuRadioGroup TValue="string" Disabled="RadioGroupDisabled" />
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
         </MenuRoot>
         break;
     case "trigger-in-popover":
@@ -85,6 +96,12 @@
 
     [Parameter]
     public bool RootDisabled { get; set; }
+
+    [Parameter]
+    public bool TriggerDisabled { get; set; }
+
+    [Parameter]
+    public bool RadioGroupDisabled { get; set; }
 
     private static RenderFragment AsSpan(RenderProps<MenuTriggerState> props) =>
         @<span @attributes="props.Attributes">@props.ChildContent</span>;

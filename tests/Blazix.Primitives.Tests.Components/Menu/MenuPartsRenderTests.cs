@@ -42,7 +42,9 @@ public sealed class MenuPartsRenderTests : BunitContext
     [Trait("Requirement", "MNU-API-16")]
     public void Trigger_renders_a_disabled_button()
     {
-        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p.Add(x => x.Case, "trigger-disabled"));
+        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p
+            .Add(x => x.Case, "trigger-disabled")
+            .Add(x => x.TriggerDisabled, true));
 
         Assert.True(cut.Find("button").HasAttribute("disabled"));
     }
@@ -173,5 +175,48 @@ public sealed class MenuPartsRenderTests : BunitContext
 
         IElement? previous = cut.Find("[data-testid=positioner]").PreviousElementSibling;
         Assert.Equal(modal, previous?.GetAttribute("role") == "presentation");
+    }
+
+    [Theory(DisplayName = "port: the trigger renders data-disabled iff its effective disabled state")]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [Trait("Requirement", "MNU-DOM-02")]
+    public void Trigger_renders_data_disabled_iff_effectively_disabled(bool trigger, bool root, bool expected)
+    {
+        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p
+            .Add(x => x.Case, "trigger-disabled")
+            .Add(x => x.TriggerDisabled, trigger)
+            .Add(x => x.RootDisabled, root));
+
+        Assert.Equal(expected, cut.Find("button").HasAttribute("data-disabled"));
+    }
+
+    [Theory(DisplayName = "port: a radio group renders data-disabled when it is disabled")]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Requirement", "MNU-DOM-29")]
+    public void Radio_group_renders_data_disabled_when_disabled(bool disabled)
+    {
+        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p
+            .Add(x => x.Case, "radio-group")
+            .Add(x => x.RadioGroupDisabled, disabled));
+
+        Assert.Equal(disabled, cut.Find("[role=group]").HasAttribute("data-disabled"));
+    }
+
+    [Theory(DisplayName = "port: collision avoidance defaults to no axis fallback at top level and the end side in a submenu")]
+    [InlineData(false, "none")]
+    [InlineData(true, "end")]
+    [Trait("Requirement", "MNU-API-29")]
+    public void Collision_avoidance_defaults_by_parent_kind(bool submenu, string fallbackAxisSide)
+    {
+        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Blazix.Primitives/js/positioning.js");
+        positioning.SetupModule("attach", _ => true);
+
+        Render<MenuPartsHost>(p => p.Add(x => x.SubmenuOpen, submenu));
+
+        string[] options = positioning.Invocations["attach"].Select(attach => (string)attach.Arguments[1]!).ToArray();
+        Assert.Contains(options, json => json.Contains($"\"fallbackAxisSide\":\"{fallbackAxisSide}\"", StringComparison.Ordinal));
     }
 }

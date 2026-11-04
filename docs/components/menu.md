@@ -297,6 +297,7 @@ Source: `menu/backdrop/MenuBackdrop.tsx:31-34,57-66`.
   Source: `menu/positioner/MenuPositioner.tsx:40,47-51,106-132`. Test: [L2] `MenuPositioner.test.tsx` positionerConformanceTests (`viewport: true`). (L4 for the positioner suite clause)
 - **MNU-API-29** — MUST. `collisionAvoidance` defaults to `{ fallbackAxisSide: 'none' }` (dropdown behavior: never flips to the other axis) for a top-level menu and to `{ fallbackAxisSide: 'end' }` for a submenu; an explicit value wins in both cases.
   Source: `menu/positioner/MenuPositioner.tsx:52,94-97`; `internals/constants.ts:18-28`. Docs: `CHANGELOG.md v1.2.0 "Allow side axis fallback for submenus by default"`. Test: none.
+  Port note (2026-11-05, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172)): [L2] port title "port: collision avoidance defaults to no axis fallback at top level and the end side in a submenu", which reads the options sent to the `positioning` module.
 - **MNU-API-30** — MUST. `anchor` overrides the positioning reference (element, virtual element with `getBoundingClientRect`, DOM handle, or a function returning one of these, re-read every render); when absent the active trigger element is the anchor, and a menu with no trigger at all MAY supply an external anchor (e.g. `document.body`) and still support submenus and focus return. Under a context menu the context's pointer anchor is used when none is given.
   Source: `menu/positioner/MenuPositioner.tsx:39,78-84,106-108`. Test: [L4] `MenuPositioner.test.tsx` "prop: anchor" (6 tests); `MenuRoot.triggerless.test.tsx` "supports an external anchor across reopen, keepMounted=%s".
 
@@ -901,6 +902,7 @@ State attributes follow the generic projection (RND-DOM-01..10) unless a mapping
   Source: `menu/trigger/MenuTrigger.tsx:229-232,266`; `utils/popupStateMapping.ts:13-16,39-46`. Test: [L2] `MenuTrigger.test.tsx` "should have the data-popup-open and data-pressed attributes when open", "keeps the data-popup-open attribute and handle.isOpen when a controlled close is vetoed"; `MenuRoot.test.tsx` "unmounts on a later normal close after a preventUnmountOnClose cycle and reopen".
 - **MNU-DOM-02** — MUST. `data-disabled=""` is present iff the effective disabled state is `true`.
   Source: `menu/trigger/MenuTrigger.tsx:229-232`; `menu/trigger/MenuTriggerDataAttributes.ts:14`. Test: none (covered by generic projection, RND-DOM-01).
+  Port note (2026-11-05, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172)): [L2] port title "port: the trigger renders data-disabled iff its effective disabled state".
 - **MNU-DOM-03** — MUST. The element's `id` is the trigger id (MNU-API-18); when the `render` element supplies its own `id`, that id is rendered and is what the popup label references.
   Source: `menu/trigger/MenuTrigger.tsx:242`; `internals/resolvePopupLabel.ts:22-27`. Test: [L2] `MenuRoot.test.tsx` "keeps the root menu open when a submenu opens and the trigger `render` element has a custom id".
 
@@ -983,6 +985,7 @@ State attributes follow the generic projection (RND-DOM-01..10) unless a mapping
   Source: `menu/item/MenuItem.tsx:72-78`; `menu/link-item/MenuLinkItem.tsx:81-87`; `menu/checkbox-item/MenuCheckboxItem.tsx:117-131`; `menu/radio-item/MenuRadioItem.tsx:109-115`; `menu/submenu-trigger/MenuSubmenuTrigger.tsx:280-284`. Test: [L2] `MenuFilterRoot.test.tsx` "filters each menu item variant without changing its role".
 - **MNU-DOM-29** — MUST. `Menu.RadioGroup` renders `data-disabled=""` when its `disabled` prop is `true` (generic projection of its state; not listed in the outline, §16 Q3).
   Source: `menu/radio-group/MenuRadioGroup.tsx:51-55`. Test: none.
+  Port note (2026-11-05, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172)): [L2] port title "port: a radio group renders data-disabled when it is disabled".
 
 ### 5.9 ARIA
 
