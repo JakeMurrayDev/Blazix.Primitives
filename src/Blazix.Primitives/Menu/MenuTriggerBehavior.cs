@@ -33,8 +33,8 @@ internal readonly record struct MenuTriggerParameters(bool NativeButton, bool Di
 // - a composite root in list mode: Reference for the active trigger, Trigger when inactive or detached (track 1).
 // A keydown reaches one gate (the ToolbarButton rule): Enter and Space the button's, every other key the list's.
 // In a bar (MenuTrigger.tsx:173-213, 258-285): role="menuitem", a composite item of the bar, no guards, hover only while
-// the bar has a menu open and this trigger has not mounted it, MouseDownAction "open" (design point 6 (b), pending the
-// user), the `trigger-focus` open while the bar has a menu open.
+// the bar has a menu open and this trigger has not mounted it, MouseDownAction "open" (design point 6 (b), settled by
+// the orchestrator 2026-11-04), the `trigger-focus` open while the bar has a menu open.
 /// <summary>The behavior of a menu trigger: its registration, its button, its press and hover, and its list keys.</summary>
 /// <typeparam name="TPayload">The type of the payload the trigger carries.</typeparam>
 internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTriggerPart
