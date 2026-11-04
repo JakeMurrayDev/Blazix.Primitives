@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
 import { gotoPopupFixture, openChangeCompletes, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/navigation-menu.md (M5 track 5, issue 163) on the `navigation-menu-*` fixtures, every
@@ -1820,6 +1820,153 @@ test.describe('size', () => {
 // The attach order (the lesson of CI run 40461905812): the Trigger's four handles, the button, composite, interactions and
 // navigation-menu ones, attach in the same render; the navigation-menu module's late load leaves the click role working,
 // and its handle joins the Root's menu once it arrives.
+// Port titles for rows Base UI tests nowhere (`Test: none`; the review of PR 168, fix 7), where the browser is the layer
+// that can fail.
+test.describe('port rows', () => {
+  test('port: the Positioner has pointer-events none while the menu is not open, and none of its own while open', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode, { keepMounted: true });
+    const positioner = page.getByTestId('positioner');
+    expect(await inlinePointerEvents(positioner)).toBe('none');
+
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await expect.poll(() => inlinePointerEvents(positioner)).toBe('');
+
+    await pressControl(fixture.locator('[data-close]'));
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => inlinePointerEvents(positioner)).toBe('none');
+  });
+
+  test('port: the Positioner carries the anchor and available sizes and the transform origin from the positioning pass', async ({ page, mode }) => {
+    await gotoMenu(page, mode);
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    const positioner = page.getByTestId('positioner');
+
+    for (const name of ['--anchor-width', '--anchor-height', '--available-width', '--available-height']) {
+      await expect.poll(() => positioner.evaluate((element: HTMLElement, property) => element.style.getPropertyValue(property), name)).toMatch(/^\d+(\.\d+)?px$/);
+    }
+    expect(await positioner.evaluate((element: HTMLElement) => element.style.getPropertyValue('--transform-origin'))).not.toBe('');
+  });
+
+  test('port: in RTL the List mirrors its horizontal keys: ArrowLeft moves forward and ArrowRight back', async ({ page, mode }) => {
+    await gotoMenu(page, mode, { rtl: true });
+    await trigger(page, 1).focus();
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(trigger(page, 2)).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await expect(trigger(page, 1)).toBeFocused();
+  });
+
+  test('port: a scroll and a window blur dismiss nothing', async ({ page, mode }) => {
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event('scroll'));
+      window.dispatchEvent(new Event('scroll'));
+      window.dispatchEvent(new FocusEvent('blur'));
+    });
+    await settle(fixture);
+
+    await expect(content(page, 1)).toBeVisible();
+    await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+// ADR 01's NavigationMenu rows, per mode (§9's Server relaxations): on Server with a one-way delay on the circuit, on
+// WebAssembly as Base UI states the requirement.
+test.describe('Server relaxations', () => {
+  const DELAY = 150;
+
+  test('port: a hover switch lands inside the hover on WebAssembly, and a round trip later on Server, with the size after the new Content', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, DELAY);
+    }
+    await gotoMenu(page, mode, { sized: true });
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+    const positioner = page.getByTestId('positioner');
+    await expect.poll(() => pixels(positioner, '--positioner-width')).toBeCloseTo(400, 0);
+
+    // NAV-PTR-02, NAV-PTR-18: read at once after the hover; on Server the commit is still a round trip away. The pointer
+    // reaches trigger 2 through the popup, which releases the lock on the List (NAV-PTR-11).
+    await hoverElement(page, page.getByTestId('positioner'));
+    await expect.poll(() => inlinePointerEvents(page.getByTestId('list'))).toBe('');
+    await hoverTrigger(page, 2);
+    expect(await trigger(page, 2).getAttribute('aria-expanded')).toBe(mode === 'wasm' ? 'true' : 'false');
+
+    await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+    await expect(content(page, 2)).toBeVisible();
+    // NAV-ANI-04: the held size pass runs once the new Content is in the Viewport.
+    await expect.poll(() => pixels(positioner, '--positioner-width')).toBeCloseTo(300, 0);
+  });
+
+  test('port: data-instant lands within the resize on WebAssembly, and a round trip after it on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, DELAY);
+    }
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    // The Positioner's handle, which listens for the resize, attaches from the open's render: the module's size write and
+    // a barrier after it mark it attached.
+    await expect.poll(() => pixels(page.getByTestId('positioner'), '--positioner-width')).toBeGreaterThan(0);
+    await settle(fixture);
+    await page.getByTestId('positioner').evaluate((element) => {
+      const record = window as unknown as { instantAfter?: number; resizedAt?: number };
+      new MutationObserver(() => {
+        if (element.hasAttribute('data-instant') && record.instantAfter === undefined && record.resizedAt !== undefined) {
+          record.instantAfter = performance.now() - record.resizedAt;
+        }
+      }).observe(element, { attributes: true, attributeFilter: ['data-instant'] });
+    });
+
+    const size = page.viewportSize()!;
+    await page.evaluate(() => {
+      (window as unknown as { resizedAt?: number }).resizedAt = performance.now();
+    });
+    await page.setViewportSize({ width: 1000, height: size.height });
+
+    await expect.poll(() => page.evaluate(() => (window as unknown as { instantAfter?: number }).instantAfter ?? null)).not.toBeNull();
+    const elapsed = await page.evaluate(() => (window as unknown as { instantAfter: number }).instantAfter);
+    // NAV-ANI-14, NAV-DOM-28: the report and C#'s render cross the circuit once each way on Server.
+    if (mode === 'server') {
+      expect(elapsed).toBeGreaterThanOrEqual(2 * DELAY);
+    } else {
+      expect(elapsed).toBeLessThan(2 * DELAY);
+    }
+    await expect(page.getByTestId('positioner')).not.toHaveAttribute('data-instant');
+  });
+
+  test('port: a click on the trigger a hover switch just activated closes the menu on WebAssembly, and keeps it open within the round trip on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, DELAY);
+    }
+    const fixture = await gotoMenu(page, mode);
+    await hoverTrigger(page, 1);
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(content(page, 1)).toBeVisible();
+
+    // NAV-PTR-05, NAV-PTR-07: the click comes at once after the hover that switches to trigger 2.
+    await hoverTrigger(page, 2);
+    await clickInPlace(page);
+    await settle(fixture);
+
+    if (mode === 'wasm') {
+      await expect(page.getByTestId('popup-root')).toHaveCount(0);
+      await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
+    } else {
+      await expect(trigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+      await expect(content(page, 2)).toBeVisible();
+    }
+  });
+});
+
 test.describe('attach order', () => {
   async function stall(page: Page, module: string): Promise<{ hits: () => number; release: () => Promise<void> }> {
     const held: Route[] = [];

@@ -826,7 +826,7 @@ public sealed class NavigationMenuRootTests : IDisposable
     }
 
     [Fact(DisplayName = "render callback receives href")]
-    [Trait("Requirement", "NAV-API-18")]
+    [Trait("Requirement", "NAV-STR-07")]
     public async Task Render_callback_receives_href()
     {
         IReadOnlyDictionary<string, object>? received = null;
