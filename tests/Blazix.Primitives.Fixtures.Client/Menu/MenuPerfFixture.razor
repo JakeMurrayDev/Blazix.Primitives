@@ -1,0 +1,94 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Rendering
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-perf` fixture (tests/browser/menu.others.spec.ts, M5 track 6): the "perf: does not rerender menu items
+    unnecessarily" titles of MenuItem.test.tsx, MenuCheckboxItem.test.tsx and MenuRadioItem.test.tsx. An open menu of four items
+    (`kind=item|checkbox|radio`) whose render functions count their runs. `data-renders` shows the counts, read in the fixture's
+    render, before the items that render re-renders; `data-popup-attached` marks the attached popup.
+*@
+<FixtureContainer Name="menu-perf" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-popup-attached="@(popupAttached ? "true" : "false")" data-renders="@string.Join(' ', renders)">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <MenuRoot TPayload="NoPayload" @ref="root" Open="true">
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup @ref="popup">
+                    @switch (Query("kind"))
+                    {
+                        case "checkbox":
+                            @for (int i = 0; i < 4; i++)
+                            {
+                                int index = i;
+                                <MenuCheckboxItem id="@($"item-{index + 1}")" RenderFunction="@(Counting<MenuCheckboxItemState>(index))">@(index + 1)</MenuCheckboxItem>
+                            }
+                            break;
+                        case "radio":
+                            <MenuRadioGroup TValue="int">
+                                @for (int i = 0; i < 4; i++)
+                                {
+                                    int index = i;
+                                    <MenuRadioItem TValue="int" Value="@(index + 1)" id="@($"item-{index + 1}")" RenderFunction="@(Counting<MenuRadioItemState>(index))">@(index + 1)</MenuRadioItem>
+                                }
+                            </MenuRadioGroup>
+                            break;
+                        default:
+                            @for (int i = 0; i < 4; i++)
+                            {
+                                int index = i;
+                                <MenuItem id="@($"item-{index + 1}")" RenderFunction="@(Counting<MenuItemState>(index))">@(index + 1)</MenuItem>
+                            }
+                            break;
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</FixtureContainer>
+
+@code {
+    private readonly int[] renders = new int[4];
+    private readonly Dictionary<(Type, int), object> counting = [];
+    private bool popupAttached;
+    private MenuRoot<NoPayload>? root;
+    private MenuPopup? popup;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!popupAttached && popup is { } mounted && RendererInfo.IsInteractive)
+        {
+            await mounted.TwinAttached;
+            popupAttached = true;
+            StateHasChanged();
+        }
+    }
+
+    private RenderFragment<RenderProps<TState>> Counting<TState>(int index)
+    {
+        if (!counting.TryGetValue((typeof(TState), index), out object? cached))
+        {
+            RenderFragment<RenderProps<TState>> function = props =>
+            {
+                renders[index]++;
+                return builder =>
+                {
+                    builder.OpenElement(0, "div");
+                    builder.AddMultipleAttributes(1, props.Attributes);
+                    builder.AddContent(2, props.ChildContent);
+                    builder.CloseElement();
+                };
+            };
+            cached = function;
+            counting[(typeof(TState), index)] = cached;
+        }
+
+        return (RenderFragment<RenderProps<TState>>)cached;
+    }
+}

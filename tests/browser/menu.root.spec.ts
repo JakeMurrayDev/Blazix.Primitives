@@ -653,6 +653,24 @@ test.describe('<Menu.Root />', () => {
         });
       });
 
+      test.describe('prop: modal', () => {
+        test('should render an internal backdrop when `true`', async ({ page, mode }) => {
+          await render(page, mode, { ...base, modal: true });
+          await trigger(page).click();
+          await expect(page.getByRole('menu')).toBeVisible();
+
+          await expect.poll(() => page.getByTestId('menu-positioner').evaluate((element) => element.previousElementSibling?.getAttribute('role') ?? null)).toBe('presentation');
+        });
+
+        test('should not render an internal backdrop when `false`', async ({ page, mode }) => {
+          await render(page, mode, { ...base, modal: false });
+          await trigger(page).click();
+          await expect(page.getByRole('menu')).toBeVisible();
+
+          expect(await page.getByTestId('menu-positioner').evaluate((element) => element.previousElementSibling?.getAttribute('role') ?? null)).toBe(null);
+        });
+      });
+
       test.describe('hover close', () => {
         test('does not close after hovering out of a popup opened without trigger hover', async ({ page, mode }) => {
           const fixture = await renderOpen(page, mode, { ...base, open: undefined, defaultOpen: true });

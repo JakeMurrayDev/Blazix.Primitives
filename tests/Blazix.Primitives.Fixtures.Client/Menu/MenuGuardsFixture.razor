@@ -1,0 +1,140 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-guards` fixture (tests/browser/menu.others.spec.ts, M5 track 6): useTriggerFocusGuards.test.tsx's Menu half, a
+    non-modal `TestPopup` whose close plays a 200 ms exit under `?animations=1`. `tabIndex` is the trigger's. `scenario`:
+    `final` (Before, the menu, After, "Final focus"; `finalFocus=ref|function`), `order` (a controlled root between controls that
+    `change` while it is open or closed, `direction=forward|backward`), `dialog` (inside a modal Dialog, `direction`), `alone` (the
+    menu only). The sync button is last, so a Tab from the page's controls reaches the tab order under test.
+*@
+<FixtureContainer Name="menu-guards" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-open-changes="@OpenChanges">
+    <style>
+        .popup { transition: opacity 200ms; }
+        .popup[data-ending-style] { opacity: 0; }
+    </style>
+    @switch (Query("scenario"))
+    {
+        case "final":
+            <button type="button" data-testid="before">Before</button>
+            @TestPopup
+            <button type="button" data-testid="after">After</button>
+            <button type="button" id="final-focus">Final focus</button>
+            break;
+        case "order":
+            <div>
+                @if (backward)
+                {
+                    @foreach (RenderFragment control in Enumerable.Reverse(Controls))
+                    {
+                        @control
+                    }
+                }
+                @TestPopup
+                @if (!backward)
+                {
+                    @foreach (RenderFragment control in Controls)
+                    {
+                        @control
+                    }
+                }
+            </div>
+            break;
+        case "dialog":
+            <button type="button">Outside dialog</button>
+            <DialogRoot TPayload="NoPayload" DefaultOpen="true">
+                <DialogPortal>
+                    <DialogPopup style="position: relative">
+                        @if (!backward)
+                        {
+                            <button type="button">Inside dialog</button>
+                        }
+                        @TestPopup
+                        @if (backward)
+                        {
+                            <button type="button">Inside dialog</button>
+                        }
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            break;
+        default:
+            @TestPopup
+            break;
+    }
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private bool backward;
+    private string change = "";
+    private bool open;
+    private int tabIndex;
+    private FocusTargetValue? finalFocus;
+    private Func<InteractionType, FocusTargetValue?>? finalFocusResolver;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private Dictionary<string, object> RootParameters => Query("scenario") == "order" ? new() { ["Open"] = open } : [];
+
+    protected override void OnInitialized()
+    {
+        backward = Query("direction") == "backward";
+        change = Query("change") ?? "";
+        tabIndex = Query("tabIndex") == "-1" ? -1 : 0;
+        switch (Query("finalFocus"))
+        {
+            case "ref":
+                finalFocus = new FocusTargetValue("final-focus");
+                break;
+            case "function":
+                finalFocusResolver = _ => new FocusTargetValue(true);
+                break;
+        }
+    }
+
+    private void RootChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        open = args.Value;
+    }
+
+    private RenderFragment Target => @<button @key="@("target")" type="button" data-testid="target">Target</button>;
+
+    private RenderFragment Candidate => @<button @key="@("candidate")" type="button" disabled="@(change == "disabled" && !open)"
+                                                 tabindex="@(change == "tabIndex" && !open ? -1 : 0)" hidden="@(change == "hidden" && !open)">Candidate</button>;
+
+    private List<RenderFragment> Controls
+    {
+        get
+        {
+            if (change == "inserted")
+            {
+                return open ? [Candidate] : [Target, Candidate];
+            }
+
+            if (change == "reordered")
+            {
+                return open ? [Candidate, Target] : [Target, Candidate];
+            }
+
+            return change == "removed" && !open ? [Target] : [Candidate, Target];
+        }
+    }
+
+    private RenderFragment TestPopup => @<MenuRoot TPayload="NoPayload" @ref="root" @attributes="RootParameters" Modal="false" OnOpenChange="RootChange">
+        <MenuTrigger TPayload="NoPayload" @ref="trigger" tabindex="@tabIndex" data-testid="trigger">Toggle</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup class="popup" data-testid="popup" FinalFocus="@finalFocus" FinalFocusResolver="@finalFocusResolver">
+                    <MenuItem data-testid="inside">Inside</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>;
+}
