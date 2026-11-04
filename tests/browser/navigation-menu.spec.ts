@@ -160,9 +160,9 @@ function computedPointerEvents(locator: Locator): Promise<string> {
  * enter on a trigger the lock has given `pointer-events: none`. `mouseenter` and `mouseleave` come with React's
  * `mouseover` and `mouseout`, as Testing Library's do.
  */
-async function fire(locator: Locator, type: 'mouseenter' | 'mouseleave' | 'mousemove' | 'pointerdown'): Promise<void> {
-  await locator.evaluate((element, eventType) => {
-    const init = { bubbles: true, cancelable: true, composed: true, view: window };
+async function fire(locator: Locator, type: 'mouseenter' | 'mouseleave' | 'mousemove' | 'pointerdown', point?: { x: number; y: number }): Promise<void> {
+  await locator.evaluate((element, [eventType, at]) => {
+    const init = { bubbles: true, cancelable: true, composed: true, view: window, clientX: at?.x ?? 0, clientY: at?.y ?? 0 };
     if (eventType === 'pointerdown') {
       element.dispatchEvent(new PointerEvent(eventType, { ...init, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 1 }));
     } else if (eventType === 'mousemove') {
@@ -171,7 +171,14 @@ async function fire(locator: Locator, type: 'mouseenter' | 'mouseleave' | 'mouse
       element.dispatchEvent(new MouseEvent(eventType, { ...init, bubbles: false, cancelable: false }));
       element.dispatchEvent(new MouseEvent(eventType === 'mouseenter' ? 'mouseover' : 'mouseout', init));
     }
-  }, type);
+  }, [type, point] as const);
+}
+
+/** Base UI's `fireEvent.mouseMove(document, { clientX, clientY })`: a move the safe polygon reads, at a point. */
+async function fireDocumentMove(page: Page, point: { x: number; y: number }): Promise<void> {
+  await page.evaluate((at) => {
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, composed: true, view: window, clientX: at.x, clientY: at.y }));
+  }, point);
 }
 
 // Touch titles: Playwright taps only in a context made with `hasTouch`, and the worker's shared context is not, so each
@@ -383,8 +390,7 @@ test.describe('<NavigationMenu.Root /> pointer-events lock', () => {
   });
 
   test('reapplies top-level safePolygon pointer events after returning from the popup and switching triggers', async ({ page, mode }) => {
-    // Fails on Server until track 2's fix: the session's hover-switch commit clears the new trigger's lock (interactions,
-    // runLayoutEffects' cleanup; the review of PR 168, gap G1).
+    // Gap G1 of the review of PR 168 (PR 184): on Server the hover switch's commit cleared the new trigger's lock.
     await gotoMenu(page, mode, { topLink: true });
     const topLink = page.getByTestId('top-link');
     const positioner = page.getByTestId('positioner');
@@ -414,8 +420,7 @@ test.describe('<NavigationMenu.Root /> pointer-events lock', () => {
   });
 
   test('keeps top-level safePolygon pointer events active when switching directly to a different trigger', async ({ page, mode }) => {
-    // Fails on Server until track 2's fix: the session's hover-switch commit clears the new trigger's lock (interactions,
-    // runLayoutEffects' cleanup; the review of PR 168, gap G1).
+    // Gap G1 of the review of PR 168 (PR 184): on Server the hover switch's commit cleared the new trigger's lock.
     await gotoMenu(page, mode, { topLink: true });
     await fire(trigger(page, 1), 'mouseenter');
     await fire(trigger(page, 1), 'mousemove');
@@ -446,8 +451,7 @@ test.describe('<NavigationMenu.Root /> pointer-events lock', () => {
   });
 
   test('scopes safePolygon pointer events to the document for a custom list element', async ({ page, mode }) => {
-    // Fails on Server until track 2's fix: the session's hover-switch commit clears the new trigger's lock (interactions,
-    // runLayoutEffects' cleanup; the review of PR 168, gap G1).
+    // Gap G1 of the review of PR 168 (PR 184): on Server the hover switch's commit cleared the new trigger's lock.
     await gotoMenu(page, mode, { customList: true });
     await hoverOpen(page, 1);
 
@@ -1212,9 +1216,7 @@ test.describe('<NavigationMenu.Root /> inline nested lock', () => {
     });
   }
 
-  // Fails until track 2's fix: the inline nested Trigger's leave builds no safe polygon; interactions publishes the
-  // unpositioned Viewport's floating context, whose placement is null, over the inline close context (the review of PR
-  // 168, gap G3).
+  // Gap G3 of the review of PR 168 (PR 184): the inline nested Trigger's leave built no safe polygon.
   test('clears inline safePolygon pointer events when the pointer leaves the traversal path', async ({ page, mode }) => {
     await openNested(page, mode, { nestedDefault: 'nested-1', nestedSide: 'right' });
 
@@ -1234,27 +1236,39 @@ test.describe('<NavigationMenu.Root /> inline nested lock', () => {
     await expect(nestedContent(page, 1)).toBeVisible();
   });
 
+  // Base UI's sequence event for event (NavigationMenuRoot.test.tsx:3059-3104), dispatched as its fireEvent calls are, with
+  // the points taken from the fixture's layout where Base UI mocks the rects: its leave is 2 px inside nested trigger 1's
+  // edge that faces the Viewport, and its move is in the gap toward the Viewport. A real pointer would add the leaves of
+  // the Viewport and of trigger 2 that Base UI's title never sends, and their close timers.
   test('keeps inline safePolygon pointer events when returning to the original trigger before traversing again', async ({ page, mode }) => {
     await openNested(page, mode, { nestedDefault: 'nested-1', nestedSide: 'right' });
+    const first = nestedTrigger(page, 1);
+    const box = (await first.boundingBox())!;
+    const viewportBox = (await nestedViewport(page).boundingBox())!;
+    const leave = { x: box.x + box.width - 2, y: box.y + box.height / 2 };
+    const gap = { x: (box.x + box.width + viewportBox.x) / 2, y: box.y + box.height / 2 };
 
-    await hoverElement(page, nestedTrigger(page, 1));
-    await leaveToward(page, 'right');
-    await hoverElement(page, nestedViewport(page));
-    await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('');
+    await fire(first, 'mouseenter');
+    await fire(first, 'mouseleave', leave);
+    await fireDocumentMove(page, gap);
+    await fire(nestedViewport(page), 'mouseenter');
 
-    await hoverOpen(page, nestedTrigger(page, 2));
-    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
-    // The lock now gives nested trigger 1 `pointer-events: none`, so a real pointer cannot enter it from trigger 2.
-    await fire(nestedTrigger(page, 1), 'mouseenter');
-    await fire(nestedTrigger(page, 1), 'mousemove');
+    await fire(nestedTrigger(page, 2), 'mouseenter');
+    await fire(nestedTrigger(page, 2), 'mousemove');
     await page.clock.runFor(OPEN_DELAY + 10);
-    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
+
+    await fire(first, 'mouseenter');
+    await fire(first, 'mousemove');
+    await page.clock.runFor(OPEN_DELAY + 10);
+    await expect(first).toHaveAttribute('aria-expanded', 'true');
     await expect.poll(() => inlinePointerEvents(nestedList(page))).toBe('none');
 
-    await leaveToward(page, 'right');
+    await fire(first, 'mouseleave', leave);
+    await fireDocumentMove(page, gap);
 
     expect(await inlinePointerEvents(nestedList(page))).toBe('none');
-    await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await expect(first).toHaveAttribute('aria-expanded', 'true');
     await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'false');
     await expect(nestedContent(page, 1)).toBeVisible();
     await expect(nestedContent(page, 2)).toHaveCount(0);
@@ -1565,9 +1579,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(page.getByTestId('nested-trigger-2')).toHaveAttribute('aria-expanded', 'true');
   });
 
-  // Fails until track 2's fix: a Shift+Tab out of an inline nested panel leaves its Links at tabindex -1, so the guards
-  // skip them; the portal module disables focus inside a Lite portal, which Base UI's FloatingPortalLite does not (the
-  // review of PR 168, gap G2).
+  // Gap G2 of the review of PR 168 (PR 184): a Shift+Tab out of an inline nested panel left its Links at tabindex -1.
   test('tabs between nested triggers and links without opening inactive panels', async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
@@ -1591,9 +1603,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(page.getByTestId('nested-trigger-engineering-leads')).toBeFocused();
   });
 
-  // Fails until track 2's fix: a Shift+Tab out of an inline nested panel leaves its Links at tabindex -1, so the guards
-  // skip them; the portal module disables focus inside a Lite portal, which Base UI's FloatingPortalLite does not (the
-  // review of PR 168, gap G2).
+  // Gap G2 of the review of PR 168 (PR 184): a Shift+Tab out of an inline nested panel left its Links at tabindex -1.
   test('returns to the last inline submenu item when shift+tabbing after leaving it', async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
