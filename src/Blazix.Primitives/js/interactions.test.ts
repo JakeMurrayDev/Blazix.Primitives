@@ -3489,6 +3489,31 @@ describe('useHoverReferenceInteraction', () => {
       expect(popup.open).toBe(false);
     });
 
+    // G3 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): only Base UI's useFloating publishes
+    // a floating context, so an unpositioned floating handle (NavigationMenu's inline Viewport, `node: false`) whose
+    // published context has no placement does not replace the trigger's inline close context.
+    it('port: with an unpositioned floating element attached, leaving toward the inline close context\'s element keeps the popup open, and leaving elsewhere closes it', () => {
+      const popup = harness();
+      popup.attachSession();
+      const button = element('button');
+      const viewport = element('div', 'inline-viewport-unpositioned');
+      popup.attachTrigger(button, { trigger: { hover: { safePolygon: true, inlineCloseContext: { floatingId: 'inline-viewport-unpositioned' } } } });
+      popup.attachFloating(viewport, { floating: { node: false, hover: null } });
+      popup.setReference(button);
+      button.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
+      viewport.getBoundingClientRect = () => hoverRect(150, 0, 100, 100);
+
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+
+      hoverMouse(button, 'mouseleave', { clientX: 100, clientY: 50 });
+      hoverMouse(document.body, 'mousemove', { clientX: 120, clientY: 50 });
+      expect(popup.open).toBe(true);
+
+      hoverMouse(document.body, 'mousemove', { clientX: 50, clientY: 300 });
+      expect(popup.open).toBe(false);
+    });
+
     // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's whole
     // `style` when its rendered value changes, so the lock re-asserts its value after the write while it holds.
     it('port: a style rewrite while the lock holds keeps the lock\'s pointer-events at the next microtask, and one after the release stays as written', async () => {
