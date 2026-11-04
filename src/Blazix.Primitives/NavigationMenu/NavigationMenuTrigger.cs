@@ -84,6 +84,7 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
     private NavigationMenuTriggerState? state;
     private Dictionary<string, object>? registrationAttributes;
     private bool openKeyDecided;
+    private bool holdInteractions;
     private IReadOnlyDictionary<string, object>? registrationSource;
 
     /// <summary>Initializes a new instance of the <see cref="NavigationMenuTrigger"/> class.</summary>
@@ -204,7 +205,11 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        SyncInteractions();
+        if (!holdInteractions)
+        {
+            SyncInteractions();
+        }
+
         Task interactionsSync = interactions!.AfterRenderAsync(Enabled, Element, Id);
         Task moduleSync = Element is { } element
             ? module!.SyncAsync(element, new NavigationMenuOptions { Part = NavigationMenuTwin.TriggerPart, HasContent = item!.HasContent ? null : false }, root!.RootElement)
@@ -373,7 +378,26 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
             RunConsumerKeyHandler(snapshot.ToKeyboardEventArgs());
         }
 
+        // Review B1 (NavigationMenuTrigger.tsx:729-735, useClick.ts:94-123): Base UI's click role runs after the activation
+        // and reads `toggle` from the render before the click, its handler's closure. On WebAssembly the activation renders
+        // the switch inside the dispatch, so this Trigger's interactions update waits until the dispatch has ended.
+        if (activation.Event?.Type == "click")
+        {
+            holdInteractions = true;
+            _ = ReleaseInteractionsAsync();
+        }
+
         return item!.ActivateAsync(activation);
+    }
+
+    private async Task ReleaseInteractionsAsync()
+    {
+        await Task.Yield();
+        await InvokeAsync(() =>
+        {
+            holdInteractions = false;
+            StateHasChanged();
+        });
     }
 
     private void RunConsumerKeyHandler(KeyboardEventArgs args)
