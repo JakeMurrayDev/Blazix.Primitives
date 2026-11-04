@@ -1456,8 +1456,6 @@ export function attach(
   // Return focus, armed while enabled and released when the manager stops (FLT-FOC-07, FOC-08, FOC-20, FOC-21,
   // ALG-21, KEY-09, EDGE-07), :771-952.
   const returnFocusEffect = (floating: HTMLElement | null, floatingFocusElement: HTMLElement, reference: HTMLElement | null) => {
-    // A re-arm while open finds the cleanup's return still pending (Base UI's own test of a dependency change).
-    const rearmed = pendingReturnFocus !== null;
     if (pendingReturnFocus) {
       pendingReturnFocus.cancelled = true;
       pendingReturnFocus = null;
@@ -1523,13 +1521,8 @@ export function attach(
       }
 
       const referenceReturnElement = reference?.isConnected ? reference : null;
-      // F1 (B'), settled by the orchestrator 2026-11-04: at the open's first arm an element inside the popup counts as not
-      // connected. Base UI records it before anything inside can hold focus; the port's handle can attach after another
-      // module moved focus in. A re-arm while open keeps Base UI's record.
       const previousReturnElement =
-        elementFocusedBeforeOpen?.isConnected &&
-        getNodeName(elementFocusedBeforeOpen) !== 'body' &&
-        (rearmed || !contains(floating, elementFocusedBeforeOpen))
+        elementFocusedBeforeOpen?.isConnected && getNodeName(elementFocusedBeforeOpen) !== 'body'
           ? elementFocusedBeforeOpen
           : null;
 
