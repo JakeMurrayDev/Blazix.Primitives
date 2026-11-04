@@ -214,7 +214,7 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     {
         this.store = store;
         FamilyName = familyName;
-        openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (_, open, _) => OnOpenChanged(open));
+        openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (open, _, _) => OnOpenChanged(open));
     }
 
     /// <summary>Gets the root's store.</summary>
