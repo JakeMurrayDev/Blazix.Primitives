@@ -48,6 +48,16 @@ internal readonly record struct MenuItemParameters(bool Disabled, string? Label,
 /// <summary>The behavior of a menu item: its registration in the list, its button and its activation.</summary>
 internal sealed class MenuItemBehavior : IDisposable
 {
+    private readonly string familyName;
+    private readonly string partName;
+    private readonly Action requestRender;
+    private readonly EventCallback onClick;
+    private readonly EventCallback onKeyDown;
+    private readonly ButtonBehavior? button;
+    private CompositeItemBehavior? item;
+    private MenuRootContext? root;
+    private MenuItemParameters parameters;
+
     /// <summary>Initializes a new instance of the <see cref="MenuItemBehavior"/> class.</summary>
     /// <param name="familyName">The item's family, such as <c>Menu</c>.</param>
     /// <param name="kind">The item's kind.</param>
@@ -71,65 +81,143 @@ internal sealed class MenuItemBehavior : IDisposable
         Func<Exception, Task> dispatchException,
         EventCallback onClick,
         EventCallback onKeyDown,
-        EventCallback onKeyUp) => throw new NotImplementedException();
+        EventCallback onKeyUp)
+    {
+        this.familyName = familyName;
+        this.requestRender = requestRender;
+        this.onClick = onClick;
+        this.onKeyDown = onKeyDown;
+        partName = familyName + kind switch
+        {
+            MenuItemKind.LinkItem => "LinkItem",
+            MenuItemKind.CheckboxItem => "CheckboxItem",
+            MenuItemKind.RadioItem => "RadioItem",
+            MenuItemKind.SubmenuTrigger => "SubmenuTrigger",
+            _ => "Item",
+        };
+
+        // MNU-API-40: a link item is an anchor with no button behavior.
+        if (kind != MenuItemKind.LinkItem)
+        {
+            button = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, requestRender, dispatchException, onKeyDown, onKeyUp);
+        }
+    }
 
     /// <summary>Gets or sets the work an activation runs before the close, such as a checkbox item's toggle.</summary>
     /// <value>A function of the click's snapshot, or <see langword="null"/>.</value>
     public Func<EventSnapshot, Task>? Activated { get; set; }
 
     /// <summary>Gets the root's context.</summary>
-    public MenuRootContext Context => throw new NotImplementedException();
+    public MenuRootContext Context => root!;
 
     /// <summary>Gets a value indicating whether the item is highlighted, the list handle's mirror.</summary>
-    public bool Highlighted => throw new NotImplementedException();
+    public bool Highlighted => item?.Highlighted ?? false;
 
     /// <summary>Gets a task that completes when the item's handles are attached.</summary>
-    public Task TwinsAttached => throw new NotImplementedException();
+    public Task TwinsAttached => button?.TwinAttached ?? Task.CompletedTask;
 
     /// <summary>Attaches the handles after the render.</summary>
     /// <param name="enabled">Whether the part rendered its element.</param>
     /// <param name="element">The item's element.</param>
     /// <param name="id">The id the item rendered.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
-    public Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id) => throw new NotImplementedException();
+    public async Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id)
+    {
+        Task itemSync = item!.AfterRenderAsync(element);
+        if (button is not null)
+        {
+            button.Disabled = parameters.Disabled;
+            await button.AfterRenderAsync(enabled, element, id, composite: true);
+        }
+
+        await itemSync;
+    }
 
     /// <inheritdoc />
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+    {
+        button?.Dispose();
+        item?.Dispose();
+    }
 
     /// <summary>Checks the part's placement, once.</summary>
     /// <param name="root">The enclosing root's context, or <see langword="null"/>.</param>
     /// <param name="list">The enclosing list's composite root, or <see langword="null"/>.</param>
     /// <exception cref="InvalidOperationException">The part is outside a root.</exception>
-    public void Subscribe(MenuRootContext? root, CompositeRootContext? list) => throw new NotImplementedException();
+    public void Subscribe(MenuRootContext? root, CompositeRootContext? list)
+    {
+        // MNU-EDGE-03: the Root context error, before the composite item's own.
+        this.root = MenuRootContext.Require(root, familyName);
+        item = new CompositeItemBehavior(list, partName, onKeyDown, requestRender);
+    }
 
     /// <summary>Applies the item's parameters and its registration.</summary>
     /// <param name="id">The item's id.</param>
     /// <param name="parameters">The item's parameters.</param>
     /// <param name="attributes">The consumer's attributes.</param>
-    public void Apply(string? id, in MenuItemParameters parameters, IReadOnlyDictionary<string, object>? attributes) => throw new NotImplementedException();
+    public void Apply(string? id, in MenuItemParameters parameters, IReadOnlyDictionary<string, object>? attributes)
+    {
+        this.parameters = parameters;
+
+        // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
+        item!.SetRegistration(id, attributes, parameters.Disabled, focusableWhenDisabled: true, label: parameters.Label);
+        item.SetConsumerAttributes(attributes);
+        if (button is not null)
+        {
+            button.Native = parameters.NativeButton;
+            button.Disabled = parameters.Disabled;
+            button.FocusableWhenDisabled = true;
+            button.SetConsumerAttributes(attributes);
+        }
+    }
 
     /// <summary>Adds the item's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
     /// <param name="id">The item's id.</param>
-    public void AddAttributes(AttributeList attributes, string? id) => throw new NotImplementedException();
+    public void AddAttributes(AttributeList attributes, string? id)
+    {
+        attributes.Set("role", "menuitem");
+        attributes.Set("onclick", onClick);
+        button?.AddAttributes(attributes, id, composite: true);
+        item!.AddAttributes(attributes);
+    }
 
     /// <summary>Determines whether the part forwards a consumer handler of the given event.</summary>
     /// <param name="eventName">The event's attribute name, such as <c>onclick</c>.</param>
     /// <returns><see langword="false"/> for a handler the item runs from its own.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => throw new NotImplementedException();
+    public bool ForwardsConsumerHandler(string eventName) => (button?.ForwardsConsumerHandler(eventName) ?? true) && item!.ForwardsConsumerHandler(eventName);
 
     /// <summary>Handles the item's <c>click</c>: the consumer's handler, the activation work and the tree's close.</summary>
     /// <param name="args">The click.</param>
     /// <returns>A task that completes when the activation has run.</returns>
-    public Task HandleClickAsync(MouseEventArgs args) => throw new NotImplementedException();
+    public async Task HandleClickAsync(MouseEventArgs args)
+    {
+        if (parameters.Disabled)
+        {
+            return;
+        }
+
+        EventSnapshot snapshot = EventSnapshot.FromEventArgs(args);
+        if (Activated is { } activated)
+        {
+            await activated(snapshot);
+        }
+
+        // useMenuItemCommonProps.ts:100-106: the tree's `close` with `item-press` (plan §Settled: C# store work).
+        if (parameters.CloseOnClick)
+        {
+            await root!.CloseTreeAsync(EventReason.ItemPress, snapshot);
+        }
+    }
 
     /// <summary>Handles the item's <c>keydown</c>.</summary>
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the key has run.</returns>
-    public Task HandleKeyDownAsync(KeyboardEventArgs args) => throw new NotImplementedException();
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) =>
+        button is not null && MenuKeys.IsButtonKey(args.Key) ? button.HandleKeyDownAsync(args) : item!.HandleKeyDownAsync(args);
 
     /// <summary>Handles the item's <c>keyup</c>.</summary>
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the key has run.</returns>
-    public Task HandleKeyUpAsync(KeyboardEventArgs args) => throw new NotImplementedException();
+    public Task HandleKeyUpAsync(KeyboardEventArgs args) => button?.HandleKeyUpAsync(args) ?? Task.CompletedTask;
 }
