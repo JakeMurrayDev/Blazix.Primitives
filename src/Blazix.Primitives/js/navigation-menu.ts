@@ -278,6 +278,8 @@ interface Menu {
   closeReason: string | null;
   /** Whether a `focus-out` report is in flight: sent and not yet answered (ADR 04 Amendments 2026-10-28, 2026-10-29). */
   closeInFlight: boolean;
+  /** Whether the inline Viewport reported `viewportInert` set and no clear has followed. */
+  inertReported: boolean;
   invalidate(): void;
   flush(): void;
 }
@@ -417,6 +419,7 @@ function getMenu(root: HTMLElement): MenuState {
     closingPopup: null,
     closeReason: null,
     closeInFlight: false,
+    inertReported: false,
     answered: 0,
     passQueued: false,
     lastOpen: root.hasAttribute('data-open'),
@@ -1061,7 +1064,16 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
     guardObserver.observe(parent, { childList: true });
   }
 
+  // NAV-STA-09; NavigationMenuTrigger.tsx:665-670: the active Trigger's focus clears viewportInert after the Viewport's
+  // blur set it. C#'s onfocus clears the rendered flag; a set report still on its way is cleared here, after it.
+  const onFocus = () => {
+    if (isActive()) {
+      clearViewportInert(menu, channel);
+    }
+  };
+
   element.addEventListener('mouseover', onMouseOver);
+  element.addEventListener('focus', onFocus);
   element.addEventListener('click', onClick);
   element.addEventListener('pointerenter', onPointer);
   element.addEventListener('pointerdown', onPointer);
@@ -1090,6 +1102,7 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
       sizeFrame.cancel();
       cancelAutoSizeReset();
       element.removeEventListener('mouseover', onMouseOver);
+      element.removeEventListener('focus', onFocus);
       element.removeEventListener('click', onClick);
       element.removeEventListener('pointerenter', onPointer);
       element.removeEventListener('pointerdown', onPointer);
@@ -1105,11 +1118,13 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
 
 // NAV-STA-09, KEY-12; NavigationMenuTrigger.tsx:753-757: the trailing guard reached from outside clears `viewportInert`
 // before focusing into the Viewport. C# renders `inert`; the module lifts it at once (an optimistic convergent write)
-// so the focus lands, and reports the change.
+// so the focus lands, and reports the change. A set still on its way to C# is cleared in its queue too.
 function clearViewportInert(menu: Menu, channel: TwinChannel): void {
   const viewport = menu.viewport;
-  if (viewport !== null && viewport.hasAttribute('inert')) {
-    viewport.removeAttribute('inert');
+  const rendered = viewport !== null && viewport.hasAttribute('inert');
+  if (rendered || menu.inertReported) {
+    viewport?.removeAttribute('inert');
+    menu.inertReported = false;
     channel.report(VIEWPORT_INERT_REPORT, { inert: false });
   }
 }
@@ -1477,6 +1492,7 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
     const related = event.relatedTarget as Element | null;
     const trigger = findActiveTrigger(menu)?.element ?? null;
     if (options.hasPositioner !== true && related !== null && !contains(element, related) && related !== trigger && !element.hasAttribute('inert')) {
+      menu.inertReported = true;
       channel.report(VIEWPORT_INERT_REPORT, { inert: true });
     }
   };
