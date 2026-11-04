@@ -1,0 +1,235 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-transition` fixture (tests/browser/menu.popups.spec.ts, M5 track 6). Open the page with `?animations=1` where
+    Base UI sets BASE_UI_ANIMATIONS_DISABLED to false. `case`:
+    - absent (MenuPopupEnterTransition.test.tsx, MenuPopupTransitionState.test.tsx, MenuPositioner.test.tsx's controlled
+      parent): a root (`open=true|false` controlled, `[data-set-open]`, `followOpen`; `defaultOpen`, `keepMounted`, `modal`, `popupClass`) holding
+      `Item` and a submenu "Submenu" (`subDefaultOpen`; `subOpen=true|false` controlled, `[data-set-sub-open]`) unless `noSubmenu`;
+      `hideSubPopup` leaves the submenu's portal out until `[data-show-sub-popup]`; `lateStyle` gives the submenu a 300 ms
+      entry transition.
+    - `checkbox-indicator`, `radio-indicator` (MenuCheckboxItemIndicator.test.tsx, MenuRadioItemIndicator.test.tsx): an open,
+      non-modal root with one item checked until `[data-uncheck]`; `indicatorKeepMounted`, `indicatorClass`.
+    - `hover-triggers` (MenuRoot.detached-triggers.test.tsx): two detached hover triggers `trigger-1`, `trigger-2` with a
+      payload; `late-commit`: a controlled root following the trigger of each open, committing a close 400 ms later.
+    The container records `data-open-changes`, `data-open-change-completes` and `data-submenu-open-changes`.
+*@
+<FixtureContainer Name="menu-transition" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-submenu-open-changes="@string.Join(' ', submenuChanges)" data-opened-triggers="@string.Join(' ', openedTriggers)">
+    <style>
+        .transition-state { opacity: 0; transition: opacity 10s linear; }
+        .transition-state[data-open]:not([data-starting-style]) { opacity: 1; }
+        @@keyframes menu-transition-test-anim { to { opacity: 0; } }
+        .animation-test-indicator[data-ending-style] { animation: menu-transition-test-anim 1ms; }
+        .positioner { transition: top 120ms linear, left 120ms linear, transform 120ms linear; }
+        .popup { opacity: 1; transition: opacity 250ms linear; }
+        .popup[data-ending-style] { opacity: 0; }
+        .positioner[data-instant], .popup[data-instant] { transition: none; }
+        @if (lateStyle)
+        {
+            <text>
+            [data-testid='submenu-popup'] { opacity: 1; transition: opacity 300ms linear; }
+            [data-testid='submenu-popup'][data-starting-style] { opacity: 0; }
+            </text>
+        }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-set-sub-open="true" data-key-control @onclick="() => subOpen = true" @onkeydown="OnShift(() => subOpen = true)">Set submenu open</button>
+    <button type="button" data-set-sub-open="false" data-key-control @onclick="() => subOpen = false" @onkeydown="OnShift(() => subOpen = false)">Set submenu closed</button>
+    <button type="button" data-show-sub-popup data-key-control @onclick="() => showSubPopup = true" @onkeydown="OnShift(() => showSubPopup = true)">Show submenu popup</button>
+    <button type="button" data-uncheck data-key-control @onclick="() => isChecked = false" @onkeydown="OnShift(() => isChecked = false)">Uncheck</button>
+    @switch (Case)
+    {
+        case "checkbox-indicator":
+        case "radio-indicator":
+            <MenuRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false">
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            @if (Case == "checkbox-indicator")
+                            {
+                                <MenuCheckboxItem Checked="@isChecked">
+                                    <MenuCheckboxItemIndicator data-testid="indicator" class="@indicatorClass" KeepMounted="@indicatorKeepMounted" />
+                                </MenuCheckboxItem>
+                            }
+                            else
+                            {
+                                <MenuRadioGroup TValue="string" Value="@(isChecked ? "a" : "b")">
+                                    <MenuRadioItem TValue="string" Value="@("a")">
+                                        <MenuRadioItemIndicator data-testid="indicator" class="@indicatorClass" KeepMounted="@indicatorKeepMounted" />
+                                    </MenuRadioItem>
+                                </MenuRadioGroup>
+                            }
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+            break;
+        case "hover-triggers":
+            <div style="position: relative; width: 400px; height: 200px">
+                <MenuTrigger TPayload="int" @ref="payloadTrigger1" Handle="@payloadHandle" Payload="1" OpenOnHover="true" Delay="0" data-testid="trigger-1" style="position: absolute; top: 20px; left: 20px">Trigger 1</MenuTrigger>
+                <MenuTrigger TPayload="int" @ref="payloadTrigger2" Handle="@payloadHandle" Payload="2" OpenOnHover="true" Delay="0" data-testid="trigger-2" style="position: absolute; top: 20px; left: 220px">Trigger 2</MenuTrigger>
+                <MenuRoot TPayload="int" @ref="payloadRoot" Handle="@payloadHandle">
+                    <PayloadContent>
+                        <MenuPortal>
+                            <MenuPositioner data-testid="positioner" class="positioner">
+                                <MenuPopup data-testid="popup" class="popup">
+                                    <MenuItem data-testid="content">@context</MenuItem>
+                                </MenuPopup>
+                            </MenuPositioner>
+                        </MenuPortal>
+                    </PayloadContent>
+                </MenuRoot>
+            </div>
+            break;
+        case "late-commit":
+            <div style="position: relative; width: 400px; height: 200px">
+                <MenuRoot TPayload="NoPayload" @ref="root" Open="@open" TriggerId="@activeTrigger" OnOpenChange="LateChange">
+                    <MenuTrigger TPayload="NoPayload" @ref="trigger" id="trigger-1" OpenOnHover="true" Delay="0" data-testid="trigger-1" style="position: absolute; top: 20px; left: 20px">Trigger 1</MenuTrigger>
+                    <MenuTrigger TPayload="NoPayload" @ref="secondTrigger" id="trigger-2" OpenOnHover="true" Delay="0" data-testid="trigger-2" style="position: absolute; top: 20px; left: 220px">Trigger 2</MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner data-testid="positioner" class="positioner">
+                            <MenuPopup data-testid="popup" class="popup">
+                                <MenuItem>Item</MenuItem>
+                            </MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+            </div>
+            break;
+        default:
+            <MenuRoot TPayload="NoPayload" @ref="root" @attributes="RootParameters" DefaultOpen="@defaultOpen" Modal="@modal"
+                      OnOpenChange="RootChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Trigger</MenuTrigger>
+                <MenuPortal KeepMounted="@keepMounted">
+                    <MenuPositioner>
+                        <MenuPopup data-testid="menu-popup" class="@popupClass">
+                            <MenuItem>Item</MenuItem>
+                            @if (withSubmenu)
+                            {
+                                <MenuSubmenuRoot @attributes="SubmenuParameters" DefaultOpen="@subDefaultOpen" OnOpenChange="RecordSubmenuChange">
+                                    <MenuSubmenuTrigger>Submenu</MenuSubmenuTrigger>
+                                    @if (showSubPopup)
+                                    {
+                                        <MenuPortal>
+                                            <MenuPositioner>
+                                                <MenuPopup data-testid="submenu-popup">
+                                                    <MenuItem>Sub item</MenuItem>
+                                                </MenuPopup>
+                                            </MenuPositioner>
+                                        </MenuPortal>
+                                    }
+                                </MenuSubmenuRoot>
+                            }
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> submenuChanges = [];
+    private readonly List<string> openedTriggers = [];
+    private readonly MenuHandle<int> payloadHandle = new();
+    private bool followOpen;
+    private bool lateStyle;
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private bool? modal;
+    private string? popupClass;
+    private bool withSubmenu = true;
+    private bool subControlled;
+    private bool subOpen;
+    private bool subDefaultOpen;
+    private bool showSubPopup = true;
+    private bool isChecked = true;
+    private bool indicatorKeepMounted;
+    private string? indicatorClass;
+    private string? activeTrigger;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private MenuTrigger<NoPayload>? secondTrigger;
+    private MenuRoot<int>? payloadRoot;
+    private MenuTrigger<int>? payloadTrigger1;
+    private MenuTrigger<int>? payloadTrigger2;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        secondTrigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        payloadTrigger1?.TwinsAttached ?? Task.CompletedTask,
+        payloadTrigger2?.TwinsAttached ?? Task.CompletedTask,
+        payloadRoot?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private Dictionary<string, object> RootParameters => controlled ? new() { ["Open"] = open } : [];
+
+    private Dictionary<string, object> SubmenuParameters => subControlled ? new() { ["Open"] = subOpen } : [];
+
+    protected override void OnInitialized()
+    {
+        lateStyle = QueryFlag("lateStyle") == true;
+        followOpen = QueryFlag("followOpen") == true;
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        modal = QueryFlag("modal");
+        popupClass = Query("popupClass");
+        withSubmenu = QueryFlag("noSubmenu") != true;
+        subControlled = QueryFlag("subOpen") is not null;
+        subOpen = QueryFlag("subOpen") == true;
+        subDefaultOpen = QueryFlag("subDefaultOpen") == true;
+        showSubPopup = QueryFlag("hideSubPopup") != true;
+        indicatorKeepMounted = QueryFlag("indicatorKeepMounted") == true;
+        indicatorClass = Query("indicatorClass");
+    }
+
+    private void RecordSubmenuChange(ValueChangeEventArgs<bool> args) =>
+        submenuChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private void RootChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (followOpen)
+        {
+            open = args.Value;
+        }
+    }
+
+    private void LateChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (args.Value)
+        {
+            activeTrigger = args.Details.Trigger?.Id;
+            openedTriggers.Add(activeTrigger ?? "");
+            open = true;
+            return;
+        }
+
+        _ = CommitCloseLater();
+    }
+
+    private async Task CommitCloseLater()
+    {
+        await Task.Delay(400);
+        await InvokeAsync(() =>
+        {
+            open = false;
+            StateHasChanged();
+        });
+    }
+}

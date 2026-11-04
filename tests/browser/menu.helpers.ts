@@ -46,9 +46,46 @@ export async function withClock(page: Page, body: () => Promise<void>): Promise<
   }
 }
 
+/** Base UI's `waitForFrames`: two of the page's animation frames. */
+export function waitFrames(page: Page): Promise<void> {
+  return page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+}
+
 /** Holds the page's clock from now on, until `page.clock.resume`: no timer of the page runs, and no window closes. */
 export async function holdClock(page: Page): Promise<void> {
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 100);
+}
+
+/** Waits out a stretch of the page's time (Base UI's `waitMs`), never the test's: timers of the page run, then time flows again. */
+export async function waitMs(page: Page, ms: number): Promise<void> {
+  await withClock(page, async () => {
+    await page.clock.runFor(ms);
+  });
+}
+
+/**
+ * Records whether each selector ever matches, from the page's first script on, for a state that may last one batch
+ * (MenuPopupEnterTransition.test.tsx's `trackSelector`, which polls per frame; ADR 06 §2 takes a mutation record). The DOM
+ * is sampled in a microtask queued from the observer, after the modules' own observers of the batch (tests/browser/CONTEXT.md).
+ */
+export async function recordSelectors(page: Page, selectors: readonly string[]): Promise<void> {
+  await page.addInitScript((list) => {
+    const seen = new Set<string>();
+    (window as unknown as { seenSelectors: Set<string> }).seenSelectors = seen;
+    const sample = () => {
+      for (const selector of list) {
+        if (document.querySelector(selector)) {
+          seen.add(selector);
+        }
+      }
+    };
+    new MutationObserver(() => queueMicrotask(sample)).observe(document, { attributes: true, childList: true, subtree: true });
+  }, selectors);
+}
+
+/** Whether a selector given to recordSelectors has matched. */
+export function selectorSeen(page: Page, selector: string): Promise<boolean> {
+  return page.evaluate((name) => (window as unknown as { seenSelectors: Set<string> }).seenSelectors.has(name), selector);
 }
 
 /** Dispatches a DOM event Base UI fires with `fireEvent`, where a real input cannot take the same path. */
