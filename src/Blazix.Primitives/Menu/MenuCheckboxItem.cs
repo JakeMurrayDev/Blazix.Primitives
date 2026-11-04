@@ -132,9 +132,10 @@ public sealed class MenuCheckboxItem : PartBase<MenuCheckboxItemState>
         {
             bool highlighted = behavior!.Highlighted;
             bool isChecked = checkable.Checked;
-            if (state.Disabled != Disabled || state.Highlighted != highlighted || state.Checked != isChecked)
+            bool disabled = behavior.Disabled;
+            if (state.Disabled != disabled || state.Highlighted != highlighted || state.Checked != isChecked)
             {
-                state = new MenuCheckboxItemState(Disabled, highlighted, isChecked);
+                state = new MenuCheckboxItemState(disabled, highlighted, isChecked);
             }
 
             return state;
@@ -169,7 +170,7 @@ public sealed class MenuCheckboxItem : PartBase<MenuCheckboxItemState>
     protected override void OnParametersSet()
     {
         behavior!.Apply(Id, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
-        checkable.Apply(CheckedChanged, OnCheckedChange, Disabled, behavior.Highlighted);
+        checkable.Apply(CheckedChanged, OnCheckedChange, behavior.Disabled, behavior.Highlighted);
         ChildContent = checkable.CascadeContent(ChildContent);
     }
 

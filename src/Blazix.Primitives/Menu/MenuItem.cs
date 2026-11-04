@@ -98,9 +98,10 @@ public sealed class MenuItem : PartBase<MenuItemState>
         get
         {
             bool highlighted = behavior!.Highlighted;
-            if (state.Disabled != Disabled || state.Highlighted != highlighted)
+            bool disabled = behavior.Disabled;
+            if (state.Disabled != disabled || state.Highlighted != highlighted)
             {
-                state = new MenuItemState(Disabled, highlighted);
+                state = new MenuItemState(disabled, highlighted);
             }
 
             return state;

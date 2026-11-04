@@ -40,7 +40,7 @@ internal readonly record struct MenuItemParameters(bool Disabled, string? Label,
 //   label: Label)); C# renders tabindex="-1" and no data-highlighted (ADR 04 Amendments 2026-11-03 (2), chosen by the
 //   user); Highlighted is the mirror, a mirrored field of each item's state record;
 // - ButtonBehavior in composite mode (Enter and Space; a typed Space is prevented and skipped, button.ts:516-523), native
-//   only with NativeButton, focusable when disabled; a LinkItem is an anchor with no button behaviour;
+//   only with NativeButton, focusable when disabled; a LinkItem's button is never native (MenuLinkItem.tsx:41-44);
 // - activation: a C# onclick per item (plan §Settled; the Popover and Dialog Close precedent) runs the consumer's handler
 //   (PreventBaseUIHandler() keeps the menu open), the part's toggle (a checkbox or radio item's) and, with CloseOnClick, the
 //   tree's `item-press` close (MenuRootContext.CloseTreeAsync). It does not fire inside a shadow-root container (ADR 04
@@ -53,10 +53,15 @@ internal sealed class MenuItemBehavior : IDisposable
     private readonly Action requestRender;
     private readonly EventCallback onClick;
     private readonly EventCallback onKeyDown;
-    private readonly ButtonBehavior? button;
+    private readonly ButtonBehavior button;
+    private readonly bool linkItem;
     private CompositeItemBehavior? item;
     private MenuRootContext? root;
+    private MenuSubscription? rootSubscription;
+    private MenuSelection<bool>? rootDisabled;
     private MenuItemParameters parameters;
+    private string? id;
+    private IReadOnlyDictionary<string, object>? attributes;
 
     /// <summary>Initializes a new instance of the <see cref="MenuItemBehavior"/> class.</summary>
     /// <param name="familyName">The item's family, such as <c>Menu</c>.</param>
@@ -96,11 +101,10 @@ internal sealed class MenuItemBehavior : IDisposable
             _ => "Item",
         };
 
-        // MNU-API-40: a link item is an anchor with no button behavior.
-        if (kind != MenuItemKind.LinkItem)
-        {
-            button = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, requestRender, dispatchException, onKeyDown, onKeyUp);
-        }
+        // MNU-API-40 (MenuLinkItem.tsx:41-44): a link item's button is composite and never native, so Space activates it.
+        linkItem = kind == MenuItemKind.LinkItem;
+        button = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, requestRender, dispatchException, onKeyDown, onKeyUp);
+    
     }
 
     /// <summary>Gets or sets the work an activation runs before the close, such as a checkbox item's toggle.</summary>
@@ -109,6 +113,9 @@ internal sealed class MenuItemBehavior : IDisposable
 
     /// <summary>Gets the root's context.</summary>
     public MenuRootContext Context => root!;
+
+    /// <summary>Gets a value indicating whether the item ignores user interaction: its own <c>Disabled</c>, or its root's.</summary>
+    public bool Disabled => parameters.Disabled || (rootDisabled?.Value ?? false);
 
     /// <summary>Gets a value indicating whether the item is highlighted, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
@@ -126,7 +133,7 @@ internal sealed class MenuItemBehavior : IDisposable
         Task itemSync = item!.AfterRenderAsync(element);
         if (button is not null)
         {
-            button.Disabled = parameters.Disabled;
+            button.Disabled = Disabled;
             await button.AfterRenderAsync(enabled, element, id, composite: true);
         }
 
@@ -137,6 +144,7 @@ internal sealed class MenuItemBehavior : IDisposable
     public void Dispose()
     {
         root?.Items.Remove(this);
+        rootSubscription?.Dispose();
         button?.Dispose();
         item?.Dispose();
     }
@@ -150,6 +158,14 @@ internal sealed class MenuItemBehavior : IDisposable
         // MNU-EDGE-03: the Root context error, before the composite item's own.
         this.root = MenuRootContext.Require(root, familyName);
         item = new CompositeItemBehavior(list, partName, onKeyDown, requestRender);
+
+        // MenuItem.tsx:32-37, MenuCheckboxItem.tsx:41-46, MenuRadioItem.tsx:47-49: the root's disabled state disables an item
+        // too, and follows it. A LinkItem has no disabled state.
+        if (!linkItem)
+        {
+            rootSubscription = this.root.Subscribe(OnRootChanged);
+            rootDisabled = rootSubscription.Select(MenuSelectors.Disabled);
+        }
     }
 
     /// <summary>Applies the item's parameters and its registration.</summary>
@@ -159,22 +175,9 @@ internal sealed class MenuItemBehavior : IDisposable
     public void Apply(string? id, in MenuItemParameters parameters, IReadOnlyDictionary<string, object>? attributes)
     {
         this.parameters = parameters;
-
-        // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
-        item!.SetRegistration(id, attributes, parameters.Disabled, focusableWhenDisabled: true, label: parameters.Label);
-        item.SetConsumerAttributes(attributes);
-        if (id is not null)
-        {
-            root!.Items.Set(this, id);
-        }
-
-        if (button is not null)
-        {
-            button.Native = parameters.NativeButton;
-            button.Disabled = parameters.Disabled;
-            button.FocusableWhenDisabled = true;
-            button.SetConsumerAttributes(attributes);
-        }
+        this.id = id;
+        this.attributes = attributes;
+        Register();
     }
 
     /// <summary>Adds the item's attributes.</summary>
@@ -200,7 +203,7 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <returns>A task that completes when the activation has run.</returns>
     public async Task HandleClickAsync(MouseEventArgs args)
     {
-        if (parameters.Disabled)
+        if (Disabled)
         {
             return;
         }
@@ -228,4 +231,30 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the key has run.</returns>
     public Task HandleKeyUpAsync(KeyboardEventArgs args) => button?.HandleKeyUpAsync(args) ?? Task.CompletedTask;
+
+    // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
+    private void Register()
+    {
+        bool disabled = Disabled;
+        item!.SetRegistration(id, attributes, disabled, focusableWhenDisabled: true, label: parameters.Label);
+        item.SetConsumerAttributes(attributes);
+        if (id is not null)
+        {
+            root!.Items.Set(this, id);
+        }
+
+        if (button is not null)
+        {
+            button.Native = !linkItem && parameters.NativeButton;
+            button.Disabled = disabled;
+            button.FocusableWhenDisabled = true;
+            button.SetConsumerAttributes(attributes);
+        }
+    }
+
+    private void OnRootChanged()
+    {
+        Register();
+        requestRender();
+    }
 }

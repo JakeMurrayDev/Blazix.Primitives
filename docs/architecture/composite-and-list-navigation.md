@@ -1419,6 +1419,7 @@ All pseudo-code is language-neutral. `list` is the elements array (positions may
   ```
   Source: `floating-ui-react/hooks/useListNavigation.ts:446-476`. Test: [L3] `useListNavigation.test.tsx` "opens on ArrowDown and focuses first item", "skips disabled item on initial navigation".
   Port note (2026-11-04, M5 track 1, [issue 159](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/159); ADR 04 Amendments 2026-11-03 (1)–(3), chosen by the user): green at L3: `js/composite-list.test.ts` "opens on ArrowDown and focuses first item" and "skips disabled item on initial navigation".
+  Port note (2026-11-05, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); ADR 04 Amendments 2026-11-05, "an open list waits to show"; ADR 01's commit path): before the search for the first item, the procedure also waits while the floating element is not visible and the session stays open, frame by frame up to 120 frames, then proceeds as it would. A kept-mounted list's handle is attached before the open, and the relay reaches it before the batch that shows the popup; Base UI's effect runs after the commit, so its list is always showing. Test: [L3] `composite-list.test.ts` "port: a kept-mounted list still hidden when the open arrives focuses its first item once it shows".
 
 ### 5.5 Typeahead
 

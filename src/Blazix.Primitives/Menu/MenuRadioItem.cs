@@ -114,7 +114,7 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     {
         get
         {
-            bool disabled = Disabled || radio.GroupDisabled;
+            bool disabled = behavior!.Disabled || radio.GroupDisabled;
             bool highlighted = behavior!.Highlighted;
             bool isChecked = radio.Checked;
             if (state.Disabled != disabled || state.Highlighted != highlighted || state.Checked != isChecked)
@@ -163,7 +163,7 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     /// <inheritdoc />
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
-        radio.Apply(Value, Disabled || radio.GroupDisabled, behavior!.Highlighted);
+        radio.Apply(Value, behavior!.Disabled || radio.GroupDisabled, behavior.Highlighted);
         base.BuildRenderTree(builder);
     }
 

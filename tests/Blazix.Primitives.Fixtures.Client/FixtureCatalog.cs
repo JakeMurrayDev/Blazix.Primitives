@@ -198,6 +198,7 @@ public static class FixtureCatalog
         ["menu-positioner"] = new(typeof(MenuPositionerFixture)),
         ["menu-list"] = new(typeof(MenuListFixture)),
         ["menu-nested"] = new(typeof(MenuNestedFixture)),
+        ["menu-measure"] = new(typeof(MenuMeasureFixture)),
         ["menu-root"] = new(typeof(MenuRootFixture)),
         ["menu-dialog"] = new(typeof(MenuDialogFixture)),
         ["menu-transition"] = new(typeof(MenuTransitionFixture)),
