@@ -934,6 +934,8 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     hoveredLineRef(record).current = undefined;
   }
   record.mounted = mounted;
+  // G4 of M5 track 5 (settled by the orchestrator 2026-11-04): a press still pending when another commit arrives.
+  let laterPress: PendingRequest | null = null;
   if (relay !== null && relay.revision !== record.lastRevision) {
     record.closeInFlight = null;
     const first = record.lastRevision === undefined;
@@ -946,6 +948,10 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     }
     if (!first || relay.revision > 0) {
       const event = relayedEvent(record, open, relay);
+      const optimistic = record.optimisticOpenEvent;
+      if (optimistic !== null && record.pending === optimistic.request && event !== optimistic.request.event) {
+        laterPress = optimistic.request;
+      }
       record.pending = null;
       record.optimisticOpenEvent = null;
       syncOpenEvent(record, open, event);
@@ -982,6 +988,12 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.namedTrigger = null;
     rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
+  }
+  // A press that landed before this open's commit (a hover open on Server) comes after it, as Base UI's click upgrades
+  // the open its store already holds: its click-like open event is recorded again on its request, still pending.
+  if (open && laterPress !== null) {
+    record.pending = laterPress;
+    recordOptimisticOpenEvent(record, laterPress);
   }
   if (record.domReferenceElement !== reference) {
     notifyPositionListeners(record);
