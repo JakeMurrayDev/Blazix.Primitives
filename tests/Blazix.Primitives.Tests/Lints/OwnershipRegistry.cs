@@ -168,6 +168,39 @@ internal static class OwnershipRegistry
         new("popover", "Viewport", "data-transitioning", Writer.Js, "PopoverViewportState.Transitioning"),
         new("popover", "Viewport", "--popup-width", Writer.Js),
         new("popover", "Viewport", "--popup-height", Writer.Js),
+        // Select (M5 track 9, issue 173; ADR 04 §2 and Amendments 2026-10-27, select.md §5): positioning writes the
+        // Positioner's and the Arrow's placement, style and CSS variables from attach (mirrored in the state records); the
+        // select module writes the aligned placement and layout styles, the Popup's --transform-origin, the List's style
+        // and the scroll arrows' data-visible (mirrored in SelectScrollArrowState.Visible); transitions writes the
+        // transition attributes and `transition: none`; composite writes the items' highlight and tabindex (mirrored in
+        // SelectItemState.Highlighted); the popup module writes the internal backdrop's clip-path.
+        new("select", "Backdrop", "data-starting-style", Writer.Js, "SelectBackdropState.TransitionStatus"),
+        new("select", "Backdrop", "data-ending-style", Writer.Js, "SelectBackdropState.TransitionStatus"),
+        new("select", "Positioner", "pointer-events", Writer.CsharpToJs),
+        new("select", "Positioner", "data-side", Writer.CsharpToJs, "SelectPositionerState.Side"),
+        new("select", "Positioner", "data-align", Writer.CsharpToJs, "SelectPositionerState.Align"),
+        new("select", "Positioner", "data-anchor-hidden", Writer.Js, "SelectPositionerState.AnchorHidden"),
+        new("select", "Positioner", "positioning styles and CSS variables", Writer.CsharpToJs),
+        new("select", "Positioner", "aligned placement styles", Writer.Js),
+        new("select", "Positioner", "transition", Writer.Js),
+        new("select", "Positioner", "clip-path", Writer.Js),
+        new("select", "Popup", "data-starting-style", Writer.Js, "SelectPopupState.TransitionStatus"),
+        new("select", "Popup", "data-ending-style", Writer.Js, "SelectPopupState.TransitionStatus"),
+        new("select", "Popup", "aligned layout styles", Writer.Js),
+        new("select", "Popup", "transition", Writer.Js),
+        new("select", "Popup", "--transform-origin", Writer.Js),
+        new("select", "List", "style", Writer.CsharpToJs),
+        new("select", "Item", "data-highlighted", Writer.Js, "SelectItemState.Highlighted"),
+        new("select", "Item", "tabindex", Writer.CsharpToJs),
+        new("select", "ItemIndicator", "data-starting-style", Writer.Js, "SelectItemIndicatorState.TransitionStatus"),
+        new("select", "ItemIndicator", "data-ending-style", Writer.Js, "SelectItemIndicatorState.TransitionStatus"),
+        new("select", "Arrow", "data-side", Writer.CsharpToJs, "SelectArrowState.Side"),
+        new("select", "Arrow", "data-align", Writer.CsharpToJs, "SelectArrowState.Align"),
+        new("select", "Arrow", "data-uncentered", Writer.CsharpToJs, "SelectArrowState.Uncentered"),
+        new("select", "Arrow", "style", Writer.CsharpToJs),
+        new("select", "Scroll-arrow", "data-visible", Writer.CsharpToJs, "SelectScrollArrowState.Visible"),
+        new("select", "Scroll-arrow", "data-starting-style", Writer.Js, "SelectScrollArrowState.TransitionStatus"),
+        new("select", "Scroll-arrow", "data-ending-style", Writer.Js, "SelectScrollArrowState.TransitionStatus"),
         // Tooltip (M4 track 6, issue 121; ADR 04 §2 as amended 2026-10-27, tooltip.md §5): the interactions module attaches
         // the trigger's and the floating element's listeners; positioning writes the Positioner's and the Arrow's style and
         // placement from attach (mirrored in the state records); transitions writes the Popup's transition attributes and
