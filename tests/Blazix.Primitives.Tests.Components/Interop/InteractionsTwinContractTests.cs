@@ -469,6 +469,34 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsMenuFloatingOptions { ItemHover = true }, new InteractionsMenuFloatingOptions());
     }
 
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (3): the release options cross
+    // by their module names, each flag only when true, and a change is a changed option.
+    [Fact(DisplayName = "port: Menu's release options are written by their module names, each flag only when true, and a change is a changed option")]
+    [Trait("Requirement", "MNU-PTR-02")]
+    [Trait("Requirement", "MNU-PTR-03")]
+    [Trait("Requirement", "MNU-PTR-04")]
+    public void Menus_release_options_are_written_by_their_module_names_each_flag_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string set = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions { RootId = "base-ui-1", Release = true } },
+            Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions { Release = true } },
+        });
+        string unset = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions() },
+            Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions() },
+        });
+
+        Assert.Contains("\"menu\":{\"rootId\":\"base-ui-1\",\"release\":true}", set, StringComparison.Ordinal);
+        Assert.Contains("\"menu\":{\"release\":true}", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("release", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("rootId", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { RootId = "a" }, new InteractionsMenuTriggerOptions { RootId = "b" });
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { Release = true }, new InteractionsMenuTriggerOptions());
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { Release = true }, new InteractionsMenuFloatingOptions());
+    }
+
     private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
 
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)

@@ -17,9 +17,9 @@
 // FloatingTreeStore.ts, FloatingTree.tsx, FloatingDelayGroup.tsx; hooks/useClick.ts, useDismiss.ts, useFocus.ts,
 // useClientPoint.ts, useHoverReferenceInteraction.ts, useHoverFloatingInteraction.ts, useHoverShared.ts,
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
-import { classifyClick, type InteractionType } from './button';
+import { classifyClick, dispatchClickWithModifiers, type InteractionType } from './button';
 import { decide } from './decide';
-import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, ownerDocument, ownerWindow, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, isMouseWithinBounds, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
 import {
@@ -3926,7 +3926,8 @@ function createHoverFloatingController(context: HandleContext): Controller {
 // #endregion hover
 
 // ---------------------------------------------------------------------------------------------------------------
-// #region menu: Menu's hover gates and the tree's item hover (MNU-STA-11, MNU-STA-12, MNU-PTR-08, MNU-PTR-09, MNU-PTR-11); M5 track 6
+// #region menu: Menu's hover gates, the tree's item hover and release activation (MNU-STA-11, MNU-STA-12, MNU-PTR-02..04,
+// MNU-PTR-08, MNU-PTR-09, MNU-PTR-11, MNU-DIS-07); M5 track 6
 // ---------------------------------------------------------------------------------------------------------------
 // ADR 04 Amendments 2026-11-04 (3). Each menu session keeps Base UI's `hoverEnabled` and `allowMouseEnter` store fields
 // (MenuStore.ts:24, 42) in its `menu` slot: pointer state that no C# decision reads. A popup's pointer move and click, a
@@ -3942,6 +3943,27 @@ const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemcheckbox"],[role="m
 interface MenuItemHoverEvent {
   nodeId: string;
   target: Element;
+}
+
+// The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04): Base UI's
+// `allowMouseUpTriggerRef`, shared by every menu of a tree (MenuStore.ts:173-181), and ContextMenu's rules and
+// `initialCursorPointRef`, in the forest root session's `dataRef.current`, so a menu inside a context menu reads its rules.
+const MENU_RELEASE_KEY = 'blazix.interactions.menuRelease';
+
+interface MenuReleaseSlot {
+  armed: boolean;
+  rules: MenuReleaseRules | null;
+  initialPoint: { x: number; y: number } | null;
+}
+
+function menuReleaseSlot(record: SessionRecord): MenuReleaseSlot {
+  const data = forestRoot(record).dataRef.current;
+  let slot = data[MENU_RELEASE_KEY] as MenuReleaseSlot | undefined;
+  if (slot === undefined) {
+    slot = { armed: false, rules: null, initialPoint: null };
+    data[MENU_RELEASE_KEY] = slot;
+  }
+  return slot;
 }
 
 interface MenuSessionState {
@@ -4001,17 +4023,106 @@ function onMenuHoverGateChange(record: SessionRecord, listener: () => void): Cle
   };
 }
 
-/** A menu trigger's half: the active trigger's pointer move counts as a move over the menu (MenuRoot.tsx:646-649). */
+/**
+ * A menu trigger's half: the active trigger's pointer move counts as a move over the menu (MenuRoot.tsx:646-649); with
+ * `trigger.menu.release`, a press on the closed menu arms the tree's release after 200 ms, and a release outside the
+ * trigger, its bounds and the tree, after that press or after this trigger's hover open, cancels the open
+ * (MenuTrigger.tsx:121-171, 240-256).
+ */
 function createMenuTriggerController(context: HandleContext): Controller {
-  const { record } = context;
+  const { record, channel } = context;
   const element = context.element as HTMLElement;
+  const releaseArmTimeout = createTimer();
+  let documentMouseUp: Cleanup | null = null;
+  let lastReason: string | null = null;
+  let openedByThisTrigger = false;
+  const menuOptions = () => context.options.trigger?.menu ?? null;
+
   const onMouseMove = () => {
     const isActive = record.domReferenceElement === null || record.domReferenceElement === element;
-    if (context.options.trigger?.menu?.trackMouseEnter === true && isActive) {
+    if (menuOptions()?.trackMouseEnter === true && isActive) {
       menuSessionState(record).allowMouseEnter = true;
     }
   };
-  return { dispose: listen(element, 'mousemove', onMouseMove) };
+
+  const removeDocumentMouseUp = () => {
+    documentMouseUp?.();
+    documentMouseUp = null;
+  };
+
+  // MenuTrigger.tsx:129-157: the release disarms the tree, and one outside the trigger, its bounds and the tree cancels.
+  const onDocumentMouseUp = (event: MouseEvent) => {
+    removeDocumentMouseUp();
+    releaseArmTimeout.clear();
+    menuReleaseSlot(record).armed = false;
+    const target = getTarget(event);
+    const targetElement = isElement(target) ? target : null;
+    if (targetElement === element || contains(element, targetElement) || contains(record.floatingElement, targetElement)) {
+      return;
+    }
+    const rootId = menuOptions()?.rootId;
+    if (targetElement !== null && rootId != null && closest(targetElement, '[data-rootownerid]')?.getAttribute('data-rootownerid') === rootId) {
+      return;
+    }
+    if (isMouseWithinBounds(event, element)) {
+      return;
+    }
+    requestOpenChange(record, channel, false, 'cancel-open', event);
+  };
+
+  // One listener for both paths, as Base UI adds the same function for both and the document keeps one.
+  const addDocumentMouseUp = () => {
+    if (documentMouseUp === null) {
+      documentMouseUp = listen(ownerDocument(element), 'mouseup', onDocumentMouseUp);
+    }
+  };
+
+  const onMouseDown = () => {
+    if (menuOptions()?.release !== true || record.open) {
+      return;
+    }
+    // A press and a release over an item within 200 ms does not activate it.
+    releaseArmTimeout.start(200, () => {
+      menuReleaseSlot(record).armed = true;
+    });
+    addDocumentMouseUp();
+  };
+
+  const onOpenChange = (details: SessionOpenChangeDetails) => {
+    lastReason = details.reason;
+  };
+
+  // MenuTrigger.tsx:120-124, 159-171: when this trigger's open ends, the tree is disarmed and the listener removed; a
+  // hover open by this trigger listens for the release.
+  const onSessionApplied = () => {
+    const opened = record.open && record.domReferenceElement === element;
+    if (opened === openedByThisTrigger) {
+      return;
+    }
+    openedByThisTrigger = opened;
+    if (menuOptions()?.release !== true) {
+      return;
+    }
+    if (!opened) {
+      menuReleaseSlot(record).armed = false;
+      removeDocumentMouseUp();
+    } else if (lastReason === 'trigger-hover') {
+      addDocumentMouseUp();
+    }
+  };
+
+  record.events.on('openchange', onOpenChange);
+  const stopListening = onSessionChange(record, onSessionApplied);
+  const cleanup = mergeCleanups(listen(element, 'mousemove', onMouseMove), listen(element, 'mousedown', onMouseDown));
+  return {
+    dispose() {
+      cleanup();
+      stopListening();
+      record.events.off('openchange', onOpenChange);
+      removeDocumentMouseUp();
+      releaseArmTimeout.clear();
+    },
+  };
 }
 
 /**
@@ -4051,6 +4162,34 @@ function createMenuFloatingController(context: HandleContext): Controller {
   const onClick = () => {
     if (menuOptions() !== null) {
       setMenuHoverEnabled(record, menuSessionState(record), false);
+    }
+  };
+
+  // useMenuItemCommonProps.ts:107-145: a release over an item while the tree is armed clicks it as a mouse gesture; a
+  // submenu trigger takes no click. A context menu's rules consume the gesture's point and gate the button.
+  const onMouseUp = (event: MouseEvent) => {
+    if (menuOptions()?.release !== true) {
+      return;
+    }
+    const target = getTarget(event);
+    const item = isElement(target) ? target.closest(MENU_ITEM_SELECTOR) : null;
+    if (item === null || !contains(floatingElement, item) || item.closest('[data-rootownerid]') !== ownPopup()) {
+      return;
+    }
+    const slot = menuReleaseSlot(record);
+    const rules = slot.rules;
+    if (rules !== null) {
+      const point = slot.initialPoint;
+      slot.initialPoint = null;
+      if (point !== null && Math.abs(event.clientX - point.x) <= rules.slop && Math.abs(event.clientY - point.y) <= rules.slop) {
+        return;
+      }
+      if (rules.skipButton !== null && event.button === rules.skipButton) {
+        return;
+      }
+    }
+    if (slot.armed && (rules === null || rules.button === null || event.button === rules.button) && item.getAttribute('aria-haspopup') !== 'menu') {
+      dispatchClickWithModifiers(item, event, { detail: 1, pointerType: 'mouse' });
     }
   };
 
@@ -4102,7 +4241,11 @@ function createMenuFloatingController(context: HandleContext): Controller {
   syncTreeEvents();
   record.events.on('openchange', onOpenChange);
   const stopListening = onSessionChange(record, syncTreeEvents);
-  const cleanup = mergeCleanups(listen(floatingElement, 'mousemove', onMouseMove), listen(floatingElement, 'click', onClick));
+  const cleanup = mergeCleanups(
+    listen(floatingElement, 'mousemove', onMouseMove),
+    listen(floatingElement, 'click', onClick),
+    listen(floatingElement, 'mouseup', onMouseUp),
+  );
   return {
     update() {
       ensureSlot();
@@ -4673,15 +4816,22 @@ export function readPlatformFlags(): string {
 // trigger arms it 200 ms after a press (MenuTrigger.tsx:240-256); a context menu arms it with its own rules (track 7).
 /**
  * Arms or disarms the release activation of the menu tree a session belongs to, with optional rules.
- * @param token The session token of a menu of the tree.
+ * @param token The session token of a menu of the tree; an unknown token is ignored.
  * @param armed Whether a release over an item activates it.
- * @param rules The rules a release must meet, or `null` for a plain menu's.
+ * @param rules The rules a release must meet, whose `initialPoint` the first release consumes; `null` for a plain menu's;
+ * absent to keep the rules set before.
  */
 export function armMenuRelease(token: string, armed: boolean, rules?: MenuReleaseRules | null): void {
-  void token;
-  void armed;
-  void rules;
-  throw new Error('Blazix: armMenuRelease is not built yet.');
+  const record = sessions.get(token);
+  if (record === undefined) {
+    return;
+  }
+  const slot = menuReleaseSlot(record);
+  slot.armed = armed;
+  if (rules !== undefined) {
+    slot.rules = rules;
+    slot.initialPoint = rules?.initialPoint ?? null;
+  }
 }
 
 // ContextMenu's anchor (ADR 04 Amendments 2026-11-03 (4); CTX-STA-04; ContextMenuTrigger.tsx:16, 58), M5 track 2: the

@@ -204,8 +204,8 @@ internal sealed record InteractionsTriggerOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HoveredLine { get; init; }
 
-    // M5 track 6 (ADR 04 Amendments 2026-11-03 (4), chosen by the user 2026-11-03): Menu's trigger additions
-    // (MenuTrigger.tsx:121-171, 240-256; MenuRoot.tsx:640-648); the module ignores them until their commits.
+    // M5 track 6 (ADR 04 Amendments 2026-11-03 (4), chosen by the user 2026-11-03; built as Amendments 2026-11-04, Menu's
+    // interactions additions as built): Menu's trigger additions (MenuTrigger.tsx:121-171, 240-256; MenuRoot.tsx:640-648).
     /// <summary>Gets a menu trigger's configuration: the press-drag-release arm and the pointer move it records.</summary>
     /// <value>The configuration, or <see langword="null"/> for a trigger that is not a menu's.</value>
     public InteractionsMenuTriggerOptions? Menu { get; init; }
@@ -372,8 +372,9 @@ internal sealed record InteractionsFloatingOptions
     /// <value>The configuration, or <see langword="null"/> when leaving the floating element does nothing.</value>
     public InteractionsFloatingHoverOptions? Hover { get; init; }
 
-    // M5 track 6 (ADR 04 Amendments 2026-11-03 (4), chosen by the user 2026-11-03): Menu's floating additions
-    // (useMenuItemCommonProps.ts:89-143; MenuPositioner.tsx:187-216; MenuRoot.tsx:665-678); ignored until their commits.
+    // M5 track 6 (ADR 04 Amendments 2026-11-03 (4), chosen by the user 2026-11-03; built as Amendments 2026-11-04, Menu's
+    // interactions additions as built): Menu's floating additions (useMenuItemCommonProps.ts:89-143;
+    // MenuPositioner.tsx:187-216; MenuRoot.tsx:665-678).
     /// <summary>Gets a menu popup's configuration: the tree's item hover, the sibling close and the release activation.</summary>
     /// <value>The configuration, or <see langword="null"/> for a floating element that is not a menu's.</value>
     public InteractionsMenuFloatingOptions? Menu { get; init; }
