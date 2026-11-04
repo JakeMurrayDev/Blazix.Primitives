@@ -37,7 +37,7 @@ internal readonly record struct MenuTriggerParameters(bool NativeButton, bool Di
 // user), the `trigger-focus` open while the bar has a menu open.
 /// <summary>The behavior of a menu trigger: its registration, its button, its press and hover, and its list keys.</summary>
 /// <typeparam name="TPayload">The type of the payload the trigger carries.</typeparam>
-internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable
+internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTriggerPart
 {
     // menu/utils/constants (MNU-API-20).
     private const int DefaultDelay = 100;
@@ -100,7 +100,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable
         this.invokeAsync = invokeAsync;
         this.onKeyDown = onKeyDown;
         this.requestRender = requestRender;
-        trigger = new(owner, familyName + "Trigger", requestRender, AddSelections);
+        // The registration's owner is the behavior, which the popup reads the guards through (IMenuTriggerPart).
+        _ = owner;
+        trigger = new(this, familyName + "Trigger", requestRender, AddSelections);
         button = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, requestRender, dispatchException, onKeyDown, onKeyUp);
         interactions = new InteractionsTriggerBehavior(jsRuntime, RouteAsync, dispatchException, onClick, onMouseDown);
         reference = new CompositeRootBehavior(jsRuntime, idGenerator, requestRender, dispatchException, onKeyDown);
@@ -125,6 +127,12 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable
 
     /// <summary>Gets a value indicating whether the trigger is one of a menubar's.</summary>
     public bool InBar => parent?.Kind == MenuParentKind.Menubar;
+
+    /// <inheritdoc />
+    public ElementReference? PreGuard => preGuard;
+
+    /// <inheritdoc />
+    public ElementReference? FocusTarget => focusTarget;
 
     /// <summary>Gets a task that completes when the trigger's handles are attached.</summary>
     public Task TwinsAttached => Task.WhenAll(button.TwinAttached, interactions.TwinAttached, reference.TwinAttached);
@@ -443,4 +451,15 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable
         SyncInteractions();
         requestRender();
     }
+}
+
+// MenuPopup.tsx:203-212 (FLT-ARIA-03): what the popup's focus manager reads from the active trigger of a top-level menu.
+/// <summary>Defines a menu trigger as the popup's focus manager reads its registration.</summary>
+internal interface IMenuTriggerPart
+{
+    /// <summary>Gets the element of the guard before the trigger, while the guards render.</summary>
+    ElementReference? PreGuard { get; }
+
+    /// <summary>Gets the element of the guard after the trigger, while the guards render.</summary>
+    ElementReference? FocusTarget { get; }
 }
