@@ -10,7 +10,8 @@
     checkbox item, a radio group of two items, a submenu of two items (MenuRoot.test.tsx's nested menu) and a last item.
     Records the root's open changes (`data-open-changes`), the submenu's (`data-submenu-open-changes`), each activated
     item's text and its click's `detail` (`data-item-clicks`, `|`-separated `Text:detail`), the checkbox item's state
-    (`data-checked`) and the radio group's value (`data-radio`). The query: `modal=true|false` (absent: Base UI's default,
+    (`data-checked`), the radio group's value (`data-radio`) and the root's highlights (`data-highlights`, `|`-separated
+    `Label:reason:eventType`; the last item has the explicit Label "Final item"). The query: `modal=true|false` (absent: Base UI's default,
     modal), `openOnHover` (the root trigger's), `closeParentOnEsc` (the submenu's), `submenuDelay` and `submenuCloseDelay`
     (the submenu trigger's, in milliseconds; absent for its defaults, 100 and 0). The Outside button counts its clicks
     (`data-outside-clicks`).
@@ -18,9 +19,9 @@
 <FixtureContainer Name="menu-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-submenu-open-changes="@string.Join(' ', submenuChanges)"
                   data-item-clicks="@string.Join('|', itemClicks)" data-checked="@(isChecked ? "true" : "false")"
-                  data-radio="@radioValue" data-outside-clicks="@outsideClicks">
+                  data-radio="@radioValue" data-outside-clicks="@outsideClicks" data-highlights="@string.Join('|', highlights)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
-    <MenuRoot TPayload="NoPayload" @ref="root" Modal="@modal" OnOpenChange="RecordOpenChange">
+    <MenuRoot TPayload="NoPayload" @ref="root" Modal="@modal" OnOpenChange="RecordOpenChange" OnItemHighlighted="RecordHighlight">
         <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger" OpenOnHover="@openOnHover">Toggle</MenuTrigger>
         <MenuPortal>
             <MenuPositioner data-testid="positioner">
@@ -43,7 +44,7 @@
                             </MenuPositioner>
                         </MenuPortal>
                     </MenuSubmenuRoot>
-                    <MenuItem data-testid="item-last" @onclick="@(e => Click(e, "Last"))">Last</MenuItem>
+                    <MenuItem data-testid="item-last" Label="Final item" @onclick="@(e => Click(e, "Last"))">Last</MenuItem>
                 </MenuPopup>
             </MenuPositioner>
         </MenuPortal>
@@ -54,6 +55,7 @@
 @code {
     private readonly List<string> itemClicks = [];
     private readonly List<string> submenuChanges = [];
+    private readonly List<string> highlights = [];
     private bool? modal;
     private bool? openOnHover;
     private bool closeParentOnEsc;
@@ -83,6 +85,9 @@
 
     private void Click(MouseEventArgs args, string text) =>
         itemClicks.Add(string.Create(CultureInfo.InvariantCulture, $"{text}:{args.Detail}"));
+
+    private void RecordHighlight(MenuItemHighlightedEventArgs args) =>
+        highlights.Add(string.Create(CultureInfo.InvariantCulture, $"{args.Details.Label}:{args.Details.Reason.ToLiteral()}:{args.Details.Event?.Type}"));
 
     private void RecordSubmenuChange(ValueChangeEventArgs<bool> args) =>
         submenuChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));

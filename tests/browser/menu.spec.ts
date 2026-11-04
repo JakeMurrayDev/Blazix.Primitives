@@ -189,6 +189,22 @@ test.describe('<Menu.Item />', () => {
   });
 });
 
+test.describe('<Menu.Root /> onItemHighlighted', () => {
+  // MNU-EVT-10 with design point 9 (a): the label is the item's text, or its explicit Label over it.
+  test('passes the keydown event for keyboard highlights', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'menu-nested');
+    await openByKeyboard(page);
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('item-two')).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(page.getByTestId('item-last')).toBeFocused();
+    await settle(fixture);
+
+    const highlights = ((await fixture.getAttribute('data-highlights')) ?? '').split('|');
+    expect(highlights.slice(-2)).toEqual(['Two:keyboard:keydown', 'Final item:keyboard:keydown']);
+  });
+});
+
 test.describe('<Menu.CheckboxItem /> and <Menu.RadioItem />', () => {
   test('toggles the checked state when clicked', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'menu-nested');
