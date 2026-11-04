@@ -14,6 +14,11 @@ namespace Blazix.Primitives;
 //   Blazor never writes the attribute the module owns from attach (ADR 04 Amendments 2026-10-22, CMP-DOM-01). The
 //   pipeline merges the consumer after the part, so a consumer tabindex wins (RAD-DOM-16) and travels in the registration,
 //   which the module never writes over.
+// - M5 track 1 (issue 159; ADR 04 Amendments 2026-11-03 (1), chosen by the user): the registration carries the item's
+//   explicit label, its text element's id and its explicit index, each sent only when set (CMP-STA-04, 06, 07, 17), so
+//   the module resolves labels and C# keeps values.
+// - An item registered without a tabindex (M5 track 1, issue 159; NAV-DOM-21, NAV-FOC-03, a navigation menu link) renders
+//   none and says so in its registration, so the module writes none; a consumer tabindex still wins and travels.
 // - After every render it asks the root to send what changed; a new element under the same id (a substitute that changed
 //   its root) is reported, so the module resolves the id again. Under a substitute callback the part has no element
 //   reference and a replaced element is found again only on the root's next update.
@@ -28,6 +33,7 @@ internal sealed class CompositeItemBehavior : IDisposable
 {
     private readonly CompositeRootContext root;
     private readonly EventCallback onKeyDown;
+    private readonly Action? highlightChanged;
     private AttributeValue consumerKeyDown;
     private DecidedKey? decidedKeyDown;
     private string? elementId;
@@ -40,17 +46,28 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// The part's own <c>onkeydown</c> handler, which calls <see cref="HandleKeyDownAsync"/>; the default when the part leaves
     /// the consumer's key handler on its element.
     /// </param>
+    /// <param name="highlightChanged">
+    /// Renders the part again when <see cref="Highlighted"/> changed; the item of a popup list passes it, a roving item
+    /// leaves it out.
+    /// </param>
     /// <exception cref="InvalidOperationException"><paramref name="context"/> is <see langword="null"/>.</exception>
-    public CompositeItemBehavior(CompositeRootContext? context, string part, EventCallback onKeyDown = default)
+    public CompositeItemBehavior(CompositeRootContext? context, string part, EventCallback onKeyDown = default, Action? highlightChanged = null)
     {
         root = CompositeRootContext.Require(context, part);
         this.onKeyDown = onKeyDown;
+        this.highlightChanged = highlightChanged;
         Registration = new CompositeItemRegistration(string.Empty, null);
     }
 
     /// <summary>Gets the registration the root sends for this item.</summary>
     /// <value>The item's element id and its consumer <c>tabindex</c>.</value>
     public CompositeItemRegistration Registration { get; private set; }
+
+    // ADR 04 Amendments 2026-11-03 (2), chosen by the user: the module writes the item's `data-highlighted`; this is its
+    // mirror (ADR 01's RND-STA-01 row), for the item's state record, a round trip late on Server.
+    /// <summary>Gets a value indicating whether the item of a popup list is highlighted, as the module last reported it.</summary>
+    /// <value><see langword="true"/> while the module's highlight is on this item; <see langword="false"/> before any report.</value>
+    public bool Highlighted { get; private set; }
 
     /// <summary>Gets a value indicating whether the root runs the consumer's key handler of this item.</summary>
     /// <value><see langword="true"/> when the part declines the consumer's <c>onkeydown</c> and the consumer supplied one.</value>
@@ -76,17 +93,28 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// <param name="additionalAttributes">The part's unmatched attributes, which may hold the consumer's <c>tabindex</c>.</param>
     /// <param name="disabled">Whether the item is disabled.</param>
     /// <param name="focusableWhenDisabled">Whether the item stays navigable and can hold the tab stop while disabled.</param>
+    /// <param name="omitTabIndex">Whether the item renders no <c>tabindex</c> and the module writes none, as a navigation menu link.</param>
+    /// <param name="label">
+    /// The item's explicit label, which typeahead matches; the empty string for no label; <see langword="null"/> to read
+    /// the text of <paramref name="textId"/> or of the item's element.
+    /// </param>
+    /// <param name="textId">The id of the element whose text is the label when there is no explicit label.</param>
+    /// <param name="index">The item's explicit index, or <see langword="null"/> for an automatic index in document order.</param>
     public void SetRegistration(
         string? id,
         IReadOnlyDictionary<string, object>? additionalAttributes,
         bool disabled = false,
-        bool focusableWhenDisabled = false)
+        bool focusableWhenDisabled = false,
+        bool omitTabIndex = false,
+        string? label = null,
+        string? textId = null,
+        int? index = null)
     {
         string elementIdValue = id ?? string.Empty;
         string? tabIndex = ConsumerTabIndex(additionalAttributes);
         if (!registered)
         {
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
+            Registration = Create(elementIdValue, tabIndex, disabled, focusableWhenDisabled, omitTabIndex, label, textId, index);
             registered = true;
             root.Register(this);
             return;
@@ -95,10 +123,14 @@ internal sealed class CompositeItemBehavior : IDisposable
         if (!string.Equals(Registration.Id, elementIdValue, StringComparison.Ordinal)
             || !string.Equals(Registration.TabIndex, tabIndex, StringComparison.Ordinal)
             || Registration.Disabled != disabled
-            || Registration.FocusableWhenDisabled != focusableWhenDisabled)
+            || Registration.FocusableWhenDisabled != focusableWhenDisabled
+            || Registration.OmitTabIndex != omitTabIndex
+            || !string.Equals(Registration.Label, label, StringComparison.Ordinal)
+            || !string.Equals(Registration.TextId, textId, StringComparison.Ordinal)
+            || Registration.Index != index)
         {
             string previousId = Registration.Id;
-            Registration = new CompositeItemRegistration(elementIdValue, tabIndex, disabled, focusableWhenDisabled);
+            Registration = Create(elementIdValue, tabIndex, disabled, focusableWhenDisabled, omitTabIndex, label, textId, index);
             root.RegistrationChanged(this, previousId);
         }
     }
@@ -132,11 +164,18 @@ internal sealed class CompositeItemBehavior : IDisposable
         return !(onKeyDown.HasDelegate && string.Equals(eventName, "onkeydown", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Adds the item's initial <c>tabindex</c>, and the part's key handler when the consumer supplied one, to a render.</summary>
+    /// <summary>
+    /// Adds the item's initial <c>tabindex</c>, unless it is registered without one, and the part's key handler when the
+    /// consumer supplied one, to a render.
+    /// </summary>
     /// <param name="attributes">The part-supplied attributes.</param>
     public void AddAttributes(AttributeList attributes)
     {
-        attributes.Set("tabindex", "-1");
+        if (!Registration.OmitTabIndex)
+        {
+            attributes.Set("tabindex", "-1");
+        }
+
         if (HasKeyHandler)
         {
             attributes.Set("onkeydown", onKeyDown);
@@ -182,9 +221,41 @@ internal sealed class CompositeItemBehavior : IDisposable
     /// <returns>The consumer handler's task.</returns>
     internal Task InvokeKeyHandler(KeyboardEventArgs args) => consumerKeyDown.InvokeAsync(args);
 
+    /// <summary>Sets the mirror of the module's highlight and renders the part again when it changed.</summary>
+    /// <param name="highlighted">Whether the item is highlighted.</param>
+    internal void SetHighlighted(bool highlighted)
+    {
+        if (Highlighted == highlighted)
+        {
+            return;
+        }
+
+        Highlighted = highlighted;
+        highlightChanged?.Invoke();
+    }
+
     /// <summary>Records that a decision ran the consumer's key handler for a key Blazor dispatches afterwards.</summary>
     /// <param name="args">The key event.</param>
     internal void MarkDecided(KeyboardEventArgs args) => decidedKeyDown = DecidedKey.From(args);
+
+    private static CompositeItemRegistration Create(
+        string id,
+        string? tabIndex,
+        bool disabled,
+        bool focusableWhenDisabled,
+        bool omitTabIndex,
+        string? label,
+        string? textId,
+        int? index)
+    {
+        return new CompositeItemRegistration(id, tabIndex, disabled, focusableWhenDisabled)
+        {
+            OmitTabIndex = omitTabIndex,
+            Label = label,
+            TextId = textId,
+            Index = index,
+        };
+    }
 
     private static string? ConsumerTabIndex(IReadOnlyDictionary<string, object>? additionalAttributes)
     {

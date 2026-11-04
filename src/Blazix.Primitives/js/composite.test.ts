@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ACTIVE_COMPOSITE_ITEM,
   NAVIGATE_POINT,
+  ORDER_REPORT_CHUNK_CHARS,
   SELECT_POINT,
   attach,
   createCompositeRegistry,
@@ -423,8 +424,8 @@ function listItem(label: string): HTMLElement {
 
 describe('<CompositeList />', () => {
   describe('prop: elementsRef', () => {
-    // Port: the registry's teardown is `dispose`, which empties the elements array in place (CMP-STA-14). Labels are not
-    // built in M2 (CMP-STA-06/07, M5), so the labels clause is not asserted.
+    // Port: the registry's teardown is `dispose`, which empties the elements and labels arrays in place (CMP-STA-14; the
+    // labels clause since M5 track 1).
     it('cleans up refs on unmount', () => {
       const { registry } = createRegistry();
       const elements = ['a', 'b', 'c'].map((label) => document.body.appendChild(listItem(label)));
@@ -434,9 +435,11 @@ describe('<CompositeList />', () => {
       registry.flush();
 
       expect(registry.elements).toHaveLength(3);
+      expect(registry.labels).toHaveLength(3);
 
       registry.dispose();
       expect(registry.elements).toHaveLength(0);
+      expect(registry.labels).toHaveLength(0);
     });
 
     // Port, 2026-10-22: the guess (CMP-STA-16) is M5 and React's Strict Mode replay has no counterpart. What the title
@@ -460,9 +463,9 @@ describe('<CompositeList />', () => {
 
     it('only publishes maps that are aligned with the element registry', () => {
       const { registry } = createRegistry();
-      const snapshots: Array<{ elements: Array<HTMLElement | null>; mapElements: Element[] }> = [];
+      const snapshots: Array<{ elements: Array<HTMLElement | null>; mapElements: Element[]; labels: Array<string | null> }> = [];
       registry.subscribe((map) => {
-        snapshots.push({ elements: [...registry.elements], mapElements: Array.from(map.keys()) });
+        snapshots.push({ elements: [...registry.elements], mapElements: Array.from(map.keys()), labels: [...registry.labels] });
       });
       const list = document.body.appendChild(document.createElement('div'));
       for (const label of ['a', 'b', 'c']) {
@@ -478,6 +481,8 @@ describe('<CompositeList />', () => {
       expect(snapshots).toHaveLength(2);
       snapshots.forEach((snapshot) => {
         expect(snapshot.elements).toEqual(snapshot.mapElements);
+        // CMP-STA-05's labels clause (M5 track 1): the labels array is aligned with the elements array.
+        expect(snapshot.labels).toEqual(testIds(snapshot.elements));
       });
     });
 
@@ -764,6 +769,66 @@ describe('<CompositeList />', () => {
 
       registry.dispose();
       expect(registry.elements).toHaveLength(0);
+    });
+  });
+
+  // CMP-STA-06, CMP-STA-07, the labels clauses of CMP-STA-05 and CMP-STA-14 (M5 track 1, issue 159): the labels array,
+  // through the registry's `label` and `textElement`.
+  describe('prop: labelsRef', () => {
+    /** An item as `LabelledItem` renders it: its text in a span, and "-ignored" after it when a text element is used. */
+    function labelledItem(testId: string, text: string, useTextElement = false): [HTMLElement, HTMLElement] {
+      const element = document.createElement('div');
+      element.setAttribute('data-testid', testId);
+      const span = element.appendChild(document.createElement('span'));
+      span.textContent = text;
+      if (useTextElement) {
+        element.append('-ignored');
+      }
+      return [document.body.appendChild(element), span];
+    }
+
+    it('resolves each label source', () => {
+      const { registry } = createRegistry();
+      const [explicit] = labelledItem('explicit', 'ignored');
+      const [nullLabel] = labelledItem('null-label', 'not a label');
+      const [textRef, textSpan] = labelledItem('text-ref', 'from text ref', true);
+      const [elementText] = labelledItem('element-text', 'from element');
+      registry.register(explicit, { label: 'explicit label' });
+      // An explicit `null` means "no label", and must not fall back to the text.
+      registry.register(nullLabel, { label: null });
+      registry.register(textRef, { textElement: textSpan });
+      registry.register(elementText);
+      registry.flush();
+
+      expect(registry.labels).toEqual(['explicit label', null, 'from text ref', 'from element']);
+    });
+
+    it('drops label slots for items that unmount', () => {
+      const { registry } = createRegistry();
+      const elements = ['a', 'b', 'c'].map((label) => labelledItem(label, label)[0]);
+      elements.forEach((element, index) => registry.register(element, { label: ['a', 'b', 'c'][index] }));
+      registry.flush();
+      expect(registry.labels).toEqual(['a', 'b', 'c']);
+
+      registry.unregister(elements[1]!);
+      registry.unregister(elements[2]!);
+      elements[1]!.remove();
+      elements[2]!.remove();
+      registry.flush();
+      expect(registry.labels).toEqual(['a']);
+    });
+
+    it('updates the label of a mounted item', () => {
+      const { registry } = createRegistry();
+      const [element] = labelledItem('item', '');
+      registry.register(element, { label: 'before' });
+      registry.flush();
+      expect(registry.labels).toEqual(['before']);
+
+      registry.register(element, { label: 'after' });
+      registry.flush();
+
+      expect(registry.labels).toEqual(['after']);
     });
   });
 
@@ -1470,6 +1535,32 @@ describe('composite root (port)', () => {
     expect(byTestId('3').getAttribute('tabindex')).toBe('0');
   });
 
+  // NAV-DOM-21, NAV-FOC-03 (sheet F Q15 (a); M5 track 1, issue 159): an item registered without a tabindex, a navigation
+  // menu link, keeps none whether or not it is highlighted, and the arrow keys still reach it.
+  it('writes no tabindex on an item registered without one, and the arrow keys still reach it', async () => {
+    const link = item('2', { href: '#2' }, 'a');
+    link.removeAttribute('tabindex');
+    const content = [item('1'), link, item('3')];
+    mountGroup(content, { items: content.map((element) => ({ id: element.id, tabIndex: null, ...(element === link ? { omitTabIndex: true } : {}) })) });
+
+    expect(byTestId('1').getAttribute('tabindex')).toBe('0');
+    expect(byTestId('3').getAttribute('tabindex')).toBe('-1');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+
+    byTestId('1').focus();
+    keyDown(byTestId('1'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(link);
+    expect(byTestId('1').getAttribute('tabindex')).toBe('-1');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+
+    keyDown(link, 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('3'));
+    expect(byTestId('3').getAttribute('tabindex')).toBe('0');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+  });
+
   // CMP-STA-10 with ids: a rendered element replaced under the same id is found again on the next `update`.
   it('resolves the items again on update, so a replaced element takes over its id', () => {
     const group = mountItems(['1', '2']);
@@ -2135,6 +2226,130 @@ describe('composite items report (port)', () => {
 
     expect(group.fake.reports.map((report) => report.method)).toEqual(['OnItemsChange', 'OnHighlightChange']);
     expect(group.fake.reported('OnHighlightChange')).toEqual([{ index: 1 }]);
+  });
+});
+
+// --- the chunked order report (M5 track 1, issue 159; design point 5 (b), chosen by the user 2026-11-04) ----------------
+// An order report whose payload exceeds the chunk size goes out in parts of one publication, so no JavaScript → C#
+// message reaches Server's default 32 KB receive limit; a short one is sent whole, as before.
+
+describe('composite chunked order report (M5)', () => {
+  type ItemsChange = { ids: string[]; publication?: number; part?: number; parts?: number };
+
+  it('reports a long order in parts of one publication, each within the chunk size, whose ids join in order', () => {
+    const elements = Array.from({ length: 2500 }, (_, index) => {
+      const element = item(`long-${index}`);
+      element.id = `composite-item-with-a-long-id-${index}`;
+      return element;
+    });
+    const group = mountGroup(elements, { reportItems: true });
+
+    const reports = group.fake.reports.filter((report) => report.method === 'OnItemsChange');
+    const payloads = reports.map((report) => report.payload as ItemsChange);
+    expect(payloads.length).toBeGreaterThan(1);
+    payloads.forEach((payload, index) => {
+      expect(JSON.stringify(payload).length).toBeLessThanOrEqual(ORDER_REPORT_CHUNK_CHARS);
+      expect([payload.part, payload.parts, payload.publication]).toEqual([index, payloads.length, payloads[0]!.publication]);
+    });
+    expect(payloads.flatMap((payload) => payload.ids)).toEqual(elements.map((element) => element.id));
+
+    // A short order is sent whole, without parts, as before.
+    document.body.replaceChildren();
+    const short = mountItems(['a', 'b'], { reportItems: true });
+    expect(short.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [byTestId('a').id, byTestId('b').id] }]);
+  });
+});
+
+// --- the registry's M5 half from C# (M5 track 1, issue 159; ADR 04 Amendments 2026-11-03 (1), chosen by the user) -------
+// C#'s registrations carry an explicit index and the label's source, each only when set (CMP-STA-04's C# half, CMP-STA-17,
+// the CompositeList.test.tsx titles restated through the registrations), observed through the items report.
+
+describe('composite registrations from C# (M5)', () => {
+  type ItemsChange = { ids: string[] };
+
+  /** Registrations of the elements, by id, with the fields `extra` gives each element. */
+  function withFields(elements: HTMLElement[], extra: Record<string, Partial<CompositeItemRegistration>>): CompositeItemRegistration[] {
+    return elements.map((element) => ({ id: element.id, tabIndex: null, ...extra[element.getAttribute('data-testid')!] }));
+  }
+
+  it('re-registers an item when its explicit index changes or is removed', () => {
+    const elements = [item('a'), item('b'), item('c')];
+    const group = mountGroup(elements, { reportItems: true, items: withFields(elements, { a: { index: 2 } }) });
+    const [a, b, c] = elements.map((element) => element.id);
+
+    group.update({ items: withFields(elements, { a: { index: 0 } }) });
+    // The equivalent automatic index: removing the explicit 0 keeps the order, so nothing is reported.
+    group.update({ items: withFields(elements, {}) });
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [b, c, a] }, { ids: [a, b, c] }]);
+  });
+
+  it('reserves the explicit slots C# sends when assigning automatic indexes, and leaves out a negative one', async () => {
+    const elements = [item('a'), item('b'), item('c')];
+    mountGroup(elements, { reportItems: true, items: withFields(elements, { c: { index: 0 }, b: { index: -1 } }) });
+
+    byTestId('c').focus();
+    keyDown(byTestId('c'), 'ArrowDown');
+    await flushMicrotasks();
+
+    expect(document.activeElement).toBe(byTestId('a'));
+    keyDown(byTestId('a'), 'ArrowDown');
+    await flushMicrotasks();
+    // `b` is out of the list, so the loop returns to `c`.
+    expect(document.activeElement).toBe(byTestId('c'));
+  });
+});
+
+// CMP-STA-16 (`guess`, MAY) restated (design point 4 (a), settled by the orchestrator 2026-11-04; [L2] → [L3]): React's
+// first-render guess has no counterpart under registration by id, where an item's index is -1 until the first
+// publication (CMP-STA-15). What the guess buys, a correct index on the first publication with no corrective one, holds
+// because the module's first rebuild reads the document order, whatever order C# registers in; and an explicitly
+// indexed item takes no automatic slot. Titles through C#'s registrations, each red on `main` (no explicit index from C#).
+describe('composite first publication (port, CMP-STA-16)', () => {
+  type ItemsChange = { ids: string[] };
+
+  it('port: the first publication indexes automatic items in DOM order around an explicit index, with no second publication', () => {
+    const elements = [item('a'), item('b'), item('c'), item('d')];
+    const [a, b, c, d] = elements.map((element) => element.id);
+    // C# registers in another order than the document's; `c` takes index 0 explicitly.
+    const registered: CompositeItemRegistration[] = [
+      { id: d!, tabIndex: null },
+      { id: c!, tabIndex: null, index: 0 },
+      { id: b!, tabIndex: null },
+      { id: a!, tabIndex: null },
+    ];
+    const group = mountGroup(elements, { reportItems: true, items: registered });
+
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [c, a, b, d] }]);
+
+    // The same registrations again: nothing is published.
+    group.update({ items: registered });
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toHaveLength(1);
+  });
+
+  it('port: an explicitly indexed item consumes no automatic slot', async () => {
+    const elements = [item('x'), item('y'), item('z')];
+    const [x, y, z] = elements.map((element) => element.id);
+    const group = mountGroup(elements, {
+      reportItems: true,
+      items: [
+        { id: x!, tabIndex: null, index: 2 },
+        { id: y!, tabIndex: null },
+        { id: z!, tabIndex: null },
+      ],
+    });
+
+    // The automatic items take 0 and 1, in document order, before and after the explicit item's element.
+    expect(group.fake.reported<ItemsChange>('OnItemsChange')).toEqual([{ ids: [y, z, x] }]);
+    expect(byTestId('y').getAttribute('tabindex')).toBe('0');
+
+    byTestId('y').focus();
+    keyDown(byTestId('y'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('z'));
+    keyDown(byTestId('z'), 'ArrowDown');
+    await flushMicrotasks();
+    expect(document.activeElement).toBe(byTestId('x'));
   });
 });
 

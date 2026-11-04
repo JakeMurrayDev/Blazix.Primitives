@@ -1,0 +1,103 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `composite-list-nested` fixture (tests/browser/composite-list-rows.spec.ts; M5 track 1, issue 159, Deliverables 6
+    and 13): Base UI's nested menus of test/floating-ui-tests on the test-only list hosts. `?orientation=vertical` (the
+    default) is Menu.tsx's Main (a vertical Edit menu whose "Image" submenu is a horizontal grid), `horizontal` is
+    MenuOrientation.tsx's HorizontalMenu (a horizontal Edit menu whose "Image" submenu is a `both` grid):
+      Edit: Undo, Redo, Cut (disabled), Copy as (vertical: Text, Video, Image (grid: .png .jpg .svg .gif), Audio),
+            Share (vertical: Mail, Instagram).
+    Each submenu is a nested FixtureListRoot whose trigger is also an item of its parent list (FixtureListTrigger's `Item`),
+    whose popup is portaled, and whose session is its parent popup's child through the test-only parent token. The lists
+    read the disabled items from the document (Base UI's test menus pass no `disabledIndices`). The container renders the
+    roots' open changes as `data-open-changes` (`<menu>:<open>:<reason>`), `data-attached` once the Edit menu's root
+    attached, and `data-roots-attached`, the count of attached roots.
+*@
+<FixtureContainer Name="composite-list-nested" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@string.Join(' ', changes)" data-roots-attached="@attachedRoots">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-testid="before">Before</button>
+    <FixtureListRoot Orientation="@orientation" DisabledIndices="@readFromDocument" OnOpenChange="@(args => Record("edit", args))"
+                     OnAttached="RootAttached">
+        <FixtureListTrigger id="edit-trigger" data-testid="trigger" HasPopup="menu">Edit</FixtureListTrigger>
+        <FixturePopupPortal TPayload="NoPayload">
+            <FixtureListPopup data-testid="popup" TriggerId="edit-trigger" ListId="edit-list">
+                <FixtureListBox id="edit-list" Role="menu" style="@ListStyle(orientation, false)">
+                    <FixtureListItem Label="Undo">Undo</FixtureListItem>
+                    <FixtureListItem Label="Redo">Redo</FixtureListItem>
+                    <FixtureListItem Label="Cut" Disabled="true">Cut</FixtureListItem>
+                    @Submenu("copy", "Copy as", "vertical", false, CopyItems)
+                    @Submenu("share", "Share", "vertical", false, ShareItems)
+                </FixtureListBox>
+            </FixtureListPopup>
+        </FixturePopupPortal>
+    </FixtureListRoot>
+    <button type="button" data-testid="after">After</button>
+</FixtureContainer>
+
+@code {
+    private readonly TaskCompletionSource rootsAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly List<string> changes = [];
+    private readonly IReadOnlyList<int>? readFromDocument = null;
+    private string orientation = "vertical";
+    private int attachedRoots;
+
+    protected override IEnumerable<Task> Attachments => [rootsAttached.Task];
+
+    protected override void OnInitialized() => orientation = Query("orientation") ?? "vertical";
+
+    // Base UI's test menus: a horizontal menu is a row, a grid is two columns (GRID_COLUMN_COUNT), else a column.
+    private static string ListStyle(string listOrientation, bool grid) => grid
+        ? "display: grid; grid-template-columns: repeat(2, auto)"
+        : listOrientation == "horizontal" ? "display: flex" : "display: flex; flex-direction: column";
+
+    // A submenu's root renders inside its parent's popup, so only the Edit menu's root exists before it opens; the page
+    // counts every root's attach as `data-roots-attached` (3 once Edit is open, 4 once Copy as is open too).
+    private void RootAttached()
+    {
+        // An event callback, which renders the page after it.
+        attachedRoots++;
+        rootsAttached.TrySetResult();
+    }
+
+    private void Record(string menu, ValueChangeEventArgs<bool> args)
+    {
+        changes.Add($"{menu}:{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}");
+        StateHasChanged();
+    }
+
+    // Razor templates do not nest, so each submenu's items are their own fragment.
+    private RenderFragment ImageItems => @<text>
+        <FixtureListItem Label=".png">.png</FixtureListItem>
+        <FixtureListItem Label=".jpg">.jpg</FixtureListItem>
+        <FixtureListItem Label=".svg">.svg</FixtureListItem>
+        <FixtureListItem Label=".gif">.gif</FixtureListItem>
+    </text>;
+
+    private RenderFragment CopyItems => @<text>
+        <FixtureListItem Label="Text">Text</FixtureListItem>
+        <FixtureListItem Label="Video">Video</FixtureListItem>
+        @Submenu("image", "Image", orientation == "horizontal" ? "both" : "horizontal", true, ImageItems)
+        <FixtureListItem Label="Audio">Audio</FixtureListItem>
+    </text>;
+
+    private RenderFragment ShareItems => @<text>
+        <FixtureListItem Label="Mail">Mail</FixtureListItem>
+        <FixtureListItem Label="Instagram">Instagram</FixtureListItem>
+    </text>;
+
+    // A submenu: a nested list whose trigger is an item of the parent list and whose popup is portaled.
+    private RenderFragment Submenu(string key, string label, string listOrientation, bool grid, RenderFragment items) =>
+        @<FixtureListRoot Nested="true" Orientation="@listOrientation" Grid="@grid" DisabledIndices="@readFromDocument"
+                         OnOpenChange="@(args => Record(key, args))" OnAttached="RootAttached">
+            <FixtureListTrigger id="@($"{key}-trigger")" Item="true" role="menuitem" HasPopup="menu">@label</FixtureListTrigger>
+            <FixturePopupPortal TPayload="NoPayload">
+                <FixtureListPopup data-testid="@($"{key}-popup")" TriggerId="@($"{key}-trigger")" ListId="@($"{key}-list")">
+                    <FixtureListBox id="@($"{key}-list")" Role="menu" style="@ListStyle(listOrientation, grid)">@items</FixtureListBox>
+                </FixtureListPopup>
+            </FixturePopupPortal>
+        </FixtureListRoot>;
+}

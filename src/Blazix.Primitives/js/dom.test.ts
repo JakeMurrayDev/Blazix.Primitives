@@ -37,6 +37,8 @@ import {
   valueToPercent,
   type DomOptions,
   type ImageLoadingStatus,
+  isElementVisible,
+  isHiddenByStyles,
 } from './dom';
 import type { TwinHandle } from './twin';
 import { createFakeTwin } from './test-support/fake-twin';
@@ -1445,5 +1447,44 @@ describe('styleWriter', () => {
     // An over layer still wins: Base UI's setProperty writes no priority and replaces the declaration.
     expect(element.style.getPropertyValue('--anchor-width')).toBe('72px');
     expect(element.style.getPropertyPriority('opacity')).toBe('important');
+  });
+});
+
+// CMP-ALG-03 (design point 6 (a) of M5 track 1, settled by the orchestrator 2026-11-04): the visibility predicates live in
+// `dom`, which `composite` and `focus-manager` both import, so `composite` may import `focus-manager` without a cycle
+// (ADR 04 §1). The titles are floating-ui-react/utils/composite.test.ts's, moved; `composite` re-exports the predicates.
+describe('floating-ui-react/utils/composite (visibility, in dom)', () => {
+  it('treats hidden visibility styles as hidden', () => {
+    const hidden = document.createElement('div');
+    const collapsed = document.createElement('div');
+    const visible = document.createElement('div');
+
+    hidden.style.visibility = 'hidden';
+    collapsed.style.visibility = 'collapse';
+
+    document.body.append(hidden, collapsed, visible);
+
+    expect(isHiddenByStyles(getComputedStyle(hidden))).toBe(true);
+    expect(isHiddenByStyles(getComputedStyle(collapsed))).toBe(true);
+    expect(isHiddenByStyles(getComputedStyle(visible))).toBe(false);
+  });
+
+  it('uses CSS visibility fallbacks when checkVisibility is unavailable', () => {
+    const visible = document.createElement('button');
+    const displayHidden = document.createElement('button');
+    const displayContents = document.createElement('button');
+    const contentHidden = document.createElement('button');
+
+    displayHidden.style.display = 'none';
+    displayContents.style.display = 'contents';
+    contentHidden.style.setProperty('content-visibility', 'hidden');
+    Object.defineProperty(displayContents, 'checkVisibility', { configurable: true, value: undefined });
+    Object.defineProperty(contentHidden, 'checkVisibility', { configurable: true, value: undefined });
+    document.body.append(visible, displayHidden, displayContents, contentHidden);
+
+    expect(isElementVisible(visible)).toBe(true);
+    expect(isElementVisible(displayHidden)).toBe(false);
+    expect(isElementVisible(displayContents)).toBe(false);
+    expect(isElementVisible(contentHidden)).toBe(true);
   });
 });

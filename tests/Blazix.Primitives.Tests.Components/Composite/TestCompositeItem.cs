@@ -33,6 +33,22 @@ internal sealed class TestCompositeItem : PartBase<EmptyState>
     [Parameter]
     public bool FocusableWhenDisabled { get; set; }
 
+    /// <summary>Whether the item renders no <c>tabindex</c>, as a navigation menu link (M5 track 1), sent in its registration.</summary>
+    [Parameter]
+    public bool OmitTabIndex { get; set; }
+
+    /// <summary>The item's explicit label (M5 track 1), sent in its registration; the empty string for no label.</summary>
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>The id of the element whose text is the item's label (M5 track 1), sent in its registration.</summary>
+    [Parameter]
+    public string? TextId { get; set; }
+
+    /// <summary>The item's explicit index (M5 track 1), sent in its registration.</summary>
+    [Parameter]
+    public int? Index { get; set; }
+
     public string? ResolvedId => Id;
 
     public int Renders { get; private set; }
@@ -60,7 +76,7 @@ internal sealed class TestCompositeItem : PartBase<EmptyState>
     protected override void OnParametersSet()
     {
         behavior!.SetConsumerAttributes(AdditionalAttributes);
-        behavior.SetRegistration(Id, AdditionalAttributes, Disabled, FocusableWhenDisabled);
+        behavior.SetRegistration(Id, AdditionalAttributes, Disabled, FocusableWhenDisabled, OmitTabIndex, Label, TextId, Index);
     }
 
     /// <inheritdoc />

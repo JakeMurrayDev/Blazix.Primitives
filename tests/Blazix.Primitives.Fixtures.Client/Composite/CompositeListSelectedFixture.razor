@@ -1,0 +1,62 @@
+@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `composite-list-selected` fixture (tests/browser/composite-list-rows.spec.ts; M5 track 1, issue 159, Deliverable
+    13, CMP-STA-40's selected-index page): test/floating-ui-tests/ListboxFocus.tsx on the test-only list host. The listbox
+    is open from the start and stays open (no outside press, no focus-out close, no initial focus, no highlight on hover),
+    with Apple, Blueberry, Watermelon and Banana; once the list's handles attached the page asks for the highlight on
+    Blueberry from C# (ListboxFocus's initial `activeIndex` 1), and a button outside the list (`data-testid="reference"`)
+    selects Blueberry, changing the list's `selectedIndex` while it is open (`data-value-changes`).
+*@
+<FixtureContainer Name="composite-list-selected" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-value-changes="@string.Join('|', valueChanges)">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-testid="reference" @onclick="SelectBlueberry">Select</button>
+    <FixtureListRoot @ref="root" DefaultOpen="true" Dismissible="false" InitialFocus="false" Selectable="true" Items="@s_items"
+                     FocusItemOnHover="false" Typeahead="true" OnAttached="() => listAttached.TrySetResult()">
+        <FixtureListTrigger id="list-trigger" data-testid="trigger" HasPopup="listbox">Open</FixtureListTrigger>
+        <FixturePopupPortal TPayload="NoPayload">
+            <FixtureListPopup data-testid="popup" TriggerId="list-trigger" ListId="list-floating">
+                <FixtureListBox @ref="listBox" id="list-floating" Role="listbox">
+                    @foreach (string label in s_items)
+                    {
+                        <FixtureListItem @key="label" Label="@label" Role="option">@label</FixtureListItem>
+                    }
+                </FixtureListBox>
+            </FixtureListPopup>
+        </FixturePopupPortal>
+    </FixtureListRoot>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = ["Apple", "Blueberry", "Watermelon", "Banana"];
+    private readonly TaskCompletionSource listAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource highlighted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly List<string> valueChanges = [];
+    private FixtureListRoot? root;
+    private FixtureListBox? listBox;
+
+    protected override IEnumerable<Task> Attachments => [listAttached.Task, highlighted.Task];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            await listAttached.Task;
+            await listBox!.TwinAttached;
+            await root!.List.RequestHighlightAsync(1);
+            highlighted.TrySetResult();
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SelectBlueberry()
+    {
+        root!.Select("Blueberry");
+        valueChanges.Add("Blueberry");
+    }
+}
