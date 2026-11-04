@@ -266,6 +266,19 @@ public sealed class MenuStoreTests
         Assert.Equal(expected == MenuParentKind.Menu ? enclosing : null, resolved.Menu);
     }
 
+    [Fact(DisplayName = "port: a menubar above a context menu is the parent, as Base UI checks the bar first")]
+    [Trait("Requirement", "MNU-STR-19")]
+    public void A_menubar_above_a_context_menu_is_the_parent()
+    {
+        TestParent bar = new(MenuParentKind.Menubar);
+        TestParent contextMenu = new(MenuParentKind.ContextMenu) { Enclosing = bar };
+
+        MenuParent resolved = MenuParent.Resolve(isSubmenu: false, enclosingMenu: null, contextMenu);
+
+        Assert.Equal(MenuParentKind.Menubar, resolved.Kind);
+        Assert.Same(bar, resolved.Context);
+    }
+
     [Fact(DisplayName = "does not report a stale highlight reason for a later list change")]
     [Trait("Requirement", "MNU-STA-10")]
     [Trait("Requirement", "MNU-EVT-11")]
@@ -302,6 +315,8 @@ public sealed class MenuStoreTests
     private sealed class TestParent(MenuParentKind kind) : IMenuParentContext
     {
         public MenuParentKind Kind => kind;
+
+        public IMenuParentContext? Enclosing { get; init; }
 
         public bool Modal { get; init; } = true;
 

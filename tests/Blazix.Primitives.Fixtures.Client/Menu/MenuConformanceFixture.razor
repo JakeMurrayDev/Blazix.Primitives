@@ -4,6 +4,8 @@
 @inherits PopupSuiteFixtureBase
 
 @*
+    The `[data-set-open]` controls are key controls (`data-key-control`): an open modal menu's internal backdrop covers
+    the page, so a pointer press on them would be an outside press.
     The `menu-conformance` fixture (tests/browser/menu.spec.ts, M5 track 6): popupConformanceTests on Menu's parts, as
     MenuRoot.test.tsx renders them (a trigger, a portal, a positioner and a popup holding one item). The query sets the
     root's props: `open=true|false` (controlled, changed by the `[data-set-open]` buttons), `defaultOpen`, `cancelOpen`,
@@ -20,8 +22,8 @@
         .popup-animated[data-ending-style] { animation: menu-conformance-exit 200ms; }
     </style>
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
-    <button type="button" data-set-open="true" @onclick="() => open = true">Set open</button>
-    <button type="button" data-set-open="false" @onclick="() => open = false">Set closed</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
 
     @if (controlled)
     {

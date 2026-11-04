@@ -7,8 +7,8 @@ namespace Blazix.Primitives;
 // (chosen by the user 2026-11-03): ContextMenu and Menubar adopt Menu's behaviours, so the branches they switch on are
 // coded here as data, against this one context, which Menubar (track 8) and ContextMenuRoot (track 7) implement and
 // cascade with IsFixed. A submenu's parent (Base UI's `{ type: 'menu', store }`) is the enclosing MenuRootContext, not
-// this interface. Design point 8 of M5 track 6 (pending the user): one cascade type, so the nearest of a bar and a
-// context menu wins where Base UI checks the bar first (a dated note on MNU-STR-19).
+// this interface. Design point 8 of M5 track 6: one cascade type whose contexts each hold the one enclosing them
+// (Enclosing), so the resolution checks the nearest bar first, as Base UI does.
 /// <summary>Specifies the kind of parent a menu has, which picks its defaults and its branches.</summary>
 internal enum MenuParentKind
 {
@@ -34,6 +34,12 @@ internal interface IMenuParentContext
     /// <summary>Gets the kind of parent this context is.</summary>
     /// <value><see cref="MenuParentKind.Menubar"/> or <see cref="MenuParentKind.ContextMenu"/>.</value>
     MenuParentKind Kind { get; }
+
+    // Design point 8 (settled by the orchestrator 2026-11-04 to follow Base UI): the chain of parents, so a menu finds the
+    // nearest menubar and the nearest context menu above it, whatever their order (MenuRoot.tsx:84-86, 103-118).
+    /// <summary>Gets the context of the menubar or context menu that encloses this one.</summary>
+    /// <value>The enclosing context, or <see langword="null"/> when there is none.</value>
+    IMenuParentContext? Enclosing { get; }
 
     // MNU-DIS-09, MNU-STR-17 (MenuPositioner.tsx:245, 264-268): the bar's own modal decides the scroll lock and the
     // internal backdrop of its menus.
