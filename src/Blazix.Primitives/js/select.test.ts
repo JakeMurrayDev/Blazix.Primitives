@@ -3,9 +3,22 @@
 // handles are attached to a DOM built as the parts render it (a positioner around a popup, a list and items with
 // `role="option"`, the arrows), with the geometry stubbed as Base UI's test stubs it.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { styleWriter } from './dom';
 import { attach, getArrowVisibility, getTargetScrollTop, POSITIONER_PART, SCROLL_ARROW_PART } from './select';
 import type { TwinHandle } from './twin';
 import { createFakeTwin } from './test-support/fake-twin';
+
+// The `positioning` handle of the positioner is not attached here: `setAligned` answers as a live handle would, running
+// the aligned pass at once.
+vi.mock('./positioning', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./positioning')>()),
+  setAligned: vi.fn((_element: Element, aligned: boolean, onPositioned?: () => void) => {
+    if (aligned) {
+      onPositioned?.();
+    }
+    return true;
+  }),
+}));
 
 const DEFAULT_ITEM_OFFSETS = [0, 40, 80, 120, 160, 200, 240, 280, 320, 360];
 
@@ -290,5 +303,43 @@ describe('select module: the scroll arrows geometry (port titles)', () => {
     expect(getTargetScrollTop(items, false, 0, 200, 0, 200)).toBe(40);
     expect(getTargetScrollTop(items, true, 80, 200, 0, 200)).toBe(40);
     expect(getTargetScrollTop(items.slice(0, 1), false, 0, 200, 0, 200)).toBe(200);
+  });
+});
+
+describe('select module: aligned placement (port titles)', () => {
+  it('fixes the positioner and resets the anchored coordinates and transform while aligned, and gives them back after (SEL-POS-07)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    popup.style.border = '0px solid';
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+    // The `positioning` layer's anchored styles, under the consumer's.
+    const anchored = styleWriter(positioner).layer('positioning');
+    anchored.set('position', 'absolute');
+    anchored.set('top', '0px');
+    anchored.set('left', '0px');
+    anchored.set('transform', 'translate(110px, 240px)');
+
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
+    handles.push(handle);
+
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.transform).toBe('none');
+    // A list that does not scroll is top-positioned: the remaining viewport below the trigger's top sets its top.
+    expect(positioner.style.left).toBe('100px');
+    expect(positioner.style.top).toBe('190px');
+    expect(positioner.style.bottom).toBe('auto');
+
+    handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
+    expect(positioner.style.position).toBe('absolute');
+    expect(positioner.style.transform).toBe('translate(110px, 240px)');
+    expect(positioner.style.top).toBe('0px');
+    expect(positioner.style.bottom).toBe('');
   });
 });
