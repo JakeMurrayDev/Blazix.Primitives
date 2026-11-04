@@ -3575,6 +3575,30 @@ describe('useHoverReferenceInteraction', () => {
       expect(popup.open).toBe(false);
     });
 
+    // G6 of PR 168 (settled by the orchestrator 2026-11-05): Base UI's useFloating context carries a placement from the start,
+    // so a safe polygon never sees a context without one. On Server the leave can come before the Positioner's first pass
+    // published one; that context is no handle-close context, and the leave takes Base UI's plain close.
+    it('port: leaving the trigger before the floating element has a placement closes the popup', () => {
+      const popup = harness();
+      popup.attachSession();
+      const button = element('button');
+      const floating = element('div', 'floating-unplaced');
+      popup.attachTrigger(button, { trigger: { hover: { safePolygon: true } } });
+      popup.attachFloating(floating, { floating: { hover: {} } });
+      popup.setReference(button);
+      button.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
+      floating.getBoundingClientRect = () => hoverRect(0, 150, 100, 100);
+
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+      expect(getSession(popup.token)?.dataRef.current.floatingContext?.placement).toBeUndefined();
+
+      hoverMouse(button, 'mouseleave', { clientX: 300, clientY: 50 });
+      hoverMouse(document.body, 'mousemove', { clientX: 320, clientY: 50 });
+
+      expect(popup.open).toBe(false);
+    });
+
     // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's whole
     // `style` when its rendered value changes, so the lock re-asserts its value after the write while it holds.
     it('port: a style rewrite while the lock holds keeps the lock\'s pointer-events at the next microtask, and one after the release stays as written', async () => {

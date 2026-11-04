@@ -3363,9 +3363,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     // useHoverReferenceInteraction.ts:315: the session's published floating context, else the trigger's inline one
     // (NavigationMenu's getHandleCloseContext, M5 track 2). G3 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the
     // orchestrator 2026-11-04): only Base UI's useFloating publishes a context, so a published one with no placement (an
-    // unpositioned floating element, NavigationMenu's inline Viewport) yields to the inline one.
+    // unpositioned floating element, NavigationMenu's inline Viewport) yields to the inline one. G6 of PR 168 (settled by
+    // the orchestrator 2026-11-05): with no inline one either it is no handle-close context, so the leave takes the plain
+    // close; Base UI's context carries a placement from the start.
     const published = record.dataRef.current.floatingContext;
-    const handleCloseContextBase = (published?.placement != null ? published : undefined) ?? inlineCloseContext() ?? published;
+    const handleCloseContextBase = (published?.placement != null ? published : undefined) ?? inlineCloseContext();
 
     if (isTargetInsideEnabledTrigger(event.relatedTarget, record.triggerElements)) {
       return;
