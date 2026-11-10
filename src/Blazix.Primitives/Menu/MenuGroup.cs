@@ -3,13 +3,12 @@ using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
 
-// Base UI's Menu.Group (menu/group/MenuGroup.tsx); the contract is docs/components/menu.md §3.16 (MNU-ARIA-10): role="group",
-// aria-labelledby = the mounted label's id (MenuGroupContext, the PopoverIdSync form).
+// Base UI's Menu.Group (menu/group/MenuGroup.tsx); the contract is docs/components/menu.md §3.16 (MNU-ARIA-10). A shell over
+// MenuGroupBehavior, which ContextMenu's group composes too.
 /// <summary>Groups related items of a menu, Base UI's <c>Menu.Group</c>, rendered as a <c>div</c> with the <c>group</c> role.</summary>
 public sealed class MenuGroup : PartBase<EmptyState>
 {
-    private readonly MenuGroupContext group = new();
-    private IDisposable? subscription;
+    private MenuGroupBehavior? behavior;
 
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
@@ -32,32 +31,25 @@ public sealed class MenuGroup : PartBase<EmptyState>
     /// <exception cref="InvalidOperationException">The group is outside a menu.</exception>
     protected override void OnInitialized()
     {
-        MenuRootContext.Require(RootContext, "Menu");
-        subscription = group.Subscribe(StateHasChanged);
+        behavior = new MenuGroupBehavior("Menu", StateHasChanged);
+        behavior.Subscribe(RootContext);
         base.OnInitialized();
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => ChildContent = group.Cascade(ChildContent);
+    protected override void OnParametersSet() => ChildContent = behavior!.Cascade(ChildContent);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            subscription?.Dispose();
+            behavior?.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes)
-    {
-        attributes.Set("role", "group");
-        if (group.LabelId is { } labelId)
-        {
-            attributes.Set("aria-labelledby", labelId);
-        }
-    }
+    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddAttributes(attributes);
 }
