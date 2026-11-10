@@ -582,3 +582,5 @@ Tested by `js/collapsible.test.ts` ("writes the size variables the options name 
 - `press` is the consumer's `onMouseDown` veto on the Chips and on the InputGroup.
 
 Both fall back to `run`. One keydown reaches two handles, so C# runs the consumer's handler once per event and caches the verdict. The implementing pull request records the verdict paths and ADR 01's "C#-origin consumer vetoes" lines.
+
+**2026-11-10, a list option keeps the highlight through the close (SEL-STA-07, found by M5 track 9; queued by the orchestrator 2026-11-10; written by M5 track 6, with `js/composite.ts` held).** `CompositeListOptions.RetainHighlightWhileClosing` (`retainHighlightWhileClosing`, sent only when true): the close resets the list's index but commits no cleared highlight, as Base UI's Select ignores the reset's `onNavigate()` while closed, so its highlight stays while the popup animates out. Select sets it; Menu does not.
