@@ -830,6 +830,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         hadInputClear = details.Reason == EventReason.InputClear;
+        int membership = State.MembershipRevision;
         if (details.Reason == EventReason.InputChange)
         {
             if (IsOpen && closeQuery is not null)
@@ -859,11 +860,21 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
         await CommitInputValueAsync(text);
 
-        // AriaCombobox.tsx:1087-1242 run after every commit: a change that leaves the filtered membership as it was renders
-        // no list part, so the pending highlight asks for the boundary itself.
+        // AriaCombobox.tsx:1087-1242 run after every commit. A change that leaves the store's filtered membership as it was
+        // while the list is navigable renders no part, and its candidates are already the rendered items, so the pending
+        // highlight resolves here: a Root render would render all of its content again (CMB-EDGE-10). Any other change asks
+        // for the boundary, after the items it mounts have rendered.
         if (pendingHighlight is not null)
         {
-            RequestBoundary();
+            bool storeCandidates = State.HasItems || inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null;
+            if (storeCandidates && State.MembershipRevision == membership && (IsOpen || State.Inline))
+            {
+                await ResolvePendingHighlightAsync();
+            }
+            else
+            {
+                RequestBoundary();
+            }
         }
 
         return true;
