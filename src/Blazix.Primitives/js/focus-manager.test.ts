@@ -3131,6 +3131,34 @@ describe('FloatingFocusManager', () => {
       expect(focusOut + outsidePress).toBe(1);
     });
 
+    it('port: focus returns on close to a trigger that became the session reference while the popup was open', async () => {
+      // MenuRoot.triggerless.test.tsx's "preserves real trigger registration": a root opened without a trigger claims one
+      // that mounts while it is open (useImplicitActiveTrigger), and the return-focus effect re-arms for that reference
+      // with no update of the manager's own options. The popup then leaves the document with no update either.
+      const popup = sessionPopup({ open: true });
+      popup.attachSession();
+      const floating = element('div', 'floating', { role: 'menu', tabindex: '-1', 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      document.body.append(floating);
+      popup.attachFloating(floating);
+      const manager = attachManager(floating, { modal: false, sessionToken: popup.token });
+      await settle();
+      inside.focus();
+
+      const trigger = element('button', 'trigger', { id: 'trigger' });
+      document.body.append(trigger);
+      popup.attachTrigger(trigger);
+      popup.setReference(trigger);
+      await settle();
+      floating.removeAttribute('data-open');
+      floating.remove();
+      manager.handle.dispose();
+      await settle();
+
+      expect(document.activeElement).toBe(trigger);
+    });
+
     it('focuses without a frame delay when a screen reader press opens it', async () => {
       const popup = sessionPopup();
       popup.attachSession();
