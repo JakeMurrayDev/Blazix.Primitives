@@ -4013,8 +4013,28 @@ interface MenuReleaseSlot {
   initialPoint: { x: number; y: number } | null;
 }
 
+// Sessions whose floating handle carries Menu's options: every menu Positioner sends them (`floating.menu`).
+const menuSessions = new WeakSet<SessionRecord>();
+
+// MenuStore.ts:173-181: Base UI's `allowMouseUpTriggerRef` belongs to the top-level menu, and a submenu, a menubar's menu
+// or a context menu's shares its parent's (the interim review of PR 183, F8). The slot is the outermost session of the
+// chain of menu sessions, so two top-level menus inside one popup of another family keep their own.
+function menuTreeRoot(record: SessionRecord): SessionRecord {
+  let current = record;
+  const seen = new Set<SessionRecord>();
+  while (current.parentToken !== null && !seen.has(current)) {
+    seen.add(current);
+    const parent = sessions.get(current.parentToken);
+    if (!parent || !menuSessions.has(parent)) {
+      break;
+    }
+    current = parent;
+  }
+  return current;
+}
+
 function menuReleaseSlot(record: SessionRecord): MenuReleaseSlot {
-  const data = forestRoot(record).dataRef.current;
+  const data = menuTreeRoot(record).dataRef.current;
   let slot = data[MENU_RELEASE_KEY] as MenuReleaseSlot | undefined;
   if (slot === undefined) {
     slot = { armed: false, rules: null, initialPoint: null };
@@ -4233,6 +4253,9 @@ function createMenuFloatingController(context: HandleContext): Controller {
   const siblingCloseTimeout = createTimer();
   let treeEvents: SessionEvents | null = null;
   const menuOptions = () => context.options.floating?.menu ?? null;
+  if (menuOptions() !== null) {
+    menuSessions.add(record);
+  }
 
   // The menu's own popup, whose items are this menu's (a nested popup inside the floating element has its own).
   const ownPopup = (): Element | null => (floatingElement.matches('[data-rootownerid]') ? floatingElement : floatingElement.querySelector('[data-rootownerid]'));
@@ -4344,10 +4367,16 @@ function createMenuFloatingController(context: HandleContext): Controller {
   );
   return {
     update() {
+      if (menuOptions() !== null) {
+        menuSessions.add(record);
+      } else {
+        menuSessions.delete(record);
+      }
       ensureSlot();
       syncTreeEvents();
     },
     dispose() {
+      menuSessions.delete(record);
       cleanup();
       stopListening();
       record.events.off('openchange', onOpenChange);

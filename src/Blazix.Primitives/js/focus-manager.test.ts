@@ -1501,6 +1501,22 @@ describe('FloatingFocusManager', () => {
       expect(document.activeElement).toBe(app.floating);
     });
 
+    // The interim review of PR 183 (F4): any tabbable of a nested portal node not yet moved is in the body in Base UI, not
+    // only its guards, so the default initial focus skips the node's content as well.
+    it('port: the default initial focus skips the content of a nested portal not yet moved', async () => {
+      const app = renderApp({ modal: false });
+      const portal = element('div');
+      portal.setAttribute('data-base-ui-portal', '');
+      portal.append(element('button', 'nested-button'));
+      app.floating.prepend(portal);
+      app.reference.focus();
+
+      app.open({ modal: false, openInteractionType: 'mouse' });
+      await settle();
+
+      expect(document.activeElement).toBe(app.one);
+    });
+
     // FLT-FOC-20 has no Base UI title: a programmatic open (`null`) prefers the element focused before the open.
     it('prefers the previously focused element over the reference after a programmatic open', async () => {
       const app = renderApp();

@@ -5641,6 +5641,49 @@ describe('Menu', () => {
   });
 
   describe('release activation', () => {
+    // The interim review of PR 183 (F8): Base UI's `allowMouseUpTriggerRef` is per menu tree, shared with a submenu's parent,
+    // a menubar or a context menu (MenuStore.ts:173-181), so two top-level menus inside one Popover do not share it.
+    it('port: two top-level menus inside one popup keep their own release slots, and a submenu shares its menu\'s', () => {
+      const parent = harness({ open: true });
+      parent.attachSession();
+      const menuTree = () => {
+        const menu = harness({ open: true });
+        menu.attachSession({ session: { parentToken: parent.token } });
+        const positioner = element('div');
+        const popup = document.createElement('div');
+        popup.setAttribute('data-rootownerid', `${menu.token}-root`);
+        positioner.append(popup);
+        const item = document.createElement('div');
+        item.id = `${menu.token}-item`;
+        item.setAttribute('role', 'menuitem');
+        popup.append(item);
+        menu.attachFloating(positioner, { floating: { hover: null, menu: { itemHover: true, release: true } } });
+        const clicks: string[] = [];
+        item.addEventListener('click', () => clicks.push(item.id));
+        return { menu, item, clicks };
+      };
+      const first = menuTree();
+      const second = menuTree();
+      const submenu = harness({ open: true });
+      submenu.attachSession({ session: { parentToken: first.menu.token } });
+      const subItem = document.createElement('div');
+      subItem.setAttribute('role', 'menuitem');
+      const subPopup = document.createElement('div');
+      subPopup.append(subItem);
+      const subPositioner = element('div');
+      subPositioner.append(subPopup);
+      submenu.attachFloating(subPositioner, { floating: { hover: null, menu: { itemHover: true, release: true } } });
+      const subClicks: number[] = [];
+      subItem.addEventListener('click', () => subClicks.push(1));
+
+      armMenuRelease(first.menu.token, true);
+      mouse(second.item, 'mouseup', { clientX: 10, clientY: 10 });
+      expect(second.clicks).toEqual([]);
+
+      mouse(subItem, 'mouseup', { clientX: 10, clientY: 10 });
+      expect(subClicks).toEqual([1]);
+    });
+
     it('port: a press on a closed menu\'s trigger arms the release after 200 ms, and a release over an item then clicks it once with detail 1', async () => {
       vi.useFakeTimers();
       const early = releaseTree();

@@ -622,7 +622,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 | `tabindex="-1"`, `data-base-ui-focusable=""` | always | POP-DOM-24 | C# |
 | `aria-labelledby`, `aria-describedby` | Title / Description ids | POP-ARIA-05/06 | C# |
 | `data-open` / `data-closed` | open / closed | POP-DOM-25 | C# |
-| `data-starting-style` / `data-ending-style` | transition status | POP-DOM-26 | JS |
+| `data-starting-style` / `data-ending-style` | transition status | POP-DOM-26 | C# → JS (handover at attach) |
 | `data-side`, `data-align` | resolved placement | POP-DOM-27 | C# |
 | `data-instant` | public instant type | POP-DOM-28 | C# |
 | inline `transition: none` | `'starting'` | POP-DOM-29 | JS |
@@ -638,6 +638,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Open to M5 (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); settled by the orchestrator 2026-10-29): the titles that nest a family not yet ported wait for it (Combobox "closes a nested combobox popup when tabbing out of the popover"); the row's other titles run in `popover.spec.ts`, both modes.
 - **POP-DOM-26** — MUST. The Popup element has `data-starting-style=""` while its `transitionStatus` is `'starting'` and `data-ending-style=""` while it is `'ending'` (TRN-DOM-01..03).
   Source: `popover/popup/PopoverPopup.tsx:81,104`; `internals/stateAttributesMapping.ts`. Test: [L4] `PopoverRoot.test.tsx` "reopens immediately when re-hovering the trigger during a hover close transition", "moves focus to the element following the trigger when tabbing forward from the trigger" (during the exit animation).
+  Port note (2026-11-10, D11; TRN-STA-03; ADR 04 Amendments 2026-10-18 and 2026-10-21, the handover for a newly rendered element; settled by the orchestrator 2026-11-10): the attributes are a handover, Writer `C# → JS`. C# renders them on the element until its `transitions` handle attaches, which waits for the portal's move, and then freezes what it rendered (`PopupTransitionAttributes`, `Popup/`). So a popup that is not kept mounted opens with `data-starting-style` from its first render, with no commit where it is open without it. L4: `popover.spec.ts` "port: starts each opening once when the popup is not kept mounted" and, on the test-only popup host, `popup.spec.ts` "port: starts each opening once, with data-starting-style from the first render", both modes, red before the change.
 - **POP-DOM-27** — MUST. The Popup element has `data-side` and `data-align` equal to the Positioner's resolved placement (PSH-DOM-06).
   Source: `popover/popup/PopoverPopup.tsx:78-79`. Test: none in Popover (positioner conformance covers the values).
   Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125); settled by the orchestrator 2026-10-29): proven on Popover by `popover.spec.ts` "port: the popup carries the positioner's data-side and data-align" (L4, both modes).
@@ -674,7 +675,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 | `hidden` | not mounted | POP-DOM-34 | C# |
 | inline `user-select`, `pointer-events` | always; hover-opened | POP-DOM-35 | C# |
 | `data-open` / `data-closed` | open / closed | POP-DOM-36 | C# |
-| `data-starting-style` / `data-ending-style` | transition status | POP-DOM-36 | JS |
+| `data-starting-style` / `data-ending-style` | transition status | POP-DOM-36 | C# → JS (handover at attach) |
 
 - **POP-DOM-33** — MUST. The Backdrop element has `role="presentation"` (consumer `role` overrides).
   Source: `popover/backdrop/PopoverBackdrop.tsx:39`. Test: [L2] `PopoverRoot.test.tsx` "uses intentional outside press with user backdrop (mouse): closes on click, not on mousedown".
@@ -685,6 +686,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
   Source: `popover/backdrop/PopoverBackdrop.tsx:41-45`. Test: [L2] `PopoverBackdrop.test.tsx` "sets `pointer-events: none` style on backdrop if opened by hover", "does not set `pointer-events: none` style on backdrop if opened by click". Docs: CHANGELOG.md v1.0.0-alpha.7 "Set `pointer-events: none` style on backdrops when hoverable (#1351)".
 - **POP-DOM-36** — MUST. The Backdrop element has `data-open`/`data-closed` (exactly one) and `data-starting-style`/`data-ending-style` per its `transitionStatus` (PSH-DOM-05); it never has `data-anchor-hidden` (not in its state).
   Source: `popover/backdrop/PopoverBackdrop.tsx:29-32,49`; `popover/backdrop/PopoverBackdropDataAttributes.ts:6-18`. Test: [L2] `PopoverBackdrop.test.tsx` "does not start an entry phase when initially open (controlled=%s)". (L4 for the `data-starting-style`/`data-ending-style` clause)
+  Port note (2026-11-10, D11; TRN-STA-03; ADR 04 Amendments 2026-10-18 and 2026-10-21, the handover for a newly rendered element; settled by the orchestrator 2026-11-10): the attributes are a handover, Writer `C# → JS`. C# renders them on the element until its `transitions` handle attaches, which waits for the portal's move, and then freezes what it rendered (`PopupTransitionAttributes`, `Popup/`). So a popup that is not kept mounted opens with `data-starting-style` from its first render, with no commit where it is open without it. L4: `popover.spec.ts` "port: starts each opening once when the popup is not kept mounted" and, on the test-only popup host, `popup.spec.ts` "port: starts each opening once, with data-starting-style from the first render", both modes, red before the change.
 
 ### 5.7 Viewport element and containers
 

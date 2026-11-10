@@ -379,7 +379,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         IMenuState state = store.State;
         interactions.SessionToken = store.SessionToken;
         bool disabled = Disabled;
-        bool topLevel = state.Parent.Kind == MenuParentKind.None;
+        bool topLevel = state.Parent.Kind is null;
         bool barMenuOpen = InBar && parent!.HasSubmenuOpen;
         bool openOnHover = parameters.OpenOnHover ?? barMenuOpen;
         bool hover = openOnHover && !disabled && (!InBar || (barMenuOpen && !trigger.IsMountedByTrigger));

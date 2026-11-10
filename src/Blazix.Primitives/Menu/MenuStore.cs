@@ -51,11 +51,11 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
 
     // MNU-STA-04 (MenuRoot.tsx:404, 422-437; isKeyboardOpen.ts).
     /// <summary>Derives the instant type an applied open change writes.</summary>
-    /// <param name="parent">The menu's parent kind.</param>
+    /// <param name="parent">The menu's parent kind, or <see langword="null"/> for a top-level menu.</param>
     /// <param name="open">The applied open state.</param>
     /// <param name="details">The change's details.</param>
     /// <returns>The instant type, or <see langword="null"/>.</returns>
-    public static MenuInstantType? InstantTypeFor(MenuParentKind parent, bool open, OpenChangeEventDetails details)
+    public static MenuInstantType? InstantTypeFor(MenuParentKind? parent, bool open, OpenChangeEventDetails details)
     {
         ArgumentNullException.ThrowIfNull(details);
         EventReason reason = details.Reason;
@@ -139,7 +139,7 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         MenuStoreState<TPayload> state = State;
 
         // MenuRoot.tsx:166, 220: `modal` is stored for a top-level menu only.
-        bool? stored = state.Parent.Kind == MenuParentKind.None ? modal : null;
+        bool? stored = state.Parent.Kind is null ? modal : null;
         if (state.Disabled != disabled || state.Modal != stored || !string.Equals(state.RootId, rootId, StringComparison.Ordinal) || state.HighlightItemOnHover != highlightItemOnHover)
         {
             Write(state with { Disabled = disabled, Modal = stored, RootId = rootId, HighlightItemOnHover = highlightItemOnHover });

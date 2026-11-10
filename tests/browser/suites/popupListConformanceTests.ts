@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test';
-import { expect, test, type RenderMode } from '../helpers';
+import { expect, test, waitForPositioned, type RenderMode } from '../helpers';
 import { gotoPopupFixture, settle as barrier, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's popupListConformanceTests (packages/react/test/popupListConformanceTests.tsx at v1.9.0), titles verbatim, as a
@@ -184,6 +184,13 @@ export function popupListConformanceTests(config: PopupListConformanceConfig): v
   // Playwright's hover scrolls an item into view; Base UI's moves no scroll, so a partly visible item is hovered where
   // it shows.
   async function hoverVisiblePart(page: Page, index: number): Promise<void> {
+    // A positioned instance (Menu's) reads the item's box only after the Positioner's first pass; the composite-list hosts
+    // have no Positioner.
+    const positioner = page.locator('[role="presentation"][data-side]', { has: page.locator('[data-testid="scroller"]') });
+    if ((await positioner.count()) > 0) {
+      await waitForPositioned(positioner);
+    }
+
     const point = await page.evaluate(
       ({ role, label }) => {
         const item = Array.from(document.querySelectorAll(`[role="${role}"]`)).find((element) => element.textContent === label)!;

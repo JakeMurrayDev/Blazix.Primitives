@@ -105,7 +105,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         captureInternalBackdrop = backdrop => root?.Parent.Context?.SetInternalBackdropElement(backdrop);
     }
 
-    private MenuParentKind Kind => root!.Parent.Kind;
+    private MenuParentKind? Kind => root!.Parent.Kind;
 
     // MenuPositioner.tsx:264-268: the internal backdrop of a modal top-level or context menu not opened by hover, or of a
     // modal bar's menu.
@@ -330,7 +330,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
     // the release dispatch and a submenu's hover turned off by a pointer move over it.
     private void SetFloatingOptions()
     {
-        MenuParentKind kind = Kind;
+        MenuParentKind? kind = Kind;
         bool hover = !disabled!.Value && kind is not (MenuParentKind.ContextMenu or MenuParentKind.Menubar);
         InteractionsFloatingHoverOptions? hoverOptions = hover ? new InteractionsFloatingHoverOptions(closeDelay!.Value, RequireHoverEnabled: true) : null;
         InteractionsMenuFloatingOptions menu = new()
@@ -358,7 +358,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         }
 
         await PopupPortalContext.WhenMoved(portalNode);
-        MenuParentKind kind = Kind;
+        MenuParentKind? kind = Kind;
         bool menubarModal = kind == MenuParentKind.Menubar && root!.Parent.Context!.Modal;
         bool popupModal = modal!.Value && !hoverOpened!.Value;
         await module!.SyncAsync(target, new PopupOptions
@@ -366,7 +366,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
             Positioner = new PopupPositionerOptions
             {
                 WatchTriggerChange = isOpen,
-                Cutout = backdropRendered && kind == MenuParentKind.None,
+                Cutout = backdropRendered && kind is null,
                 CutoutElementId = backdropRendered && kind == MenuParentKind.Menubar ? root!.Parent.Context!.CutoutElementId : null,
                 ScrollLock = isOpen && (menubarModal || popupModal),
                 TouchOpen = openMethod!.Value == InteractionType.Touch,

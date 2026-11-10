@@ -47,6 +47,7 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
     private static readonly StateAttributesMapping<PopoverBackdropState> s_mapping = PopupStateMapping.CreateOpen<PopoverBackdropState>();
 
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private PopoverSubscription? subscription;
     private PopoverSelection<bool>? open;
     private PopoverSelection<bool>? mounted;
@@ -173,6 +174,9 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, status!.Value);
+
         attributes.Set("role", "presentation");
         if (!mounted!.Value)
         {
@@ -216,6 +220,7 @@ public sealed class PopoverBackdrop : PartBase<PopoverBackdropState>
 
         TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = Element is { } element
             ? await twin.AttachAsync(element, options)
             : await twin.AttachAsync(Id!, options);

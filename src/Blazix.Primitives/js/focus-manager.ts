@@ -1397,8 +1397,13 @@ export function attach(
         if (focusableElements == null) {
           focusableElements = getTabbableContent(floatingFocusElement);
         }
-        // D10 of PR 183: a guard inside the popup is a nested portal not yet moved; in Base UI it is in the body.
-        return focusableElements.find((element) => !isFocusGuard(element)) || floatingFocusElement;
+        // D10 of PR 183 and the interim review's F4: a guard, or any element of a portal node, inside the popup belongs to a
+        // nested portal not yet moved; in Base UI it is in the body.
+        const unmovedPortal = (element: Element): boolean => {
+          const node = element.closest(`[${PORTAL_ATTRIBUTE}]`);
+          return node !== null && contains(floatingFocusElement, node);
+        };
+        return focusableElements.find((element) => !isFocusGuard(element) && !unmovedPortal(element)) || floatingFocusElement;
       };
 
       const target = resolveTarget(options.initialFocusElement, options.initialFocusId);

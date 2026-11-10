@@ -40,6 +40,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private readonly CompositeRootBehavior list;
     private readonly PopupModuleAttachment module;
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private MenuRootContext? root;
     private PositionerContext? positioner;
     private PopupPortalContext? portal;
@@ -268,6 +269,9 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         attributes.Set("tabindex", "-1");
         attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
+
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, status!.Value);
         if (state.RootId is { } rootId)
         {
             attributes.Set("data-rootownerid", rootId);
@@ -347,9 +351,9 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private FocusManagerInputs FocusInputs()
     {
         MenuRootContext menu = root!;
-        MenuParentKind kind = menu.Parent.Kind;
+        MenuParentKind? kind = menu.Parent.Kind;
         InteractionType? method = openMethod!.Value;
-        IMenuTriggerPart? trigger = kind == MenuParentKind.None ? activeTrigger!.Value?.Owner as IMenuTriggerPart : null;
+        IMenuTriggerPart? trigger = kind is null ? activeTrigger!.Value?.Owner as IMenuTriggerPart : null;
         ElementReference? preGuard = trigger?.PreGuard;
 
         // The initial focus: none for a submenu (list navigation highlights), else the list element when no item is
@@ -363,7 +367,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         // The return focus: the consumer's, else the trigger for a top-level or context menu, a menu with an active
         // trigger, or a bar's menu not closed by an outside press.
-        bool returnFocus = kind is MenuParentKind.None or MenuParentKind.ContextMenu || activeTrigger!.Value is not null
+        bool returnFocus = kind is null or MenuParentKind.ContextMenu || activeTrigger!.Value is not null
             || (kind == MenuParentKind.Menubar && openChangeReason!.Value != EventReason.OutsidePress);
         return new FocusManagerInputs
         {
@@ -376,7 +380,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             OpenInteractionType = method,
             CloseEvent = closeEvent!.Value,
             DomReferenceId = activeTriggerId!.Value,
-            TriggerFocusGuards = kind == MenuParentKind.None,
+            TriggerFocusGuards = kind is null,
             PreviousFocusableElement = activeTrigger!.Value?.Element,
             NextFocusableElement = trigger?.FocusTarget,
             InsideElements = preGuard is { } guard ? [guard] : null,
@@ -469,6 +473,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();
