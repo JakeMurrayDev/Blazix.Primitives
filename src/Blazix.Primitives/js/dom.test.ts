@@ -1382,9 +1382,10 @@ describe('styleWriter', () => {
     expect(element.style.getPropertyValue('transition')).toBe('transform 2s');
   });
 
-  // SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), pending the user):
-  // Select's aligned placement writes the positioner's coordinates and size over the consumer's style and every other
-  // band, as Base UI's after-render `style.*` writes do (select/popup/SelectPopup.tsx:195-387).
+  // SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), settled by the
+  // orchestrator 2026-11-04): Select's aligned placement writes the positioner's coordinates and size over the
+  // consumer's style and every other band, as Base UI's after-render `style.*` writes do
+  // (select/popup/SelectPopup.tsx:195-387).
   it('places the aligned band last: over the consumer, the auto-resize band and the positioning bands', () => {
     const element = document.createElement('div');
     const writer = styleWriter(element);

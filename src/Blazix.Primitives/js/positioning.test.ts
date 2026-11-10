@@ -1197,8 +1197,9 @@ describe('positioning module: the attribute writes', () => {
   });
 });
 
-// SEL-STA-20, SEL-POS-14, SEL-STA-28 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the user
-// 2026-11-03; design point 2 (i), pending the user): Select's module tells the Positioner it is placed over the trigger.
+// SEL-STA-20, SEL-POS-14, SEL-STA-28 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the
+// user 2026-11-03; design point 2 (i), settled by the orchestrator 2026-11-04): Select's module tells the Positioner it
+// is placed over the trigger.
 describe('positioning module: setAligned', () => {
   it('writes data-side none while told aligned, then the resolved side again, and keeps reporting the resolved side', async () => {
     stubViewport();

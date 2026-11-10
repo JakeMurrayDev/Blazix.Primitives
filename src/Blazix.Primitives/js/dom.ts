@@ -540,8 +540,8 @@ export function observeIntersection(
  */
 export type StyleLayerName = 'positioning' | 'transitions' | 'positioning-measured' | 'auto-resize' | 'aligned';
 
-// SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), pending the user): the
-// aligned band is the last.
+// SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), settled by the
+// orchestrator 2026-11-04): the aligned band is the last.
 const styleLayerOrder: readonly StyleLayerName[] = ['positioning', 'transitions', 'positioning-measured', 'auto-resize', 'aligned'];
 const consumerRank = 2;
 

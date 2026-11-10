@@ -742,9 +742,10 @@ export function update(element: Element): void {
   (element as AttachedElement)[attachedHandle]?.position();
 }
 
-// SEL-STA-20, SEL-POS-14 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the user 2026-11-03;
-// design point 2 (i), pending the user): Select's aligned placement replaces the Positioner's coordinates, and its side
-// reads `none` (select/positioner/SelectPositioner.tsx:114); the report keeps the resolved side (SEL-STA-28).
+// SEL-STA-20, SEL-POS-14 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the user
+// 2026-11-03; design point 2 (i), settled by the orchestrator 2026-11-04): Select's aligned placement replaces the
+// Positioner's coordinates, and its side reads `none` (select/positioner/SelectPositioner.tsx:114); the report keeps
+// the resolved side (SEL-STA-28).
 /**
  * Tells an attached Positioner whether Select's module places it over its trigger: while aligned, `data-side` reads `none`
  * and `onPositioned` runs after each positioning pass, at once when the current mount is already positioned.
