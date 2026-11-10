@@ -12,6 +12,7 @@
 // It imports `composite`'s exported predicates and reads the session through `interactions`' exports; it edits neither.
 // Interface commit: the option and report names; every acting body throws until its red-first commit.
 
+import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey } from './composite';
 import { type DotNetTwin, type TwinCaptures, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
 
 /** The part names, as `MenuFilterTwin`'s constants. */
@@ -80,9 +81,54 @@ export interface MenuFilterKey {
  * @returns The key's action.
  */
 export function getMenuFilterKeyAction(event: MenuFilterKey, context: MenuFilterKeyContext): MenuFilterKeyAction {
-  void event;
-  void context;
-  throw new Error('menu-filter: not implemented');
+  const { orientation, rtl, hasActiveItem, activeItemOpensSubmenu, hasValue } = context;
+  const { key } = event;
+  // useMenuFilterKeyDown.ts:58-61: the Enter that commits an IME composition belongs to the input, not the list.
+  if (event.which === 229) {
+    return 'ignore';
+  }
+  if (key === 'Tab') {
+    return event.shiftKey ? 'close' : 'ignore';
+  }
+  if (key === 'Enter') {
+    return hasActiveItem ? 'activate' : 'navigate';
+  }
+
+  const isArrow = key.startsWith('Arrow');
+  const isBoundary = key === 'Home' || key === 'End';
+
+  // :72-76: modified arrows and boundary keys are text-editing commands, like a modified character.
+  if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+    return isArrow || isBoundary || key.length === 1 ? 'edit' : 'navigate';
+  }
+  // :77-80: characters stay out of parent handlers such as typeahead.
+  if (key.length === 1) {
+    return 'edit';
+  }
+  // :81-85: Home and End move the caret while the input has text, and jump to the ends of the list otherwise once an
+  // item is highlighted.
+  if (isBoundary) {
+    return hasActiveItem && !hasValue ? 'navigate' : 'edit';
+  }
+  if (!isArrow) {
+    return 'navigate';
+  }
+
+  // :90-93: Left and Right move the caret of a non-empty input while nothing is highlighted.
+  if (isMainOrientationKey(key, orientation)) {
+    return orientation === 'horizontal' && !hasActiveItem && hasValue ? 'edit' : 'navigate';
+  }
+
+  // :95-102: a highlighted submenu trigger takes the cross-axis keys to open or close its submenu.
+  if (activeItemOpensSubmenu && (isCrossOrientationOpenKey(key, orientation, rtl) || isCrossOrientationCloseKey(key, orientation, rtl, false))) {
+    return 'submenu';
+  }
+  if (orientation === 'horizontal' && !hasActiveItem) {
+    return 'enter-list';
+  }
+  // :106-108: otherwise the cross-axis keys move the caret; on an empty input they fall through so they can still close a
+  // submenu.
+  return hasValue ? 'edit' : 'navigate';
 }
 
 /**
