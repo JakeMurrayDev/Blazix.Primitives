@@ -842,6 +842,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         if (changed && renderedPositions.TryGetValue(item, out int position))
         {
             renderedValues[position] = new ItemSlot<TValue>(present ? value : default!, present);
+            ReassertSelectedIndex();
         }
     }
 
@@ -872,6 +873,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         SyncSelectedIndex();
+        ReassertSelectedIndex();
     }
 
     /// <summary>Determines whether <paramref name="value"/> is selected, Base UI's <c>isSelected</c> selector.</summary>
@@ -1551,6 +1553,28 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         int? index = FindSelectedIndex();
+        if (State.SelectedIndex != index)
+        {
+            Write(State with { SelectedIndex = index });
+        }
+
+        if (listBehavior is not null)
+        {
+            listBehavior.SelectedIndex = index;
+        }
+    }
+
+    // ComboboxItem.tsx:111-135: without items, a rendered item re-asserts the selection's index as it registers or its value
+    // changes, open as well as closed; a selection that changes while open moves it only at the close (syncSelectedIndex).
+    // The items' effects in rendered order leave the first matching index (resolveSelectedIndex anchors the first selected
+    // item); with no match a single root keeps its index.
+    private void ReassertSelectedIndex()
+    {
+        if (!IsOpen || State.HasItems || State.SelectionMode == ComboboxSelectionMode.None || FindSelectedIndex() is not int index)
+        {
+            return;
+        }
+
         if (State.SelectedIndex != index)
         {
             Write(State with { SelectedIndex = index });
