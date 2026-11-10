@@ -93,6 +93,7 @@ public sealed class ComboboxTwinContractTests
         twin.DismissPressed += snapshot => received.Add($"dismiss:{snapshot.Type}");
         twin.SelectionEventReported += snapshot => received.Add($"selection:{snapshot.Key}");
         twin.EnterCloseRequested += snapshot => received.Add($"enter:{snapshot.Key}");
+        twin.InputPressed += snapshot => received.Add($"press:{snapshot.Type}");
 
         twin.OnInputChange($$"""{"text":"ab","typed":true,"composing":false,"event":{{KeyJson}}}""");
         twin.OnClear($$"""{"index":-1,"event":{{KeyJson}}}""");
@@ -101,8 +102,9 @@ public sealed class ComboboxTwinContractTests
         twin.OnDismiss(KeyJson);
         twin.OnSelectionEvent($$"""{"event":{{KeyJson}}}""");
         twin.OnEnterClose($$"""{"event":{{KeyJson}}}""");
+        twin.OnInputPress(KeyJson);
 
-        Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape"], received);
+        Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape", "press:keydown"], received);
     }
 
     [Fact]
