@@ -48,6 +48,62 @@ test.describe('useTriggerFocusGuards', () => {
     return trigger;
   }
 
+  // Deviation (2026-11-10, settled by the orchestrator 2026-11-10 as option (a)): Base UI's controls follow the root's `open`,
+  // which React commits inside the close, before the guard's focus handler reads the tab order. A C# OnOpenChange runs a round
+  // trip after the Tab on Server, so the controls are the page's: they take the open layout when the trigger expands, and the
+  // closed layout when focus leaves the trigger and the popup for anything else (the close's own cause). The title still
+  // reads the order the guard sees at the close (useTriggerFocusGuards.test.tsx:128-172).
+  async function installControls(page: Page, change: string, backward: boolean): Promise<void> {
+    await page.getByTestId('controls').evaluate(
+      (container, options) => {
+        const target = document.createElement('button');
+        target.type = 'button';
+        target.dataset.testid = 'target';
+        target.textContent = 'Target';
+        const candidate = document.createElement('button');
+        candidate.type = 'button';
+        candidate.textContent = 'Candidate';
+        const trigger = document.querySelector('[data-testid="trigger"]')!;
+        const apply = (open: boolean) => {
+          candidate.disabled = options.change === 'disabled' && !open;
+          candidate.tabIndex = options.change === 'tabIndex' && !open ? -1 : 0;
+          candidate.hidden = options.change === 'hidden' && !open;
+          let controls: (HTMLElement | null | false)[];
+          if (options.change === 'inserted') {
+            controls = [!open && target, candidate];
+          } else if (options.change === 'reordered') {
+            controls = open ? [candidate, target] : [target, candidate];
+          } else {
+            controls = [options.change === 'removed' && !open ? null : candidate, target];
+          }
+          const present = controls.filter((control): control is HTMLElement => !!control);
+          if (options.backward) {
+            present.reverse();
+          }
+          container.replaceChildren(...present);
+        };
+        const inMenu = (element: EventTarget | null) =>
+          element instanceof Element && (element === trigger || element.closest('[data-testid="popup"]') !== null);
+        apply(false);
+        new MutationObserver(() => {
+          if (trigger.getAttribute('aria-expanded') === 'true') {
+            apply(true);
+          }
+        }).observe(trigger, { attributes: true, attributeFilter: ['aria-expanded'] });
+        document.addEventListener(
+          'focusout',
+          (event) => {
+            if (inMenu(event.target) && !inMenu(event.relatedTarget)) {
+              apply(false);
+            }
+          },
+          true,
+        );
+      },
+      { change, backward },
+    );
+  }
+
   test.describe('Menu', () => {
     for (const direction of ['forward', 'backward'] as const) {
       test.describe(`tabbing ${direction}`, () => {
@@ -84,7 +140,8 @@ test.describe('useTriggerFocusGuards', () => {
 
         for (const change of ['disabled', 'tabIndex', 'hidden', 'removed', 'inserted', 'reordered']) {
           test(`uses the current tab order when an adjacent control is ${change} during close`, async ({ page, mode }) => {
-            await render(page, mode, { scenario: 'order', change, direction, tabIndex: -1 });
+            await render(page, mode, { scenario: 'order', direction, tabIndex: -1 });
+            await installControls(page, change, direction === 'backward');
             await focusTabOrigin(page, await openPopup(page));
 
             await page.keyboard.press(tabKey);
