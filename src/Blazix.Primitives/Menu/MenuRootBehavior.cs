@@ -78,6 +78,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     private bool rendered;
     private bool applied;
     private bool flagsRequested;
+    private bool filterApplied;
 
     /// <summary>Initializes a new instance of the <see cref="MenuRootBehavior{TPayload}"/> class.</summary>
     /// <param name="familyName">The root's family, such as <c>Menu</c>, which names its parts in warnings and messages.</param>
@@ -115,7 +116,21 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
 
     /// <summary>Renders the cascades and the root's content.</summary>
     /// <param name="builder">The root's render tree builder.</param>
-    public void BuildRenderTree(RenderTreeBuilder builder) => contextCascade(builder);
+    public void BuildRenderTree(RenderTreeBuilder builder)
+    {
+        if (context?.Filter is null)
+        {
+            contextCascade(builder);
+            return;
+        }
+
+        // MNU-STR-14 (MenuRoot.tsx:776-781): the root consumes its provider, so a plain submenu inside does not inherit it.
+        builder.OpenComponent<CascadingValue<MenuFilterProviderContext>>(0);
+        builder.AddComponentParameter(1, nameof(CascadingValue<MenuFilterProviderContext>.Value), MenuFilterProviderContext.Consumed);
+        builder.AddComponentParameter(2, nameof(CascadingValue<MenuFilterProviderContext>.IsFixed), true);
+        builder.AddComponentParameter(3, nameof(CascadingValue<MenuFilterProviderContext>.ChildContent), contextCascade);
+        builder.CloseComponent();
+    }
 
     /// <summary>Syncs the session and the list after the render and runs the batch boundary.</summary>
     /// <param name="firstRender">Whether this is the root's first render.</param>
@@ -190,6 +205,25 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         committed.Select(MenuSelectors.TransitionStatus);
         committed.Select(MenuSelectors.PopupId);
         committed.Select(MenuSelectors.Disabled);
+    }
+
+    // MNU-STR-14 (MenuRoot.tsx:768-783, MenuSubmenuRoot.tsx:22-32; M5 track 12): a root directly inside an unconsumed
+    // MenuFilterProvider becomes filterable, fixed for its lifetime as Base UI's (a filter root cannot appear above a mounted
+    // part without remounting it). MenuRoot and MenuSubmenuRoot call it; ContextMenu's and Menubar's shells do not.
+    /// <summary>Makes the menu filterable when the cascaded provider is one no root has consumed; only the first call counts.</summary>
+    /// <param name="provider">The cascaded provider, <see cref="MenuFilterProviderContext.Consumed"/>, or <see langword="null"/>.</param>
+    public void ApplyFilter(MenuFilterProviderContext? provider)
+    {
+        if (filterApplied)
+        {
+            return;
+        }
+
+        filterApplied = true;
+        if (provider is { IsConsumed: false })
+        {
+            context!.Filter = new MenuFilterRootContext(provider);
+        }
     }
 
     /// <summary>Applies the root's parameters and its resolved surroundings.</summary>

@@ -218,11 +218,17 @@ internal sealed class MenuFilterEngine
 /// <summary>Represents the filter state a filterable menu root shares with the parts in its subtree.</summary>
 internal sealed class MenuFilterRootContext
 {
+    private readonly MenuFilterProviderContext provider;
+
+    /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
+    /// <param name="provider">The provider the root consumed.</param>
+    public MenuFilterRootContext(MenuFilterProviderContext provider) => this.provider = provider;
+
     /// <summary>Gets the filter engine.</summary>
-    public MenuFilterEngine Engine => throw new NotImplementedException();
+    public MenuFilterEngine Engine { get; } = new();
 
     /// <summary>Gets the committed query.</summary>
-    public string Query => throw new NotImplementedException();
+    public string Query => provider.Value;
 
     /// <summary>Gets a value indicating whether the Clear button renders: the query is not empty.</summary>
     public bool ShowsClear => throw new NotImplementedException();
