@@ -173,6 +173,32 @@ describe('the input', () => {
     expect(fake.reported('OnClear')).toHaveLength(0);
   });
 
+  // The session's trigger half listens on the input too, and whichever attached first runs first; on WebAssembly its
+  // close commits inside the keydown and the update arrives before this module's listener runs.
+  it('port: on WebAssembly the Escape that closes the popup does not also clear when a listener before it commits the close', () => {
+    const list = document.createElement('div');
+    list.id = 'open-list';
+    document.body.append(list);
+    const input = document.createElement('input');
+    input.value = 'apple';
+    document.body.append(input);
+    const fake = createFakeTwin({ synchronous: true });
+    let handle: TwinHandle | null = null;
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && list.isConnected) {
+        handle?.update(options({ hasValue: true, mounted: false, listId: 'open-list' }));
+        list.remove();
+      }
+    });
+    handle = createAttach(desktop)(input, options({ hasValue: true, mounted: true, open: true, listId: 'open-list' }), fake.twin);
+    handles.push(handle);
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+    expect(fake.decisions.map((decision) => decision.point)).toEqual([CLEAR_POINT]);
+  });
+
   it('port: Enter on an open list clicks the highlighted item, prevented and stopped, after recording the keydown', () => {
     const { input, fake } = setupInput('', { open: true });
     const item = document.createElement('div');
