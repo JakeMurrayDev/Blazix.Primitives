@@ -1,4 +1,5 @@
 using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
 
@@ -12,6 +13,9 @@ namespace Blazix.Primitives;
 /// <remarks>It must be placed in a menu wrapped in <see cref="MenuFilterProvider"/>.</remarks>
 public sealed class MenuEmpty : PartBase<EmptyState>
 {
+    [CascadingParameter]
+    private MenuRootContext? RootContext { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
@@ -19,5 +23,9 @@ public sealed class MenuEmpty : PartBase<EmptyState>
     protected override EmptyState State => EmptyState.Instance;
 
     /// <inheritdoc />
-    protected override void OnInitialized() => throw new NotImplementedException();
+    protected override void OnInitialized()
+    {
+        _ = RootContext?.Filter ?? throw MenuParts.MissingFilter("Empty");
+        throw new NotImplementedException();
+    }
 }

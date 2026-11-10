@@ -33,6 +33,9 @@ public static class MenuInputDataAttributes
 /// <remarks>It must be placed in a menu wrapped in <see cref="MenuFilterProvider"/>.</remarks>
 public sealed class MenuInput : PartBase<MenuInputState>
 {
+    [CascadingParameter]
+    private MenuRootContext? RootContext { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the input ignores user interaction.</summary>
     /// <value>The default is <see langword="false"/>. The input is also disabled while its menu is.</value>
     [Parameter]
@@ -48,5 +51,9 @@ public sealed class MenuInput : PartBase<MenuInputState>
     protected override bool UsesGeneratedId => true;
 
     /// <inheritdoc />
-    protected override void OnInitialized() => throw new NotImplementedException();
+    protected override void OnInitialized()
+    {
+        _ = RootContext?.Filter ?? throw MenuParts.MissingFilter("Input");
+        throw new NotImplementedException();
+    }
 }

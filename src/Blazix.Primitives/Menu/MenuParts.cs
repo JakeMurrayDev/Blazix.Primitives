@@ -56,6 +56,13 @@ internal static class MenuParts
     public static InvalidOperationException MissingRadioItem(string familyName) =>
         new($"Blazix: The `{familyName}RadioItem` context is missing. {familyName}RadioItem parts must be placed within `<{familyName}RadioItem>`.");
 
+    // MNU-EDGE-04, STR-15 (menu/filter-root/MenuFilterContext.ts:85-96), in the port's names.
+    /// <summary>Creates the exception a filter part throws outside a filterable menu.</summary>
+    /// <param name="part">The part's name without the family prefix: <c>Input</c>, <c>Clear</c> or <c>Empty</c>.</param>
+    /// <returns>The exception.</returns>
+    public static InvalidOperationException MissingFilter(string part) =>
+        new($"Blazix: `<Menu{part}>` must be placed in a menu wrapped in `<MenuFilterProvider>`. It reads the filter query and the matching items from the provider, which a plain menu does not have. Wrap the `<MenuRoot>` or `<MenuSubmenuRoot>` it belongs to in `<MenuFilterProvider>`.");
+
     /// <summary>Creates the exception of a submenu trigger rendered outside a submenu root.</summary>
     /// <param name="familyName">The family's name, such as <c>Menu</c>.</param>
     /// <returns>The exception.</returns>

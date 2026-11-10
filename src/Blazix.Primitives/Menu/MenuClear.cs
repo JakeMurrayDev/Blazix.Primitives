@@ -27,6 +27,9 @@ public static class MenuClearDataAttributes
 /// <remarks>It must be placed in a menu wrapped in <see cref="MenuFilterProvider"/>.</remarks>
 public sealed class MenuClear : PartBase<MenuClearState>
 {
+    [CascadingParameter]
+    private MenuRootContext? RootContext { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the button ignores user interaction.</summary>
     /// <value>The default is <see langword="false"/>. The button is also disabled while its menu is.</value>
     [Parameter]
@@ -44,5 +47,9 @@ public sealed class MenuClear : PartBase<MenuClearState>
     protected override MenuClearState State => throw new NotImplementedException();
 
     /// <inheritdoc />
-    protected override void OnInitialized() => throw new NotImplementedException();
+    protected override void OnInitialized()
+    {
+        _ = RootContext?.Filter ?? throw MenuParts.MissingFilter("Clear");
+        throw new NotImplementedException();
+    }
 }
