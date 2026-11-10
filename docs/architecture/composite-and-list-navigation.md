@@ -193,10 +193,18 @@ Explanatory: the registry keeps a map from element to registration `{ metadata, 
 
 - **CMP-STA-19** — MUST. The keyed registry exposes `registerItem(key, item)` returning an unregister function, an immutable `items` snapshot, and the live mutable map. All registrations and unregistrations of one commit are collected into exactly one new snapshot published after that commit; snapshots are never mutated after publication.
   Source: `internals/useItemRegistry.ts:14-54`. Test: [L2] `useItemRegistry.test.tsx` "publishes one immutable snapshot for all registrations in a commit".
+  Port note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 3 (a), settled by the orchestrator 2026-11-11): the internal `KeyedItemRegistry<TKey, TItem>` in `Composite/`.
+  - `Register(key, item)` returns an `IDisposable`, and `LiveItems` is the live map.
+  - A registration asks the owner, once per render batch, to call `Publish()` at its batch boundary. That copies the live map into `Items`, a snapshot that is never mutated after.
+  - Green at L2: `KeyedItemRegistryTests` "publishes one immutable snapshot for all registrations in a commit". Menu's filter is the consumer.
 - **CMP-STA-20** — MUST. The registry tolerates register → unregister → register sequences of the same key within one render batch: the published snapshot contains every registered key with its latest value, and the update latch MUST NOT get stuck. `attach` and `dispose` of the part's JavaScript twin are idempotent; a repeated `attach` of the same element is a no-op.
   Source: `internals/useItemRegistry.ts:19-30,49-51`. Test: [L2] twin contract (repeated `attach`, `dispose` twice); `useItemRegistry.test.tsx` "publishes every registration under StrictMode double effects".
+  Port note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 3 (a), settled by the orchestrator 2026-11-11): the registry clause is green at L2.
+  - `KeyedItemRegistryTests` "publishes every registration under StrictMode double effects": a child registers, disposes and registers again within one batch.
+  - The port title "an earlier registration's disposal does not remove the key a later registration holds" also covers it. A disposal removes the key only while its own registration still holds it.
 - **CMP-STA-21** — MUST. When the last key unregisters, an empty snapshot is published.
   Source: `internals/useItemRegistry.ts:36-39`. Test: [L2] `useItemRegistry.test.tsx` "publishes an empty snapshot once the last item unregisters".
+  Port note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 3 (a), settled by the orchestrator 2026-11-11): green at L2, `KeyedItemRegistryTests` "publishes an empty snapshot once the last item unregisters".
 
 #### 4.2.3 Composite highlighted index
 
@@ -1534,6 +1542,9 @@ All pseudo-code is language-neutral. `list` is the elements array (positions may
   post-commit, pre-paint after version changes: updateScheduled := false
   ```
   Source: `internals/useItemRegistry.ts:14-54`. Test: [L2] `useItemRegistry.test.tsx` (all three tests).
+  Port note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 3 (a), settled by the orchestrator 2026-11-11): `KeyedItemRegistry<TKey, TItem>` follows the procedure.
+  - `version` and the scheduled update are the owner's single `Publish()` per batch; `updateScheduled` is its request latch, cleared by `Publish()`.
+  - Green at L2: `KeyedItemRegistryTests`, the three titles.
 
 - **CMP-ALG-31** — MUST. *Deferred focus* (`enqueueFocus`, shared with [floating-and-positioning](floating-and-positioning.md)). The implementation reproduces the following procedure exactly; the pending frame id is a single process-wide slot:
 
