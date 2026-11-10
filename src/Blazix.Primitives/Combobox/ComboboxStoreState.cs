@@ -142,6 +142,10 @@ internal sealed partial record ComboboxStoreState(
 /// <param name="List">The list's id, or <see langword="null"/> while no list renders.</param>
 /// <param name="StartDismiss">The input's dismiss button's id, or <see langword="null"/>.</param>
 /// <param name="EndDismiss">The popup's dismiss button's id, or <see langword="null"/>.</param>
+/// <param name="TriggerLabelable">
+/// The trigger's id as Base UI renders it, which the label focuses: the trigger's while the input is inside the popup, else
+/// only the consumer's, or <see langword="null"/>.
+/// </param>
 internal readonly record struct ComboboxElementIds(
     string? Input,
     string? Trigger,
@@ -152,4 +156,5 @@ internal readonly record struct ComboboxElementIds(
     string? Popup,
     string? List,
     string? StartDismiss,
-    string? EndDismiss);
+    string? EndDismiss,
+    string? TriggerLabelable);

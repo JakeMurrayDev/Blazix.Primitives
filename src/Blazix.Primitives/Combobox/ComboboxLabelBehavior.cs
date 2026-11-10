@@ -65,13 +65,17 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     /// <summary>Gets the id the label renders: <c>{rootId}-label</c>.</summary>
     public string? Id => id;
 
-    /// <summary>Gets the id of the control the label focuses: the trigger's, else the root's while the input is inside the popup.</summary>
+    /// <summary>
+    /// Gets the id of the control the label focuses: the field's control, else the trigger's id as Base UI renders it, else the
+    /// root's while the input is inside the popup.
+    /// </summary>
     public string? ControlId
     {
         get
         {
+            // useLabel.ts:28 (contextControlId ?? fallbackControlId) over ComboboxLabel.tsx:37's fallback.
             ComboboxStoreState state = Store.State;
-            return state.ElementIds.Trigger ?? (state.InputInsidePopup ? state.Id : null);
+            return fieldScope?.Labelable.ControlId ?? state.ElementIds.TriggerLabelable ?? (state.InputInsidePopup ? state.Id : null);
         }
     }
 
@@ -111,6 +115,7 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
         subscription.Select(static state => state.Id);
         subscription.Select(ComboboxStoreState.InsidePopup);
         subscription.Select(static state => state.ElementIds.Trigger);
+        subscription.Select(static state => state.ElementIds.TriggerLabelable);
         subscription.Select(static state => state.ElementIds.Input);
     }
 

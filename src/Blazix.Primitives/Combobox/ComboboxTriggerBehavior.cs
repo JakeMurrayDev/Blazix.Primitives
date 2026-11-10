@@ -38,6 +38,8 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private string? id;
 
+    private string? labelableId;
+
     private bool disabledParameter;
 
     private string? consumerId;
@@ -87,7 +89,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         if (store is not null && id is not null)
         {
             string own = id;
-            store.SetElementIds(ids => ids.Trigger == own ? ids with { Trigger = null } : ids);
+            store.SetElementIds(ids => ids.Trigger == own ? ids with { Trigger = null, TriggerLabelable = null } : ids);
         }
 
         fieldScope?.RemoveListener(services.RequestRender);
@@ -280,11 +282,15 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         ComboboxStore root = Store;
         bool insidePopup = root.State.InputInsidePopup;
         string? next = consumerId ?? (insidePopup ? root.State.Id : generatedId);
-        if (!string.Equals(next, id, StringComparison.Ordinal))
+
+        // ComboboxLabel.tsx:37 focuses the trigger's DOM id, which Base UI renders only inside or when the consumer gave one.
+        string? labelable = insidePopup ? next : consumerId;
+        if (!string.Equals(next, id, StringComparison.Ordinal) || !string.Equals(labelable, labelableId, StringComparison.Ordinal))
         {
             string? previous = id;
             id = next;
-            root.SetElementIds(ids => ids.Trigger is null || ids.Trigger == previous ? ids with { Trigger = next } : ids);
+            labelableId = labelable;
+            root.SetElementIds(ids => ids.Trigger is null || ids.Trigger == previous ? ids with { Trigger = next, TriggerLabelable = labelable } : ids);
         }
 
 
