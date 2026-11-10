@@ -161,6 +161,10 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             fieldBehavior = new ComboboxFieldBehavior<TValue>(store, () => Serialized(store));
             store.NameResolver = fieldBehavior.NameOf;
             store.ControlBlurred = fieldBehavior.Blur;
+
+            // AriaCombobox.tsx:838-850: a close by focus-out or an outside press from inside the popup touches the field and
+            // commits its validation in onBlur mode, as a blur of the control does.
+            store.ClosedFromInsidePopup += fieldBehavior.Blur;
             store.DispatchException = dispatchException;
         }
 

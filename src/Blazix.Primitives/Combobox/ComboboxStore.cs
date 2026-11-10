@@ -24,6 +24,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Occurs when the committed input text changed, for the input's <c>value</c> writer.</summary>
     public event Action? InputValueCommitted;
 
+    /// <summary>Occurs after a close by focus-out or an outside press while the input is inside the popup, for the field's touched state.</summary>
+    public event Action? ClosedFromInsidePopup;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxStore"/> class.</summary>
     /// <param name="state">The initial state.</param>
     /// <param name="family">The family whose parts the diagnostics name.</param>
@@ -205,6 +208,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Raises <see cref="SessionInputsChanged"/>.</summary>
     protected void NotifySessionInputsChanged() => SessionInputsChanged?.Invoke();
 
+    /// <summary>Raises <see cref="ClosedFromInsidePopup"/>.</summary>
+    protected void NotifyClosedFromInsidePopup() => ClosedFromInsidePopup?.Invoke();
+
     private sealed class EmptyRegistration(ComboboxStore store) : IDisposable
     {
         private bool disposed;
@@ -339,9 +345,6 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     /// <summary>Occurs when the selected value or values changed, for the hidden inputs and the field.</summary>
     public event Action? SelectionCommitted;
-
-    /// <summary>Occurs after a close by focus-out or an outside press while the input is inside the popup, for the field's touched state.</summary>
-    public event Action? ClosedFromInsidePopup;
 
     /// <summary>Occurs after the root's parameters changed, for the parts that show a label the consumer's accessors compute.</summary>
     public event Action? InputsApplied;
@@ -1088,7 +1091,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         bool applied = await base.RequestOpenAsync(open, details);
         if (applied && !open && State.InputInsidePopup && (details.Reason == EventReason.FocusOut || details.Reason == EventReason.OutsidePress))
         {
-            ClosedFromInsidePopup?.Invoke();
+            NotifyClosedFromInsidePopup();
         }
 
         return applied;

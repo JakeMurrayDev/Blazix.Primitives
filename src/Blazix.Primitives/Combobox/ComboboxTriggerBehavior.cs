@@ -92,6 +92,11 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
         // A focused trigger that unmounts takes the field's focus with it (no blur reaches it).
         fieldScope?.SetFocused(this, false, Disabled);
+        if (store is not null)
+        {
+            store.ClosedFromInsidePopup -= OnClosedFromInsidePopup;
+        }
+
         fieldScope?.RemoveListener(services.RequestRender);
         button.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
@@ -107,6 +112,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         fieldScope = field;
         fieldScope?.AddListener(services.RequestRender);
+        store.ClosedFromInsidePopup += OnClosedFromInsidePopup;
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
         subscription.Select(ComboboxStoreState.Open);
         subscription.Select(ComboboxStoreState.InsidePopup);
@@ -354,4 +360,8 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             await services.DispatchException(exception);
         }
     }
+
+    // AriaCombobox.tsx:838-850: the trigger keeps the field's focus while the focus moves into the popup; the popup's close by
+    // focus-out or an outside press ends it.
+    private void OnClosedFromInsidePopup() => fieldScope?.SetFocused(this, false, Disabled);
 }
