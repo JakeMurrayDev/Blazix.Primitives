@@ -220,6 +220,19 @@ public sealed class MenuPartsRenderTests : BunitContext
         Assert.Contains(options, json => json.Contains($"\"fallbackAxisSide\":\"{fallbackAxisSide}\"", StringComparison.Ordinal));
     }
 
+    [Fact(DisplayName = "port: an open submenu's trigger renders tabindex 0, and the list's roving value once it closes")]
+    [Trait("Requirement", "MNU-KEY-15")]
+    [Trait("Requirement", "MNU-DOM-18")]
+    public void Open_submenu_trigger_renders_tabindex_zero()
+    {
+        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p.Add(x => x.SubmenuOpen, true));
+        Assert.Equal("0", cut.Find("[data-testid=submenu-trigger]").GetAttribute("tabindex"));
+
+        cut.Render(p => p.Add(x => x.SubmenuOpen, false));
+
+        cut.WaitForAssertion(() => Assert.Equal("-1", cut.Find("[data-testid=submenu-trigger]").GetAttribute("tabindex")));
+    }
+
     [Fact(DisplayName = "closes an open submenu with a sibling reason when its controlled parent closes")]
     [Trait("Requirement", "MNU-DIS-04")]
     [Trait("Requirement", "MNU-API-49")]
