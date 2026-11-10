@@ -333,7 +333,7 @@ public sealed class CompositeTwinContractTests
 
     // SEL-STA-07 (queued by the orchestrator 2026-11-10): the list option crosses by its module name, only when true.
     [Fact(DisplayName = "port: the retain-highlight-while-closing list option is written by its module name, only when true")]
-    [Trait("Requirement", "CMP-STA-33")]
+    [Trait("Requirement", "CMP-STA-34")]
     public void Retain_highlight_while_closing_is_written_by_its_module_name_only_when_true()
     {
         Assert.Contains("\"retainHighlightWhileClosing\":true", JsonSerializer.Serialize(new CompositeListOptions { RetainHighlightWhileClosing = true }, BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
