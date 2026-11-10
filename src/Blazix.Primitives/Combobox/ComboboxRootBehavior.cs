@@ -235,7 +235,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         navigation.Enabled = !state.Disabled;
         navigation.LoopFocus = inputs.LoopFocus;
         navigation.AllowEscape = inputs.LoopFocus && inputs.AutoHighlight == ComboboxAutoHighlightMode.Off;
-        navigation.FocusItemOnOpen = store.QueryChangedAfterOpen || (state.SelectionMode == ComboboxSelectionMode.None && inputs.AutoHighlight == ComboboxAutoHighlightMode.Off) ? false : null;
+        navigation.FocusItemOnOpen = FocusItemOnOpen(store);
         navigation.FocusItemOnHover = inputs.HighlightItemOnHover;
         navigation.ResetOnPointerLeave = !inputs.KeepHighlight;
         navigation.Orientation = inputs.Grid ? "horizontal" : "vertical";
@@ -370,11 +370,18 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         session.ParentToken = floatingParent?.SessionToken;
         session.Dismiss = Dismiss(store);
         list!.SelectedIndex = state.SelectedIndex;
+
+        // AriaCombobox.tsx:1425-1426 derives it at every render; the store's flag moves between parameter sets, and every
+        // open commits through here before the list's options are flushed.
+        list.FocusItemOnOpen = FocusItemOnOpen(store);
         if (inputs.Virtualized && state.HasItems)
         {
             list.ItemCount = state.FilteredCount;
         }
     }
+
+    private bool? FocusItemOnOpen(ComboboxStore<TValue> store) =>
+        store.QueryChangedAfterOpen || (store.State.SelectionMode == ComboboxSelectionMode.None && inputs.AutoHighlight == ComboboxAutoHighlightMode.Off) ? false : null;
 
     private InteractionsDismissOptions Dismiss(ComboboxStore<TValue> store)
     {
