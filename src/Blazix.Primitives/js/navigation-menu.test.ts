@@ -186,6 +186,8 @@ interface RenderOptions {
   verdict?: 'run' | 'stop';
   /** `false` leaves the Positioner's, Popup's and Viewport's handles unattached, as on Server before their attach arrives. */
   popupHandles?: boolean;
+  /** Runs on each Trigger before its handle attaches, for a listener that must precede the handle's. */
+  beforeTriggerAttach?: (trigger: HTMLElement) => void;
 }
 
 interface Rendered {
@@ -386,6 +388,7 @@ function renderMenu(options: RenderOptions = {}): Rendered {
   const rootHandle = attach(root, rootOptions(), rendered.dotnet);
   handles.push(rootHandle);
   for (const item of items) {
+    options.beforeTriggerAttach?.(item.trigger);
     handles.push(attach(item.trigger, part('trigger'), rendered.dotnet, [root]));
   }
   if (!options.nested) {
@@ -517,6 +520,30 @@ describe.each([false, true])('the activation (synchronous: %s)', (synchronous) =
     expect(reports).toHaveLength(1);
     expect(reports[0]).toMatchObject({ reason: 'trigger-hover', direction: 'right' });
     expect(reports[0]!.event.type).toBe('mouseover');
+  });
+
+  // G4b (NAV-PTR-05's notes of 2026-11-10): Base UI's mergeProps runs the rightmost handler first, so the activation
+  // (defaultProps) runs before useClick (referenceProps), NavigationMenuTrigger.tsx:727-734. A click listener the Trigger
+  // had before this handle attached stands in for the click role's: the activation still reports first.
+  it('reports a click activation before a click listener the trigger had before this handle attached', async () => {
+    let reportedBefore = -1;
+    const reports = (): unknown[] => (synchronous ? rendered.activations : rendered.twin.reported<ActivationReport>(ACTIVATE_REPORT));
+    const rendered = renderMenu({
+      synchronous,
+      open: 'item-1',
+      beforeTriggerAttach: (trigger) =>
+        trigger.addEventListener('click', () => {
+          if (reportedBefore < 0) {
+            reportedBefore = reports().length;
+          }
+        }),
+    });
+    await settle();
+
+    rendered.item('item-1').trigger.click();
+
+    expect(reportedBefore).toBe(1);
+    expect(reports()[0]).toMatchObject({ reason: 'trigger-press' });
   });
 
   it("activates on the trigger's mouseover, before the entry's mouseenter listeners run", async () => {
