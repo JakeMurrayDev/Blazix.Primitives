@@ -84,10 +84,6 @@ test.describe('useTriggerFocusGuards', () => {
 
         for (const change of ['disabled', 'tabIndex', 'hidden', 'removed', 'inserted', 'reordered']) {
           test(`uses the current tab order when an adjacent control is ${change} during close`, async ({ page, mode }) => {
-            // Deviation (2026-11-05): the fixture's controls change in C#, when its OnOpenChange runs. On Server that is a round
-            // trip after the browser took the Tab, so the tab order read is the one before the change (ADR 01's general row
-            // for a consumer's C# state); Base UI's commit lands inside the close.
-            test.skip(mode === 'server', 'Server: a consumer re-render caused by the close lands a round trip after the Tab');
             await render(page, mode, { scenario: 'order', change, direction, tabIndex: -1 });
             await focusTabOrigin(page, await openPopup(page));
 
@@ -218,6 +214,25 @@ test.describe('<Toolbar.Button /> as a menu trigger', () => {
 
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(fixture).toHaveAttribute('data-button-clicks', '0');
+  });
+});
+
+// TLB-STR-05's disabled cascade for a substituted Menu.Trigger. Base UI's "disabled state" above asserts no `dialog`, so it
+// cannot see a menu open: ToolbarButton.tsx:64-71 forwards `disabled` to a rendered component, which turns off the trigger's
+// list navigation (MenuTrigger.tsx:114, :198).
+test.describe('<Toolbar.Button /> as a disabled menu trigger', () => {
+  test('port: a disabled toolbar button keeps its substituted menu trigger closed on the arrow keys', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'menu-nesting', { case: 'toolbar', disabled: true });
+    const trigger = page.getByRole('button', { name: 'Toggle' });
+    await page.keyboard.press('Tab');
+    await expect(trigger).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowUp');
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual([]);
   });
 });
 
