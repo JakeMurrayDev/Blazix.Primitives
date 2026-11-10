@@ -447,7 +447,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 
     private ComboboxStore<TValue>? store;
 
-    private StoreSelection<ComboboxStoreState, ComboboxItemBehavior<TValue>, bool>? selected;
+    private StoreSelection<ComboboxStoreState, (ComboboxItemBehavior<TValue> Owner, TValue Value), bool>? selected;
 
     private RenderFragment? cascadedContent;
 
@@ -524,8 +524,9 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         subscription.Select(static state => state.Disabled);
         subscription.Select(static state => state.SelectionMode);
 
-        // Base UI's `isSelected` selector with the item as its argument: re-evaluated on a selection change only.
-        selected = subscription.Select(static (state, owner) => owner.EvaluateSelected(state.SelectionRevision), this);
+        // Base UI's `isSelected` selector with the item's value as its argument: re-evaluated on a selection change and when
+        // the value changes (the argument compares by value, so the owner alone would never re-evaluate).
+        selected = subscription.Select(static (state, arg) => arg.Owner.EvaluateSelected(state.SelectionRevision, arg.Value), (Owner: this, Value: value));
     }
 
     /// <summary>Applies the part's parameters.</summary>
@@ -546,7 +547,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         id = itemId;
         if (valueChanged && selected is not null)
         {
-            selected.Arg = this;
+            selected.Arg = (Owner: this, Value: itemValue);
         }
 
         button.Disabled = Disabled;
@@ -643,10 +644,10 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         await item!.AfterRenderAsync(element);
     }
 
-    private bool EvaluateSelected(int revision)
+    private bool EvaluateSelected(int revision, TValue candidate)
     {
         _ = revision;
-        return store is not null && store.State.SelectionMode != ComboboxSelectionMode.None && store.IsSelected(value);
+        return store is not null && store.State.SelectionMode != ComboboxSelectionMode.None && store.IsSelected(candidate);
     }
 }
 
