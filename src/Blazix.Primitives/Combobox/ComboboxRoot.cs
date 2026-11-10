@@ -72,6 +72,9 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     private EditContext? EditContext { get; set; }
 
     [CascadingParameter]
+    private IFormScope? FormScope { get; set; }
+
+    [CascadingParameter]
     private DirectionProviderContext? Direction { get; set; }
 
     // CMB-API-01
@@ -360,7 +363,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
         inputs.IsItemEqualToValue = IsItemEqualToValue;
         inputs.ItemHighlighted = OnItemHighlighted.HasDelegate ? highlighted ??= InvokeHighlightedAsync : null;
         inputs.ChildContent = ChildContent;
-        Behavior.ApplyParameters(inputs, FloatingParent, Field, EditContext, Direction?.Direction == TextDirection.Rtl);
+        Behavior.ApplyParameters(inputs, FloatingParent, Field, FormScope, EditContext, Direction?.Direction == TextDirection.Rtl);
     }
 
     /// <inheritdoc />

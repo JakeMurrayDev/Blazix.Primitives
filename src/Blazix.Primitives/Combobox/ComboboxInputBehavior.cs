@@ -107,6 +107,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             store.InputValueCommitted -= OnInputValueCommitted;
         }
 
+        fieldScope?.RemoveListener(services.RequestRender);
+
         reference.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         await Task.WhenAll(interactions.DisposeAsync().AsTask(), twinDisposal);
@@ -121,6 +123,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         fieldScope = fieldContext;
+        fieldScope?.AddListener(services.RequestRender);
         insidePopup = positioner is not null || store.State.Inline;
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
         subscription.Select(ComboboxStoreState.Open);
@@ -291,9 +294,10 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             return;
         }
 
+        // ComboboxInput.tsx onBlur: touched, and a commit in onBlur mode, through the root's field behaviour.
         if (!focused)
         {
-            fieldScope.SetTouched(true);
+            Store.ControlBlurred?.Invoke();
         }
 
         fieldScope.SetFocused(this, focused, Disabled);

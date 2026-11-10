@@ -58,6 +58,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Gets the name the value is submitted under, the root's or its field's.</summary>
     public abstract string? Name { get; }
 
+    /// <summary>Gets or sets the root's reaction to a focus loss of its input or trigger: touched, and a commit in onBlur mode.</summary>
+    public Action? ControlBlurred { get; set; }
+
     /// <summary>Gets the id of the form that owns the hidden input.</summary>
     public abstract string? Form { get; }
 
@@ -307,7 +310,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     public override bool InputControlled => inputValueState.IsControlled;
 
     /// <inheritdoc />
-    public override string? Name => inputs.Name;
+    public override string? Name => NameResolver is { } resolve ? resolve(inputs.Name) : inputs.Name;
+
+    /// <summary>Gets or sets the resolution of the submitted name from the root's own: the field's name wins.</summary>
+    public Func<string?, string?>? NameResolver { get; set; }
 
     /// <inheritdoc />
     public override string? Form => inputs.Form;
@@ -587,7 +593,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Applies the root's inputs: the flags, the filtered items, the labels and the input's derived label.</summary>
     /// <param name="next">The inputs of the parameter set.</param>
     /// <param name="fieldDisabled">Whether the enclosing field is disabled.</param>
-    public void ApplyInputs(ComboboxRootInputs<TValue> next, bool fieldDisabled)
+    /// <param name="fieldControlId">The enclosing field's control id, the root's id when it has none of its own.</param>
+    public void ApplyInputs(ComboboxRootInputs<TValue> next, bool fieldDisabled, string? fieldControlId = null)
     {
         ArgumentNullException.ThrowIfNull(next);
         bool firstSet = !initialized;
@@ -603,7 +610,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         ComboboxStoreState state = State;
         bool disabled = fieldDisabled || next.Disabled;
         bool hasItems = next.Items is not null || next.ItemGroups is not null;
-        string id = next.Id ?? state.Id;
+        string id = next.Id ?? fieldControlId ?? state.Id;
         state = state with
         {
             Id = id,

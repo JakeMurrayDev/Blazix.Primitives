@@ -37,6 +37,8 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     private InteractionsSessionBehavior? session;
     private ListNavigationBehavior? list;
     private SelectorSubscription<ComboboxStoreState>? committed;
+
+    private ComboboxFieldBehavior<TValue>? fieldBehavior;
     private ComboboxRootInputs<TValue> inputs = new();
     private IFloatingNodeContext? floatingParent;
     private PartIdGenerator? ids;
@@ -84,6 +86,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     public async Task OnAfterRenderAsync()
     {
         rendered = true;
+        fieldBehavior?.AfterRender(inputs.Id, inputs.Name);
         CopySessionInputs();
         Task sync = session!.AfterRenderAsync();
         Task flush = list!.FlushAsync();
@@ -104,6 +107,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
 
         disposed = true;
         committed?.Dispose();
+        fieldBehavior?.Dispose();
         root.Dispose();
         list?.Dispose();
         if (formTwin is not null)
@@ -149,6 +153,9 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             committed.Select(static state => state.SelectedIndex);
             committed.Select(static state => state.FilteredCount);
             committed.Select(static state => state.ElementIds);
+            fieldBehavior = new ComboboxFieldBehavior<TValue>(store, () => Serialized(store));
+            store.NameResolver = fieldBehavior.NameOf;
+            store.ControlBlurred = fieldBehavior.Blur;
         }
 
         store.ReadControlled(parameters, names);
@@ -159,13 +166,14 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     /// <param name="next">The root's inputs.</param>
     /// <param name="parent">The enclosing popup's floating node, or <see langword="null"/>.</param>
     /// <param name="field">The enclosing field, or <see langword="null"/>.</param>
+    /// <param name="form">The enclosing form, or <see langword="null"/>.</param>
     /// <param name="editContext">The enclosing edit context, or <see langword="null"/>.</param>
     /// <param name="rtl">Whether the reading direction is right to left.</param>
     /// <remarks>Call it from the root's <c>OnParametersSet</c>.</remarks>
-    public void ApplyParameters(ComboboxRootInputs<TValue> next, IFloatingNodeContext? parent, FieldRootContext? field, EditContext? editContext, bool rtl)
+    public void ApplyParameters(ComboboxRootInputs<TValue> next, IFloatingNodeContext? parent, FieldRootContext? field, IFormScope? form, EditContext? editContext, bool rtl)
     {
         ArgumentNullException.ThrowIfNull(next);
-        _ = editContext;
+        fieldBehavior!.Apply(field, form, editContext, next);
         inputs = next;
         floatingParent = parent;
         ComboboxStore<TValue> store = root.Store;
@@ -174,7 +182,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         store.OnOpenChangeComplete = next.OnOpenChangeComplete;
         bool wasSelected = store.State.HasSelectedValue;
         int selection = store.State.SelectionRevision;
-        store.ApplyInputs(next, field?.Disabled ?? false);
+        store.ApplyInputs(next, field?.Disabled ?? false, field?.Labelable.ControlId);
         store.ApplyOpenParameters(store.OpenState.IsControlled ? store.OpenState.Value : null, next.DefaultOpen);
         if ((store.ValueState.IsControlled || store.ValuesState.IsControlled) && store.State.SelectionRevision == selection && wasSelected != store.State.HasSelectedValue)
         {

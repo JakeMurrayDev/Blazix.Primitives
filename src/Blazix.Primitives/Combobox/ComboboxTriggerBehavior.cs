@@ -89,6 +89,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             store.SetElementIds(ids => ids.Trigger == own ? ids with { Trigger = null } : ids);
         }
 
+        fieldScope?.RemoveListener(services.RequestRender);
         reference.Dispose();
         button.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
@@ -103,6 +104,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         fieldScope = field;
+        fieldScope?.AddListener(services.RequestRender);
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
         subscription.Select(ComboboxStoreState.Open);
         subscription.Select(ComboboxStoreState.InsidePopup);
@@ -247,9 +249,10 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             return;
         }
 
+        // ComboboxTrigger.tsx:186-201: touched, and a commit in onBlur mode, through the root's field behaviour.
         if (!focused)
         {
-            fieldScope.SetTouched(true);
+            Store.ControlBlurred?.Invoke();
         }
 
         fieldScope.SetFocused(this, focused, Disabled);

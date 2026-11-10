@@ -51,6 +51,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
         }
 
         disposed = true;
+        fieldScope?.RemoveListener(services.RequestRender);
         if (store is not null && id is not null)
         {
             string own = id;
@@ -71,6 +72,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         fieldScope = field;
+        fieldScope?.AddListener(services.RequestRender);
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
         subscription.Select(ComboboxStoreState.Open);
         subscription.Select(ComboboxStoreState.ListEmpty);
