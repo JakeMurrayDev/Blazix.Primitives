@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Components.Web;
 namespace Blazix.Primitives;
 
 // combobox/label/ComboboxLabel.tsx (CMB §3.2, STR-10, ARIA-16, FFI-PTR-01): a div whose id is always {rootId}-label (Base
-// UI drops a consumer `id`), published to the store for the Trigger's aria-labelledby, with the `form` module's label role,
+// UI drops a consumer `id`), published to the store after its render for the Trigger's aria-labelledby (so a prerender has
+// no link, as Base UI's layout effect), with the `form` module's label role,
 // Native = false, ControlId the Trigger's (or the root's while the input is inside the popup). The consumer's mousedown, click
 // and pointerdown handlers run first: inside the decision point `label` on WebAssembly, after the module on Server (the
 // FieldLabel precedent, ADR 01 "C#-origin consumer vetoes"). The development warning while an Input outside the popup is
@@ -38,6 +39,8 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     private FormOptions? sentOptions;
 
     private string? id;
+
+    private string? published;
 
     private string? warnedInputId;
 
@@ -82,9 +85,9 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
 
         disposed = true;
         fieldScope?.RemoveListener(fieldChanged);
-        if (store is not null && id is not null)
+        if (store is not null && published is not null)
         {
-            string own = id;
+            string own = published;
             store.SetElementIds(ids => ids.Label == own ? ids with { Label = null } : ids);
         }
 
@@ -111,15 +114,15 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
         subscription.Select(static state => state.ElementIds.Input);
     }
 
-    /// <summary>Applies the consumer's handlers and publishes the label's id.</summary>
+    /// <summary>Applies the consumer's handlers and derives the label's id.</summary>
     /// <param name="consumerAttributes">The consumer's attributes.</param>
     public void Apply(IReadOnlyDictionary<string, object>? consumerAttributes)
     {
         consumerHandlers.Set(consumerAttributes);
-        Publish();
+        id = Store.State.Id + "-label";
     }
 
-    /// <summary>Publishes the label's id when the root's changed, and adds the part's own handlers for the consumer's declined ones.</summary>
+    /// <summary>Derives the label's id when the root's changed, and adds the part's own handlers for the consumer's declined ones.</summary>
     /// <param name="attributes">The part's attributes.</param>
     /// <param name="onMouseDown">The part's own <c>onmousedown</c> handler.</param>
     /// <param name="onClick">The part's own <c>onclick</c> handler.</param>
@@ -127,7 +130,7 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     public void AddPartAttributes(AttributeList attributes, EventCallback onMouseDown, EventCallback onClick, EventCallback onPointerDown)
     {
         // A root id change renders the label through its subscription, with no parameter set: the id follows here.
-        Publish();
+        id = Store.State.Id + "-label";
         if (consumerHandlers.Has(MouseDownEvent))
         {
             attributes.Set(MouseDownEvent, onMouseDown);
@@ -179,6 +182,10 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
             return;
         }
 
+        // ComboboxLabel.tsx:55-68 registers the id in a layout effect, which a server render never runs: the trigger's
+        // aria-labelledby follows the label's first render, so the prerendered HTML has no link (CMB-ARIA-07).
+        Publish();
+
         // CMB-STR-10 (ComboboxLabel.tsx:40-53): once per input element change, while the input is outside the popup.
         ComboboxStoreState state = Store.State;
         if (state.ElementIds.Input is { } inputId && !state.InputInsidePopup && !string.Equals(inputId, warnedInputId, StringComparison.Ordinal))
@@ -219,14 +226,14 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     private void Publish()
     {
         ComboboxStore root = Store;
-        string next = root.State.Id + "-label";
-        if (string.Equals(next, id, StringComparison.Ordinal) && string.Equals(root.State.ElementIds.Label, next, StringComparison.Ordinal))
+        string? next = id;
+        if (next is null || string.Equals(root.State.ElementIds.Label, next, StringComparison.Ordinal))
         {
             return;
         }
 
-        string? previous = id;
-        id = next;
+        string? previous = published;
+        published = next;
         root.SetElementIds(ids => ids.Label is null || ids.Label == previous ? ids with { Label = next } : ids);
     }
 
