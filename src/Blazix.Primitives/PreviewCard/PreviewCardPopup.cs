@@ -66,6 +66,7 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
     private static readonly StateAttributesMapping<PreviewCardPopupState> s_mapping = PopupStateMapping.CreateOpen<PreviewCardPopupState>();
 
     private readonly Action mirrorChanged;
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private PreviewCardStoreView? view;
     private PreviewCardPositionerContext? positioner;
     private PreviewCardPortalContext? portalContext;
@@ -189,6 +190,9 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, view!.TransitionStatus);
+
         // PRV-DOM-12 (FOCUSABLE_POPUP_PROPS, popupStoreUtils.ts:27-30).
         attributes.Set("tabindex", "-1");
         attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
@@ -304,6 +308,7 @@ public sealed class PreviewCardPopup : PartBase<PreviewCardPopupState>
 
         TransitionsOptions options = TransitionsOptions(current);
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
     }

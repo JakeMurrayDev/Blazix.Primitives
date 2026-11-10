@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, test, waitForPositioned, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -111,6 +111,9 @@ for (const variant of trio) {
     const trigger = (page: Page) => page.locator('[data-testid="trigger"]');
     const popup = (page: Page) => page.locator('[data-testid="popup"]');
     const positioner = (page: Page) => page.locator('[data-testid="positioner"]');
+    // Opened without a trigger, the card has an anchor except with two detached triggers and no trigger id, where it stays
+    // unpositioned (FLT-STA-09) and so never moves.
+    const anchoredWithoutTrigger = variant.case !== 'multiple';
 
     test.describe('uncontrolled open', () => {
       test('should open when the trigger is hovered', async ({ page, mode }) => {
@@ -190,6 +193,9 @@ for (const variant of trio) {
         await pressControl(fixture.locator('[data-set-open="true"]'));
         await expect(popup(page)).toHaveText('Content');
         await freezeClock(page);
+        if (anchoredWithoutTrigger) {
+          await waitForPositioned(positioner(page), { clockFrozen: true });
+        }
 
         await moveOnto(page, positioner(page));
         await page.mouse.move(5, 700);
@@ -208,6 +214,7 @@ for (const variant of trio) {
 
         // From the trigger into the card below it, then out of the card.
         await page.clock.runFor(32);
+        await waitForPositioned(positioner(page), { clockFrozen: true });
         await moveOnto(page, positioner(page));
         await moveAway(page);
         await page.clock.runFor(CLOSE_DELAY);
@@ -252,6 +259,9 @@ for (const variant of trio) {
         const fixture = await open(page, mode, { defaultOpen: true });
         await expect(popup(page)).toHaveText('Content');
         await freezeClock(page);
+        if (anchoredWithoutTrigger) {
+          await waitForPositioned(positioner(page), { clockFrozen: true });
+        }
 
         await moveOnto(page, positioner(page));
         await moveAway(page);
@@ -419,6 +429,7 @@ test.describe('nested preview card interactions', () => {
 
       // From the child trigger into the child card, which lies to its right.
       await page.clock.runFor(32);
+      await waitForPositioned(byTestId(page, 'child-positioner'), { clockFrozen: true });
       await moveOnto(page, byTestId(page, 'child-positioner'));
       await page.clock.runFor(CLOSE_DELAY);
       await settle(fixture);
@@ -438,12 +449,14 @@ test.describe('nested preview card interactions', () => {
       await expect(byTestId(page, 'parent-popup')).toBeVisible();
 
       await page.clock.runFor(32);
+      await waitForPositioned(byTestId(page, 'parent-positioner'), { clockFrozen: true });
       await moveOnto(page, byTestId(page, 'parent-positioner'));
       await byTestId(page, 'child-trigger').hover();
       await page.clock.runFor(OPEN_DELAY);
       await expect(byTestId(page, 'child-popup')).toBeVisible();
 
       await page.clock.runFor(32);
+      await waitForPositioned(byTestId(page, 'child-positioner'), { clockFrozen: true });
       await moveOnto(page, byTestId(page, 'child-positioner'));
       await moveAway(page);
       await page.clock.runFor(CLOSE_DELAY + 10);

@@ -97,3 +97,14 @@ Blazor re-renders a child component whenever any parameter is not a known-immuta
 | hover-and-flip cycle (see below) | 996–1026 | 378–418 |
 
 A hover-and-flip cycle (a hover open and close, two request reports and two session updates, plus one positioning mirror report per flip) costs 996–1026 µs over the twin base against 378–418 µs native: about 0.6 ms of main thread per cycle, and about 0.13 ms per Escape or press `Decide`. No material cost at M4's traffic (settled by the orchestrator 2026-10-27 under the user's plan decision 16): the twins keep the `IJSObjectReference`/`DotNetObjectReference` transport, the issue closes with this finding, and `[JSImport]` is adopted only by an ADR 01/04 amendment if the M5 list-part measurement shows interop dominating (§B as reworded).
+
+**2026-11-10, a budget's envelope covers the per-process variation of dynamic PGO; NavigationMenu's re-render budget is re-pinned to 11,992 bytes (issue-112 rule; chosen by the user 2026-11-10, "Do recommended for decisions"; found when CI run 42769822221 of PR 201, a JS-only change, failed it).** CI measured 11,992 B against a budget of 11,960 (the floor of 11,848 plus Amendments 2026-10-27's 112-byte envelope). The figure varies per process, not per run or per code change. Each process gives five equal samples; on a Release host (macOS arm64), across processes:
+
+| Configuration | Measured (B) | Processes |
+|---|---|---|
+| default, the title alone | 11,848, or 11,960 | 9 and 1 of 10 |
+| `DOTNET_TieredPGO=0` | 11,848 | 8 of 8 |
+| `DOTNET_TieredCompilation=0` | 11,584 | 8 of 8 |
+| inside three full L2 runs | 11,848 | 3 of 3 |
+
+The variation is dynamic PGO's per-process decisions, not tests that ran earlier. On CI, 35 of the last 40 `build-and-test` jobs passed every budget. Two exceeded a budget by the same 32 B on 2026-11-10, 144 B over their floors: this one, and Combobox's in run 42769069830 (3,056 against 3,024). Rule 7 is loosened for this budget only: its envelope is CI's observed +144, so the budget is 11,992. Other budgets pinned at floor + 112 can fail the same way; widening them to +144, or running the budget collection with dynamic PGO off, is left to each budget's owner and the orchestrator.

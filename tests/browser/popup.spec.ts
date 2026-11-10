@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
-import { gotoPopupFixture, settle } from './suites/popupFixture';
+import { gotoPopupFixture, recordTransitionStates, settle } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 
 // The [L4] rows of docs/architecture/popup-store-and-handles.md (PSH) and transitions-and-mounting.md (TRN) on the
@@ -154,6 +154,35 @@ test.describe('a portal moved into a closed shadow root', () => {
     await expect.poll(insideShadowRoot).toBe(false);
     await expect(fixture).toHaveAttribute('data-open-changes', 'true:trigger-press false:escape-key');
     await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+  });
+});
+
+// D11 (TRN-STA-03; ADR 04 Amendments 2026-10-21, the handover for a newly rendered element) on the test-only popup host:
+// a popup that is not kept mounted is a new element at each opening, whose `transitions` handle attaches only after the
+// portal's move, so its first render must already carry data-starting-style (Base UI's "starts each opening once" with
+// keepMounted off; Popover's spec has the family's title).
+test.describe('a popup that is not kept mounted', () => {
+  test('port: starts each opening once, with data-starting-style from the first render', async ({ page, mode }) => {
+    const recorder = await recordTransitionStates(page, 'popup');
+    const fixture = await gotoPopupFixture(page, mode, 'popup-conformance', { animated: true, animations: 1 });
+    const trigger = page.getByTestId('trigger');
+    const popup = page.getByTestId('popup');
+
+    for (const completes of ['true', 'true false true']) {
+      await recorder.clear();
+      await trigger.click();
+      await expect(fixture).toHaveAttribute('data-open-change-completes', completes);
+      expect((await recorder.states()).filter((state) => state.open)).toEqual([
+        { open: true, transitionStatus: 'starting' },
+        { open: true },
+      ]);
+
+      if (completes === 'true') {
+        await page.keyboard.press('Escape');
+        await expect(fixture).toHaveAttribute('data-open-change-completes', 'true false');
+        await expect(popup).toHaveCount(0);
+      }
+    }
   });
 });
 
