@@ -2280,6 +2280,8 @@ interface ListState {
   handles: Set<ListHandle>;
   /** The revision of the last C# highlight request applied. */
   appliedRevision: number;
+  /** A navigation key pressed on an open reference before the list attached, the newest only; `null` otherwise. */
+  pendingKey: { readonly handle: ListHandle; readonly event: KeyboardEvent } | null;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
   reportedIndex: number | null | undefined;
   /** The item element of the highlight last reported, as an index can come to point at another element. */
@@ -2756,12 +2758,16 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     references: new Set(),
     handles: new Set(),
     appliedRevision: 0,
+    pendingKey: null,
     reportedIndex: null,
     reportedElement: null,
     descendantTargets: new Set(),
     typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
     // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
     onOpenChange: (details) => {
+      if (!details.open) {
+        state.pendingKey = null;
+      }
       const handle = currentHandle(state);
       if (!handle) {
         return;
@@ -3165,6 +3171,16 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
   const isMainKey = isMainOrientationKey(event.key, currentOpen ? orientation : triggerOrientation);
   const isNavigationKey = (list.nested ? isParentCrossOpenKey : isMainKey) || event.key === 'Enter' || event.key.trim() === '';
 
+  // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a); ADR 01's "a popup element the opening render creates"
+  // row): on Server the floating list attaches a round trip after the open, where Base UI's list mounts in the open's commit.
+  // A navigation key pressed on the open reference meanwhile is kept, the newest only, and replayed once the list attaches
+  // while the same open lasts; a close drops it. The key stops here as its navigation would.
+  if (currentOpen && state.floating === null && isKeptNavigationKey(event)) {
+    stopEvent(event);
+    state.pendingKey = { handle, event };
+    return;
+  }
+
   if (list.virtual && currentOpen && (!list.nested || isTypeableElement(currentTarget))) {
     commonKeyDown(state, handle, dispatch, currentTarget);
     return;
@@ -3220,6 +3236,24 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
       navigateTo(state, handle, event);
     }
   }
+}
+
+// The keys a list navigates with, unmodified: the arrows, Home and End.
+function isKeptNavigationKey(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    return false;
+  }
+  return event.key === ARROW_UP || event.key === ARROW_DOWN || event.key === ARROW_LEFT || event.key === ARROW_RIGHT || event.key === HOME || event.key === END;
+}
+
+// The kept key's replay once the list attached, through its reference's keydown, while the same open lasts.
+function replayPendingKey(state: ListState, session: InteractionSession): void {
+  const pending = state.pendingKey;
+  state.pendingKey = null;
+  if (pending === null || state.floating === null || !state.handles.has(pending.handle) || !isOpen(state, session)) {
+    return;
+  }
+  triggerKeyDown(state, pending.handle, { event: pending.event, vetoed: null, stopped: false });
 }
 
 // The floating element's keydown (useListNavigation.ts:769-797): Shift+Tab's `leave`, then the common handling.
@@ -3654,6 +3688,7 @@ function attachList(
   applyHighlightRequest(state, handle);
   if (registry) {
     syncOpenAndMount(state, handle);
+    replayPendingKey(state, session);
   } else {
     session.dataRef.current.orientation = orientationOf(handle.list());
     writeHighlight(state, handle);
