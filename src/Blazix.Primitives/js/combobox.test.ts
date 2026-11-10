@@ -403,3 +403,28 @@ describe('the input group and the chips', () => {
     expect([event.defaultPrevented, document.activeElement, fake.reported('OnInputPress').length]).toEqual([true, input, 1]);
   });
 });
+
+describe('the clear and chip remove buttons', () => {
+  function setupButton(part: 'clear' | 'chip-remove', overrides: Partial<ComboboxOptions> = {}): { button: HTMLButtonElement; input: HTMLInputElement } {
+    const button = document.createElement('button');
+    const input = document.createElement('input');
+    input.id = 'the-input';
+    document.body.append(input, button);
+    handles.push(attach(button, options({ part, inputId: 'the-input', ...overrides }), createFakeTwin().twin));
+    return { button, input };
+  }
+
+  it('port: a click on the clear or a chip remove button moves the focus to the input, unless disabled or read-only', () => {
+    const results: boolean[] = [];
+    for (const part of ['clear', 'chip-remove'] as const) {
+      for (const overrides of [{}, { disabled: true }, { readOnly: true }]) {
+        const { button, input } = setupButton(part, overrides);
+        button.focus();
+        button.click();
+        results.push(document.activeElement === input);
+        document.body.replaceChildren();
+      }
+    }
+    expect(results).toEqual([true, false, false, true, false, false]);
+  });
+});
