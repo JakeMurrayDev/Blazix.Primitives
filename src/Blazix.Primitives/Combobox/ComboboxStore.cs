@@ -67,6 +67,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets or sets the root's hidden validation input, whose form an item press of a root that submits on item click submits first.</summary>
     public ElementReference? HiddenInput { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the list sits inside another popup, such as a Dialog's, that hides it on close.</summary>
+    public bool ListInsideOtherPopup { get; set; }
     /// <summary>Gets the id of the form that owns the hidden input.</summary>
     public abstract string? Form { get; }
 
@@ -1489,6 +1492,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         if (handlingInputChange)
         {
             highlightDeferred = true;
+            return;
+        }
+
+        // AriaCombobox.tsx:1088-1093: a kept-mounted dialog hides its inline list on close, so a pending query-clear restore is
+        // discarded before it can overwrite the cleared highlight or report an item of the unfiltered list.
+        if (!IsOpen && State.Inline && ListInsideOtherPopup)
+        {
+            pendingHighlight = null;
             return;
         }
 

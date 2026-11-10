@@ -53,6 +53,11 @@ public sealed class ComboboxList<TValue> : PartBase<ComboboxListState>
     [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
 
+    // Base UI resolves an inline list's popup as its closest `[role="dialog"]` (AriaCombobox.tsx:994-1002); the port's stand-in
+    // is the nearest floating node: another popup's store, such as a Dialog's, cascaded between the root and the list.
+    [CascadingParameter]
+    private IFloatingNodeContext? FloatingNode { get; set; }
+
     /// <summary>Gets or sets the template of an item, rendered once per filtered item with its value and index.</summary>
     [Parameter]
     public RenderFragment<ComboboxListItem<TValue>>? ItemContent { get; set; }
@@ -103,6 +108,11 @@ public sealed class ComboboxList<TValue> : PartBase<ComboboxListState>
     {
         string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
         behavior!.Apply(consumerId, AdditionalAttributes);
+        if (Root is not null)
+        {
+            Root.ListInsideOtherPopup = FloatingNode is not null && !ReferenceEquals(FloatingNode, Root);
+        }
+
         ChildContent = behavior.Cascade(ItemContent is not null || GroupContent is not null ? template : ChildContent);
     }
 
