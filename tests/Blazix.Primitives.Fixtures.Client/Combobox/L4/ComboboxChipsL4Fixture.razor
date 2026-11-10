@@ -1,0 +1,274 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-chips` fixture (M5 track 10, issue 174): ComboboxChip.test.tsx, ComboboxChipRemove.test.tsx, ComboboxChips.test.tsx and parts.test.ts, ported at L4.
+    The page is one multiple Combobox whose rendering the query sets (Base UI's tests each render a small variation of it):
+    - `values` (`,`-separated; absent for apple,banana; empty for none): the root's default values, and one literal Chip per value (as the tests write them),
+      or the chips of the selected values (`fromValue`, inside a ComboboxValue), `slice` of them at most;
+    - `input`: `outside` (absent; before the Chips), `inside` (in the Chips, after the chips), `popup` (in the popup), `conditional` (in the Chips while open), `none`;
+    - `popup` (a Portal > Positioner > Popup with a List of `items`, `|`-separated, a,b when absent; `optionSuffix` appends " option" to each item's text),
+      `trigger` (a Trigger "Open"), `remove` (a ChipRemove in each chip), `nonNative` (a div ChipRemove);
+    - `disabled`, `readOnly`, `defaultOpen`, `controlled` (the root's `open` is held by the page), `rtl`, `field` (a disabled Field.Root around the root);
+    - `clicks` (the Chip's and the ChipRemove's `onclick` and the Chip's `onkeydown` are recorded), `allowPropagation` (the value change allows propagation),
+      `chipsMouseDown`, `chipMouseDown`, `chipContextMenu` (a consumer handler that is recorded and calls `PreventPartHandler()`).
+    Records: `data-value-changes`, `data-open-changes`, `data-chips-mousedowns`, `data-chip-mousedowns`, `data-chip-contextmenus`, `data-chip-clicks`, `data-remove-clicks`, `data-chip-keydowns`.
+*@
+<FixtureContainer Name="combobox-chips" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    <style>[data-testid="chips"] { display: flex; gap: 8px; padding: 12px; border: 1px solid; min-height: 40px; }</style>
+    @if (QueryFlag("field") == true)
+    {
+        <FieldRoot Disabled="true">@Framed</FieldRoot>
+    }
+    else
+    {
+        @Framed
+    }
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, object?> rootParameters = [];
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private string[] values = [];
+    private string[] items = ["a", "b"];
+    private string inputKind = "outside";
+    private bool popup;
+    private bool optionSuffix;
+    private bool trigger;
+    private bool controlled;
+    private bool open;
+    private bool fromValue;
+    private int slice = int.MaxValue;
+
+    internal bool Remove { get; private set; }
+
+    internal bool NonNative { get; private set; }
+
+    internal bool Clicks { get; private set; }
+
+    internal bool ChipMouseDown { get; private set; }
+
+    internal bool ChipContextMenu { get; private set; }
+
+    internal bool ChipsMouseDown { get; private set; }
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        values = Query("values") is { } list ? (list.Length == 0 ? [] : list.Split(',')) : ["apple", "banana"];
+        if (Query("items") is { } itemList)
+        {
+            items = itemList.Length == 0 ? [] : itemList.Split('|');
+        }
+
+        inputKind = Query("input") ?? "outside";
+        popup = QueryFlag("popup") == true;
+        optionSuffix = QueryFlag("optionSuffix") == true;
+        trigger = QueryFlag("trigger") == true;
+        controlled = QueryFlag("controlled") == true;
+        open = QueryFlag("defaultOpen") == true;
+        fromValue = QueryFlag("fromValue") == true;
+        if (Query("slice") is { } sliceText)
+        {
+            slice = int.Parse(sliceText, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        Remove = QueryFlag("remove") == true;
+        NonNative = QueryFlag("nonNative") == true;
+        Clicks = QueryFlag("clicks") == true;
+        ChipMouseDown = QueryFlag("chipMouseDown") == true;
+        ChipContextMenu = QueryFlag("chipContextMenu") == true;
+        ChipsMouseDown = QueryFlag("chipsMouseDown") == true;
+
+        rootParameters["Multiple"] = true;
+        rootParameters["DefaultValues"] = (IReadOnlyList<string>)values;
+        if (popup)
+        {
+            rootParameters["Items"] = (IReadOnlyList<string>)items;
+        }
+
+        rootParameters["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, OnOpenChange);
+        rootParameters["OnValuesChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, OnValuesChange);
+        if (controlled)
+        {
+            rootParameters["Open"] = open;
+        }
+        else if (open)
+        {
+            rootParameters["DefaultOpen"] = true;
+        }
+
+        if (QueryFlag("disabled") == true)
+        {
+            rootParameters["Disabled"] = true;
+        }
+
+        if (QueryFlag("readOnly") == true)
+        {
+            rootParameters["ReadOnly"] = true;
+        }
+    }
+
+    internal IDictionary<string, object> ChipsAttributes()
+    {
+        Dictionary<string, object> attributes = new() { ["data-testid"] = "chips" };
+        if (ChipsMouseDown)
+        {
+            attributes["onmousedown"] = EventCallback.Factory.Create<MouseEventArgs>(this, e =>
+            {
+                Record("chips-mousedowns", "x");
+                e.PreventPartHandler();
+            });
+        }
+
+        return attributes;
+    }
+
+    internal IDictionary<string, object> ChipAttributes(string value)
+    {
+        Dictionary<string, object> attributes = new() { ["data-testid"] = "chip-" + value };
+        if (ChipMouseDown)
+        {
+            attributes["onmousedown"] = EventCallback.Factory.Create<MouseEventArgs>(this, e =>
+            {
+                Record("chip-mousedowns", "x");
+                e.PreventPartHandler();
+            });
+        }
+
+        if (ChipContextMenu)
+        {
+            attributes["oncontextmenu"] = EventCallback.Factory.Create<MouseEventArgs>(this, e =>
+            {
+                Record("chip-contextmenus", "x");
+                e.PreventPartHandler();
+            });
+        }
+
+        if (Clicks)
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => Record("chip-clicks", "x"));
+            attributes["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, e => Record("chip-keydowns", e.Key == " " ? "Space" : e.Key));
+        }
+
+        return attributes;
+    }
+
+    internal IDictionary<string, object> RemoveAttributes(string value)
+    {
+        Dictionary<string, object> attributes = new() { ["data-testid"] = "remove-" + value };
+        if (Clicks)
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => Record("remove-clicks", "x"));
+        }
+
+        return attributes;
+    }
+
+    private void OnOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        if (controlled)
+        {
+            open = args.Value;
+            rootParameters["Open"] = open;
+        }
+
+        RecordOpenChange(args);
+    }
+
+    private void OnValuesChange(ValueChangeEventArgs<IReadOnlyList<string>> args)
+    {
+        RecordValuesChange(args);
+        if (QueryFlag("allowPropagation") == true)
+        {
+            args.Details.AllowPropagation();
+        }
+    }
+
+    private RenderFragment InputFragment => builder =>
+    {
+        builder.OpenComponent<ComboboxInput>(0);
+        builder.AddAttribute(1, "data-testid", "input");
+        builder.AddComponentReferenceCapture(2, reference => input = (ComboboxInput)reference);
+        builder.CloseComponent();
+    };
+
+    private RenderFragment Framed => builder =>
+    {
+        if (QueryFlag("rtl") == true)
+        {
+            builder.OpenComponent<DirectionProvider>(0);
+            builder.AddComponentParameter(1, nameof(DirectionProvider.Direction), TextDirection.Rtl);
+            builder.AddComponentParameter(2, nameof(DirectionProvider.ChildContent), Body);
+            builder.CloseComponent();
+        }
+        else
+        {
+            builder.AddContent(3, Body);
+        }
+    };
+
+    private RenderFragment Body => @<ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+        @if (inputKind == "outside")
+        {
+            @InputFragment
+        }
+        <ComboboxChips @attributes="ChipsAttributes()">
+            @if (fromValue)
+            {
+                <ComboboxValue TValue="string">
+                    <ValuesContent Context="selected">
+                        @foreach (string value in selected.Take(slice))
+                        {
+                            <ComboboxChipsEntry @key="value" Fixture="this" Value="@value" />
+                        }
+                        @if (inputKind == "inside")
+                        {
+                            @InputFragment
+                        }
+                    </ValuesContent>
+                </ComboboxValue>
+            }
+            else
+            {
+                @foreach (string value in values)
+                {
+                    <ComboboxChipsEntry @key="value" Fixture="this" Value="@value" />
+                }
+                @if (inputKind == "inside" || (inputKind == "conditional" && open))
+                {
+                    @InputFragment
+                }
+            }
+        </ComboboxChips>
+        @if (trigger)
+        {
+            <ComboboxTrigger>Open</ComboboxTrigger>
+        }
+        @if (popup)
+        {
+            <ComboboxPortal>
+                <ComboboxPositioner style="position: relative; z-index: 1">
+                    <ComboboxPopup data-testid="popup">
+                        @if (inputKind == "popup")
+                        {
+                            @InputFragment
+                        }
+                        <ComboboxList TValue="string" data-testid="list">
+                            <ItemContent>
+                                <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value@(optionSuffix ? " option" : "")</ComboboxItem>
+                            </ItemContent>
+                        </ComboboxList>
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        }
+    </ComboboxRoot>;
+}

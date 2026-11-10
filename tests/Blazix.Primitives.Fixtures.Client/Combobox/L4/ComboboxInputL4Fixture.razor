@@ -1,0 +1,280 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-input` fixture (M5 track 10, issue 174): ComboboxInput.test.tsx, ComboboxInput.android/gecko, ComboboxInputGroup.test.tsx, handleInputPress.test.ts, ported at L4. The query's `case`
+    picks the Base UI test's rendering (see OnInitialized and `layout`). Recorded callbacks render through `Records` (ComboboxL4FixtureBase):
+    `value-changes`, `input-changes`, `open-changes`.
+*@
+<FixtureContainer Name="combobox-input" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    @if (outsideButton)
+    {
+        <button type="button" data-testid="outside">outside</button>
+    }
+    <div data-testid="outer">
+        @if (layout == "gecko")
+        {
+            <DirectionProvider Direction="TextDirection.Rtl">
+                <ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                </ComboboxRoot>
+            </DirectionProvider>
+        }
+        else
+        {
+            <ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+                @switch (layout)
+                {
+                    case "bare":
+                        <ComboboxInput @ref="input" data-testid="input" style="@inputStyle" />
+                        break;
+                    case "number":
+                        <ComboboxChips>
+                            <ComboboxChip data-testid="chip">apple</ComboboxChip>
+                            <ComboboxInput @ref="input" data-testid="input" type="number" />
+                        </ComboboxChips>
+                        break;
+                    case "no-chips":
+                        <ComboboxChips>
+                            <ComboboxInput @ref="input" data-testid="input" />
+                        </ComboboxChips>
+                        break;
+                    case "chips":
+                        <ComboboxChips>
+                            <ComboboxChip data-testid="chip-apple">apple</ComboboxChip>
+                            <ComboboxChip data-testid="chip-banana">banana</ComboboxChip>
+                            <ComboboxChip data-testid="chip-cherry">cherry</ComboboxChip>
+                            <ComboboxInput @ref="input" data-testid="input" />
+                        </ComboboxChips>
+                        break;
+                    case "value-slice":
+                    case "value-all":
+                    case "value-count":
+                        <ComboboxChips>
+                            <ComboboxValue TValue="string">
+                                <ValuesContent Context="values">
+                                    @if (layout == "value-count")
+                                    {
+                                        <span>@($"+{values.Count} selected")</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (string item in layout == "value-slice" ? values.Take(2) : values)
+                                        {
+                                            <ComboboxChip @key="item" data-testid="@item">@item</ComboboxChip>
+                                        }
+                                    }
+                                    <ComboboxInput @ref="input" data-testid="input" />
+                                </ValuesContent>
+                            </ComboboxValue>
+                        </ComboboxChips>
+                        break;
+                    case "group":
+                        <ComboboxInputGroup data-testid="group" style="padding: 10px">
+                            <span data-testid="pad">padding</span>
+                            <ComboboxInput @ref="input" data-testid="input" />
+                            <ComboboxTrigger>Open</ComboboxTrigger>
+                        </ComboboxInputGroup>
+                        @PopupParts
+                        break;
+                    case "group-chips":
+                        <ComboboxInputGroup data-testid="group" style="padding: 10px">
+                            <ComboboxChips>
+                                <ComboboxChip data-testid="chip">a</ComboboxChip>
+                                <ComboboxInput @ref="input" data-testid="input" />
+                            </ComboboxChips>
+                        </ComboboxInputGroup>
+                        @PopupParts
+                        break;
+                    default:
+                        <ComboboxInput @ref="input" data-testid="input" />
+                        @if (layout == "clear")
+                        {
+                            <ComboboxClear data-testid="clear" />
+                        }
+                        @PopupParts
+                        break;
+                }
+            </ComboboxRoot>
+        }
+    </div>
+    @if (afterButton)
+    {
+        <button type="button" data-testid="button">button</button>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, object?> rootParameters = [];
+    private string layout = "popup";
+    private string? inputStyle;
+    private bool outsideButton;
+    private bool afterButton;
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+
+    private RenderFragment PopupParts => @<ComboboxPortal>
+        <ComboboxPositioner style="position: relative; z-index: 1">
+            <ComboboxPopup data-testid="popup">
+                <ComboboxList TValue="string" data-testid="list">
+                    <ItemContent>
+                        <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+                    </ItemContent>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        rootParameters["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpenChange);
+        rootParameters["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordInputChange);
+        string[] chips = ["apple", "banana", "cherry"];
+        switch (Case)
+        {
+            case "readonly-type":
+                Single(["a", "b"]);
+                rootParameters["ReadOnly"] = true;
+                break;
+            case "readonly-false":
+                Single(["a"]);
+                rootParameters["ReadOnly"] = false;
+                break;
+            case "open-reason":
+            case "type-open":
+                Single(["apple", "banana"]);
+                break;
+            case "tab":
+                Single(["apple", "banana"]);
+                afterButton = true;
+                break;
+            case "clear-single":
+                Single(["apple", "banana"]);
+                rootParameters["DefaultValue"] = "apple";
+                break;
+            case "escape-clear":
+                Single(["apple", "banana"]);
+                rootParameters["DefaultValue"] = "apple";
+                layout = "clear";
+                break;
+            case "plain":
+            case "android":
+                layout = "bare";
+                break;
+            case "plain-overflow":
+                layout = "bare";
+                inputStyle = "width: 64px; font-size: 20px";
+                break;
+            case "gecko":
+                layout = "gecko";
+                rootParameters["DefaultInputValue"] = "apple";
+                break;
+            case "chips-focus":
+                Multiple(chips);
+                layout = "chips";
+                break;
+            case "chips-click-back":
+                Multiple(chips);
+                rootParameters["OpenOnInputClick"] = false;
+                layout = "chips";
+                break;
+            case "chips-tab-back":
+                Multiple(chips);
+                layout = "chips";
+                outsideButton = true;
+                break;
+            case "no-chips":
+                Multiple(["apple"]);
+                layout = "no-chips";
+                break;
+            case "number":
+                Multiple(["apple"]);
+                layout = "number";
+                break;
+            case "default-open":
+                Single(["apple"]);
+                rootParameters["DefaultOpen"] = true;
+                break;
+            case "escape-multiple":
+                Multiple(["apple"]);
+                layout = "bare";
+                break;
+            case "escape-multiple-empty":
+                Multiple([]);
+                layout = "bare";
+                break;
+            case "escape-inline":
+                rootParameters["Inline"] = true;
+                rootParameters["DefaultValue"] = "apple";
+                layout = "bare";
+                break;
+            case "composition-closed":
+            case "composition-open":
+                Single(["apple"]);
+                rootParameters["DefaultOpen"] = true;
+                rootParameters["DefaultInputValue"] = "x";
+                rootParameters["Filter"] = null;
+                if (Case == "composition-closed")
+                {
+                    rootParameters["OpenOnInputClick"] = false;
+                }
+
+                break;
+            case "value-slice":
+                Multiple(chips);
+                layout = "value-slice";
+                break;
+            case "value-closed":
+                Multiple(chips);
+                rootParameters["Open"] = false;
+                layout = "value-all";
+                break;
+            case "value-count":
+                Multiple(["apple", "banana"]);
+                layout = "value-count";
+                break;
+            case "group":
+            case "group-press":
+                Single(["a", "b"]);
+                layout = "group";
+                if (Case == "group-press")
+                {
+                    rootParameters["OpenOnInputClick"] = false;
+                }
+
+                break;
+            case "group-chips":
+            case "group-no-open":
+                Multiple(["a"], ["a", "b"]);
+                layout = "group-chips";
+                if (Case == "group-no-open")
+                {
+                    rootParameters["OpenOnInputClick"] = false;
+                }
+
+                break;
+            default:
+                throw new InvalidOperationException($"Unknown case `{Case}`.");
+        }
+    }
+
+    private void Single(string[] items)
+    {
+        rootParameters["Items"] = (IReadOnlyList<string>)items;
+        rootParameters["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange);
+    }
+
+    private void Multiple(string[] values, string[]? items = null)
+    {
+        rootParameters["Multiple"] = true;
+        rootParameters["Items"] = (IReadOnlyList<string>)(items ?? values);
+        rootParameters["DefaultValues"] = (IReadOnlyList<string>)values;
+        rootParameters["OnValuesChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, RecordValuesChange);
+    }
+}
