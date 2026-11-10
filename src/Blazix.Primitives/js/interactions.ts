@@ -4004,7 +4004,7 @@ interface MenuItemHoverEvent {
 
 // The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04): Base UI's
 // `allowMouseUpTriggerRef`, shared by every menu of a tree (MenuStore.ts:173-181), and ContextMenu's rules and
-// `initialCursorPointRef`, in the forest root session's `dataRef.current`, so a menu inside a context menu reads its rules.
+// `initialCursorPointRef`, in the `dataRef.current` of the menu tree's outermost menu session (`menuTreeRoot` below).
 const MENU_RELEASE_KEY = 'blazix.interactions.menuRelease';
 
 interface MenuReleaseSlot {

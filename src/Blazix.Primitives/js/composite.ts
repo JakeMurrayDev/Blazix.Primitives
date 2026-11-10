@@ -1207,9 +1207,10 @@ export interface CompositeListOptions {
   parentOrientation?: Orientation | undefined;
   /** Whether an item is highlighted on open; absent for `'auto'` (a keyboard open only). */
   focusItemOnOpen?: boolean | undefined;
+  // SEL-STA-07.
   /**
-   * Whether the highlight survives the close's reset, as Base UI's Select ignores that `onNavigate()` while closed
-   * (SEL-STA-07); absent for `false`.
+   * Whether the highlight survives the close's reset, as Base UI's Select ignores that `onNavigate()` while closed;
+   * absent for `false`.
    */
   retainHighlightWhileClosing?: boolean | undefined;
   /** Whether a step past either end clears the highlight under virtual focus; absent for `false`. */
@@ -2268,7 +2269,8 @@ interface ListState {
   cancelQueuedFocus: (() => void) | null;
   readonly focusFrame: FrameSlot;
   readonly waitFrame: FrameSlot;
-  /** Stops the wait for a hidden list to show (CMP-ALG-24's dated note); `null` while none runs. */
+  // CMP-ALG-24's dated note.
+  /** Stops the wait for a hidden list to show; `null` while none runs. */
   stopWaitForShow: (() => void) | null;
   floating: ListFloating | null;
   references: Set<ListReference>;

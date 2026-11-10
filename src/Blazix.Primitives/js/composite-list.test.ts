@@ -185,6 +185,9 @@ describe('useListNavigation', () => {
     expect(document.activeElement).toBe(second.item(1));
   });
 
+  // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
+  // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
+  // to and the element focus came from, in the session's data slot; the close clears it.
   it('port: the open focus marks the item it moved focus to and the element focus came from, until the close', async () => {
     const harness = app();
     const slot = () => getSession(harness.popup.token)?.dataRef.current['blazix.composite.openFocus'];
