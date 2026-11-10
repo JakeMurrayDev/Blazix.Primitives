@@ -307,7 +307,9 @@ describe('select module: the scroll arrows geometry (port titles)', () => {
 });
 
 describe('select module: aligned placement (port titles)', () => {
-  it('fixes the positioner and resets the anchored coordinates and transform while aligned, and gives them back after (SEL-POS-07)', () => {
+  // DP1 (a) of M5 track 9 (settled by the orchestrator 2026-11-04): the `positioning` layer stands down to
+  // `position: fixed` (positioning.test.ts); the aligned band holds only the placement the steps compute.
+  it('writes only the placement in the aligned band, over the anchored layer, and clears it after (SEL-POS-07)', () => {
     Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
     Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
     const trigger = document.createElement('button');
@@ -318,28 +320,25 @@ describe('select module: aligned placement (port titles)', () => {
     document.body.append(trigger, positioner);
     trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
     positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
-    // The `positioning` layer's anchored styles, under the consumer's.
+    // The `positioning` layer as it stands while told aligned.
     const anchored = styleWriter(positioner).layer('positioning');
-    anchored.set('position', 'absolute');
-    anchored.set('top', '0px');
-    anchored.set('left', '0px');
-    anchored.set('transform', 'translate(110px, 240px)');
+    anchored.set('position', 'fixed');
 
     const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
     const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
     handles.push(handle);
 
-    expect(positioner.style.position).toBe('fixed');
-    expect(positioner.style.transform).toBe('none');
     // A list that does not scroll is top-positioned: the remaining viewport below the trigger's top sets its top.
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.transform).toBe('');
     expect(positioner.style.left).toBe('100px');
     expect(positioner.style.top).toBe('190px');
     expect(positioner.style.bottom).toBe('auto');
 
     handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
-    expect(positioner.style.position).toBe('absolute');
-    expect(positioner.style.transform).toBe('translate(110px, 240px)');
-    expect(positioner.style.top).toBe('0px');
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.left).toBe('');
+    expect(positioner.style.top).toBe('');
     expect(positioner.style.bottom).toBe('');
   });
 });
