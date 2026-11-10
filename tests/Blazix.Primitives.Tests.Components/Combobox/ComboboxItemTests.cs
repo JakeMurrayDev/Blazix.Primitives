@@ -75,6 +75,33 @@ public sealed class ComboboxItemTests : IDisposable
         Assert.Equal(["banana", "apple", "cherry"], cut.Instance.Highlighted);
     }
 
+    // ADR 08 Amendments 2026-11-03 (2): an omitted Value is told by whether it was supplied, and stands for Base UI's
+    // `null` (ComboboxItem.tsx:44), which compareItemEquality matches only to a null selection (itemEquality.ts:17-19).
+    [Fact(DisplayName = "port: an item without a Value is the null item, not default(TValue), under a value-type root")]
+    [Trait("Requirement", "CMB-API-56")]
+    public async Task An_item_without_a_Value_is_the_null_item_under_a_value_type_root()
+    {
+        IRenderedComponent<ComboboxIntHarness> empty = test.Context.Render<ComboboxIntHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true }));
+        Assert.Equal("true", empty.Find("[data-testid=item-none]").GetAttribute("aria-selected"));
+
+        IRenderedComponent<ComboboxIntHarness> zero = test.Context.Render<ComboboxIntHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["DefaultValue"] = 0 }));
+        Assert.Equal("false", zero.Find("[data-testid=item-none]").GetAttribute("aria-selected"));
+
+        IRenderedComponent<ComboboxIntHarness> one = test.Context.Render<ComboboxIntHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["DefaultValue"] = 1 }));
+        await one.InvokeAsync(() => one.Find("[data-testid=item-none]").Click());
+        Assert.False(one.Instance.Root!.Store.State.HasSelectedValue);
+    }
+
+    [Fact(DisplayName = "port: an item without a Value under a multiple root of a non-nullable value type throws")]
+    [Trait("Requirement", "CMB-API-56")]
+    public void An_item_without_a_Value_under_a_multiple_non_nullable_root_throws()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxIntHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Multiple"] = true })));
+
+        Assert.StartsWith("Blazix: A `ComboboxItem` without a `Value` stands for `null`", error.Message, StringComparison.Ordinal);
+    }
+
     private Task Highlight(IRenderedComponent<ComboboxPositionalHarness> cut, int index, string itemId)
     {
         string json = $$"""{"index":{{index}},"itemId":"{{itemId}}","event":{{ComboboxTestContext.Key("ArrowDown")}},"revision":1000}""";

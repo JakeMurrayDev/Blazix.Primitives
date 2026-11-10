@@ -1,0 +1,24 @@
+@namespace Blazix.Primitives.Tests.Components
+@* A root of a non-nullable value type, int, over static items 1 and 2 and an item without a Value, Base UI's null item
+   (review F13). `RootParameters` are splatted, as in ComboboxHarness. *@
+<ComboboxRoot TValue="int" @ref="Root" @attributes="RootParameters">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="int">
+                    <ComboboxItem TValue="int" data-testid="item-none">None</ComboboxItem>
+                    <ComboboxItem TValue="int" Value="1" data-testid="item-1">One</ComboboxItem>
+                    <ComboboxItem TValue="int" Value="2" data-testid="item-2">Two</ComboboxItem>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    public ComboboxRoot<int>? Root { get; private set; }
+}
