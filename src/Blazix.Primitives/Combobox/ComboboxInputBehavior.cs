@@ -54,6 +54,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private bool insidePopup;
 
+    private bool hasPositionerParent;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxInputBehavior"/> class.</summary>
@@ -78,7 +80,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     public bool Disabled => disabledParameter || Store.State.Disabled || (fieldScope?.Disabled ?? false);
 
     /// <summary>Gets the field's state the input projects (the default state inside the popup).</summary>
-    public FieldStateSnapshot Field => insidePopup || fieldScope is null ? FieldStateSnapshot.Default with { Disabled = Disabled } : fieldScope.State with { Disabled = Disabled };
+    public FieldStateSnapshot Field => hasPositionerParent || fieldScope is null ? FieldStateSnapshot.Default with { Disabled = Disabled } : fieldScope.State with { Disabled = Disabled };
 
     /// <summary>Gets or sets a value indicating whether the reading direction is right to left.</summary>
     public bool Rtl { get; set; }
@@ -118,15 +120,18 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     /// <summary>Reads the root and the optional positioner and field contexts, and subscribes the part.</summary>
     /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
-    /// <param name="positioner">The cascaded positioner context, or <see langword="null"/>.</param>
+    /// <param name="positioner">The cascaded combobox positioner context, or <see langword="null"/>.</param>
     /// <param name="fieldContext">The cascaded field, or <see langword="null"/>.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    public void Subscribe(ComboboxStore? cascaded, PositionerContext? positioner, FieldRootContext? fieldContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
+    public void Subscribe(ComboboxStore? cascaded, ComboboxPositionerContext? positioner, FieldRootContext? fieldContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         fieldScope = fieldContext;
         fieldScope?.AddListener(services.RequestRender);
-        insidePopup = positioner is not null || store.State.Inline;
+        // ComboboxInput.tsx:64,95,98,111: the combobox positioner's context, never another family's; inline counts as inside
+        // for the layout, not for the field state or the form value.
+        hasPositionerParent = positioner is not null;
+        insidePopup = hasPositionerParent || store.State.Inline;
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
         subscription.Select(ComboboxStoreState.Open);
         subscription.Select(ComboboxStoreState.Mounted);
@@ -235,7 +240,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
                 attributes.Set("required", true);
             }
 
-            if (!insidePopup && root.Name is { } name)
+            if (!hasPositionerParent && root.Name is { } name)
             {
                 attributes.Set("name", name);
             }

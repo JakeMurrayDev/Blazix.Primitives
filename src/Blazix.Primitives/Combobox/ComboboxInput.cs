@@ -125,7 +125,7 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     private ComboboxStore? Root { get; set; }
 
     [CascadingParameter]
-    private PositionerContext? Positioner { get; set; }
+    private ComboboxPositionerContext? ComboboxPositioner { get; set; }
 
     [CascadingParameter]
     private FieldRootContext? Field { get; set; }
@@ -202,7 +202,7 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     }
 
     /// <inheritdoc />
-    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, Positioner, Field, SubscribeTo);
+    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, ComboboxPositioner, Field, SubscribeTo);
 
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName) => behavior!.ForwardsConsumerHandler(eventName);

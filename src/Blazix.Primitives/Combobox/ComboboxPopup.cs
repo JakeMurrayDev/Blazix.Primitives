@@ -83,7 +83,7 @@ public sealed class ComboboxPopup : PartBase<ComboboxPopupState>
     private ComboboxStore? Root { get; set; }
 
     [CascadingParameter]
-    private PositionerContext? Positioner { get; set; }
+    private ComboboxPositionerContext? ComboboxPositioner { get; set; }
 
     [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
@@ -162,7 +162,7 @@ public sealed class ComboboxPopup : PartBase<ComboboxPopupState>
     {
         if (disposing)
         {
-            Positioner?.RemoveListener(positionerChanged);
+            ComboboxPositioner?.Positioner.RemoveListener(positionerChanged);
             if (behavior is not null)
             {
                 _ = behavior.DisposeAsync().AsTask();
@@ -175,8 +175,8 @@ public sealed class ComboboxPopup : PartBase<ComboboxPopupState>
     /// <inheritdoc />
     protected override void SubscribeSelectors()
     {
-        behavior!.Subscribe(Root, Positioner, Portal, SubscribeTo);
-        Positioner!.AddListener(positionerChanged);
+        behavior!.Subscribe(Root, ComboboxPositioner?.Positioner, Portal, SubscribeTo);
+        ComboboxPositioner!.Positioner.AddListener(positionerChanged);
     }
 
     /// <inheritdoc />

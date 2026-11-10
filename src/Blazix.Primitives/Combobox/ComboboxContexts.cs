@@ -149,6 +149,17 @@ internal sealed class ComboboxChipContext
     }
 }
 
+// combobox/positioner/ComboboxPositionerContext.tsx: the family's own positioner context. The shared PositionerContext is
+// cascaded by every family's positioner, so a Combobox inside another family's popup reads this one to tell whether its
+// Input is inside a combobox popup and whether its Popup and Arrow are inside a combobox positioner.
+/// <summary>Marks the content of a combobox positioner and carries its shared positioner context.</summary>
+/// <param name="positioner">The positioner's shared context.</param>
+internal sealed class ComboboxPositionerContext(PositionerContext positioner)
+{
+    /// <summary>Gets the positioner's shared context.</summary>
+    public PositionerContext Positioner { get; } = positioner;
+}
+
 // combobox/row/ComboboxRow.tsx's ComboboxRowContext: an item inside a row is a gridcell.
 /// <summary>Marks the items inside a combobox row.</summary>
 internal sealed class ComboboxRowContext

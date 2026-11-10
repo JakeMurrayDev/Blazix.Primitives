@@ -63,7 +63,7 @@ public sealed class ComboboxArrow : PartBase<ComboboxArrowState>
     private ComboboxStore? Root { get; set; }
 
     [CascadingParameter]
-    private PositionerContext? Positioner { get; set; }
+    private ComboboxPositionerContext? ComboboxPositioner { get; set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -112,7 +112,7 @@ public sealed class ComboboxArrow : PartBase<ComboboxArrowState>
     }
 
     /// <inheritdoc />
-    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, Positioner, SubscribeTo);
+    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, ComboboxPositioner?.Positioner, SubscribeTo);
 
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
