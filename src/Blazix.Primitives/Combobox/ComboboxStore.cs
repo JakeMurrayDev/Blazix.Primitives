@@ -638,7 +638,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         // text derived from the selection, so `@bind-InputValue` on a field that starts null both derives and binds.
         HasInputValueParameter = (inputSupplied && inputValue is not null) || (defaultInputSupplied && defaultInputValue is not null);
         inputNullControlled = inputSupplied && inputValue is null;
-        inputValueState.Update(inputSupplied, inputValue ?? string.Empty, defaultInputSupplied && defaultInputValue is not null, defaultInputValue ?? string.Empty);
+        // The default is passed only when supplied: Controlled<T> compares it with the first set's, which it stored as default.
+        bool defaultInputGiven = defaultInputSupplied && defaultInputValue is not null;
+        inputValueState.Update(inputSupplied, inputValue ?? string.Empty, defaultInputGiven, defaultInputGiven ? defaultInputValue! : default!);
     }
 
     /// <summary>Applies the root's inputs: the flags, the filtered items, the labels and the input's derived label.</summary>
