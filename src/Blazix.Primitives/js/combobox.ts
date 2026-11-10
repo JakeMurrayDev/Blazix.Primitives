@@ -270,6 +270,16 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     return doc.getElementById(options.listId) !== null;
   };
 
+  // Base UI reads `mounted` from the render, so its value when the keydown began. The session's trigger half listens on
+  // this input too, and on WebAssembly its Escape commits the close inside the keydown, before this handle's listener when
+  // it attached first; the document's capture phase runs before both, so the value is recorded there.
+  let keyDownAtStart: KeyboardEvent | null = null;
+  let mountedAtStart = false;
+  const onKeyDownCapture = (event: KeyboardEvent): void => {
+    keyDownAtStart = event;
+    mountedAtStart = isMounted();
+  };
+
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
       return;
@@ -290,7 +300,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       element.scrollLeft = event.key === 'Home' ? 0 : rtl ? -scrollAmount : scrollAmount;
       return;
     }
-    if (event.key === 'Escape' && !isMounted()) {
+    if (event.key === 'Escape' && !(event === keyDownAtStart ? mountedAtStart : isMounted())) {
       // CMB-KEY-05, EVT-09: the closed Escape clears; the point's fallback stops the keydown when there is something to
       // clear and the root is not inline. On Server the clear runs from the report a round trip later.
       const fallback: DecisionPolicy = options.hasValue && !options.inline ? 'stop' : 'run';
@@ -350,6 +360,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   element.addEventListener('compositionend', onCompositionEnd);
   element.addEventListener('input', onInput);
   element.addEventListener('keydown', onKeyDown);
+  doc.addEventListener('keydown', onKeyDownCapture, true);
   doc.addEventListener('click', onDocumentClick, true);
 
   return {
@@ -369,6 +380,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       element.removeEventListener('compositionend', onCompositionEnd);
       element.removeEventListener('input', onInput);
       element.removeEventListener('keydown', onKeyDown);
+      doc.removeEventListener('keydown', onKeyDownCapture, true);
       doc.removeEventListener('click', onDocumentClick, true);
     },
   };
