@@ -441,6 +441,28 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Equal((string.Empty, EventReason.InputClear), (text, reason));
     }
 
+    // CMB-KEY-01 (AriaCombobox.tsx:1425-1426, derived at every render): a query typed since the open sets focusItemOnOpen
+    // to false, so the typed open does not move the highlight to the selected item. The callbacks are empty, so no
+    // consumer render sets the root's parameters again.
+    [Fact(DisplayName = "port: a typed open sends focusItemOnOpen false to the list navigation")]
+    [Trait("Requirement", "CMB-KEY-01")]
+    public async Task A_typed_open_sends_focusItemOnOpen_false()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new()
+        {
+            ["Items"] = (IReadOnlyList<string>)s_fruits,
+            ["DefaultValue"] = "banana",
+            ["OnInputValueChange"] = default(EventCallback<ValueChangeEventArgs<string>>),
+            ["OnOpenChange"] = default(EventCallback<ValueChangeEventArgs<bool>>),
+        });
+        Assert.DoesNotContain("\"focusItemOnOpen\":false", LastListNavigationOptions(), StringComparison.Ordinal);
+
+        await test.TypeAsync(cut, "c");
+
+        Assert.True(cut.Instance.Root!.Store.IsOpen);
+        Assert.Contains("\"focusItemOnOpen\":false", LastListNavigationOptions(), StringComparison.Ordinal);
+    }
+
     private static void Follow(IRenderedComponent<ComboboxHarness> cut, Dictionary<string, object?> parameters)
     {
         if (cut.Instance.OpenChanges.Count != 0)
@@ -451,6 +473,8 @@ public sealed class ComboboxRootTests : IDisposable
     }
 
     private static List<string> Options(IRenderedComponent<ComboboxHarness> cut) => cut.FindAll("[role=option]").Select(option => option.TextContent).ToList();
+
+    private string LastListNavigationOptions() => CompositeOptions().FindLast(options => options.Contains("\"virtual\":true", StringComparison.Ordinal)) ?? string.Empty;
 
     private List<string> CompositeOptions()
     {
