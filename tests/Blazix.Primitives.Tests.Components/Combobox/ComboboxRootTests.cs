@@ -297,6 +297,31 @@ public sealed class ComboboxRootTests : IDisposable
             .Add(x => x.KeepMounted, true)));
     }
 
+    [Fact(DisplayName = "port: two selected values that serialize alike each get a hidden input")]
+    [Trait("Requirement", "CMB-DOM-19")]
+    [Trait("Requirement", "CMB-FRM-02")]
+    public void Two_values_that_serialize_alike_each_get_a_hidden_input()
+    {
+        Func<string, string> firstLetter = value => value[..1];
+        IRenderedComponent<ComboboxHarness> cut = Render(new()
+        {
+            ["Multiple"] = true,
+            ["Name"] = "fruit",
+            ["Values"] = (IReadOnlyList<string>)["apple"],
+            ["ItemToStringValue"] = firstLetter,
+        });
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Multiple"] = true,
+            ["Name"] = "fruit",
+            ["Values"] = (IReadOnlyList<string>)["apple", "apricot"],
+            ["ItemToStringValue"] = firstLetter,
+        }));
+
+        Assert.Equal(["a", "a"], cut.FindAll("input[name=fruit]").Select(input => input.GetAttribute("value")));
+    }
+
     private List<string> CompositeOptions()
     {
         List<string> options = [];
