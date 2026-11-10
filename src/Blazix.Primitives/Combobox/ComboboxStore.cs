@@ -303,6 +303,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool handlingEvent;
 
+    private string? handlerQuery;
+
     private int? savedActiveIndex;
 
     private (string Text, ChangeEventDetails Details)? pendingAutofill;
@@ -515,12 +517,22 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
-        if (!await SetSelectedValueAsync(value, details, present))
+        // AriaCombobox.tsx:940: setOpen reads the query the press's render had, not the label the selection filled since, so a
+        // deferred controlled close keeps filtering by it while it exits (CMB-ANI-02).
+        handlerQuery = Query;
+        try
         {
-            return;
-        }
+            if (!await SetSelectedValueAsync(value, details, present))
+            {
+                return;
+            }
 
-        await RequestOpenAsync(false, ToOpenDetails(details));
+            await RequestOpenAsync(false, ToOpenDetails(details));
+        }
+        finally
+        {
+            handlerQuery = null;
+        }
     }
 
     /// <inheritdoc />
@@ -1126,7 +1138,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
         if (!open && queryChangedAfterOpen)
         {
-            string query = Query;
+            string query = handlerQuery ?? Query;
             if (Single)
             {
                 if (!State.Inline)
