@@ -11,7 +11,11 @@
       (Base UI's App);
     - `defaultValue`, `defaultOpen`;
     - `list`: the items sit in a Select.List (the listbox role moves to the list);
-    - `fruit`: the items are `apple` and `banana` (the typeahead titles).
+    - `fruit`: the items are `apple` and `banana` (the typeahead titles);
+    - `open`: the root is controlled open (`Open` true, no callback updates it), Base UI's forced open;
+    - `field`: a Form whose errors name `select` ("test") around a Field named `select` with a Field.Error (test id
+      `error`) after the select;
+    - `name`: the root's own name (outside a field).
     The container records `data-open-changes` and `data-value-changes` (`value:reason`).
 *@
 <FixtureContainer Name="select-form-state" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -21,8 +25,63 @@
     {
         <button type="button" data-testid="toggle" @onclick="() => disabled = !disabled">toggle</button>
     }
-    <SelectRoot TValue="string" @ref="root" DefaultValue="@defaultValue" DefaultOpen="@defaultOpen" Disabled="@disabled" ReadOnly="@readOnly"
-                OnOpenChange="RecordOpenChange" OnValueChange="RecordValueChange">
+    @if (inField)
+    {
+        <Form Errors="@s_errors">
+            <FieldRoot Name="select">
+                @Select
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+    }
+    else
+    {
+        @Select
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private string? defaultValue;
+    private bool defaultOpen;
+    private bool disabled;
+    private bool readOnly;
+    private bool toggle;
+    private bool list;
+    private bool fruit;
+    private bool forcedOpen;
+    private bool inField;
+    private string? name;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        defaultValue = Query("defaultValue");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        disabled = QueryFlag("disabled") == true;
+        readOnly = QueryFlag("readOnly") == true;
+        toggle = QueryFlag("toggle") == true;
+        list = QueryFlag("list") == true;
+        fruit = QueryFlag("fruit") == true;
+        forcedOpen = QueryFlag("open") == true;
+        inField = QueryFlag("field") == true;
+        name = Query("name");
+    }
+
+    private static readonly FormErrors s_errors = new() { ["select"] = "test" };
+
+    // Base UI's `open` with no handler: the parameter is passed only when forced, so the root is controlled only then.
+    private RenderFragment Select => forcedOpen
+        ? @<SelectRoot TValue="string" @ref="root" Name="@(inField ? null : name)" Open="true" Disabled="@disabled" ReadOnly="@readOnly"
+                       OnValueChange="RecordValueChange">@Content</SelectRoot>
+        : @<SelectRoot TValue="string" @ref="root" Name="@(inField ? null : name)" DefaultValue="@defaultValue" DefaultOpen="@defaultOpen" Disabled="@disabled" ReadOnly="@readOnly"
+                       OnOpenChange="RecordOpenChange" OnValueChange="RecordValueChange">@Content</SelectRoot>;
+
+    private RenderFragment Content => @<text>
         <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
             <SelectValue TValue="string" data-testid="value" />
         </SelectTrigger>
@@ -42,34 +101,7 @@
                 </SelectPopup>
             </SelectPositioner>
         </SelectPortal>
-    </SelectRoot>
-</FixtureContainer>
-
-@code {
-    private readonly List<string> valueChanges = [];
-    private SelectRoot<string>? root;
-    private SelectTrigger<string>? trigger;
-    private string? defaultValue;
-    private bool defaultOpen;
-    private bool disabled;
-    private bool readOnly;
-    private bool toggle;
-    private bool list;
-    private bool fruit;
-
-    protected override IEnumerable<Task> Attachments =>
-        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
-
-    protected override void OnInitialized()
-    {
-        defaultValue = Query("defaultValue");
-        defaultOpen = QueryFlag("defaultOpen") == true;
-        disabled = QueryFlag("disabled") == true;
-        readOnly = QueryFlag("readOnly") == true;
-        toggle = QueryFlag("toggle") == true;
-        list = QueryFlag("list") == true;
-        fruit = QueryFlag("fruit") == true;
-    }
+    </text>;
 
     private RenderFragment Items => @<text>
         @if (fruit)

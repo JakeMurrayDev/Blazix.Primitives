@@ -2,6 +2,7 @@
 // `with Field.Root parent`, `Form` and `Field` describes (lines 2854-4469), Server then WebAssembly. Titles are Base UI's.
 import { type Locator } from '@playwright/test';
 import { expect, test } from './helpers';
+import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, openChanges, pressControl, settle } from './suites/popupFixture';
 
 const valueChanges = async (fixture: Locator): Promise<string[]> => ((await fixture.getAttribute('data-value-changes')) ?? '').split(' ').filter(Boolean);
@@ -375,9 +376,11 @@ test.describe('Field', () => {
     await expect(trigger).toHaveAttribute('aria-invalid', 'true');
     await expect(trigger).toBeFocused();
 
-    // Arrow Down to focus Option 1 (valid)
+    // Arrow Down to focus Option 1 (valid). Enter acts on the focused element, so it waits for the focus, not only the
+    // highlight: on Server the highlight can show a moment before focus reaches the item, and an Enter on the trigger closes.
     await page.keyboard.press('ArrowDown');
     await expect(page.getByRole('option', { name: 'Option 1' })).toHaveAttribute('data-highlighted');
+    await expect(page.getByRole('option', { name: 'Option 1' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(trigger).not.toHaveAttribute('aria-invalid');
     await expect(listbox).toHaveCount(0);
@@ -506,4 +509,62 @@ test.describe('Field', () => {
 
     await expect(page.getByRole('listbox')).toBeFocused();
   });
+});
+
+// SelectRoot.test.tsx:1577-1675, the locked roots at L4 (final review B1; SEL-EDGE-04, SEL-EDGE-05; at L2 in
+// SelectRootAutofillTests.razor). Base UI's `fireEvent.change` on the hidden input is the same event in the page: the
+// browser's autofill writes the value and fires `change`.
+test.describe('locked roots', () => {
+  for (const { lockState, label, withField } of [
+    { lockState: 'readOnly', label: 'inside Field', withField: true },
+    { lockState: 'disabled', label: 'inside Field', withField: true },
+    { lockState: 'readOnly', label: 'outside Field', withField: false },
+    { lockState: 'disabled', label: 'outside Field', withField: false },
+  ] as const) {
+    // SEL-DOM-47, SEL-FRM-12, SEL-FRM-19, SEL-EDGE-04.
+    test(`ignores hidden-input autofill when ${lockState} ${label}`, async ({ page, mode }) => {
+      const fixture = await gotoPopupFixture(page, mode, 'select-form-state', { [lockState]: true, ...(withField ? { field: true } : { name: 'select' }) });
+      const input = page.locator('input[name="select"]');
+      await expect(input).toHaveCount(1);
+      const expectedError = withField ? 'test' : null;
+      const error = page.getByTestId('error');
+      if (expectedError === null) {
+        await expect(error).toHaveCount(0);
+      } else {
+        await expect(error).toHaveText(expectedError);
+      }
+
+      await input.evaluate((element) => {
+        (element as HTMLInputElement).value = 'b';
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await settle(fixture);
+
+      await expect(fixture).toHaveAttribute('data-value-changes', '');
+      await expect(input).toHaveValue('');
+      if (expectedError === null) {
+        await expect(error).toHaveCount(0);
+      } else {
+        await expect(error).toHaveText(expectedError);
+      }
+    });
+  }
+
+  for (const lockState of ['disabled', 'readOnly'] as const) {
+    // SEL-EDGE-04, SEL-EDGE-05, SEL-EDGE-06. An `aria-disabled` item is clicked with `force` (Playwright waits for it to be
+    // enabled); the click is still a real mouse click at the item.
+    test(`does not commit item selection when root is ${lockState} and forced open`, async ({ page, mode }) => {
+      const fixture = await gotoPopupFixture(page, mode, 'select-form-state', { [lockState]: true, open: true });
+      const optionB = page.getByRole('option', { name: 'b', exact: true });
+      await expect(optionB).toBeVisible();
+      // The box is read after the Positioner's first pass (issue 191's class); the Positioner is the outer `data-side`.
+      await waitForPositioned(page.locator('[role="presentation"][data-side]').first());
+
+      await optionB.click({ force: true });
+      await settle(fixture);
+
+      await expect(fixture).toHaveAttribute('data-value-changes', '');
+      await expect(optionB).not.toHaveAttribute('data-selected');
+    });
+  }
 });
