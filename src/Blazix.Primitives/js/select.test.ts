@@ -371,3 +371,42 @@ describe('select module: attach order (port titles)', () => {
   });
 });
 
+describe('select module: the arrows on unmount (port titles)', () => {
+  // SelectRoot.test.tsx "clears scroll arrow visibility when manually unmounted": the unmount resets both flags
+  // (SelectRoot.tsx:206-214), and a kept arrow (the portal stays force-mounted) shows them while the popup is unmounted.
+  it('clears the arrows on unmount and keeps them clear while unmounted (SEL-STA-29)', () => {
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const upArrow = document.createElement('div');
+    const downArrow = document.createElement('div');
+    let scrollTop = 0;
+    stubScroller(popup, { scrollHeight: 400, clientHeight: 200 }, () => scrollTop, (value) => {
+      scrollTop = value;
+    });
+    popup.append(upArrow, downArrow);
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    const options = { part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
+    handles.push(handle);
+    const up = attach(upArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), createFakeTwin().twin, [positioner]);
+    const down = attach(downArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'down', positioner: 0 }), createFakeTwin().twin, [positioner]);
+    handles.push(up, down);
+    scrollTop = 100;
+    popup.dispatchEvent(new Event('scroll'));
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([true, true]);
+
+    // The close keeps the popup mounted (`preventUnmountOnClose`), then the manual unmount.
+    handle.update(JSON.stringify({ ...options, open: false }), [trigger, popup]);
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([true, true]);
+    handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([false, false]);
+
+    // The arrows' own re-render while unmounted writes nothing back.
+    up.update(JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), [positioner]);
+    down.update(JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'down', positioner: 0 }), [positioner]);
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([false, false]);
+  });
+});
+
