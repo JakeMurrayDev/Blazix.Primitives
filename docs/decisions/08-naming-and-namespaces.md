@@ -215,7 +215,7 @@ Members of every class follow the eleven-group order of the old port: constants,
   - `OnItemHighlighted` is an `EventCallback<MenuItemHighlightedEventArgs>`, where `MenuItemHighlightedEventArgs(string? ItemId, MenuHighlightEventDetails Details)`.
   - `Events/HighlightEventDetails`, which carries an index, stays Combobox's; EVT §3.7 gains a dated note naming both types.
 
-**2026-11-11, ContextMenu's parts and shapes as built (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); Amendments 2026-11-03 (3), chosen by the user 2026-11-03; design points 4 and 5 of M5 track 7, pending the orchestrator).**
+**2026-11-11, ContextMenu's parts and shapes as built (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); Amendments 2026-11-03 (3), chosen by the user 2026-11-03; design points 4 and 5 of M5 track 7, settled by the orchestrator 2026-11-11 under the user's "Do recommended for decisions").**
 - `ContextMenuRoot : ComponentBase, IAsyncDisposable` is non-generic. It runs over `MenuRootBehavior<NoPayload>("ContextMenu")` and declares MenuRoot's parameters except `Modal`, `Handle`, `TriggerId`, `DefaultTriggerId`, `PayloadContent` and `CloseParentOnEsc`. It offers `CloseAsync()` and `Unmount()`.
 - `ContextMenuTrigger : PartBase<ContextMenuTriggerState>` (a `div`) has no parameters of its own. Its state is `ContextMenuTriggerState(bool Open)`, and its attributes are `ContextMenuTriggerDataAttributes { PopupOpen, Pressed }`.
 - `ContextMenuPositioner` has MenuPositioner's parameters without `PositionMethod`. Its state is `ContextMenuPositionerState`, with `ContextMenuPositionerDataAttributes` and `ContextMenuPositionerCssVars`.

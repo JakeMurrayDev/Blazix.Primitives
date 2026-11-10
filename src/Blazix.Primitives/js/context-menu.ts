@@ -12,9 +12,10 @@
 // session's own handle attach does not matter. The anchor, the release slot and the release rules are `interactions`'
 // (`setSessionPositionReference`, `armMenuRelease`); the root-owner walk is `dom`'s `closest`, which crosses shadow hosts.
 // The consumer's `oncontextmenu` and `ontouch*` handlers are declined by C# and run through this module at each dispatch
-// (design point 3 (a)): `press` on WebAssembly, after the synchronous `OnPressing` handover of the coordinates and
-// touches, whose verdict skips the part's own handling as `preventBaseUIHandler()` does; a report on Server, where C#
-// applies the veto to the open request it precedes. Base UI's handler stops the propagation of `contextmenu` and of a
+// (design point 3 (a), settled by the orchestrator 2026-11-11): `press` on WebAssembly, after the synchronous `OnPressing`
+// handover of the coordinates and touches, whose verdict skips the part's own handling as `preventBaseUIHandler()` does,
+// at each `contextmenu` and `touchstart` and at a touch move, end or cancel while a long press is pending; otherwise, and
+// always on Server, a report, where C# applies the veto to the open request it precedes. Base UI's handler stops the propagation of `contextmenu` and of a
 // single-touch `touchstart`, so a handler left to Blazor's delegated dispatch would never run.
 import { closest, contains, getTarget, isElement, ownerDocument } from './dom';
 import { decide } from './decide';
@@ -262,13 +263,15 @@ function attachTrigger(element: HTMLElement, initial: ContextMenuOptions, channe
   };
 
   // Runs the consumer's handler for the event, when it supplied one, and returns whether the part's own handling runs:
-  // `press` on WebAssembly (its verdict), a report on Server (the veto is C#'s, on the open the report precedes).
-  const consumerAllows = (event: MouseEvent | TouchEvent): boolean => {
+  // `press` on WebAssembly (its verdict), a report on Server (the veto is C#'s, on the open the report precedes). Design
+  // point 3 (a), settled by the orchestrator 2026-11-11: a touch move, end or cancel is decided only while a long press
+  // is pending (`decided`), as there is nothing else to veto; otherwise its handler runs from a report on both modes.
+  const consumerAllows = (event: MouseEvent | TouchEvent, decided = true): boolean => {
     if (options.handlers?.includes(event.type) !== true) {
       return true;
     }
     const press = pressOf(event);
-    if (channel.synchronous) {
+    if (channel.synchronous && decided) {
       twin.invokeMethod<void>(PRESSING_HANDOVER, JSON.stringify(press));
       return decide(channel, PRESS_POINT, event, 'run') === 'run';
     }
@@ -369,7 +372,7 @@ function attachTrigger(element: HTMLElement, initial: ContextMenuOptions, channe
 
   // ContextMenuTrigger.tsx:157-174.
   const onTouchMove = (event: TouchEvent) => {
-    if (!consumerAllows(event)) {
+    if (!consumerAllows(event, longPressTimer !== undefined)) {
       return;
     }
     if (event.touches.length !== 1) {
@@ -388,7 +391,7 @@ function attachTrigger(element: HTMLElement, initial: ContextMenuOptions, channe
 
   // ContextMenuTrigger.tsx:207-208.
   const onTouchEnd = (event: TouchEvent) => {
-    if (consumerAllows(event)) {
+    if (consumerAllows(event, longPressTimer !== undefined)) {
       cancelLongPress();
     }
   };
