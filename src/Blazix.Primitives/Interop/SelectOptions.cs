@@ -72,11 +72,6 @@ internal sealed record SelectOptions : TwinOptions
     /// <summary>Gets the direction a scroll arrow scrolls the list in.</summary>
     /// <value><c>up</c> or <c>down</c>, or <see langword="null"/> for another part.</value>
     public string? Direction { get; init; }
-
-    /// <summary>Gets a value indicating whether the module asks the activation decision point inside the click's dispatch.</summary>
-    /// <value><see langword="true"/> while an item has a consumer <c>onclick</c>; the default <see langword="false"/> is not sent.</value>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public bool Decides { get; init; }
 }
 
 /// <summary>An item activation the module classified.</summary>

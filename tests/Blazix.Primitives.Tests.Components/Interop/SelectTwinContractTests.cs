@@ -51,7 +51,6 @@ public sealed class SelectTwinContractTests
             Popup = 1,
             List = 2,
             Value = 3,
-            Decides = true,
         });
         await attached.UpdateAsync(new SelectOptions { Part = SelectTwin.ScrollArrowPart, Direction = "down", Positioner = 0 });
         await attached.DisposeAsync();
@@ -67,7 +66,7 @@ public sealed class SelectTwinContractTests
         IReadOnlyList<JSRuntimeInvocation> updates = handle.Invocations["update"];
         Assert.Equal(2, updates.Count);
         Assert.Equal(
-            """{"part":"positioner","open":true,"mounted":true,"ending":true,"alignItemWithTrigger":true,"touchOpened":true,"highlightItemOnHover":true,"rtl":true,"hasSelectedValue":true,"selectedTextId":"base-ui-8","firstTextId":"base-ui-9","itemsRevision":2,"trigger":0,"popup":1,"list":2,"value":3,"decides":true}""",
+            """{"part":"positioner","open":true,"mounted":true,"ending":true,"alignItemWithTrigger":true,"touchOpened":true,"highlightItemOnHover":true,"rtl":true,"hasSelectedValue":true,"selectedTextId":"base-ui-8","firstTextId":"base-ui-9","itemsRevision":2,"trigger":0,"popup":1,"list":2,"value":3}""",
             updates[0].Arguments[0]);
         Assert.Equal(
             """{"part":"scroll-arrow","open":false,"mounted":false,"positioner":0,"direction":"down"}""",

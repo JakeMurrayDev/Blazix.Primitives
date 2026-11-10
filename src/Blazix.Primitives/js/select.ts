@@ -108,7 +108,6 @@ export interface SelectOptions extends TwinOptions {
   value?: number | null;
   positioner?: number | null;
   direction?: 'up' | 'down' | null;
-  decides?: boolean;
 }
 
 interface Scale {
