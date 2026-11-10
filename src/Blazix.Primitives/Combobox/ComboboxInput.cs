@@ -108,8 +108,8 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
         onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
         onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.HandleMouseDownAsync(e));
-        onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => behavior!.OnFocusChange(true));
-        onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.OnFocusChange(false));
+        onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => behavior!.OnFocusChangeAsync(true));
+        onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.OnFocusChangeAsync(false));
     }
 
     [Inject]

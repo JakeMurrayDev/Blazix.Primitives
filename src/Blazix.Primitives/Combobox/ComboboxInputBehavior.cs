@@ -340,10 +340,12 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         }
     }
 
-    /// <summary>Records the input's focus for the field.</summary>
+    /// <summary>Records the input's focus for the field, and an inline list's highlight.</summary>
     /// <param name="focused">Whether the input received or lost the focus.</param>
-    public void OnFocusChange(bool focused)
+    /// <returns>A task that completes when the focus change was handled.</returns>
+    public async Task OnFocusChangeAsync(bool focused)
     {
+        await Store.OnInlineInputFocusAsync(focused);
         if (fieldScope is null || insidePopup)
         {
             return;

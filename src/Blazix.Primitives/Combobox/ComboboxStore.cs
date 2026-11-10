@@ -131,6 +131,11 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <returns>A task that completes when the request and the callback have run.</returns>
     public abstract Task ClearHighlightAsync(EventSnapshot? @event);
 
+    /// <summary>Clears an inline list's highlight as its input loses the focus, and restores it as the input regains the focus within the same open cycle.</summary>
+    /// <param name="focused">Whether the input received or lost the focus.</param>
+    /// <returns>A task that completes when the highlight was handled.</returns>
+    public abstract Task OnInlineInputFocusAsync(bool focused);
+
     /// <summary>Asks for the input text to change, as typing, a clear or a fill does.</summary>
     /// <param name="text">The requested text.</param>
     /// <param name="details">The request's details, which the consumer can cancel.</param>
@@ -281,6 +286,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private bool hadInputClear;
 
     private bool handlingInputChange;
+
+    private int? savedActiveIndex;
 
     private TValue? observedValue;
 
@@ -651,6 +658,35 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     /// <inheritdoc />
     public override Task ClearHighlightAsync(EventSnapshot? @event) => SetIndicesAsync(null, @event, fromModule: false, clearSelectedIndex: true);
+
+    // ComboboxInput.tsx:188-216: unless the highlight is always on, an inline input clears the highlight it loses with the
+    // focus and restores it on refocus, while its slot still exists; the saved index lasts one open cycle (:104-109).
+    /// <inheritdoc />
+    public override async Task OnInlineInputFocusAsync(bool focused)
+    {
+        if (!State.Inline)
+        {
+            return;
+        }
+
+        if (focused)
+        {
+            int? saved = savedActiveIndex;
+            savedActiveIndex = null;
+            if (saved is int at && at < CandidateValues().Count)
+            {
+                await SetIndicesAsync(at, null, fromModule: false);
+            }
+
+            return;
+        }
+
+        if (State.ActiveIndex is int active && inputs.AutoHighlight != ComboboxAutoHighlightMode.Always)
+        {
+            savedActiveIndex = active;
+            await SetIndicesAsync(null, null, fromModule: false);
+        }
+    }
 
     /// <summary>Wires the store to the root's list navigation.</summary>
     /// <param name="behavior">The list navigation behavior.</param>
@@ -1359,6 +1395,11 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     {
         string query = Query;
         bool open = IsOpen;
+        if (!open)
+        {
+            savedActiveIndex = null;
+        }
+
         if (!observing)
         {
             observing = true;
