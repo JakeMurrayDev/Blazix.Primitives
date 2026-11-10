@@ -95,7 +95,16 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         twin = new ComboboxTwin(services.JSRuntime) { Decider = press.Decide };
         twin.InputPressed += snapshot => _ = Observe(services.InvokeAsync(() => OnInputPressAsync(snapshot)));
         twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => RemoveAsync(request)));
-        twin.OpenRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ListNavigation, snapshot))));
+        twin.OpenRequested += snapshot => _ = Observe(services.InvokeAsync(() =>
+        {
+            // The module's focus found no input: a conditional one mounts with this open and takes the focus then.
+            if (Store.State.ElementIds.Input is null)
+            {
+                Store.RequestInputFocus();
+            }
+
+            return Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ListNavigation, snapshot));
+        }));
     }
 
     /// <summary>Applies the id the part renders and publishes it.</summary>

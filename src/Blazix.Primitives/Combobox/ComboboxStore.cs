@@ -18,6 +18,8 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 {
     private int emptyParts;
 
+    private bool inputFocusPending;
+
     /// <summary>Occurs when a part that the session's options read registered or left, such as an empty state.</summary>
     public event Action? SessionInputsChanged;
 
@@ -188,6 +190,20 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Mounts the list while closed, for typeahead or autofill.</summary>
     public abstract void ForceMount();
+
+    // ComboboxChip.tsx: a chip's ArrowDown or ArrowUp opens the popup and focuses the input, which a conditional input mounts
+    // with the open first; the input takes the focus as its handle attaches.
+    /// <summary>Asks the next input that mounts to take the focus.</summary>
+    public void RequestInputFocus() => inputFocusPending = true;
+
+    /// <summary>Returns whether an input focus was asked for, and clears the request.</summary>
+    /// <returns><see langword="true"/> once after <see cref="RequestInputFocus"/>.</returns>
+    public bool TakeInputFocus()
+    {
+        bool pending = inputFocusPending;
+        inputFocusPending = false;
+        return pending;
+    }
 
     // ComboboxTrigger.tsx:196-199: with the input outside the popup, a trigger press makes the trigger the floating root's DOM
     // reference: its next press toggles the popup (useClick's active trigger) and a popup with no anchor follows it.

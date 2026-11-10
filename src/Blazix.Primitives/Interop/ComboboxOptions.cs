@@ -91,4 +91,8 @@ internal sealed record ComboboxOptions : TwinOptions
 
     /// <summary>Gets a value indicating whether C# holds the consumer's <c>onMouseDown</c>, so the press asks <c>press</c> first.</summary>
     public bool DecidesPress { get; init; }
+
+    /// <summary>Gets a value indicating whether the input's handle focuses the input as it attaches.</summary>
+    /// <value><see langword="true"/> for an input that mounts with the open a chip's arrow key asked for, which the chip's focus could not reach yet.</value>
+    public bool FocusOnAttach { get; init; }
 }

@@ -429,6 +429,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             SubmitRevision = state.SubmitRevision == 0 ? null : state.SubmitRevision,
             SubmitFormElement = state.SubmitRevision != 0 && root.HiddenInput is not null ? 0 : null,
             DecidesKeyDown = consumerKeyDown.IsHandler,
+            FocusOnAttach = sync.Handle is null && root.TakeInputFocus(),
         };
         // The hidden input travels with the update that moves the submit revision (AriaCombobox.tsx:945-948).
         TwinReferences? references = null;

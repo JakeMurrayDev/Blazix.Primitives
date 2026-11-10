@@ -88,6 +88,7 @@ export interface ComboboxOptions extends TwinOptions {
   submitFormElement?: number | null;
   decidesKeyDown?: boolean;
   decidesPress?: boolean;
+  focusOnAttach?: boolean;
 }
 
 /** The payload of a classified change of the input text; mirrors `ComboboxInputChange`. */
@@ -390,6 +391,11 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   element.addEventListener('keydown', onKeyDown);
   doc.addEventListener('keydown', onKeyDownCapture, true);
   doc.addEventListener('click', onDocumentClick, true);
+  // A chip's arrow key opened the popup and focused an input that had not mounted yet (ComboboxChip.tsx); it takes the focus
+  // as it attaches.
+  if (initial.focusOnAttach) {
+    element.focus();
+  }
 
   return {
     update(optionsJson: string, references?: TwinReferences) {
