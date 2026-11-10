@@ -2676,6 +2676,8 @@ function syncOpenAndMount(state: ListState, handle: ListHandle): void {
   if (!open) {
     state.key = null;
     delete handle.session.dataRef.current[LIST_OPEN_FOCUS_KEY];
+    // A close ends a wait to show (CMP-ALG-24's dated note), so the open it belonged to runs no search later.
+    state.stopWaitForShow?.();
   }
   const focusItemOnOpen = focusItemOnOpenOf(list);
   if (!open || focusItemOnOpen !== 'auto') {
