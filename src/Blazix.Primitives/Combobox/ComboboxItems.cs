@@ -1,4 +1,5 @@
 using System.Collections;
+using Blazix.Primitives.Store;
 using Blazix.Primitives.Utilities;
 
 namespace Blazix.Primitives;
@@ -63,6 +64,9 @@ public sealed class ComboboxItemCollection<TItem, TValue> : IReadOnlyList<TValue
     /// <inheritdoc />
     public TValue this[int index] => this.index.ValueOf(Data[index]);
 
+    /// <inheritdoc />
+    IReadOnlyList<TValue> IComboboxItemLabels<TValue>.DuplicateValues => index.DuplicateValues;
+
     /// <summary>Gets the source item whose value is <paramref name="value"/>.</summary>
     /// <param name="value">The value.</param>
     /// <returns>The first source item with that value.</returns>
@@ -123,6 +127,9 @@ public sealed class ComboboxItemGroupCollection<TItem, TValue> : IReadOnlyList<C
     /// <inheritdoc />
     public ComboboxItemGroup<TValue> this[int index] => projected[index];
 
+    /// <inheritdoc />
+    IReadOnlyList<TValue> IComboboxItemLabels<TValue>.DuplicateValues => index.DuplicateValues;
+
     /// <summary>Gets the source item whose value is <paramref name="value"/>.</summary>
     /// <param name="value">The value.</param>
     /// <returns>The first source item with that value.</returns>
@@ -173,6 +180,9 @@ public sealed class ComboboxItemGroupCollection<TItem, TValue> : IReadOnlyList<C
 /// <typeparam name="TValue">The type of the values.</typeparam>
 internal interface IComboboxItemLabels<TValue>
 {
+    /// <summary>Gets the derived values two or more items share, each once, in order (createItems.ts:118-125).</summary>
+    IReadOnlyList<TValue> DuplicateValues { get; }
+
     /// <summary>Gets the label of the first item whose value is <paramref name="value"/>.</summary>
     /// <param name="value">The value.</param>
     /// <param name="isItemEqualToValue">The root's comparer, or <see langword="null"/> for the default equality.</param>
@@ -194,6 +204,18 @@ internal sealed class ComboboxItemIndex<TItem, TValue>(Func<TItem, TValue> getVa
     private bool hasNull;
 
     private TItem? nullItem;
+
+    private List<TValue>? duplicates;
+
+    /// <summary>Gets the derived values two or more items share, each once, in order.</summary>
+    public IReadOnlyList<TValue> DuplicateValues
+    {
+        get
+        {
+            Build();
+            return duplicates ?? (IReadOnlyList<TValue>)[];
+        }
+    }
 
     /// <summary>Gets an item's value.</summary>
     /// <param name="item">The item.</param>
@@ -253,6 +275,20 @@ internal sealed class ComboboxItemIndex<TItem, TValue>(Func<TItem, TValue> getVa
         return false;
     }
 
+    private void AddDuplicate(TValue value)
+    {
+        duplicates ??= [];
+        foreach (TValue known in duplicates)
+        {
+            if (Equality.Is(known, value))
+            {
+                return;
+            }
+        }
+
+        duplicates.Add(value);
+    }
+
     private void Build()
     {
         if (exact is not null)
@@ -279,10 +315,15 @@ internal sealed class ComboboxItemIndex<TItem, TValue>(Func<TItem, TValue> getVa
                     hasNull = true;
                     nullItem = item;
                 }
+                else
+                {
+                    AddDuplicate(value);
+                }
             }
-            else
+            else if (!map.TryAdd(new Key(value), item))
             {
-                map.TryAdd(new Key(value), item);
+                // The first occurrence wins; Base UI reports the duplicate in development (createItems.ts:116-124).
+                AddDuplicate(value);
             }
         }
 

@@ -273,6 +273,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private string? linkPress;
 
+    private object? duplicatesReportedFor;
+
     private bool hadInputClear;
 
     private (bool Emitted, TValue? Value, int Index) lastHighlight;
@@ -1367,6 +1369,23 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
     }
 
+    // createItems.ts:116-124: a value two items derive resolves to the first; the development error names it, once per collection.
+    private void ReportDuplicates(IComboboxItemLabels<TValue> collection)
+    {
+        if (Logger is not { } logger || !DevelopmentWarnings.IsEnabled || ReferenceEquals(duplicatesReportedFor, collection))
+        {
+            return;
+        }
+
+        duplicatesReportedFor = collection;
+        foreach (TValue duplicate in collection.DuplicateValues)
+        {
+            DevelopmentWarnings.Write(logger, string.Create(
+                CultureInfo.InvariantCulture,
+                $"Blazix: Two items passed to `ComboboxItems.Create()` derived the value {duplicate}, so selection and label resolution cannot tell them apart: the first item wins the label and every item carrying the value renders as selected. Return a unique value from `getValue`."));
+        }
+    }
+
     private TValue CandidateAt(int index)
     {
         if (State.HasItems || inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null)
@@ -1548,9 +1567,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private bool TryCollectionLabel(TValue value, out string label)
     {
         Func<TValue, TValue, bool>? comparer = inputs.IsItemEqualToValue;
-        if ((inputs.Items as IComboboxItemLabels<TValue> ?? inputs.ItemGroups as IComboboxItemLabels<TValue>) is { } items && items.TryGetLabel(value, comparer, out label))
+        if ((inputs.Items as IComboboxItemLabels<TValue> ?? inputs.ItemGroups as IComboboxItemLabels<TValue>) is { } items)
         {
-            return true;
+            ReportDuplicates(items);
+            if (items.TryGetLabel(value, comparer, out label))
+            {
+                return true;
+            }
         }
 
         if ((inputs.FilteredItems as IComboboxItemLabels<TValue> ?? inputs.FilteredItemGroups as IComboboxItemLabels<TValue>) is { } window && window.TryGetLabel(value, comparer, out label))
