@@ -85,4 +85,8 @@ internal sealed record ComboboxOptions : TwinOptions
     /// <summary>Gets the index of a chip remove button's chip, which its handle reports with a removal.</summary>
     /// <value>The index, or <see langword="null"/> for a part other than a chip remove button.</value>
     public int? Index { get; init; }
+
+    /// <summary>Gets the id of the internal dismiss button beside the handle's element, whose press closes the popup.</summary>
+    /// <value>The id, or <see langword="null"/> while none renders.</value>
+    public string? DismissId { get; init; }
 }

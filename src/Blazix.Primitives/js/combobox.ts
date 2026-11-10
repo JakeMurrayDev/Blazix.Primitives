@@ -80,6 +80,7 @@ export interface ComboboxOptions extends TwinOptions {
   touchOpened?: boolean;
   chipIds?: readonly string[] | null;
   index?: number;
+  dismissId?: string | null;
 }
 
 /** The payload of a classified change of the input text; mirrors `ComboboxInputChange`. */
@@ -339,11 +340,10 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     }
   };
 
-  // CMB-STR-07: the start dismiss button is the input's previous sibling while the popup is open and modal.
+  // CMB-STR-07: the start dismiss button, found by the id C# rendered it with, while the popup is open and modal.
   const onDocumentClick = (event: MouseEvent): void => {
-    const target = getTarget(event);
-    const sibling = element.previousElementSibling;
-    if (sibling && target === sibling && sibling.getAttribute('aria-label') === 'Dismiss') {
+    const target = getTarget(event) as Element | null;
+    if (options.dismissId && target?.id === options.dismissId) {
       channel.report('OnDismiss', eventInfo(event));
     }
   };
@@ -396,9 +396,10 @@ function attachPopup(element: HTMLElement, initial: ComboboxOptions, channel: Tw
     }
   };
 
+  // CMB-STR-07: the end dismiss button, found by the id C# rendered it with.
   const onDocumentClick = (event: MouseEvent): void => {
-    const sibling = element.nextElementSibling;
-    if (sibling && getTarget(event) === sibling && sibling.getAttribute('aria-label') === 'Dismiss') {
+    const target = getTarget(event) as Element | null;
+    if (options.dismissId && target?.id === options.dismissId) {
       channel.report('OnDismiss', eventInfo(event));
     }
   };

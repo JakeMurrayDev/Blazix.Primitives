@@ -156,7 +156,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         // ADR 04 Amendments 2026-11-03 (6): a committed text reaches the module's writer without a render of the input.
         store.InputValueCommitted += OnInputValueCommitted;
         twin.EnterCloseRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.None, snapshot))));
-        twin.DismissPressed += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot))));
+        twin.DismissPressed += snapshot => _ = Observe(services.InvokeAsync(
+            () => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot, new EventTrigger(Store.State.ElementIds.StartDismiss, null)))));
     }
 
     /// <summary>Applies the part's parameters.</summary>
@@ -378,6 +379,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             Mounted = state.Lifecycle.Mounted,
             Rtl = Rtl,
             InputId = id,
+            DismissId = state.ElementIds.StartDismiss,
         };
         if (handle is null)
         {

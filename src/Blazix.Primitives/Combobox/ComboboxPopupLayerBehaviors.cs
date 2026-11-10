@@ -686,7 +686,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         {
             transitions = new TransitionsTwin(services.JSRuntime);
             transitions.StatusChanged += change => Store.MirrorStatus(change.Status);
-            transitions.TransitionCompleted += opened => _ = services.InvokeAsync(() => Store.CompleteTransitionAsync(opened));
+            transitions.TransitionCompleted += opened => _ = Observe(services.InvokeAsync(() => Store.CompleteTransitionAsync(opened)));
             sentTransitions = options;
             transitionsHandle = await transitions.AttachAsync(element, options);
             return;
@@ -710,11 +710,14 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
             InputId = state.ElementIds.Input,
             ListId = state.ElementIds.List,
             TouchOpened = state.Lifecycle.OpenMethod == InteractionType.Touch,
+            DismissId = state.ElementIds.EndDismiss,
         };
         if (twinHandle is null)
         {
+            // ComboboxInternalDismissButton.tsx:28: close-press with the button as its trigger.
             twin = new ComboboxTwin(services.JSRuntime);
-            twin.DismissPressed += snapshot => _ = services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot)));
+            twin.DismissPressed += snapshot => _ = Observe(services.InvokeAsync(
+                () => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot, new EventTrigger(Store.State.ElementIds.EndDismiss, null)))));
             sentTwinOptions = options;
             twinHandle = await twin.AttachAsync(element, options);
             return;
@@ -724,6 +727,18 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         {
             sentTwinOptions = options;
             await twinHandle.UpdateAsync(options);
+        }
+    }
+
+    private async Task Observe(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await services.DispatchException(exception);
         }
     }
 }
