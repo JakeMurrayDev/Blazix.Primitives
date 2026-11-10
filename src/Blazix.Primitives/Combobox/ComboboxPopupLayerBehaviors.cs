@@ -385,6 +385,9 @@ internal sealed class ComboboxPositionerBehavior : IAsyncDisposable
             return;
         }
 
+        // The mirror starts on the requested side, which a first report that confirms it does not change: the side reaches
+        // the store once the positioner renders, for the trigger's and the input's data-popup-side (ComboboxTrigger.tsx:84).
+        ReportSide();
         Task floatingSync = floating.AfterRenderAsync(true, element, id);
         Task moduleSync = SyncPopupModuleAsync(element);
         await positioner.AfterRenderAsync(element, id);
