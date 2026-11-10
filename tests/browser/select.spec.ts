@@ -30,9 +30,10 @@ popupFocusPropsTests({
   initialFocus: false,
   triggerRole: 'combobox',
   alwaysMounted: true,
-  // Base UI passes `mouseCloseType: ''` for its known gap (an item press closes through the store's own setOpen, which
-  // skips the event that records the close type). The port's item press closes through the open request with the
-  // click's pointer type, so finalFocus receives `mouse` (design point N3 of M5 track 9, pending the user).
+  // Base UI's known gap (select.md §16 Q5, SEL-EVT-17): an item press closes through the store's own setOpen, which skips
+  // the event that records the close type, so finalFocus receives ''. The port replicates it (design point N3 of M5
+  // track 9, settled by the orchestrator 2026-11-11).
+  mouseCloseType: '',
 });
 
 test.describe('Select.Positioner', () => {
