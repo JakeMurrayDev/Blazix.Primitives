@@ -1,0 +1,117 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@attribute [Collection(AllocationBudgetsCollection.Name)]
+@using Bunit
+@using Blazix.Primitives.Interop
+@*
+    ADR 16 rule 7 for Select at 300 items (M5 track 9; plan decision 13's budgets), on `int`, `string`, an enum and a
+    record class, each the least of five runs after a warm-up, measured around bUnit's synchronous render on the test
+    thread: a re-render of the root with unchanged parameters (which sends nothing to any module), a highlight move and
+    a value change while open.
+*@
+
+@code {
+    private const int Count = 300;
+
+    // First measurement 2026-11-10 (arm64, .NET 11, Release; M5 track 9): the envelope of 12 runs of this class, each the
+    // least of five, plus the CI runner's +112 bytes floor shift (InteractionsAllocationBudgetTests, 2026-10-29). The
+    // re-render (the root and all 300 items with their indicator and text, about 377 bytes an `int` item) and the
+    // highlight move (two items) are the library's. A value change also counts bUnit's markup of the whole tree, which bUnit
+    // regenerates after each render batch, and every store notification renders its own batch, so that figure is a coarse
+    // bound. They only tighten.
+    private static (long Rerender, long Highlight, long ValueChange) Budgets(string kind) => kind switch
+    {
+        "int" => (113112, 1664, 4466320),
+        "string" => (91440, 1616, 4473096),
+        "enum" => (113128, 1664, 4469824),
+        _ => (226112, 2496, 4914864),
+    };
+
+    public enum Fruit
+    {
+        Apple,
+    }
+
+    public sealed record Option(int Id, string Name);
+
+    public static TheoryData<string> Kinds => ["int", "string", "enum", "record"];
+
+    [Theory(DisplayName = "port: at 300 items, an unchanged re-render sends nothing, and a highlight move and a value change stay within their budgets")]
+    [MemberData(nameof(Kinds))]
+    [Trait("Requirement", "ADR16-7")]
+    public async Task Stays_within_its_budgets_at_300_items(string kind)
+    {
+        (long rerender, long highlight, long valueChange) = kind switch
+        {
+            "int" => await MeasureAsync([.. Enumerable.Range(0, Count)]),
+            "string" => await MeasureAsync([.. Enumerable.Range(0, Count).Select(i => "v" + i.ToString(System.Globalization.CultureInfo.InvariantCulture))]),
+            "enum" => await MeasureAsync([.. Enumerable.Range(0, Count).Select(i => (Fruit)i)]),
+            _ => await MeasureAsync([.. Enumerable.Range(0, Count).Select(i => new Option(i, "Option " + i.ToString(System.Globalization.CultureInfo.InvariantCulture)))]),
+        };
+
+        (long rerenderBudget, long highlightBudget, long valueChangeBudget) = Budgets(kind);
+        Assert.True(rerender <= rerenderBudget, $"{kind}: a re-render allocated {rerender} bytes; the budget is {rerenderBudget}");
+        Assert.True(highlight <= highlightBudget, $"{kind}: a highlight move allocated {highlight} bytes; the budget is {highlightBudget}");
+        Assert.True(valueChange <= valueChangeBudget, $"{kind}: a value change allocated {valueChange} bytes; the budget is {valueChangeBudget}");
+    }
+
+    private async Task<(long Rerender, long Highlight, long ValueChange)> MeasureAsync<T>(T[] values)
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="T" DefaultValue="@values[0]">
+            <SelectTrigger TValue="T">
+                <SelectValue TValue="T" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup>
+                        <SelectList>
+                            @foreach (T value in values)
+                            {
+                                <SelectItem TValue="T" @key="value" Value="@value">
+                                    <SelectItemIndicator />
+                                    <SelectItemText>@value</SelectItemText>
+                                </SelectItem>
+                            }
+                        </SelectList>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await OpenAsync(cut);
+
+        for (int i = 0; i < 20; i++)
+        {
+            cut.Instance.RefreshAsync().GetAwaiter().GetResult();
+        }
+
+        int updatesBefore = Updates();
+        long rerender = AllocationSampler.LeastOfFive(() => cut.Instance.RefreshAsync().GetAwaiter().GetResult());
+        Assert.Equal(updatesBefore, Updates());
+
+        // The module's reports, built once: a move between items 1 and 2.
+        await HighlightAsync(cut, 1);
+        string[] ids = [.. cut.FindAll("[role=\"option\"]").Take(3).Select(option => option.Id!)];
+        int revision = CompositeHandle.Invocations["update"].Count(update => update.Arguments[0] is string json && json.Contains("\"highlight\":", StringComparison.Ordinal));
+        string[] reports = [.. new[] { 1, 2 }.Select(index => $$"""{"index":{{index}},"itemId":"{{ids[index]}}","event":{{Key("ArrowDown")}},"revision":{{revision}}}""")];
+        CompositeTwin twin = PopupCompositeTwin()!;
+        for (int i = 0; i < 20; i++)
+        {
+            cut.InvokeAsync(() => twin.OnListHighlight(reports[i % 2])).GetAwaiter().GetResult();
+        }
+
+        long highlight = AllocationSampler.LeastOfFive(run => cut.InvokeAsync(() => twin.OnListHighlight(reports[run % 2])).GetAwaiter().GetResult());
+
+        SelectStore<T> store = StoreOf<T>(cut);
+        ChangeEventDetails details = new(EventReason.None);
+        for (int i = 0; i < 20; i++)
+        {
+            cut.InvokeAsync(() => store.RequestValueAsync(values[1 + (i % 2)], details)).GetAwaiter().GetResult();
+        }
+
+        long valueChange = AllocationSampler.LeastOfFive(run => cut.InvokeAsync(() => store.RequestValueAsync(values[1 + (run % 2)], details)).GetAwaiter().GetResult());
+        return (rerender, highlight, valueChange);
+    }
+
+    private int Updates() =>
+        SelectHandle.Invocations["update"].Count + CompositeHandle.Invocations["update"].Count + InteractionsHandle.Invocations["update"].Count;
+}
