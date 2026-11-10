@@ -23,6 +23,7 @@ namespace Blazix.Primitives;
 /// <param name="PopupId">The id the popup renders, or <see langword="null"/> while none is registered.</param>
 /// <param name="ViewportId">The id the viewport renders, or <see langword="null"/> while none is registered.</param>
 /// <param name="HasPositioner">Whether a positioner is registered.</param>
+/// <param name="MountedPositioners">The number of positioners rendered, counted from the render that mounts each.</param>
 /// <param name="HasViewportTarget">Whether a viewport target, the element the contents move into, is registered.</param>
 /// <param name="CloseReason">The reason of the latest close request, or <see langword="null"/>.</param>
 /// <param name="Answered">The number of the module's focus-out reports answered.</param>
@@ -35,6 +36,7 @@ internal sealed partial record NavigationMenuStoreState(
     string? PopupId,
     string? ViewportId,
     bool HasPositioner,
+    int MountedPositioners,
     bool HasViewportTarget,
     EventReason? CloseReason,
     int Answered)
@@ -63,6 +65,7 @@ internal sealed partial record NavigationMenuStoreState(
         PopupId: null,
         ViewportId: null,
         HasPositioner: false,
+        MountedPositioners: 0,
         HasViewportTarget: false,
         CloseReason: null,
         Answered: 0);
@@ -100,6 +103,8 @@ internal static class NavigationMenuSelectors
     public static readonly Func<NavigationMenuStoreState, string?> ViewportId = static state => state.ViewportId;
 
     public static readonly Func<NavigationMenuStoreState, bool> HasPositioner = static state => state.HasPositioner;
+
+    public static readonly Func<NavigationMenuStoreState, bool> PositionerMounted = static state => state.MountedPositioners > 0;
 
     public static readonly Func<NavigationMenuStoreState, bool> HasViewportTarget = static state => state.HasViewportTarget;
 
@@ -187,6 +192,11 @@ internal sealed class NavigationMenuStore : PopupLifecycleStore<NavigationMenuSt
             Write(State with { HasPositioner = registered });
         }
     }
+
+    /// <summary>Counts a positioner's mount or unmount.</summary>
+    /// <param name="mounted"><see langword="true"/> for a mount, <see langword="false"/> for an unmount.</param>
+    public void CountPositionerMount(bool mounted) =>
+        Write(State with { MountedPositioners = State.MountedPositioners + (mounted ? 1 : -1) });
 
     /// <summary>Writes whether a viewport target is registered.</summary>
     /// <param name="registered">The new value.</param>

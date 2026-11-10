@@ -79,6 +79,7 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
     private StoreSelection<NavigationMenuStoreState, bool>? open;
     private StoreSelection<NavigationMenuStoreState, bool>? mounted;
     private StoreSelection<NavigationMenuStoreState, bool>? hasPositioner;
+    private StoreSelection<NavigationMenuStoreState, bool>? positionerMounted;
     private StoreSelection<NavigationMenuStoreState, string?>? popupId;
     private StoreSelection<NavigationMenuStoreState, string?>? viewportId;
     private NavigationMenuTriggerState? state;
@@ -262,6 +263,7 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
         open = subscription.Select(NavigationMenuSelectors.Open);
         mounted = subscription.Select(NavigationMenuSelectors.Mounted);
         hasPositioner = subscription.Select(NavigationMenuSelectors.HasPositioner);
+        positionerMounted = subscription.Select(NavigationMenuSelectors.PositionerMounted);
         popupId = subscription.Select(NavigationMenuSelectors.PopupId);
         viewportId = subscription.Select(NavigationMenuSelectors.ViewportId);
     }
@@ -468,7 +470,10 @@ public sealed class NavigationMenuTrigger : PartBase<NavigationMenuTriggerState>
         bool positioner = hasPositioner!.Value;
         bool floating = positioner || viewportId!.Value is not null;
         bool active = IsActive;
-        InteractionsClickOptions? click = (positioner || closed) && !Disabled
+        // G4b: Base UI's gate reads the Positioner's element, which React sets in the commit that mounts it, before paint. The
+        // registration below lands in the Positioner's after-render, a round trip after this render on Server, so the click
+        // role reads the mount the Positioner records while it renders, and keeps its listener through the open.
+        InteractionsClickOptions? click = (positionerMounted!.Value || closed) && !Disabled
             ? new InteractionsClickOptions { Toggle = active, PatientClick = true }
             : null;
         InteractionsHoverOptions? hover = (floating || closed) && !Disabled
