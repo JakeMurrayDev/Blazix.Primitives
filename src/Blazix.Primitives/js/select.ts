@@ -128,6 +128,9 @@ interface Rect {
 const positionerHandle = Symbol('blazix.select.positioner');
 // Interim review B2: arrows whose handle attached before the positioner's wait here, and the positioner adopts them.
 const waitingArrows = Symbol('blazix.select.waitingArrows');
+// The attached Positioners, which a trigger reads live (select/trigger/SelectTrigger.tsx:186-191): an open's batch mounts the
+// Positioner after the trigger's after-render, so the trigger's own reference can lag one update behind.
+const positioners = new Set<PositionerState>();
 const listHandle = Symbol('blazix.select.list');
 const arrowHandle = Symbol('blazix.select.arrow');
 const triggerHandle = Symbol('blazix.select.trigger');
@@ -144,6 +147,7 @@ interface SelectElement extends HTMLElement {
 interface PositionerState {
   readonly element: HTMLElement;
   readonly handle: TwinHandle;
+  trigger(): HTMLElement | null;
   readonly arrows: Set<ArrowState>;
   options: SelectOptions;
   popup(): HTMLElement | null;
@@ -878,6 +882,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       positionerLayer.clear();
       popupLayer?.clear();
       listLayer?.clear();
+      positioners.delete(state);
       delete element[positionerHandle];
     },
   };
@@ -886,6 +891,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     element,
     handle,
     arrows: new Set(),
+    trigger: () => resolve(options.trigger),
     options,
     popup: popupElement,
     list: listElement,
@@ -895,6 +901,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     scheduleArrowVisibility,
   };
   element[positionerHandle] = state;
+  positioners.add(state);
   const waiting = element[waitingArrows];
   if (waiting) {
     delete element[waitingArrows];
@@ -1037,7 +1044,15 @@ function attachTrigger(element: SelectElement, initial: SelectOptions, twinRefer
 
   const positionerElement = (): HTMLElement | null => {
     const found = resolveReference<Element>(references, options.positioner, captures);
-    return isHTMLElement(found) ? found : null;
+    if (isHTMLElement(found)) {
+      return found;
+    }
+    for (const positioner of positioners) {
+      if (positioner.trigger() === element) {
+        return positioner.element;
+      }
+    }
+    return null;
   };
 
   const stop = () => {
