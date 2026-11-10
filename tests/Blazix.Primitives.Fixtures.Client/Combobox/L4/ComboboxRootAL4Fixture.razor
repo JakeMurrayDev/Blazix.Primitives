@@ -387,7 +387,7 @@
         }
 
         Flag("defaultOpen", "DefaultOpen");
-        if (QueryFlag("open") is { } controlled && Case == "basic")
+        if (QueryFlag("open") is { } controlled && Case is "basic" or "default")
         {
             rootParameters["Open"] = controlled;
         }
