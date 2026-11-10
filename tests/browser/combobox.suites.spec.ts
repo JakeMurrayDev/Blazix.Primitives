@@ -1,6 +1,7 @@
 import { test } from './helpers';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { popupListConformanceTests } from './suites/popupListConformanceTests';
+import { positionerConformanceTests } from './suites/positioner-conformance';
 
 // Base UI's shared suites as ComboboxRoot.test.tsx runs them on Combobox's own parts (M5 track 10, issue 174; the rows that
 // cite them in docs/components/combobox.md): `composite-list.spec.ts` runs the popup-list suite's Combobox options on track
@@ -31,5 +32,10 @@ test.describe('Combobox', () => {
     modal: false,
     triggerClickCloses: false,
     listEnd: 'escape',
+  });
+
+  // ComboboxPositioner.test.tsx's positionerConformanceTests call: the Input is the anchor; Combobox has no Viewport.
+  positionerConformanceTests({
+    fixture: 'combobox-suite-positioner',
   });
 });
