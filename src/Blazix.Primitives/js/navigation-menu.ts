@@ -1185,7 +1185,11 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
 
   element.addEventListener('mouseover', onMouseOver);
   element.addEventListener('focus', onFocus);
-  element.addEventListener('click', onClick);
+  // NavigationMenuTrigger.tsx:727-734: mergeProps runs the rightmost handler first, so the activation (defaultProps) runs
+  // before useClick (referenceProps). Capture on the Trigger runs it before the click role's listener on the same element,
+  // whichever handle attached first (G4b: once the click role stays installed through an open, its listener can precede
+  // this one, and a click closing the menu would be followed by the activation's reopen).
+  element.addEventListener('click', onClick, true);
   element.addEventListener('pointerenter', onPointer);
   element.addEventListener('pointerdown', onPointer);
   element.addEventListener('keydown', onKeyDown);
@@ -1214,7 +1218,7 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
       cancelAutoSizeReset();
       element.removeEventListener('mouseover', onMouseOver);
       element.removeEventListener('focus', onFocus);
-      element.removeEventListener('click', onClick);
+      element.removeEventListener('click', onClick, true);
       element.removeEventListener('pointerenter', onPointer);
       element.removeEventListener('pointerdown', onPointer);
       element.removeEventListener('keydown', onKeyDown);
