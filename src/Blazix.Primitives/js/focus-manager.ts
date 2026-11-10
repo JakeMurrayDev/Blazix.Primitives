@@ -959,16 +959,33 @@ export function attach(
   let sessionToken: string | null = null;
   const ownData: { current: SessionData } = { current: {} };
   const dataRef = (): { current: SessionData } => session?.dataRef ?? ownData;
+  // Base UI's return-focus effect re-arms when `domReference` changes: a root opened without a trigger claims one that
+  // mounts while it is open (useImplicitActiveTrigger). The session's reference moves with C#'s session options, not this
+  // manager's, so the manager follows it.
+  let stopFollowingReference: (() => void) | null = null;
+  let followedReference: Element | null = null;
   const joinSession = (): void => {
     const token = disposed ? null : (options.sessionToken ?? null);
     if (token === sessionToken) {
       return;
     }
     if (session) {
+      stopFollowingReference?.();
+      stopFollowingReference = null;
       releaseSession(session);
     }
     session = token ? acquireSession(token) : null;
     sessionToken = token;
+    const joined = session;
+    if (joined) {
+      followedReference = joined.domReferenceElement;
+      stopFollowingReference = joined.subscribePositionReference(() => {
+        if (!disposed && joined.domReferenceElement !== followedReference) {
+          followedReference = joined.domReferenceElement;
+          sync();
+        }
+      });
+    }
   };
   joinSession();
   // A focus-out close is a request: the module disarms after sending one until the next open (ADR 04 Amendments
