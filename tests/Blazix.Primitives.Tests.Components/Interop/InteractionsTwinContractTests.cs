@@ -497,6 +497,21 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsMenuFloatingOptions { Release = true }, new InteractionsMenuFloatingOptions());
     }
 
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (4): the guard-return option
+    // crosses by its module name, only when true. Written after the option (D3 of PR 183, a88bdc16), so not red first; the
+    // interim review of PR 183 (F1) asked for it.
+    [Fact(DisplayName = "port: Menu's guard-return option is written by its module name, only when true, and a change is a changed option")]
+    [Trait("Requirement", "MNU-FOC-08")]
+    public void Menus_guard_return_option_is_written_by_its_module_name_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string set = Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions { CloseOnGuardReturn = true } } });
+        string unset = Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions() } });
+
+        Assert.Contains("\"menu\":{\"closeOnGuardReturn\":true}", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("closeOnGuardReturn", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { CloseOnGuardReturn = true }, new InteractionsMenuTriggerOptions());
+    }
+
     private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
 
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
