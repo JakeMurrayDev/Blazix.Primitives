@@ -66,6 +66,7 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
     private static readonly StateAttributesMapping<TooltipPopupState> s_mapping = PopupStateMapping.CreateOpen<TooltipPopupState>();
 
     private readonly Action mirrorChanged;
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private TooltipStoreView? view;
     private IDisposable? retainRegistration;
     private bool announcedRetain;
@@ -190,6 +191,9 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, view!.TransitionStatus);
+
         // TIP-DOM-11 (FOCUSABLE_POPUP_PROPS, popupStoreUtils.ts:27-30).
         attributes.Set("tabindex", "-1");
         attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
@@ -305,6 +309,7 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
 
         TransitionsOptions options = TransitionsOptions(current);
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
     }
