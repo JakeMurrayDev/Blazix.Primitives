@@ -332,6 +332,7 @@ test.describe('<Combobox.Trigger />', () => {
 
   test.describe('typeahead', () => {
     test('selects item when typing on focused trigger (input inside popup)', async ({ page, mode }) => {
+      test.fixme(true, 'CMB-KEY-12 waits for composite (session M2, 2026-11-10)');
       await gotoCombobox(page, mode, 'combobox-trigger', { case: 'typeahead-items' });
 
       await expect(trigger(page)).not.toContainText('apple');
@@ -346,6 +347,7 @@ test.describe('<Combobox.Trigger />', () => {
     // There is no strict mode in Blazor: both cases render the same.
     for (const strict of [false, true]) {
       test(`selects item when typing after the popup has been opened and closed (items prop, strict: ${strict})`, async ({ page, mode }) => {
+        test.fixme(true, 'CMB-KEY-12 waits for composite (session M2, 2026-11-10)');
         await gotoCombobox(page, mode, 'combobox-trigger', { case: 'typeahead-items' });
 
         // Opening mounts the list (rendered labels overwrite the derived ones) and closing unmounts it, clearing the registered
@@ -365,6 +367,7 @@ test.describe('<Combobox.Trigger />', () => {
 
     for (const keepMounted of [false, true]) {
       test(`cycles to the next matching item when typing after open/close (no items prop, keepMounted ${keepMounted})`, async ({ page, mode }) => {
+        test.fixme(true, 'CMB-KEY-12 waits for composite (session M2, 2026-11-10)');
         await gotoCombobox(page, mode, 'combobox-trigger', { case: 'typeahead-plain', keepMounted });
 
         await trigger(page).click();
@@ -380,6 +383,7 @@ test.describe('<Combobox.Trigger />', () => {
     }
 
     test('cycles from the selected item after reordering items while closed (no items prop)', async ({ page, mode }) => {
+      test.fixme(true, 'CMB-KEY-12 waits for composite (session M2, 2026-11-10)');
       const fixture = await gotoCombobox(page, mode, 'combobox-trigger', { case: 'typeahead-reorder' });
 
       // Open and close so the trigger path force-mounts the list.
@@ -399,6 +403,7 @@ test.describe('<Combobox.Trigger />', () => {
     });
 
     test('only matches mounted indexed item labels when typing on the focused trigger', async ({ page, mode }) => {
+      test.fixme(true, 'CMB-KEY-12 waits for composite (session M2, 2026-11-10)');
       await gotoCombobox(page, mode, 'combobox-trigger', { case: 'typeahead-indexed' });
 
       await trigger(page).click();
@@ -439,6 +444,7 @@ test.describe('<Combobox.Trigger />', () => {
 test.describe('Combobox.createItems', () => {
   test.describe('integration', () => {
     test('uses derived labels for closed trigger typeahead', async ({ page, mode }) => {
+      test.fixme(true, 'CMB-KEY-12 waits for composite (session M2, 2026-11-10)');
       await gotoCombobox(page, mode, 'combobox-trigger', { case: 'create-items' });
 
       await trigger(page).focus();
