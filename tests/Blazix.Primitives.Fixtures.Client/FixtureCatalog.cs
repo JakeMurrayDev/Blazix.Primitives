@@ -305,5 +305,10 @@ public static class FixtureCatalog
         ["select-aligned-scroll"] = new(typeof(SelectAlignedScrollFixture)),
         ["select-aligned-focus"] = new(typeof(SelectAlignedFocusFixture)),
         // select-aligned fixtures above this line (M5 track 9, L4 agent aligned)
+        ["select-toolbar"] = new(typeof(SelectToolbarFixture)),
+        ["select-dialog"] = new(typeof(SelectDialogFixture)),
+        ["select-use-label"] = new(typeof(SelectUseLabelFixture)),
+        ["field-select-prerender"] = new(typeof(FieldSelectPrerenderFixture), Prerender: true),
+        // select-others fixtures above this line (M5 track 9, final review B2)
     };
 }
