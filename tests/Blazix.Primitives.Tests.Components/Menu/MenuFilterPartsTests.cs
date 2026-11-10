@@ -42,6 +42,30 @@ public sealed class MenuFilterPartsTests : BunitContext
         Assert.Equal(Message("Input"), error.Message);
     }
 
+    [Fact(DisplayName = "throws when a filter part is rendered in a plain submenu of a filterable menu")]
+    [Trait("Requirement", "MNU-EDGE-04")]
+    [Trait("Requirement", "MNU-STR-14")]
+    public void Throws_when_a_filter_part_is_rendered_in_a_plain_submenu_of_a_filterable_menu()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            Render<MenuFilterPartsHost>(p => p.Add(x => x.Case, "plain-submenu-input")));
+
+        Assert.Equal(Message("Input"), error.Message);
+    }
+
+    [Fact(DisplayName = "port: the provider makes exactly the root directly inside it filterable, and each searchable submenu needs its own")]
+    [Trait("Requirement", "MNU-STR-14")]
+    public void The_provider_makes_exactly_the_root_directly_inside_it_filterable()
+    {
+        Dictionary<string, bool> seen = [];
+
+        Render<MenuFilterPartsHost>(p => p.Add(x => x.Case, "scopes").Add(x => x.Seen, seen));
+
+        Assert.Equal(
+            new Dictionary<string, bool> { ["root"] = true, ["plain-submenu"] = false, ["filterable-submenu"] = true, ["plain-root"] = false },
+            seen);
+    }
+
     private static string Message(string part) =>
         $"Blazix: `<Menu{part}>` must be placed in a menu wrapped in `<MenuFilterProvider>`. It reads the filter query and the "
         + "matching items from the provider, which a plain menu does not have. Wrap the `<MenuRoot>` or `<MenuSubmenuRoot>` it "

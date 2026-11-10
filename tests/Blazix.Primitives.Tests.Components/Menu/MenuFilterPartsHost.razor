@@ -23,9 +23,52 @@
             </MenuPortal>
         </MenuRoot>
         break;
+    case "plain-submenu-input":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            <MenuSubmenuRoot DefaultOpen="true">
+                                <MenuSubmenuTrigger>Move to</MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup>
+                                            <MenuInput />
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+    case "scopes":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload">
+                <MenuRootProbe Name="root" Seen="Seen" />
+                <MenuSubmenuRoot>
+                    <MenuRootProbe Name="plain-submenu" Seen="Seen" />
+                </MenuSubmenuRoot>
+                <MenuFilterProvider>
+                    <MenuSubmenuRoot>
+                        <MenuRootProbe Name="filterable-submenu" Seen="Seen" />
+                    </MenuSubmenuRoot>
+                </MenuFilterProvider>
+            </MenuRoot>
+        </MenuFilterProvider>
+        <MenuRoot TPayload="NoPayload">
+            <MenuRootProbe Name="plain-root" Seen="Seen" />
+        </MenuRoot>
+        break;
 }
 
 @code {
+    [Parameter]
+    public Dictionary<string, bool> Seen { get; set; } = [];
+
     [Parameter]
     public string Case { get; set; } = "";
 }
