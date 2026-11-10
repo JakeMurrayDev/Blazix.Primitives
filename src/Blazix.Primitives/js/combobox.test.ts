@@ -479,6 +479,28 @@ describe('the list and the press defaults', () => {
     expect(clicks).toEqual(['click']);
   });
 
+  it("ComboboxList: the list's own Enter clicks the highlighted item for the keydown, and leaves the keydown alone without a highlight or while read-only", () => {
+    const list = document.createElement('div');
+    const item = document.createElement('div');
+    item.setAttribute('role', 'option');
+    list.append(item);
+    document.body.append(list);
+    const fake = createFakeTwin();
+    const handle = attach(list, options({ part: 'list', open: true }), fake.twin);
+    handles.push(handle);
+    const clicks: string[] = [];
+    item.addEventListener('click', () => clicks.push('click'));
+    const unhighlighted = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    list.dispatchEvent(unhighlighted);
+    item.setAttribute('data-highlighted', '');
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    list.dispatchEvent(enter);
+    handle.update(JSON.stringify(options({ part: 'list', open: true, readOnly: true })));
+    const readOnly = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    list.dispatchEvent(readOnly);
+    expect([clicks, unhighlighted.defaultPrevented, enter.defaultPrevented, readOnly.defaultPrevented, fake.reported('OnSelectionEvent').length]).toEqual([['click'], false, true, false, 2]);
+  });
+
   it('port: a mousedown on an input group outside the input prevents its default, so the input keeps the focus', () => {
     const group = document.createElement('div');
     const input = document.createElement('input');
