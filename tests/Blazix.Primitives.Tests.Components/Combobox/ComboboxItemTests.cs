@@ -1,6 +1,8 @@
+using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -50,6 +52,39 @@ public sealed class ComboboxItemTests : IDisposable
         Assert.Equal(itemsBefore, items);
         Assert.Equal(0, root - rootBefore);
         Assert.Equal(0, popup - popupBefore);
+    }
+
+    // CMB-STA-25 (ComboboxItem.tsx:98-109): without Items each rendered item writes its value at its index on every
+    // change, so a positional template that hands an Item another value keeps the registry the highlight reads current.
+    [Fact(DisplayName = "port: an item whose value changes under the same id updates the rendered registry")]
+    [Trait("Requirement", "CMB-STA-25")]
+    public async Task An_item_whose_value_changes_under_the_same_id_updates_the_rendered_registry()
+    {
+        IRenderedComponent<ComboboxPositionalHarness> cut = test.Context.Render<ComboboxPositionalHarness>(p => p.Add(x => x.Values, ["apple", "banana"]));
+        string first = cut.Find("[data-testid=item-0]").Id!;
+        string second = cut.Find("[data-testid=item-1]").Id!;
+        await cut.InvokeAsync(() => TwinWith("\"reportItems\":true").OnItemsChange("{\"ids\":[\"" + first + "\",\"" + second + "\"]}"));
+        await Highlight(cut, 1, second);
+        Assert.Equal(["banana"], cut.Instance.Highlighted);
+
+        cut.Render(p => p.Add(x => x.Values, ["apple", "cherry"]));
+        await Highlight(cut, 0, first);
+        await Highlight(cut, 1, second);
+
+        Assert.Equal(second, cut.Find("[data-testid=item-1]").Id);
+        Assert.Equal(["banana", "apple", "cherry"], cut.Instance.Highlighted);
+    }
+
+    private Task Highlight(IRenderedComponent<ComboboxPositionalHarness> cut, int index, string itemId)
+    {
+        string json = $$"""{"index":{{index}},"itemId":"{{itemId}}","event":{{ComboboxTestContext.Key("ArrowDown")}},"revision":1000}""";
+        return cut.InvokeAsync(() => TwinWith("\"virtual\":true").OnListHighlight(json));
+    }
+
+    private CompositeTwin TwinWith(string marker)
+    {
+        JSRuntimeInvocation attach = test.Composite.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal));
+        return ((DotNetObjectReference<CompositeTwin>)attach.Arguments[2]!).Value;
     }
 
     private static RenderFragment Counter(Action rendered) => builder =>
