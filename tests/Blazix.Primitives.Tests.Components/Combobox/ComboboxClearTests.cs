@@ -79,6 +79,21 @@ public sealed class ComboboxClearTests : IDisposable
         Assert.Equal(EventReason.ClearPress, reason);
     }
 
+    [Fact(DisplayName = "port: a canceled input text change does not cancel the clear's value change")]
+    [Trait("Requirement", "CMB-EVT-05")]
+    public async Task A_canceled_text_change_does_not_cancel_the_value_change()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultValue"] = "apple" });
+        cut.Instance.OnInput = args => args.Details.Cancel();
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=clear]").Click());
+
+        (string? value, EventReason reason) = Assert.Single(cut.Instance.ValueChanges);
+        Assert.Null(value);
+        Assert.Equal(EventReason.ClearPress, reason);
+        Assert.False(cut.Instance.Root!.Store.State.HasSelectedValue);
+    }
+
     [Fact(DisplayName = "is disabled when root disabled and does nothing on click")]
     [Trait("Requirement", "CMB-API-30")]
     public async Task Is_disabled_when_root_disabled_and_does_nothing_on_click()
