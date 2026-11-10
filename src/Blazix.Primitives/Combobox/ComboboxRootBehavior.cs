@@ -307,9 +307,12 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
 
     private async Task SyncFormAsync()
     {
-        // The `form` module's Control role (ADR 04 Amendments 2026-11-04): the committed value through update.
+        // The `form` module's Control role (ADR 04 Amendments 2026-11-04): the committed value through update, and the element the
+        // hidden input hands its focus to (AriaCombobox.tsx:1614-1622): the trigger while the input is inside the popup, else the
+        // input, else the trigger.
         ComboboxStore<TValue> store = root.Store;
         string serialized = Serialized(store);
+        string? focusTarget = FocusTarget(store.State);
         if (formTwin is null)
         {
             formTwin = new FormTwin(jsRuntime);
@@ -321,22 +324,37 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
                 }
             };
             formRevision = 1;
-            formOptions = new FormOptions { Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = serialized, Revision = formRevision } };
+            formOptions = FormOptionsOf(serialized, focusTarget, formRevision);
             formHandle = await formTwin.AttachAsync(hiddenInput, formOptions);
 
             // A selection committed while the attach was in flight is sent once it lands.
             serialized = Serialized(store);
+            focusTarget = FocusTarget(store.State);
         }
 
-        if (formHandle is null || string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal))
+        if (formHandle is null
+            || (string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal) && string.Equals(formOptions?.Control?.FocusTarget, focusTarget, StringComparison.Ordinal)))
         {
             return;
         }
 
-        formRevision++;
-        formOptions = new FormOptions { Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = serialized, Revision = formRevision } };
+        bool valueChanged = !string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal);
+        if (valueChanged)
+        {
+            formRevision++;
+        }
+
+        formOptions = FormOptionsOf(serialized, focusTarget, formRevision);
         await formHandle.UpdateAsync(formOptions);
     }
+
+    private static string? FocusTarget(ComboboxStoreState state) =>
+        state.InputInsidePopup ? state.ElementIds.Trigger : state.ElementIds.Input ?? state.ElementIds.Trigger;
+
+    private static FormOptions FormOptionsOf(string serialized, string? focusTarget, int revision) => new()
+    {
+        Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = serialized, Revision = revision, FocusTarget = focusTarget },
+    };
 
     private Task RouteAsync(OpenChangeRequest request) => root.Store.RequestOpenAsync(request.Open, request.Details);
 
@@ -356,6 +374,9 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         {
             CopyAndSyncSession();
             _ = ObserveAsync(list!.FlushAsync());
+
+            // The hidden input's focus target follows the parts' ids, which commit with no render of the root.
+            _ = ObserveAsync(SyncFormAsync());
         }
     }
 
