@@ -16,7 +16,7 @@
 //   one-shot mouseup (`cancel-open`, PTR-03).
 // Transcribed from Base UI v1.9.0: combobox/input/ComboboxInput.tsx:212-430, combobox/root/AriaCombobox.tsx:681-707,
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
-import { contains, getTarget, isHTMLElement, isScrollableY, platform as runtimePlatform } from './dom';
+import { contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
 import { eventInfo } from './event-info';
 import type { Platform } from './platform';
 import {
@@ -454,7 +454,72 @@ function attachList(element: HTMLElement, initial: ComboboxOptions): TwinHandle 
   };
 }
 
-// The press defaults of the trigger, the clear button, the input group and the chips (PTR-02, 07, 08): a press there keeps
+// The trigger's handle (PTR-02, PTR-03; ComboboxTrigger.tsx:96-100,177-233): a press that is not a touch focuses the input
+// and, with the input outside the popup, keeps the focus there. A press while closed with the input inside the popup waits
+// for its release once: a release away from the trigger, the popup and the list, and more than 5px outside the trigger's
+// bounds, cancels the open (`cancel-open`). A release after the trigger left the document is ignored.
+function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: TwinChannel): TwinHandle {
+  let options = initial;
+  let pointerType = '';
+  let pendingRelease: ((event: MouseEvent) => void) | null = null;
+  const doc = element.ownerDocument;
+  const stopWaiting = (): void => {
+    if (pendingRelease) {
+      doc.removeEventListener('mouseup', pendingRelease);
+      pendingRelease = null;
+    }
+  };
+  const trackPointer = (event: PointerEvent): void => {
+    pointerType = event.pointerType;
+  };
+  const onMouseDown = (event: MouseEvent): void => {
+    if (options.disabled) {
+      return;
+    }
+    if (pointerType !== 'touch') {
+      const input = options.inputId ? doc.getElementById(options.inputId) : null;
+      input?.focus();
+      if (!options.insidePopup) {
+        event.preventDefault();
+      }
+    }
+    if (options.open || !options.insidePopup) {
+      return;
+    }
+    stopWaiting();
+    const onRelease = (release: MouseEvent): void => {
+      pendingRelease = null;
+      if (!element.isConnected) {
+        return;
+      }
+      const target = getTarget(release) as Element | null;
+      const popup = options.popupId ? doc.getElementById(options.popupId) : null;
+      const list = options.listId ? doc.getElementById(options.listId) : null;
+      if (contains(element, target) || contains(popup, target) || contains(list, target) || isMouseWithinBounds(release, element)) {
+        return;
+      }
+      channel.report('OnCancelOpen', eventInfo(release));
+    };
+    pendingRelease = onRelease;
+    doc.addEventListener('mouseup', onRelease, { once: true });
+  };
+  element.addEventListener('pointerdown', trackPointer);
+  element.addEventListener('pointerenter', trackPointer);
+  element.addEventListener('mousedown', onMouseDown);
+  return {
+    update(optionsJson: string) {
+      options = parseOptions<ComboboxOptions>(optionsJson);
+    },
+    dispose() {
+      stopWaiting();
+      element.removeEventListener('pointerdown', trackPointer);
+      element.removeEventListener('pointerenter', trackPointer);
+      element.removeEventListener('mousedown', onMouseDown);
+    },
+  };
+}
+
+// The press defaults of the clear button, the input group and the chips (PTR-07, 08): a press there keeps
 // the focus where it is, so the input stays focused.
 function attachPressDefault(element: HTMLElement, initial: ComboboxOptions): TwinHandle {
   let options = initial;
@@ -507,6 +572,9 @@ export function createAttach(platform: Platform): typeof attach {
         break;
       case LIST_PART:
         handle = attachList(element, options);
+        break;
+      case TRIGGER_PART:
+        handle = attachTrigger(element, options, channel);
         break;
       default:
         handle = attachPressDefault(element, options);
