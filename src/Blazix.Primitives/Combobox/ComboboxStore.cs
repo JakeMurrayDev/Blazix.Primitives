@@ -256,6 +256,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool initialized;
 
+    private Func<TValue, string>? collectionLabel;
+
     /// <summary>Occurs when the selected value or values changed, for the hidden inputs and the field.</summary>
     public event Action? SelectionCommitted;
 
@@ -279,6 +281,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private bool Single => State.SelectionMode == ComboboxSelectionMode.Single;
 
     private bool Multiple => State.SelectionMode == ComboboxSelectionMode.Multiple;
+
+    // AriaCombobox.tsx:231-239: with an item collection the filter reads the items' collection labels; otherwise the converter.
+    private Func<TValue, string>? FilterItemToString =>
+        inputs.Items is IComboboxItemLabels<TValue> || inputs.ItemGroups is IComboboxItemLabels<TValue> ? collectionLabel ??= value => LabelOf(value) : inputs.ItemToStringLabel;
 
     private bool HasInputValueParameter { get; set; }
 
@@ -320,6 +326,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     /// <summary>Gets the filtered groups, or <see langword="null"/> when the items are flat.</summary>
     public IReadOnlyList<ComboboxItemGroup<TValue>>? FilteredGroups => filtered.Groups;
+
+    /// <summary>Gets a value indicating whether an item collection labels the <see langword="null"/> value, which then wins over a placeholder.</summary>
+    public bool HasNullItemLabel => TryCollectionLabel(default!, out _);
 
     /// <summary>Gets the inputs of the root's latest parameter set.</summary>
     public ComboboxRootInputs<TValue> Inputs => inputs;
@@ -706,7 +715,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Gets the label of a value, by the root's label converter.</summary>
     /// <param name="value">The value.</param>
     /// <returns>The value's label.</returns>
-    public string LabelOf(TValue? value) => ValueLabels.StringifyAsLabel<TValue>(value!, inputs.ItemToStringLabel);
+    public string LabelOf(TValue? value) =>
+        TryCollectionLabel(value!, out string label) ? label : ValueLabels.StringifyAsLabel<TValue>(value!, inputs.ItemToStringLabel);
+
 
     /// <summary>Gets the form value of a value, by the root's value converter.</summary>
     /// <param name="value">The value.</param>
@@ -1255,6 +1266,25 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
     }
 
+    // CMB-API-32, EDGE-12 (AriaCombobox.tsx:216-229): the collection given as the items first, then a collection given as the
+    // current filtered items (the external window); nothing from a past window is remembered.
+    private bool TryCollectionLabel(TValue value, out string label)
+    {
+        Func<TValue, TValue, bool>? comparer = inputs.IsItemEqualToValue;
+        if ((inputs.Items as IComboboxItemLabels<TValue> ?? inputs.ItemGroups as IComboboxItemLabels<TValue>) is { } items && items.TryGetLabel(value, comparer, out label))
+        {
+            return true;
+        }
+
+        if ((inputs.FilteredItems as IComboboxItemLabels<TValue> ?? inputs.FilteredItemGroups as IComboboxItemLabels<TValue>) is { } window && window.TryGetLabel(value, comparer, out label))
+        {
+            return true;
+        }
+
+        label = string.Empty;
+        return false;
+    }
+
     private void RefreshDerivation(ComboboxStoreState state)
     {
         // CMB-STA-21..23: the query, the bypass and the filtered items; the membership revision only when it changed.
@@ -1265,8 +1295,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         bool hasItems = inputs.Items is not null || inputs.ItemGroups is not null;
         bool ignoreExternal = hasItems && (inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null) && bypass;
         ComboboxItemPredicate<TValue> predicate = inputs.FilterSupplied
-            ? inputs.Filter is { } custom ? ComboboxItemPredicate<TValue>.Custom(custom, inputs.ItemToStringLabel) : ComboboxItemPredicate<TValue>.Off
-            : ComboboxItemPredicate<TValue>.Collator(collator, inputs.ItemToStringLabel);
+            ? inputs.Filter is { } custom ? ComboboxItemPredicate<TValue>.Custom(custom, FilterItemToString) : ComboboxItemPredicate<TValue>.Off
+            : ComboboxItemPredicate<TValue>.Collator(collator, FilterItemToString);
         ComboboxFilteredItems<TValue> next = ComboboxItemFiltering.Derive(new ComboboxFilterInputs<TValue>(
             inputs.Items,
             inputs.ItemGroups,

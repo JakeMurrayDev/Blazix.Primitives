@@ -738,8 +738,8 @@ internal sealed class ComboboxItemIndicatorBehavior : IAsyncDisposable
 }
 
 // combobox/value/ComboboxValue.tsx (CMB §3.10, API-46/47): the selected value's label, or a template, or the placeholder.
-// Combobox only (Autocomplete has its own Value). A null item's label, which Base UI lets win over the placeholder, comes with
-// the item collections of design point 2 (ComboboxItems.Create); until then a null value has no label.
+// Combobox only (Autocomplete has its own Value). A null item's label in an item collection (ComboboxItems.Create, design
+// point 2) is the label of no selection and wins over the placeholder.
 /// <summary>The behavior of a combobox value.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxValueBehavior<TValue> : IDisposable
@@ -768,6 +768,9 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     /// <summary>Gets a value indicating whether the root keeps several values.</summary>
     public bool Multiple => Store.State.SelectionMode == ComboboxSelectionMode.Multiple;
 
+    /// <summary>Gets a value indicating whether an item collection labels the <see langword="null"/> value.</summary>
+    public bool HasNullItemLabel => Store.HasNullItemLabel;
+
     /// <summary>Gets the single selected value, or the default value when none is selected.</summary>
     public TValue Value => Store.State.HasSelectedValue ? Store.SelectedValue : default!;
 
@@ -782,7 +785,7 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
             ComboboxStore<TValue> root = Store;
             if (root.State.SelectionMode != ComboboxSelectionMode.Multiple)
             {
-                return root.State.HasSelectedValue ? root.LabelOf(root.SelectedValue) : string.Empty;
+                return root.State.HasSelectedValue ? root.LabelOf(root.SelectedValue) : root.HasNullItemLabel ? root.LabelOf(default) : string.Empty;
             }
 
             IReadOnlyList<TValue> values = root.SelectedValues;
