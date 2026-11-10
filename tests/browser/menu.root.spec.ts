@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { expect, isScrollLocked, test, waitForPositioned, type Page, type RenderMode } from './helpers';
-import { center, clickThrough, fire, holdClock, moveTo, positionerOf, parkPointer, pressCharacter, recorded, touchTest, withClock } from './menu.helpers';
+import { center, clickThrough, fire, holdClock, moveTo, positionerOf, parkPointer, pressCharacter, recorded, runClockUntil, touchTest, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // MenuRoot.test.tsx's L4 titles (M5 track 6, issue 172; docs/components/menu.md) on `menu-root`, titles verbatim, every
@@ -885,12 +885,13 @@ test.describe('<Menu.Root />', () => {
             const positioner = page.getByTestId('menu-positioner');
             const previousRole = () => positioner.evaluate((element) => element.previousElementSibling?.getAttribute('role') ?? null);
             await withClock(page, async () => {
+              // As in "reopens on hover after an impatient click closes via item press": the press lands inside the window.
+              await holdClock(page);
               await moveTo(page, trigger(page));
+              await runClockUntil(page, () => page.getByRole('menu').isVisible());
               await expect(page.getByRole('menu')).toBeVisible();
               expect(await previousRole()).toBe(null);
 
-              // As in "reopens on hover after an impatient click closes via item press": the press lands inside the window.
-              await holdClock(page);
               await clickThrough(page, trigger(page));
               await page.clock.resume();
 
@@ -901,14 +902,13 @@ test.describe('<Menu.Root />', () => {
           test('reopens on hover after an impatient click closes via item press', async ({ page, mode }) => {
             await render(page, mode, { ...base, openOnHover: true, delay: 100 });
             await withClock(page, async () => {
+              // Base UI ticks to PATIENT_CLICK_THRESHOLD - 1; the open's commit takes real time here, so the clock is held from
+              // before the hover and runs only until the page shows the open, and the press lands inside the window.
+              await holdClock(page);
               await moveTo(page, trigger(page));
-              await page.clock.runFor(100);
-              await page.clock.resume();
+              await runClockUntil(page, () => page.getByRole('menu').isVisible());
               await expect(page.getByRole('menu')).toBeVisible();
 
-              // Base UI ticks to PATIENT_CLICK_THRESHOLD - 1; the open's commit takes real time here, so the clock is held from
-              // the moment the page shows it, and the press lands inside the window.
-              await holdClock(page);
               await clickThrough(page, trigger(page));
               await page.clock.resume();
               await page.getByTestId('item-1').click();

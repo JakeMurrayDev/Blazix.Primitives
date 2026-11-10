@@ -1,7 +1,7 @@
 import { type Locator } from '@playwright/test';
 import { type Route } from '@playwright/test';
 import { delayCircuit, expect, gotoFixture, test, type Page, type RenderMode } from './helpers';
-import { center, clickThrough, fire, holdClock, moveTo, parkPointer, recordSelectors, recorded, selectorSeen, touchTest, waitFrames, waitMs, withClock } from './menu.helpers';
+import { center, clickThrough, fire, holdClock, moveTo, parkPointer, recordSelectors, recorded, runClockUntil, selectorSeen, touchTest, waitFrames, waitMs, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, pressInPage, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The L4 titles of MenuTrigger.test.tsx, MenuBackdrop.test.tsx, MenuSubmenuTrigger.test.tsx,
@@ -167,12 +167,13 @@ test.describe('<Menu.Trigger />', () => {
     test('does not close the menu if the user clicks too quickly', async ({ page, mode }) => {
       const fixture = await render(page, mode, { delay: 0, openOnHover: true, noPortal: true });
       await withClock(page, async () => {
+        // Base UI ticks to PATIENT_CLICK_THRESHOLD - 1; the open's commit takes real time here, so the clock is held from
+        // before the hover and runs only until the page shows the open, and the press lands inside the window.
+        await holdClock(page);
         await moveTo(page, trigger(page));
+        await runClockUntil(page, async () => (await trigger(page).getAttribute('data-popup-open')) !== null);
         await expect(trigger(page)).toHaveAttribute('data-popup-open', '');
 
-        // Base UI ticks to PATIENT_CLICK_THRESHOLD - 1; the open's commit takes real time here, so the clock is held from
-        // the moment the page shows it, and the press lands inside the window.
-        await holdClock(page);
         await clickThrough(page, trigger(page));
         await page.clock.resume();
         await settle(fixture);
@@ -203,10 +204,12 @@ test.describe('<Menu.Trigger />', () => {
     test('sticks if the user clicks impatiently', async ({ page, mode }) => {
       const fixture = await render(page, mode, { delay: 0, openOnHover: true, noPortal: true });
       await withClock(page, async () => {
+        // As "does not close the menu if the user clicks too quickly": the clock held from before the hover.
+        await holdClock(page);
         await moveTo(page, trigger(page));
+        await runClockUntil(page, async () => (await trigger(page).getAttribute('data-popup-open')) !== null);
         await expect(trigger(page)).toHaveAttribute('data-popup-open', '');
 
-        await holdClock(page);
         await clickThrough(page, trigger(page));
         await parkPointer(page);
         await page.clock.resume();

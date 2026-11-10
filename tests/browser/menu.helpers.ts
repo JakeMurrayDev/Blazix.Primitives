@@ -68,6 +68,18 @@ export async function holdClock(page: Page): Promise<void> {
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 100);
 }
 
+/**
+ * Runs a held clock in 10 ms steps until `shown` holds, at most `limitMs` of the page's time, and leaves it held. Base UI
+ * ticks its fake clock to PATIENT_CLICK_THRESHOLD - 1 between a hover open and an impatient click; a title that holds the
+ * clock before the hover and opens with this spends no more of the 500 ms window than the open's own timers, however long
+ * the test's time runs (CI run 42836740777, `menu.root.spec.ts`'s modal title on WebAssembly).
+ */
+export async function runClockUntil(page: Page, shown: () => Promise<boolean>, limitMs = 400): Promise<void> {
+  for (let ran = 0; ran < limitMs && !(await shown()); ran += 10) {
+    await page.clock.runFor(10);
+  }
+}
+
 /** Waits out a stretch of the page's time (Base UI's `waitMs`), never the test's: timers of the page run, then time flows again. */
 export async function waitMs(page: Page, ms: number): Promise<void> {
   await withClock(page, async () => {
