@@ -1919,12 +1919,12 @@ test.describe('Server relaxations', () => {
   // (NavigationMenuTrigger.tsx:128), which React sets in the commit that mounts it, before paint. Here the Positioner
   // registered in its after-render, after the open's render had taken the Trigger's click role away; on Server the role came
   // back a round trip later, so a click in between found no listener, the hover open's event was never upgraded, and the
-  // leave closed the menu.
+  // leave closed the menu. On WebAssembly the Positioner registered inside the same synchronous dispatch, so the gap was
+  // Server's only, and the title is red against the old order on Server alone.
   test('port: a click right after a hover open renders keeps the menu open when the pointer leaves', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the round trip that left the click role away exists on Server only');
     // Twice the describe's delay, so the click lands inside the round trip that brought the click role back every time.
-    if (mode === 'server') {
-      await delayCircuit(page, 2 * DELAY);
-    }
+    await delayCircuit(page, 2 * DELAY);
     const fixture = await gotoMenu(page, mode);
     await hoverTrigger(page, 1);
     await page.clock.runFor(OPEN_DELAY + 10);
