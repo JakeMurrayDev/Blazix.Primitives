@@ -2424,6 +2424,16 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect([kept.map((event) => event.defaultPrevented), harness.highlights.length]).toEqual([[true, true], 1]);
   });
 
+  it('port: a key the list does not navigate with is not kept before the list attaches (ArrowLeft on a vertical list)', () => {
+    const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    harness.reference.focus();
+    harness.popup.setOpen(true, 'none');
+
+    const left = keyDown(harness.reference, 'ArrowLeft');
+
+    expect(left.defaultPrevented).toBe(false);
+  });
+
   it('port: a kept navigation key is dropped when the popup closes before the list attaches', async () => {
     const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
     harness.reference.focus();
