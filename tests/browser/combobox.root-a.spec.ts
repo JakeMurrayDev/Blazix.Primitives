@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { expect, test, type Page, type RenderMode } from './helpers';
-import { center, clickThrough, gotoCombobox, moveTo, recorded, type FixtureOptions } from './combobox.helpers';
+import { center, clickThrough, gotoCombobox, recorded, type FixtureOptions } from './combobox.helpers';
 import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
 // ComboboxRoot.test.tsx, lines 1-3999, ported at L4 (M5 track 10, issue 174): Base UI's titles verbatim, on the `combobox-root-a`
@@ -456,7 +456,7 @@ test.describe('<Combobox.Root />', () => {
         await expect(input(page)).toHaveAttribute('aria-activedescendant', (await selectedItem.getAttribute('id'))!);
         const id = (await selectedItem.getAttribute('id'))!;
         await expect.poll(async () => (await scrollCalls(page)).map((call) => call.id)).toEqual([id]);
-        expect((await scrollCalls(page))[0].options).toEqual(NEAREST);
+        expect((await scrollCalls(page))[0]!.options).toEqual(NEAREST);
       });
 
       test('emits the selected item index to onItemHighlighted on mount when inline and virtualized (items prop)', async ({ page, mode }) => {
@@ -653,7 +653,7 @@ test.describe('<Combobox.Root />', () => {
         await expect.poll(() => recorded(fixture, 'data-highlights')).toContain('item_80:none:80');
         const id = (await selectedItem.getAttribute('id'))!;
         await expect.poll(async () => (await scrollCalls(page)).map((call) => call.id)).toEqual([id]);
-        expect((await scrollCalls(page))[0].options).toEqual(NEAREST);
+        expect((await scrollCalls(page))[0]!.options).toEqual(NEAREST);
       });
 
       // Deviation (2026-11-10): SelectedIndexProbe reads the store's `selectedIndex`, which the port does not expose. The index anchors the
@@ -760,11 +760,3 @@ function isInert(target: Locator): Promise<boolean> {
     return false;
   });
 }
-
-// Keep the unused-helper imports honest until the later batches use them.
-void clickThrough;
-void moveTo;
-void spyScrollIntoView;
-void scrollCalls;
-void clearScrollCalls;
-void NEAREST;
