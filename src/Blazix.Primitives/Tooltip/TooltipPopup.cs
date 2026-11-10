@@ -253,7 +253,9 @@ public sealed class TooltipPopup : PartBase<TooltipPopupState>
             attaching ??= AttachTransitionsAsync(element, current);
             await attaching;
         }
-        else if (TransitionsOptions(current) is { } options && options != sentTransitions)
+
+        // Issue 213 (as Menu's item indicator, PR 183): a render during the attach sends what the attach did not carry.
+        if (transitionsHandle is not null && transitions is not null && TransitionsOptions(current) is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);

@@ -125,7 +125,12 @@ internal sealed class DialogTransitions : IAsyncDisposable
             // A render during the pending first attach awaits it: TwinBase hands a repeated attach the pending handle.
             attaching ??= AttachAsync(target, context, keepMounted, ready);
             await attaching;
-            return;
+
+            // Issue 213 (as Menu's item indicator, PR 183): an unmount requested during the attach is sent once it returns.
+            if (handle is null || disposed)
+            {
+                return;
+            }
         }
 
         if (context.UnmountRequests != sentUnmountRequests)
