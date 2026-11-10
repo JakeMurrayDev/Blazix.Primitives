@@ -564,7 +564,7 @@ Writer note (2026-10-28, M4 track 6, issue 121): `data-instant` is rendered by C
 | `tabindex` | `"-1"` | TIP-DOM-11 | C# |
 | `data-base-ui-focusable` | `""` | TIP-DOM-11 | C# |
 | `data-open` / `data-closed` | from effective open | TIP-DOM-12 | C# |
-| `data-starting-style` / `data-ending-style` | from `transitionStatus` | TIP-DOM-12 | JS |
+| `data-starting-style` / `data-ending-style` | from `transitionStatus` | TIP-DOM-12 | C# → JS (handover at attach) |
 | `data-side`, `data-align` | rendered placement | TIP-DOM-12 | C# |
 | `data-instant` | `delay` \| `focus` \| `dismiss` when defined | TIP-DOM-12 | C# |
 | `style` | `transition: none` while `'starting'` + `--popup-width/height` (Viewport only) + consumer style | TIP-DOM-13, TIP-DOM-16 | JS |
@@ -575,6 +575,7 @@ Writer note (2026-10-28, M4 track 6, issue 121): `data-instant` is rendered by C
   Source: `tooltip/popup/TooltipPopup.tsx:67`; `utils/popups/popupStoreUtils.ts:27-30`. Test: none (PSH).
 - **TIP-DOM-12** — MUST. The Popup emits `data-open`/`data-closed`, `data-starting-style`/`data-ending-style` (PSH-DOM-05 = popup mapping + TRN-DOM-01/02), and `data-side`, `data-align`, `data-instant` through the default projection. `data-instant` is absent after a hover open and carries `focus` after a keyboard-focus open, `dismiss` after a press/Escape close (while the exit plays), and `delay` per TIP-STA-06.
   Source: `tooltip/popup/TooltipPopup.tsx:55-61,72`; `utils/popupStateMapping.ts:63-70`; `tooltip/popup/TooltipPopupDataAttributes.ts:6-33`. Test: [L4] `TooltipRoot.test.tsx` "marks the popup as instant when opened by focus, but not when opened by hover", "toggles instant animations for adjacent tooltips only while opening".
+  Port note (2026-11-10, D11; TRN-STA-03; ADR 04 Amendments 2026-10-18 and 2026-10-21, the handover for a newly rendered element; settled by the orchestrator 2026-11-10): the attributes are a handover, Writer `C# → JS`. C# renders them on the element until its `transitions` handle attaches, which waits for the portal's move, and then freezes what it rendered (`PopupTransitionAttributes`, `Popup/`). So a popup that is not kept mounted opens with `data-starting-style` from its first render, with no commit where it is open without it. L4: `popover.spec.ts` "port: starts each opening once when the popup is not kept mounted" and, on the test-only popup host, `popup.spec.ts` "port: starts each opening once, with data-starting-style from the first render", both modes, red before the change.
 - **TIP-DOM-13** — MUST. While `'starting'` the Popup carries inline `transition: none` (TRN-DOM-05), merged before consumer props so a consumer inline `transition` wins.
   Source: `tooltip/popup/TooltipPopup.tsx:69`. Test: none (TRN).
 - **TIP-DOM-14** — MUST. The Popup receives the Root's popup interaction bag: the dismiss floating handlers (`onKeyDown` Escape, capture-phase press marking so presses inside the popup are not outside presses, FLT-DIS-12/13) and, as native listeners while the popup element exists, `mouseenter`/`mouseleave`/capture `pointerdown` of the hover floating interaction (TIP-PTR-26).

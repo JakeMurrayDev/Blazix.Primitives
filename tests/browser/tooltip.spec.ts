@@ -1,5 +1,5 @@
 import { type Browser } from '@playwright/test';
-import { expect, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import { expect, fixtureUrl, test, waitForPositioned, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -1061,6 +1061,8 @@ test.describe('nested tooltips', () => {
     await settle(fixture);
     await expect(byTestId(page, 'outer-popup')).toHaveCount(0);
 
+    // The fixture's Positioners carry no test id; each is its Popup's parent.
+    await waitForPositioned(byTestId(page, 'inner-popup').locator('..'));
     await moveTo(page, 'inner-popup');
     await page.waitForTimeout(100);
     await settle(fixture);
@@ -1074,6 +1076,7 @@ test.describe('nested tooltips', () => {
     const fixture = await open(page, mode, { outerDelay: 0, innerDelay: OPEN_DELAY * 10 });
     await moveTo(page, 'outer-area');
     await expect(byTestId(page, 'outer-popup')).toBeVisible();
+    await waitForPositioned(byTestId(page, 'outer-popup').locator('..'));
     await moveTo(page, 'outer-popup');
     await settle(fixture);
     await expect(byTestId(page, 'outer-popup')).toBeVisible();
@@ -1196,6 +1199,7 @@ test.describe('<Tooltip.Root /> layout', () => {
       await byTestId(page, 'trigger').hover();
       await expect(byTestId(page, 'popup')).toBeVisible();
 
+      await waitForPositioned(byTestId(page, 'positioner'));
       const popupBox = (await byTestId(page, 'popup').boundingBox())!;
       await page.mouse.move(popupBox.x + popupBox.width / 2, popupBox.y + popupBox.height / 2, { steps: 4 });
 

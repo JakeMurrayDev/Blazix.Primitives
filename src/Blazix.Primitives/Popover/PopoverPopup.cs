@@ -90,6 +90,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
     private readonly PopoverClosePartCount closeParts;
     private readonly Action positionerChanged;
     private readonly RenderFragment cascadedContent;
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private PopoverSubscription? subscription;
     private PopoverSelection<bool>? open;
     private PopoverSelection<bool>? mounted;
@@ -363,6 +364,9 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         attributes.Set("role", "dialog");
         attributes.Set("tabindex", "-1");
         attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
+
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, status!.Value);
         if (titleId!.Value is { } labelledBy)
         {
             attributes.Set("aria-labelledby", labelledBy);
@@ -473,6 +477,7 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
 
         TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();

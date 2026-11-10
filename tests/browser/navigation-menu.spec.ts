@@ -1167,6 +1167,15 @@ test.describe('<NavigationMenu.Root /> inline nested lock', () => {
     await freezeClock(page);
     await hoverOpen(page, trigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
+    // Issue 191: the Positioner stays transparent until its first pass (FLT-STA-09, Base UI's `opacity: 0` while not
+    // positioned), and toBeVisible ignores opacity, so a title read the nested trigger's box before the pass moved the
+    // popup and moved the pointer to a stale point. The titles read no geometry before the pass. This is a readiness check
+    // on a stable end state, the pass having landed (the opacity stays once set), not a poll over a transient style, so it
+    // stays within ADR 06 §2. The clock steps, since the pass may wait for a frame and the clock is frozen.
+    await expect.poll(async () => {
+      await page.clock.runFor(16);
+      return page.getByTestId('positioner').evaluate((element) => (element as HTMLElement).style.opacity);
+    }).not.toBe('0');
   }
 
   type Side = 'right' | 'left' | 'bottom' | 'top';

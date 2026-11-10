@@ -3476,6 +3476,12 @@ function attachList(
 
   // Listeners. One keydown per handle runs the list navigation, then the typeahead, after the consumer's veto.
   const onKeyDown = (event: KeyboardEvent): void => {
+    // CMP-KEY-22's note of 2026-11-10 (found by TLB-STR-05): useButton returns from a disabled trigger's keydown before
+    // the merged list navigation and typeahead run (internals/use-button/useButton.ts:116-119), whether it renders the
+    // `disabled` attribute or, focusable when disabled, `aria-disabled="true"`; no key is handled and nothing is asked.
+    if (!isFloating && isElementDisabled(element)) {
+      return;
+    }
     const list = handle.list();
     const dispatch: KeyDispatch = { event, vetoed: null, stopped: false };
     if (enabledOf(list)) {

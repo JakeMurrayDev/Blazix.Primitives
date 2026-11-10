@@ -118,6 +118,61 @@ export function animationStarts(page: Page): Promise<AnimationStartRecord[]> {
   return page.evaluate(() => (window as unknown as { popupAnimationStarts?: AnimationStartRecord[] }).popupAnimationStarts ?? []);
 }
 
+/** A popup's (open, transition status), as Base UI's `onState` sees it; `transitionStatus` is absent while idle. */
+export interface TransitionStateRecord {
+  open: boolean;
+  transitionStatus?: 'starting' | 'ending';
+}
+
+/**
+ * Records, from the page's first script on, each change of the (open, transition status) of the element with the test id:
+ * its first render (its insertion, a portal's move included) and every later change of its open and transition attributes,
+ * deduplicated as Base UI's `onState` is. Call it before the page is opened. Each record is read in a microtask queued after
+ * the checkpoint's observers, so the `transitions` module's writes of the same checkpoint are in it (issue 153); the
+ * insertion of an element its handle has not attached yet records what C# rendered.
+ */
+export async function recordTransitionStates(page: Page, testId: string): Promise<{ states: () => Promise<TransitionStateRecord[]>; clear: () => Promise<void> }> {
+  await page.addInitScript((id) => {
+    const states: { open: boolean; transitionStatus?: string }[] = [];
+    (window as unknown as { transitionStates: typeof states }).transitionStates = states;
+    const selector = `[data-testid="${id}"]`;
+    const record = (element: Element) => {
+      if (!element.isConnected) {
+        return;
+      }
+      const transitionStatus = element.hasAttribute('data-starting-style') ? 'starting' : element.hasAttribute('data-ending-style') ? 'ending' : undefined;
+      const state = transitionStatus === undefined ? { open: element.hasAttribute('data-open') } : { open: element.hasAttribute('data-open'), transitionStatus };
+      const previous = states.at(-1);
+      if (previous?.open !== state.open || previous?.transitionStatus !== state.transitionStatus) {
+        states.push(state);
+      }
+    };
+    new MutationObserver((records) => {
+      for (const entry of records) {
+        if (entry.type === 'attributes') {
+          const target = entry.target as Element;
+          if (target.matches(selector)) {
+            queueMicrotask(() => record(target));
+          }
+          continue;
+        }
+        for (const node of entry.addedNodes) {
+          const element = node instanceof Element ? (node.matches(selector) ? node : node.querySelector(selector)) : null;
+          if (element !== null) {
+            queueMicrotask(() => record(element));
+          }
+        }
+      }
+    }).observe(document, { attributes: true, childList: true, subtree: true, attributeFilter: ['data-open', 'data-closed', 'data-starting-style', 'data-ending-style'] });
+  }, testId);
+  return {
+    states: () => page.evaluate(() => (window as unknown as { transitionStates: TransitionStateRecord[] }).transitionStates),
+    clear: () => page.evaluate(() => {
+      (window as unknown as { transitionStates: unknown[] }).transitionStates.length = 0;
+    }),
+  };
+}
+
 function splitList(value: string | null): string[] {
   return value ? value.split(' ').filter(Boolean) : [];
 }
