@@ -1,12 +1,507 @@
 @namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
 @using Blazix.Primitives
+@using Blazix.Primitives.Rendering
+@using Microsoft.AspNetCore.Components.Web
 @inherits ComboboxL4FixtureBase
 
 @*
-    The `combobox-root-c` fixture (M5 track 10, issue 174): ComboboxRoot.test.tsx, lines 10000 on, ported at L4. The query's `case` picks the Base UI
-    test's rendering. Recorded callbacks render through `Records` (ComboboxL4FixtureBase).
+    The `combobox-root-c` fixture (M5 track 10, issue 174): ComboboxRoot.test.tsx, lines 10000 on, ported at L4. The query's `case`
+    picks the Base UI test's rendering. Recorded callbacks render through `Records` (ComboboxL4FixtureBase): `value-changes`,
+    `input-changes`, `highlights` (`value:reason:index`), `highlight-events` (`type:Kind:key:mouse` of each highlight's event, `mouse` when it is a MouseEvent), `submits`,
+    `validate-calls` and `form-values`.
+    The query, for the `basic` case (the default): `items` (`|`-separated), `autoHighlight`, `loopFocus=false`, `highlightItemOnHover=false`,
+    `defaultOpen`, `defaultValue`, `clear` (a Clear that stays mounted). The other cases are named in the markup below. Controls that
+    page titles press while a popup may be open carry `data-key-control` (they are never an outside press).
 *@
 <FixtureContainer Name="combobox-root-c" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    <style>
+        @@keyframes combobox-close-test { to { opacity: 0; } }
+        .animation-test-popup[data-ending-style] { animation: combobox-close-test 10s linear; }
+    </style>
     @SyncButton
+    @switch (Case)
+    {
+        case "chips":
+            <ComboboxRoot TValue="Language" @ref="languageRoot" Items="languages" Multiple="true" DefaultValues="@(new[] { languages[0], languages[1] })"
+                          ItemToStringLabel="@(language => language.Value)">
+                <ComboboxChips data-testid="chips">
+                    <ComboboxValue TValue="Language">
+                        <ValuesContent Context="selected">
+                            @foreach (Language language in selected)
+                            {
+                                <ComboboxChip @key="language.Id" aria-label="@language.Value">
+                                    @language.Value
+                                    <ComboboxChipRemove aria-label="@("Remove " + language.Value)" />
+                                </ComboboxChip>
+                            }
+                            <ComboboxInput data-testid="input" />
+                        </ValuesContent>
+                    </ComboboxValue>
+                </ComboboxChips>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxList TValue="Language">
+                                <ItemContent>
+                                    <ComboboxItem TValue="Language" Value="@context.Value" @key="context.Value.Id">@context.Value.Value</ComboboxItem>
+                                </ItemContent>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "deferred-close":
+            <ComboboxRoot TValue="string" @ref="root" Items="@(new[] { "Apple", "Apricot", "Banana" })" Open="@deferredOpen" OnOpenChange="HandleDeferredClose">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup data-testid="popup" class="animation-test-popup">
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "dialog-inline":
+            <ComboboxRoot TValue="string" @ref="root" Inline="true" Items="@(new[] { "Apple", "Banana", "Cherry" })">
+                <DialogRoot TPayload="NoPayload" @ref="dialog">
+                    <DialogTrigger TPayload="NoPayload" @ref="dialogTrigger">Choose fruit</DialogTrigger>
+                    <DialogPortal>
+                        <DialogPopup aria-label="Fruit chooser" style="position: relative; z-index: 1">
+                            <ComboboxInput @ref="input" />
+                            @ItemList
+                        </DialogPopup>
+                    </DialogPortal>
+                </DialogRoot>
+            </ComboboxRoot>
+            break;
+
+        case "dialog-async":
+            <DialogRoot TPayload="NoPayload" @ref="dialog" Open="true">
+                <DialogPortal>
+                    <DialogBackdrop />
+                    <DialogPopup style="position: relative; z-index: 1">
+                        <form>
+                            <label for="name">Name</label>
+                            <input id="name" disabled="@loading" />
+
+                            <label for="fruit">Fruit</label>
+                            <ComboboxRoot TValue="string" @ref="root" Items="@(new[] { "apple", "banana", "cherry" })" Value="@asyncValue"
+                                          OnValueChange="HandleAsyncValue" Disabled="@loading">
+                                <ComboboxInput @ref="input" id="fruit" placeholder="Select fruit..." />
+                                <ComboboxTrigger @ref="trigger" aria-label="Open" />
+                                <ComboboxPortal>
+                                    <ComboboxPositioner style="position: relative; z-index: 1">
+                                        <ComboboxPopup>
+                                            @ItemList
+                                        </ComboboxPopup>
+                                    </ComboboxPositioner>
+                                </ComboboxPortal>
+                            </ComboboxRoot>
+
+                            <button type="button">Cancel</button>
+                            <button type="submit" disabled="@loading">Save</button>
+                        </form>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            break;
+
+        case "dialog-single":
+            <ComboboxRoot TValue="string" @ref="root" Items="fruits" Open="@dialogOpen" OnOpenChange="HandleDialogOpen" Inline="true">
+                <DialogRoot TPayload="NoPayload" @ref="dialog" Open="@dialogOpen" OnOpenChange="HandleDialogOpen">
+                    <DialogTrigger TPayload="NoPayload" @ref="dialogTrigger" data-testid="dialog-trigger">
+                        <ComboboxValue TValue="string">
+                            <ValueContent Context="selected">@(selected ?? "Select a fruit")</ValueContent>
+                            <Placeholder>Select a fruit</Placeholder>
+                        </ComboboxValue>
+                    </DialogTrigger>
+                    <DialogPortal>
+                        <DialogPopup aria-label="Fruit chooser" style="position: relative; z-index: 1">
+                            <div>
+                                <label for="dialog-fruit">Fruit</label>
+                                <ComboboxInput @ref="input" id="dialog-fruit" data-testid="dialog-input" placeholder="e.g. Apple" />
+                            </div>
+                            @ItemList
+                            <DialogClose TPayload="NoPayload">Done</DialogClose>
+                        </DialogPopup>
+                    </DialogPortal>
+                </DialogRoot>
+            </ComboboxRoot>
+            break;
+
+        case "form-external":
+            <form id="external-form">
+                <button type="submit">Submit</button>
+            </form>
+            @if (QueryFlag("multiple") == true)
+            {
+                <ComboboxRoot TValue="Country" @ref="countryRoot" Multiple="true" Name="countries" Form="external-form" Items="countries"
+                              ItemToStringLabel="@(country => country.Label)" ItemToStringValue="@(country => country.Code)"
+                              DefaultValues="@(new[] { countries[0], countries[2] })">
+                    <ComboboxInput @ref="input" />
+                    @CountryPopup
+                </ComboboxRoot>
+            }
+            else
+            {
+                <ComboboxRoot TValue="Country" @ref="countryRoot" Name="country" Form="external-form" Items="countries"
+                              ItemToStringLabel="@(country => country.Label)" ItemToStringValue="@(country => country.Code)"
+                              DefaultValue="@countries[0]">
+                    <ComboboxInput @ref="input" />
+                    @CountryPopup
+                </ComboboxRoot>
+            }
+            break;
+
+        case "form-required":
+            <Form @ref="form">
+                <FieldRoot Name="test" data-testid="field">
+                    <ComboboxRoot TValue="string" @ref="root" Required="true">
+                        <ComboboxInput @ref="input" data-testid="input" />
+                        <ComboboxPortal>
+                            <ComboboxPositioner />
+                        </ComboboxPortal>
+                    </ComboboxRoot>
+                    <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+                </FieldRoot>
+                <button type="submit">Submit</button>
+            </Form>
+            break;
+
+        case "form-popup-input":
+            <Form @ref="form" OnSubmit="HandleFormSubmit">
+                <FieldRoot Name="combobox">
+                    <ComboboxRoot TValue="string" @ref="root" Required="true">
+                        <ComboboxTrigger @ref="trigger" data-testid="trigger">
+                            <ComboboxValue TValue="string" />
+                        </ComboboxTrigger>
+                        <ComboboxPortal>
+                            <ComboboxPositioner style="position: relative; z-index: 1">
+                                <ComboboxPopup>
+                                    <ComboboxInput @ref="input" data-testid="input" />
+                                    <ComboboxList TValue="string">
+                                        <ComboboxItem TValue="string" Value="@("a")">a</ComboboxItem>
+                                        <ComboboxItem TValue="string" Value="@("b")">b</ComboboxItem>
+                                    </ComboboxList>
+                                </ComboboxPopup>
+                            </ComboboxPositioner>
+                        </ComboboxPortal>
+                    </ComboboxRoot>
+                    <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+                </FieldRoot>
+                <button type="submit">Submit</button>
+            </Form>
+            break;
+
+        case "form-enter":
+            <Form @ref="form" OnSubmit="HandleFormSubmit">
+                <FieldRoot Name="q">
+                    <ComboboxRoot TValue="string" @ref="root" Items="formItems" OpenOnInputClick="true">
+                        <ComboboxInput @ref="input" />
+                        <ComboboxPortal>
+                            <ComboboxPositioner style="position: relative; z-index: 1">
+                                <ComboboxPopup>
+                                    @ItemList
+                                </ComboboxPopup>
+                            </ComboboxPositioner>
+                        </ComboboxPortal>
+                    </ComboboxRoot>
+                </FieldRoot>
+                <button type="submit">Submit</button>
+            </Form>
+            break;
+
+        case "field-focus":
+            <FieldRoot data-testid="field">
+                <ComboboxRoot TValue="string" @ref="root">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    <ComboboxTrigger @ref="trigger" data-testid="trigger" />
+                    <ComboboxPortal>
+                        <ComboboxPositioner style="position: relative; z-index: 1">
+                            <ComboboxPopup>
+                                <ComboboxList TValue="string">
+                                    <ComboboxItem TValue="string" Value="@("")">Select</ComboboxItem>
+                                    <ComboboxItem TValue="string" Value="@("1")">Option 1</ComboboxItem>
+                                </ComboboxList>
+                            </ComboboxPopup>
+                        </ComboboxPositioner>
+                    </ComboboxPortal>
+                </ComboboxRoot>
+            </FieldRoot>
+            break;
+
+        case "field-inputs":
+            <FieldRoot data-testid="field">
+                @if (mounted)
+                {
+                    <ComboboxRoot TValue="string" @ref="root" Disabled="@disabled">
+                        <ComboboxInput @ref="input" data-testid="first" />
+                    </ComboboxRoot>
+                }
+            </FieldRoot>
+            @Toggles
+            break;
+
+        case "field-triggers":
+            <FieldRoot data-testid="field">
+                <ComboboxRoot TValue="string" @ref="root" Disabled="@disabled">
+                    @if (mounted)
+                    {
+                        <ComboboxTrigger @ref="trigger" data-testid="trigger" />
+                    }
+                </ComboboxRoot>
+            </FieldRoot>
+            @Toggles
+            break;
+
+        case "field-popup":
+            <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="HandleValidate">
+                <ComboboxRoot TValue="string" @ref="root">
+                    <ComboboxTrigger @ref="trigger" data-testid="trigger" />
+                    <ComboboxPortal>
+                        <ComboboxPositioner style="position: relative; z-index: 1">
+                            <ComboboxPopup>
+                                <ComboboxList TValue="string">
+                                    <ComboboxItem TValue="string" Value="@("1")">Option 1</ComboboxItem>
+                                </ComboboxList>
+                            </ComboboxPopup>
+                        </ComboboxPositioner>
+                    </ComboboxPortal>
+                </ComboboxRoot>
+            </FieldRoot>
+            <button type="button" data-testid="outside">Outside</button>
+            break;
+
+        case "composite":
+            @* The composite root is internal to the port: Toolbar is the public part that hosts one, and ToolbarInput is its input item. *@
+            <ToolbarRoot @ref="toolbar" Orientation="Orientation.Horizontal">
+                <ToolbarButton>Item 1</ToolbarButton>
+                <ToolbarButton>Item 2</ToolbarButton>
+                <ComboboxRoot TValue="string" @ref="root">
+                    <ComboboxInput @ref="input" RenderFunction="@ToolbarInputRender" />
+                </ComboboxRoot>
+            </ToolbarRoot>
+            break;
+
+        case "hidden-input":
+            <ComboboxRoot TValue="string" @ref="root">
+                <ComboboxInput @ref="input" data-testid="visible-input" />
+            </ComboboxRoot>
+            break;
+
+        case "hidden-trigger":
+            <ComboboxRoot TValue="string" @ref="root">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+            </ComboboxRoot>
+            break;
+
+        case "hidden-swap":
+            <ComboboxRoot TValue="string" @ref="root">
+                @if (mounted)
+                {
+                    <ComboboxInput @ref="input" />
+                }
+                else
+                {
+                    <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                }
+            </ComboboxRoot>
+            <button type="button" data-swap data-key-control @onclick="() => mounted = false" @onkeydown="OnShift(() => mounted = false)">Swap</button>
+            break;
+
+        case "hidden-popup-input":
+            <ComboboxRoot TValue="string" @ref="root" DefaultOpen="true">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput @ref="input" />
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "hidden-none":
+            <ComboboxRoot TValue="string" @ref="root" />
+            break;
+
+        default:
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <ComboboxInput @ref="input" data-testid="input" />
+                @if (QueryFlag("clear") == true)
+                {
+                    <ComboboxClear data-testid="clear" KeepMounted="true" />
+                }
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup data-testid="popup">
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+    }
 </FixtureContainer>
+
+@code {
+    private sealed record Language(string Id, string Value);
+
+    private sealed record Country(string Code, string Label);
+
+    private static readonly string[] fruits = ["Apple", "Apricot", "Banana", "Grape", "Orange"];
+
+    private readonly Language[] languages = [new("js", "JavaScript"), new("ts", "TypeScript"), new("py", "Python")];
+    private readonly Country[] countries = [new("US", "United States"), new("CA", "Canada"), new("AU", "Australia")];
+    private readonly Dictionary<string, object?> rootParameters = [];
+    private ComboboxRoot<string>? root;
+    private ComboboxRoot<Language>? languageRoot;
+    private ComboboxInput? input;
+    private Form? form;
+    private ComboboxRoot<Country>? countryRoot;
+    private ComboboxTrigger? trigger;
+    private DialogRoot<NoPayload>? dialog;
+    private DialogTrigger<NoPayload>? dialogTrigger;
+    private ToolbarRoot? toolbar;
+    private string[] formItems = [];
+    private bool deferredOpen = true;
+    private bool dialogOpen;
+    private bool loading = true;
+    private bool mounted = true;
+    private bool disabled;
+    private string? asyncValue;
+
+    private IReadOnlyDictionary<string, object?> RootParameters => rootParameters;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask, languageRoot?.SessionAttached ?? Task.CompletedTask, form?.TwinAttached ?? Task.CompletedTask,
+         countryRoot?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask, dialog?.SessionAttached ?? Task.CompletedTask,
+         dialogTrigger?.TwinAttached ?? Task.CompletedTask, toolbar?.TwinAttached ?? Task.CompletedTask];
+
+    // Base UI's static toggles (`setProps`), pressed without moving focus (a Shift keydown on a control).
+    private RenderFragment Toggles => @<div>
+        <button type="button" data-toggle-disabled data-key-control @onclick="() => disabled = true" @onkeydown="OnShift(() => disabled = true)">Disable</button>
+        <button type="button" data-toggle-unmount data-key-control @onclick="() => mounted = false" @onkeydown="OnShift(() => mounted = false)">Unmount</button>
+    </div>;
+
+    // Base UI's `render={(props) => <CompositeItem tag="input" props={[props]} />}`.
+    private RenderFragment<RenderProps<ComboboxInputState>> ToolbarInputRender => props =>
+        @<ToolbarInput @attributes="props.Attributes" />;
+
+    private RenderFragment CountryPopup => @<ComboboxPortal>
+        <ComboboxPositioner style="position: relative; z-index: 1">
+            <ComboboxPopup>
+                <ComboboxList TValue="Country">
+                    <ItemContent>
+                        <ComboboxItem TValue="Country" Value="@context.Value" @key="context.Value.Code">@context.Value.Label</ComboboxItem>
+                    </ItemContent>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>;
+
+    // The List of strings: the root's `Items` rendered one Item each (Base UI's `(item) => <Combobox.Item key={item} value={item}>`).
+    private RenderFragment ItemList => @<ComboboxList TValue="string">
+        <ItemContent>
+            <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+        </ItemContent>
+    </ComboboxList>;
+
+    protected override void OnInitialized()
+    {
+        formItems = Query("items")?.Split('|') ?? [];
+        if (Query("items") is { } list)
+        {
+            rootParameters["Items"] = (IReadOnlyList<string>)list.Split('|');
+        }
+
+        rootParameters["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpenChange);
+        rootParameters["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange);
+        rootParameters["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordInputChange);
+        rootParameters["OnItemHighlighted"] = EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, args =>
+        {
+            RecordHighlight(args);
+            EventSnapshot snapshot = args.Details.Event;
+            Record("highlight-events", $"{snapshot.Type}:{snapshot.Kind}:{snapshot.Key ?? "-"}:{(snapshot.IsInstanceOf(EventKind.MouseEvent) ? "mouse" : "-")}");
+        });
+        if (QueryFlag("autoHighlight") == true)
+        {
+            rootParameters["AutoHighlight"] = true;
+        }
+
+        if (QueryFlag("loopFocus") == false)
+        {
+            rootParameters["LoopFocus"] = false;
+        }
+
+        if (QueryFlag("highlightItemOnHover") == false)
+        {
+            rootParameters["HighlightItemOnHover"] = false;
+        }
+
+        if (QueryFlag("defaultOpen") == true)
+        {
+            rootParameters["DefaultOpen"] = true;
+        }
+
+        if (Query("defaultValue") is { } value)
+        {
+            rootParameters["DefaultValue"] = value;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // AsyncDialogCombobox: `setTimeout(() => setLoading(false), 0)` after mount.
+        if (firstRender && RendererInfo.IsInteractive && Case == "dialog-async")
+        {
+            await Task.Yield();
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleDeferredClose(ValueChangeEventArgs<bool> args)
+    {
+        // ComboboxRoot.test.tsx: `closeTimeout.start(50, () => setOpen(false))`.
+        if (!args.Value)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(50);
+                await InvokeAsync(() =>
+                {
+                    deferredOpen = false;
+                    StateHasChanged();
+                });
+            });
+        }
+    }
+
+    private void HandleAsyncValue(ValueChangeEventArgs<string> args) => asyncValue = args.Value;
+
+    private void HandleDialogOpen(ValueChangeEventArgs<bool> args)
+    {
+        dialogOpen = args.Value;
+    }
+
+    private void HandleFormSubmit(FormSubmitEventArgs args)
+    {
+        args.PreventNativeSubmit();
+        Record("submits", "x");
+    }
+
+    private ValueTask<FieldValidationResult?> HandleValidate(FieldValidationArguments arguments)
+    {
+        Record("validate-calls", "x");
+        return ValueTask.FromResult<FieldValidationResult?>("error");
+    }
+}
