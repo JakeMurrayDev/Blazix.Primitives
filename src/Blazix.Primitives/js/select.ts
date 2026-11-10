@@ -742,14 +742,25 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
   };
 
   // SEL-PTR-08: the click classification.
+  // SEL-PTR-08 (SelectItem.tsx:212-234): Base UI reads the item's highlight as last rendered, before this click. The
+  // `composite` module's own click listener, on the popup inside this element, focuses and highlights the item first,
+  // so the highlight is recorded in the capture phase, before any of the click's listeners run.
+  let highlightedAtClick: Element | null = null;
+  const onClickCapture = (event: MouseEvent) => {
+    const item = itemOf(event);
+    highlightedAtClick = item?.hasAttribute('data-highlighted') ? item : null;
+  };
+
   const onClick = (event: MouseEvent) => {
     const item = itemOf(event);
+    const wasHighlighted = item !== null && highlightedAtClick === item;
+    highlightedAtClick = null;
     if (!item) {
       return;
     }
     const isMouseClick = pointerTypes.get(item) !== 'touch';
     const clickPointerType = (event as PointerEvent).pointerType;
-    const isVirtualMouseClick = isMouseClick && isVirtualClick(event) && (clickPointerType !== undefined || item.hasAttribute('data-highlighted'));
+    const isVirtualMouseClick = isMouseClick && isVirtualClick(event) && (clickPointerType !== undefined || wasHighlighted);
     const isInvalidMouseClick = isMouseClick && !isVirtualMouseClick && !pressedItems.has(item);
     pressedItems.delete(item);
     if (isElementDisabled(item) || isInvalidMouseClick) {
@@ -762,6 +773,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
   element.addEventListener('pointerdown', onPointerDown);
   element.addEventListener('pointermove', onPointerMove);
   element.addEventListener('mouseup', onMouseUp);
+  element.addEventListener('click', onClickCapture, true);
   element.addEventListener('click', onClick);
 
   const sync = () => {
@@ -824,6 +836,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       element.removeEventListener('pointerdown', onPointerDown);
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('mouseup', onMouseUp);
+      element.removeEventListener('click', onClickCapture, true);
       element.removeEventListener('click', onClick);
       scrollTarget?.removeEventListener('scroll', onScroll);
       resizeWindow?.removeEventListener('resize', onResize);
