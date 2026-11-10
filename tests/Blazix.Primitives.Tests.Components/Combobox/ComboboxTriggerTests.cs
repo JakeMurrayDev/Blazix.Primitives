@@ -290,10 +290,12 @@ public sealed class ComboboxTriggerTests : IDisposable
                     builder.CloseComponent();
                 })));
 
-            Assert.Contains("\"reference\":{}", CompositeOptionsOf(context, cut.Find("[data-testid=input]")), StringComparison.Ordinal);
-            string trigger = CompositeOptionsOf(context, Trigger(cut));
-            Assert.DoesNotContain("\"reference\":{}", trigger, StringComparison.Ordinal);
-            Assert.DoesNotContain("\"trigger\":{}", trigger, StringComparison.Ordinal);
+            // One list handle with the reference role (the input), one floating (the list), none with the trigger role: the
+            // trigger attaches no list handle at all.
+            List<string> options = context.Composite.Invocations["attach"].Select(attach => attach.Arguments[1] as string ?? string.Empty).ToList();
+            Assert.Single(options, json => json.Contains("\"reference\":{}", StringComparison.Ordinal));
+            Assert.DoesNotContain(options, json => json.Contains("\"trigger\":{}", StringComparison.Ordinal));
+            Assert.Equal(2, options.Count(json => !json.Contains("\"registrationOnly\":true", StringComparison.Ordinal)));
         }
     }
 
@@ -308,14 +310,6 @@ public sealed class ComboboxTriggerTests : IDisposable
         (bool open, EventReason reason) = Assert.Single(cut.Instance.OpenChanges);
         Assert.True(open);
         Assert.Equal(EventReason.ListNavigation, reason);
-    }
-
-    private static string CompositeOptionsOf(ComboboxTestContext context, IElement element)
-    {
-        string? reference = element.GetAttribute("blazor:elementReference");
-        return string.Join("\n", context.Composite.Invocations["attach"]
-            .Where(attach => attach.Arguments[0] is ElementReference target && target.Id == reference)
-            .Select(attach => attach.Arguments[1] as string));
     }
 
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");
