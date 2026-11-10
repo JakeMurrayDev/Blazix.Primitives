@@ -1,4 +1,7 @@
 using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -71,4 +74,94 @@ public static class ComboboxInputGroupDataAttributes
 
     /// <summary>Represents the attribute present while the control is focused: <c>data-focused</c>.</summary>
     public const string Focused = "data-focused";
+}
+
+// Base UI's Combobox.InputGroup (combobox/input-group/ComboboxInputGroup.tsx; CMB §3.3). Over ComboboxInputGroupBehavior; the
+// state is the field's with the root's disabled state and the popup's flags (CMB-STA-02), projected by the input's mapping.
+/// <summary>Represents the group around a combobox's input and its buttons, Base UI's <c>Combobox.InputGroup</c>, rendered as a <c>div</c>.</summary>
+/// <remarks>A press on the group outside its buttons focuses the input and opens the popup; the popup is positioned against the group.</remarks>
+public sealed class ComboboxInputGroup : PartBase<ComboboxInputGroupState>
+{
+    private static readonly StateAttributesMapping<ComboboxInputGroupState> s_mapping = ComboboxStateMapping.CreateInput<ComboboxInputGroupState>();
+
+    private ComboboxInputGroupBehavior? behavior;
+
+    private ComboboxInputGroupState state = new(false, false, false, null, false, false, false, false, null, false, true);
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private ILogger<ComboboxInputGroup> Logger { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
+
+    [CascadingParameter]
+    private ComboboxStore? Root { get; set; }
+
+    [CascadingParameter]
+    private FieldRootContext? Field { get; set; }
+
+    /// <inheritdoc />
+    protected override string DefaultTagName => "div";
+
+    /// <inheritdoc />
+    protected override ComboboxInputGroupState State
+    {
+        get
+        {
+            ComboboxInputGroupBehavior group = behavior!;
+            ComboboxStoreState root = group.Store.State;
+            FieldStateSnapshot fieldState = group.Field;
+            bool open = root.Lifecycle.EffectiveOpen;
+            Side? side = root.Lifecycle.Mounted ? root.PopupSide : null;
+            bool listEmpty = root.FilteredCount == 0;
+            bool placeholder = root.SelectionMode != ComboboxSelectionMode.None && !root.HasSelectedValue;
+            if (state.Disabled != fieldState.Disabled || state.Touched != fieldState.Touched || state.Dirty != fieldState.Dirty || state.Valid != fieldState.Valid
+                || state.Filled != fieldState.Filled || state.Focused != fieldState.Focused || state.Open != open || state.ReadOnly != root.ReadOnly
+                || state.PopupSide != side || state.ListEmpty != listEmpty || state.Placeholder != placeholder)
+            {
+                state = new ComboboxInputGroupState(fieldState.Disabled, fieldState.Touched, fieldState.Dirty, fieldState.Valid, fieldState.Filled, fieldState.Focused, open, root.ReadOnly, side, listEmpty, placeholder);
+            }
+
+            return state;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override StateAttributesMapping<ComboboxInputGroupState>? StateAttributesMapping => s_mapping;
+
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => true;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        behavior = new ComboboxInputGroupBehavior(new ComboboxPartServices("Combobox", JSRuntime, Logger, IdGenerator, StateHasChanged, InvokeAsync, DispatchExceptionAsync));
+        base.OnInitialized();
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet() => behavior!.Apply(Id);
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.AfterRenderAsync(Element);
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && behavior is not null)
+        {
+            _ = behavior.DisposeAsync().AsTask();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
+    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, Field, SubscribeTo);
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
 }

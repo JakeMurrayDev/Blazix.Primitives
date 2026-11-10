@@ -65,6 +65,9 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when Enter on an open list without a highlight closes the popup, with the reason <c>none</c>.</summary>
     public event Action<EventSnapshot>? EnterCloseRequested;
 
+    /// <summary>Occurs when a press on the input group or the chips focused the input, Base UI's <c>input-press</c>.</summary>
+    public event Action<EventSnapshot>? InputPressed;
+
     /// <summary>Gets or sets the C# chain of the <c>clear</c> and <c>remove</c> points on WebAssembly.</summary>
     /// <value>A function from the point and the event to the verdict, or <see langword="null"/> for each point's fallback.</value>
     public Func<string, EventSnapshot, DecisionPolicy>? Decider { get; set; }
@@ -103,6 +106,11 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
     [JSInvokable]
     public void OnEnterClose(string payloadJson) => EnterCloseRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event);
+
+    /// <summary>Receives a press on the input group or the chips that focused the input.</summary>
+    /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
+    [JSInvokable]
+    public void OnInputPress(string payloadJson) => InputPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
 
     /// <inheritdoc />
     /// <remarks>
