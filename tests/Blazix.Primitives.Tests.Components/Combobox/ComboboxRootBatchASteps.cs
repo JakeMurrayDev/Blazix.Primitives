@@ -195,7 +195,7 @@ internal static class ComboboxRootBatchASteps
     /// <summary>Gets every options JSON the list navigation's handles sent, attaches then updates.</summary>
     /// <param name="test">The test context.</param>
     /// <returns>The options, in order.</returns>
-    public static List<string> CompositeOptions(this ComboboxTestContext test)
+    public static List<string> ListHandleOptions(this ComboboxTestContext test)
     {
         List<string> options = [];
         foreach (JSRuntimeInvocation attach in test.Composite.Invocations["attach"])
@@ -226,7 +226,7 @@ internal static class ComboboxRootBatchASteps
         System.Text.RegularExpressions.Regex request = new("\"highlight\":\\{([^}]*)\\}");
         System.Text.RegularExpressions.Regex index = new("\"index\":(-?\\d+)");
         int? last = null;
-        foreach (string options in test.CompositeOptions().Skip(since))
+        foreach (string options in test.ListHandleOptions().Skip(since))
         {
             System.Text.RegularExpressions.Match match = request.Match(options);
             if (match.Success)
