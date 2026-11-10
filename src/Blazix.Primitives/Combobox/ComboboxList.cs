@@ -15,9 +15,9 @@ public sealed partial record ComboboxListState(
     bool Empty);
 
 // Base UI's Combobox.List (combobox/list/ComboboxList.tsx; CMB §3.19, STR-06): a sealed thin part over
-// ComboboxListBehavior. Its ItemContent and GroupContent are the item template (design point 2 (a), pending the
-// orchestrator), named after Virtualize.ItemContent; with either, the list maps the root's filtered items as Base UI's
-// function children do through the implicit Collection.
+// ComboboxListBehavior. Its ItemContent and GroupContent are the item template (design point 2 (a), settled by the
+// orchestrator 2026-11-04), named after Virtualize.ItemContent; with either, the list maps the root's filtered items as
+// Base UI's function children do through the implicit Collection.
 /// <summary>Represents the list of a combobox's items, Base UI's <c>Combobox.List</c>, rendered as a <c>div</c>.</summary>
 /// <typeparam name="TValue">The type of the items' values; inferred from the enclosing root.</typeparam>
 /// <remarks>
