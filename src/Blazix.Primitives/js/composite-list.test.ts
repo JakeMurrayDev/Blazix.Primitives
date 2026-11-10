@@ -2406,6 +2406,37 @@ describe('useListNavigation (WebKit)', () => {
 
 // Port titles for CMP rows with `Test: none` (M5 track 1, issue 159; the M2 "none (port L3)" precedent), positive first.
 describe('list navigation rows without a Base UI title (port)', () => {
+  // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a)): on Server the floating list attaches a round trip after
+  // the open, so a navigation key pressed meanwhile is kept, the newest only, and replayed once the list attaches.
+  it('port: a navigation key pressed on the open reference before the list attaches is replayed once it attaches, the newest only', async () => {
+    const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    harness.reference.focus();
+    // C# commits the open; its render, which mounts the list, comes later.
+    harness.popup.setOpen(true, 'none');
+    expect(harness.floating).toBeNull();
+
+    const kept = [keyDown(harness.reference, 'ArrowDown'), keyDown(harness.reference, 'ArrowDown')];
+    harness.setOpen(true);
+
+    await waitFor(() => {
+      expect(harness.activeIndex).toBe(0);
+    });
+    expect([kept.map((event) => event.defaultPrevented), harness.highlights.length]).toEqual([[true, true], 1]);
+  });
+
+  it('port: a kept navigation key is dropped when the popup closes before the list attaches', async () => {
+    const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    harness.reference.focus();
+    harness.popup.setOpen(true, 'none');
+    keyDown(harness.reference, 'ArrowDown');
+    harness.popup.setOpen(false, 'none');
+    harness.popup.setOpen(true, 'none');
+    harness.setOpen(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(harness.highlights).toEqual([]);
+  });
+
   it('port: in grid mode a typeable combobox input with no highlight keeps ArrowLeft and ArrowRight for its caret (CMB-KEY-13)', () => {
     const harness = app({
       reference: 'input',
