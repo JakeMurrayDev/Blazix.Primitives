@@ -366,19 +366,24 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     }
   };
 
-  const syncLayers = () => {
+  // Whether a layer's element changed.
+  const syncLayers = (): boolean => {
     const popup = popupElement();
     const list = listElement();
+    let changed = false;
     if (popup !== popupLayerElement) {
       popupLayer?.clear();
       popupLayerElement = popup;
       popupLayer = popup ? styleWriter(popup).layer('aligned') : null;
+      changed = true;
     }
     if (list !== listLayerElement) {
       listLayer?.clear();
       listLayerElement = list;
       listLayer = list ? styleWriter(list).layer('aligned') : null;
+      changed = true;
     }
+    return changed;
   };
 
   // SEL-DOM-27, SEL-DOM-32: the aligned layout of the popup and the list, while aligned placement is active.
@@ -390,6 +395,9 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       return;
     }
     if (listLayer) {
+      for (const [property] of LIST_FUNCTIONAL_STYLES) {
+        popupLayer?.remove(property);
+      }
       popupLayer?.set('height', '100%');
       writeLayer(listLayer, LIST_FUNCTIONAL_STYLES);
     } else if (popupLayer) {
@@ -787,7 +795,10 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
 
   const sync = () => {
     syncGates();
-    syncLayers();
+    // SelectPopup.tsx:457-458, SelectList.tsx:38-40: the layout follows the List and the Popup present at each render.
+    if (syncLayers() && alignedSent) {
+      writeLayout(true);
+    }
     if (candidate() && options.open && !options.ending) {
       startAligned();
       if (alignedSent && initialPlaced) {
