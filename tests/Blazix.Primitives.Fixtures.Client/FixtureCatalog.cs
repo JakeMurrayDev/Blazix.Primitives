@@ -271,5 +271,19 @@ public static class FixtureCatalog
         ["select-form-field"] = new(typeof(SelectFormFieldFixture)),
         ["select-form-label"] = new(typeof(SelectFormLabelFixture)),
         // select-form fixtures above this line (M5 track 9, L4 agent form)
+        ["select-nav-dynamic"] = new(typeof(SelectNavDynamicFixture)),
+        ["select-nav-typeahead"] = new(typeof(SelectNavTypeaheadFixture)),
+        ["select-nav-multiple"] = new(typeof(SelectNavMultipleFixture)),
+        ["select-nav-hover"] = new(typeof(SelectNavHoverFixture)),
+        ["select-nav-groups"] = new(typeof(SelectNavGroupsFixture)),
+        ["select-nav-aligned"] = new(typeof(SelectNavAlignedFixture)),
+        ["select-nav-opening"] = new(typeof(SelectNavOpeningFixture)),
+        ["select-nav-closing"] = new(typeof(SelectNavClosingFixture)),
+        ["select-nav-arrow"] = new(typeof(SelectNavArrowFixture)),
+        // select-nav fixtures above this line (M5 track 9, L4 agent nav)
+        ["select-aligned-layout"] = new(typeof(SelectAlignedLayoutFixture)),
+        ["select-aligned-scroll"] = new(typeof(SelectAlignedScrollFixture)),
+        ["select-aligned-focus"] = new(typeof(SelectAlignedFocusFixture)),
+        // select-aligned fixtures above this line (M5 track 9, L4 agent aligned)
     };
 }
