@@ -1443,3 +1443,30 @@ test.describe('a popover nested in a dialog', () => {
     await expect(fixture).toHaveAttribute('data-dialog-changes', 'false:escape-key');
   });
 });
+
+// DialogRoot.test.tsx's `nested popups` describe, its Select title (M5 track 9, final review B2); the Menu title runs in
+// menu.others.spec.ts. The select is modal and placed against its trigger (`AlignItemWithTrigger="false"`).
+test.describe('nested popups', () => {
+  // DLG-PTR-15, DLG-DIS-05. Base UI clicks the select positioner's previous sibling, its internal backdrop, then the dialog
+  // popup's second previous sibling, the dialog's. Here a real press at the page's corner, after checking that the element
+  // there is the select's backdrop: the topmost internal backdrop, the select's, then the dialog's.
+  test('should not dismiss the dialog when dismissing outside a nested select popup', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'select-dialog');
+    await page.getByTestId('dialog-trigger').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-select-attached', 'true');
+
+    await page.getByTestId('select-trigger').click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+
+    expect(await page.evaluate(() => document.elementFromPoint(2, 2) === document.querySelector('[data-testid="select-positioner"]')!.previousElementSibling)).toBe(true);
+    await page.mouse.click(2, 2);
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await settle(fixture);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-dialog-open-changes', 'true:trigger-press ');
+
+    await page.mouse.click(2, 2);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+});
