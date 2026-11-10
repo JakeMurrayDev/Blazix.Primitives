@@ -48,6 +48,7 @@ public sealed class PreviewCardBackdrop : PartBase<PreviewCardBackdropState>
     private static readonly StateAttributesMapping<PreviewCardBackdropState> s_mapping = PopupStateMapping.CreateOpen<PreviewCardBackdropState>();
 
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private PreviewCardStoreView? view;
     private PreviewCardBackdropState? state;
     private TransitionsTwin? transitions;
@@ -167,6 +168,9 @@ public sealed class PreviewCardBackdrop : PartBase<PreviewCardBackdropState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, view!.TransitionStatus);
+
         attributes.Set("role", "presentation");
         if (!view!.Mounted)
         {
@@ -210,6 +214,7 @@ public sealed class PreviewCardBackdrop : PartBase<PreviewCardBackdropState>
 
         TransitionsOptions options = TransitionsOptions(current);
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = Element is { } element
             ? await twin.AttachAsync(element, options)
             : await twin.AttachAsync(Id!, options);

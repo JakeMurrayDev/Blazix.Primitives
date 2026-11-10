@@ -607,7 +607,7 @@ Mount gating, status timing and completion are TRN-STA-02/03/04/06/09/13 and TRN
 | `tabindex` | `"-1"` (consumer `tabIndex` overrides) | PRV-DOM-12 | C# |
 | `data-base-ui-focusable` | `""` | PRV-DOM-12 | C# |
 | inline `transition: none` | while `'starting'` | PRV-DOM-14 | JS |
-| `data-open`/`data-closed`, `data-starting-style`/`data-ending-style`, `data-side`, `data-align`, `data-instant` | per state (§3.6) | PRV-DOM-13 | C# (`data-open`, `data-closed`, `data-side`, `data-align`, `data-instant`); JS (`data-starting-style`, `data-ending-style`) |
+| `data-open`/`data-closed`, `data-starting-style`/`data-ending-style`, `data-side`, `data-align`, `data-instant` | per state (§3.6) | PRV-DOM-13 | C# (`data-open`, `data-closed`, `data-side`, `data-align`, `data-instant`); C# → JS (`data-starting-style`, `data-ending-style`) |
 | `role`, `id` | none unless supplied by the consumer | PRV-DOM-15 | C# |
 | handlers | keydown (Escape) and inside-press markers from the dismiss mechanism (§6.4) | — | JS |
 
@@ -617,6 +617,7 @@ Mount gating, status timing and completion are TRN-STA-02/03/04/06/09/13 and TRN
 - **PRV-DOM-13** — MUST. The Popup renders `data-open`/`data-closed` (exactly one), `data-starting-style`/`data-ending-style` per TRN-DOM-01/02/03, `data-side`/`data-align` with the Positioner's rendered values, and `data-instant` iff `instant` is set (§16 Q3). `data-anchor-hidden` is never rendered on the Popup (its state has no `anchorHidden`).
   Source: `preview-card/popup/PreviewCardPopup.tsx:51-57,68`; `utils/popupStateMapping.ts:63-70`. Test: [L4] `PreviewCardRoot.detached-triggers.test.tsx` "still respects trigger B open delay after trigger A close transition finishes" (`data-ending-style`, `data-closed`, `data-open`); `popupConformanceTests.tsx` "is called on close once the exit animation finishes".
   Port note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122)): green in `tests/browser/preview-card.spec.ts` on both render modes (the close transition lengthened to 1000 ms) and in the popup suite.
+  Port note (2026-11-10, D11; TRN-STA-03; ADR 04 Amendments 2026-10-18 and 2026-10-21, the handover for a newly rendered element; settled by the orchestrator 2026-11-10): the attributes are a handover, Writer `C# → JS`. C# renders them on the element until its `transitions` handle attaches, which waits for the portal's move, and then freezes what it rendered (`PopupTransitionAttributes`, `Popup/`). So a popup that is not kept mounted opens with `data-starting-style` from its first render, with no commit where it is open without it. L4: `popover.spec.ts` "port: starts each opening once when the popup is not kept mounted" and, on the test-only popup host, `popup.spec.ts` "port: starts each opening once, with data-starting-style from the first render", both modes, red before the change.
 - **PRV-DOM-14** — MUST. While `transitionStatus === 'starting'` the Popup's inline style contains `transition: none` (TRN-DOM-05).
   Source: `preview-card/popup/PreviewCardPopup.tsx:65`. Test: none.
   Port note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122)): L2 port title: `PreviewCardPopupPartsTests` "port: the popup renders transition: none while starting, and its transitions handle writes it from attach" (ADR 04 Amendments 2026-10-28, gap 13 of M4 track 5).
@@ -651,7 +652,7 @@ Writer note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDe
 | `hidden` | not mounted | PRV-DOM-18 | C# |
 | inline `pointer-events`, `user-select`, `-webkit-user-select` | always `none` | PRV-DOM-18 | C# |
 | `data-open` / `data-closed` | open / closed | PRV-DOM-19 | C# |
-| `data-starting-style` / `data-ending-style` | transition status | PRV-DOM-19 | JS |
+| `data-starting-style` / `data-ending-style` | transition status | PRV-DOM-19 | C# → JS (handover at attach) |
 
 Writer note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122); ADR 13 §3): the table is added with the implementing pull request; the transition attributes are the `transitions` module's, mirrored in `PreviewCardBackdropState`, as Popover's Backdrop's are.
 
@@ -661,6 +662,7 @@ Writer note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDe
 - **PRV-DOM-19** — MUST. The Backdrop renders `data-open`/`data-closed` (exactly one) and `data-starting-style`/`data-ending-style` per TRN-DOM-01/02/03; it never renders `data-anchor-hidden`, `data-side` or `data-align`.
   Source: `preview-card/backdrop/PreviewCardBackdrop.tsx:26-29,46`. Test: none.
   Port note (2026-10-29, M4 track 7, [issue 122](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/122)): L2: `PreviewCardPopupPartsTests` "sets `pointer-events: none` style" also asserts `data-open` and no `data-side`.
+  Port note (2026-11-10, D11; TRN-STA-03; ADR 04 Amendments 2026-10-18 and 2026-10-21, the handover for a newly rendered element; settled by the orchestrator 2026-11-10): the attributes are a handover, Writer `C# → JS`. C# renders them on the element until its `transitions` handle attaches, which waits for the portal's move, and then freezes what it rendered (`PopupTransitionAttributes`, `Popup/`). So a popup that is not kept mounted opens with `data-starting-style` from its first render, with no commit where it is open without it. L4: `popover.spec.ts` "port: starts each opening once when the popup is not kept mounted" and, on the test-only popup host, `popup.spec.ts` "port: starts each opening once, with data-starting-style from the first render", both modes, red before the change.
 
 ### 5.7 Viewport element and its containers
 

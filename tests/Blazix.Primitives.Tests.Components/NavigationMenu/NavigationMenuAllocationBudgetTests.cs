@@ -10,8 +10,8 @@ namespace Blazix.Primitives.Tests.Components;
 /// ADR 16 rules 2 and 7 for NavigationMenu: the parts a hover switch renders, counted through their class functions, and a
 /// re-render with unchanged parameters of a Root with its List, two Items with Triggers, Icons and Contents, a Portal, a
 /// Positioner, a Popup and a Viewport, which sends nothing to the modules. Measured around bUnit's synchronous work on the
-/// test thread; the budget is the least of five runs plus the 112 bytes earlier tests can leave in the process (the Tabs
-/// budget's envelope, PR 127's rule).
+/// test thread; the budget is the least of five runs plus the envelope dynamic PGO adds in some processes (144 bytes on
+/// CI, ADR 16 Amendments 2026-11-10).
 /// </summary>
 [Collection(AllocationBudgetsCollection.Name)]
 public sealed class NavigationMenuAllocationBudgetTests : IDisposable
@@ -21,7 +21,12 @@ public sealed class NavigationMenuAllocationBudgetTests : IDisposable
     // Triggers and Icons, the open Content), since each one's parameters hold a fragment or a delegate, which Blazor
     // counts as changed; the twins compare their options and send nothing. The budget adds the 112 bytes of the full-run
     // envelope (TabsAllocationBudgetTests' note of 2026-10-28).
-    private const long RerenderBudgetBytes = 11960;
+    // Re-pinned 2026-11-10 (issue-112 rule; ADR 16 Amendments 2026-11-10, chosen by the user 2026-11-10): CI run
+    // 42769822221 measured 11992. The floor varies per process with dynamic PGO, not with the code: locally, Release,
+    // 11848 in 9 of 10 isolated runs and 11960 in 1 (all five samples equal in each); with DOTNET_TieredPGO=0, 11848 in 8 of
+    // 8; with tiering off, 11584 in 8 of 8; inside three full L2 runs, 11848. The envelope is CI's observed +144 (the same
+    // +144 as Combobox's budget in CI run 42769069830).
+    private const long RerenderBudgetBytes = 11992;
 
     private readonly NavigationMenuTestContext test = new();
     private readonly Dictionary<string, int> renders = [];

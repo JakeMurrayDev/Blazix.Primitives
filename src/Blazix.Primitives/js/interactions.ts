@@ -2849,7 +2849,9 @@ function clearSafePolygonPointerEventsMutation(instance: PointerEventsMutationSt
   if (scopeElement && scopeElement[pointerEventsOwner] === instance) {
     instance.pointerEventsScopeElement?.style.removeProperty('pointer-events');
     instance.pointerEventsReferenceElement?.style.removeProperty('pointer-events');
-    instance.pointerEventsFloatingElement?.style.removeProperty('pointer-events');
+    if (instance.pointerEventsFloatingElement && !isPositioningHold(instance.pointerEventsFloatingElement)) {
+      instance.pointerEventsFloatingElement.style.removeProperty('pointer-events');
+    }
     delete scopeElement[pointerEventsOwner];
   }
 
@@ -2857,6 +2859,13 @@ function clearSafePolygonPointerEventsMutation(instance: PointerEventsMutationSt
   instance.pointerEventsScopeElement = null;
   instance.pointerEventsReferenceElement = null;
   instance.pointerEventsFloatingElement = null;
+}
+
+// G5 of PR 168 (ADR 04 Amendments 2026-11-04 and 2026-11-10): until the first pass of the open, the `positioning` module
+// holds a Positioner at `opacity: 0` and `pointer-events: none`, as Base UI positions before paint and its transparent
+// Positioner never sits at the origin under a resting pointer. The lock neither lifts nor clears that hold.
+function isPositioningHold(element: HTMLElement): boolean {
+  return element.style.pointerEvents === 'none' && element.style.opacity === '0';
 }
 
 /**
@@ -2886,7 +2895,13 @@ function applySafePolygonPointerEventsMutation(
 
   scopeElement.style.pointerEvents = 'none';
   referenceElement.style.pointerEvents = 'auto';
-  floatingElement.style.pointerEvents = 'auto';
+  // The `positioning` module's hold stays until the first pass lifts it; the observer below sees that write.
+  const liftFloating = () => {
+    if (floatingElement.style.pointerEvents !== 'auto' && !isPositioningHold(floatingElement)) {
+      floatingElement.style.pointerEvents = 'auto';
+    }
+  };
+  liftFloating();
 
   // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's
   // whole `style` attribute when its rendered value changes (a Trigger's or a List's C#-rendered `style`), which drops the
@@ -2904,7 +2919,7 @@ function applySafePolygonPointerEventsMutation(
       }
       reassert(scopeElement, 'none');
       reassert(referenceElement, 'auto');
-      reassert(floatingElement, 'auto');
+      liftFloating();
     });
     for (const element of [scopeElement, referenceElement, floatingElement]) {
       observer.observe(element, { attributes: true, attributeFilter: ['style'] });
@@ -3658,7 +3673,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
       const parentFloating =
         parentId === null ? null : (record.tree.nodesRef.current.find((node) => node.id === parentId)?.context?.elements?.floating ?? null);
 
-      if (parentFloating) {
+      if (parentFloating && !isPositioningHold(parentFloating)) {
         parentFloating.style.pointerEvents = '';
       }
 
