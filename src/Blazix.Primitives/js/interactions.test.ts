@@ -3417,6 +3417,24 @@ describe('useHoverReferenceInteraction', () => {
       expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['', '', '']);
     });
 
+    // G5 of PR 168 with the lock (MenuRoot.test.tsx's "reopens on hover after an impatient click closes via item press" on
+    // WebAssembly): Base UI positions before paint, so its lock never makes the transparent, unpositioned popup at the origin
+    // take a resting pointer. The `positioning` module holds the floating element's `pointer-events: none` until its first
+    // pass; the lock leaves that value, and makes the element `auto` once it is lifted.
+    it('port: the lock keeps a floating element\'s pointer-events none while it holds it, and makes it auto once it is lifted', async () => {
+      const { popup, button, tooltip } = render({ safePolygon: true, blockPointerEvents: true });
+      tooltip.style.pointerEvents = 'none';
+
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+      await Promise.resolve();
+      expect([document.body.style.pointerEvents, button.style.pointerEvents, tooltip.style.pointerEvents]).toEqual(['none', 'auto', 'none']);
+
+      tooltip.style.removeProperty('pointer-events');
+      await Promise.resolve();
+      expect(tooltip.style.pointerEvents).toBe('auto');
+    });
+
     // NavigationMenu's getScope (NavigationMenuTrigger.tsx:511-517) as data (M5 track 2): NAV-PTR-10, NavigationMenuRoot.test.tsx
     // "blocks pointer events on the list while traversing from a top-level trigger to the popup" and "scopes safePolygon
     // pointer events to the document for a custom list element".
