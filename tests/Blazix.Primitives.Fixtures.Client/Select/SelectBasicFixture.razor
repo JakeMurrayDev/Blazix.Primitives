@@ -7,13 +7,14 @@
     The `select-basic` fixture (tests/browser/select.spec.ts; M5 track 9): a single select of five apples with a label, a
     value with a placeholder, an icon, a portal, a positioner, a popup with a list, items with text and indicators. The
     query: `align=false` places the popup against the trigger (`AlignItemWithTrigger=false`); `defaultValue` the value at
-    the first render; `modal=false`. The container records `data-value-changes` (value and reason) and the open changes.
+    the first render; `modal=false`; `arrow=center|edge` renders a 10×10 SelectArrow first in the popup (`edge`: a 20×20 trigger
+    fixed at the left edge under a 200px wide popup, which the arrow cannot center on). The container records `data-value-changes` (value and reason) and the open changes.
 *@
 <FixtureContainer Name="select-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)">
     <SelectRoot TValue="string" @ref="root" DefaultValue="@defaultValue" Modal="@modal" Items="@s_apples" OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
         <SelectLabel data-testid="label">Apple</SelectLabel>
-        <SelectTrigger @ref="trigger" data-testid="trigger">
+        <SelectTrigger @ref="trigger" data-testid="trigger" style="@triggerStyle">
             <SelectValue data-testid="value">
                 <Placeholder>Select apple</Placeholder>
             </SelectValue>
@@ -21,7 +22,11 @@
         </SelectTrigger>
         <SelectPortal>
             <SelectPositioner data-testid="positioner" AlignItemWithTrigger="@align" SideOffset="4">
-                <SelectPopup data-testid="popup">
+                <SelectPopup data-testid="popup" style="@popupStyle">
+                    @if (arrow is not null)
+                    {
+                        <SelectArrow data-testid="arrow" style="width: 10px; height: 10px" />
+                    }
                     <SelectList data-testid="list">
                         @foreach (LabeledValue<string> apple in s_apples)
                         {
@@ -57,6 +62,9 @@
     private string? defaultValue;
     private bool align = true;
     private bool modal = true;
+    private string? arrow;
+    private string? triggerStyle;
+    private string? popupStyle;
 
     protected override void OnInitialized()
     {
@@ -64,6 +72,12 @@
         defaultValue = Query("defaultValue");
         align = Query("align") != "false";
         modal = Query("modal") != "false";
+        arrow = Query("arrow");
+        if (arrow == "edge")
+        {
+            triggerStyle = "position: fixed; top: 100px; left: 0; width: 20px; height: 20px; padding: 0; box-sizing: border-box; overflow: hidden";
+            popupStyle = "width: 200px";
+        }
     }
 
     private void RecordValueChange(ValueChangeEventArgs<string> args)
