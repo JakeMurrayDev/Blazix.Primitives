@@ -1207,6 +1207,11 @@ export interface CompositeListOptions {
   parentOrientation?: Orientation | undefined;
   /** Whether an item is highlighted on open; absent for `'auto'` (a keyboard open only). */
   focusItemOnOpen?: boolean | undefined;
+  /**
+   * Whether the highlight survives the close's reset, as Base UI's Select ignores that `onNavigate()` while closed
+   * (SEL-STA-07); absent for `false`.
+   */
+  retainHighlightWhileClosing?: boolean | undefined;
   /** Whether a step past either end clears the highlight under virtual focus; absent for `false`. */
   allowEscape?: boolean | undefined;
   /** `false` to keep the closed list closed on an arrow key; absent for `true`. */
@@ -2694,7 +2699,9 @@ function syncOpenAndMount(state: ListState, handle: ListHandle): void {
       }
     } else if (state.previousMounted) {
       state.index = -1;
-      navigateTo(state, handle);
+      if (list.retainHighlightWhileClosing !== true) {
+        navigateTo(state, handle);
+      }
     }
     // :407-477 with the highlight of the render that opened or mounted the list.
     syncActiveIndex(state, handle, renderedActiveIndex);
