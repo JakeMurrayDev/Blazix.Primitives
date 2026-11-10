@@ -430,7 +430,18 @@ public sealed class SelectPositioner : PartBase<SelectPositionerState>
 
     /// <summary>Sends the positioner's <c>select</c> options again, after a descendant's element changed.</summary>
     /// <returns>A task that completes when the options were sent.</returns>
-    internal Task SyncSelectModuleAsync() => Element is { } element ? SyncSelectAsync(element) : Task.CompletedTask;
+    internal async Task SyncSelectModuleAsync()
+    {
+        if (Element is not { } element)
+        {
+            return;
+        }
+
+        // The `select` handle calls the `positioning` handle of the same element, as the after-render's attach does: the Popup
+        // and the List ask when their elements appear, which can be before that handle attached.
+        await positioner!.TwinAttached;
+        await SyncSelectAsync(element);
+    }
 
     private void SetInputs()
     {
