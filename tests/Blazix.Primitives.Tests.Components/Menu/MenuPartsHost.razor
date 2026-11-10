@@ -27,6 +27,17 @@
             </MenuPortal>
         </MenuRoot>
         break;
+    case "group":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuGroup data-testid="group" />
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
     case "trigger-in-popover":
         <PopoverRoot TPayload="NoPayload" Open="true">
             <PopoverTrigger TPayload="NoPayload">Open</PopoverTrigger>

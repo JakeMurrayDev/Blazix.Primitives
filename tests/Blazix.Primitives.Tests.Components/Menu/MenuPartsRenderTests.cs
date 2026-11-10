@@ -220,6 +220,34 @@ public sealed class MenuPartsRenderTests : BunitContext
         Assert.Contains(options, json => json.Contains($"\"fallbackAxisSide\":\"{fallbackAxisSide}\"", StringComparison.Ordinal));
     }
 
+    // MenuGroup.test.tsx and MenuRadioGroup.test.tsx share the title; the group renders inside an open menu, as both parts
+    // read the menu's context here.
+    [Theory(DisplayName = "renders a div with the `group` role")]
+    [InlineData("group")]
+    [InlineData("radio-group")]
+    [Trait("Requirement", "MNU-ARIA-10")]
+    public void Group_renders_a_div_with_the_group_role(string part)
+    {
+        IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p.Add(x => x.Case, part));
+
+        IElement group = cut.Find("[role=group]");
+        Assert.Equal("DIV", group.TagName);
+    }
+
+    [Fact(DisplayName = "leaves lazy flipping off for a plain menu")]
+    [Trait("Requirement", "MNU-POS-05")]
+    public void Positioner_leaves_lazy_flipping_off_for_a_plain_menu()
+    {
+        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Blazix.Primitives/js/positioning.js");
+        positioning.SetupModule("attach", _ => true);
+
+        Render<MenuPartsHost>();
+
+        string[] options = positioning.Invocations["attach"].Select(attach => (string)attach.Arguments[1]!).ToArray();
+        Assert.NotEmpty(options);
+        Assert.All(options, json => Assert.DoesNotContain("lazyFlip", json, StringComparison.Ordinal));
+    }
+
     [Fact(DisplayName = "port: an open submenu's trigger renders tabindex 0, and the list's roving value once it closes")]
     [Trait("Requirement", "MNU-KEY-15")]
     [Trait("Requirement", "MNU-DOM-18")]
