@@ -32,7 +32,11 @@ internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids, int? Publ
 /// <param name="ItemId">The id of the highlighted item's element, or <see langword="null"/> when no item is highlighted.</param>
 /// <param name="Event">The snapshot of the event that moved the highlight, or <see langword="null"/> when no event did.</param>
 /// <param name="Revision">The revision of the last highlight request from C# the module had applied; 0 before any.</param>
-internal sealed record CompositeListHighlight(int? Index, string? ItemId, EventSnapshot? Event, int Revision);
+/// <param name="Label">
+/// The highlighted item's label, its registered label else its text, or <see langword="null"/> when no item is highlighted
+/// or the item has none (design point 9 (a) of M5 track 6, Menu's highlight label).
+/// </param>
+internal sealed record CompositeListHighlight(int? Index, string? ItemId, EventSnapshot? Event, int Revision, string? Label = null);
 
 // CMP-EVT-06, CMP-EVT-07 (reason list-navigation) and CMP-EVT-08 (reason focus-out).
 /// <summary>The payload of the <c>composite</c> module's request to open or close a list's popup.</summary>

@@ -1133,6 +1133,40 @@ describe('positioning module: the pre-position style (FLT-DOM-02, FLT-ANI-02)', 
     expect(positioner.style.top).toBe('0px');
     expect(positioner.style.pointerEvents).toBe('none');
   });
+
+  // G5 of PR 168 (settled by the orchestrator 2026-11-04): Base UI positions in a layout effect before paint, so its
+  // transparent Positioner at the origin is never under a pointer. The port's first pass lands after attach, and until it a
+  // pointer resting over the origin would land on the invisible popup. With nothing to position against no pass is
+  // pending: Base UI's never-positioned popup (its reference gone, PopoverRoot.detached-triggers.test.tsx "returns focus
+  // to the previous element when the trigger unmounts while open") stays transparent at the origin and takes the pointer.
+  it('port: keeps an open Positioner from taking the pointer until the pass of each mount, and leaves one with nothing to position against taking it', async () => {
+    stubViewport();
+    const { positioner } = setup({ keepMounted: true });
+    expect(positioner.style.opacity).toBe('0');
+    expect(positioner.style.pointerEvents).toBe('none');
+
+    await settle();
+    expect(positioner.style.opacity).toBe('');
+    expect(positioner.style.pointerEvents).toBe('');
+
+    positioner.removeAttribute('data-open');
+    positioner.hidden = true;
+    await settle();
+    positioner.hidden = false;
+    positioner.setAttribute('data-open', '');
+    await Promise.resolve();
+    expect(positioner.style.opacity).toBe('0');
+    expect(positioner.style.pointerEvents).toBe('none');
+
+    await settle();
+    expect(positioner.style.opacity).toBe('');
+    expect(positioner.style.pointerEvents).toBe('');
+
+    const { positioner: unanchored } = setup({ triggerId: 'missing' });
+    await settle();
+    expect(unanchored.style.opacity).toBe('0');
+    expect(unanchored.style.pointerEvents).toBe('');
+  });
 });
 
 describe('positioning module: the attribute writes', () => {

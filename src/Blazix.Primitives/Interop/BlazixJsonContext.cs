@@ -66,4 +66,8 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(FocusManagerOptions))]
 [JsonSerializable(typeof(FocusOutCloseRequest))]
 [JsonSerializable(typeof(InteractionTypeChange))]
+[JsonSerializable(typeof(NavigationMenuOptions))]
+[JsonSerializable(typeof(NavigationMenuActivation))]
+[JsonSerializable(typeof(NavigationMenuFocusOut))]
+[JsonSerializable(typeof(NavigationMenuViewportInertChange))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

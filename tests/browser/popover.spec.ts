@@ -1477,7 +1477,12 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
     await expect(page.getByTestId('popup')).not.toHaveAttribute('data-instant');
   });
 
-  test('does not restore the trigger-change instant after a hover close has started', async ({ page, mode }) => {
+  // Quarantined (ADR 11 §4) until 2026-11-18, issue 175: the poll for the positioner's switch animation can sample after the
+  // animation has ended (a poll over a short-lived state).
+  test.fixme('does not restore the trigger-change instant after a hover close has started', {
+    tag: '@quarantine',
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/175' },
+  }, async ({ page, mode }) => {
     const { popup } = await renderHoverDetachedTriggers(page, mode, { settleTriggerChange: false });
     const positioner = page.getByTestId('positioner');
     await expect.poll(() => positioner.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);

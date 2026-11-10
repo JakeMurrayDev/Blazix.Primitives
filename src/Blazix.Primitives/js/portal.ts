@@ -219,8 +219,10 @@ export function attach(
 
   // FloatingPortal.tsx:196-223: the node's tabbables are tabbable only once it has been entered, through a guard or a
   // pointer. Capture, so these run before the guards' own listeners.
+  // G2 of PR 168 (ADR 04 Amendments 2026-11-04, settled by the orchestrator 2026-11-04): a lite node has no tabbable
+  // logic, as Base UI's FloatingPortalLite has none.
   const onFocusInside = (event: FocusEvent) => {
-    if (disposed || focusManager?.modal === true || !event.relatedTarget || !isOutsideEvent(event)) {
+    if (disposed || options.lite === true || focusManager?.modal === true || !event.relatedTarget || !isOutsideEvent(event)) {
       return;
     }
     if (event.type === 'focusin') {

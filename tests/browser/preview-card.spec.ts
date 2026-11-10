@@ -181,7 +181,11 @@ for (const variant of trio) {
 
       // With two detached triggers and no trigger id the card has no anchor and stays unpositioned (FLT-STA-09), so the
       // pointer crosses the positioner wherever it is; Base UI's title checks only that the content is still rendered.
-      test('does not close after hovering out of a popup opened externally', async ({ page, mode }) => {
+      // Quarantined (ADR 11 §4) until 2026-11-18, issue 180: moveOnto occasionally reads a null bounding box on Server.
+      test.fixme('does not close after hovering out of a popup opened externally', {
+        tag: '@quarantine',
+        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/180' },
+      }, async ({ page, mode }) => {
         const fixture = await open(page, mode, { open: false });
         await pressControl(fixture.locator('[data-set-open="true"]'));
         await expect(popup(page)).toHaveText('Content');

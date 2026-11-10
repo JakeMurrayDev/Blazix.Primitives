@@ -15,7 +15,7 @@ import {
   type CompositeOptions,
 } from './composite';
 import { resetFocusManagerState } from './focus-manager';
-import { resetInteractionsForTest } from './interactions';
+import { getSession, resetInteractionsForTest } from './interactions';
 import { resetFrameScheduler } from './transitions';
 import type { DotNetTwin, TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
@@ -94,6 +94,30 @@ describe('useListNavigation', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(harness.item(0));
     });
+  });
+
+  // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
+  // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
+  // to and the element focus came from, in the session's data slot; the close clears it.
+  it('port: the open focus marks the item it moved focus to and the element focus came from, until the close', async () => {
+    const harness = app();
+    const slot = () => getSession(harness.popup.token)?.dataRef.current['blazix.composite.openFocus'];
+    harness.reference.focus();
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    expect(slot()).toEqual({ element: harness.item(0), origin: harness.reference });
+
+    keyDown(harness.item(0), 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(1));
+    });
+    expect(slot()).toEqual({ element: harness.item(1), origin: harness.reference });
+
+    harness.setOpen(false);
+    expect(slot()).toBeUndefined();
   });
 
   it('opens on ArrowUp and focuses last item', async () => {
@@ -691,6 +715,23 @@ describe('list highlight writer (port)', () => {
     expect(harness.highlights[1]!.itemId).toBe(harness.item(1).id);
     expect(harness.highlights[1]!.event?.type).toBe('keydown');
     expect(harness.activeIndex).toBe(1);
+  });
+
+  // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-04): the report
+  // carries the highlighted item's label, its registered label else its text (Menu's onItemHighlighted, MNU-EVT-10).
+  it('port: the highlight report carries the highlighted item\'s label, its registered label else its text', async () => {
+    const harness = app({ items: ['one', 'two', 'three'], itemRegistration: (index) => (index === 1 ? { label: 'Second' } : {}) });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    keyDown(harness.item(0), 'ArrowDown');
+
+    expect(harness.highlights.map((report) => [report.index, report.label])).toEqual([
+      [0, 'one'],
+      [1, 'Second'],
+    ]);
   });
 
   it('port: requests the open with the reason list-navigation and the trigger, and the leave close with focus-out', async () => {

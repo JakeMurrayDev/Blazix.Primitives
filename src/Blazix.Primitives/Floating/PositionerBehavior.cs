@@ -14,9 +14,10 @@ namespace Blazix.Primitives;
 // - role="presentation" and `hidden` while not mounted (FLT-DOM-01; C#'s, live);
 // - the requested data-side and data-align (FLT-POS-01, FLT-I18N-02), then the module's from attach;
 // - the style: FLT-DOM-02's `position: fixed; top: 0px; left: 0px; opacity: 0`, FLT-DOM-05's seeded
-//   `--available-width: 100vw; --available-height: 100vh`, `pointer-events: none` while closed (FLT-DOM-01) and
-//   `transition: none` while starting (FLT-ANI-05), then the consumer's merged style, which wins (usePositioner's merge
-//   order). From attach the module composes the element's style and the consumer's later styles travel in `update`.
+//   `--available-width: 100vw; --available-height: 100vh`, `pointer-events: none` (FLT-DOM-01 while closed; ADR 04
+//   Amendments 2026-11-04, G5 of PR 168, open too, since nothing before attach is positioned) and `transition: none`
+//   while starting (FLT-ANI-05), then the consumer's merged style, which wins (usePositioner's merge order). From attach
+//   the module composes the element's style and the consumer's later styles travel in `update`.
 // One `update` per change of the options (value equality, ADR 04 and ADR 16 Amendments 2026-10-27). The module's report
 // is mirrored once per change: the Positioner renders again only when its side, align or anchorHidden changed, the Arrow
 // only when its side, align or uncentered changed (the render-count lesson of issue 110). The element cases of AnchorValue
@@ -332,11 +333,9 @@ internal sealed class PositionerBehavior : IDisposable
 
     private string BuildInitialStyle()
     {
-        var builder = new StringBuilder("position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0;");
-        if (!inputs.Open)
-        {
-            AppendDeclaration(builder, "pointer-events: none;");
-        }
+        // Nothing is positioned before attach, so an open Positioner takes no pointer either (G5 of PR 168): the module's
+        // first pass lands a round trip after this render on Server.
+        var builder = new StringBuilder("position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0; pointer-events: none;");
 
         if (inputs.TransitionStatus == TransitionStatus.Starting)
         {
