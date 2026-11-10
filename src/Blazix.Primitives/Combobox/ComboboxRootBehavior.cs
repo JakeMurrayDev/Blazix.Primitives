@@ -381,7 +381,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         ComboboxStoreState state = store.State;
         bool enabled = !state.Disabled && !state.Inline;
 
-        // Design point 5 (a), pending the orchestrator: with items, nothing filtered and no empty state, Escape bubbles to a
+        // Design point 5 (a), settled by the orchestrator 2026-11-04: with items, nothing filtered and no empty state, Escape bubbles to a
         // parent popup (AriaCombobox.tsx:765-775) on both modes; the store's AllowPropagation covers the C# chain.
         bool bubbleEscape = state.Inline || (state.HasItems && state.FilteredCount == 0 && !store.EmptyMounted);
         ComboboxElementIds elementIds = state.ElementIds;

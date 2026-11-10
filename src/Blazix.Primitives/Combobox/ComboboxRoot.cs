@@ -173,7 +173,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     [Parameter]
     public EventCallback<ValueChangeEventArgs<string>> OnInputValueChange { get; set; }
 
-    // CMB-API-12, 13 (design point 2, pending the orchestrator)
+    // CMB-API-12, 13 (design point 2 (a), settled by the orchestrator 2026-11-04)
     /// <summary>Gets or sets the items the list shows and filters.</summary>
     [Parameter]
     public IReadOnlyList<TValue>? Items { get; set; }
@@ -190,7 +190,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     [Parameter]
     public IReadOnlyList<ComboboxItemGroup<TValue>>? FilteredItemGroups { get; set; }
 
-    // CMB-API-14 (design point 3 (d), pending the orchestrator)
+    // CMB-API-14 (design point 3 (d), settled by the orchestrator 2026-11-04)
     /// <summary>Gets or sets the filter that decides which items match the query: the item, the query and the item's label converter.</summary>
     /// <value>
     /// Leave it unset for the default, which matches the query anywhere in an item's label, ignoring case, marks, symbols,
@@ -293,7 +293,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     [Parameter]
     public Func<TValue, TValue, bool>? IsItemEqualToValue { get; set; }
 
-    // CMB-API-37 (design point 8, pending the orchestrator)
+    // CMB-API-37 (design point 8, settled by the orchestrator 2026-11-04)
     /// <summary>Gets or sets the callback called when the highlighted item changes.</summary>
     [Parameter]
     public EventCallback<ComboboxItemHighlightedEventArgs<TValue>> OnItemHighlighted { get; set; }

@@ -154,7 +154,7 @@ public sealed class ComboboxList<TValue> : PartBase<ComboboxListState>
     }
 }
 
-// Design point 2 (a), pending the orchestrator: the template's argument, the item and its index (Base UI's
+// Design point 2 (a), settled by the orchestrator 2026-11-04: the template's argument, the item and its index (Base UI's
 // `children(item, index)`).
 /// <summary>Represents an item a combobox list's template renders: its value and its index among the filtered items.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
