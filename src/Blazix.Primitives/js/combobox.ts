@@ -12,8 +12,8 @@
 //   newer typing and a controlled value the consumer did not apply is re-asserted.
 // - The popup's handle: the focus redirect to the input (ComboboxPopup.tsx:90-98) and the end dismiss button's press.
 // - The list's handle: the items' pointerdown and mousedown defaults and the drag-select release (PTR-03..05).
-// - The trigger's, clear's, input group's and chips' handles: their mousedown defaults (PTR-02, 07, 08) and the trigger's
-//   one-shot mouseup (`cancel-open`, PTR-03).
+// - The trigger's handle: the press's focus move and its one-shot mouseup (`cancel-open`, PTR-02, 03). The input group's
+//   and the chips' handles: the input press (PTR-08, handleInputPress.ts). The clear's and chip removes': the press default.
 // Transcribed from Base UI v1.9.0: combobox/input/ComboboxInput.tsx:212-430, combobox/root/AriaCombobox.tsx:681-707,
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
 import { contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
@@ -519,7 +519,46 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
   };
 }
 
-// The press defaults of the clear button, the input group and the chips (PTR-07, 08): a press there keeps
+// The interactive elements a press on the input group or the chips leaves alone (floating-ui-react/utils/element.ts:55-62;
+// a copy, so this component module imports no mechanism module's code).
+const INTERACTIVE_SELECTOR =
+  "button,a[href],[role=\"button\"],select,[tabindex]:not([tabindex=\"-1\"]),input:not([type='hidden']):not([disabled]),[contenteditable]:not([contenteditable='false']),textarea:not([disabled])";
+
+// The input group's and the chips' press (PTR-08; combobox/utils/handleInputPress.ts): a press on the element, or on a
+// descendant that is not interactive (nor, for the group, inside the chips container), keeps the focus off the element,
+// focuses the input and reports the press, which opens the popup when the root opens on input click.
+function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channel: TwinChannel, ignoreChips: boolean): TwinHandle {
+  let options = initial;
+  const onMouseDown = (event: MouseEvent): void => {
+    const target = getTarget(event);
+    const targetElement = target instanceof Element ? target : null;
+    const doc = element.ownerDocument;
+    if (targetElement !== element) {
+      const chips = ignoreChips && options.chipsId ? doc.getElementById(options.chipsId) : null;
+      if (contains(chips, targetElement) || targetElement?.closest(INTERACTIVE_SELECTOR) != null) {
+        return;
+      }
+    }
+    event.preventDefault();
+    if (options.disabled) {
+      return;
+    }
+    const input = options.inputId ? doc.getElementById(options.inputId) : null;
+    input?.focus();
+    channel.report('OnInputPress', eventInfo(event));
+  };
+  element.addEventListener('mousedown', onMouseDown);
+  return {
+    update(optionsJson: string) {
+      options = parseOptions<ComboboxOptions>(optionsJson);
+    },
+    dispose() {
+      element.removeEventListener('mousedown', onMouseDown);
+    },
+  };
+}
+
+// The press defaults of the clear button and the chip remove buttons (PTR-07): a press there keeps
 // the focus where it is, so the input stays focused.
 function attachPressDefault(element: HTMLElement, initial: ComboboxOptions): TwinHandle {
   let options = initial;
@@ -575,6 +614,12 @@ export function createAttach(platform: Platform): typeof attach {
         break;
       case TRIGGER_PART:
         handle = attachTrigger(element, options, channel);
+        break;
+      case INPUT_GROUP_PART:
+        handle = attachInputPress(element, options, channel, true);
+        break;
+      case CHIPS_PART:
+        handle = attachInputPress(element, options, channel, false);
         break;
       default:
         handle = attachPressDefault(element, options);
