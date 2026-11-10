@@ -305,6 +305,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Occurs after a close by focus-out or an outside press while the input is inside the popup, for the field's touched state.</summary>
     public event Action? ClosedFromInsidePopup;
 
+    /// <summary>Occurs after the root's parameters changed, for the parts that show a label the consumer's accessors compute.</summary>
+    public event Action? InputsApplied;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxStore{TValue}"/> class.</summary>
     /// <param name="state">The initial state.</param>
     /// <param name="family">The family whose parts the diagnostics name.</param>
@@ -801,6 +804,11 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         if (!ReferenceEquals(previous.ItemToStringLabel, next.ItemToStringLabel) && !firstSet)
         {
             labelSynced = false;
+        }
+
+        if (!firstSet)
+        {
+            InputsApplied?.Invoke();
         }
     }
 

@@ -840,6 +840,9 @@ internal sealed class ComboboxItemIndicatorBehavior : IAsyncDisposable
 // combobox/value/ComboboxValue.tsx (CMB §3.10, API-46/47): the selected value's label, or a template, or the placeholder.
 // Combobox only (Autocomplete has its own Value). A null item's label in an item collection (ComboboxItems.Create, design
 // point 2) is the label of no selection and wins over the placeholder.
+// Base UI's Value renders again with its parent, so a label the consumer's accessor now computes differently, or that an
+// external window no longer supplies, shows at once (CMB-STA-20, EDGE-12). A part without parameters does not render with
+// the root here: after the root's parameters change, the part renders again only when the text it shows changed.
 /// <summary>The behavior of a combobox value.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxValueBehavior<TValue> : IDisposable
@@ -851,6 +854,12 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     private SelectorSubscription<ComboboxStoreState>? subscription;
 
     private string family = string.Empty;
+
+    private bool showsText;
+
+    private bool placeholderGiven;
+
+    private string? shown;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxValueBehavior{TValue}"/> class.</summary>
     /// <param name="requestRender">Asks the part to render.</param>
@@ -912,7 +921,25 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     {
         subscription?.Dispose();
         subscription = null;
+        if (store is not null)
+        {
+            store.InputsApplied -= OnInputsApplied;
+        }
     }
+
+    /// <summary>Gets the text the part shows when it renders neither a template nor content: the label, or <see langword="null"/> for the placeholder.</summary>
+    /// <param name="placeholderGiven">Whether the part has a placeholder.</param>
+    /// <returns>The label, or <see langword="null"/> while nothing is selected, no item labels the null value and a placeholder is given.</returns>
+    public string? ShowText(bool placeholderGiven)
+    {
+        showsText = true;
+        this.placeholderGiven = placeholderGiven;
+        shown = Text();
+        return shown;
+    }
+
+    /// <summary>Records that the part renders a template or content, which render again with the root.</summary>
+    public void ShowContent() => showsText = false;
 
     /// <summary>Reads the root and subscribes to the selection.</summary>
     /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
@@ -923,6 +950,7 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
         store = ComboboxParts.RequireRoot<TValue>(cascaded, family, "Value");
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Selection);
+        store.InputsApplied += OnInputsApplied;
     }
 
     /// <summary>Throws when the template given is the other selection mode's.</summary>
@@ -940,6 +968,16 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
         if (!multiple && hasValuesContent)
         {
             throw new InvalidOperationException($"Blazix: `<{family}Value>` was given `ValuesContent`, but its `<{family}Root>` is not multiple. Use `ValueContent`, which receives the selected value.");
+        }
+    }
+
+    private string? Text() => !HasValue && placeholderGiven && !HasNullItemLabel ? null : Label;
+
+    private void OnInputsApplied()
+    {
+        if (showsText && !string.Equals(shown, Text(), StringComparison.Ordinal))
+        {
+            requestRender();
         }
     }
 }

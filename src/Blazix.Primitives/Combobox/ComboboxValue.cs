@@ -47,23 +47,26 @@ public sealed class ComboboxValue<TValue> : ComponentBase, IDisposable
         value.CheckTemplates(ValueContent is not null, ValuesContent is not null);
         if (ValuesContent is { } valuesContent)
         {
+            value.ShowContent();
             builder.AddContent(0, valuesContent(value.Values));
         }
         else if (ValueContent is { } valueContent)
         {
+            value.ShowContent();
             builder.AddContent(1, valueContent(value.Value));
         }
         else if (ChildContent is { } childContent)
         {
+            value.ShowContent();
             builder.AddContent(2, childContent);
         }
-        else if (!value.HasValue && Placeholder is { } placeholder && !value.HasNullItemLabel)
+        else if (value.ShowText(Placeholder is not null) is { } label)
         {
-            builder.AddContent(3, placeholder);
+            builder.AddContent(4, label);
         }
         else
         {
-            builder.AddContent(4, value.Label);
+            builder.AddContent(3, Placeholder);
         }
     }
 
