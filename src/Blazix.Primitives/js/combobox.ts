@@ -13,7 +13,8 @@
 // - The popup's handle: the focus redirect to the input (ComboboxPopup.tsx:90-98) and the end dismiss button's press.
 // - The list's handle: the items' pointerdown and mousedown defaults and the drag-select release (PTR-03..05).
 // - The trigger's handle: the press's focus move and its one-shot mouseup (`cancel-open`, PTR-02, 03). The input group's
-//   and the chips' handles: the input press (PTR-08, handleInputPress.ts). The clear's and chip removes': the press default.
+//   and the chips' handles: the input press (PTR-08, handleInputPress.ts); the chips' also the chip keys (KEY-07..10). The
+//   clear's: the press default; the chip removes': the press default and the `remove` point.
 // Transcribed from Base UI v1.9.0: combobox/input/ComboboxInput.tsx:212-430, combobox/root/AriaCombobox.tsx:681-707,
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
 import { contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
@@ -76,6 +77,8 @@ export interface ComboboxOptions extends TwinOptions {
   rtl?: boolean;
   inputId?: string | null;
   touchOpened?: boolean;
+  chipIds?: readonly string[] | null;
+  index?: number;
 }
 
 /** The payload of a classified change of the input text; mirrors `ComboboxInputChange`. */
@@ -88,8 +91,22 @@ export interface ComboboxInputChange {
 
 const handleKey = Symbol('blazix.combobox.handle');
 
+// The chips container's handle keeps its chips' ids, in order, on its element, where the input's handle reads them.
+const chipIdsKey = Symbol('blazix.combobox.chipIds');
+
 interface ComboboxElement extends HTMLElement {
   [handleKey]?: TwinHandle;
+  [chipIdsKey]?: readonly string[];
+}
+
+function chipIdsOf(doc: Document, chipsId: string | null | undefined): readonly string[] {
+  const chips = chipsId ? (doc.getElementById(chipsId) as ComboboxElement | null) : null;
+  return chips?.[chipIdsKey] ?? [];
+}
+
+// combobox/utils/parts.ts:28-32: the key toward the previous chip, then the key toward the next one.
+function chipNavigationKeys(rtl: boolean): readonly [string, string] {
+  return rtl ? ['ArrowRight', 'ArrowLeft'] : ['ArrowLeft', 'ArrowRight'];
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -287,10 +304,23 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       return;
     }
     if (event.key === 'Backspace' && element.value === '' && options.multiple && options.hasValue && options.chipsId) {
-      const chips = doc.getElementById(options.chipsId);
-      const rendered = chips ? chips.querySelectorAll('[data-blazix-chip]').length : 0;
+      const rendered = chipIdsOf(doc, options.chipsId).length;
       channel.report('OnRemove', { index: rendered, event: eventInfo(event) });
       return;
+    }
+    // CMB-KEY-07 (ComboboxInput.tsx:149-168): the key toward the previous chip at the input's start focuses the last chip.
+    if (
+      options.multiple &&
+      options.hasValue &&
+      options.chipsId &&
+      event.key === chipNavigationKeys(options.rtl ?? false)[0] &&
+      (element.selectionStart ?? 0) === 0
+    ) {
+      event.preventDefault();
+      const last = chipIdsOf(doc, options.chipsId).at(-1);
+      if (last !== undefined) {
+        doc.getElementById(last)?.focus();
+      }
     }
     // event.isComposing
     if (event.which === 229) {
@@ -519,6 +549,119 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
   };
 }
 
+// The chips container's handle (KEY-07..10; ComboboxChip.tsx:39-129): the input press of its element, and the keys of its
+// chips, found by id among the ids C# sends in order. The key toward the previous or next chip moves the focus there, or
+// to the input past either end; Backspace and Delete report the chip's removal and focus the chip that takes its place, or
+// the input; Enter, Space, a printable key and ArrowDown/ArrowUp (which also asks for the open) move the focus to the input.
+function attachChips(element: ComboboxElement, initial: ComboboxOptions, channel: TwinChannel): TwinHandle {
+  let options = initial;
+  element[chipIdsKey] = options.chipIds ?? [];
+  const press = attachInputPress(element, initial, channel, false);
+  const doc = element.ownerDocument;
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (options.disabled || options.readOnly) {
+      return;
+    }
+    const ids = options.chipIds ?? [];
+    let node = getTarget(event) instanceof Element ? (getTarget(event) as Element) : null;
+    while (node && node !== element && !ids.includes(node.id)) {
+      node = node.parentElement;
+    }
+    if (!node || node === element) {
+      return;
+    }
+    const index = ids.indexOf(node.id);
+    const [previousKey, nextKey] = chipNavigationKeys(options.rtl ?? false);
+    let next: string | undefined = ids[index];
+    if (event.key === previousKey) {
+      event.preventDefault();
+      next = index > 0 ? ids[index - 1] : undefined;
+    } else if (event.key === nextKey) {
+      event.preventDefault();
+      next = index < ids.length - 1 ? ids[index + 1] : undefined;
+    } else if (event.key === 'Backspace' || event.key === 'Delete') {
+      // getIndexAfterChipRemoval (parts.ts:37-40) in the old order: the next chip, else the previous one.
+      stopEvent(event);
+      channel.report('OnRemove', { index, event: eventInfo(event) });
+      next = index < ids.length - 1 ? ids[index + 1] : index > 0 ? ids[index - 1] : undefined;
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      stopEvent(event);
+      next = undefined;
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      stopEvent(event);
+      channel.report('OnOpenRequest', eventInfo(event));
+      next = undefined;
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      next = undefined;
+    }
+    if (next === undefined) {
+      (options.inputId ? doc.getElementById(options.inputId) : null)?.focus();
+    } else {
+      doc.getElementById(next)?.focus();
+    }
+  };
+  element.addEventListener('keydown', onKeyDown);
+  return {
+    update(optionsJson: string) {
+      options = parseOptions<ComboboxOptions>(optionsJson);
+      element[chipIdsKey] = options.chipIds ?? [];
+      press.update(optionsJson);
+    },
+    dispose() {
+      element.removeEventListener('keydown', onKeyDown);
+      delete element[chipIdsKey];
+      press.dispose();
+    },
+  };
+}
+
+// A chip remove button's handle (PTR-07; ComboboxChipRemove.tsx:75-121): the press default, and a click or Enter/Space that
+// asks the `remove` point (fallback stop) with the chip's index. On Server the removal runs from the report; a stop verdict
+// stops the click, or prevents and stops the key. The focus then moves to the input.
+function attachChipRemove(element: HTMLElement, initial: ComboboxOptions, channel: TwinChannel): TwinHandle {
+  let options = initial;
+  const doc = element.ownerDocument;
+  const onMouseDown = (event: MouseEvent): void => {
+    event.preventDefault();
+  };
+  const remove = (event: Event, isKey: boolean): void => {
+    if (options.disabled || options.readOnly) {
+      return;
+    }
+    const verdict = channel.decide(REMOVE_POINT, event, 'stop');
+    if (!channel.lastDecisionWasSynchronous) {
+      channel.report('OnRemove', { index: options.index ?? -1, event: eventInfo(event) });
+    }
+    if (isStopVerdict(verdict)) {
+      if (isKey) {
+        stopEvent(event);
+      } else {
+        event.stopPropagation();
+      }
+    }
+    (options.inputId ? doc.getElementById(options.inputId) : null)?.focus();
+  };
+  const onClick = (event: MouseEvent): void => remove(event, false);
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      remove(event, true);
+    }
+  };
+  element.addEventListener('mousedown', onMouseDown);
+  element.addEventListener('click', onClick);
+  element.addEventListener('keydown', onKeyDown);
+  return {
+    update(optionsJson: string) {
+      options = parseOptions<ComboboxOptions>(optionsJson);
+    },
+    dispose() {
+      element.removeEventListener('mousedown', onMouseDown);
+      element.removeEventListener('click', onClick);
+      element.removeEventListener('keydown', onKeyDown);
+    },
+  };
+}
+
 // The interactive elements a press on the input group or the chips leaves alone (floating-ui-react/utils/element.ts:55-62;
 // a copy, so this component module imports no mechanism module's code).
 const INTERACTIVE_SELECTOR =
@@ -558,9 +701,8 @@ function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channe
   };
 }
 
-// The press defaults of the clear button and the chip remove buttons (PTR-07): a press there keeps the focus where it is, so
-// the input stays focused; a click that is not disabled or read-only moves the focus to the input (ComboboxClear.tsx:111,
-// ComboboxChipRemove.tsx:89), after C#'s clear or removal is dispatched.
+// The clear button's press default (PTR-07): a press there keeps the focus where it is, so the input stays focused; a click
+// that is not disabled or read-only moves the focus to the input (ComboboxClear.tsx:111), after C#'s clear is dispatched.
 function attachPressDefault(element: HTMLElement, initial: ComboboxOptions): TwinHandle {
   let options = initial;
   const input = (): HTMLElement | null => (options.inputId ? element.ownerDocument.getElementById(options.inputId) : null);
@@ -628,7 +770,10 @@ export function createAttach(platform: Platform): typeof attach {
         handle = attachInputPress(element, options, channel, true);
         break;
       case CHIPS_PART:
-        handle = attachInputPress(element, options, channel, false);
+        handle = attachChips(element, options, channel);
+        break;
+      case CHIP_REMOVE_PART:
+        handle = attachChipRemove(element, options, channel);
         break;
       default:
         handle = attachPressDefault(element, options);

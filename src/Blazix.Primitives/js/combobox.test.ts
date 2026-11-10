@@ -430,7 +430,9 @@ describe('the clear and chip remove buttons', () => {
 });
 
 describe('the chips keys', () => {
-  function setupChips(overrides: Partial<ComboboxOptions> = {}, synchronous = false): { chips: HTMLElement; chip: HTMLElement[]; remove: HTMLButtonElement[]; input: HTMLInputElement; fake: FakeTwin; removeFakes: FakeTwin[] } {
+  type Three<T> = [T, T, T];
+
+  function setupChips(overrides: Partial<ComboboxOptions> = {}, synchronous = false): { chips: HTMLElement; chip: Three<HTMLElement>; remove: Three<HTMLButtonElement>; input: HTMLInputElement; fake: FakeTwin; removeFakes: Three<FakeTwin> } {
     const chips = document.createElement('div');
     chips.id = 'the-chips';
     const chip: HTMLElement[] = [];
@@ -456,7 +458,7 @@ describe('the chips keys', () => {
       removeFakes.push(removeFake);
       handles.push(attach(button, options({ part: 'chip-remove', inputId: 'the-input', index, ...overrides }), removeFake.twin));
     });
-    return { chips, chip, remove, input, fake, removeFakes };
+    return { chips, chip: chip as Three<HTMLElement>, remove: remove as Three<HTMLButtonElement>, input, fake, removeFakes: removeFakes as Three<FakeTwin> };
   }
 
   function key(target: Element, name: string): KeyboardEvent {
