@@ -613,8 +613,9 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
   };
   // ComboboxTrigger.tsx:247-256: ArrowDown or ArrowUp stops the key, asks for the open with list-navigation and focuses the
   // input (the trigger holds no list-navigation props; the input is the list's reference in both layouts).
+  // A disabled trigger handles no keys: useButton.ts:116-119 returns first (ADR 04 Amendments 2026-11-10).
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+    if (options.disabled || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) {
       return;
     }
     stopEvent(event);
