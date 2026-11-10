@@ -285,7 +285,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool hadInputClear;
 
-    private bool handlingInputChange;
+    private bool handlingEvent;
 
     private int? savedActiveIndex;
 
@@ -510,31 +510,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <inheritdoc />
     public override async Task HandleInputChangeAsync(string text, bool typed, bool composing, EventSnapshot @event)
     {
-        // Base UI's post-commit effects run after the whole handler, its highlight clear included (ComboboxInput.tsx:311-316):
-        // the selection's label sync (AriaCombobox.tsx:1295-1308), then the highlight (:1089-1235). A commit here renders
-        // synchronously, so the highlight waits for the handler, and the sync runs before it returns, not at a later
-        // keystroke's boundary.
-        handlingInputChange = true;
-        try
-        {
-            await HandleInputChangeCoreAsync(text, typed, composing, @event);
-        }
-        finally
-        {
-            handlingInputChange = false;
-        }
-
-        if (labelSyncPending)
-        {
-            labelSyncPending = false;
-            await SyncInputToSelectedLabelAsync();
-        }
-
-        if (highlightDeferred)
-        {
-            highlightDeferred = false;
-            await ResolvePendingHighlightAsync();
-        }
+        // Base UI's post-commit effects run after the whole handler, its highlight clear included (ComboboxInput.tsx:311-316).
+        await RunHandlerAsync(() => HandleInputChangeCoreAsync(text, typed, composing, @event));
     }
 
     // CMB-EVT-11 (AriaCombobox.tsx:1627-1689): multiple mode ignores the text; no-selection mode writes it; single mode
@@ -1222,6 +1199,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             }
 
             lastHighlight = default;
+            lastHighlight = default;
             await InvokeHighlightedAsync(default, -1, @event);
             return;
         }
@@ -1488,6 +1466,34 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         return values;
     }
 
+    // An input change's own writes, then Base UI's post-commit effects: the selection's label sync (AriaCombobox.tsx:
+    // 1295-1308), then the highlight (:1089-1235). A commit here renders synchronously, so the highlight waits for the handler,
+    // and the sync runs before it returns, not at a later event's boundary.
+    private async Task RunHandlerAsync(Func<Task> handler)
+    {
+        handlingEvent = true;
+        try
+        {
+            await handler();
+        }
+        finally
+        {
+            handlingEvent = false;
+        }
+
+        if (labelSyncPending)
+        {
+            labelSyncPending = false;
+            await SyncInputToSelectedLabelAsync();
+        }
+
+        if (highlightDeferred)
+        {
+            highlightDeferred = false;
+            await ResolvePendingHighlightAsync();
+        }
+    }
+
     private async Task HandleInputChangeCoreAsync(string text, bool typed, bool composing, EventSnapshot @event)
     {
         // ComboboxInput.tsx:240-317 (onChange; the composition branch keeps the text uncommitted).
@@ -1540,7 +1546,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private async Task ResolvePendingHighlightAsync()
     {
-        if (handlingInputChange)
+        if (handlingEvent)
         {
             highlightDeferred = true;
             return;
