@@ -289,9 +289,9 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         {
             foreach (TValue value in store.SelectedValues)
             {
+                // Unkeyed: two values may serialize alike (React only warns about the key), and an input holds no state.
                 string serialized = store.ValueTextOf(value);
                 builder.OpenElement(13, "input");
-                builder.SetKey(serialized);
                 builder.AddAttribute(14, "type", "hidden");
                 builder.AddAttribute(15, "form", store.Form);
                 builder.AddAttribute(16, "name", name);
