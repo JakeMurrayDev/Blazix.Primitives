@@ -290,7 +290,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     // CMB-API-37 (design point 8, pending the orchestrator)
     /// <summary>Gets or sets the callback called when the highlighted item changes.</summary>
     [Parameter]
-    public EventCallback<ComboboxHighlightEventArgs<TValue>> OnItemHighlighted { get; set; }
+    public EventCallback<ComboboxItemHighlightedEventArgs<TValue>> OnItemHighlighted { get; set; }
 
     /// <summary>Gets or sets the combobox's parts.</summary>
     [Parameter]
@@ -392,7 +392,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     }
 
     private Task InvokeHighlightedAsync(TValue? value, HighlightEventDetails details) =>
-        OnItemHighlighted.InvokeAsync(new ComboboxHighlightEventArgs<TValue>(value, details));
+        OnItemHighlighted.InvokeAsync(new ComboboxItemHighlightedEventArgs<TValue>(value, details));
 
     private async Task ObserveAsync(Task task)
     {
