@@ -52,7 +52,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/radio.md | RAD | implemented | 99 reqs; revised 2026-10-23, M2 track 7; revised 2026-11-04, M5 track 4 (RAD-FRM-02: the serializer moved to `Field/`) |
 | components/radio-group.md | RDG | implemented | 86 reqs; revised 2026-10-27, M4 track 1 (proposed): RDG-FRM-04 and RDG-STR-02's portal clause green at L4 on the test-only portal |
 | components/scroll-area.md | SCR | approved | 135 reqs | |
-| components/select.md | SEL | approved | 332 reqs | |
+| components/select.md | SEL | approved | 332 reqs, 331 live (SEL-API-18 withdrawn); revised 2026-11-11, M5 track 9 ([issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173), [PR 205](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/205)): the nineteen parts, `SelectRoot<TValue>`, the `select` module and `SelectTwin` are built, L1 to L4 on both modes; open by ID: SEL-POS-07's two aligned selected-text titles (settled by the orchestrator 2026-11-10), SEL-FRM-18's rendered-label clause, and the rows PR 205's body lists | |
 | components/separator.md | SEP | implemented | 14 reqs (opus) | |
 | components/slider.md | SLD | approved | 191 reqs | |
 | components/switch.md | SWT | implemented | pilot; 117 reqs; revised 2026-10-23, M2 track 4 (SWT-API-12 withdrawn) |
