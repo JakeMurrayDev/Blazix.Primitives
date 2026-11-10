@@ -376,6 +376,9 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
 
     private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}ChipRemove` is used before its first render.");
 
+    // ComboboxChipRemove.tsx:42-46: useButton's `disabled || readOnly` keeps the press handlers from running at all.
+    private bool Removes => !Disabled && !Store.State.ReadOnly;
+
     /// <summary>Gets a value indicating whether the button is disabled, by the part or the root.</summary>
     public bool Disabled => disabledParameter || Store.State.Disabled;
 
@@ -415,7 +418,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
         subscription.Select(static state => state.ReadOnly);
         subscription.Select(static state => state.ElementIds.Input);
         twin = new ComboboxTwin(services.JSRuntime) { Decider = Decide };
-        twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => Store.RemoveAtAsync(request.Index, EventReason.ChipRemovePress, request.Event)));
+        twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => Removes ? Store.RemoveAtAsync(request.Index, EventReason.ChipRemovePress, request.Event) : Task.CompletedTask));
     }
 
     /// <summary>Applies the part's parameters.</summary>
@@ -505,7 +508,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
     // the change callback allowed its propagation.
     private DecisionPolicy Decide(string point, EventSnapshot snapshot)
     {
-        if (!string.Equals(point, ComboboxTwin.RemovePoint, StringComparison.Ordinal))
+        if (!string.Equals(point, ComboboxTwin.RemovePoint, StringComparison.Ordinal) || !Removes)
         {
             return DecisionPolicy.Run;
         }
