@@ -363,6 +363,18 @@ describe('the trigger', () => {
     expect([closed.fake.reported('OnCancelOpen').length, open.fake.reported('OnCancelOpen').length, outside.fake.reported('OnCancelOpen').length]).toEqual([1, 0, 0]);
   });
 
+  it('port: a focus move from the trigger into the popup is not a blur; one elsewhere is reported', () => {
+    const { trigger, fake } = setupTrigger({ popupId: 'the-popup' });
+    const popup = document.createElement('div');
+    popup.id = 'the-popup';
+    const inside = document.createElement('button');
+    popup.append(inside);
+    document.body.append(popup);
+    trigger.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: inside }));
+    trigger.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.getElementById('outside') }));
+    expect(fake.reported('OnBlur')).toHaveLength(1);
+  });
+
   it('port: a mouse press focuses the input, and keeps the focus there when the input is outside the popup', () => {
     const { trigger, input } = setupTrigger({ insidePopup: false });
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });

@@ -99,6 +99,19 @@ public sealed class ComboboxFieldTests : IDisposable
         Assert.Empty(cut.FindAll("input[name=own]"));
     }
 
+    [Fact(DisplayName = "port: the trigger's blur, as the module reports it, touches the field")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public async Task The_triggers_reported_blur_touches_the_field()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new(), withTrigger: true);
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("onblur"));
+        Blazix.Primitives.Interop.ComboboxTwin twin = test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.TriggerPart);
+
+        await cut.InvokeAsync(() => twin.OnBlur(ComboboxTestContext.Click));
+
+        Assert.True(FieldElement(cut).HasAttribute("data-touched"));
+    }
+
     private static IElement FieldElement(IRenderedComponent<FieldRoot> cut) => cut.Find("[data-testid=field]");
 
     private IRenderedComponent<FieldRoot> Render(Action<ComponentParameterCollectionBuilder<FieldRoot>> field, Dictionary<string, object?> root, bool withTrigger = false)
