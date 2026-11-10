@@ -12,6 +12,29 @@
 *@
 
 @code {
+    // SEL-STA-07, SEL-ANI-14: Base UI's Select keeps the highlight on its item while the popup animates out; the list asks
+    // the composite module to keep it through the close (CMP-STA-34's option, PR 183).
+    [Fact(DisplayName = "port: the popup's list keeps its highlight while closing")]
+    [Trait("Requirement", "SEL-STA-07")]
+    [Trait("Requirement", "SEL-ANI-14")]
+    public async Task The_popup_list_keeps_its_highlight_while_closing()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await OpenAsync(cut);
+
+        string[] sent = [.. Composite.Invocations["attach"].Concat(CompositeHandle.Invocations["update"]).Select(invocation => invocation.Arguments[1] as string ?? invocation.Arguments[0] as string ?? string.Empty)];
+        Assert.Contains(sent, json => json.Contains("\"retainHighlightWhileClosing\":true", StringComparison.Ordinal));
+    }
+
     [Fact(DisplayName = "sets the disabled state")]
     [Trait("Requirement", "SEL-API-13")]
     [Trait("Requirement", "SEL-DOM-03")]
