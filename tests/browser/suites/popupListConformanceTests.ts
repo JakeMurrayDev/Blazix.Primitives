@@ -184,11 +184,12 @@ export function popupListConformanceTests(config: PopupListConformanceConfig): v
   // Playwright's hover scrolls an item into view; Base UI's moves no scroll, so a partly visible item is hovered where
   // it shows.
   async function hoverVisiblePart(page: Page, index: number): Promise<void> {
-    // A positioned instance (Menu's) reads the item's box only after the Positioner's first pass; the composite-list hosts
-    // have no Positioner.
+    // A positioned instance (Menu's, Select's) reads the item's box only after the Positioner's first pass; the
+    // composite-list hosts have no Positioner. Select's Popup carries the same role and side, so the Positioner is the
+    // outer match, the first in document order.
     const positioner = page.locator('[role="presentation"][data-side]', { has: page.locator('[data-testid="scroller"]') });
     if ((await positioner.count()) > 0) {
-      await waitForPositioned(positioner);
+      await waitForPositioned(positioner.first());
     }
 
     const point = await page.evaluate(
