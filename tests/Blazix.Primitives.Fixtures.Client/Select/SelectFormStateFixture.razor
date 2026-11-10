@@ -1,0 +1,91 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-form-state` fixture (tests/browser/select-form.spec.ts; M5 track 9): SelectRoot.test.tsx's `prop: disabled`
+    and `prop: readOnly` blocks. A select with a trigger (Select.Value `value`), a portal, a positioner placed against the
+    trigger and a popup of the items `a` and `b`. The query sets the root's props:
+    - `disabled`, `readOnly`: the root's flags; `toggle` renders the `toggle` button before the select, which flips `disabled`
+      (Base UI's App);
+    - `defaultValue`, `defaultOpen`;
+    - `list`: the items sit in a Select.List (the listbox role moves to the list);
+    - `fruit`: the items are `apple` and `banana` (the typeahead titles).
+    The container records `data-open-changes` and `data-value-changes` (`value:reason`).
+*@
+<FixtureContainer Name="select-form-state" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (toggle)
+    {
+        <button type="button" data-testid="toggle" @onclick="() => disabled = !disabled">toggle</button>
+    }
+    <SelectRoot TValue="string" @ref="root" DefaultValue="@defaultValue" DefaultOpen="@defaultOpen" Disabled="@disabled" ReadOnly="@readOnly"
+                OnOpenChange="RecordOpenChange" OnValueChange="RecordValueChange">
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+            <SelectValue TValue="string" data-testid="value" />
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false">
+                <SelectPopup data-testid="popup">
+                    @if (list)
+                    {
+                        <SelectList>
+                            @Items
+                        </SelectList>
+                    }
+                    else
+                    {
+                        @Items
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </SelectRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private string? defaultValue;
+    private bool defaultOpen;
+    private bool disabled;
+    private bool readOnly;
+    private bool toggle;
+    private bool list;
+    private bool fruit;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        defaultValue = Query("defaultValue");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        disabled = QueryFlag("disabled") == true;
+        readOnly = QueryFlag("readOnly") == true;
+        toggle = QueryFlag("toggle") == true;
+        list = QueryFlag("list") == true;
+        fruit = QueryFlag("fruit") == true;
+    }
+
+    private RenderFragment Items => @<text>
+        @if (fruit)
+        {
+            <SelectItem TValue="string" Value="@("apple")" data-testid="item-apple">apple</SelectItem>
+            <SelectItem TValue="string" Value="@("banana")" data-testid="item-banana">banana</SelectItem>
+        }
+        else
+        {
+            <SelectItem TValue="string" Value="@("a")" data-testid="item-a">a</SelectItem>
+            <SelectItem TValue="string" Value="@("b")" data-testid="item-b">b</SelectItem>
+        }
+    </text>;
+
+    private void RecordValueChange(ValueChangeEventArgs<string> args)
+    {
+        valueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+    }
+}
