@@ -194,6 +194,21 @@ public sealed class ComboboxValueTests : IDisposable
         Assert.Contains("ValueContent", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact(DisplayName = "port: a value part of another value type than its root's names itself in the error")]
+    [Trait("Requirement", "CMB-STR-02")]
+    public void A_value_part_of_another_type_names_itself()
+    {
+        RenderFragment extra = builder =>
+        {
+            builder.OpenComponent<ComboboxValue<int>>(0);
+            builder.CloseComponent();
+        };
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p.Add(x => x.Extra, extra)));
+
+        Assert.StartsWith("Blazix: `ComboboxValue` has a value type that differs from its `<ComboboxRoot>`'s.", error.Message, StringComparison.Ordinal);
+    }
+
     private static RenderFragment Text(string text) => builder => builder.AddContent(0, text);
 
     private static string ValueText(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=value]").TextContent;
