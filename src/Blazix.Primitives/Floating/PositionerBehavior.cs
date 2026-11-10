@@ -439,6 +439,7 @@ internal sealed class PositionerBehavior : IDisposable
                     avoidance.FallbackAxisSide is { } fallback ? FloatingLiterals.ToLiteral(fallback) : null)
                 : null,
             AdaptiveOrigin = inputs.AdaptiveOrigin,
+            LazyFlip = inputs.LazyFlip,
             HoveredLine = inputs.HoveredLine,
             PositionOnOpen = inputs.PositionOnOpen,
             Direction = CompositeLiterals.ToLiteral(Direction),

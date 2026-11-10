@@ -77,6 +77,12 @@ internal sealed record PositionerInputs
     /// <value><see langword="true"/> to position a transitioning popup from the far edges.</value>
     public bool AdaptiveOrigin { get; init; }
 
+    // FLT-ANI-04, MNU-POS-05 (menu/positioner/MenuPositioner.tsx:131): M5 track 12, the Floating/ grant from the
+    // orchestrator 2026-11-11. A filterable menu sends `placement`, so the popup keeps its side while the results resize.
+    /// <summary>Gets the lazy-flip mode: <c>side</c> keeps the side once placed, <c>placement</c> keeps the alignment too.</summary>
+    /// <value>The literal, or <see langword="null"/> to flip whenever the popup overflows.</value>
+    public string? LazyFlip { get; init; }
+
     /// <summary>Gets a value indicating whether a wrapping anchor is narrowed to one of its line boxes.</summary>
     /// <value><see langword="true"/> to position against the hovered line, else the line on the popup's side.</value>
     public bool HoveredLine { get; init; }
