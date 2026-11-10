@@ -238,3 +238,11 @@ Menu's figures are the list rows' (track 1's test-only hosts run Menu's options)
 - The row's "on Server, where a `Cancel()` can no longer restore the native menu" therefore holds on both modes.
 - A canceled open leaves the menu closed with the new anchor and the release window installed (CTX-EVT-04's port title).
 - The consumer's own `oncontextmenu` veto is "C#-origin consumer vetoes" (CTX-API-06 gains a dated row in context-menu.md §9).
+
+**2026-11-11, a measured row: the native menu over a just-mounted backdrop (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); design point 2 (a), settled by the orchestrator 2026-11-11).**
+- *The cause.* The `context-menu` module learns the internal backdrop and the consumer Backdrop from the root's `update`, which is sent after the render that mounted them. Until it arrives, a right click on a backdrop shows the browser's menu (CTX-PTR-03, DIS-03).
+- *The measurement.* A page-side probe dispatched `contextmenu` on the internal backdrop every frame from its insertion until one was prevented, 8 runs each (local, 2026-11-11):
+  - WebAssembly: 0 ms in 8 of 8.
+  - Server: 0 ms in 6 of 8, and one frame (17 ms) in 2.
+  - Server with a 40 ms one-way circuit delay: 78–98 ms, about one round trip.
+- *The rule.* WebAssembly meets CTX-PTR-03. On Server the window is the round trip after the opening render.
