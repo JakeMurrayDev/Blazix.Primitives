@@ -35,6 +35,7 @@ public static class DemoCatalog
         new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
         new("preview-card", "Preview Card", "A card that previews a link's content when the pointer rests on it or the keyboard focuses it.", typeof(PreviewCardDemo)),
         new("navigation-menu", "Navigation Menu", "A menu bar of links whose triggers open panels of further links, here the documentation's sections.", typeof(NavigationMenuDemo)),
+        new("combobox", "Combobox", "An input that filters a list of options as the user types, here a list of fruits.", typeof(ComboboxDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
