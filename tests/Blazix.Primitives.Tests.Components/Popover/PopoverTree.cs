@@ -63,6 +63,9 @@ internal sealed record PopoverSpec
 
     public Func<PopoverPopupState, string?>? PopupClass { get; init; }
 
+    /// <summary>Gets the consumer's <c>style</c> on the Popup, when set.</summary>
+    public string? PopupStyle { get; init; }
+
     public FocusTargetValue? InitialFocus { get; init; }
 
     public Func<InteractionType, FocusTargetValue?>? InitialFocusResolver { get; init; }
@@ -226,6 +229,11 @@ internal static class PopoverTree
                 if (spec.FinalFocusResolver is not null)
                 {
                     p.AddComponentParameter(7, nameof(PopoverPopup.FinalFocusResolver), spec.FinalFocusResolver);
+                }
+
+                if (spec.PopupStyle is not null)
+                {
+                    p.AddComponentParameter(8, "style", spec.PopupStyle);
                 }
 
                 p.CloseComponent();

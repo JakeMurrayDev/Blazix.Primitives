@@ -1,3 +1,5 @@
+using Microsoft.JSInterop;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -233,6 +235,56 @@ public sealed class TooltipPopupPartsTests : IDisposable
         Assert.True(cut.Instance.Root!.Store.IsOpen);
         Assert.Equal([true, false], RetainExitAnnouncements());
     }
+
+    // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+
+    // Issue 213 (the shape PR 183 fixed in Menu's item indicator): a render during the popup's pending transitions attach
+    // awaited it and sent nothing, so what only an update carries waited for the next render. The open state is not lost:
+    // the module reads it from the element through the open selector.
+    [Fact(DisplayName = "port: a style change while the popup's transitions handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "TIP-ANI-02")]
+    public async Task A_style_change_while_the_popups_handle_attaches_reaches_the_module()
+    {
+        BunitJSModuleInterop handle = SetUpTransitions();
+        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js");
+        host.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        string style = "color: red";
+        RenderFragment content = builder =>
+        {
+            builder.OpenComponent<TooltipPortal>(0);
+            builder.AddAttribute(1, nameof(TooltipPortal.ChildContent), (RenderFragment)(portal =>
+            {
+                portal.OpenComponent<TooltipPositioner>(0);
+                portal.AddAttribute(1, nameof(TooltipPositioner.ChildContent), (RenderFragment)(positioner =>
+                {
+                    positioner.OpenComponent<TooltipPopup>(0);
+                    positioner.AddAttribute(1, "style", style);
+                    positioner.CloseComponent();
+                }));
+                portal.CloseComponent();
+            }));
+            builder.CloseComponent();
+        };
+        IRenderedComponent<TooltipRoot<NoPayload>> cut = host.Context.Render<TooltipRoot<NoPayload>>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.ChildContent, content));
+        await runtime.WaitForHeldAttachAsync(options => options.Contains("color: red", StringComparison.Ordinal));
+
+        style = "color: blue";
+        cut.Render(p => p.Add(x => x.ChildContent, content));
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(host.Context.Renderer.Dispatcher, handle, options => options.Contains("color: blue", StringComparison.Ordinal)));
+    }
+
+    private BunitJSModuleInterop SetUpTransitions()
+    {
+        BunitJSModuleInterop transitions = host.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        return handle;
+    }
+
+#pragma warning restore BL0016
 
     private bool[] RetainExitAnnouncements() =>
         [.. host.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
