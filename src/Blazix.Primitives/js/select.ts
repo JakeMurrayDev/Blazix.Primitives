@@ -545,7 +545,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     }
   };
 
-  // A positioning handle not attached yet answers false; the next update tries again.
+  // A request made before the `positioning` handle attaches is held there and applied at its attach (final review F4).
   const startAligned = () => {
     if (alignedSent) {
       return;
