@@ -219,6 +219,59 @@ describe('useListNavigation', () => {
     });
   });
 
+  // useListNavigation.ts:378-387 (found by M5 track 9 on Select, Escape then ArrowDown on Server under latency; queued by
+  // the orchestrator 2026-11-10): Base UI clears the opening key when `open` or `focusItemOnOpen` changes, not on each
+  // render while closed. The close's unmount can land after the next opening key, before C# commits that open.
+  it('port: a close whose unmount lands after the next opening key keeps the key for that open', async () => {
+    let hold = false;
+    const harness = app({ session: { onOpenChange: (open, details) => (hold && open ? details.cancel() : undefined) } });
+    // The request's commit has not arrived yet, so C# has not answered it either.
+    harness.popup.answering = false;
+    harness.setOpen(true);
+    await waitFor(() => {
+      expect(harness.floating).not.toBeNull();
+    });
+
+    // The close commits; C#'s render that unmounts the list runs after the key's open request.
+    harness.popup.setOpen(false);
+    hold = true;
+    keyDown(harness.reference, 'ArrowUp');
+    expect(harness.openRequests.at(-1)?.open).toBe(true);
+    expect(harness.floating).toBeNull();
+
+    hold = false;
+    harness.popup.setOpen(true, 'list-navigation', harness.openRequests.at(-1)?.triggerId ?? null);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(2));
+    });
+  });
+
+  // The same effect's other dependency: a virtual click's focus-on-open value (CMP-STA-39) stays through a sync while the
+  // list stays closed, here a close's unmount that lands after the click, before C# commits the click's open.
+  it('port: a close whose unmount lands after a virtual click keeps the click\'s focus-on-open value for that open', async () => {
+    let hold = false;
+    const harness = app({ session: { onOpenChange: (open, details) => (hold && open ? details.cancel() : undefined) } });
+    harness.popup.answering = false;
+    harness.setOpen(true);
+    await waitFor(() => {
+      expect(harness.floating).not.toBeNull();
+    });
+
+    harness.popup.setOpen(false);
+    hold = true;
+    fireClick(harness.reference);
+    expect(harness.popup.open).toBe(false);
+    await waitFor(() => {
+      expect(harness.floating).toBeNull();
+    });
+
+    hold = false;
+    harness.popup.setOpen(true, 'trigger-press', harness.reference.id);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+  });
+
   it('navigates down on ArrowDown', async () => {
     const harness = app();
 
