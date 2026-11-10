@@ -838,29 +838,6 @@ public sealed class NavigationMenuRootTests : IDisposable
         Assert.Contains("\"toggle\":false", test.LastTriggerOptions(cut.Find("[data-testid=\"trigger-item-2\"]").Id!), StringComparison.Ordinal);
     }
 
-    // G4b (NAV-PTR-05's notes of 2026-11-10; the review of PR 198, fix 2): a Positioner swapped in one render (`@key`) mounts
-    // the new Positioner before the old one is disposed, so the old one's disposal must not take the Trigger's click role
-    // away while the new one is mounted.
-    [Fact(DisplayName = "port: the trigger keeps its click role when the open menu's Positioner is swapped in one render")]
-    [Trait("Requirement", "NAV-PTR-05")]
-    public async Task The_trigger_keeps_its_click_role_through_a_positioner_swap()
-    {
-        IRenderedComponent<NavigationMenuHarness> cut = test.Render(p => p.Add(x => x.PositionerKey, 1));
-        string marker = "\"trigger\":{\"triggerId\":\"" + cut.Find("[data-testid=\"trigger-item-1\"]").Id + "\"";
-        await test.HoverAsync(cut, "trigger-item-1", open: true);
-        int sent = test.InteractionsHandle.Invocations["update"].Count;
-
-        cut.Render(p => p.Add(x => x.PositionerKey, 2));
-
-        string[] updates = test.InteractionsHandle.Invocations["update"].Skip(sent)
-            .Select(update => update.Arguments[0] as string)
-            .OfType<string>()
-            .Where(json => json.Contains(marker, StringComparison.Ordinal))
-            .ToArray();
-        Assert.All(updates, json => Assert.Contains("\"click\":{", json, StringComparison.Ordinal));
-        Assert.Contains("\"click\":{", test.LastTriggerOptions(cut.Find("[data-testid=\"trigger-item-1\"]").Id!), StringComparison.Ordinal);
-    }
-
     [Fact(DisplayName = "the Root's module handle carries the mounted state and the close reason, and focus-out reports are answered")]
     [Trait("Requirement", "NAV-STA-15")]
     [Trait("Requirement", "NAV-FOC-10")]

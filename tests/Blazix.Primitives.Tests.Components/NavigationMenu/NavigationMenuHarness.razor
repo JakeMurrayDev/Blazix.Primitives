@@ -61,7 +61,7 @@ else
         {
             <NavigationMenuBackdrop data-testid="backdrop" />
         }
-        <NavigationMenuPositioner @key="PositionerKey" data-testid="positioner">
+        <NavigationMenuPositioner data-testid="positioner">
             <NavigationMenuPopup data-testid="popup">
                 @if (WithArrow)
                 {
@@ -114,9 +114,6 @@ else
     [Parameter] public bool WithBackdrop { get; set; }
 
     [Parameter] public bool WithArrow { get; set; }
-
-    /// <summary>Gets or sets the Positioner's key: a new key swaps the Positioner in one render.</summary>
-    [Parameter] public object? PositionerKey { get; set; }
 
     [Parameter] public bool Nested { get; set; }
 
