@@ -3181,7 +3181,7 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
   // row): on Server the floating list attaches a round trip after the open, where Base UI's list mounts in the open's commit.
   // A navigation key pressed on the open reference meanwhile is kept, the newest only, and replayed once the list attaches
   // while the same open lasts; a close drops it. The key stops here as its navigation would.
-  if (currentOpen && state.floating === null && isKeptNavigationKey(event)) {
+  if (currentOpen && state.floating === null && isKeptNavigationKey(event, list, currentTarget)) {
     stopEvent(event);
     state.pendingKey = { handle, event };
     return;
@@ -3244,12 +3244,18 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
   }
 }
 
-// The keys a list navigates with, unmodified: the arrows, Home and End.
-function isKeptNavigationKey(event: KeyboardEvent): boolean {
+// The unmodified keys the open list navigates with: its main-orientation arrows (every arrow in a grid), and Home and End
+// unless the reference is a typeable combobox (CMP-KEY-28). Another key, such as a toolbar's arrow around a vertical
+// list's input, is left to the element.
+function isKeptNavigationKey(event: KeyboardEvent, list: CompositeListOptions, reference: Element): boolean {
   if (event.ctrlKey || event.metaKey || event.altKey) {
     return false;
   }
-  return event.key === ARROW_UP || event.key === ARROW_DOWN || event.key === ARROW_LEFT || event.key === ARROW_RIGHT || event.key === HOME || event.key === END;
+  if (event.key === HOME || event.key === END) {
+    return !isTypeableCombobox(reference);
+  }
+  const isArrow = event.key === ARROW_UP || event.key === ARROW_DOWN || event.key === ARROW_LEFT || event.key === ARROW_RIGHT;
+  return isArrow && (list.grid === true || isMainOrientationKey(event.key, orientationOf(list)));
 }
 
 // The kept key's replay once the list attached, through its reference's keydown, while the same open lasts.
