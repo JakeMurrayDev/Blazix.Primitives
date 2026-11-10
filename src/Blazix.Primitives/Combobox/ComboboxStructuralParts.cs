@@ -105,18 +105,7 @@ public sealed class ComboboxCollection<TValue> : ComponentBase, IDisposable
     }
 
     /// <inheritdoc />
-    protected override void BuildRenderTree(RenderTreeBuilder builder)
-    {
-        if (ItemContent is not { } itemContent || behavior!.Items is not { } items)
-        {
-            return;
-        }
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            builder.AddContent(0, itemContent(new ComboboxListItem<TValue>(items[i], i)));
-        }
-    }
+    protected override void BuildRenderTree(RenderTreeBuilder builder) => behavior!.BuildItems(builder, ItemContent);
 
     /// <inheritdoc />
     public void Dispose() => behavior?.Dispose();

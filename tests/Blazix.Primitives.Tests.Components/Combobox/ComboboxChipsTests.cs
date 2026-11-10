@@ -3,6 +3,7 @@ using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
@@ -20,6 +21,36 @@ public sealed class ComboboxChipsTests : IDisposable
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
+
+    // ADR 04 Amendments 2026-11-10: as the input group's (CMB-PTR-08's preventBaseUIHandler clause).
+    [Fact(DisplayName = "port: the chips' onmousedown runs once inside press, and its PreventPartHandler() vetoes the press")]
+    [Trait("Requirement", "CMB-PTR-08")]
+    public async Task The_chips_onmousedown_runs_once_inside_press()
+    {
+        int calls = 0;
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxChips>(0);
+            builder.AddComponentParameter(1, "data-testid", "chips");
+            builder.AddComponentParameter(2, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, e =>
+            {
+                calls++;
+                e.PreventPartHandler();
+            }));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.Extra, (RenderFragment)Extra));
+        Assert.Contains("\"decidesPress\":true", test.LastOptions(ComboboxTwin.ChipsPart), StringComparison.Ordinal);
+        ComboboxTwin twin = test.TwinOf(ComboboxTwin.ChipsPart);
+
+        Assert.Equal("stop", await cut.InvokeAsync(() => twin.Decide(ComboboxTwin.PressPoint, ComboboxTestContext.Event(ComboboxTestContext.Click, "mousedown", 2))));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=chips]").MouseDown(new MouseEventArgs { Type = "mousedown", Detail = 1 }));
+        Assert.Equal(1, calls);
+        await cut.InvokeAsync(() => cut.Find("[data-testid=chips]").MouseDown(new MouseEventArgs { Type = "mousedown", Detail = 1 }));
+
+        Assert.Equal(2, calls);
+    }
 
     [Fact(DisplayName = "port: the chips container is a toolbar only while a value is selected")]
     [Trait("Requirement", "CMB-STR-09")]

@@ -180,6 +180,35 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         return cascade;
     }
 
+    // The implicit Collection (ComboboxList.tsx:52-61): one template call per filtered item or group, keyed by position. Here
+    // rather than in the part, so Autocomplete's List shell renders the same (review B1 of the final review).
+    /// <summary>Renders the group template once per filtered group, else the item template once per filtered item.</summary>
+    /// <param name="builder">The part's render tree builder.</param>
+    /// <param name="itemContent">The part's <c>ItemContent</c>.</param>
+    /// <param name="groupContent">The part's <c>GroupContent</c>.</param>
+    public void BuildTemplate(RenderTreeBuilder builder, RenderFragment<ComboboxListItem<TValue>>? itemContent, RenderFragment<ComboboxItemGroup<TValue>>? groupContent)
+    {
+        ComboboxStore<TValue> root = Store;
+        if (groupContent is not null && root.FilteredGroups is { } groups)
+        {
+            for (int i = 0; i < groups.Count; i++)
+            {
+                builder.AddContent(0, groupContent(groups[i]));
+            }
+
+            return;
+        }
+
+        if (itemContent is not null)
+        {
+            IReadOnlyList<TValue> values = root.FilteredValues;
+            for (int i = 0; i < values.Count; i++)
+            {
+                builder.AddContent(1, itemContent(new ComboboxListItem<TValue>(values[i], i)));
+            }
+        }
+    }
+
     /// <summary>Attaches the handles after the portal moved, and sends their changed options.</summary>
     /// <param name="element">The list's element.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
@@ -315,6 +344,24 @@ internal sealed class ComboboxCollectionBehavior<TValue> : IDisposable
         group = groupContext;
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Membership);
+    }
+
+    // ComboboxCollection.tsx: one template call per item, keyed by position. Here rather than in the part, so Autocomplete's
+    // Collection shell renders the same (review B1 of the final review).
+    /// <summary>Renders the item template once per item of the group, else of the filtered items.</summary>
+    /// <param name="builder">The part's render tree builder.</param>
+    /// <param name="itemContent">The part's <c>ItemContent</c>.</param>
+    public void BuildItems(RenderTreeBuilder builder, RenderFragment<ComboboxListItem<TValue>>? itemContent)
+    {
+        if (itemContent is null || Items is not { } items)
+        {
+            return;
+        }
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            builder.AddContent(0, itemContent(new ComboboxListItem<TValue>(items[i], i)));
+        }
     }
 }
 
@@ -461,9 +508,13 @@ internal sealed class ComboboxGroupLabelBehavior : IDisposable
 /// <typeparam name="TValue">The type of the item's value.</typeparam>
 internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 {
+    private const string ClickEvent = "onclick";
+
     private readonly ComboboxPartServices services;
 
     private readonly ButtonBehavior button;
+
+    private readonly FieldConsumerHandlers clickHandlers = new(ClickEvent);
 
     private readonly EventCallback onKeyDown;
 
@@ -596,6 +647,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         button.Native = nativeButton;
         button.FocusableWhenDisabled = true;
         button.SetConsumerAttributes(consumerAttributes);
+        clickHandlers.Set(consumerAttributes);
         item!.SetRegistration(itemId, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(itemValue), index: index);
         item.SetConsumerAttributes(Disabled ? null : consumerAttributes);
         root.RegisterRenderedValue(item, itemValue, valueSupplied || ComboboxStore<TValue>.ValueAcceptsNull);
@@ -620,22 +672,30 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
     /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName) && item!.ForwardsConsumerHandler(eventName);
+    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName) && item!.ForwardsConsumerHandler(eventName) && !clickHandlers.Declines(eventName);
 
     /// <summary>Runs the selection after the consumer's <c>onclick</c>, unless it called <c>PreventPartHandler()</c>.</summary>
     /// <param name="args">The click.</param>
     /// <returns>A task that completes when the selection has run.</returns>
-    public Task HandleClickAsync(MouseEventArgs args)
+    public async Task HandleClickAsync(MouseEventArgs args)
     {
         // CMB-EVT-12 (ComboboxItem.tsx:159-165): a disabled item's click never reaches here (the button behavior suppresses
-        // it); readOnly runs the consumer's onclick and selects nothing.
+        // it); readOnly runs the consumer's onclick and selects nothing. The part declines the consumer's onclick and runs it
+        // here, after taking Enter's attribution and a link press, whose end reports can arrive while it yields on Server
+        // (final review N1).
         ComboboxStore<TValue> root = store!;
-        if (Disabled || root.State.ReadOnly)
+        if (Disabled)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return SelectAsync(root, EventSnapshot.FromEventArgs(args));
+        ComboboxClickContext context = root.TakeClickContext();
+        if (await clickHandlers.RunAsync(ClickEvent, args) || root.State.ReadOnly)
+        {
+            return;
+        }
+
+        await SelectAsync(root, EventSnapshot.FromEventArgs(args), context);
     }
 
     /// <summary>Forwards a key to the button behavior.</summary>
@@ -688,9 +748,9 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 
     // ComboboxItem.tsx:150-161 (commitSelection): with submitOnItemClick the selection is flushed, then the form submitted,
     // whatever the selection did.
-    private async Task SelectAsync(ComboboxStore<TValue> root, EventSnapshot @event)
+    private async Task SelectAsync(ComboboxStore<TValue> root, EventSnapshot @event, ComboboxClickContext context)
     {
-        await root.SelectAsync(value, @event, present: !NullItem);
+        await root.SelectAsync(value, @event, present: !NullItem, context);
         if (root.Inputs.SubmitOnItemClick)
         {
             root.RequestSubmit();

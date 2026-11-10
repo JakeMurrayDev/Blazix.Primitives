@@ -17,6 +17,20 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
 
+    // CMB-DOM-24 (ComboboxPopup.tsx:65, derived at every render): `{rootId}-popup` while the input is inside the popup. The
+    // input inside registers that layout during the first render, after the popup's parameter set (review F20).
+    [Fact(DisplayName = "port: the popup's id follows the input's layout without a parameter set of its own")]
+    [Trait("Requirement", "CMB-DOM-24")]
+    public void The_popups_id_follows_the_inputs_layout()
+    {
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Id"] = "fruit" })
+            .Add(x => x.InputInsidePopup, true));
+
+        Assert.Equal("fruit-popup", cut.Find("[data-testid=popup]").Id);
+        Assert.Equal("fruit-popup", cut.Instance.Root!.Store.State.ElementIds.Popup);
+    }
+
     [Fact(DisplayName = "port: the backdrop renders a presentation div, hidden while the popup is unmounted")]
     [Trait("Requirement", "CMB-STA-08")]
     [Trait("Requirement", "CMB-DOM-14")]

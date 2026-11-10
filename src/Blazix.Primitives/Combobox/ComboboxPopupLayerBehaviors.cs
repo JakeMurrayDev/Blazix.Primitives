@@ -248,6 +248,12 @@ internal sealed class ComboboxPositionerBehavior : IAsyncDisposable
 
     private Side? reportedSide;
 
+    private RenderFragment? cascadedContent;
+
+    private RenderFragment? cascade;
+
+    private ComboboxPositionerContext? familyContext;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxPositionerBehavior"/> class.</summary>
@@ -287,6 +293,31 @@ internal sealed class ComboboxPositionerBehavior : IAsyncDisposable
         positioner.Dispose();
         store?.SetPopupSide(null);
         await Task.WhenAll(floating.DisposeAsync().AsTask(), module.DisposeAsync().AsTask());
+    }
+
+    // Review B1 of the final review: the family marker (review B6) lives here, so Autocomplete's positioner shell cascades
+    // it by calling this, as Base UI's re-exported part does; the shared positioner context sits inside it.
+    /// <summary>Wraps the content in the family's positioner marker and the shared positioner context, cached per content.</summary>
+    /// <param name="content">The part's content.</param>
+    /// <returns>The content inside both cascades.</returns>
+    public RenderFragment Cascade(RenderFragment? content)
+    {
+        if (cascade is null || !ReferenceEquals(cascadedContent, content))
+        {
+            cascadedContent = content;
+            RenderFragment shared = positioner.Context.Cascade(content);
+            ComboboxPositionerContext marker = familyContext ??= new ComboboxPositionerContext(positioner.Context);
+            cascade = builder =>
+            {
+                builder.OpenComponent<CascadingValue<ComboboxPositionerContext>>(0);
+                builder.AddComponentParameter(1, nameof(CascadingValue<ComboboxPositionerContext>.Value), marker);
+                builder.AddComponentParameter(2, nameof(CascadingValue<ComboboxPositionerContext>.IsFixed), true);
+                builder.AddComponentParameter(3, nameof(CascadingValue<ComboboxPositionerContext>.ChildContent), shared);
+                builder.CloseComponent();
+            };
+        }
+
+        return cascade;
     }
 
     /// <summary>Reads the root and the portal and subscribes the part.</summary>
@@ -446,6 +477,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private string? consumerId;
 
+    private bool published;
+
     private string? id;
 
     private string? dismissId;
@@ -530,12 +563,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         finalFocus = final;
         finalFocusResolver = finalResolver;
         consumerId = consumer;
-        ComboboxStoreState state = Store.State;
-
-        // CMB-DOM-24 (ComboboxPopup.tsx:65, root/utils/index.ts:13-15): `{rootId}-popup` with the input inside.
-        id = consumer ?? (state.InputInsidePopup ? state.Id + "-popup" : null);
-        string? own = id;
-        Store.SetElementIds(ids => ids with { Popup = own });
+        Resolve();
         focus.SetInputs(FocusInputs());
     }
 
@@ -543,6 +571,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     /// <param name="attributes">The part's attributes.</param>
     public void AddPartAttributes(AttributeList attributes)
     {
+        // The layout and the root's id can change with no parameter set of the popup.
+        Resolve();
         ComboboxStoreState state = Store.State;
         if (id is not null)
         {
@@ -596,6 +626,23 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
         await focusSync;
         await Store.AtBatchBoundaryAsync();
+    }
+
+    // CMB-DOM-24 (ComboboxPopup.tsx:65, root/utils/index.ts:13-15, derived at every render): the consumer's id, else
+    // `{rootId}-popup` with the input inside; published over the popup's own previous id (review F20).
+    private void Resolve()
+    {
+        ComboboxStoreState state = Store.State;
+        string? next = consumerId ?? (state.InputInsidePopup ? state.Id + "-popup" : null);
+        if (published && string.Equals(next, id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        string? previous = id;
+        id = next;
+        published = true;
+        Store.SetElementIds(ids => ids.Popup is null || ids.Popup == previous ? ids with { Popup = next } : ids);
     }
 
     private FocusManagerInputs FocusInputs()

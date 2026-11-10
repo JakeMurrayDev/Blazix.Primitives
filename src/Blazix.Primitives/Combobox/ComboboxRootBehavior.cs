@@ -78,7 +78,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     public Task SessionAttached => session?.TwinAttached ?? Task.CompletedTask;
 
     /// <summary>Gets the list navigation the list's handles join.</summary>
-    public ListNavigationBehavior List => list ?? throw new InvalidOperationException("Blazix: the combobox's list navigation is created at its root's first parameter set.");
+    public ListNavigationBehavior List => list ?? throw new InvalidOperationException($"Blazix: the list navigation of `<{root.Store.Family}Root>` is created at its first parameter set.");
 
     /// <summary>Renders the store's fixed cascade around the child content, then the hidden input or inputs.</summary>
     /// <param name="builder">The root's render tree builder.</param>
@@ -282,7 +282,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         builder.AddAttribute(9, "style", hiddenName is not null ? VisuallyHidden.InputStyle : VisuallyHidden.Style);
         builder.AddAttribute(10, "tabindex", "-1");
         builder.AddAttribute(11, "aria-hidden", "true");
-        builder.AddElementReferenceCapture(12, element => hiddenInput = element);
+        builder.AddElementReferenceCapture(12, element => store.HiddenInput = hiddenInput = element);
         builder.CloseElement();
 
         if (multiple && name is not null)
