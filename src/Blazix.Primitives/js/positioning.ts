@@ -1184,6 +1184,22 @@ export function attach(
   const render = () => {
     const positionMethod = options.positionMethod ?? 'absolute';
     const declarations: Declarations = new Map();
+    // SEL-POS-07, DP1 (a) of M5 track 9 (settled by the orchestrator 2026-11-04; SelectPositioner.tsx:115): while told
+    // aligned the layer stands down to `position: fixed`, hidden until the first pass so nothing shows before the
+    // placement the caller writes over it in the same task; usePositioner's inert `pointer-events` stays.
+    if (alignedActive) {
+      declarations.set('position', 'fixed');
+      if (!isPositioned) {
+        declarations.set('opacity', '0');
+      }
+      if (!open) {
+        declarations.set('pointer-events', 'none');
+      }
+      writeLayer(positionerLayer, positionerDeclarations, declarations);
+      positionerDeclarations = declarations;
+      renderTransitionsAndAttributes();
+      return;
+    }
     // Default to `fixed` when not positioned to prevent `autoFocus` scroll jumps. This ensures the popup is inside the
     // viewport initially before it gets positioned.
     const resolvedPosition = isPositioned ? positionMethod : 'fixed';
@@ -1221,6 +1237,10 @@ export function attach(
     }
     writeLayer(positionerLayer, positionerDeclarations, declarations);
     positionerDeclarations = declarations;
+    renderTransitionsAndAttributes();
+  };
+
+  const renderTransitionsAndAttributes = () => {
     // TRN's disabled-mount transition, merged after the positioner styles and before the consumer's (FLT-ANI-05).
     if (options.transitionStatus === 'starting') {
       transitionLayer.set('transition', 'none');

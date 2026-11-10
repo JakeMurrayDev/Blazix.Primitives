@@ -1237,7 +1237,8 @@ describe('positioning module: setAligned', () => {
     expect(positioner.style.top).toBe('');
     expect(positioner.style.left).toBe('');
     expect(positioner.style.opacity).toBe('');
-    expect(positioner.style.getPropertyValue('--available-height')).toBe('');
+    // SEL-DOM-22: the measured variables stay, from the measured layer.
+    expect(positioner.style.getPropertyValue('--available-height')).toMatch(/px$/);
 
     window.dispatchEvent(new Event('resize'));
     await settle();
