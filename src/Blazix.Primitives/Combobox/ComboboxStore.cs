@@ -88,6 +88,12 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <returns>A task that completes with the request's details, whose <see cref="ChangeEventDetails.IsPropagationAllowed"/> the module reads.</returns>
     public abstract Task<ChangeEventDetails> ClearAsync(EventReason reason, EventSnapshot? @event);
 
+    /// <summary>Takes the text a browser autofilled into the hidden input.</summary>
+    /// <param name="text">The autofilled text.</param>
+    /// <param name="event">The input's <c>change</c>.</param>
+    /// <returns>A task that completes when the matching value was requested.</returns>
+    public abstract Task HandleAutofillAsync(string text, EventSnapshot @event);
+
     /// <summary>Removes the last selected value, as Backspace in an empty input does.</summary>
     /// <param name="renderedChips">The number of rendered chips.</param>
     /// <param name="event">The native event.</param>
@@ -455,6 +461,39 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         if (IsOpen && State.ActiveIndex is not null && !autoHighlight)
         {
             await ClearHighlightAsync(@event);
+        }
+    }
+
+    // CMB-EVT-11 (AriaCombobox.tsx:1627-1689): multiple mode ignores the text; no-selection mode writes it; single mode
+    // requests the first value whose serialized text or label matches it case-insensitively, with the reason none (a
+    // canceled request leaves the field untouched, the field's reaction following the committed value only).
+    /// <inheritdoc />
+    public override async Task HandleAutofillAsync(string text, EventSnapshot @event)
+    {
+        ComboboxStoreState state = State;
+        if (state.Disabled || state.ReadOnly || Multiple)
+        {
+            return;
+        }
+
+        ChangeEventDetails details = CreateDetails(EventReason.None, @event);
+        if (state.SelectionMode == ComboboxSelectionMode.None)
+        {
+            await SetInputValueAsync(text, details);
+            return;
+        }
+
+        ForceMount();
+        ReadOnlySpan<ItemSlot<TValue>> registry = state.HasItems ? filteredSlots : renderedValues;
+        foreach (ItemSlot<TValue> slot in registry)
+        {
+            if (slot.Present
+                && (string.Equals(ValueTextOf(slot.Value), text, StringComparison.OrdinalIgnoreCase) || string.Equals(LabelOf(slot.Value), text, StringComparison.OrdinalIgnoreCase))
+                && !ValueNull.IsNull(slot.Value))
+            {
+                await SetSelectedValueAsync(slot.Value, details);
+                return;
+            }
         }
     }
 

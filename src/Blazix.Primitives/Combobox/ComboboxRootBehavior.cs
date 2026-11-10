@@ -31,6 +31,8 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
 
     private readonly IJSRuntime jsRuntime;
     private readonly Func<Exception, Task> dispatchException;
+
+    private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly PopupLifecycleRootBehavior<ComboboxStore<TValue>, ComboboxStoreState> root;
     private readonly RenderFragment content;
     private readonly Action onCommitted;
@@ -57,10 +59,12 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     /// <param name="family">The family whose parts the diagnostics name: <c>Combobox</c> or <c>Autocomplete</c>.</param>
     /// <param name="jsRuntime">The runtime the twins import their modules through.</param>
     /// <param name="requestRender">Asks the root to render, its <c>StateHasChanged</c>.</param>
+    /// <param name="invokeAsync">Runs a report's work on the root's dispatcher, its <c>InvokeAsync</c>.</param>
     /// <param name="dispatchException">Routes an exception of a request to the root.</param>
-    public ComboboxRootBehavior(string family, IJSRuntime jsRuntime, Action requestRender, Func<Exception, Task> dispatchException)
+    public ComboboxRootBehavior(string family, IJSRuntime jsRuntime, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException)
     {
         this.jsRuntime = jsRuntime;
+        this.invokeAsync = invokeAsync;
         this.dispatchException = dispatchException;
         root = new((popupId, token, logger) => new ComboboxStore<TValue>(ComboboxStoreState.Initial(popupId, ids!.Next(), ComboboxSelectionMode.Single), family, token, logger), requestRender);
         content = BuildContent;
@@ -307,6 +311,13 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         if (formTwin is null)
         {
             formTwin = new FormTwin(jsRuntime);
+            formTwin.Autofilled += report =>
+            {
+                if (!report.DefaultPrevented)
+                {
+                    _ = ObserveAsync(invokeAsync(() => root.Store.HandleAutofillAsync(report.Text, report.Event)));
+                }
+            };
             formRevision = 1;
             formOptions = new FormOptions { Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = serialized, Revision = formRevision } };
             formHandle = await formTwin.AttachAsync(hiddenInput, formOptions);

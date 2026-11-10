@@ -310,7 +310,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     {
         // ADR 08 Amendments 2026-11-03 (1): the mode mismatch is an always-on error, checked before any assignment.
         ListValueParameters.Check(parameters, "ComboboxRoot");
-        behavior ??= new ComboboxRootBehavior<TValue>("Combobox", JSRuntime, StateHasChanged, DispatchExceptionAsync);
+        behavior ??= new ComboboxRootBehavior<TValue>("Combobox", JSRuntime, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
         behavior.SetParameters(parameters, ComboboxValueNames.Combobox, IdGenerator, Logger);
         filterSupplied = parameters.TryGetValue<Func<TValue, string, Func<TValue, string>?, bool>?>(nameof(Filter), out _);
         return base.SetParametersAsync(parameters);
