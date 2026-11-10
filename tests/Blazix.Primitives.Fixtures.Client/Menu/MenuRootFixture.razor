@@ -22,7 +22,7 @@
     - The portal, positioner and popup: `keepMounted`, `sideOffset`, `positionerStyle`, `popupClass`.
     - `content`, the test's `popupProps.children`: absent for the default tree; `items` (`items`, `|`-separated, with
       `hiddenItems`, `nativeDisabledItems` and `itemLabels`, the last `|`-separated `text=label`), `grouped`, `non-string`,
-      `typeahead-submenu`, `item-submenu`, `keep-mounted-submenu`, `lone-submenu`, `disabled-kinds`, `highlight`,
+      `typeahead-submenu`, `item-submenu`, `keep-mounted-submenu`, `lone-submenu`, `disabled-kinds`, `highlight`, `reporting` (`[data-insert-item]` adds an item first),
       `dynamic`, `deferred`.
     - The page around it: `inputs` (`before` and `after`), `opener` (a button that sets a controlled root open),
       `beforeButton` (a button `before-button` ahead of the root), `container=shadow` (the submenu's portal in an open shadow
@@ -64,6 +64,7 @@
     <button type="button" data-close-action data-key-control @onclick="() => root!.CloseAsync()" @onkeydown="OnShift(() => root!.CloseAsync())">Close</button>
     <button type="button" data-unmount-action data-key-control @onclick="() => root!.Unmount()" @onkeydown="OnShift(() => root!.Unmount())">Unmount</button>
     <button type="button" data-observe-highlights data-key-control @onclick="ToggleObserved" @onkeydown="OnShift(ToggleObserved)">Observe</button>
+    <button type="button" data-insert-item data-key-control @onclick="() => inserted = true" @onkeydown="OnShift(() => inserted = true)">Insert item</button>
     <button type="button" data-toggle-root data-key-control @onclick="() => rootMounted = !rootMounted" @onkeydown="OnShift(() => rootMounted = !rootMounted)">Toggle root</button>
     <button type="button" data-rename-sub-trigger data-key-control @onclick="@(() => subTriggerId = "second")" @onkeydown="@OnShift(() => subTriggerId = "second")">Rename submenu trigger</button>
     <div data-shadow-host @ref="shadowHost"></div>
@@ -187,6 +188,7 @@
     private bool noPortal;
     private bool twoTriggers;
     private bool playNext;
+    private bool inserted;
     private string? subTriggerId;
 
     [Inject]
@@ -466,6 +468,7 @@
         "lone-submenu" => LoneSubmenuContent,
         "disabled-kinds" => DisabledKindsContent,
         "highlight" => HighlightContent,
+        "reporting" => ReportingContent,
         "dynamic" => DynamicContent,
         "deferred" => DeferredContent,
         "two-level" => TwoLevelContent,
@@ -597,10 +600,10 @@
 
     private RenderFragment LoneSubmenuContent => @<text>
         <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
-            <MenuSubmenuTrigger data-testid="submenu-trigger">Submenu</MenuSubmenuTrigger>
+            <MenuSubmenuTrigger data-testid="submenu-trigger" OpenOnHover="@subOpenOnHover">Submenu</MenuSubmenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
-                    <MenuPopup>
+                    <MenuPopup data-testid="submenu-popup">
                         <MenuItem>Nested item</MenuItem>
                     </MenuPopup>
                 </MenuPositioner>
@@ -629,6 +632,15 @@
                 </MenuPositioner>
             </MenuPortal>
         </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment ReportingContent => @<text>
+        @if (inserted)
+        {
+            <MenuItem>Archive</MenuItem>
+        }
+        <MenuItem>One</MenuItem>
+        <MenuItem>Two</MenuItem>
     </text>;
 
     private RenderFragment DynamicContent => @<text>

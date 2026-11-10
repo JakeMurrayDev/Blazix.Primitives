@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { type Route } from '@playwright/test';
+import { delayCircuit, expect, gotoFixture, test, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, fire, holdClock, moveTo, parkPointer, recordSelectors, recorded, selectorSeen, touchTest, waitFrames, waitMs, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, pressInPage, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -257,6 +258,95 @@ test.describe('<Menu.Trigger />', () => {
         await expect(page.getByTestId('item-Content')).toBeVisible();
       });
     });
+  });
+
+  // MNU-PTR-06 on Server: the windows between a hover open's request and its commit, from M's probe (G4), which the bare
+  // titles above cannot reach. Under `delayCircuit` the press lands before C# committed the hover open, or the leave before
+  // C# committed the press. Each keeps the menu open: the press's stick holds on both orders.
+  test.describe('MNU-PTR-06 under circuit latency', () => {
+    test('port: a press before the hover open commits keeps the menu open when the pointer leaves', async ({ page, mode }) => {
+      test.skip(mode !== 'server', 'Server only: the window between the hover request and its commit');
+      await parkPointer(page);
+      await delayCircuit(page, 150);
+      await withClock(page, async () => {
+        const fixture = await gotoPopupFixture(page, mode, 'menu-root', { openOnHover: true, content: 'items', items: 'Item' });
+        await moveTo(page, trigger(page));
+        await page.clock.runFor(110);
+        await page.mouse.down();
+        await page.mouse.up();
+        await page.clock.resume();
+        await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+        await settle(fixture);
+        await waitMs(page, 600);
+
+        await parkPointer(page);
+        await waitMs(page, 300);
+        await settle(fixture);
+
+        await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+        expect((await openChanges(fixture)).filter((change) => change.startsWith('false'))).toEqual([]);
+      });
+    });
+
+    test('port: a leave between the hover commit and the press commit keeps the menu open', async ({ page, mode }) => {
+      test.skip(mode !== 'server', 'Server only: the window between the hover request and its commit');
+      await parkPointer(page);
+      await delayCircuit(page, 150);
+      await withClock(page, async () => {
+        const fixture = await gotoPopupFixture(page, mode, 'menu-root', { openOnHover: true, content: 'items', items: 'Item' });
+        await moveTo(page, trigger(page));
+        await page.clock.runFor(110);
+        await page.clock.resume();
+        await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+
+        await page.mouse.down();
+        await page.mouse.up();
+        await page.mouse.move(1, 1, { steps: 2 });
+        await settle(fixture);
+        await waitMs(page, 300);
+        await settle(fixture);
+
+        // The menu ends open; the leave can report a `false:trigger-hover` the press's stick then answers (G4b, the row's note).
+        await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+      });
+    });
+  });
+
+  // The attach order of the trigger's handles on one element (the brief's attach-order rule, PR 168's B1: two click listeners
+  // in an unpinned order). A route holds one module; the fixture stays unattached until it arrives, and the press then
+  // toggles exactly once.
+  test.describe('attach order', () => {
+    async function stall(page: Page, module: string): Promise<() => Promise<void>> {
+      const held: Route[] = [];
+      let released = false;
+      const url = new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+      await page.route(url, (route) => (released ? route.continue() : held.push(route)));
+      return async () => {
+        released = true;
+        for (const route of held.splice(0)) {
+          await route.continue();
+        }
+      };
+    }
+
+    for (const module of ['interactions', 'button', 'composite']) {
+      test(`port: with js/${module}.js stalled the trigger's handles wait, and a press toggles once when the module arrives`, async ({ page, mode }) => {
+        const release = await stall(page, module);
+        await parkPointer(page);
+        const fixture = await gotoFixture(page, mode, 'menu-root');
+        await expect(fixture).toHaveAttribute('data-attached', 'false');
+
+        await release();
+        await expect(fixture).toHaveAttribute('data-attached', 'true');
+
+        await trigger(page).click();
+        await expect(page.getByTestId('menu')).toBeVisible();
+        await trigger(page).click({ force: true });
+        await expect(page.getByTestId('menu')).toHaveCount(0);
+
+        expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:trigger-press']);
+      });
+    }
   });
 
   test('keeps a hover-opened menu open when mouseup lands outside the trigger DOM but within its bounds', async ({ page, mode }) => {
