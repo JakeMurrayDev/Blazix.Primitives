@@ -639,9 +639,12 @@ describe.each([
 
     const types = ['contextmenu', 'touchstart', 'touchmove', 'touchend', 'touchcancel'];
     if (synchronous) {
-      expect(fixture.triggerTwin.decisions.map((decision) => [decision.point, decision.event.type])).toEqual(types.map((type) => [PRESS_POINT, type]));
-      expect(fixture.pressings.map((press) => press.event.type)).toEqual(types);
-      expect(fixture.triggerTwin.reported(PRESS_REPORT)).toEqual([]);
+      // Design point 3 (a), settled 2026-11-11: the touch move, end and cancel are decided only while a long press is
+      // pending; the touchcancel after the touchend has none, so its handler runs from a report, with no veto to give.
+      const decided = types.slice(0, 4);
+      expect(fixture.triggerTwin.decisions.map((decision) => [decision.point, decision.event.type])).toEqual(decided.map((type) => [PRESS_POINT, type]));
+      expect(fixture.pressings.map((press) => press.event.type)).toEqual(decided);
+      expect(fixture.triggerTwin.reported<PressReport>(PRESS_REPORT).map((press) => press.event.type)).toEqual(['touchcancel']);
     } else {
       expect(fixture.triggerTwin.decisions).toEqual([]);
       expect(fixture.triggerTwin.reported<PressReport>(PRESS_REPORT).map((press) => press.event.type)).toEqual(types);
@@ -652,6 +655,18 @@ describe.each([
     expect(press).toMatchObject({ clientX: 40, clientY: 50, button: 2, buttons: 2 });
     const [, start] = synchronous ? fixture.pressings : fixture.triggerTwin.reported<PressReport>(PRESS_REPORT);
     expect(start?.touches).toEqual([expect.objectContaining({ identifier: 0, clientX: 1, clientY: 2 })]);
+  });
+
+  it('port: a touch move, end or cancel with no pending long press runs its handler from a report, never a decision', () => {
+    const fixture = setup({ synchronous, handlers: ['touchmove', 'touchend', 'touchcancel'] });
+
+    touch(fixture.trigger, 'touchmove', [point(fixture.trigger, 3, 4)]);
+    touch(fixture.trigger, 'touchend');
+    touch(fixture.trigger, 'touchcancel');
+
+    expect(fixture.triggerTwin.decisions).toEqual([]);
+    expect(fixture.pressings).toEqual([]);
+    expect(fixture.triggerTwin.reported<PressReport>(PRESS_REPORT).map((press) => press.event.type)).toEqual(['touchmove', 'touchend', 'touchcancel']);
   });
 
   it('port: a disabled trigger still runs the consumer handlers and does nothing of its own', () => {
