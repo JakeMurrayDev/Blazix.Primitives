@@ -616,12 +616,18 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
         {
             SelectStore<TValue> store = behavior.Store;
             SelectStoreState state = store.State;
-            if (state.Disabled || state.ReadOnly || state.Multiple || report.DefaultPrevented)
+            if (state.Disabled || state.ReadOnly || report.DefaultPrevented)
             {
                 return;
             }
 
             store.ForceMount();
+
+            // Browser autofill writes one scalar, so multiple mode stops at the force-mount (SelectRoot.tsx:537-541).
+            if (state.Multiple)
+            {
+                return;
+            }
             if (store.MatchAutofill(report.Text) is { } match)
             {
                 if (await store.RequestValueAsync(match.Value, new ChangeEventDetails(EventReason.None, report.Event)))
