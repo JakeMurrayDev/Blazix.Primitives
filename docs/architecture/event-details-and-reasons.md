@@ -7,6 +7,7 @@
 | Tests | `internals/createBaseUIEventDetails.spec.ts`, `internals/useValueChanged.test.tsx`, `packages/utils/src/useControlled.test.tsx`; partial (only the titles on this doc's `Test:` lines; the rest of each file is covered by the owning doc): `utils/popups/popupStoreUtils.test.tsx` ("getPopupOpenState" and "applyPopupOpenChange" blocks; rest PSH), `floating-ui-react/hooks/useDismiss.test.tsx` (Escape preventDefault titles; rest FLT), `merge-props/mergeProps.test.ts` (`preventBaseUIHandler` titles; rest RND); plus the component tests cited inline |
 | Prefix | `EVD` |
 | Status | approved |
+| Revised | 2026-11-04 |
 | Used by | Every component document. Directly: accordion, alert-dialog, autocomplete, checkbox, checkbox-group, collapsible, combobox, context-menu, dialog, drawer, field, form, input, menu, menubar, navigation-menu, number-field, otp-field, popover, preview-card, radio, radio-group, select, slider, switch, tabs, toggle, toggle-group, tooltip. Architecture: `floating-and-positioning.md` (FLT), `popup-store-and-handles.md` (PSH), `transitions-and-mounting.md` (TRN), `field-and-form-infrastructure.md` (FFI), `button-behavior.md` (UBT), `rendering-and-composition.md` (RND), `shared-utilities.md` (UTL) |
 
 ## 1. Purpose

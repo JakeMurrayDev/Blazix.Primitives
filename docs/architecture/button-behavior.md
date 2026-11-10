@@ -7,7 +7,7 @@
 | Tests | `internals/use-button/useButton.test.tsx`, `button/Button.test.tsx`, `toolbar/button/ToolbarButton.test.tsx`, `number-field/increment/NumberFieldIncrement.test.tsx`, plus the `nativeButton` / `focusableWhenDisabled` cases in component test files cited inline |
 | Prefix | `UBT` |
 | Status | approved |
-| Revised | 2026-10-27 |
+| Revised | 2026-11-10 |
 | Used by | `components/button.md`, `components/checkbox.md`, `components/switch.md`, `components/radio.md`, `components/toggle.md`, `components/toggle-group.md`, `components/tabs.md`, `components/accordion.md`, `components/collapsible.md`, `components/dialog.md`, `components/alert-dialog.md`, `components/drawer.md`, `components/popover.md`, `components/menu.md`, `components/menubar.md`, `components/context-menu.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/navigation-menu.md`, `components/toast.md`, `components/toolbar.md`, `components/number-field.md`, `components/slider.md` (touch-like pointer predicate only); `architecture/popup-store-and-handles.md` (interaction-type detection) |
 
 ## 1. Purpose
