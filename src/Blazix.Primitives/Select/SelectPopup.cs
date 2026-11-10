@@ -532,7 +532,10 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
             if (!ReferenceEquals(finalResolvedFor, snapshot))
             {
                 finalResolvedFor = snapshot;
-                resolvedFinal = resolver(CloseTypeClassifier.Classify(snapshot, focus!.RecordedInteractionType)) ?? new FocusTargetValue(false);
+                InteractionType closeType = store!.State.CloseByItemPress
+                    ? InteractionType.Unknown
+                    : CloseTypeClassifier.Classify(snapshot, focus!.RecordedInteractionType);
+                resolvedFinal = resolver(closeType) ?? new FocusTargetValue(false);
             }
 
             return resolvedFinal;

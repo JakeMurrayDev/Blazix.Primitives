@@ -37,6 +37,7 @@ namespace Blazix.Primitives;
 /// <param name="TextVersion">A counter moved when an item text that aligned placement measures changed.</param>
 /// <param name="RenderedOpenMethod">The open interaction type, kept through the close: the current one, else the last one.</param>
 /// <param name="CloseEvent">The snapshot of the event that caused the last committed close, or <see langword="null"/> before any close.</param>
+/// <param name="CloseByItemPress">Whether the last committed close was an item press, whose close type the popup's return-focus resolver does not receive.</param>
 [StoreState]
 internal sealed partial record SelectStoreState(
     PopupLifecycleState Lifecycle,
@@ -65,7 +66,8 @@ internal sealed partial record SelectStoreState(
     bool AlignItemWithTrigger,
     int TextVersion,
     InteractionType? RenderedOpenMethod,
-    EventSnapshot? CloseEvent)
+    EventSnapshot? CloseEvent,
+    bool CloseByItemPress)
     : IStoreState<SelectStoreState>, IPopupLifecycleState<SelectStoreState>
 {
     /// <summary>Selects the effective open state.</summary>
@@ -202,7 +204,8 @@ internal sealed partial record SelectStoreState(
         AlignItemWithTrigger: true,
         TextVersion: 0,
         RenderedOpenMethod: null,
-        CloseEvent: null);
+        CloseEvent: null,
+        CloseByItemPress: false);
 
     /// <inheritdoc />
     public static SelectStoreState WithLifecycle(SelectStoreState state, in PopupLifecycleState lifecycle) => state with { Lifecycle = lifecycle };

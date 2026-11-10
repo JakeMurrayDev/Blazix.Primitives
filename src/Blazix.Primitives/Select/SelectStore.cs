@@ -248,10 +248,12 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
     /// <param name="textId">The text element's id, or <see langword="null"/> when the text goes away.</param>
     public abstract void SetItemText(string itemId, string? textId);
 
-    // SEL-API-39, SEL-EVT-17: the close's event, which the popup's return-focus resolver classifies (the Popover precedent).
+    // SEL-API-39, SEL-EVT-17: the close's event, which the popup's return-focus resolver classifies (the Popover precedent),
+    // and whether an item press closed it (§16 Q5's known gap: Base UI's item press closes through the store's own setOpen,
+    // which skips the event that records the close type).
     /// <inheritdoc />
     protected override SelectStoreState ApplyOpenChange(SelectStoreState state, bool open, OpenChangeEventDetails details) =>
-        open ? state : state with { CloseEvent = details.Event };
+        open ? state : state with { CloseEvent = details.Event, CloseByItemPress = details.Reason == EventReason.ItemPress };
 
     // SEL-FOC-10, SEL-FRM-03 (SelectRoot.tsx:303-313): a committed focus-out or outside-press close marks the field.
     /// <inheritdoc />
