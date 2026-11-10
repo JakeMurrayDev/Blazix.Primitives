@@ -5,6 +5,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   CLEAR_POINT,
+  NAVIGATE_POINT,
+  PRESS_POINT,
   attach,
   caretFor,
   createAttach,
@@ -118,7 +120,7 @@ describe('the input', () => {
     expect(pending).toEqual([]);
   });
 
-  it('moves the caret to the start on Home and to the end on End', () => {
+  it('port: moves the caret to the start on Home and to the end on End', () => {
     const { input } = setupInput('hello world');
     input.setSelectionRange(5, 5);
     const home = new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true });
@@ -128,7 +130,7 @@ describe('the input', () => {
     expect(input.selectionStart).toBe(11);
   });
 
-  it('swaps Home and End in a right-to-left input on Gecko', () => {
+  it('uses Gecko RTL caret positions for Home and End', () => {
     expect(caretFor('Home', 5, true, true)).toBe(5);
     expect(caretFor('End', 5, true, true)).toBe(0);
     expect(caretFor('Home', 5, true, false)).toBe(0);
@@ -185,6 +187,43 @@ describe('the input', () => {
       outside.push(verdict);
     }
     expect(outside).toEqual(['stop', 'bubbled', 'run']);
+  });
+
+  // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): while C# holds a consumer onkeydown, every keydown asks
+  // `navigate` first, so a PreventPartHandler() there skips the input's own keys, as Base UI's preventBaseUIHandler does.
+  it('port: with a C# key handler the input asks navigate before its own keys, and a stop verdict skips them', () => {
+    const allowed = createFakeTwin({ synchronous: true, verdict: 'run' });
+    const element = document.createElement('input');
+    element.value = 'apple';
+    document.body.append(element);
+    handles.push(createAttach(desktop)(element, options({ hasValue: true, mounted: false, decidesKeyDown: true }), allowed.twin));
+    const plain = setupInput('apple', { hasValue: true, mounted: false }, true);
+
+    const stopFake = createFakeTwin({ synchronous: true, verdict: 'stop' });
+    const stopped = document.createElement('input');
+    stopped.value = 'apple';
+    document.body.append(stopped);
+    handles.push(createAttach(desktop)(stopped, options({ hasValue: true, mounted: false, decidesKeyDown: true }), stopFake.twin));
+    const home = new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true });
+    stopped.dispatchEvent(home);
+    stopped.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    plain.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+    expect([home.defaultPrevented, stopFake.decisions.map((decision) => decision.point)]).toEqual([false, [NAVIGATE_POINT, NAVIGATE_POINT]]);
+    expect(allowed.decisions.map((decision) => decision.point)).toEqual([NAVIGATE_POINT, CLEAR_POINT]);
+    expect(plain.fake.decisions.map((decision) => decision.point)).toEqual([CLEAR_POINT]);
+  });
+
+  it('port: on Server a key the input stopped is reported for the C# key handler, and an unstopped one is not', () => {
+    const { input, fake } = setupInput('apple', { decidesKeyDown: true });
+    const plain = setupInput('apple');
+    for (const target of [input, plain.input]) {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true }));
+    }
+    expect(fake.reported<{ key: string }>('OnKeyHandled').map((report) => report.key)).toEqual(['Home']);
+    expect(plain.fake.reported('OnKeyHandled')).toHaveLength(0);
   });
 
   // The session's trigger half listens on the input too, and whichever attached first runs first; on WebAssembly its
@@ -310,6 +349,32 @@ describe('the input', () => {
     expect(scroller.scrollTop).toBe(50);
   });
 
+  // AriaCombobox.tsx:945-948: the hidden validation input's form first, then the input's (review F14, settled by the
+  // orchestrator 2026-11-10).
+  it('port: a moved submit revision submits the hidden input\'s form, else the input\'s', () => {
+    const submits: string[] = [];
+    const forms = ['hidden-form', 'input-form'].map((name) => {
+      const form = document.createElement('form');
+      form.id = name;
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submits.push(name);
+      });
+      document.body.append(form);
+      return form;
+    });
+    const hidden = document.createElement('input');
+    hidden.setAttribute('form', 'hidden-form');
+    document.body.append(hidden);
+    const input = document.createElement('input');
+    forms[1]!.append(input);
+    const handle = createAttach(desktop)(input, options(), createFakeTwin().twin);
+    handles.push(handle);
+    handle.update(options({ submitRevision: 1, submitFormElement: 0 }), [hidden]);
+    handle.update(options({ submitRevision: 2 }));
+    expect(submits).toEqual(['hidden-form', 'input-form']);
+  });
+
   it('port: a moved submit revision submits the input\'s form once, after the selection rendered', () => {
     const form = document.createElement('form');
     const submits: string[] = [];
@@ -367,7 +432,7 @@ describe('the list and the press defaults', () => {
     return { list, item, handle };
   }
 
-  it('prevents the default of a pointerdown and a mousedown on an item, so the input keeps the focus', () => {
+  it('port: prevents the default of a pointerdown and a mousedown on an item, so the input keeps the focus', () => {
     const { item } = setupList();
     const pointerDown = new PointerEvent('pointerdown', { bubbles: true, cancelable: true, isPrimary: true });
     const mouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
@@ -545,6 +610,16 @@ describe('the trigger', () => {
     expect([down.defaultPrevented, document.activeElement, fake.reported('OnOpenRequest').length]).toEqual([true, input, 2]);
   });
 
+  // useButton.ts:116-119 returns from a disabled trigger's onKeyDown first (ADR 04 Amendments 2026-11-10, a disabled list
+  // trigger handles no keys; final review F3).
+  it('port: a disabled trigger handles no ArrowDown or ArrowUp', () => {
+    const { trigger, fake } = setupTrigger({ insidePopup: false, disabled: true });
+    const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+    trigger.dispatchEvent(down);
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    expect([down.defaultPrevented, fake.reported('OnOpenRequest').length]).toEqual([false, 0]);
+  });
+
   it('port: a mouse press focuses the input, and keeps the focus there when the input is outside the popup', () => {
     const { trigger, input } = setupTrigger({ insidePopup: false });
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
@@ -583,6 +658,34 @@ describe('the input group and the chips', () => {
     target.dispatchEvent(event);
     return event;
   }
+
+  // ADR 04 Amendments 2026-11-10: while C# holds a consumer onmousedown, the press asks `press` first, and a stop verdict
+  // skips it (CMB-PTR-08's preventBaseUIHandler clause).
+  it('port: with a C# mousedown handler the input group and the chips ask press first, and a stop verdict skips the press', () => {
+    const results: unknown[] = [];
+    for (const part of ['input-group', 'chips'] as const) {
+      for (const [decides, verdict] of [[true, 'stop'], [true, 'run'], [false, 'stop']] as const) {
+        const group = document.createElement('div');
+        const input = document.createElement('input');
+        input.id = 'the-input';
+        group.append(input);
+        document.body.append(group);
+        const fake = createFakeTwin({ synchronous: true, verdict });
+        handles.push(attach(group, options({ part, inputId: 'the-input', decidesPress: decides }), fake.twin));
+        const event = press(group);
+        results.push([part, decides, verdict, fake.decisions.map((decision) => decision.point), event.defaultPrevented, fake.reported('OnInputPress').length]);
+        document.body.replaceChildren();
+      }
+    }
+    expect(results).toEqual([
+      ['input-group', true, 'stop', [PRESS_POINT], false, 0],
+      ['input-group', true, 'run', [PRESS_POINT], true, 1],
+      ['input-group', false, 'stop', [], true, 1],
+      ['chips', true, 'stop', [PRESS_POINT], false, 0],
+      ['chips', true, 'run', [PRESS_POINT], true, 1],
+      ['chips', false, 'stop', [], true, 1],
+    ]);
+  });
 
   it('port: a press on the input group focuses the input and reports an input press', () => {
     const { group, input, fake } = setupGroup('input-group');

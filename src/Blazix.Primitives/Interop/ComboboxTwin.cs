@@ -20,6 +20,12 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the decision point the module asks before a chip's removal.</summary>
     public const string RemovePoint = "remove";
 
+    /// <summary>Represents the decision point the input's handle asks before its own key handling, the consumer's <c>onKeyDown</c> veto.</summary>
+    public const string NavigatePoint = "navigate";
+
+    /// <summary>Represents the decision point the chips' and the input group's handles ask before a press, the consumer's <c>onMouseDown</c> veto.</summary>
+    public const string PressPoint = "press";
+
     /// <summary>Represents the part literal of an input's handle.</summary>
     public const string InputPart = "input";
 
@@ -65,13 +71,16 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs before the click of a press inside a link of an item, with its <c>href</c>, and after it, with <see langword="null"/>.</summary>
     public event Action<string?>? ItemLinkPressed;
 
+    /// <summary>Occurs when the input's handle handled and stopped a key without a synchronous decision (Server), so the consumer's <c>onKeyDown</c> runs.</summary>
+    public event Action<EventSnapshot>? KeyHandled;
+
     /// <summary>Occurs when Enter on an open list without a highlight closes the popup, with the reason <c>none</c>.</summary>
     public event Action<EventSnapshot>? EnterCloseRequested;
 
     /// <summary>Occurs when a press on the input group or the chips focused the input, Base UI's <c>input-press</c>.</summary>
     public event Action<EventSnapshot>? InputPressed;
 
-    /// <summary>Occurs when ArrowDown or ArrowUp on a chip asks for the open, Base UI's <c>list-navigation</c>.</summary>
+    /// <summary>Occurs when ArrowDown or ArrowUp on a chip or on the trigger asks for the open, Base UI's <c>list-navigation</c>.</summary>
     public event Action<EventSnapshot>? OpenRequested;
 
     /// <summary>Occurs when the trigger lost the focus to an element outside the popup.</summary>
@@ -126,10 +135,15 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnInputPress(string payloadJson) => InputPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
 
-    /// <summary>Receives ArrowDown or ArrowUp on a chip.</summary>
+    /// <summary>Receives ArrowDown or ArrowUp on a chip or on the trigger.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
     public void OnOpenRequest(string payloadJson) => OpenRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+
+    /// <summary>Receives a key the input's handle handled and stopped without a synchronous decision, for the consumer's <c>onKeyDown</c>.</summary>
+    /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
+    [JSInvokable]
+    public void OnKeyHandled(string payloadJson) => KeyHandled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives the trigger's loss of focus to an element outside the popup.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
@@ -138,7 +152,8 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
 
     /// <inheritdoc />
     /// <remarks>
-    /// The <see cref="ClearPoint"/> and <see cref="RemovePoint"/> points are answered by <see cref="Decider"/> on WebAssembly;
+    /// The <see cref="ClearPoint"/>, <see cref="RemovePoint"/>, <see cref="NavigatePoint"/> and <see cref="PressPoint"/> points
+    /// are answered by <see cref="Decider"/> on WebAssembly;
     /// without one, or for any other point, the verdict is <see cref="DecisionPolicy.Run"/>, and the module applies the
     /// point's fallback on Server.
     /// </remarks>

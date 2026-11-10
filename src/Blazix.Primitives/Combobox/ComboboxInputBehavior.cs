@@ -22,6 +22,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private const string MouseDownOnly = "mousedown-only";
 
+    private const string KeyDownEvent = "onkeydown";
+
     private static readonly InteractionsClickOptions s_clickOutside = new() { Event = MouseDownOnly, Toggle = false, TouchOpenDelay = 100, Reason = InputPress };
 
     private static readonly InteractionsClickOptions s_clickInside = new() { Event = MouseDownOnly, Toggle = false, Reason = InputPress };
@@ -31,6 +33,20 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     private readonly InteractionsTriggerBehavior interactions;
 
     private readonly CompositeRootBehavior reference;
+
+    // The wrapper the `composite` reference handle holds as the consumer's onkeydown: it runs the handler at most once per
+    // event, sharing the verdict with the `combobox` handle's `navigate` (ADR 04 Amendments 2026-11-10).
+    private readonly IReadOnlyDictionary<string, object> keyDownWrapper;
+
+    private AttributeValue consumerKeyDown;
+
+    private KeyEvent? decidedKey;
+
+    private bool decidedVetoed;
+
+    private DispatchedKey? dispatchedKey;
+
+    private bool wrapperSkipsNext;
 
     private ComboboxStore? store;
 
@@ -73,7 +89,14 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     {
         this.services = services;
         interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, onClick, onMouseDown);
-        reference = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown);
+        reference = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown)
+        {
+            NavigationDecider = DecideReferenceKey,
+        };
+        keyDownWrapper = new Dictionary<string, object>(1, StringComparer.Ordinal)
+        {
+            [KeyDownEvent] = new EventCallback<KeyboardEventArgs>(null, (Func<KeyboardEventArgs, Task>)RunConsumerKeyDownAsync),
+        };
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -159,6 +182,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => Store.RemoveLastAsync(request.Index, request.Event)));
         twin.SelectionEventReported += snapshot => Store.SetSelectionEvent(snapshot);
         twin.Decider = Decide;
+        twin.KeyHandled += snapshot => _ = Observe(services.InvokeAsync(() => RunHandledKeyAsync(snapshot)));
 
         // ADR 04 Amendments 2026-11-03 (6): a committed text reaches the module's writer without a render of the input.
         store.InputValueCommitted += OnInputValueCommitted;
@@ -177,7 +201,20 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         disabledParameter = disabled;
         this.consumerId = consumerId;
         this.generatedId = generatedId;
-        reference.SetConsumerAttributes(consumerAttributes);
+        consumerKeyDown = default;
+        if (consumerAttributes is not null)
+        {
+            foreach (KeyValuePair<string, object> pair in consumerAttributes)
+            {
+                AttributeValue value;
+                if (string.Equals(pair.Key, KeyDownEvent, StringComparison.OrdinalIgnoreCase) && MergeProps.IsHandler(pair.Key, value = AttributeValue.FromObject(pair.Value)))
+                {
+                    consumerKeyDown = value;
+                }
+            }
+        }
+
+        reference.SetConsumerAttributes(consumerKeyDown.IsHandler ? keyDownWrapper : null);
         interactions.SetConsumerAttributes(consumerAttributes);
         interactions.SessionToken = Store.SessionToken;
         Resolve();
@@ -377,6 +414,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             InputId = id,
             DismissId = state.ElementIds.StartDismiss,
             SubmitRevision = state.SubmitRevision == 0 ? null : state.SubmitRevision,
+            SubmitFormElement = state.SubmitRevision != 0 && root.HiddenInput is not null ? 0 : null,
+            DecidesKeyDown = consumerKeyDown.IsHandler,
         };
         if (handle is null)
         {
@@ -387,8 +426,16 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
         if (options != sentOptions)
         {
+            // The hidden input travels with the update that moves the submit revision (AriaCombobox.tsx:945-948).
+            TwinReferences? references = null;
+            if (options.SubmitFormElement is not null && root.HiddenInput is { } hidden)
+            {
+                references = new TwinReferences();
+                references.Add(hidden);
+            }
+
             sentOptions = options;
-            await handle.UpdateAsync(options);
+            await handle.UpdateAsync(options, references);
         }
     }
 
@@ -424,6 +471,11 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private DecisionPolicy Decide(string point, EventSnapshot snapshot)
     {
+        if (string.Equals(point, ComboboxTwin.NavigatePoint, StringComparison.Ordinal))
+        {
+            return DecideKeyDown(snapshot);
+        }
+
         if (!string.Equals(point, ComboboxTwin.ClearPoint, StringComparison.Ordinal))
         {
             return DecisionPolicy.Run;
@@ -439,6 +491,95 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         }
 
         return stops && !clearing.Result.IsPropagationAllowed ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): the consumer's onkeydown runs once per keydown for
+    // both the `combobox` handle's `navigate` and the `composite` reference handle's, whichever asks first, and both read the
+    // verdict; a PreventPartHandler() stops both, as Base UI's preventBaseUIHandler() skips the input's merged handlers.
+    // Blazor's later dispatch of the key skips the handler (the one-shot marker of ButtonBehavior's model).
+    private DecisionPolicy DecideKeyDown(EventSnapshot snapshot)
+    {
+        if (!consumerKeyDown.IsHandler)
+        {
+            return DecisionPolicy.Run;
+        }
+
+        KeyEvent key = KeyEvent.From(snapshot);
+        if (decidedKey == key)
+        {
+            return decidedVetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
+        }
+
+        KeyboardEventArgs args = snapshot.ToKeyboardEventArgs();
+        RunConsumerKeyDown(args);
+        decidedKey = key;
+        decidedVetoed = args.PartHandlerPrevented();
+        dispatchedKey = DispatchedKey.From(args);
+        return decidedVetoed ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    // The `composite` reference handle's `navigate` chain: the shared verdict; when it lets the key run, the reference calls
+    // the wrapper next, which must not run the handler again.
+    private DecisionPolicy DecideReferenceKey(EventSnapshot snapshot)
+    {
+        DecisionPolicy verdict = DecideKeyDown(snapshot);
+        wrapperSkipsNext = verdict == DecisionPolicy.Run && consumerKeyDown.IsHandler;
+        return verdict;
+    }
+
+    // The consumer's onkeydown as the reference handle holds it: inside its `navigate` (already run), from Blazor's dispatch
+    // of a decided key (skipped once), and otherwise run, as on Server.
+    private Task RunConsumerKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (wrapperSkipsNext)
+        {
+            wrapperSkipsNext = false;
+            return Task.CompletedTask;
+        }
+
+        DispatchedKey? marker = dispatchedKey;
+        dispatchedKey = null;
+        if (marker is { } decided && decided == DispatchedKey.From(args))
+        {
+            return Task.CompletedTask;
+        }
+
+        return consumerKeyDown.InvokeAsync(args);
+    }
+
+    // On Server a key the module stopped never reaches Blazor's dispatcher: the module reports it, and the handler runs a round
+    // trip late, once per event.
+    private Task RunHandledKeyAsync(EventSnapshot snapshot)
+    {
+        KeyEvent key = KeyEvent.From(snapshot);
+        if (!consumerKeyDown.IsHandler || decidedKey == key)
+        {
+            return Task.CompletedTask;
+        }
+
+        decidedKey = key;
+        decidedVetoed = false;
+        return consumerKeyDown.InvokeAsync(snapshot.ToKeyboardEventArgs());
+    }
+
+    private void RunConsumerKeyDown(KeyboardEventArgs args)
+    {
+        try
+        {
+            Task task = consumerKeyDown.InvokeAsync(args);
+            if (!task.IsCompleted)
+            {
+                _ = Observe(task);
+            }
+            else if (task.IsFaulted)
+            {
+                _ = services.DispatchException(task.Exception!.GetBaseException());
+            }
+        }
+        catch (Exception exception)
+        {
+            _ = services.DispatchException(exception);
+        }
     }
 
     private void OnInputValueCommitted()
@@ -470,5 +611,18 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         {
             await services.DispatchException(exception);
         }
+    }
+
+    // One keydown as the module reports it: its time stamp tells two presses of a key apart.
+    private readonly record struct KeyEvent(string Type, string? Key, string? Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey, double TimeStamp)
+    {
+        public static KeyEvent From(EventSnapshot snapshot) =>
+            new(snapshot.Type, snapshot.Key, snapshot.Code, snapshot.AltKey, snapshot.CtrlKey, snapshot.MetaKey, snapshot.ShiftKey, snapshot.TimeStamp);
+    }
+
+    // A decided keydown as Blazor dispatches it afterwards, which carries no time stamp.
+    private readonly record struct DispatchedKey(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey)
+    {
+        public static DispatchedKey From(KeyboardEventArgs e) => new(e.Key, e.Code, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
     }
 }

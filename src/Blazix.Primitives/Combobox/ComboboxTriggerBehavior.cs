@@ -127,7 +127,8 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             OnFocusChange(false);
             return Task.CompletedTask;
         }));
-        twin.OpenRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ListNavigation, snapshot))));
+        // A report sent before the disabled state reached the module (Server) opens nothing either (final review F3).
+        twin.OpenRequested += snapshot => _ = Observe(services.InvokeAsync(() => Disabled ? Task.CompletedTask : Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ListNavigation, snapshot))));
         twin.OpenCanceled += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.CancelOpen, snapshot))));
     }
 
