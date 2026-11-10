@@ -299,6 +299,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool Multiple => State.SelectionMode == ComboboxSelectionMode.Multiple;
 
+    // AriaCombobox.tsx:285 (hasFilteredItemsProp): filtered items in either shape.
+    private bool HasFilteredItemsInput => inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null;
+
     // AriaCombobox.tsx:231-239: with an item collection the filter reads the items' collection labels; otherwise the converter.
     private Func<TValue, string>? FilterItemToString =>
         inputs.Items is IComboboxItemLabels<TValue> || inputs.ItemGroups is IComboboxItemLabels<TValue> ? collectionLabel ??= value => LabelOf(value) : inputs.ItemToStringLabel;
@@ -1243,7 +1246,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
                 {
                     pendingHighlight = null;
                 }
-                else if (navigable && (candidates.Count > 0 || (!State.HasItems && inputs.FilteredItems is null)))
+                else if (navigable && (candidates.Count > 0 || (!State.HasItems && !HasFilteredItemsInput)))
                 {
                     pendingHighlight = null;
                     await SetIndicesAsync(0, null, fromModule: false);
@@ -1293,7 +1296,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
-        if (active >= candidates.Count && (State.HasItems || inputs.FilteredItems is not null))
+        if (active >= candidates.Count && (State.HasItems || HasFilteredItemsInput))
         {
             await SetIndicesAsync(null, null, fromModule: false);
             return;
