@@ -95,6 +95,10 @@ public sealed class ComboboxItemCollection<TItem, TValue> : IReadOnlyList<TValue
     /// <inheritdoc />
     bool IComboboxItemLabels<TValue>.TryGetLabel(TValue value, Func<TValue, TValue, bool>? isItemEqualToValue, out string label) =>
         index.TryGetLabel(value, isItemEqualToValue, out label);
+
+    /// <inheritdoc />
+    bool IComboboxItemLabels<TValue>.HasValue(TValue value, Func<TValue, TValue, bool>? isItemEqualToValue) =>
+        index.TryFind(value, isItemEqualToValue, out _);
 }
 
 /// <summary>A grouped combobox item collection: its groups with their items' derived values, with the items' labels and the items themselves.</summary>
@@ -153,6 +157,10 @@ public sealed class ComboboxItemGroupCollection<TItem, TValue> : IReadOnlyList<C
     bool IComboboxItemLabels<TValue>.TryGetLabel(TValue value, Func<TValue, TValue, bool>? isItemEqualToValue, out string label) =>
         index.TryGetLabel(value, isItemEqualToValue, out label);
 
+    /// <inheritdoc />
+    bool IComboboxItemLabels<TValue>.HasValue(TValue value, Func<TValue, TValue, bool>? isItemEqualToValue) =>
+        index.TryFind(value, isItemEqualToValue, out _);
+
     // A group's items as their values, projected on read so the accessors never run at creation.
     private sealed class ProjectedValues(IReadOnlyList<TItem> items, ComboboxItemIndex<TItem, TValue> index) : IReadOnlyList<TValue>
     {
@@ -189,6 +197,12 @@ internal interface IComboboxItemLabels<TValue>
     /// <param name="label">The item's label, or the empty string.</param>
     /// <returns><see langword="true"/> when an item with a label has that value.</returns>
     bool TryGetLabel(TValue value, Func<TValue, TValue, bool>? isItemEqualToValue, out string label);
+
+    /// <summary>Gets a value indicating whether an item has the value <paramref name="value"/> (createItems.ts:147-149).</summary>
+    /// <param name="value">The value.</param>
+    /// <param name="isItemEqualToValue">The root's comparer, or <see langword="null"/> for the default equality.</param>
+    /// <returns><see langword="true"/> when an item has that value.</returns>
+    bool HasValue(TValue value, Func<TValue, TValue, bool>? isItemEqualToValue);
 }
 
 // itemCollection.ts:9-29 (findCollectionItem): the exact value first; with a custom comparer, every derived value in order.

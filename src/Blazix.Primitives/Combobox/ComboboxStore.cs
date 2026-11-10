@@ -1603,7 +1603,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         bool bypass = ComboboxItemFiltering.ShouldBypassFiltering(Single, queryChangedAfterOpen, query, selectedLabel, collator);
         string filterQuery = bypass ? string.Empty : inputs.FilterQuery ?? query;
         bool hasItems = inputs.Items is not null || inputs.ItemGroups is not null;
-        bool ignoreExternal = hasItems && (inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null) && bypass;
+
+        // AriaCombobox.tsx:352-356: the bypass keeps the external result while the known data lacks the selected item.
+        bool ignoreExternal = hasItems && (inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null) && bypass
+            && ((inputs.Items as IComboboxItemLabels<TValue> ?? inputs.ItemGroups as IComboboxItemLabels<TValue>) is not { } known || known.HasValue(valueState.Value, inputs.IsItemEqualToValue));
 
         // AriaCombobox.tsx:358-438 memoizes the filtered items on their inputs (ADR 16 decision 11): unchanged inputs, by
         // reference for the lists and the delegates, filter nothing again.
