@@ -214,3 +214,13 @@ Members of every class follow the eleven-group order of the old port: constants,
   - `MenuHighlightEventDetails : GenericEventDetails` adds `string? Label` and carries no index.
   - `OnItemHighlighted` is an `EventCallback<MenuItemHighlightedEventArgs>`, where `MenuItemHighlightedEventArgs(string? ItemId, MenuHighlightEventDetails Details)`.
   - `Events/HighlightEventDetails`, which carries an index, stays Combobox's; EVT §3.7 gains a dated note naming both types.
+
+**2026-11-11, ContextMenu's parts and shapes as built (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); Amendments 2026-11-03 (3), chosen by the user 2026-11-03; design points 4 and 5 of M5 track 7, pending the orchestrator).**
+- `ContextMenuRoot : ComponentBase, IAsyncDisposable` is non-generic. It runs over `MenuRootBehavior<NoPayload>("ContextMenu")` and declares MenuRoot's parameters except `Modal`, `Handle`, `TriggerId`, `DefaultTriggerId`, `PayloadContent` and `CloseParentOnEsc`. It offers `CloseAsync()` and `Unmount()`.
+- `ContextMenuTrigger : PartBase<ContextMenuTriggerState>` (a `div`) has no parameters of its own. Its state is `ContextMenuTriggerState(bool Open)`, and its attributes are `ContextMenuTriggerDataAttributes { PopupOpen, Pressed }`.
+- `ContextMenuPositioner` has MenuPositioner's parameters without `PositionMethod`. Its state is `ContextMenuPositionerState`, with `ContextMenuPositionerDataAttributes` and `ContextMenuPositionerCssVars`.
+- Fifteen sealed shells over Menu's behaviours, each with its own `ContextMenu<Part>State` and attribute class: `ContextMenu{Portal,Backdrop,Popup,Arrow,Group,GroupLabel,Item,LinkItem,CheckboxItem,CheckboxItemIndicator,RadioItemIndicator,SubmenuRoot,SubmenuTrigger}`, `ContextMenuRadioGroup<TValue>` and `ContextMenuRadioItem<TValue>`.
+- `ContextMenuSeparator` is its own part over `SeparatorAttributes`.
+- The internal `ContextMenuRootContext : IMenuParentContext` is cascaded fixed. It is a cascade, not a public name.
+- *Design point 4 (a).* No `PositionMethod` parameter.
+- *Design point 5 (a).* Menu's types appear on ContextMenu's surface: `MenuInstantType` in the Positioner's and Popup's records, and `MenuItemHighlightedEventArgs` and `MenuHighlightEventDetails` on the Root's `OnItemHighlighted`. There are no ContextMenu aliases.

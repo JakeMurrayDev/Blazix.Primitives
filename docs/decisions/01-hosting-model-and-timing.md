@@ -232,3 +232,9 @@ Normative. Each row is a requirement whose stated timing Server cannot meet with
 - "C#-origin consumer vetoes" (the press from the `mousedown`) gains MNU-PTR-01 and EVT-14.
 - The platform flags row's MNU-A11Y-01 was added by track 2.
 Menu's figures are the list rows' (track 1's test-only hosts run Menu's options), except the drag-release, which is pointer state in `interactions` and is met on both modes.
+
+**2026-11-11, the CTX row's `Cancel()` clause (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); sheet C contradiction 1; a clarification, the row unchanged).** A consumer's `Cancel()` on the open of a right click restores no native menu on either mode.
+- Base UI calls `preventDefault()` before it requests the open (`context-menu/trigger/ContextMenuTrigger.tsx:81-82`), and so does the `context-menu` module.
+- The row's "on Server, where a `Cancel()` can no longer restore the native menu" therefore holds on both modes.
+- A canceled open leaves the menu closed with the new anchor and the release window installed (CTX-EVT-04's port title).
+- The consumer's own `oncontextmenu` veto is "C#-origin consumer vetoes" (CTX-API-06 gains a dated row in context-menu.md §9).
