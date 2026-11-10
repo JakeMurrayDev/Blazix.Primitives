@@ -1420,6 +1420,25 @@ test.describe('<Tooltip.Viewport />', () => {
     expect(await positioner.evaluate((element) => (element as HTMLElement).style.left)).toBe('');
   });
 
+  // Issue 207: every pass of the starting phase sees its `transition: none` and anchors from the near edge. The end of
+  // the phase reaches the module with C#'s update, a circuit round trip on Server, so under latency it lands after the
+  // last pass the anchor tracking runs; the module runs one pass of its own then, as Base UI's last pass of an open
+  // follows the end of the phase. Once written, the far-edge anchoring holds while the Positioner has a transition, so the
+  // poll waits on an end state.
+  test('port: anchors the positioner from the far edge once the starting phase ends, under circuit latency on Server', async ({ page, mode }) => {
+    if (mode === 'server') {
+      await delayCircuit(page, 250);
+    }
+    await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'far-edge' });
+
+    await page.getByRole('button', { name: 'Trigger', exact: true }).focus();
+
+    const positioner = page.getByTestId('positioner');
+    await expect(positioner).toHaveAttribute('data-side', 'left');
+    await expect.poll(() => positioner.evaluate((element) => (element as HTMLElement).style.right)).not.toBe('');
+    expect(await positioner.evaluate((element) => (element as HTMLElement).style.left)).toBe('');
+  });
+
   test('should mirror the instant animation type of the tooltip', async ({ page, mode }) => {
     await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'instant' });
 
