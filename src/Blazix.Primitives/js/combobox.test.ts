@@ -271,3 +271,83 @@ describe('the list and the press defaults', () => {
     expect([onIcon.defaultPrevented, onInput.defaultPrevented]).toEqual([true, false]);
   });
 });
+
+describe('the trigger', () => {
+  function setupTrigger(overrides: Partial<ComboboxOptions> = {}): { trigger: HTMLButtonElement; input: HTMLInputElement; fake: FakeTwin } {
+    const trigger = document.createElement('button');
+    trigger.getBoundingClientRect = () => ({ left: 0, right: 100, top: 0, bottom: 20, width: 100, height: 20, x: 0, y: 0, toJSON: () => ({}) });
+    const input = document.createElement('input');
+    input.id = 'the-input';
+    const outside = document.createElement('div');
+    outside.id = 'outside';
+    document.body.append(trigger, input, outside);
+    const fake = createFakeTwin();
+    handles.push(attach(trigger, options({ part: 'trigger', inputId: 'the-input', insidePopup: true, ...overrides }), fake.twin));
+    return { trigger, input, fake };
+  }
+
+  function release(target: Element, clientX: number, clientY: number): void {
+    target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX, clientY }));
+  }
+
+  it('closes the popup when mouseup occurs outside the trigger bounds', () => {
+    const { trigger, fake } = setupTrigger();
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 300, 300);
+    expect(fake.reported('OnCancelOpen')).toHaveLength(1);
+  });
+
+  it('keeps the popup open when mouseup remains near the trigger bounds', () => {
+    const { trigger, fake } = setupTrigger();
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 300, 300);
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 104, 24);
+    expect(fake.reported('OnCancelOpen')).toHaveLength(1);
+  });
+
+  it('closes the popup when the release is more than 5px outside the trigger bounds', () => {
+    const { trigger, fake } = setupTrigger();
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 106, 10);
+    expect(fake.reported('OnCancelOpen')).toHaveLength(1);
+  });
+
+  it('ignores a pending mouseup after the trigger unmounts', () => {
+    const { trigger, fake } = setupTrigger();
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 300, 300);
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    trigger.remove();
+    release(document.getElementById('outside')!, 300, 300);
+    expect(fake.reported('OnCancelOpen')).toHaveLength(1);
+  });
+
+  it('port: a press while open, or with the input outside the popup, waits for no release', () => {
+    const closed = setupTrigger();
+    closed.trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 300, 300);
+    const open = setupTrigger({ open: true });
+    open.trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 300, 300);
+    const outside = setupTrigger({ insidePopup: false });
+    outside.trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    release(document.getElementById('outside')!, 300, 300);
+    expect([closed.fake.reported('OnCancelOpen').length, open.fake.reported('OnCancelOpen').length, outside.fake.reported('OnCancelOpen').length]).toEqual([1, 0, 0]);
+  });
+
+  it('port: a mouse press focuses the input, and keeps the focus there when the input is outside the popup', () => {
+    const { trigger, input } = setupTrigger({ insidePopup: false });
+    const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    trigger.dispatchEvent(press);
+    expect([document.activeElement, press.defaultPrevented]).toEqual([input, true]);
+  });
+
+  it('port: a touch press leaves the focus alone', () => {
+    const { trigger } = setupTrigger({ insidePopup: false });
+    trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+    const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    trigger.dispatchEvent(press);
+    expect([document.activeElement, press.defaultPrevented]).toEqual([document.body, false]);
+  });
+});
