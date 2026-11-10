@@ -46,6 +46,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private MenuSelection<bool>? parentDisabled;
     private MenuSubmenuTriggerParameters parameters;
     private string? id;
+    private IReadOnlyDictionary<string, object>? consumerAttributes;
+    private IReadOnlyDictionary<string, object>? openAttributes;
+    private IReadOnlyDictionary<string, object>? openAttributesSource;
+    private bool registeredOpen;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="MenuSubmenuTriggerBehavior"/> class.</summary>
@@ -91,6 +95,9 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     }
 
     private int CloseDelayMilliseconds => (int)(parameters.CloseDelay?.ToMilliseconds() ?? 0);
+
+    // Blazor's unmatched-attribute dictionary compares names ignoring case, so `tabIndex` is found too.
+    private bool HasConsumerTabIndex => consumerAttributes?.ContainsKey("tabindex") == true;
 
     /// <summary>Gets a value indicating whether the trigger ignores user interaction.</summary>
     public bool Disabled => parameters.Item.Disabled || (submenu?.State.Disabled ?? false) || (parentDisabled?.Value ?? false);
@@ -167,7 +174,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
             parentDisabled = parentSubscription.Select(MenuSelectors.Disabled);
         }
 
-        trigger = new(this, familyName + "SubmenuTrigger", requestRender);
+        trigger = new(this, familyName + "SubmenuTrigger", OnTriggerChanged);
         item = new CompositeItemBehavior(parentList, familyName + "SubmenuTrigger", onKeyDown, requestRender);
     }
 
@@ -180,11 +187,12 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     {
         this.parameters = parameters;
         this.id = id;
+        consumerAttributes = attributes;
         MenuStore<NoPayload> store = submenu!.Store;
         trigger!.Apply(store, null, id, element, false, default, MenuParts.MissingSubmenuRoot(familyName).Message);
         bool disabled = Disabled;
-        item!.SetRegistration(id, attributes, disabled, focusableWhenDisabled: true, label: parameters.Item.Label);
-        item.SetConsumerAttributes(attributes);
+        Register();
+        item!.SetConsumerAttributes(attributes);
         if (id is not null)
         {
             submenu.Parent.Menu?.Items.Set(this, id);
@@ -229,6 +237,11 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         interactions.AddAttributes(attributes);
         reference.AddAttributes(attributes, id);
         item!.AddAttributes(attributes);
+        if (registeredOpen && !HasConsumerTabIndex)
+        {
+            attributes.Set("tabindex", "0");
+        }
+
         attributes.Set("role", "menuitem");
     }
 
@@ -317,5 +330,41 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         return store.RequestOpenAsync(request.Open, request.Details);
+    }
+
+    // MenuSubmenuTrigger.tsx:244 (MNU-KEY-15): `tabIndex: !(open || highlighted) ? -1 : 0`. While its submenu is open the
+    // trigger owns `tabindex="0"`, registered as a consumer value is so the list's roving write leaves it: the blur that
+    // moves focus into the submenu clears the parent's highlight (MenuSubmenuTrigger.tsx:254-258). A consumer's own
+    // `tabindex` wins, as it does on every item.
+    private void Register()
+    {
+        registeredOpen = Open;
+        IReadOnlyDictionary<string, object>? registered = consumerAttributes;
+        if (registeredOpen && !HasConsumerTabIndex)
+        {
+            if (openAttributes is null || !ReferenceEquals(openAttributesSource, consumerAttributes))
+            {
+                Dictionary<string, object> withTabIndex = consumerAttributes is null
+                    ? new(StringComparer.OrdinalIgnoreCase)
+                    : new(consumerAttributes, StringComparer.OrdinalIgnoreCase);
+                withTabIndex["tabindex"] = "0";
+                openAttributes = withTabIndex;
+                openAttributesSource = consumerAttributes;
+            }
+
+            registered = openAttributes;
+        }
+
+        item!.SetRegistration(id, registered, Disabled, focusableWhenDisabled: true, label: parameters.Item.Label);
+    }
+
+    private void OnTriggerChanged()
+    {
+        if (item is not null && Open != registeredOpen)
+        {
+            Register();
+        }
+
+        requestRender();
     }
 }
