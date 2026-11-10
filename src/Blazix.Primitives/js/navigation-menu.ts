@@ -261,7 +261,7 @@ interface Menu {
   options: NavigationMenuOptions;
   readonly triggers: Set<TriggerController>;
   // NAV-ANI-15 (the Arrows).
-  /** The handles that run first in every pass: the Arrows and the Contents (their exiting style). */
+  /** The handles that run first in every pass: the Arrows, the Contents (their exiting style) and the Popup (its anchoring). */
   readonly followers: Set<() => void>;
   popup: HTMLElement | null;
   positioner: HTMLElement | null;
@@ -1515,21 +1515,25 @@ function attachPopup(element: HTMLElement, menu: MenuState): TwinHandle {
       sideObserver.observe(observedPositioner, { attributes: true, attributeFilter: ['data-side'] });
     }
   };
-  const statusObserver = new MutationObserver(() => {
+  const syncAnchoring = () => {
     syncSideObserver();
     writeAnchoring();
+  };
+  const statusObserver = new MutationObserver(() => {
+    syncAnchoring();
     menu.invalidate();
   });
   statusObserver.observe(element, { attributes: true, attributeFilter: [STARTING_STYLE, ENDING_STYLE, 'data-open', 'data-closed'] });
   menu.popup = element;
-  syncSideObserver();
-  writeAnchoring();
+  // NavigationMenuPopup.tsx:40-47: Base UI renders the styles in the commit that sets data-side. A follower, so the pass
+  // the Positioner's attach queues writes them when the Popup attached first, rather than the Popup's next status change.
+  menu.followers.add(syncAnchoring);
+  syncAnchoring();
   menu.invalidate();
   return {
     update() {
       if (!disposed) {
-        syncSideObserver();
-        writeAnchoring();
+        syncAnchoring();
       }
     },
     dispose() {
@@ -1537,6 +1541,7 @@ function attachPopup(element: HTMLElement, menu: MenuState): TwinHandle {
         return;
       }
       disposed = true;
+      menu.followers.delete(syncAnchoring);
       sideObserver.disconnect();
       statusObserver.disconnect();
       anchoring.clear();
