@@ -216,6 +216,29 @@ public sealed class ButtonTwinContractTests
         Assert.DoesNotContain("inputItem", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
     }
 
+    // MNU-EDGE-06 (settled by the orchestrator 2026-11-10 as option (a); final review F5): the disabled-element check crosses
+    // by its module name only when turned on, and its report raises the twin's event.
+    [Fact(DisplayName = "port: the disabled-element check is sent only when turned on, and its report raises DisabledElementDetected")]
+    [Trait("Requirement", "UBT-EDGE-01")]
+    [Trait("Requirement", "MNU-EDGE-06")]
+    public void The_disabled_element_check_is_sent_only_when_turned_on_and_its_report_raises_the_event()
+    {
+        Assert.Contains(
+            "\"disabledElementCheck\":true",
+            JsonSerializer.Serialize(new ButtonOptions { DisabledElementCheck = true }, BlazixJsonContext.Default.ButtonOptions),
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("disabledElementCheck", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        int detected = 0;
+        twin.DisabledElementDetected += () => detected++;
+
+        twin.OnDisabledElementDetected("{}");
+
+        Assert.Equal(1, detected);
+    }
+
     [Fact]
     [Trait("Requirement", "UBT-EVT-09")]
     [Trait("Requirement", "SWT-EVT-03")]
