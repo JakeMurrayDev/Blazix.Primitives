@@ -59,6 +59,8 @@ export interface ButtonOptions extends TwinOptions {
   reportInteractionType?: boolean | null;
   /** Turns the native-mode development check on. */
   developmentChecks?: boolean | null;
+  /** With `developmentChecks`, turns the check for an element rendered disabled while the part is not on. */
+  disabledElementCheck?: boolean | null;
   /** Turns the hidden-input bridge on: root clicks are forwarded to the input rendered after the element. */
   hiddenInput?: boolean | null;
   /** Whether the bridged input refuses user toggles: root clicks are ignored and input clicks reverted. */
@@ -476,6 +478,14 @@ export function attach(
     }
   };
 
+  // MenuSubmenuTrigger.tsx:134-145 (MNU-EDGE-06): the rendered element is disabled while the part is not, which a render
+  // function's element can do and C# cannot see; checked at attach and on each update, as Base UI's effect runs each commit.
+  const checkDisabledElement = () => {
+    if (options.developmentChecks && options.disabledElementCheck === true && !options.disabled && isElementDisabled(element)) {
+      twin.report('OnDisabledElementDetected', {});
+    }
+  };
+
   const checkNative = () => {
     if (!options.developmentChecks || options.native === checkedNative) {
       return;
@@ -640,6 +650,7 @@ export function attach(
   }
   correctDisabled();
   checkNative();
+  checkDisabledElement();
   bindInput();
 
   return {
@@ -654,6 +665,7 @@ export function attach(
       }
       correctDisabled();
       checkNative();
+      checkDisabledElement();
       bindInput();
     },
     dispose() {
