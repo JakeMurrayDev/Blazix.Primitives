@@ -81,4 +81,10 @@ internal sealed record ComboboxOptions : TwinOptions
     /// <summary>Gets the revision of the form submission an item press asked for; the input's handle submits its form when it moves.</summary>
     /// <value>The revision, or <see langword="null"/> before the first request and on handles other than the input.</value>
     public int? SubmitRevision { get; init; }
+
+    /// <summary>Gets a value indicating whether C# holds the consumer's <c>onKeyDown</c>, so the input's handle asks <c>navigate</c> before its keys.</summary>
+    public bool DecidesKeyDown { get; init; }
+
+    /// <summary>Gets a value indicating whether C# holds the consumer's <c>onMouseDown</c>, so the press asks <c>press</c> first.</summary>
+    public bool DecidesPress { get; init; }
 }

@@ -5,6 +5,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   CLEAR_POINT,
+  NAVIGATE_POINT,
+  PRESS_POINT,
   attach,
   caretFor,
   createAttach,
@@ -185,6 +187,43 @@ describe('the input', () => {
       outside.push(verdict);
     }
     expect(outside).toEqual(['stop', 'bubbled', 'run']);
+  });
+
+  // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): while C# holds a consumer onkeydown, every keydown asks
+  // `navigate` first, so a PreventPartHandler() there skips the input's own keys, as Base UI's preventBaseUIHandler does.
+  it('port: with a C# key handler the input asks navigate before its own keys, and a stop verdict skips them', () => {
+    const allowed = createFakeTwin({ synchronous: true, verdict: 'run' });
+    const element = document.createElement('input');
+    element.value = 'apple';
+    document.body.append(element);
+    handles.push(createAttach(desktop)(element, options({ hasValue: true, mounted: false, decidesKeyDown: true }), allowed.twin));
+    const plain = setupInput('apple', { hasValue: true, mounted: false }, true);
+
+    const stopFake = createFakeTwin({ synchronous: true, verdict: 'stop' });
+    const stopped = document.createElement('input');
+    stopped.value = 'apple';
+    document.body.append(stopped);
+    handles.push(createAttach(desktop)(stopped, options({ hasValue: true, mounted: false, decidesKeyDown: true }), stopFake.twin));
+    const home = new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true });
+    stopped.dispatchEvent(home);
+    stopped.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    plain.input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+    expect([home.defaultPrevented, stopFake.decisions.map((decision) => decision.point)]).toEqual([false, [NAVIGATE_POINT, NAVIGATE_POINT]]);
+    expect(allowed.decisions.map((decision) => decision.point)).toEqual([NAVIGATE_POINT, CLEAR_POINT]);
+    expect(plain.fake.decisions.map((decision) => decision.point)).toEqual([CLEAR_POINT]);
+  });
+
+  it('port: on Server a key the input stopped is reported for the C# key handler, and an unstopped one is not', () => {
+    const { input, fake } = setupInput('apple', { decidesKeyDown: true });
+    const plain = setupInput('apple');
+    for (const target of [input, plain.input]) {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true }));
+    }
+    expect(fake.reported<{ key: string }>('OnKeyHandled').map((report) => report.key)).toEqual(['Home']);
+    expect(plain.fake.reported('OnKeyHandled')).toHaveLength(0);
   });
 
   // The session's trigger half listens on the input too, and whichever attached first runs first; on WebAssembly its
@@ -583,6 +622,34 @@ describe('the input group and the chips', () => {
     target.dispatchEvent(event);
     return event;
   }
+
+  // ADR 04 Amendments 2026-11-10: while C# holds a consumer onmousedown, the press asks `press` first, and a stop verdict
+  // skips it (CMB-PTR-08's preventBaseUIHandler clause).
+  it('port: with a C# mousedown handler the input group and the chips ask press first, and a stop verdict skips the press', () => {
+    const results: unknown[] = [];
+    for (const part of ['input-group', 'chips'] as const) {
+      for (const [decides, verdict] of [[true, 'stop'], [true, 'run'], [false, 'stop']] as const) {
+        const group = document.createElement('div');
+        const input = document.createElement('input');
+        input.id = 'the-input';
+        group.append(input);
+        document.body.append(group);
+        const fake = createFakeTwin({ synchronous: true, verdict });
+        handles.push(attach(group, options({ part, inputId: 'the-input', decidesPress: decides }), fake.twin));
+        const event = press(group);
+        results.push([part, decides, verdict, fake.decisions.map((decision) => decision.point), event.defaultPrevented, fake.reported('OnInputPress').length]);
+        document.body.replaceChildren();
+      }
+    }
+    expect(results).toEqual([
+      ['input-group', true, 'stop', [PRESS_POINT], false, 0],
+      ['input-group', true, 'run', [PRESS_POINT], true, 1],
+      ['input-group', false, 'stop', [], true, 1],
+      ['chips', true, 'stop', [PRESS_POINT], false, 0],
+      ['chips', true, 'run', [PRESS_POINT], true, 1],
+      ['chips', false, 'stop', [], true, 1],
+    ]);
+  });
 
   it('port: a press on the input group focuses the input and reports an input press', () => {
     const { group, input, fake } = setupGroup('input-group');
