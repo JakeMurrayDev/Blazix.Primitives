@@ -2271,6 +2271,8 @@ interface ListState {
   appliedRevision: number;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
   reportedIndex: number | null | undefined;
+  /** The item element of the highlight last reported, as an index can come to point at another element. */
+  reportedElement: Element | null;
   /** The elements that carry the `aria-activedescendant` the module wrote under virtual focus. */
   readonly descendantTargets: Set<Element>;
   readonly typeahead: TypeaheadState;
@@ -2470,13 +2472,16 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
   });
 }
 
-// CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied.
+// CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied. MenuRoot.tsx:574-592: a change
+// is of the index or of the element at it, which a registry publication can move while the index stays (MNU-EVT-11); an
+// item removed in this commit stays registered until the publication that calls back here.
 function reportHighlight(state: ListState, handle: ListHandle, event: Event | undefined): void {
-  if (state.activeIndex === state.reportedIndex) {
+  const element = state.activeIndex != null ? (elementsOf(state)[state.activeIndex] ?? null) : null;
+  if ((state.activeIndex === state.reportedIndex && element === state.reportedElement) || element?.isConnected === false) {
     return;
   }
   state.reportedIndex = state.activeIndex;
-  const element = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+  state.reportedElement = element;
   // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): the registry's label, resolved on every
   // rebuild (CMP-STA-06/07), sent only for a highlighted item that has one.
   const label = state.activeIndex != null ? state.floating?.registry.labels[state.activeIndex] : null;
@@ -2707,6 +2712,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     handles: new Set(),
     appliedRevision: 0,
     reportedIndex: null,
+    reportedElement: null,
     descendantTargets: new Set(),
     typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
     // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
@@ -3483,6 +3489,7 @@ function attachList(
         }
       }
       writeHighlight(state, handle);
+      reportHighlight(state, handle, undefined);
     });
   } else {
     referencePart = { element, isReference: options.reference != null };
