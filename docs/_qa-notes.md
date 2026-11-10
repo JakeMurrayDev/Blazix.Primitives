@@ -110,3 +110,5 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - ToggleGroup: `toggleMultiple` renamed `multiple` (v1.0.0-beta.4); Toolbar: no `cols` (removed v1.0.0-beta.5), no Home/End.
 - Form: `onClearErrors` removed in v1.0.0-alpha.9; not a prop in 1.9.0.
 - NumberField: no `role="spinbutton"`/`aria-value*`, no PageUp/PageDown, no Enter commit, no `pattern`, no cursor CSS variables.
+
+- 2026-11-10 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173)): two fidelity corrections in `select.md`. SEL-EDGE-05 said a read-only single-mode activation still requests the close; `select/item/SelectItem.tsx:128-138` returns before the close. SEL-POS-11 counted fourteen "aligned popup scroll resizing" titles; the describe has fifteen.
