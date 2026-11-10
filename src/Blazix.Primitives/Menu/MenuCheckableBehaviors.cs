@@ -190,7 +190,7 @@ internal sealed class MenuRadioGroupBehavior<TValue>
         public override IDisposable Subscribe(Action changed)
         {
             listeners.Add(changed);
-            return new Listener(listeners, changed);
+            return new MenuContextListener(listeners, changed);
         }
 
         public void Notify()
@@ -313,7 +313,7 @@ internal sealed class MenuCheckableItemContext
     public IDisposable Subscribe(Action changed)
     {
         listeners.Add(changed);
-        return new Listener(listeners, changed);
+        return new MenuContextListener(listeners, changed);
     }
 
     /// <summary>Records the item's state and tells the indicator when it changed.</summary>
@@ -564,14 +564,14 @@ internal sealed class MenuGroupContext
     public IDisposable Subscribe(Action changed)
     {
         listeners.Add(changed);
-        return new Listener(listeners, changed);
+        return new MenuContextListener(listeners, changed);
     }
 }
 
 /// <summary>A listener registration of a menu part's context, removed on dispose.</summary>
 /// <param name="listeners">The context's listeners.</param>
 /// <param name="listener">The registered listener.</param>
-internal sealed class Listener(List<Action> listeners, Action listener) : IDisposable
+internal sealed class MenuContextListener(List<Action> listeners, Action listener) : IDisposable
 {
     /// <inheritdoc />
     public void Dispose() => listeners.Remove(listener);

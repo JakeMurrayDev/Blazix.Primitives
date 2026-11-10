@@ -28,7 +28,7 @@ internal abstract class MenuRootContext
     public abstract MenuParent Parent { get; }
 
     /// <summary>Gets a value indicating whether the menu keeps real focus on an element of its own and highlights by <c>aria-activedescendant</c>.</summary>
-    /// <value><see langword="false"/> for a plain menu; a filterable menu's (track 12).</value>
+    /// <value><see langword="false"/> for a plain menu; <see langword="true"/> for a filterable menu's.</value>
     public abstract bool Virtual { get; }
 
     /// <summary>Gets a value indicating whether the root was given a handle.</summary>

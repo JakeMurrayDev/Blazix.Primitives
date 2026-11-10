@@ -301,8 +301,9 @@ export interface MenuFloatingOptions {
   disableHoverOnMove?: boolean | null;
 }
 
-// Design point 2 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): ContextMenu's release rules, set as data on the tree's slot.
-/** The release rules a context menu sets on its tree (CTX-PTR-09..12). */
+// Design point 2 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): ContextMenu's release rules, set as data on the tree's slot
+// (CTX-PTR-09..12).
+/** The release rules a context menu sets on its tree. */
 export interface MenuReleaseRules {
   /** The button a release must use to activate an item, or `null` for any. */
   button: number | null;
