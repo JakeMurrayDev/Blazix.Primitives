@@ -1,7 +1,7 @@
 import { type Locator } from '@playwright/test';
 import { expect, test, type Page, type RenderMode } from './helpers';
 import { settle } from './suites/popupFixture';
-import { gotoCombobox, moveTo, recorded, type FixtureOptions } from './combobox.helpers';
+import { fire, gotoCombobox, moveTo, recorded, type FixtureOptions } from './combobox.helpers';
 
 // Base UI's ComboboxChip.test.tsx, ComboboxChipRemove.test.tsx, ComboboxChips.test.tsx and parts.test.ts (M5 track 10, issue 174)
 // on the `combobox-chips` fixture, titles verbatim, every title on both render modes. The fixture renders the page of each test
@@ -12,6 +12,22 @@ import { gotoCombobox, moveTo, recorded, type FixtureOptions } from './combobox.
 async function open(page: Page, mode: RenderMode, options: FixtureOptions = {}): Promise<Locator> {
   const fixture = await gotoCombobox(page, mode, 'combobox-chips', options);
   await settle(fixture);
+  // The Chips part reports its chips' ids to the combobox module after a render of its own, and the module keeps them on the element
+  // under a symbol key (js/combobox.ts `chipIdsKey`): the key navigation sees a chip only once that list has it, so the title waits
+  // until the list is as long as the rendered chips.
+  if (options.disabled) {
+    return fixture; // A disabled root navigates nothing; on WebAssembly its Chips report no ids.
+  }
+  await expect
+    .poll(() =>
+      page.getByTestId('chips').evaluate((element) => {
+        const key = Object.getOwnPropertySymbols(element).find((symbol) => symbol.description === 'blazix.combobox.chipIds');
+        const ids = key ? ((element as unknown as Record<symbol, string[]>)[key] ?? []) : [];
+        const chips = element.querySelectorAll('[data-testid^="chip-"]').length;
+        return ids.length === chips ? 'ready' : `ids ${ids.length} chips ${chips} key ${Boolean(key)}`;
+      }),
+    )
+    .toBe('ready');
   return fixture;
 }
 
@@ -127,12 +143,14 @@ test.describe('<Combobox.Chip />', () => {
     });
 
     test('closes the popup when a chip receives focus', async ({ page, mode }) => {
-      await open(page, mode, { popup: true, defaultOpen: true, items: 'a|b' });
+      const fixture = await open(page, mode, { popup: true, defaultOpen: true, items: 'a|b' });
 
       const input = page.getByTestId('input');
       await expect(listbox(page)).toBeVisible();
 
       await input.click();
+      // Readiness: the click's open request has reached C# (a focus-out right behind it can be missed on Server, see the report).
+      await settle(fixture);
       await page.getByTestId('chip-apple').focus();
 
       await expect(listbox(page)).toHaveCount(0);
@@ -199,10 +217,11 @@ test.describe('<Combobox.Chip />', () => {
 
     for (const key of ['ArrowDown', 'ArrowUp']) {
       test(`focuses a conditional input when reopening from a chip with ${key}`, async ({ page, mode }) => {
-        await open(page, mode, { values: 'apple', input: 'conditional', controlled: true, defaultOpen: true, popup: true, items: 'banana' });
+        const fixture = await open(page, mode, { values: 'apple', input: 'conditional', controlled: true, defaultOpen: true, popup: true, items: 'banana' });
         const chip = page.getByTestId('chip-apple');
 
         await page.getByRole('combobox').click();
+        await settle(fixture);
         await page.keyboard.press('ArrowLeft');
 
         await expect(page.getByRole('combobox')).toHaveCount(0);
@@ -473,7 +492,9 @@ test.describe('<Combobox.ChipRemove />', () => {
       await expect(apple).toBeVisible();
       await moveTo(page, apple);
       await expect(apple).toHaveAttribute('data-highlighted', '');
-      await page.getByTestId('remove-banana').click();
+      // Deviation (2026-11-10): Base UI's `fireEvent.click` moves no pointer. A real click moves the pointer off the item, and the item's
+      // pointer leave clears its highlight itself, so the click is dispatched where the pointer rests.
+      await fire(page.getByTestId('remove-banana'), 'click');
       await settle(fixture);
 
       await expect(apple).toHaveAttribute('data-highlighted', '');
@@ -486,7 +507,8 @@ test.describe('<Combobox.ChipRemove />', () => {
       await expect(banana).toBeVisible();
       await moveTo(page, banana);
       await expect(banana).toHaveAttribute('data-highlighted', '');
-      await page.getByTestId('remove-apple').click();
+      // Deviation (2026-11-10): as above, the click is dispatched where the pointer rests.
+      await fire(page.getByTestId('remove-apple'), 'click');
       await settle(fixture);
 
       await expect(banana).toHaveAttribute('data-highlighted', '');
@@ -497,7 +519,7 @@ test.describe('<Combobox.ChipRemove />', () => {
 
       const apple = page.getByRole('option', { name: 'apple option' });
       await expect(apple).toBeVisible();
-      await moveTo(page, apple);
+      await moveTo(page, apple, { unanchored: true });
       await expect(apple).toHaveAttribute('data-highlighted', '');
       await page.getByTestId('remove-apple').click();
 
@@ -537,13 +559,18 @@ test.describe('<Combobox.Chips />', () => {
   });
 
   test('lets onMouseDown prevent the built-in focus and open behavior', async ({ page, mode }) => {
-    // PTR-08's consumer veto waits for DP6 (the `press` twin point) on a Chips area press.
     const fixture = await open(page, mode, { chipsMouseDown: true, popup: true, items: 'apple|banana', values: 'apple', input: 'inside' });
 
     await pressChipsArea(page.getByTestId('chips'));
     await settle(fixture);
 
     expect(await recorded(fixture, 'data-chips-mousedowns')).toHaveLength(1);
+    if (mode === 'server') {
+      // ADR 01 Amendments 2026-11-10 (press): on Server the veto falls back to run. The press focuses and opens, and the handler still ran once.
+      await expect(page.getByTestId('input')).toBeFocused();
+      await expect(listbox(page)).toBeVisible();
+      return;
+    }
     await expect(page.getByTestId('input')).not.toBeFocused();
     await expect(listbox(page)).toHaveCount(0);
   });
