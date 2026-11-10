@@ -176,6 +176,18 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         }
     }
 
+    // MNU-ANI-03 (MenuRoot.tsx:138-153, `animateInitialOpen`): a submenu that mounts open during its parent's enter plays its
+    // own, as Base UI's store starts it in `'starting'`; the seed of the root's parameters mounted it settled.
+    /// <summary>Starts the enter of a submenu that mounts open during its parent's enter.</summary>
+    public void BeginInitialEnter()
+    {
+        PopupLifecycleState lifecycle = State.Popup.Lifecycle;
+        if (lifecycle.Mounted && lifecycle.TransitionStatus is null)
+        {
+            WriteLifecycle(lifecycle with { TransitionStatus = TransitionStatus.Starting });
+        }
+    }
+
     // MNU-ANI-04 (MenuRoot.tsx:139-160): an initially open submenu mirrors its parent's instant type.
     /// <summary>Seeds the instant type an initially open submenu takes from its parent.</summary>
     /// <param name="inherited">The parent's instant type, or <see langword="null"/>.</param>
