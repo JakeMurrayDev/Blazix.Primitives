@@ -257,6 +257,7 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
             focus!.SetInputs(FocusInputs());
             await focus.AfterRenderAsync(element, Id);
             await listSync;
+            current.PopupListAttached = !disposed && list.TwinAttached.IsCompletedSuccessfully;
             await moduleSync;
             await transitionsSync;
         }
@@ -271,6 +272,11 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
         {
             disposed = true;
             store?.SetListboxConsumerId(list: false, null);
+            if (store is not null)
+            {
+                store.PopupListAttached = false;
+            }
+
             PositionerContext?.Positioning.RemoveListener(positionerChanged);
             if (PositionerContext is { } positionerContext)
             {

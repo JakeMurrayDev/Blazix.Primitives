@@ -47,6 +47,10 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
     /// <summary>Gets or sets the trigger's element, which aligned placement measures.</summary>
     public ElementReference? TriggerElement { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the popup's list handle is attached in the browser.</summary>
+    /// <value><see langword="true"/> from the handle's attach until the popup leaves.</value>
+    public bool PopupListAttached { get; set; }
+
     /// <summary>Gets or sets the action the positioner runs after each render, once its element shows the open state.</summary>
     /// <value>The root's deferred session update; <see langword="null"/> before the root set it.</value>
     public Action? PositionerRendered { get; set; }

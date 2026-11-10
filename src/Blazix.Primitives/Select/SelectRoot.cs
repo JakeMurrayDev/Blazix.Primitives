@@ -633,7 +633,10 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
     // The commit path sends the session and the list their options without a render of the Root (ADR 01 Amendments
     // 2026-10-27). A popup kept mounted while closed is hidden until the positioner's render of the open commit, and the
     // list reads its items' visibility when it learns of the open (CMP-ALG-03, CMP-STA-37), so that open reaches the
-    // session and the list from the positioner's next after-render, as Base UI's effects follow the commit's render.
+    // session and the list from the positioner's next after-render, as Base UI's effects follow the commit's render. Only
+    // while the popup's list handle is already attached: a handle that attaches in that window would sync with the
+    // session still closed and drop the key the open highlights by (CMP-STA-38), so an open that races the trigger's
+    // force-mount goes out at once and the handle attaches to an open session.
     private void OnCommitted()
     {
         if (!rendered)
@@ -646,7 +649,7 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
         bool open = state.Lifecycle.EffectiveOpen;
         bool keptMounted = renderedWhileClosed;
         renderedWhileClosed = !open && SelectStoreState.Rendered(state);
-        if (open && (openDeferred || (keptMounted && !session!.Open && store.PositionerElement is not null)))
+        if (open && (openDeferred || (keptMounted && !session!.Open && store.PositionerElement is not null && store.PopupListAttached)))
         {
             openDeferred = true;
             return;
