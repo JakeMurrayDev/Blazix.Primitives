@@ -2406,6 +2406,23 @@ describe('useListNavigation (WebKit)', () => {
 
 // Port titles for CMP rows with `Test: none` (M5 track 1, issue 159; the M2 "none (port L3)" precedent), positive first.
 describe('list navigation rows without a Base UI title (port)', () => {
+  it('port: in grid mode a typeable combobox input with no highlight keeps ArrowLeft and ArrowRight for its caret (CMB-KEY-13)', () => {
+    const harness = app({
+      reference: 'input',
+      floatingRole: 'grid',
+      items: ['a', 'b', 'c', 'd'],
+      rowSize: 2,
+      itemAttributes: () => ({ role: 'gridcell' }),
+      session: { open: true },
+      list: { virtual: true, orientation: 'horizontal', grid: true },
+    });
+    harness.reference.focus();
+
+    const released = [keyDown(harness.reference, 'ArrowLeft'), keyDown(harness.reference, 'ArrowRight')];
+
+    expect([released.map((event) => event.defaultPrevented), harness.highlights.length]).toEqual([[false, false], 0]);
+  });
+
   // CMP-STR-06: the reference, trigger and floating roles act through their own handles, the item role through the
   // floating handle's delegated listeners; with `enabled: false` no role acts.
   it('port: the reference, trigger, floating and item roles act through their handles, and with enabled false none acts', async () => {
