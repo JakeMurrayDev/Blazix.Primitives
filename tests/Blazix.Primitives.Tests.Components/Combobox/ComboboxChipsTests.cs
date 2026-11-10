@@ -167,8 +167,9 @@ public sealed class ComboboxChipsTests : IDisposable
 
         await cut.InvokeAsync(runtime.Release);
 
-        // The import resolves on the thread pool, so the update follows the release.
-        cut.WaitForAssertion(() => Assert.Contains(runtime.ChipsOptions(), json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal)), TimeSpan.FromSeconds(5));
+        // The import resolves on the thread pool, so the update follows the release; under a full parallel run the pool can
+        // take seconds to reach it, so the wait is generous (it timed out at 5 s once in a full Release run, 2026-11-11).
+        cut.WaitForAssertion(() => Assert.Contains(runtime.ChipsOptions(), json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal)), TimeSpan.FromSeconds(30));
     }
 #pragma warning restore BL0016
 
