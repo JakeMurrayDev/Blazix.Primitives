@@ -8,6 +8,7 @@
 // a `pointerdown` of type `touch`, the `touchend` and the compatibility mouse events.
 import { type CDPSession, type Locator } from '@playwright/test';
 import { expect, isScrollLocked, test, type Page } from './helpers';
+import { waitForPositioned } from './helpers/positioner';
 import {
   animationStarts,
   gotoPopupFixture,
@@ -58,7 +59,24 @@ async function touchSession(page: Page): Promise<CDPSession> {
   return cdp;
 }
 
+/**
+ * Waits for the first pass of the Positioner around `target` before a title reads its box (issue 191): until then the
+ * Positioner holds `opacity: 0` over the unpositioned layout. On a paused clock the wait steps the clock only while the pass
+ * has not landed, so a title's timer accounting is unchanged once it has.
+ */
+async function positioned(target: Locator, clockFrozen = false): Promise<void> {
+  const positioner = target.locator('xpath=ancestor::*[@data-testid="positioner" or @data-testid="select-positioner"]').last();
+  if ((await positioner.count()) === 0) {
+    return;
+  }
+
+  if ((await positioner.evaluate((element) => (element as HTMLElement).style.opacity)) === '0') {
+    await waitForPositioned(positioner, { clockFrozen });
+  }
+}
+
 async function tap(cdp: CDPSession, target: Locator): Promise<void> {
+  await positioned(target);
   const box = (await target.boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
@@ -66,7 +84,8 @@ async function tap(cdp: CDPSession, target: Locator): Promise<void> {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
-async function centerOf(target: Locator): Promise<{ x: number; y: number }> {
+async function centerOf(target: Locator, clockFrozen = false): Promise<{ x: number; y: number }> {
+  await positioned(target, clockFrozen);
   const box = (await target.boundingBox())!;
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
@@ -560,7 +579,7 @@ test.describe('<Select.Root />', () => {
       await expect(gala).toBeVisible();
       await settle(fixture);
       await page.clock.runFor(16);
-      const galaCenter = await centerOf(gala);
+      const galaCenter = await centerOf(gala, true);
       await page.mouse.move(galaCenter.x, galaCenter.y, { steps: 2 });
       await page.mouse.up();
       await page.clock.resume();
@@ -594,7 +613,7 @@ test.describe('<Select.Root />', () => {
       await expect(selected).toBeVisible();
       await settle(fixture);
       await page.clock.runFor(16);
-      const selectedCenter = await centerOf(selected);
+      const selectedCenter = await centerOf(selected, true);
       await page.mouse.move(selectedCenter.x, selectedCenter.y, { steps: 2 });
       await page.mouse.up();
       await page.clock.resume();

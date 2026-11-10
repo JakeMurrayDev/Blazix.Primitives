@@ -3,6 +3,7 @@
 // Fixtures: tests/Blazix.Primitives.Fixtures.Client/Select/SelectNav*Fixture.razor (and `select-positioner`).
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './helpers';
+import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
 const trigger = (page: Page) => page.getByTestId('trigger');
@@ -52,8 +53,20 @@ async function stable(page: Page, target: Locator): Promise<void> {
     .toBe(true);
 }
 
+/**
+ * Waits for the first pass of the Positioner around `target` before a title reads its box (issue 191): until then the
+ * Positioner holds `opacity: 0` over the unpositioned layout.
+ */
+async function positioned(target: Locator): Promise<void> {
+  const positioner = target.locator('xpath=ancestor::*[@data-testid="positioner"]').last();
+  if ((await positioner.count()) > 0) {
+    await waitForPositioned(positioner);
+  }
+}
+
 /** Moves the real mouse onto a point of the element's visible part (the part inside `within`), arriving with a movement. */
 async function moveOver(page: Page, target: Locator, within?: Locator): Promise<void> {
+  await positioned(target);
   const box = (await target.boundingBox())!;
   let top = box.y;
   let bottom = box.y + box.height;
@@ -393,6 +406,7 @@ test.describe('prop: highlightItemOnHover', () => {
     await gotoPopupFixture(page, mode, 'select-nav-hover', { case: 'default' });
     const optionB = option(page, 'b');
     await expect(optionB).toBeVisible();
+    await positioned(optionB);
 
     await optionB.hover();
 
@@ -417,6 +431,7 @@ test.describe('prop: highlightItemOnHover', () => {
     const fixture = await gotoPopupFixture(page, mode, 'select-nav-hover', { case: 'disabled' });
     const optionB = option(page, 'b');
     await expect(optionB).toBeVisible();
+    await positioned(optionB);
 
     await optionB.hover();
 
@@ -428,6 +443,7 @@ test.describe('prop: highlightItemOnHover', () => {
   test('does not remove highlight when mousing out of popup when disabled', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'select-nav-hover', { case: 'disabled' });
     const optionA = option(page, 'a');
+    await positioned(optionA);
     await optionA.hover();
 
     const popup = page.getByRole('listbox');
@@ -478,6 +494,7 @@ test.describe('item-aligned popup interaction', () => {
     await gotoPopupFixture(page, mode, 'select-nav-aligned', { case: 'edges' });
     await trigger(page).click();
     await expect(option(page, 'Item 15')).toBeFocused();
+    await positioned(option(page, 'Item 15'));
     await frames(page);
     const popup = page.getByTestId('popup');
     const before = await geometry(popup);
@@ -505,8 +522,9 @@ test.describe('item-aligned popup interaction', () => {
     await focusTrigger(page, fixture);
     await page.keyboard.press('ArrowDown');
     await expect(option(page, 'Item 1')).toBeFocused();
-    await frames(page);
     const positioner = page.getByTestId('positioner');
+    await waitForPositioned(positioner);
+    await frames(page);
     const initialHeight = (await positioner.boundingBox())!.height;
 
     const isInsidePopup = async (name: string) => {

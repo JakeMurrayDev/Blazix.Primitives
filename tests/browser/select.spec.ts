@@ -1,5 +1,6 @@
 // L4 for docs/components/select.md (M5 track 9, issue 173): Server then WebAssembly.
 import { expect, test, throttleCpu } from './helpers';
+import { waitForPositioned } from './helpers/positioner';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPopupFixture } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
@@ -61,6 +62,7 @@ test.describe('Select: smoke', () => {
     const positioner = page.getByTestId('positioner');
     await expect(positioner).toHaveAttribute('data-side', 'none');
     await expect(page.getByTestId('popup')).toHaveAttribute('data-side', 'none');
+    await waitForPositioned(positioner);
     const value = await page.getByTestId('value').boundingBox();
     const text = await page.getByRole('option', { name: 'Fuji' }).locator('div').last().boundingBox();
     expect(Math.abs((text!.y + text!.height / 2) - (value!.y + value!.height / 2))).toBeLessThan(2);

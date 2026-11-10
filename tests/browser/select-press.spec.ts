@@ -10,6 +10,7 @@
 // are `page.clock.runFor` on a frozen page clock, which moves the select module's 400 ms selected-delay timer (SEL-PTR-05).
 import { type Locator } from '@playwright/test';
 import { expect, test, type Page } from './helpers';
+import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
 // The clock belongs to the worker's browser context, which every page of the worker shares: a title that froze it resumes it,
@@ -40,6 +41,22 @@ async function freezeClock(page: Page): Promise<void> {
 
 const option = (page: Page, name: string): Locator => page.getByRole('option', { name, exact: true });
 
+/**
+ * Waits for the first pass of the Positioner around `target` before a title reads its box (issue 191): until then the
+ * Positioner holds `opacity: 0` over the unpositioned layout. On a paused clock the wait steps the clock only while the pass
+ * has not landed, so a title's timer accounting is unchanged once it has.
+ */
+async function positioned(target: Locator, clockFrozen = false): Promise<void> {
+  const positioner = target.locator('xpath=ancestor::*[@data-testid="positioner" or @data-testid="select-positioner"]').last();
+  if ((await positioner.count()) === 0) {
+    return;
+  }
+
+  if ((await positioner.evaluate((element) => (element as HTMLElement).style.opacity)) === '0') {
+    await waitForPositioned(positioner, { clockFrozen });
+  }
+}
+
 /** The pointer position at the center of an element. */
 async function centerOf(target: Locator): Promise<{ x: number; y: number }> {
   const box = (await target.boundingBox())!;
@@ -59,6 +76,7 @@ async function holdTrigger(page: Page, fixture: Locator): Promise<void> {
   await expect(page.getByRole('listbox')).toBeVisible();
   await settle(fixture);
   await page.clock.runFor(16);
+  await positioned(page.getByRole('listbox'), true);
 }
 
 /**
@@ -143,6 +161,7 @@ test.describe('<Select.Item />', () => {
   test('should not select disabled item', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'select-press-item', { items: 'one|two', disabledItems: 'two', placeholder: '' });
     await page.getByTestId('trigger').click();
+    await positioned(option(page, 'two'));
     await option(page, 'two').click({ force: true });
     await settle(fixture);
 
@@ -179,6 +198,7 @@ test.describe('<Select.Item />', () => {
     });
     const item = option(page, 'one');
     await expect(item).toHaveAttribute('data-disabled');
+    await positioned(item);
 
     await item.click({ force: true });
     await settle(fixture);
@@ -221,6 +241,7 @@ test.describe('<Select.Item />', () => {
     await page.getByTestId('trigger').click();
     await expect(page.getByRole('listbox')).toBeVisible();
     const item = option(page, 'two');
+    await positioned(item);
 
     await item.hover();
     await expect(item).toHaveAttribute('data-highlighted');
