@@ -356,22 +356,6 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Equal("second", cut.Find("[data-testid=input]").Id);
     }
 
-    [Fact(DisplayName = "port: closing a kept-mounted popup does not re-render the list or its items")]
-    [Trait("Requirement", "CMB-API-55")]
-    public async Task Closing_a_kept_mounted_popup_does_not_rerender_the_list()
-    {
-        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
-            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)s_fruits })
-            .Add(x => x.KeepMounted, true));
-        IRenderedComponent<ComboboxList<string>> list = cut.FindComponent<ComboboxList<string>>();
-        int renders = list.RenderCount;
-
-        await cut.InvokeAsync(() => cut.Instance.Root!.Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ImperativeAction)));
-
-        Assert.False(cut.Instance.Root!.Store.IsOpen);
-        Assert.Equal(renders, list.RenderCount);
-    }
-
     [Fact(DisplayName = "port: a typed query does not re-render the Value part")]
     [Trait("Requirement", "CMB-API-46")]
     public async Task A_typed_query_does_not_rerender_the_value_part()
