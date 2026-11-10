@@ -2,6 +2,7 @@ using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
@@ -139,6 +140,40 @@ public sealed class ComboboxItemTests : IDisposable
 
         Assert.Equal("one", cut.Instance.Root!.Store.SelectedValue);
         Assert.False(cut.Instance.Root.Store.IsOpen);
+    }
+
+    // Final review N1: on Server the end reports (OnItemLinkPress {href:null}, OnSelectionEvent {event:null}) can be processed
+    // while an async consumer onclick yields; the item takes both before the consumer's handler runs.
+    [Fact(DisplayName = "port: an item's yielding onclick keeps the link press and Enter's attribution its end reports clear meanwhile")]
+    [Trait("Requirement", "CMB-PTR-05")]
+    [Trait("Requirement", "CMB-KEY-04")]
+    public async Task A_yielding_onclick_keeps_the_link_press_and_the_attribution()
+    {
+        TaskCompletionSource yielded = new();
+        IRenderedComponent<ComboboxLinkHarness> link = test.Context.Render<ComboboxLinkHarness>(p => p
+            .Add(x => x.Href, "/somewhere")
+            .Add(x => x.ItemClick, _ => yielded.Task));
+        ComboboxTwin list = test.TwinOf(ComboboxTwin.ListPart);
+        await link.InvokeAsync(() => list.OnItemLinkPress("""{"href":"/somewhere"}"""));
+        Task click = link.InvokeAsync(() => link.Find("[data-testid=link-one]").ClickAsync(new MouseEventArgs()));
+        await link.InvokeAsync(() => list.OnItemLinkPress("""{"href":null}"""));
+        yielded.SetResult();
+        await click;
+        Assert.Empty(link.Instance.ValueChanges);
+
+        TaskCompletionSource second = new();
+        IRenderedComponent<ComboboxLinkHarness> plain = test.Context.Render<ComboboxLinkHarness>(p => p
+            .Add(x => x.Href, null)
+            .Add(x => x.ItemClick, _ => second.Task));
+        ComboboxTwin input = test.TwinOf(ComboboxTwin.InputPart);
+        await plain.InvokeAsync(() => input.OnSelectionEvent($$"""{"event":{{ComboboxTestContext.Key("Enter")}}}"""));
+        Task enter = plain.InvokeAsync(() => plain.Find("[data-testid=link-one]").ClickAsync(new MouseEventArgs()));
+        await plain.InvokeAsync(() => input.OnSelectionEvent("""{"event":null}"""));
+        second.SetResult();
+        await enter;
+
+        ValueChangeEventArgs<string> change = Assert.Single(plain.Instance.ValueChanges);
+        Assert.Equal("keydown", change.Details.Event?.Type);
     }
 
     private async Task ClickLinkAsync(IRenderedComponent<ComboboxLinkHarness> cut, bool hash)

@@ -103,6 +103,40 @@ internal sealed class ComboboxTestContext : IDisposable
         return ((DotNetObjectReference<ComboboxTwin>)attach.Arguments[2]!).Value;
     }
 
+    /// <summary>Gets the options a part's <c>combobox</c> handle sent last.</summary>
+    /// <param name="part">The part literal, such as <c>input-group</c>.</param>
+    public string LastOptions(string part)
+    {
+        string marker = "\"part\":\"" + part + "\"";
+        string? options = null;
+        foreach (JSRuntimeInvocation attach in Combobox.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in ComboboxHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        return options ?? string.Empty;
+    }
+
+    /// <summary>Gets the snapshot JSON of an event of another type and time than a template's.</summary>
+    /// <param name="template">The template, such as <see cref="Click"/>.</param>
+    /// <param name="type">The event's type.</param>
+    /// <param name="timeStamp">The event's time stamp, which tells two events apart.</param>
+    /// <returns>The JSON.</returns>
+    public static string Event(string template, string type, int timeStamp) =>
+        System.Text.RegularExpressions.Regex.Replace(template, "\"type\":\"[a-z]+\"", "\"type\":\"" + type + "\"")
+            .Replace("\"timeStamp\":1", "\"timeStamp\":" + timeStamp.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+
     /// <summary>Gets the options the input's <c>combobox</c> handle sent last.</summary>
     public string LastInputOptions()
     {

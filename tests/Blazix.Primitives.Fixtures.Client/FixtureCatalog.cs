@@ -266,5 +266,7 @@ public static class FixtureCatalog
         ["combobox-root-c"] = new(typeof(ComboboxRootCL4Fixture)),
         // combobox.suites.spec.ts
         ["combobox-suite"] = new(typeof(ComboboxSuiteL4Fixture)),
+        ["combobox-suite-list"] = new(typeof(ComboboxSuiteListL4Fixture)),
+        ["combobox-suite-positioner"] = new(typeof(ComboboxSuitePositionerL4Fixture)),
     };
 }

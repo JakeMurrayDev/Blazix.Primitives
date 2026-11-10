@@ -1,0 +1,135 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-suite-list` fixture (tests/browser/combobox.suites.spec.ts, M5 track 10, issue 174): popupListConformanceTests
+    (tests/browser/suites/) on Combobox's own parts, as ComboboxRoot.test.tsx's createComponent renders them: the Input as
+    the suite's `trigger`, a Portal > Positioner > Popup (`popup`) > List (`scroller`) whose items render `<span>label</span>`.
+    The query is the suite's contract (tests/browser/CONTEXT.md): `items`, `disabledItems`, `itemStyle`, `scrollerStyle`,
+    `onItemClick` (`data-item-clicks`), `role`, `selectable` (`data-value-changes`, `|`-separated), `defaultValue`, `modal`,
+    `wrap` (`form`: `data-submits`; `dialog`: inside an open Dialog popup `dialog`); the After button records
+    `data-outside-clicks`.
+*@
+<FixtureContainer Name="combobox-suite-list" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-item-clicks="@string.Join('|', itemClicks)" data-value-changes="@string.Join('|', valueChanges)"
+                  data-outside-clicks="@outsideClicks" data-submits="@submits">
+    @SyncButton
+    @if (wrap == "form")
+    {
+        <form @onsubmit="() => submits++">
+            @ListPage
+            <button type="submit">Submit</button>
+        </form>
+    }
+    else if (wrap == "dialog")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="dialog" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup data-testid="dialog">@ListPage</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else
+    {
+        @ListPage
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = [.. Enumerable.Range(0, 12).Select(i => $"Item {i}")];
+    private readonly List<string> itemClicks = [];
+    private readonly List<string> valueChanges = [];
+    private readonly Dictionary<string, object?> rootParameters = [];
+    private string[] items = s_items;
+    private HashSet<string> disabledItems = [];
+    private string? itemStyle;
+    private string? scrollerStyle;
+    private bool recordItemClicks;
+    private string? wrap;
+    private int outsideClicks;
+    private int submits;
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private DialogRoot<NoPayload>? dialog;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask, dialog?.SessionAttached ?? Task.CompletedTask];
+
+    // The suites' query is URLSearchParams's, which writes a space as `+`; the base class unescapes percent escapes only.
+    private string? Text(string name) => Query(name)?.Replace('+', ' ');
+
+    protected override void OnInitialized()
+    {
+        if (Text("items") is { } list)
+        {
+            items = list.Length == 0 ? [] : list.Split('|');
+        }
+
+        if (Text("disabledItems") is { } disabled && disabled.Length > 0)
+        {
+            disabledItems = [.. disabled.Split('|')];
+        }
+
+        itemStyle = Text("itemStyle");
+        scrollerStyle = Text("scrollerStyle");
+        recordItemClicks = QueryFlag("onItemClick") == true;
+        wrap = Query("wrap");
+        rootParameters["Items"] = items;
+        rootParameters["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpenChange);
+        rootParameters["OnOpenChangeComplete"] = EventCallback.Factory.Create<bool>(this, RecordOpenChangeComplete);
+        if (QueryFlag("selectable") == true)
+        {
+            rootParameters["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => valueChanges.Add(args.Value ?? "null"));
+        }
+
+        if (Text("defaultValue") is { } value)
+        {
+            rootParameters["DefaultValue"] = value;
+        }
+
+        if (QueryFlag("modal") == true)
+        {
+            rootParameters["Modal"] = true;
+        }
+    }
+
+    private Dictionary<string, object> ItemAttributes(string label)
+    {
+        Dictionary<string, object> attributes = [];
+        if (itemStyle is not null)
+        {
+            attributes["style"] = itemStyle;
+        }
+
+        if (recordItemClicks)
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => itemClicks.Add(label));
+        }
+
+        return attributes;
+    }
+
+    private Dictionary<string, object> ScrollerAttributes => scrollerStyle is null ? [] : new() { ["style"] = scrollerStyle };
+
+    private RenderFragment ListPage => @<div>
+        <button type="button" data-testid="before">Before</button>
+        <ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+            <ComboboxInput @ref="input" data-testid="trigger" />
+            <ComboboxPortal>
+                <ComboboxPositioner style="position: relative; z-index: 1">
+                    <ComboboxPopup data-testid="popup">
+                        <ComboboxList TValue="string" data-testid="scroller" @attributes="ScrollerAttributes">
+                            <ItemContent>
+                                <ComboboxItem TValue="string" @key="context.Value" Value="@context.Value" Disabled="@disabledItems.Contains(context.Value)"
+                                              @attributes="ItemAttributes(context.Value)"><span>@context.Value</span></ComboboxItem>
+                            </ItemContent>
+                        </ComboboxList>
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </ComboboxRoot>
+        <button type="button" data-testid="after" @onclick="() => outsideClicks++">After</button>
+    </div>;
+}

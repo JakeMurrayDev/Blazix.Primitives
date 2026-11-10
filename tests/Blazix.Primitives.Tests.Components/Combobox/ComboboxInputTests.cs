@@ -1,8 +1,10 @@
 using AngleSharp.Dom;
+using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -37,6 +39,52 @@ public sealed class ComboboxInputTests : IDisposable
         await cut.InvokeAsync(() => cut.Find("[data-testid=input]").KeyDown(new KeyboardEventArgs { Key = "a" }));
 
         Assert.Equal(["a"], keys);
+    }
+
+    // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): one keydown reaches the `combobox` input handle's
+    // `navigate` and the `composite` reference handle's; C# runs the consumer's onkeydown once for that event and answers
+    // both, and Blazor's later dispatch of the key skips it. On Server a key the module stopped arrives as OnKeyHandled.
+    [Fact(DisplayName = "port: the input's onkeydown runs once for both handles' navigate, and its PreventPartHandler() vetoes both")]
+    [Trait("Requirement", "CMB-KEY-04")]
+    [Trait("Requirement", "CMB-KEY-06")]
+    public async Task The_inputs_onkeydown_runs_once_for_both_navigate_points()
+    {
+        List<string> keys = [];
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxInput>(0);
+            builder.AddComponentParameter(1, "data-testid", "input");
+            builder.AddComponentParameter(2, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e =>
+            {
+                keys.Add(e.Key);
+                if (e.Key == "Home")
+                {
+                    e.PreventPartHandler();
+                }
+            }));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.WithInput, false)
+            .Add(x => x.Extra, (RenderFragment)Extra));
+        Assert.Contains("\"decidesKeyDown\":true", test.LastOptions(ComboboxTwin.InputPart), StringComparison.Ordinal);
+        ComboboxTwin input = test.TwinOf(ComboboxTwin.InputPart);
+        JSRuntimeInvocation attach = test.Composite.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string json && json.Contains("\"reference\":{}", StringComparison.Ordinal));
+        CompositeTwin reference = ((DotNetObjectReference<CompositeTwin>)attach.Arguments[2]!).Value;
+        string home = ComboboxTestContext.Event(ComboboxTestContext.Key("Home"), "keydown", 2);
+        string end = ComboboxTestContext.Event(ComboboxTestContext.Key("End"), "keydown", 3);
+
+        Assert.Equal("stop", await cut.InvokeAsync(() => input.Decide(ComboboxTwin.NavigatePoint, home)));
+        Assert.Equal("stop", await cut.InvokeAsync(() => reference.Decide(CompositeTwin.NavigatePoint, home)));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").KeyDown(new KeyboardEventArgs { Key = "Home", Code = "Home" }));
+        Assert.Equal(["Home"], keys);
+
+        await cut.InvokeAsync(() => input.OnKeyHandled(end));
+        await cut.InvokeAsync(() => input.OnKeyHandled(end));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").KeyDown(new KeyboardEventArgs { Key = "a" }));
+
+        Assert.Equal(["Home", "End", "a"], keys);
     }
 
     [Fact(DisplayName = "port: the consumer's onclick and onmousedown on the input run once per event")]

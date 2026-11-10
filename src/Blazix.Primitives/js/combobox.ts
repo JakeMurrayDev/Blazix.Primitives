@@ -25,6 +25,7 @@ import {
   createTwinChannel,
   parseOptions,
   resolveElement,
+  resolveReference,
   type DecisionPolicy,
   type DotNetTwin,
   type TwinCaptures,
@@ -43,6 +44,12 @@ export const CLEAR_POINT = 'clear';
 
 /** The decision point asked before a chip's removal. */
 export const REMOVE_POINT = 'remove';
+
+/** The decision point the input asks before its own keys while C# holds the consumer's `onKeyDown` (ADR 04 Amendments 2026-11-10). */
+export const NAVIGATE_POINT = 'navigate';
+
+/** The decision point the chips and the input group ask before a press while C# holds the consumer's `onMouseDown`. */
+export const PRESS_POINT = 'press';
 
 /** The part literals; mirror `ComboboxTwin`'s constants. */
 export const INPUT_PART = 'input';
@@ -78,6 +85,9 @@ export interface ComboboxOptions extends TwinOptions {
   index?: number;
   dismissId?: string | null;
   submitRevision?: number | null;
+  submitFormElement?: number | null;
+  decidesKeyDown?: boolean;
+  decidesPress?: boolean;
 }
 
 /** The payload of a classified change of the input text; mirrors `ComboboxInputChange`. */
@@ -282,7 +292,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     mountedAtStart = isMounted();
   };
 
-  const onKeyDown = (event: KeyboardEvent): void => {
+  const handleKey = (event: KeyboardEvent): void => {
     if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
       return;
     }
@@ -350,6 +360,22 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     }
   };
 
+  // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): Base UI merges the consumer's onKeyDown before the
+  // input's own handler, so its preventBaseUIHandler() skips the input's keys. While C# holds that handler, every keydown
+  // asks `navigate` first: on WebAssembly C# runs it inside the dispatch, once per event for this handle and the composite
+  // reference handle; on Server the point falls back to `run`, and a key this handle stopped, which Blazor never
+  // dispatches, is reported so the handler still runs, a round trip late.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (options.decidesKeyDown && isStopVerdict(channel.decide(NAVIGATE_POINT, event, 'run'))) {
+      return;
+    }
+    const stoppedBefore = event.cancelBubble;
+    handleKey(event);
+    if (options.decidesKeyDown && !channel.synchronous && !stoppedBefore && event.cancelBubble) {
+      channel.report('OnKeyHandled', eventInfo(event));
+    }
+  };
+
   // CMB-STR-07: the start dismiss button, found by the id C# rendered it with, while the popup is open and modal.
   const onDocumentClick = (event: MouseEvent): void => {
     const target = getTarget(event) as Element | null;
@@ -366,14 +392,15 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   doc.addEventListener('click', onDocumentClick, true);
 
   return {
-    update(optionsJson: string) {
+    update(optionsJson: string, references?: TwinReferences) {
       options = parseOptions<ComboboxOptions>(optionsJson);
-      // ComboboxItem.tsx:150-158, AriaCombobox.tsx:945-950: an item press of a root that submits on item click submits the
-      // form once its selection rendered, which this update follows.
+      // ComboboxItem.tsx:150-158, AriaCombobox.tsx:945-948: an item press of a root that submits on item click submits, once
+      // its selection rendered (which this update follows), the hidden validation input's form, else the input's.
       const submit = options.submitRevision ?? 0;
       if (submit !== lastSubmit) {
         lastSubmit = submit;
-        const form = element.form;
+        const hidden = resolveReference<HTMLInputElement>(references, options.submitFormElement);
+        const form = hidden?.form ?? element.form;
         if (form && typeof form.requestSubmit === 'function') {
           form.requestSubmit();
         }
@@ -586,8 +613,9 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
   };
   // ComboboxTrigger.tsx:247-256: ArrowDown or ArrowUp stops the key, asks for the open with list-navigation and focuses the
   // input (the trigger holds no list-navigation props; the input is the list's reference in both layouts).
+  // A disabled trigger handles no keys: useButton.ts:116-119 returns first (ADR 04 Amendments 2026-11-10).
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+    if (options.disabled || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) {
       return;
     }
     stopEvent(event);
@@ -733,6 +761,11 @@ function attachChipRemove(element: HTMLElement, initial: ComboboxOptions, channe
 function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channel: TwinChannel, ignoreChips: boolean): TwinHandle {
   let options = initial;
   const onMouseDown = (event: MouseEvent): void => {
+    // ADR 04 Amendments 2026-11-10: the consumer's onMouseDown runs first, and its preventBaseUIHandler() skips the press
+    // (handleInputPress.ts:9); on Server the point falls back to `run`.
+    if (options.decidesPress && isStopVerdict(channel.decide(PRESS_POINT, event, 'run'))) {
+      return;
+    }
     const target = getTarget(event);
     const targetElement = target instanceof Element ? target : null;
     const doc = element.ownerDocument;

@@ -1,0 +1,112 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-suite-positioner` fixture (tests/browser/combobox.suites.spec.ts, M5 track 10, issue 174): the positioner
+    conformance suite's cases (tests/browser/suites/positioner-conformance.ts, Base UI's test/positionerConformanceTests.tsx)
+    on Combobox's parts, as ComboboxPositioner.test.tsx's createComponent renders them: a Root, an Input (the anchor, 72×36
+    at the viewport origin) and a portaled Positioner holding a 52×24 Popup. One case per page, named by `?case=`:
+    - `default`; `sideOffset-number`, `alignOffset-number` (7); `sideOffset-function` (anchor width plus positioner width),
+      `alignOffset-function` (positioner width);
+    - `<prop>-override-<n>`: the four callback-data cases (1: side left, keyed right; 2: right/start, keyed end;
+      3: inline-start, keyed inline-end; 4: inline-start under an rtl DirectionProvider, keyed inline-start);
+    - `collision-padding`: the input fixed at bottom 8px, left 16px, a 200×1000 popup capped by --available-height,
+      side bottom, sideOffset 8, collisionPadding 12, fallbackAxisSide none, opened by `[data-open-button]` after mount.
+    Combobox has no Viewport part, so the suite runs without its viewport cases.
+*@
+<FixtureContainer Name="combobox-suite-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @if (Case == "collision-padding")
+    {
+        <ComboboxRoot TValue="string" @ref="root" Open="@open">
+            <div style="position: fixed; bottom: 8px; left: 16px">
+                <ComboboxInput @ref="input" data-testid="trigger" style="@AnchorSize" />
+            </div>
+            <ComboboxPortal Container="@s_host">
+                <ComboboxPositioner @ref="positioner" data-testid="positioner" Side="Side.Bottom" SideOffset="8" CollisionPadding="12" CollisionAvoidance="s_noFallback">
+                    <ComboboxPopup style="width: 200px; height: 1000px; max-height: var(--available-height); padding: 0; border: 0">Popup</ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </ComboboxRoot>
+        <button type="button" data-open-button data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Open</button>
+    }
+    else
+    {
+        <DirectionProvider Direction="@direction">
+            <ComboboxRoot TValue="string" @ref="root" DefaultOpen="true">
+                <ComboboxInput @ref="input" data-testid="trigger" style="@("position: fixed; top: 0; left: 0; " + AnchorSize)" />
+                <ComboboxPortal Container="@s_host">
+                    <ComboboxPositioner @ref="positioner" data-testid="positioner" Side="@side" Align="@align" SideOffset="@sideOffset" AlignOffset="@alignOffset">
+                        <ComboboxPopup style="width: 52px; height: 24px; padding: 0; border: 0; box-sizing: border-box">Popup</ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+        </DirectionProvider>
+    }
+    @* The suite finds the positioner in the container: the portal moves it into this static host, so the positioner's
+       containing block is still the initial one. *@
+    <div id="combobox-suite-positioner-host"></div>
+</FixtureContainer>
+
+@code {
+    private static readonly CollisionAvoidance s_noFallback = new(FallbackAxisSide: FallbackAxisSide.None);
+    private static readonly PortalContainerValue s_host = new("#combobox-suite-positioner-host");
+    private const string AnchorSize = "width: 72px; height: 36px; box-sizing: border-box; margin: 0; padding: 0; border: 0";
+
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private ComboboxPositioner? positioner;
+    private bool open;
+    private Side? side;
+    private Align? align;
+    private TextDirection direction = TextDirection.Ltr;
+    private OffsetValue? sideOffset;
+    private OffsetValue? alignOffset;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        root?.SessionAttached ?? Task.CompletedTask,
+        input?.TwinAttached ?? Task.CompletedTask,
+        positioner?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        sideOffset = Case switch
+        {
+            "sideOffset-number" => 7,
+            "sideOffset-function" => new Offset(AnchorWidth: 1, PositionerWidth: 1),
+            _ => null,
+        };
+        alignOffset = Case switch
+        {
+            "alignOffset-number" => 7,
+            "alignOffset-function" => new Offset(PositionerWidth: 1),
+            _ => null,
+        };
+        if (Case.StartsWith("sideOffset-override-", StringComparison.Ordinal) || Case.StartsWith("alignOffset-override-", StringComparison.Ordinal))
+        {
+            bool sideCase = Case.StartsWith("sideOffset-", StringComparison.Ordinal);
+            int number = Case[^1] - '0';
+            OffsetOverride keyed = number switch
+            {
+                1 => new OffsetOverride(Primitives.Side.Right, null, Constant: 5),
+                2 => new OffsetOverride(null, Primitives.Align.End, Constant: 5),
+                3 => new OffsetOverride(Primitives.Side.InlineEnd, null, Constant: 5),
+                _ => new OffsetOverride(Primitives.Side.InlineStart, null, Constant: 5),
+            };
+            OffsetValue offset = new Offset { Overrides = [keyed] };
+            (side, align, direction) = number switch
+            {
+                1 => (Primitives.Side.Left, (Align?)null, TextDirection.Ltr),
+                2 => (Primitives.Side.Right, Primitives.Align.Start, TextDirection.Ltr),
+                3 => (Primitives.Side.InlineStart, null, TextDirection.Ltr),
+                _ => (Primitives.Side.InlineStart, null, TextDirection.Rtl),
+            };
+            sideOffset = sideCase ? offset : null;
+            alignOffset = sideCase ? null : offset;
+        }
+    }
+}
