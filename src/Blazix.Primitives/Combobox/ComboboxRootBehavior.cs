@@ -148,6 +148,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             list.HighlightChanged += report => _ = ObserveAsync(store.OnHighlightReportedAsync(report.Index, report.Event));
             store.AttachListNavigation(list, list.RequestHighlightAsync);
             store.SessionInputsChanged += CopyAndSyncSession;
+            store.SelectionCommitted += OnSelectionCommitted;
             committed = new SelectorSubscription<ComboboxStoreState>(store, onCommitted);
             committed.Select(ComboboxStoreState.Open);
             committed.Select(ComboboxStoreState.Status);
@@ -322,7 +323,9 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             formRevision = 1;
             formOptions = new FormOptions { Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = serialized, Revision = formRevision } };
             formHandle = await formTwin.AttachAsync(hiddenInput, formOptions);
-            return;
+
+            // A selection committed while the attach was in flight is sent once it lands.
+            serialized = Serialized(store);
         }
 
         if (formHandle is null || string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal))
@@ -336,6 +339,16 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     }
 
     private Task RouteAsync(OpenChangeRequest request) => root.Store.RequestOpenAsync(request.Open, request.Details);
+
+    // Base UI's root renders the hidden input's serialized value with the selection (AriaCombobox.tsx:1690-1700); a selection
+    // that renders no root here (the input inside the popup fills nothing) still reaches the form module's control.
+    private void OnSelectionCommitted()
+    {
+        if (rendered && !disposed)
+        {
+            _ = ObserveAsync(SyncFormAsync());
+        }
+    }
 
     private void OnCommitted()
     {
