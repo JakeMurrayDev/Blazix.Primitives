@@ -81,10 +81,10 @@
         await cut.InvokeAsync(() => StoreOf<string>(cut).RequestValueAsync("v5", new ChangeEventDetails(EventReason.None)));
 
         Assert.Equal("v5", cut.Find("[role=\"combobox\"]").TextContent.Trim());
-        // Measured 2026-11-10: the two items render once each; each of their indicators renders twice, once as the item's
-        // child and once from its own selection listener. No other item or indicator renders.
+        // RND §10's open claim, for Select: the two items and their two indicators render once each, the indicator's own
+        // selection listener and the item's re-render of its children coalescing into one render; nothing else renders.
         Assert.Equal("1,0,0,0,0,1,0,0,0,0", string.Join(',', itemRenders));
-        Assert.Equal("2,0,0,0,0,2,0,0,0,0", string.Join(',', indicatorRenders));
+        Assert.Equal("1,0,0,0,0,1,0,0,0,0", string.Join(',', indicatorRenders));
     }
 
     [Fact(DisplayName = "port: a toggle in multiple mode renders only the toggled item and its indicator")]
@@ -99,8 +99,37 @@
         await ClickOptionAsync(cut, cut.FindAll("[role=\"option\"]")[7]);
 
         Assert.Equal("true", cut.FindAll("[role=\"option\"]")[7].GetAttribute("aria-selected"));
-        // Measured 2026-11-10: as a single value change, for the one toggled item.
+        // As a single value change, for the one toggled item.
         Assert.Equal("0,0,0,0,0,0,0,1,0,0", string.Join(',', itemRenders));
-        Assert.Equal("0,0,0,0,0,0,0,2,0,0", string.Join(',', indicatorRenders));
+        Assert.Equal("0,0,0,0,0,0,0,1,0,0", string.Join(',', indicatorRenders));
+    }
+
+    [Fact(DisplayName = "port: an indicator without parameters renders once when its item's selection changes")]
+    [Trait("Requirement", "SEL-STR-11")]
+    [Trait("Requirement", "SEL-DOM-39")]
+    public async Task An_indicator_without_parameters_renders_once_when_its_item_selection_changes()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("a")">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup>
+                        <SelectItem Value="@("a")" data-testid="a"><SelectItemIndicator /></SelectItem>
+                        <SelectItem Value="@("b")" data-testid="b"><SelectItemIndicator /></SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await OpenAsync(cut);
+        IRenderedComponent<SelectItemIndicator> indicatorB = cut.FindComponents<SelectItemIndicator>()[1];
+        int before = indicatorB.RenderCount;
+
+        await cut.InvokeAsync(() => StoreOf<string>(cut).RequestValueAsync("b", new ChangeEventDetails(EventReason.None)));
+
+        Assert.NotNull(cut.Find("[data-testid=\"b\"] [data-selected]"));
+        Assert.Equal(1, indicatorB.RenderCount - before);
     }
 }
+
