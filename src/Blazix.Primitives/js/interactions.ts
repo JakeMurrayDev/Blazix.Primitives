@@ -262,6 +262,8 @@ export interface MenuTriggerOptions {
   release?: boolean | null;
   /** Whether a pointer move over the active trigger sets the session's `allowMouseEnter`. */
   trackMouseEnter?: boolean | null;
+  /** Whether focus returning to the trigger through the guard before the open popup closes it with `focus-out`. */
+  closeOnGuardReturn?: boolean | null;
 }
 
 // FLT §6.8
@@ -4066,7 +4068,8 @@ function onMenuHoverGateChange(record: SessionRecord, listener: () => void): Cle
  * A menu trigger's half: the active trigger's pointer move counts as a move over the menu (MenuRoot.tsx:646-649); with
  * `trigger.menu.release`, a press on the closed menu arms the tree's release after 200 ms, and a release outside the
  * trigger, its bounds and the tree, after that press or after this trigger's hover open, cancels the open
- * (MenuTrigger.tsx:121-171, 240-256).
+ * (MenuTrigger.tsx:121-171, 240-256). With `trigger.menu.closeOnGuardReturn`, a submenu trigger's focus closes the open
+ * submenu with `focus-out` when it came from the guard before the popup (MenuSubmenuTrigger.tsx:108-125, 246-253).
  */
 function createMenuTriggerController(context: HandleContext): Controller {
   const { record, channel } = context;
@@ -4075,6 +4078,9 @@ function createMenuTriggerController(context: HandleContext): Controller {
   let documentMouseUp: Cleanup | null = null;
   let lastReason: string | null = null;
   let openedByThisTrigger = false;
+  let guardPositioner: HTMLElement | null = null;
+  let guardFocusOut: Cleanup | null = null;
+  let focusReturnedThroughGuard = false;
   const menuOptions = () => context.options.trigger?.menu ?? null;
 
   const onMouseMove = () => {
@@ -4131,9 +4137,38 @@ function createMenuTriggerController(context: HandleContext): Controller {
     lastReason = details.reason;
   };
 
+  // The guard is observed on the positioner, as the trigger's focus event can report a shadow host as `relatedTarget`.
+  const onGuardFocusOut = (event: FocusEvent) => {
+    const guard = guardPositioner?.querySelector(`[${FOCUS_GUARD_ATTRIBUTE}][data-type="inside"]`) ?? null;
+    if (guard !== null && getTarget(event) === guard) {
+      focusReturnedThroughGuard = event.relatedTarget === element;
+    }
+  };
+
+  const syncGuardFocusOut = () => {
+    const positioner = menuOptions()?.closeOnGuardReturn === true && record.open && isHTMLElement(record.floatingElement)
+      ? record.floatingElement
+      : null;
+    if (positioner === guardPositioner) {
+      return;
+    }
+    guardFocusOut?.();
+    guardFocusOut = positioner === null ? null : listen(positioner, 'focusout', onGuardFocusOut, true);
+    guardPositioner = positioner;
+    focusReturnedThroughGuard = false;
+  };
+
+  const onFocus = (event: FocusEvent) => {
+    if (record.open && focusReturnedThroughGuard) {
+      focusReturnedThroughGuard = false;
+      requestOpenChange(record, channel, false, 'focus-out', event);
+    }
+  };
+
   // MenuTrigger.tsx:120-124, 159-171: when this trigger's open ends, the tree is disarmed and the listener removed; a
   // hover open by this trigger listens for the release.
   const onSessionApplied = () => {
+    syncGuardFocusOut();
     const opened = record.open && record.domReferenceElement === element;
     if (opened === openedByThisTrigger) {
       return;
@@ -4152,12 +4187,18 @@ function createMenuTriggerController(context: HandleContext): Controller {
 
   record.events.on('openchange', onOpenChange);
   const stopListening = onSessionChange(record, onSessionApplied);
-  const cleanup = mergeCleanups(listen(element, 'mousemove', onMouseMove), listen(element, 'mousedown', onMouseDown));
+  const cleanup = mergeCleanups(
+    listen(element, 'mousemove', onMouseMove),
+    listen(element, 'mousedown', onMouseDown),
+    listen(element, 'focus', onFocus),
+  );
+  syncGuardFocusOut();
   return {
     dispose() {
       cleanup();
       stopListening();
       record.events.off('openchange', onOpenChange);
+      guardFocusOut?.();
       removeDocumentMouseUp();
       releaseArmTimeout.clear();
     },

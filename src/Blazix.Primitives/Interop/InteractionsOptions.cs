@@ -227,6 +227,11 @@ internal sealed record InteractionsMenuTriggerOptions
     /// <value><see langword="true"/> for a menu trigger; the default <see langword="false"/> is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool TrackMouseEnter { get; init; }
+
+    /// <summary>Gets a value indicating whether focus returning to the trigger through the guard before the open popup closes it.</summary>
+    /// <value><see langword="true"/> for a submenu trigger; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool CloseOnGuardReturn { get; init; }
 }
 
 /// <summary>The press-to-toggle configuration of a trigger.</summary>
