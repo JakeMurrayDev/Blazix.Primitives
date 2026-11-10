@@ -150,9 +150,9 @@ The cause is the state the earlier tests of a full run leave in the process: bUn
 
 *The decision.*
 1. The two projects that hold budgets, `tests/Blazix.Primitives.Tests` and `tests/Blazix.Primitives.Tests.Components`, build with `<TieredPGO>false</TieredPGO>`, CI and local runs alike. It is kept because it removed one step, and the alone figures above are PGO-off figures.
-2. A main `dotnet test` run skips the classes of the `AllocationBudgets` collection: 35 classes, 27 in L2 and 8 in L1. `.github/scripts/allocation-budgets.mjs` runs each of them in a `dotnet test --filter-class` process of its own (ADR 11 Amendments 2026-11-11). A plain local run of a whole project still runs them inside it, so a budget that fails there is re-checked with the script first.
+2. A main `dotnet test` run skips the classes of the `AllocationBudgets` collection: 37 classes, 29 in L2 and 8 in L1. Menu's two, `MenuAllocationBudgetTests` and `MenuListMeasureTests` (PR 183), landed after the measurement. `.github/scripts/allocation-budgets.mjs` runs each of them in a `dotnet test --filter-class` process of its own (ADR 11 Amendments 2026-11-11). A plain local run of a whole project still runs them inside it, so a budget that fails there is re-checked with the script first.
 3. Rule 7 is unchanged, and no budget changes. The step costs:
-   - locally, 67 s for the 35 processes, about 1.9 s each, while the main runs of the three projects take 17 s;
+   - locally, 75 s for the 37 processes, about 2 s each, while the main runs of the three projects take 17 s;
    - on CI, the figures are in the implementing pull request.
 
 *The floors under the new setup* (PGO off, alone), recorded only. Tightening is a separate decision under rule 7. A budget not listed here has no headroom on this host: 34 budgets equal their floor, the two FocusManager titles' 0 B included. The headroom of those listed:
