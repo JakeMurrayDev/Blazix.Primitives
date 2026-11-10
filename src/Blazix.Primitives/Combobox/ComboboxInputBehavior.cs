@@ -3,6 +3,7 @@ using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace Blazix.Primitives;
 
@@ -57,7 +58,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxInputBehavior"/> class.</summary>
     /// <param name="services">The part's services.</param>
-    /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler, which runs the declined consumer handler.</param>
+    /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler, which calls <see cref="HandleKeyDownAsync"/>.</param>
     public ComboboxInputBehavior(ComboboxPartServices services, EventCallback onKeyDown)
     {
         this.services = services;
@@ -181,6 +182,9 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         ComboboxStore root = Store;
         ComboboxStoreState state = root.State;
 
+        // The list handle's part handler for the consumer's declined onkeydown, and its render mark.
+        reference.AddAttributes(attributes, id);
+
         // AriaCombobox.tsx:1348-1376: an input-like control (always, on the server and before hydration) takes the four
         // fixed attributes and the combobox ARIA.
         attributes.Set("autocomplete", "off");
@@ -256,6 +260,11 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
     public bool ForwardsConsumerHandler(string eventName) => reference.ForwardsConsumerHandler(eventName) && interactions.ForwardsConsumerHandler(eventName);
+
+    /// <summary>Runs the declined consumer <c>onkeydown</c> unless a decision already ran it.</summary>
+    /// <param name="args">The keydown.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) => reference.HandleKeyDownAsync(args);
 
     /// <summary>Renders the start dismiss button while the popup is open and the focus manager is modal.</summary>
     /// <param name="builder">The part's render tree builder.</param>

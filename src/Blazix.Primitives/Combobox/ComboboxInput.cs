@@ -101,7 +101,7 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     /// <summary>Initializes a new instance of the <see cref="ComboboxInput"/> class.</summary>
     public ComboboxInput()
     {
-        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", _ => Task.CompletedTask);
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
         onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => behavior!.OnFocusChange(true));
         onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.OnFocusChange(false));
     }
