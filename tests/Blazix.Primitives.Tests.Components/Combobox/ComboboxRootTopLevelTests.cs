@@ -205,7 +205,7 @@ public sealed class ComboboxRootTopLevelTests : IDisposable
         Assert.Equal("false", cut.Option("US").GetAttribute("aria-selected"));
     }
 
-    [Fact(DisplayName = "matches browser autofill when an earlier item has no rendered label")]
+    [Fact(DisplayName = "matches browser autofill when an earlier item has no rendered label", Skip = "Port deviation (CMB-EVT-11 note, 2026-11-11, option (b)): C# never holds the items' rendered text, so autofill matches derived labels only.")]
     [Trait("Requirement", "CMB-STA-32")]
     [Trait("Requirement", "CMB-EVT-11")]
     public async Task Matches_browser_autofill_when_an_earlier_item_has_no_rendered_label()
@@ -222,7 +222,7 @@ public sealed class ComboboxRootTopLevelTests : IDisposable
         Assert.Equal("true", cut.Option("Canada").GetAttribute("aria-selected"));
     }
 
-    [Fact(DisplayName = "matches browser autofill against an item rendered label when using the items prop")]
+    [Fact(DisplayName = "matches browser autofill against an item rendered label when using the items prop", Skip = "Port deviation (CMB-EVT-11 note, 2026-11-11, option (b)): C# never holds the items' rendered text, so autofill matches derived labels only.")]
     [Trait("Requirement", "CMB-EVT-11")]
     public async Task Matches_browser_autofill_against_an_item_rendered_label_when_using_the_items_prop()
     {
