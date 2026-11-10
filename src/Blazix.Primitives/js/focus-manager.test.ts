@@ -1409,6 +1409,25 @@ describe('FloatingFocusManager', () => {
       expect(focusSpy).not.toHaveBeenCalledWith(expect.objectContaining({ focusVisible: true }));
     });
 
+    it('port: an element inside the popup is no return target when the manager stops before the popup leaves the document', async () => {
+      // C# disposes the handle before the `portal` module takes the moved popup out of the document; Base UI's cleanup runs
+      // once its portal node left it, so an element focused inside the popup when the effect armed is disconnected there.
+      const reference = element('button', 'reference', { id: 'reference' });
+      const floating = element('div', undefined, { 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      document.body.append(reference, floating);
+      inside.focus();
+
+      const manager = attachManager(floating, { domReferenceId: 'reference', openInteractionType: null });
+      await settle();
+      floating.removeAttribute('data-open');
+      manager.handle.dispose();
+      await settle();
+
+      expect(document.activeElement).toBe(reference);
+    });
+
     it('does not return focus while open when the reference changes', async () => {
       const first = element('button', 'first', { id: 'first' });
       const second = element('button', 'second', { id: 'second' });
