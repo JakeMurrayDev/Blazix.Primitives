@@ -46,11 +46,5 @@ test.describe('Combobox', () => {
     modal: false,
     triggerClickCloses: false,
     listEnd: 'escape',
-    // Quarantined (ADR 11 §4) until 2026-11-24, issue 211, for this configuration only: on Server the keyboard reopen's
-    // first highlight is missing (`openWithKeyboard`'s poll; main's nightly 42794991547, and PR 184's run 41822203887
-    // before it). Menu's and Select's runs of the title stay in the gate.
-    quarantined: {
-      'does not submit a surrounding form': 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/211',
-    },
   });
 });
