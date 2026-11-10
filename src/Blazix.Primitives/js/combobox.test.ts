@@ -310,6 +310,24 @@ describe('the input', () => {
     expect(scroller.scrollTop).toBe(50);
   });
 
+  it('port: a moved submit revision submits the input\'s form once, after the selection rendered', () => {
+    const form = document.createElement('form');
+    const submits: string[] = [];
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submits.push('submit');
+    });
+    const input = document.createElement('input');
+    form.append(input);
+    document.body.append(form);
+    const handle = createAttach(desktop)(input, options(), createFakeTwin().twin);
+    handles.push(handle);
+    handle.update(options({ submitRevision: 1 }));
+    handle.update(options({ submitRevision: 1, open: true }));
+    handle.update(options({ submitRevision: 2 }));
+    expect(submits).toEqual(['submit', 'submit']);
+  });
+
   it('port: the start dismiss button before the input reports its press', () => {
     const { input, fake } = setupInput('', { dismissId: 'start-dismiss' });
     const dismiss = document.createElement('span');
@@ -356,6 +374,32 @@ describe('the list and the press defaults', () => {
     item.dispatchEvent(pointerDown);
     item.dispatchEvent(mouseDown);
     expect([pointerDown.defaultPrevented, mouseDown.defaultPrevented]).toEqual([true, true]);
+  });
+
+  it('port: a click inside a link of an item reports its href before the click and its end after, and an anchor without href reports nothing', async () => {
+    const list = document.createElement('div');
+    const fake = createFakeTwin();
+    for (const [name, href] of [['one', '#section'], ['two', '/somewhere'], ['three', null]] as const) {
+      const item = document.createElement('div');
+      item.setAttribute('role', 'option');
+      const anchor = document.createElement('a');
+      anchor.textContent = name;
+      if (href !== null) {
+        anchor.setAttribute('href', href);
+      }
+      item.append(anchor);
+      list.append(item);
+    }
+    document.body.append(list);
+    handles.push(attach(list, options({ part: 'list', open: true }), fake.twin));
+    const anchors = [...list.querySelectorAll('a')];
+    for (const anchor of anchors) {
+      anchor.addEventListener('click', (event) => event.preventDefault());
+      anchor.click();
+    }
+    expect(fake.reported<{ href: string | null }>('OnItemLinkPress').map((report) => report.href)).toEqual(['#section', '/somewhere']);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fake.reported<{ href: string | null }>('OnItemLinkPress').map((report) => report.href)).toEqual(['#section', '/somewhere', null, null]);
   });
 
   it('port: a mouseup on a highlighted item the press did not start on clicks it, and one that started there does not', () => {

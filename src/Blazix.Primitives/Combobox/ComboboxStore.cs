@@ -265,6 +265,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private HighlightDependencies? resolvedFor;
 
+    private string? linkPress;
+
     private bool hadInputClear;
 
     private (bool Emitted, TValue? Value, int Index) lastHighlight;
@@ -391,6 +393,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <inheritdoc />
     public override void SetSelectionEvent(EventSnapshot? @event) => selectionEvent = @event;
 
+    /// <summary>Asks the input's handle to submit its form after this render, as an item press of a root that submits on item click does.</summary>
+    public void RequestSubmit() => Write(State with { SubmitRevision = State.SubmitRevision + 1 });
+
+    /// <summary>Records the <c>href</c> of a press inside a link of an item, before its click, and clears it after.</summary>
+    /// <param name="href">The link's <c>href</c>, or <see langword="null"/> once the click was dispatched.</param>
+    public void SetLinkPress(string? href) => linkPress = href;
+
     /// <summary>Selects or toggles an item, as an item press does.</summary>
     /// <param name="value">The item's value.</param>
     /// <param name="event">The press, or the keydown that started it.</param>
@@ -402,6 +411,19 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         EventSnapshot source = selectionEvent ?? @event;
         selectionEvent = null;
         ChangeEventDetails details = CreateDetails(EventReason.ItemPress, source);
+
+        // CMB-PTR-05 (AriaCombobox.tsx:885-892): a press inside an `<a href>` is the link's; a `#` link closes the popup.
+        if (linkPress is { } href)
+        {
+            linkPress = null;
+            if (href.StartsWith('#'))
+            {
+                await RequestOpenAsync(false, ToOpenDetails(details));
+            }
+
+            return;
+        }
+
         if (Multiple)
         {
             IReadOnlyList<TValue> current = SelectedValues;

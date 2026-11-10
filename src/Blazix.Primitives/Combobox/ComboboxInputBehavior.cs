@@ -151,6 +151,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         subscription.Select(static state => state.ElementIds.List);
         subscription.Select(ComboboxStoreState.ListEmpty);
         subscription.Select(static state => state.Lifecycle.Mounted ? state.PopupSide : null);
+        subscription.Select(static state => state.SubmitRevision);
         store.SetInputInsidePopup(insidePopup);
         twin = new ComboboxTwin(services.JSRuntime);
         twin.InputChanged += change => _ = Observe(services.InvokeAsync(() => Store.HandleInputChangeAsync(change.Text, change.Typed, change.Composing, change.Event)));
@@ -375,6 +376,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             Rtl = Rtl,
             InputId = id,
             DismissId = state.ElementIds.StartDismiss,
+            SubmitRevision = state.SubmitRevision == 0 ? null : state.SubmitRevision,
         };
         if (handle is null)
         {

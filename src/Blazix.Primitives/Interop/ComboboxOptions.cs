@@ -77,4 +77,8 @@ internal sealed record ComboboxOptions : TwinOptions
     /// <summary>Gets the id of the internal dismiss button beside the handle's element, whose press closes the popup.</summary>
     /// <value>The id, or <see langword="null"/> while none renders.</value>
     public string? DismissId { get; init; }
+
+    /// <summary>Gets the revision of the form submission an item press asked for; the input's handle submits its form when it moves.</summary>
+    /// <value>The revision, or <see langword="null"/> before the first request and on handles other than the input.</value>
+    public int? SubmitRevision { get; init; }
 }

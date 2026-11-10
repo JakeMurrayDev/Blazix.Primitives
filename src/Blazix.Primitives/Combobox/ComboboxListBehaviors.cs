@@ -119,6 +119,8 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         composite.SetList(store.ListNavigation, CompositeListRole.Floating);
         composite.ReportItems = !store.State.HasItems;
         twin = new ComboboxTwin(services.JSRuntime);
+        ComboboxStore<TValue> root = store;
+        twin.ItemLinkPressed += root.SetLinkPress;
     }
 
     /// <summary>Applies the id the part renders and the consumer's attributes.</summary>
@@ -633,7 +635,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        return root.SelectAsync(value, EventSnapshot.FromEventArgs(args), present: !NullItem);
+        return SelectAsync(root, EventSnapshot.FromEventArgs(args));
     }
 
     /// <summary>Forwards a key to the button behavior.</summary>
@@ -682,6 +684,17 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         context.Set(Selected, context.Index);
         await button.AfterRenderAsync(true, element, id, composite: true);
         await item!.AfterRenderAsync(element);
+    }
+
+    // ComboboxItem.tsx:150-161 (commitSelection): with submitOnItemClick the selection is flushed, then the form submitted,
+    // whatever the selection did.
+    private async Task SelectAsync(ComboboxStore<TValue> root, EventSnapshot @event)
+    {
+        await root.SelectAsync(value, @event, present: !NullItem);
+        if (root.Inputs.SubmitOnItemClick)
+        {
+            root.RequestSubmit();
+        }
     }
 
     private bool EvaluateSelected(int revision, TValue candidate, bool nullItem)

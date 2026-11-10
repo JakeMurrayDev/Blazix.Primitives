@@ -31,6 +31,7 @@ namespace Blazix.Primitives;
 /// <param name="FilteredCount">The number of filtered items when the root was given items.</param>
 /// <param name="MembershipRevision">A counter raised when the filtered items' membership changes.</param>
 /// <param name="SelectionRevision">A counter raised when the selected value or values change.</param>
+/// <param name="SubmitRevision">A counter raised when an item press asks for the form's submission.</param>
 /// <param name="EmptyMounted">Whether an empty-state part is mounted.</param>
 /// <param name="ElementIds">The rendered ids of the parts the modules and the dismissal read.</param>
 [StoreState]
@@ -57,6 +58,7 @@ internal sealed partial record ComboboxStoreState(
     int FilteredCount,
     int MembershipRevision,
     int SelectionRevision,
+    int SubmitRevision,
     bool EmptyMounted,
     ComboboxElementIds ElementIds) : IStoreState<ComboboxStoreState>, IPopupLifecycleState<ComboboxStoreState>
 {
@@ -124,6 +126,7 @@ internal sealed partial record ComboboxStoreState(
         FilteredCount: 0,
         MembershipRevision: 0,
         SelectionRevision: 0,
+        SubmitRevision: 0,
         EmptyMounted: false,
         ElementIds: default);
 }

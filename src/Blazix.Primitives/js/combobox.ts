@@ -17,7 +17,7 @@
 //   clear's: the press default; the chip removes': the press default and the `remove` point.
 // Transcribed from Base UI v1.9.0: combobox/input/ComboboxInput.tsx:212-430, combobox/root/AriaCombobox.tsx:681-707,
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
-import { contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
+import { closest, contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
 import { eventInfo } from './event-info';
 import { isInteractiveElement } from './interactions';
 import type { Platform } from './platform';
@@ -77,6 +77,7 @@ export interface ComboboxOptions extends TwinOptions {
   chipIds?: readonly string[] | null;
   index?: number;
   dismissId?: string | null;
+  submitRevision?: number | null;
 }
 
 /** The payload of a classified change of the input text; mirrors `ComboboxInputChange`. */
@@ -177,6 +178,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   let composing = false;
   let compositionText: string | null = null;
   let lastRevision = initial.valueRevision ?? 0;
+  let lastSubmit = initial.submitRevision ?? 0;
   const pending: string[] = [];
   const doc = element.ownerDocument;
 
@@ -366,6 +368,16 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   return {
     update(optionsJson: string) {
       options = parseOptions<ComboboxOptions>(optionsJson);
+      // ComboboxItem.tsx:150-158, AriaCombobox.tsx:945-950: an item press of a root that submits on item click submits the
+      // form once its selection rendered, which this update follows.
+      const submit = options.submitRevision ?? 0;
+      if (submit !== lastSubmit) {
+        lastSubmit = submit;
+        const form = element.form;
+        if (form && typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        }
+      }
       const revision = options.valueRevision ?? 0;
       if (revision !== lastRevision && options.value != null) {
         lastRevision = revision;
@@ -439,7 +451,7 @@ function itemOf(list: HTMLElement, target: EventTarget | null): HTMLElement | nu
   return null;
 }
 
-function attachList(element: HTMLElement, initial: ComboboxOptions): TwinHandle {
+function attachList(element: HTMLElement, initial: ComboboxOptions, channel: TwinChannel): TwinHandle {
   let options = initial;
   let pointerDownItem: Element | null = null;
 
@@ -478,9 +490,25 @@ function attachList(element: HTMLElement, initial: ComboboxOptions): TwinHandle 
     item.click();
   };
 
+  // CMB-PTR-05 (AriaCombobox.tsx:885-892): a press inside an `<a href>` is the link's. This listener runs before Blazor's
+  // delegated one, so C# reads the press before the click's selection, and its end after the click was dispatched.
+  const onClick = (event: MouseEvent): void => {
+    const target = getTarget(event) as Element | null;
+    if (!itemOf(element, target)) {
+      return;
+    }
+    const href = closest<HTMLAnchorElement>(target, 'a')?.getAttribute('href');
+    if (!href) {
+      return;
+    }
+    channel.report('OnItemLinkPress', { href });
+    setTimeout(() => channel.report('OnItemLinkPress', { href: null }), 0);
+  };
+
   element.addEventListener('pointerdown', onPointerDown, true);
   element.addEventListener('mousedown', onMouseDown);
   element.addEventListener('mouseup', onMouseUp);
+  element.addEventListener('click', onClick);
   return {
     update(optionsJson: string) {
       options = parseOptions<ComboboxOptions>(optionsJson);
@@ -492,6 +520,7 @@ function attachList(element: HTMLElement, initial: ComboboxOptions): TwinHandle 
       element.removeEventListener('pointerdown', onPointerDown, true);
       element.removeEventListener('mousedown', onMouseDown);
       element.removeEventListener('mouseup', onMouseUp);
+      element.removeEventListener('click', onClick);
     },
   };
 }
@@ -787,7 +816,7 @@ export function createAttach(platform: Platform): typeof attach {
         handle = attachPopup(element, options, channel);
         break;
       case LIST_PART:
-        handle = attachList(element, options);
+        handle = attachList(element, options, channel);
         break;
       case TRIGGER_PART:
         handle = attachTrigger(element, options, channel);
