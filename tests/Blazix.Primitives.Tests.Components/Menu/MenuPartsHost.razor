@@ -27,6 +27,19 @@
             </MenuPortal>
         </MenuRoot>
         break;
+    case "submenu-disabled-element":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuSubmenuRoot>
+                            <MenuSubmenuTrigger NativeButton="true" RenderFunction="AsDisabledButton">Open submenu</MenuSubmenuTrigger>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
     case "group":
         <MenuRoot TPayload="NoPayload" Open="true">
             <MenuPortal>
@@ -113,6 +126,9 @@
 
     [Parameter]
     public bool RadioGroupDisabled { get; set; }
+
+    private static RenderFragment AsDisabledButton(RenderProps<MenuSubmenuTriggerState> props) =>
+        @<button type="button" disabled @attributes="props.Attributes">@props.ChildContent</button>;
 
     private static RenderFragment AsSpan(RenderProps<MenuTriggerState> props) =>
         @<span @attributes="props.Attributes">@props.ChildContent</span>;
