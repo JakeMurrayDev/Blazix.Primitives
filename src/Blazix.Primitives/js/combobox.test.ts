@@ -428,3 +428,133 @@ describe('the clear and chip remove buttons', () => {
     expect(results).toEqual([true, false, false, true, false, false]);
   });
 });
+
+describe('the chips keys', () => {
+  function setupChips(overrides: Partial<ComboboxOptions> = {}, synchronous = false): { chips: HTMLElement; chip: HTMLElement[]; remove: HTMLButtonElement[]; input: HTMLInputElement; fake: FakeTwin; removeFakes: FakeTwin[] } {
+    const chips = document.createElement('div');
+    chips.id = 'the-chips';
+    const chip: HTMLElement[] = [];
+    const remove: HTMLButtonElement[] = [];
+    const removeFakes: FakeTwin[] = [];
+    for (const name of ['a', 'b', 'c']) {
+      const element = document.createElement('div');
+      element.id = 'chip-' + name;
+      element.tabIndex = -1;
+      const button = document.createElement('button');
+      element.append(button);
+      chips.append(element);
+      chip.push(element);
+      remove.push(button);
+    }
+    const input = document.createElement('input');
+    input.id = 'the-input';
+    document.body.append(chips, input);
+    const fake = createFakeTwin();
+    handles.push(attach(chips, options({ part: 'chips', inputId: 'the-input', chipIds: ['chip-a', 'chip-b', 'chip-c'], ...overrides }), fake.twin));
+    remove.forEach((button, index) => {
+      const removeFake = createFakeTwin({ synchronous });
+      removeFakes.push(removeFake);
+      handles.push(attach(button, options({ part: 'chip-remove', inputId: 'the-input', index, ...overrides }), removeFake.twin));
+    });
+    return { chips, chip, remove, input, fake, removeFakes };
+  }
+
+  function key(target: Element, name: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  it('port: the arrow keys move the focus between the chips and out to the input, mirrored in RTL', () => {
+    const { chip, input } = setupChips();
+    chip[1].focus();
+    key(chip[1], 'ArrowLeft');
+    const afterPrevious = document.activeElement;
+    key(chip[0], 'ArrowLeft');
+    const afterFirst = document.activeElement;
+    chip[1].focus();
+    key(chip[1], 'ArrowRight');
+    const afterNext = document.activeElement;
+    key(chip[2], 'ArrowRight');
+    expect([afterPrevious, afterFirst, afterNext, document.activeElement]).toEqual([chip[0], input, chip[2], input]);
+  });
+
+  it('port: in RTL, ArrowRight moves to the previous chip', () => {
+    const { chip } = setupChips({ rtl: true });
+    chip[1].focus();
+    key(chip[1], 'ArrowRight');
+    expect(document.activeElement).toBe(chip[0]);
+  });
+
+  it('port: Backspace or Delete on a chip reports its removal and moves the focus to the chip that takes its place', () => {
+    const { chip, fake } = setupChips();
+    chip[1].focus();
+    const backspace = key(chip[1], 'Backspace');
+    const afterMiddle = document.activeElement;
+    chip[2].focus();
+    key(chip[2], 'Delete');
+    expect([backspace.defaultPrevented, afterMiddle, document.activeElement]).toEqual([true, chip[2], chip[1]]);
+    expect(fake.reported<{ index: number }>('OnRemove').map((report) => report.index)).toEqual([1, 2]);
+  });
+
+  it('port: Enter, Space and a printable key on a chip move the focus to the input; ArrowDown also asks for the open', () => {
+    const { chip, input, fake } = setupChips();
+    const focused: (Element | null)[] = [];
+    for (const name of ['Enter', ' ', 'x', 'ArrowDown']) {
+      chip[0].focus();
+      key(chip[0], name);
+      focused.push(document.activeElement);
+    }
+    expect(focused).toEqual([input, input, input, input]);
+    expect(fake.reported('OnOpenRequest')).toHaveLength(1);
+  });
+
+  it('port: a disabled or read-only chips container ignores the chip keys', () => {
+    const enabled = setupChips();
+    enabled.chip[1].focus();
+    key(enabled.chip[1], 'ArrowLeft');
+    const moved = document.activeElement === enabled.chip[0];
+    document.body.replaceChildren();
+    const readOnly = setupChips({ readOnly: true });
+    readOnly.chip[1].focus();
+    key(readOnly.chip[1], 'ArrowLeft');
+    expect([moved, document.activeElement === readOnly.chip[1], readOnly.fake.reported('OnRemove').length]).toEqual([true, true, 0]);
+  });
+
+  it('port: ArrowLeft at the start of the input moves the focus to the last chip', () => {
+    const { chips, chip } = setupChips();
+    const input = document.getElementById('the-input') as HTMLInputElement;
+    handles.push(createAttach(desktop)(input, options({ part: 'input', multiple: true, hasValue: true, chipsId: chips.id }), createFakeTwin().twin));
+    input.focus();
+    const event = key(input, 'ArrowLeft');
+    expect([event.defaultPrevented, document.activeElement]).toEqual([true, chip[2]]);
+  });
+
+  it('port: Backspace in an empty input reports the removal with the number of rendered chips', () => {
+    const { chips } = setupChips();
+    const input = document.getElementById('the-input') as HTMLInputElement;
+    const fake = createFakeTwin();
+    handles.push(createAttach(desktop)(input, options({ part: 'input', multiple: true, hasValue: true, chipsId: chips.id }), fake.twin));
+    key(input, 'Backspace');
+    expect(fake.reported<{ index: number }>('OnRemove').map((report) => report.index)).toEqual([3]);
+  });
+
+  it('port: a chip remove button asks the remove point, reports on Server and stops the click by default', () => {
+    const { remove, removeFakes } = setupChips();
+    let bubbled = 0;
+    document.body.addEventListener('click', () => bubbled++);
+    remove[1].click();
+    const enter = key(remove[2], 'Enter');
+    expect(removeFakes[1].reported<{ index: number }>('OnRemove').map((report) => report.index)).toEqual([1]);
+    expect(removeFakes[2].reported<{ index: number }>('OnRemove').map((report) => report.index)).toEqual([2]);
+    expect([bubbled, enter.defaultPrevented]).toEqual([0, true]);
+  });
+
+  it('port: on WebAssembly the remove point runs in C# and its verdict decides the propagation', () => {
+    const { remove, removeFakes } = setupChips({}, true);
+    let bubbled = 0;
+    document.body.addEventListener('click', () => bubbled++);
+    remove[0].click();
+    expect([removeFakes[0].decisions.length, removeFakes[0].reported('OnRemove').length, bubbled]).toEqual([1, 0, 1]);
+  });
+});
