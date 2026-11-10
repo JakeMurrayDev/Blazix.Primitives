@@ -1209,7 +1209,12 @@ test.describe('<NavigationMenu.Root /> inline nested lock', () => {
   });
 
   for (const side of ['right', 'left', 'bottom', 'top'] as const) {
-    test(`keeps an inline submenu open while traversing toward a viewport on the ${side}`, async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) until 2026-11-24, issue 191: under load nested trigger 1 is sometimes closed after the
+    // traversal, on both modes and every side (3 of 320 with PR 190's G6 fix).
+    test.fixme(`keeps an inline submenu open while traversing toward a viewport on the ${side}`, {
+      tag: '@quarantine',
+      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/191' },
+    }, async ({ page, mode }) => {
       await openNested(page, mode, { nestedSide: side });
 
       await hoverOpen(page, nestedTrigger(page, 1));

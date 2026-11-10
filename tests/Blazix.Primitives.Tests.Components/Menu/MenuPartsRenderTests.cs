@@ -219,4 +219,16 @@ public sealed class MenuPartsRenderTests : BunitContext
         string[] options = positioning.Invocations["attach"].Select(attach => (string)attach.Arguments[1]!).ToArray();
         Assert.Contains(options, json => json.Contains($"\"fallbackAxisSide\":\"{fallbackAxisSide}\"", StringComparison.Ordinal));
     }
+
+    [Fact(DisplayName = "closes an open submenu with a sibling reason when its controlled parent closes")]
+    [Trait("Requirement", "MNU-DIS-04")]
+    [Trait("Requirement", "MNU-API-49")]
+    public void Controlled_parent_close_closes_the_submenu_with_a_sibling_reason()
+    {
+        IRenderedComponent<MenuControlledParentHost> cut = Render<MenuControlledParentHost>();
+
+        cut.Render(p => p.Add(x => x.Open, false));
+
+        cut.WaitForAssertion(() => Assert.Equal(["False:SiblingOpen"], cut.Instance.SubmenuChanges));
+    }
 }

@@ -29,6 +29,9 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     // MenuSubmenuTrigger.tsx:39 (MNU-API-51).
     private const int DefaultDelay = 100;
 
+    // MenuSubmenuTrigger.tsx:108-125, 246-253 (MNU-FOC-06): focus returning through the guard before the popup closes it.
+    private static readonly InteractionsMenuTriggerOptions s_menu = new() { CloseOnGuardReturn = true };
+
     private readonly string familyName;
     private readonly PlatformFlags platform;
     private readonly Action requestRender;
@@ -297,9 +300,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
             : null;
         InteractionsClickOptions? click = disabled ? null : new InteractionsClickOptions { Event = "mousedown", IgnoreMouse = openOnHover, StickIfOpen = openOnHover };
         InteractionsTriggerOptions current = interactions.Options;
-        if (!string.Equals(current.TriggerId, id, StringComparison.Ordinal) || !Equals(current.Click, click) || !Equals(current.Hover, hover))
+        if (!string.Equals(current.TriggerId, id, StringComparison.Ordinal) || !Equals(current.Click, click) || !Equals(current.Hover, hover)
+            || current.Menu != s_menu)
         {
-            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click, Hover = hover };
+            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click, Hover = hover, Menu = s_menu };
         }
     }
 

@@ -148,9 +148,15 @@ internal abstract class MenuRootContext
     /// <param name="opened">The submenu that opened.</param>
     internal void ChildOpened(MenuRootContext opened) => OnSiblingOpened(opened);
 
+    /// <summary>Tells the submenu that its parent's popup finished its starting phase.</summary>
+    internal void ParentStarted() => OnParentStarted();
+
     /// <summary>Closes the open submenus other than the one that opened.</summary>
     /// <param name="opened">The submenu that opened.</param>
     private protected abstract void OnSiblingOpened(MenuRootContext opened);
+
+    /// <summary>Clears the instant type the submenu inherited when it has no popup element to reveal.</summary>
+    private protected abstract void OnParentStarted();
 }
 
 /// <summary>A part's subscription to a menu's state, independent of its payload type.</summary>
@@ -199,6 +205,9 @@ internal abstract class MenuSelection<TArg, TValue> : MenuSelection<TValue>
 //   its last reason, else `sibling-open` (MenuPositioner.tsx:155-175, `menuopenchange`'s parent branch), and, on an open,
 //   asks its parent menu to close its other open children with `sibling-open` (MenuPositioner.tsx:134-153); a menubar or
 //   context menu parent hears the change through OnMenuOpenChange (Menubar.tsx:120).
+// - the instant type a submenu inherited (MNU-ANI-04, MenuRoot.tsx:237-283) is cleared when the submenu closes, when its
+//   popup's enter completes, or, with no popup element, when its parent's popup leaves its starting status: a submenu
+//   status here comes from its popup's transitions handle, so one without a popup never settles on its own.
 /// <summary>The context of a menu root whose triggers carry <typeparamref name="TPayload"/>.</summary>
 /// <typeparam name="TPayload">The type of the payload.</typeparam>
 internal sealed class MenuRootContext<TPayload> : MenuRootContext
@@ -214,7 +223,7 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     {
         this.store = store;
         FamilyName = familyName;
-        openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (_, open, _) => OnOpenChanged(open));
+        openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (open, _, _) => OnOpenChanged(open));
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -311,10 +320,29 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     public override void SetPositionerElement(ElementReference? element) => store.SetPositionerElement(element);
 
     /// <inheritdoc />
-    public override void MirrorStatus(TransitionStatus? status) => store.MirrorStatus(status);
+    public override void MirrorStatus(TransitionStatus? status)
+    {
+        TransitionStatus? before = store.State.Popup.TransitionStatus;
+        store.MirrorStatus(status);
+        if (before == TransitionStatus.Starting && status is null)
+        {
+            foreach (MenuRootContext child in children.ToArray())
+            {
+                child.ParentStarted();
+            }
+        }
+    }
 
     /// <inheritdoc />
-    public override Task CompleteTransitionAsync(bool opened) => store.CompleteTransitionAsync(opened);
+    public override Task CompleteTransitionAsync(bool opened)
+    {
+        if (opened)
+        {
+            store.ClearSeededInstantType();
+        }
+
+        return store.CompleteTransitionAsync(opened);
+    }
 
     /// <inheritdoc />
     public override void SetListElementId(string? id) => store.SetListElementId(id);
@@ -353,6 +381,15 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
         }
     }
 
+    /// <inheritdoc />
+    private protected override void OnParentStarted()
+    {
+        if (!store.State.Popup.PopupElementKnown)
+        {
+            store.ClearSeededInstantType();
+        }
+    }
+
     private static void CollectOpen(MenuRootContext menu, List<MenuRootContext> tree)
     {
         if (menu.State.Open)
@@ -379,6 +416,7 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
         }
         else
         {
+            store.ClearSeededInstantType();
             foreach (MenuRootContext child in children.ToArray())
             {
                 if (child.State.Open)

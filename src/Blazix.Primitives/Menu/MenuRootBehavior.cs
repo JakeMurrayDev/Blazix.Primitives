@@ -263,10 +263,11 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
             parentMenuSubscription = menu.Subscribe(store.NotifyParentChanged);
             parentMenuSubscription.Select(MenuSelectors.RootId);
 
-            // MNU-ANI-04 (MenuRoot.tsx:139-160): an initially open submenu that mounts during its parent's enter mirrors the
-            // parent's instant type.
+            // MNU-ANI-03, MNU-ANI-04 (MenuRoot.tsx:139-160): an initially open submenu that mounts during its parent's enter
+            // plays its own and mirrors the parent's instant type.
             if (isSubmenu && store.State.Popup.EffectiveOpen && menu.State.TransitionStatus == TransitionStatus.Starting)
             {
+                store.BeginInitialEnter();
                 store.SeedInstantType(menu.State.InstantType);
             }
         }
