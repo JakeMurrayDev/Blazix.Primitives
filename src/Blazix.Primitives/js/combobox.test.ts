@@ -389,6 +389,19 @@ describe('the input group and the chips', () => {
     expect([onButton.defaultPrevented, onChip.defaultPrevented, fake.reported('OnInputPress').length]).toEqual([false, false, 1]);
   });
 
+  it('port: a press inside a shadow root under an interactive host of the input group is left alone', () => {
+    const { group, fake } = setupGroup('input-group');
+    press(group);
+    const host = document.createElement('div');
+    host.setAttribute('role', 'button');
+    const inner = document.createElement('span');
+    host.attachShadow({ mode: 'open' }).append(inner);
+    group.append(host);
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true });
+    inner.dispatchEvent(event);
+    expect([event.defaultPrevented, fake.reported('OnInputPress').length]).toEqual([false, 1]);
+  });
+
   it('port: a press on a disabled input group prevents its default and reports nothing', () => {
     const enabled = setupGroup('input-group');
     press(enabled.group);
