@@ -4,6 +4,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
@@ -148,6 +149,28 @@ public sealed class ComboboxChipsTests : IDisposable
         Assert.Equal(["apple"], values);
         Assert.Equal(EventReason.ChipRemovePress, reason);
     }
+
+    // M2's Chips batch (2026-11-11): a render while the first attach awaits the module must not lose its options. The
+    // combobox module's import is held; the chips register meanwhile; once it resolves, the chips' handle has their ids.
+#pragma warning disable BL0016 // The calls below go to the test's fake runtime, not to JavaScript.
+    [Fact(DisplayName = "port: options that change while the chips' attach is in flight reach the module once it attaches")]
+    [Trait("Requirement", "CMB-KEY-08")]
+    public async Task Options_that_change_while_the_attach_is_in_flight_reach_the_module()
+    {
+        HeldModuleRuntime runtime = new(ComboboxTestContext.ComboboxPath);
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
+        string apple = cut.Find("[data-testid=chip-apple]").Id!;
+        string cherry = cut.Find("[data-testid=chip-cherry]").Id!;
+        CompositeTwin registry = runtime.Twins.OfType<CompositeTwin>().First(twin => runtime.AttachedOptions(twin).Contains("\"registrationOnly\":true", StringComparison.Ordinal));
+        await cut.InvokeAsync(() => registry.OnItemsChange("{\"ids\":[\"" + apple + "\",\"" + cherry + "\"]}"));
+
+        await cut.InvokeAsync(runtime.Release);
+
+        // The import resolves on the thread pool, so the update follows the release.
+        cut.WaitForAssertion(() => Assert.Contains(runtime.ChipsOptions(), json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal)));
+    }
+#pragma warning restore BL0016
 
     [Fact(DisplayName = "should remove chip on click when enabled")]
     [Trait("Requirement", "CMB-PTR-10")]
@@ -324,4 +347,98 @@ public sealed class ComboboxChipsTests : IDisposable
 
         return test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, root).Add(x => x.Extra, (RenderFragment)Extra));
     }
+
+    // A JS runtime for one title: the held module's import stays pending until Release; every other import resolves at once.
+    // Each handle records the options it receives. A test fake: nothing here calls JavaScript, so BL0016 does not apply.
+#pragma warning disable BL0016
+    private sealed class HeldModuleRuntime(string heldPath) : IJSRuntime
+    {
+        private readonly TaskCompletionSource<IJSObjectReference> held = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly List<FakeHandle> handles = [];
+
+        public List<object> Twins { get; } = [];
+
+        public void Release() => held.SetResult(new FakeModule(this));
+
+        public string AttachedOptions(object twin) => handles.First(handle => ReferenceEquals(handle.Twin, twin)).Options[0];
+
+        public List<string> ChipsOptions() => [.. handles.Where(handle => handle.Options[0].Contains("\"part\":\"chips\"", StringComparison.Ordinal)).SelectMany(handle => handle.Options)];
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier, args);
+
+        private ValueTask<TValue> Answer<TValue>(string identifier, object?[]? args)
+        {
+            if (identifier == "import" && args is [string path, ..])
+            {
+                return path == heldPath
+                    ? new ValueTask<TValue>(held.Task.ContinueWith(task => (TValue)task.Result, TaskScheduler.Default))
+                    : ValueTask.FromResult((TValue)(object)new FakeModule(this));
+            }
+
+            return ValueTask.FromResult(default(TValue)!);
+        }
+
+        private sealed class FakeModule(HeldModuleRuntime runtime) : IJSObjectReference
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier, args);
+
+            private ValueTask<TValue> Answer<TValue>(string identifier, object?[]? args)
+            {
+                if (identifier == "attach" && args is [_, string options, DotNetObjectReference<CompositeTwin> composite, ..])
+                {
+                    return Attach<TValue>(options, composite.Value);
+                }
+
+                if (identifier == "attach" && args is [_, string json, ..])
+                {
+                    return Attach<TValue>(json, null);
+                }
+
+                return ValueTask.FromResult(default(TValue)!);
+            }
+
+            private ValueTask<TValue> Attach<TValue>(string options, object? twin)
+            {
+                FakeHandle handle = new(twin, options);
+                runtime.handles.Add(handle);
+                if (twin is not null)
+                {
+                    runtime.Twins.Add(twin);
+                }
+
+                return ValueTask.FromResult((TValue)(object)handle);
+            }
+        }
+
+        private sealed class FakeHandle(object? twin, string options) : IJSObjectReference
+        {
+            public object? Twin { get; } = twin;
+
+            public List<string> Options { get; } = [options];
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier, args);
+
+            private ValueTask<TValue> Answer<TValue>(string identifier, object?[]? args)
+            {
+                if (identifier == "update" && args is [string json, ..])
+                {
+                    Options.Add(json);
+                }
+
+                return ValueTask.FromResult(default(TValue)!);
+            }
+        }
+    }
+#pragma warning restore BL0016
 }
