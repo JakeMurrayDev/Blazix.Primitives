@@ -330,7 +330,44 @@ public sealed class ComboboxTriggerTests : IDisposable
         Assert.Contains("\"activeTriggerId\":\"" + id + "\"", LastSessionOptions(), StringComparison.Ordinal);
     }
 
+    // AriaCombobox.tsx:1614-1622: the hidden input hands its focus to the trigger while the input is inside the popup, else to
+    // the input, else to the trigger; the `form` module's control role moves it (FFI-FOC-05).
+    [Theory(DisplayName = "port: the hidden control hands its focus to the input outside the popup, else to the trigger")]
+    [InlineData("outside")]
+    [InlineData("inside")]
+    [InlineData("none")]
+    [Trait("Requirement", "CMB-FOC-05")]
+    public void The_hidden_control_hands_its_focus_to_the_input_else_to_the_trigger(string layout)
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new(), layout switch { "outside" => Layout.InputOutside, "inside" => Layout.InputInside, _ => Layout.NoInput });
+        string expected = layout == "outside" ? cut.Find("input[role=combobox]").Id! : Trigger(cut).Id!;
+
+        Assert.Contains("\"focusTarget\":\"" + expected + "\"", LastHiddenControlOptions(), StringComparison.Ordinal);
+    }
+
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");
+
+    private string LastHiddenControlOptions()
+    {
+        string last = string.Empty;
+        foreach (JSRuntimeInvocation attach in test.Form.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains("\"reportAutofill\":true", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in test.FormHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains("\"reportAutofill\":true", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        return last;
+    }
 
     private string LastSessionOptions()
     {
