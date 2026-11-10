@@ -1,0 +1,49 @@
+using Bunit;
+using Microsoft.Extensions.DependencyInjection;
+
+// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
+namespace Blazix.Primitives.Tests.Components;
+
+/// <summary>
+/// L2: the filter parts' placement (MNU-STR-15, EDGE-04; M5 track 12), <c>MenuFilterParts.test.tsx</c>'s and
+/// <c>MenuFilterRoot.scoping.test.tsx</c>'s throwing titles over <see cref="MenuFilterPartsHost"/>, with Base UI's message
+/// in the port's C# names.
+/// </summary>
+public sealed class MenuFilterPartsTests : BunitContext
+{
+    public MenuFilterPartsTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddBlazixPrimitives();
+    }
+
+    [Theory(DisplayName = "throws when <Menu.%s> is rendered without a filter provider")]
+    [InlineData("Input")]
+    [InlineData("Clear")]
+    [InlineData("Empty")]
+    [Trait("Requirement", "MNU-EDGE-04")]
+    [Trait("Requirement", "MNU-STR-15")]
+    public void Throws_when_a_filter_part_is_rendered_without_a_filter_provider(string part)
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            Render<MenuFilterPartsHost>(p => p.Add(x => x.Case, $"{part.ToLowerInvariant()}-alone")));
+
+        Assert.Equal(Message(part), error.Message);
+    }
+
+    [Fact(DisplayName = "throws when a filter part is rendered in a plain menu")]
+    [Trait("Requirement", "MNU-EDGE-04")]
+    [Trait("Requirement", "MNU-STR-15")]
+    public void Throws_when_a_filter_part_is_rendered_in_a_plain_menu()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            Render<MenuFilterPartsHost>(p => p.Add(x => x.Case, "plain-menu-input")));
+
+        Assert.Equal(Message("Input"), error.Message);
+    }
+
+    private static string Message(string part) =>
+        $"Blazix: `<Menu{part}>` must be placed in a menu wrapped in `<MenuFilterProvider>`. It reads the filter query and the "
+        + "matching items from the provider, which a plain menu does not have. Wrap the `<MenuRoot>` or `<MenuSubmenuRoot>` it "
+        + "belongs to in `<MenuFilterProvider>`.";
+}

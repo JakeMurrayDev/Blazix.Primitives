@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterParts.test.tsx's and MenuFilterRoot.scoping.test.tsx's trees for the filter parts' placement (MNU-STR-15,
+   EDGE-04): a part with no menu, or inside a plain menu. *@
+@switch (Case)
+{
+    case "input-alone":
+        <MenuInput />
+        break;
+    case "clear-alone":
+        <MenuClear />
+        break;
+    case "empty-alone":
+        <MenuEmpty />
+        break;
+    case "plain-menu-input":
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuInput />
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+}
+
+@code {
+    [Parameter]
+    public string Case { get; set; } = "";
+}
