@@ -58,6 +58,8 @@ async function stable(page: Page, target: Locator): Promise<void> {
  * Positioner holds `opacity: 0` over the unpositioned layout.
  */
 async function positioned(target: Locator): Promise<void> {
+  // The target first: right after the press that opens the popup it may not be in the page yet.
+  await target.waitFor({ state: 'attached' });
   const positioner = target.locator('xpath=ancestor::*[@data-testid="positioner"]').last();
   if ((await positioner.count()) > 0) {
     await waitForPositioned(positioner);

@@ -47,6 +47,8 @@ const option = (page: Page, name: string): Locator => page.getByRole('option', {
  * has not landed, so a title's timer accounting is unchanged once it has.
  */
 async function positioned(target: Locator, clockFrozen = false): Promise<void> {
+  // The target first: right after the press that opens the popup it may not be in the page yet.
+  await target.waitFor({ state: 'attached' });
   const positioner = target.locator('xpath=ancestor::*[@data-testid="positioner" or @data-testid="select-positioner"]').last();
   if ((await positioner.count()) === 0) {
     return;
