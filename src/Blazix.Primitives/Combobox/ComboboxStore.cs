@@ -249,6 +249,16 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private string initialDefaultInputValue = string.Empty;
 
+    private bool observing;
+
+    private string observedQuery = string.Empty;
+
+    private bool observedOpen;
+
+    private string? derivedQuery;
+
+    private bool derivedQueryChanged;
+
     private PendingHighlight? pendingHighlight;
 
     private bool hadInputClear;
@@ -937,6 +947,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     public override async Task AtBatchBoundaryAsync()
     {
         await base.AtBatchBoundaryAsync();
+        await ObserveQueryAndOpenAsync();
         if (labelSyncPending)
         {
             labelSyncPending = false;
@@ -1002,6 +1013,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             }
         }
 
+        await ObserveQueryAndOpenAsync();
         return true;
     }
 
@@ -1226,6 +1238,52 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         NotifyInputValueCommitted();
+        await ObserveQueryAndOpenAsync();
+    }
+
+    // AriaCombobox.tsx:1262-1278, 1326-1327 (useValueChanged(query) and useValueChanged(open), in that order): run after the
+    // commits that can move the query or the open state, an input commit, an open change and the batch boundary (a
+    // controlled Open or InputValue). A query that changes while open, by the consumer or an autofill as well as by
+    // typing, counts as changed since the open unless it is the initial text or mirrors the selection; a controlled open
+    // that interrupts the close runs the interrupted reopen, which no setOpen call ran. The list is derived again when the
+    // query or the flag it reads moved since the last derivation.
+    private async Task ObserveQueryAndOpenAsync()
+    {
+        string query = Query;
+        bool open = IsOpen;
+        if (!observing)
+        {
+            observing = true;
+            observedQuery = query;
+            observedOpen = open;
+            return;
+        }
+
+        if (!string.Equals(query, observedQuery, StringComparison.Ordinal))
+        {
+            observedQuery = query;
+            bool mirrorsSelection = Single
+                && !State.InputInsidePopup
+                && string.Equals(State.InputValue, singlePresent ? LabelOf(valueState.Value) : string.Empty, StringComparison.Ordinal);
+            if (open && query.Length != 0 && !string.Equals(query, initialDefaultInputValue, StringComparison.Ordinal) && !mirrorsSelection)
+            {
+                queryChangedAfterOpen = true;
+            }
+        }
+
+        if (open != observedOpen)
+        {
+            observedOpen = open;
+            if (open && closeQuery is not null)
+            {
+                await HandleInterruptedReopenAsync(false);
+            }
+        }
+
+        if (!string.Equals(Query, derivedQuery, StringComparison.Ordinal) || queryChangedAfterOpen != derivedQueryChanged)
+        {
+            RefreshDerivation(State);
+        }
     }
 
     private IReadOnlyList<TValue> CandidateValues()
@@ -1398,6 +1456,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     {
         // CMB-STA-21..23: the query, the bypass and the filtered items; the membership revision only when it changed.
         string query = !state.Lifecycle.EffectiveOpen && closeQuery is not null ? closeQuery : state.InputValue.Trim();
+        derivedQuery = query;
+        derivedQueryChanged = queryChangedAfterOpen;
         string selectedLabel = Single && singlePresent ? LabelOf(valueState.Value) : string.Empty;
         bool bypass = ComboboxItemFiltering.ShouldBypassFiltering(Single, queryChangedAfterOpen, query, selectedLabel, collator);
         string filterQuery = bypass ? string.Empty : inputs.FilterQuery ?? query;
