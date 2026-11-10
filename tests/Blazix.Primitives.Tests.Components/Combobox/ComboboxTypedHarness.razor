@@ -1,0 +1,123 @@
+@namespace Blazix.Primitives.Tests.Components
+@typeparam TValue
+@* The Combobox tests' tree over any value type, for the titles whose values are not strings (createItems.test.tsx's numeric
+   ids, its primitive selections): a Root given only the parameters a test supplies (`RootParameters`, splatted, as in
+   ComboboxHarness), an optional Input, Value, Trigger and List. The List renders the root's filtered items through
+   ItemContent, in a Portal > Positioner > Popup or, with `InlineList`, directly in the Root; each item's text is
+   `ItemText(value)` (the consumer's lookup of its source item), and `Window` renders only the first filtered items, as an
+   external virtualizer over Base UI's useFilteredItems() does. The value, values and highlight changes are recorded. *@
+<ComboboxRoot TValue="TValue" @ref="Root" @attributes="Parameters">
+    @if (WithInput)
+    {
+        <ComboboxInput data-testid="input" />
+    }
+    @if (WithValue)
+    {
+        <span data-testid="value"><ComboboxValue TValue="TValue" Placeholder="PlaceholderContent" /></span>
+    }
+    @if (WithTrigger)
+    {
+        <ComboboxTrigger data-testid="trigger">Open</ComboboxTrigger>
+    }
+    @Extra
+    @if (WithList && InlineList)
+    {
+        @ListContent
+    }
+    else if (WithList)
+    {
+        <ComboboxPortal>
+            <ComboboxPositioner>
+                <ComboboxPopup data-testid="popup">
+                    @ListContent
+                </ComboboxPopup>
+            </ComboboxPositioner>
+        </ComboboxPortal>
+    }
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public bool WithInput { get; set; } = true;
+
+    [Parameter]
+    public bool WithValue { get; set; }
+
+    /// <summary>Gets or sets the Value part's placeholder text, or <see langword="null"/> for none.</summary>
+    [Parameter]
+    public string? ValuePlaceholder { get; set; }
+
+    [Parameter]
+    public bool WithTrigger { get; set; }
+
+    [Parameter]
+    public bool WithList { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the List is a direct child of the Root (an inline list).</summary>
+    [Parameter]
+    public bool InlineList { get; set; }
+
+    /// <summary>Gets or sets the text of an item, by its value; the value's invariant text when not set.</summary>
+    [Parameter]
+    public Func<TValue, string>? ItemText { get; set; }
+
+    /// <summary>Gets or sets the number of leading filtered items the List renders, or <see langword="null"/> for all.</summary>
+    [Parameter]
+    public int? Window { get; set; }
+
+    [Parameter]
+    public RenderFragment? Extra { get; set; }
+
+    public ComboboxRoot<TValue>? Root { get; private set; }
+
+    public List<(TValue? Value, EventReason Reason)> ValueChanges { get; } = [];
+
+    public List<IReadOnlyList<TValue>> ValuesChanges { get; } = [];
+
+    public List<TValue?> Highlighted { get; } = [];
+
+    /// <summary>Gets or sets a step run inside OnValueChange, such as a consumer's state update.</summary>
+    public Action<ValueChangeEventArgs<TValue>>? OnValue { get; set; }
+
+    private RenderFragment? PlaceholderContent => ValuePlaceholder is { } text ? builder => builder.AddContent(0, text) : null;
+
+    private RenderFragment ListContent => @<ComboboxList TValue="TValue" data-testid="list">
+        <ItemContent>
+            @if (Window is not { } window || context.Index < window)
+            {
+                <ComboboxItem TValue="TValue" Value="@context.Value" @key="context.Value">@TextOf(context.Value)</ComboboxItem>
+            }
+        </ItemContent>
+    </ComboboxList>;
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new(RootParameters);
+            bool multiple = parameters.TryGetValue(nameof(ComboboxRoot<TValue>.Multiple), out object? flag) && flag is true;
+            if (multiple)
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<TValue>.OnValuesChange), EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<TValue>>>(this, args => ValuesChanges.Add(args.Value)));
+            }
+            else
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<TValue>.OnValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<TValue>>(this, RecordValue));
+            }
+
+            parameters.TryAdd(nameof(ComboboxRoot<TValue>.OnItemHighlighted), EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<TValue>>(this, args => Highlighted.Add(args.Value)));
+            return parameters;
+        }
+    }
+
+    private string TextOf(TValue value) => ItemText is { } text ? text(value) : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private void RecordValue(ValueChangeEventArgs<TValue> args)
+    {
+        ValueChanges.Add((args.Value, args.Details.Reason));
+        OnValue?.Invoke(args);
+    }
+}
