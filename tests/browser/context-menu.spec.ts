@@ -503,6 +503,20 @@ test.describe('ContextMenu port titles', () => {
     expect((await openChanges(fixture)).at(-1)).toBe('false:item-press');
   });
 
+  test('port: a touchstart on the trigger disarms the release, so the next right-button release over an item does not activate it', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { defaultOpen: true }, 'mac');
+    const item = await center(page.getByTestId('second'));
+    // The trigger lies under the modal backdrop: the touch reaches it as Base UI's `fireEvent` does.
+    await touch(page.getByTestId('trigger'), 'touchstart', [{ x: 60, y: 60 }, { x: 70, y: 70, id: 1 }]);
+    await page.mouse.move(item.x, item.y);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.up({ button: 'right' });
+    await settle(fixture);
+
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('');
+  });
+
   test('port: a right click while open moves the popup to the new point and calls onOpenChange(true) again', async ({ page, mode }) => {
     const fixture = await render(page, mode);
     const first = await rightClick(page, page.getByTestId('trigger'), { x: 30, y: 30 });
