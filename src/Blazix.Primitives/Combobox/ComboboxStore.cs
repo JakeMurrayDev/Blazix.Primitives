@@ -60,7 +60,6 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets or sets the root's reaction to a focus loss of its input or trigger: touched, and a commit in onBlur mode.</summary>
     public Action? ControlBlurred { get; set; }
-
     /// <summary>Gets the id of the form that owns the hidden input.</summary>
     public abstract string? Form { get; }
 
@@ -847,6 +846,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         await CommitInputValueAsync(text);
+
+        // AriaCombobox.tsx:1087-1242 run after every commit: a change that leaves the filtered membership as it was renders
+        // no list part, so the pending highlight asks for the boundary itself.
+        if (pendingHighlight is not null)
+        {
+            RequestBoundary();
+        }
+
         return true;
     }
 
