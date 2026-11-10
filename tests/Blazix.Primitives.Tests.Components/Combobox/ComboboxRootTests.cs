@@ -267,6 +267,22 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Contains(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
     }
 
+    [Fact(DisplayName = "port: the internal dismiss button's close-press carries the button as its trigger")]
+    [Trait("Requirement", "CMB-STR-07")]
+    [Trait("Requirement", "CMB-EVT-04")]
+    public async Task The_dismiss_buttons_close_press_carries_its_trigger()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true });
+        string? trigger = null;
+        cut.Instance.OnOpen = args => trigger = args.Details.Trigger?.Id;
+        string dismissId = cut.Instance.Root!.Store.State.ElementIds.StartDismiss!;
+
+        await cut.InvokeAsync(() => test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.InputPart).OnDismiss(ComboboxTestContext.Click));
+
+        Assert.Equal(EventReason.ClosePress, Assert.Single(cut.Instance.OpenChanges).Reason);
+        Assert.Equal(dismissId, trigger);
+    }
+
     private List<string> CompositeOptions()
     {
         List<string> options = [];

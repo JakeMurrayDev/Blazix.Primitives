@@ -213,12 +213,28 @@ describe('the input', () => {
   });
 
   it('port: the start dismiss button before the input reports its press', () => {
-    const { input, fake } = setupInput();
+    const { input, fake } = setupInput('', { dismissId: 'start-dismiss' });
     const dismiss = document.createElement('span');
+    dismiss.id = 'start-dismiss';
     dismiss.setAttribute('role', 'button');
     dismiss.setAttribute('aria-label', 'Dismiss');
     input.before(dismiss);
     dismiss.click();
+    expect(fake.reported('OnDismiss')).toHaveLength(1);
+  });
+
+  it('port: a consumer element labelled Dismiss before the input is not the internal dismiss button', () => {
+    const { input, fake } = setupInput('', { dismissId: 'start-dismiss' });
+    const internal = document.createElement('span');
+    internal.id = 'start-dismiss';
+    internal.setAttribute('aria-label', 'Dismiss');
+    input.before(internal);
+    internal.click();
+    internal.remove();
+    const consumer = document.createElement('span');
+    consumer.setAttribute('aria-label', 'Dismiss');
+    input.before(consumer);
+    consumer.click();
     expect(fake.reported('OnDismiss')).toHaveLength(1);
   });
 });
