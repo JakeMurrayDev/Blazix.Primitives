@@ -403,6 +403,117 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsClickOptions { MouseDownAction = "open" }, new InteractionsClickOptions { MouseDownAction = "close" });
     }
 
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (1): the hover gates cross by
+    // their module names, each only when true; an empty menu record still crosses, and a changed gate is a changed option.
+    [Fact(DisplayName = "port: Menu's hover gates are written by their module names only when true, and a change is a changed option")]
+    [Trait("Requirement", "MNU-STA-11")]
+    [Trait("Requirement", "MNU-STA-12")]
+    [Trait("Requirement", "MNU-PTR-09")]
+    public void Menus_hover_gates_are_written_by_their_module_names_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string trigger = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions
+            {
+                Hover = new InteractionsHoverOptions { RequireParentMouseEnter = true, RequireHoverEnabled = true },
+                Menu = new InteractionsMenuTriggerOptions { TrackMouseEnter = true },
+            },
+        });
+        string floating = Serialize(new InteractionsOptions
+        {
+            Floating = new InteractionsFloatingOptions
+            {
+                Hover = new InteractionsFloatingHoverOptions(0, RequireHoverEnabled: true),
+                Menu = new InteractionsMenuFloatingOptions { DisableHoverOnMove = true },
+            },
+        });
+        string unset = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions { Hover = new InteractionsHoverOptions(), Menu = new InteractionsMenuTriggerOptions() },
+            Floating = new InteractionsFloatingOptions { Hover = new InteractionsFloatingHoverOptions(0), Menu = new InteractionsMenuFloatingOptions() },
+        });
+
+        Assert.Contains("\"requireParentMouseEnter\":true", trigger, StringComparison.Ordinal);
+        Assert.Contains("\"requireHoverEnabled\":true", trigger, StringComparison.Ordinal);
+        Assert.Contains("\"trackMouseEnter\":true", trigger, StringComparison.Ordinal);
+        Assert.Contains("\"requireHoverEnabled\":true", floating, StringComparison.Ordinal);
+        Assert.Contains("\"disableHoverOnMove\":true", floating, StringComparison.Ordinal);
+        Assert.DoesNotContain("requireParentMouseEnter", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("requireHoverEnabled", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("trackMouseEnter", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("disableHoverOnMove", unset, StringComparison.Ordinal);
+        Assert.Contains("\"menu\":{}", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsHoverOptions { RequireHoverEnabled = true }, new InteractionsHoverOptions());
+        Assert.NotEqual(new InteractionsHoverOptions { RequireParentMouseEnter = true }, new InteractionsHoverOptions());
+        Assert.NotEqual(new InteractionsFloatingHoverOptions(0, RequireHoverEnabled: true), new InteractionsFloatingHoverOptions(0));
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { DisableHoverOnMove = true }, new InteractionsMenuFloatingOptions());
+    }
+
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (2): the item hover and the
+    // sibling close delay cross by their module names; a delay of 0 (close at once) is sent and an absent one is not.
+    [Fact(DisplayName = "port: Menu's item hover and sibling close delay are written by their module names, a 0 delay is sent, and a change is a changed option")]
+    [Trait("Requirement", "MNU-PTR-11")]
+    [Trait("Requirement", "MNU-EDGE-12")]
+    public void Menus_item_hover_and_sibling_close_delay_are_written_by_their_module_names_a_0_delay_is_sent_and_a_change_is_a_changed_option()
+    {
+        string delayed = Serialize(new InteractionsOptions { Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions { ItemHover = true, SiblingCloseDelay = 100 } } });
+        string atOnce = Serialize(new InteractionsOptions { Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions { SiblingCloseDelay = 0 } } });
+        string unset = Serialize(new InteractionsOptions { Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions() } });
+
+        Assert.Contains("\"itemHover\":true", delayed, StringComparison.Ordinal);
+        Assert.Contains("\"siblingCloseDelay\":100", delayed, StringComparison.Ordinal);
+        Assert.Contains("\"siblingCloseDelay\":0", atOnce, StringComparison.Ordinal);
+        Assert.DoesNotContain("itemHover", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("siblingCloseDelay", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { SiblingCloseDelay = 100 }, new InteractionsMenuFloatingOptions { SiblingCloseDelay = 0 });
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { ItemHover = true }, new InteractionsMenuFloatingOptions());
+    }
+
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (3): the release options cross
+    // by their module names, each flag only when true, and a change is a changed option.
+    [Fact(DisplayName = "port: Menu's release options are written by their module names, each flag only when true, and a change is a changed option")]
+    [Trait("Requirement", "MNU-PTR-02")]
+    [Trait("Requirement", "MNU-PTR-03")]
+    [Trait("Requirement", "MNU-PTR-04")]
+    public void Menus_release_options_are_written_by_their_module_names_each_flag_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string set = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions { RootId = "base-ui-1", Release = true } },
+            Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions { Release = true } },
+        });
+        string unset = Serialize(new InteractionsOptions
+        {
+            Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions() },
+            Floating = new InteractionsFloatingOptions { Menu = new InteractionsMenuFloatingOptions() },
+        });
+
+        Assert.Contains("\"menu\":{\"rootId\":\"base-ui-1\",\"release\":true}", set, StringComparison.Ordinal);
+        Assert.Contains("\"menu\":{\"release\":true}", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("release", unset, StringComparison.Ordinal);
+        Assert.DoesNotContain("rootId", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { RootId = "a" }, new InteractionsMenuTriggerOptions { RootId = "b" });
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { Release = true }, new InteractionsMenuTriggerOptions());
+        Assert.NotEqual(new InteractionsMenuFloatingOptions { Release = true }, new InteractionsMenuFloatingOptions());
+    }
+
+    // ADR 04 Amendments 2026-11-04, Menu's interactions additions as built (M5 track 6), item (4): the guard-return option
+    // crosses by its module name, only when true. Written after the option (D3 of PR 183, a88bdc16), so not red first; the
+    // interim review of PR 183 (F1) asked for it.
+    [Fact(DisplayName = "port: Menu's guard-return option is written by its module name, only when true, and a change is a changed option")]
+    [Trait("Requirement", "MNU-FOC-08")]
+    public void Menus_guard_return_option_is_written_by_its_module_name_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string set = Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions { CloseOnGuardReturn = true } } });
+        string unset = Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions() } });
+
+        Assert.Contains("\"menu\":{\"closeOnGuardReturn\":true}", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("closeOnGuardReturn", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { CloseOnGuardReturn = true }, new InteractionsMenuTriggerOptions());
+    }
+
+    private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
+
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
     {
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);

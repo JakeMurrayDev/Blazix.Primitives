@@ -1,0 +1,65 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuGroupLabel.test.tsx's trees: an open menu whose popup holds the case's group and label. `Case` is one of "group",
+   "radio-group", "group-as-radio-group", "labels" (the old and new labels of the cleanup title) and "outside". *@
+@if (Case == "outside")
+{
+    <MenuGroupLabel>Test group</MenuGroupLabel>
+}
+else
+{
+    <MenuRoot TPayload="NoPayload" Open="true">
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    @switch (Case)
+                    {
+                        case "group":
+                            <MenuGroup>@Label</MenuGroup>
+                            break;
+                        case "radio-group":
+                            <MenuRadioGroup TValue="string">@Label</MenuRadioGroup>
+                            break;
+                        case "group-as-radio-group":
+                            <MenuGroup RenderFunction="AsRadioGroup">@Label</MenuGroup>
+                            break;
+                        case "labels":
+                            <MenuGroup>
+                                @if (Labels != "new")
+                                {
+                                    <MenuGroupLabel @key="@("old")" id="old-label">Old</MenuGroupLabel>
+                                }
+                                @if (Labels != "old")
+                                {
+                                    <MenuGroupLabel @key="@("new")" id="new-label">New</MenuGroupLabel>
+                                }
+                            </MenuGroup>
+                            break;
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+}
+
+@code {
+    [Parameter]
+    public string Case { get; set; } = "group";
+
+    [Parameter]
+    public string? LabelId { get; set; }
+
+    [Parameter]
+    public string? AriaHidden { get; set; }
+
+    [Parameter]
+    public string Labels { get; set; } = "old";
+
+    // ADR 02's decision 1 table: a null attribute value is not expressible (the Razor compiler omits its frame), so the
+    // consumer overrides aria-hidden with a value rather than removing it.
+    private RenderFragment Label => AriaHidden is { } hidden
+        ? @<MenuGroupLabel id="@LabelId" aria-hidden="@hidden">Test group</MenuGroupLabel>
+        : @<MenuGroupLabel id="@LabelId">Test group</MenuGroupLabel>;
+
+    private RenderFragment AsRadioGroup(RenderProps<EmptyState> props) =>
+        @<MenuRadioGroup TValue="string" AdditionalAttributes="props.Attributes">@props.ChildContent</MenuRadioGroup>;
+}

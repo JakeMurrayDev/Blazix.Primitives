@@ -1,0 +1,197 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-triggers` fixture (tests/browser/menu.spec.ts, M5 track 6): detachedTriggersConformanceTests on Menu's
+    parts (MenuRoot.detached-triggers.test.tsx: a handle, a positioner and a viewport, no close part), the
+    popover-triggers fixture's contract with a `MenuItem` as the popup's content.
+*@
+
+<FixtureContainer Name="menu-triggers" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-handle-open-state="@(handle?.IsOpen == true ? "true" : "false")" data-handle-error="@handleError">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-toggle-root data-key-control @onclick="() => rootMounted = !rootMounted" @onkeydown="OnShift(() => rootMounted = !rootMounted)">Toggle root</button>
+    <button type="button" data-recreate-handle data-key-control @onclick="RecreateHandle" @onkeydown="OnShift(RecreateHandle)">Recreate handle</button>
+    @for (int level = 0; level <= 3; level++)
+    {
+        int value = level;
+        <button type="button" data-set-nesting="@value" data-key-control @onclick="() => nesting = value" @onkeydown="OnShift(() => nesting = value)">Nesting @value</button>
+    }
+    <button type="button" data-handle-open="trigger-1" data-key-control @onclick='() => HandleOpenAsync("trigger-1")' @onkeydown='OnShift(() => HandleOpenAsync("trigger-1"))'>Handle open 1</button>
+    <button type="button" data-handle-open="trigger-2" data-key-control @onclick='() => HandleOpenAsync("trigger-2")' @onkeydown='OnShift(() => HandleOpenAsync("trigger-2"))'>Handle open 2</button>
+    <button type="button" data-handle-open="missing" data-key-control @onclick='() => HandleOpenAsync("missing")' @onkeydown='OnShift(() => HandleOpenAsync("missing"))'>Handle open missing</button>
+    <button type="button" data-handle-close data-key-control @onclick="HandleCloseAsync" @onkeydown="OnShift(HandleCloseAsync)">Handle close</button>
+
+    @foreach (string value in new[] { "outgoing", "overlap", "incoming" })
+    {
+        <button type="button" data-set-phase="@value" data-key-control @onclick="() => phase = value" @onkeydown="OnShift(() => phase = value)">Phase @value</button>
+    }
+
+    <div style="margin: 50px">
+        @if (Case == "overlap")
+        {
+            @Nest(0)
+            @if (phase is "outgoing" or "overlap")
+            {
+                <MenuRoot TPayload="string" Modal="@modal" @key="@("outgoing")" Handle="@handle" OnOpenChange="RecordOpenChange" PayloadContent="@Popup" />
+            }
+
+            @if (phase is "overlap" or "incoming")
+            {
+                <MenuRoot TPayload="string" Modal="@modal" @key="@("incoming")" Handle="@handle" OnOpenChange="RecordOpenChange" PayloadContent="@Popup" />
+                <OpenOnMount Run='() => HandleOpenAsync("trigger-2")' />
+            }
+        }
+        else if (detached && !rootFirst)
+        {
+            @Nest(nesting)
+        }
+
+        @if (rootMounted && Case != "overlap")
+        {
+            @if (controlled)
+            {
+                <MenuRoot TPayload="string" Modal="@modal" @ref="root" Handle="@(detached ? handle : null)" Open="@open" TriggerId="@triggerId"
+                                  OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
+                    @if (!detached)
+                    {
+                        @Nest(nesting)
+                    }
+                </MenuRoot>
+            }
+            else
+            {
+                <MenuRoot TPayload="string" Modal="@modal" @ref="root" Handle="@(detached ? handle : null)" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId"
+                                  OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Popup">
+                    @if (!detached)
+                    {
+                        @Nest(nesting)
+                    }
+                </MenuRoot>
+            }
+        }
+
+        @if (detached && rootFirst && Case != "overlap")
+        {
+            @Nest(nesting)
+        }
+
+        @if (Case == "controlled")
+        {
+            <button type="button" @onclick='() => SetControlled(true, "trigger-1")'>Open Trigger 1</button>
+            <button type="button" @onclick='() => SetControlled(true, "trigger-2")'>Open Trigger 2</button>
+            <button type="button" @onclick="() => open = false">Close externally</button>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    // A real pointer where Base UI fires a synthetic one (the lesson of PR 168): user-event's click reaches a trigger the modal
+    // menu's internal backdrop covers, a Playwright click lands on the backdrop, so the switching titles open the menu
+    // non-modal unless the query sets `modal=true` (MNU-API-08's default is modal; a dated note on the rows).
+    private bool? modal = false;
+
+    private readonly MenuTrigger<string>?[] triggerRefs = new MenuTrigger<string>?[8];
+    private MenuRoot<string>? root;
+    private MenuHandle<string>? handle;
+    private bool detached;
+    private bool controlled;
+    private bool open;
+    private string? triggerId;
+    private bool defaultOpen;
+    private string? defaultTriggerId;
+    private int triggerCount = 2;
+    private bool rootFirst;
+    private bool rootMounted = true;
+    private int nesting;
+    private string? handleError;
+    private string phase = "outgoing";
+
+    // A press reaches the popover through the triggers' `interactions` handles, which join the root's session: the page is
+    // ready once they and the session are attached (a detached trigger attaches once a root gives it a session).
+    protected override IEnumerable<Task> Attachments =>
+        !rootMounted || Case == "overlap"
+            ? []
+            : [.. triggerRefs.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        modal = QueryFlag("modal") ?? false;
+        handle = new MenuHandle<string>();
+        detached = Query("mode") == "detached";
+        controlled = Case == "controlled" || QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        triggerId = Query("triggerId");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        defaultTriggerId = Query("defaultTriggerId");
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
+        rootFirst = QueryFlag("rootFirst") == true;
+        nesting = int.TryParse(Query("nesting"), out int level) ? level : 0;
+        rootMounted = QueryFlag("rootMounted") != false;
+        if (Case == "overlap")
+        {
+            detached = true;
+        }
+    }
+
+    private RenderFragment Nest(int level) => level == 0 ? Triggers : @<div>@Nest(level - 1)</div>;
+
+    private RenderFragment Triggers => @<text>
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            string id = $"trigger-{number}";
+            string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            <MenuTrigger TPayload="string" @key="number" @ref="triggerRefs[number - 1]" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</MenuTrigger>
+        }
+    </text>;
+
+    private RenderFragment<string?> Popup => payload => @<text>
+        <span data-testid="root-payload">@(payload ?? "No payload")</span>
+        <MenuPortal>
+            <MenuPositioner data-testid="positioner" Side="@(Case == "controlled" ? Side.Bottom : null)" Align="@(Case == "controlled" ? Align.Start : null)">
+                <MenuPopup data-testid="popup">
+                    <MenuViewport data-testid="viewport">
+                        <span data-testid="content">@payload</span>
+                    </MenuViewport>
+                    <MenuItem>Close popup</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </text>;
+
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        triggerId = args.Details.Trigger?.Id;
+        open = args.Value;
+    }
+
+    private void SetControlled(bool value, string? id)
+    {
+        open = value;
+        triggerId = id;
+    }
+
+    private void RecreateHandle() => handle = new MenuHandle<string>();
+
+    private async Task HandleOpenAsync(string id)
+    {
+        handleError = null;
+        try
+        {
+            await handle!.OpenAsync(id);
+        }
+        catch (InvalidOperationException error)
+        {
+            handleError = error.Message;
+        }
+
+        // OpenOnMount calls this outside the page's own events: render the handle's state now.
+        StateHasChanged();
+    }
+
+    private Task HandleCloseAsync() => handle!.CloseAsync();
+}
