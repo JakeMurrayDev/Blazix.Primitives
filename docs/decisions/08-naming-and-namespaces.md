@@ -214,3 +214,15 @@ Members of every class follow the eleven-group order of the old port: constants,
   - `MenuHighlightEventDetails : GenericEventDetails` adds `string? Label` and carries no index.
   - `OnItemHighlighted` is an `EventCallback<MenuItemHighlightedEventArgs>`, where `MenuItemHighlightedEventArgs(string? ItemId, MenuHighlightEventDetails Details)`.
   - `Events/HighlightEventDetails`, which carries an index, stays Combobox's; EVT §3.7 gains a dated note naming both types.
+
+**2026-11-11, `AutoHighlightValue` (M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); the shape is M5 track 10's design point 4 (a), settled by the orchestrator 2026-11-04; the `Utilities/` grant from the orchestrator 2026-11-11).** Base UI's `autoHighlight?: boolean | 'always'` (Menu's filter provider, MNU-API-55; Autocomplete, track 11) is the §3 boolean-or-literal row:
+- `public readonly struct AutoHighlightValue : IUnion`, on `ModalValue`'s pattern, holds a `bool` or the case type `public readonly struct AutoHighlightAlways`.
+- Members:
+  - the implicit conversion from `bool`;
+  - `static AutoHighlightValue Always`;
+  - `HasValue`;
+  - `TryGetValue(out bool)` and `TryGetValue(out AutoHighlightAlways)`;
+  - `IsAlways`;
+  - `IsEnabled` (`true` or `Always`).
+- `AutoHighlight="true"` binds through the implicit conversion. A part's `AutoHighlight` parameter is `AutoHighlightValue?`, and `null` reads as `false`.
+- It lives in `Utilities/` because two families use it (ADR 09 Amendments 2026-10-21). Track 11 takes it from `main`.
