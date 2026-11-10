@@ -16,6 +16,8 @@ public sealed class ComboboxRootTests : IDisposable
 {
     private static readonly string[] s_fruits = ["apple", "banana", "cherry"];
 
+    private static readonly string[] s_apricots = ["apple", "apricot", "banana"];
+
     private readonly ComboboxTestContext test = new();
 
     /// <inheritdoc />
@@ -395,6 +397,60 @@ public sealed class ComboboxRootTests : IDisposable
 
         Assert.Empty(logger.Entries);
     }
+
+    // CMB-STA-21's handleOpenChanged (AriaCombobox.tsx:1272-1277): a controlled `open` that interrupts the close runs the
+    // interrupted reopen without a setOpen call. The consumer follows each request by re-rendering the root.
+    [Fact(DisplayName = "releases the frozen query when controlled open reopens the popup")]
+    [Trait("Requirement", "CMB-STA-21")]
+    public async Task Releases_the_frozen_query_when_controlled_open_reopens_the_popup()
+    {
+        Dictionary<string, object?> parameters = new() { ["Multiple"] = true, ["Items"] = (IReadOnlyList<string>)s_apricots, ["Open"] = false };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        await test.TypeAsync(cut, "app");
+        Follow(cut, parameters);
+        Assert.Equal(["apple"], Options(cut));
+        await test.SessionRequestAsync(cut, false, "escape-key");
+        Follow(cut, parameters);
+        Assert.True(cut.Instance.Root!.Store.State.Lifecycle.Mounted);
+
+        parameters["Open"] = true;
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+        Assert.Contains("banana", Options(cut));
+        cut.Instance.InputChanges.Clear();
+        await test.SessionRequestAsync(cut, false, "escape-key");
+        Follow(cut, parameters);
+
+        Assert.Empty(cut.Instance.InputChanges);
+    }
+
+    // CMB-STA-21's handleQueryChanged (AriaCombobox.tsx:1262-1270): a query that changes while open, by the consumer as
+    // well as by typing, counts as changed since the open, so the close clears it in multiple mode.
+    [Fact(DisplayName = "port: a controlled query set while open is cleared when the popup closes (multiple)")]
+    [Trait("Requirement", "CMB-STA-21")]
+    public async Task A_controlled_query_set_while_open_is_cleared_when_the_popup_closes()
+    {
+        Dictionary<string, object?> parameters = new() { ["Multiple"] = true, ["Items"] = (IReadOnlyList<string>)s_apricots, ["DefaultOpen"] = true, ["InputValue"] = string.Empty };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        parameters["InputValue"] = "ap";
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+        Assert.Equal(["apple", "apricot"], Options(cut));
+
+        await test.SessionRequestAsync(cut, false, "escape-key");
+
+        (string text, EventReason reason, _) = Assert.Single(cut.Instance.InputChanges);
+        Assert.Equal((string.Empty, EventReason.InputClear), (text, reason));
+    }
+
+    private static void Follow(IRenderedComponent<ComboboxHarness> cut, Dictionary<string, object?> parameters)
+    {
+        if (cut.Instance.OpenChanges.Count != 0)
+        {
+            parameters["Open"] = cut.Instance.OpenChanges[^1].Open;
+            cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+        }
+    }
+
+    private static List<string> Options(IRenderedComponent<ComboboxHarness> cut) => cut.FindAll("[role=option]").Select(option => option.TextContent).ToList();
 
     private List<string> CompositeOptions()
     {
