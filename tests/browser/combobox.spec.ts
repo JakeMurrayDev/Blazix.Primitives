@@ -31,6 +31,9 @@ test.describe('Combobox typing and the list', () => {
   test('port: ArrowDown highlights the first item through aria-activedescendant while focus stays on the input', async ({ page, mode }) => {
     await gotoCombobox(page, mode);
     await input(page).click();
+    // On Server the click's open lands a round trip after the click, so the arrow key waits for the open list, as the
+    // Enter title's waits for the filtered one.
+    await expect(page.getByRole('listbox')).toBeVisible();
     await input(page).press('ArrowDown');
 
     const first = page.getByRole('option', { name: 'apple' });
