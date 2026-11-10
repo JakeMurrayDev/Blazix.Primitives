@@ -703,14 +703,9 @@ function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channe
 function attachPressDefault(element: HTMLElement, initial: ComboboxOptions): TwinHandle {
   let options = initial;
   const input = (): HTMLElement | null => (options.inputId ? element.ownerDocument.getElementById(options.inputId) : null);
+  // ComboboxClear.tsx:98-100: every press keeps the focus where it is.
   const onMouseDown = (event: MouseEvent): void => {
-    if (options.disabled) {
-      return;
-    }
-    const target = input();
-    if (target && getTarget(event) !== target) {
-      event.preventDefault();
-    }
+    event.preventDefault();
   };
   const onClick = (): void => {
     if (options.disabled || options.readOnly) {
