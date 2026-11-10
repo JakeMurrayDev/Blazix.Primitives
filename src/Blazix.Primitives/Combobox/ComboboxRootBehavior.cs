@@ -160,6 +160,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             fieldBehavior = new ComboboxFieldBehavior<TValue>(store, () => Serialized(store));
             store.NameResolver = fieldBehavior.NameOf;
             store.ControlBlurred = fieldBehavior.Blur;
+            store.DispatchException = dispatchException;
         }
 
         store.ReadControlled(parameters, names);

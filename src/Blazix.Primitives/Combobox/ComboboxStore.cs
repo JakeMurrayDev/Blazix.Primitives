@@ -60,6 +60,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets or sets the root's reaction to a focus loss of its input or trigger: touched, and a commit in onBlur mode.</summary>
     public Action? ControlBlurred { get; set; }
+
+    /// <summary>Gets or sets the route of an exception of work the store starts outside a request, to the root.</summary>
+    public Func<Exception, Task>? DispatchException { get; set; }
     /// <summary>Gets the id of the form that owns the hidden input.</summary>
     public abstract string? Form { get; }
 
@@ -875,7 +878,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         // CMB-STA-19: an input inside the popup starts blank when no input value was given.
         if (inside && !HasInputValueParameter && State.InputValue.Length != 0)
         {
-            _ = SetInputValueAsync(string.Empty, CreateDetails(EventReason.None, null));
+            _ = ObserveAsync(SetInputValueAsync(string.Empty, CreateDetails(EventReason.None, null)));
         }
     }
 
@@ -990,7 +993,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     protected override void OnUnmount()
     {
         base.OnUnmount();
-        _ = HandleUnmountCleanupAsync();
+        _ = ObserveAsync(HandleUnmountCleanupAsync());
     }
 
     /// <summary>Applies a controlled value the consumer changed between parameter sets.</summary>
@@ -1338,6 +1341,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         if (listBehavior is not null)
         {
             listBehavior.SelectedIndex = index;
+        }
+    }
+
+    private async Task ObserveAsync(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled && DispatchException is not null)
+        {
+            await DispatchException(exception);
         }
     }
 

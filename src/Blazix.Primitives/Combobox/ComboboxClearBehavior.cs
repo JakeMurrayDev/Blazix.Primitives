@@ -72,16 +72,16 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
     {
         this.services = services;
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
-        onStatus = change => _ = services.InvokeAsync(() =>
+        onStatus = change => _ = Observe(services.InvokeAsync(() =>
         {
             Mirror(change.Status, change.Mounted);
             return Task.CompletedTask;
-        });
-        onCompleted = open => _ = services.InvokeAsync(() =>
+        }));
+        onCompleted = open => _ = Observe(services.InvokeAsync(() =>
         {
             Complete(open);
             return Task.CompletedTask;
-        });
+        }));
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -377,6 +377,18 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
         status = next;
         mounted = nextMounted;
         services.RequestRender();
+    }
+
+    private async Task Observe(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await services.DispatchException(exception);
+        }
     }
 
     // CMB-ANI-04 (useOpenChangeComplete): the exit finished, so the element unmounts (unless kept) and its status is unset.
