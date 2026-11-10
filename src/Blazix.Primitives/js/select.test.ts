@@ -493,3 +493,97 @@ describe('select module: the trigger (port titles)', () => {
     expect(fake.reports.filter((report) => report.method === 'OnCancelOpen')).toEqual([]);
   });
 });
+
+describe('select module: press and release (port titles)', () => {
+  // Interim review F10 (M5 track 9): the brief's port titles for the release gates, the drag and the trigger's slip.
+  function pointer(type: string, init: { pointerType: string; buttons?: number; movementY?: number }): MouseEvent {
+    const event = new MouseEvent(type, { bubbles: true, buttons: init.buttons ?? 0 });
+    Object.defineProperty(event, 'pointerType', { value: init.pointerType });
+    Object.defineProperty(event, 'movementY', { value: init.movementY ?? 0 });
+    return event;
+  }
+
+  function openPositioner() {
+    vi.useFakeTimers();
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const item = (label: string, selected: boolean): HTMLElement => {
+      const element = document.createElement('div');
+      element.setAttribute('role', 'option');
+      element.setAttribute('aria-selected', String(selected));
+      element.id = `item-${label}`;
+      popup.append(element);
+      return element;
+    };
+    const items: [HTMLElement, HTMLElement, HTMLElement] = [item('one', true), item('two', false), item('three', false)];
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger, popup]);
+    handles.push(handle);
+    const activations = () => fake.reports.filter((report) => report.method === 'OnActivate').length;
+    return { trigger, items, handle, options, activations, references: [trigger, popup] };
+  }
+
+  it('keeps a release on an item from selecting until 400 ms after the open, and resets on the close (SEL-PTR-05, SEL-PTR-07)', () => {
+    const { items, handle, options, activations, references } = openPositioner();
+    vi.advanceTimersByTime(399);
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+
+    vi.advanceTimersByTime(1);
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(1);
+
+    handle.update(JSON.stringify({ ...options, open: false }), references);
+    handle.update(JSON.stringify(options), references);
+    items[2].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(1);
+  });
+
+  it('lets a release on an unselected item select early once the held pointer moved 8 px over items, but not the selected one (SEL-PTR-06)', () => {
+    const { items, activations } = openPositioner();
+    items[1].dispatchEvent(pointer('pointermove', { pointerType: 'mouse', buttons: 1, movementY: 4 }));
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+
+    items[1].dispatchEvent(pointer('pointermove', { pointerType: 'mouse', buttons: 1, movementY: 4 }));
+    items[0].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+    items[2].dispatchEvent(pointer('pointermove', { pointerType: 'mouse', buttons: 1, movementY: 8 }));
+    items[2].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(1);
+  });
+
+  it('ignores a release on an item the press started on, or that a touch reached (SEL-PTR-09, SEL-PTR-22)', () => {
+    const { items, activations } = openPositioner();
+    vi.advanceTimersByTime(400);
+    items[1].dispatchEvent(pointer('pointerdown', { pointerType: 'mouse', buttons: 1 }));
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    items[2].dispatchEvent(pointer('pointerover', { pointerType: 'touch' }));
+    items[2].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+  });
+
+  it('keeps a press open when it is released within 5 px of the trigger, and cancels it beyond (SEL-PTR-04)', () => {
+    vi.useFakeTimers();
+    const trigger = document.createElement('button');
+    document.body.append(trigger);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 100, 100, 40);
+    const fake = createFakeTwin();
+    handles.push(attach(trigger, JSON.stringify({ part: TRIGGER_PART, open: false }), fake.twin, []));
+    const cancels = () => fake.reports.filter((report) => report.method === 'OnCancelOpen').length;
+
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    vi.advanceTimersByTime(0);
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 204, clientY: 120 }));
+    expect(cancels()).toBe(0);
+
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    vi.advanceTimersByTime(0);
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 206, clientY: 120 }));
+    expect(cancels()).toBe(1);
+  });
+});
