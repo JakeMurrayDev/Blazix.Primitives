@@ -349,6 +349,32 @@ describe('the input', () => {
     expect(scroller.scrollTop).toBe(50);
   });
 
+  // AriaCombobox.tsx:945-948: the hidden validation input's form first, then the input's (review F14, settled by the
+  // orchestrator 2026-11-10).
+  it('port: a moved submit revision submits the hidden input\'s form, else the input\'s', () => {
+    const submits: string[] = [];
+    const forms = ['hidden-form', 'input-form'].map((name) => {
+      const form = document.createElement('form');
+      form.id = name;
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submits.push(name);
+      });
+      document.body.append(form);
+      return form;
+    });
+    const hidden = document.createElement('input');
+    hidden.setAttribute('form', 'hidden-form');
+    document.body.append(hidden);
+    const input = document.createElement('input');
+    forms[1]!.append(input);
+    const handle = createAttach(desktop)(input, options(), createFakeTwin().twin);
+    handles.push(handle);
+    handle.update(options({ submitRevision: 1, submitFormElement: 0 }), [hidden]);
+    handle.update(options({ submitRevision: 2 }));
+    expect(submits).toEqual(['hidden-form', 'input-form']);
+  });
+
   it('port: a moved submit revision submits the input\'s form once, after the selection rendered', () => {
     const form = document.createElement('form');
     const submits: string[] = [];
