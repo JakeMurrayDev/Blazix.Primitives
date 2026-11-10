@@ -1605,4 +1605,33 @@ describe('positioning module: the size variables at the close', () => {
     expect(spies.computePosition.mock.calls.length).toBeGreaterThan(passes);
     expect(positioner.style.getPropertyValue('--available-height')).toBe(height);
   });
+
+  // The guard's boundary (final review N1): only a closed Positioner whose box has collapsed is the unmount's stand-in.
+  it('port: still writes the size variables for a closed Positioner that keeps a box, and for an open one with an empty box', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    await settle();
+    const opened = positioner.style.getPropertyValue('--available-height');
+
+    // Open with an empty box (jsdom's): a viewport change still reaches the variables.
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 600 });
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    const resized = positioner.style.getPropertyValue('--available-height');
+    expect(resized).toMatch(/px$/);
+    expect(resized).not.toBe(opened);
+
+    // Closed and still laid out (a consumer's padding, or content outside the Popup): not the unmount's moment.
+    Object.defineProperty(positioner, 'offsetWidth', { configurable: true, value: 120 });
+    Object.defineProperty(positioner, 'offsetHeight', { configurable: true, value: 80 });
+    positioner.style.width = '120px';
+    positioner.style.height = '80px';
+    positioner.removeAttribute('data-open');
+    await settle();
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 300 });
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(positioner.style.getPropertyValue('--available-height')).toMatch(/px$/);
+    expect(positioner.style.getPropertyValue('--available-height')).not.toBe(resized);
+  });
 });
