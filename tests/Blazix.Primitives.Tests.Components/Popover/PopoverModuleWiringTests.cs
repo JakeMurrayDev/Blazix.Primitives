@@ -404,6 +404,80 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
 
+    // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+
+    // Issue 213 (the shape PR 183 fixed in Menu's item indicator): a render during a pending transitions attach awaited it and
+    // sent nothing, so what only an update carries waited for the next render. The open state is not lost: the module reads
+    // it from the element through the open selector.
+    [Fact(DisplayName = "port: a style change while the popup's transitions handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "POP-DOM-29")]
+    public async Task A_style_change_while_the_popups_handle_attaches_reaches_the_module()
+    {
+        BunitJSModuleInterop handle = SetUpTransitions();
+        HeldAttachRuntime runtime = HoldTransitionsAttach();
+        IRenderedComponent<PopupTestHost> cut = test.Render(
+            (builder, host) => PopoverTree.Build(builder, new PopoverSpec { DefaultOpen = true, PopupStyle = host.Get<string>("style") }),
+            new() { ["style"] = "color: red" });
+        await runtime.WaitForHeldAttachAsync(options => options.Contains("color: red", StringComparison.Ordinal));
+
+        await cut.Instance.SetAsync("style", "color: blue");
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(test.Context.Renderer.Dispatcher, handle, options => options.Contains("color: blue", StringComparison.Ordinal)));
+    }
+
+    [Fact(DisplayName = "port: an unmount requested while the backdrop's transitions handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "POP-ANI-05")]
+    public async Task An_unmount_while_the_backdrops_handle_attaches_reaches_the_module()
+    {
+        BunitJSModuleInterop handle = SetUpTransitions();
+        HeldAttachRuntime runtime = HoldTransitionsAttach();
+        PopoverRoot<int>? root = null;
+        Render(new PopoverSpec
+        {
+            DefaultOpen = true,
+            Backdrop = true,
+            KeepMounted = true,
+            CaptureRoot = captured => root = captured,
+            OnOpenChange = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }),
+        });
+        await runtime.WaitForHeldAttachAsync(options => options.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal));
+
+        // A retained close, then the consumer's unmount, both before the attach returns.
+        await root!.CloseAsync();
+        root.Unmount();
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(
+            test.Context.Renderer.Dispatcher,
+            handle,
+            options => options.Contains("\"reportOpenComplete\":false", StringComparison.Ordinal) && options.Contains("\"unmountRequests\":1", StringComparison.Ordinal)));
+    }
+
+    private BunitJSModuleInterop SetUpTransitions()
+    {
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        return handle;
+    }
+
+    private HeldAttachRuntime HoldTransitionsAttach()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        return runtime;
+    }
+
+#pragma warning restore BL0016
+
     private string? PopupAttachOptions() =>
         test.Context.JSInterop.Invocations
             .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 1)

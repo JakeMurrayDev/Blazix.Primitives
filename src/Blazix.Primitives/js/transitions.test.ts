@@ -371,6 +371,50 @@ describe('useAnimationsFinished', () => {
     expect(fourth).toHaveBeenCalledTimes(1);
   });
 
+  // Issue 218 (MNU-ANI-13's indicator on WebAssembly; option (a), settled by the orchestrator 2026-11-11): in a real browser
+  // the exit's first inspection can read no animation about a millisecond after the ending style was written, although
+  // the computed style already declares it; completing then drops the animation before its first tick. Base UI's
+  // useAnimationsFinished reads once; the port reads once more on the next frame, and only in that case.
+  it('port: an exit whose first inspection finds no animation while its style declares one inspects again on the next frame', async () => {
+    // No declared motion: the first inspection completes, as Base UI's.
+    const plain = vi.fn();
+    createAnimationsWatcher(createElement(() => [])).run(plain);
+    runFrame();
+    await flushTasks();
+    expect(plain).toHaveBeenCalledTimes(1);
+
+    for (const declare of [
+      (element: HTMLElement) => {
+        element.style.animationName = 'fade-out';
+        element.style.animationDuration = '1ms';
+      },
+      (element: HTMLElement) => {
+        element.style.transitionProperty = 'opacity';
+        element.style.transitionDuration = '250ms';
+      },
+    ]) {
+      const exit = createAnimation();
+      const onFinished = vi.fn();
+      let animations: Animation[] = [];
+      const element = createElement(() => animations);
+      declare(element);
+
+      createAnimationsWatcher(element).run(onFinished);
+      runFrame();
+      await flushTasks();
+      expect(onFinished).not.toHaveBeenCalled();
+
+      animations = [exit.animation];
+      runFrame();
+      await flushTasks();
+      expect(onFinished).not.toHaveBeenCalled();
+
+      exit.finish();
+      await flushTasks();
+      expect(onFinished).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it('never runs the callback when the element is missing', async () => {
     const onFinished = vi.fn();
 
