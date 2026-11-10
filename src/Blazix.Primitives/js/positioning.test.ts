@@ -1220,7 +1220,35 @@ describe('positioning module: setAligned', () => {
 
     setAligned(positioner, false);
     expect(positioner.getAttribute('data-side')).toBe('bottom');
-    expect(setAligned(document.createElement('div'), true)).toBe(false);
+  });
+
+  // F4 of PR 205's final review (M5 track 9; settled by the orchestrator 2026-11-11, option (a)): the `select` handle
+  // attaches when the force-mounted Popup renders, before the `positioning` handle that only an open attaches, so the
+  // module holds its request and applies it when its own handle attaches; a stand-down before that clears it.
+  it('holds an aligned request made before its handle attaches and applies it at attach, and a stand-down clears it', async () => {
+    stubViewport();
+    const early = document.createElement('div');
+    let passes = 0;
+    expect(setAligned(early, true, () => passes++)).toBe(true);
+    expect(setAligned(early, false)).toBe(true);
+
+    const trigger = document.createElement('button');
+    trigger.id = 'trigger';
+    stubRect(trigger, 100, 100, 72, 36);
+    const positioner = document.createElement('div');
+    positioner.setAttribute('role', 'presentation');
+    positioner.setAttribute('data-open', '');
+    document.body.append(trigger, positioner);
+    expect(setAligned(positioner, true, () => passes++)).toBe(true);
+    handles.push(attach(positioner, JSON.stringify(options()), createFakeTwin().twin));
+    await settle();
+
+    expect(positioner.getAttribute('data-side')).toBe('none');
+    expect(passes).toBeGreaterThan(0);
+    document.body.append(early);
+    handles.push(attach(early, JSON.stringify(options()), createFakeTwin().twin));
+    await settle();
+    expect(early.getAttribute('data-side')).not.toBe('none');
   });
 
   // DP1 (a) of M5 track 9, settled by the orchestrator 2026-11-04 (select/positioner/SelectPositioner.tsx:115): Base UI
