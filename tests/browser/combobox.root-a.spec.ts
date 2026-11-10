@@ -102,6 +102,9 @@ test.describe('<Combobox.Root />', () => {
   });
 
   test.describe('manual unmount lifecycle', () => {
+    // ADR 01 relaxation (CMB-STA-29, Server): a popup held mounted by `preventUnmountOnClose` carries the convergent `hidden`, so Base UI's
+    // `queryByRole('listbox')` (accessible elements only) becomes a presence check that includes hidden elements.
+    const mountedListbox = (target: Page) => target.getByRole('listbox', { includeHidden: true });
     const completedClosings = async (fixture: Locator) => (await openChangeCompletes(fixture)).filter((open) => open === 'false');
 
     test('automatically unmounts with an actions ref and completes closing once', async ({ page, mode }) => {
@@ -111,7 +114,7 @@ test.describe('<Combobox.Root />', () => {
       await page.getByRole('combobox').click();
       await expect(page.getByRole('listbox')).toBeVisible();
       await page.keyboard.press('Escape');
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
       await settle(fixture);
       expect(await completedClosings(fixture)).toHaveLength(1);
 
@@ -126,17 +129,17 @@ test.describe('<Combobox.Root />', () => {
 
       await pressOption(page.getByRole('option'));
       await settle(fixture);
-      await expect(page.getByRole('listbox')).toHaveCount(1);
+      await expect(mountedListbox(page)).toHaveCount(1);
       expect(await openChangeCompletes(fixture)).not.toContain('false');
       await pressControl(fixture.locator('[data-unmount]'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
       await settle(fixture);
       expect(await completedClosings(fixture)).toHaveLength(1);
 
       await pressControl(fixture.locator('[data-set-open="true"]'));
       await expect(page.getByRole('listbox')).toBeVisible();
       await pressControl(fixture.locator('[data-set-open="false"]'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
       await settle(fixture);
       expect(await completedClosings(fixture)).toHaveLength(2);
     });
@@ -146,12 +149,12 @@ test.describe('<Combobox.Root />', () => {
 
       await pressOption(page.getByRole('option'));
       await settle(fixture);
-      await expect(page.getByRole('listbox')).toHaveCount(1);
+      await expect(mountedListbox(page)).toHaveCount(1);
       expect(await openChangeCompletes(fixture)).not.toContain('false');
       await pressControl(fixture.locator('[data-set-open="true"]'));
       await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
       await pressControl(fixture.locator('[data-set-open="false"]'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
       await settle(fixture);
       expect(await completedClosings(fixture)).toHaveLength(1);
     });
@@ -162,11 +165,11 @@ test.describe('<Combobox.Root />', () => {
       await pressOption(page.getByRole('option'));
       await settle(fixture);
       await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
-      await expect(page.getByRole('listbox')).toHaveCount(1);
+      await expect(mountedListbox(page)).toHaveCount(1);
 
       await pressControl(fixture.locator('[data-set-cancel="false"]'));
       await pressOption(page.getByRole('option'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
     });
 
     // Deviation (2026-11-10): Base UI applies the controlled close in React.startTransition; Blazor has no transitions, so the
@@ -177,11 +180,11 @@ test.describe('<Combobox.Root />', () => {
       await pressOption(page.getByRole('option'));
       await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
       await settle(fixture);
-      await expect(page.getByRole('listbox')).toHaveCount(1);
+      await expect(mountedListbox(page)).toHaveCount(1);
       expect(await openChangeCompletes(fixture)).not.toContain('false');
 
       await pressControl(fixture.locator('[data-unmount]'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
       await settle(fixture);
       expect(await completedClosings(fixture)).toHaveLength(1);
     });
@@ -194,10 +197,10 @@ test.describe('<Combobox.Root />', () => {
       await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
       await settle(fixture);
       expect(await openChanges(fixture)).toEqual(['false:imperative-action']);
-      await expect(page.getByRole('listbox')).toHaveCount(1);
+      await expect(mountedListbox(page)).toHaveCount(1);
 
       await pressControl(fixture.locator('[data-unmount]'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
     });
 
     test('completes closing once when `unmount` is called twice in one batch', async ({ page, mode }) => {
@@ -205,10 +208,10 @@ test.describe('<Combobox.Root />', () => {
 
       await pressOption(page.getByRole('option'));
       await settle(fixture);
-      await expect(page.getByRole('listbox')).toHaveCount(1);
+      await expect(mountedListbox(page)).toHaveCount(1);
 
       await pressControl(fixture.locator('[data-unmount-twice]'));
-      await expect(page.getByRole('listbox')).toHaveCount(0);
+      await expect(mountedListbox(page)).toHaveCount(0);
       await settle(fixture);
       expect(await completedClosings(fixture)).toHaveLength(1);
     });
@@ -281,7 +284,7 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('clears a single-select query and restores the selection when reopening during the close animation', async ({ page, mode }) => {
-      await gotoRoot(page, mode, { case: 'popup-input', items: 'Apple|Banana', defaultValue: 'Banana', trigger: 'Open', animated: true, empty: true });
+      await gotoRoot(page, mode, { case: 'popup-input', items: 'Apple|Banana', defaultValue: 'Banana', trigger: 'Open', animated: true, empty: true, animations: 1 });
 
       const trigger = page.getByTestId('trigger');
       await trigger.click();
@@ -308,7 +311,7 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('preserves a typed query when input reopens single-select during the close animation', async ({ page, mode }) => {
-      await gotoRoot(page, mode, { case: 'popup-input', items: 'Apple|Banana', trigger: 'Open', animated: true, empty: true });
+      await gotoRoot(page, mode, { case: 'popup-input', items: 'Apple|Banana', trigger: 'Open', animated: true, empty: true, animations: 1 });
 
       await page.getByTestId('trigger').click();
       const field = input(page);
