@@ -694,6 +694,8 @@ const physicalSides: Record<Side, (isRtl: boolean) => PhysicalSide> = {
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle, and
 // the exports below find it.
 const attachedHandle = Symbol('blazix.positioning.handle');
+// An aligned request made before the element's handle attached (setAligned), applied at attach.
+const pendingAligned = Symbol('blazix.positioning.pendingAligned');
 
 interface PositioningHandle extends TwinHandle {
   placement(): RenderedPlacement;
@@ -703,6 +705,7 @@ interface PositioningHandle extends TwinHandle {
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: PositioningHandle;
+  [pendingAligned]?: { onPositioned: (() => void) | undefined };
 }
 
 type Declarations = Map<string, string>;
@@ -752,12 +755,24 @@ export function update(element: Element): void {
  * @param element The Positioner element.
  * @param aligned Whether the Positioner is placed over the trigger.
  * @param onPositioned Called after each pass while aligned, in the pass's task, or `undefined`.
- * @returns `true` when a handle is attached to the element.
+ * @returns `true`: the request is applied, or held until the element's handle attaches.
  */
 export function setAligned(element: Element, aligned: boolean, onPositioned?: () => void): boolean {
-  const handle = (element as AttachedElement)[attachedHandle];
-  handle?.aligned(aligned, onPositioned);
-  return handle !== undefined;
+  const attached = element as AttachedElement;
+  const handle = attached[attachedHandle];
+  if (handle) {
+    handle.aligned(aligned, onPositioned);
+    return true;
+  }
+
+  // Select's `select` handle attaches when its force-mounted Popup renders, before this module's handle, which only an
+  // open attaches (PR 205's final review F4, settled by the orchestrator 2026-11-11): the request waits for the attach.
+  if (aligned) {
+    attached[pendingAligned] = { onPositioned };
+  } else {
+    delete attached[pendingAligned];
+  }
+  return true;
 }
 
 interface PassData {
@@ -1474,6 +1489,11 @@ export function attach(
   element[attachedHandle] = handle;
   syncSession();
   observe();
+  const pending = element[pendingAligned];
+  if (pending) {
+    delete element[pendingAligned];
+    handle.aligned(true, pending.onPositioned);
+  }
   refresh();
   return handle;
 }
