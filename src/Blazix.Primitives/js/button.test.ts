@@ -729,6 +729,21 @@ describe('button module: development checks', () => {
     expect(fake.reported('OnNativeButtonMismatch')).toEqual([{ expectedNative: false }]);
   });
 
+  // MenuSubmenuTrigger.tsx:134-145 (MNU-EDGE-06; settled by the orchestrator 2026-11-10 as option (a)): with the
+  // disabled-element check on, an element rendered disabled while the part is not is reported, at attach and on each update.
+  it('port: reports an element rendered disabled while the part is not, when the disabled-element check is on', () => {
+    const disabledAttribute = (element: HTMLElement) => element.setAttribute('disabled', '');
+    const checked = mount('button', { native: true, developmentChecks: true, disabledElementCheck: true }, { before: disabledAttribute });
+    expect(checked.fake.reported('OnDisabledElementDetected')).toEqual([{}]);
+
+    const partDisabled = mount('button', { native: true, developmentChecks: true, disabledElementCheck: true, disabled: true }, { before: disabledAttribute });
+    const unchecked = mount('button', { native: true, developmentChecks: true }, { before: disabledAttribute });
+    const enabled = mount('button', { native: true, developmentChecks: true, disabledElementCheck: true });
+    expect(partDisabled.fake.reported('OnDisabledElementDetected')).toEqual([]);
+    expect(unchecked.fake.reported('OnDisabledElementDetected')).toEqual([]);
+    expect(enabled.fake.reported('OnDisabledElementDetected')).toEqual([]);
+  });
+
   it('checks again only when native changes', () => {
     const { handle, fake } = mount('span', { native: true, developmentChecks: true });
 
