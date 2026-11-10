@@ -31,8 +31,10 @@ import {
   isTypeableElement,
   isVirtualClick,
   isVirtualPointerEvent,
+  LIST_OPEN_FOCUS_KEY,
   releaseSession,
   type InteractionSession,
+  type ListOpenFocus,
   type SessionOpenChangeDetails,
 } from './interactions';
 import { createFrameSlot, type FrameSlot } from './transitions';
@@ -1262,6 +1264,9 @@ export interface CompositeListHighlightReport {
   event: EventInfo | null;
   /** The revision of the last C# highlight request applied; 0 before any. */
   revision: number;
+  // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): Menu's onItemHighlighted label.
+  /** The highlighted item's label, its registered label else its text; absent when no item is highlighted or it has none. */
+  label?: string;
 }
 
 /** The request to open or close a list's popup. */
@@ -2472,13 +2477,36 @@ function reportHighlight(state: ListState, handle: ListHandle, event: Event | un
   }
   state.reportedIndex = state.activeIndex;
   const element = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+  // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): the registry's label, resolved on every
+  // rebuild (CMP-STA-06/07), sent only for a highlighted item that has one.
+  const label = state.activeIndex != null ? state.floating?.registry.labels[state.activeIndex] : null;
   const payload: CompositeListHighlightReport = {
     index: state.activeIndex,
     itemId: state.floating?.idOf(element) ?? null,
     event: event ? eventInfo(event) : null,
     revision: state.appliedRevision,
+    ...(label != null ? { label } : {}),
   };
   (state.floating?.channel ?? handle.channel).report(LIST_HIGHLIGHT_REPORT, payload);
+}
+
+// F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): while open, the item the focus moves to and the element
+// focus came from, for a focus manager whose handle attaches after this focus moved focus in (FLT-FOC-20's dated note).
+function markOpenFocus(state: ListState, handle: ListHandle, item: HTMLElement): void {
+  if (!isOpen(state, handle.session)) {
+    return;
+  }
+  const data = handle.session.dataRef.current;
+  const previous = data[LIST_OPEN_FOCUS_KEY] as ListOpenFocus | undefined;
+  let origin = previous?.origin ?? null;
+  if (previous === undefined) {
+    const doc = ownerDocument(item);
+    const active = activeElement(doc);
+    const floating = state.floating?.element ?? handle.session.floatingElement;
+    origin = active === null || active === doc.body || contains(floating, active) ? null : active;
+  }
+  const mark: ListOpenFocus = { element: item, origin };
+  data[LIST_OPEN_FOCUS_KEY] = mark;
 }
 
 // useListNavigation.ts:330-371 `focusItem`: the queued focus of CMP-ALG-23/ALG-31 and the scroll of CMP-STA-34.
@@ -2487,6 +2515,7 @@ function focusItem(state: ListState, handle: ListHandle): void {
   const virtual = handle.list().virtual === true;
   const runFocus = (item: HTMLElement): void => {
     if (!virtual) {
+      markOpenFocus(state, handle, item);
       state.cancelQueuedFocus = enqueueFocus(item, { sync: state.forceSyncFocus, preventScroll: true });
     }
   };
@@ -2602,6 +2631,7 @@ function syncOpenAndMount(state: ListState, handle: ListHandle): void {
   // :378-385, CMP-STA-38
   if (!open) {
     state.key = null;
+    delete handle.session.dataRef.current[LIST_OPEN_FOCUS_KEY];
   }
   const focusItemOnOpen = focusItemOnOpenOf(list);
   if (!open || focusItemOnOpen !== 'auto') {

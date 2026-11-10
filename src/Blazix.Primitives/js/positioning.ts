@@ -825,7 +825,10 @@ export function attach(
   const positionerLayer = writer.layer('positioning');
   const transitionLayer = writer.layer('transitions');
   const measuredLayer = writer.layer('positioning-measured');
-  let positionerDeclarations: Declarations = new Map();
+  // C# renders `pointer-events: none` in the pre-attach style, open or not (G5 of PR 168). The layer adopts it, so the
+  // first render drops it when no pass is pending, as for an open Positioner with nothing to position against.
+  positionerLayer.set('pointer-events', 'none');
+  let positionerDeclarations: Declarations = new Map([['pointer-events', 'none']]);
   let arrowElement: HTMLElement | null = null;
   let arrowLayer: StyleLayer | null = null;
   let arrowDeclarations: Declarations = new Map();
@@ -1189,7 +1192,11 @@ export function attach(
     if (!isPositioned) {
       declarations.set('opacity', '0');
     }
-    if (!open) {
+    // usePositioner's `pointer-events: none` while closed, and (ADR 04 Amendments 2026-11-04, G5 of PR 168) while the
+    // first pass of the current open is pending: Base UI positions in a layout effect before paint, the port after attach,
+    // and the transparent Positioner at the origin must not take a pointer resting there meanwhile. With nothing in the
+    // document to position against no pass is pending, and the Positioner stays as Base UI leaves it.
+    if (!open || (!isPositioned && hasConnectedReference())) {
       declarations.set('pointer-events', 'none');
     }
     writeLayer(positionerLayer, positionerDeclarations, declarations);
@@ -1223,6 +1230,12 @@ export function attach(
       writeAttribute(arrowElement, 'data-align', alignAttribute);
       writeAttribute(arrowElement, 'data-uncentered', arrowData?.centerOffset !== 0 ? '' : null);
     }
+  };
+
+  // Whether there is a reference in the document to position against: a virtual one without a context element counts.
+  const hasConnectedReference = (): boolean => {
+    const node = reference === null ? null : 'nodeType' in reference ? reference : reference.contextElement;
+    return reference !== null && (node == null || node.isConnected);
   };
 
   // A render may replace the trigger, the anchor or the Arrow with a new element of the same id: the next pass finds it.

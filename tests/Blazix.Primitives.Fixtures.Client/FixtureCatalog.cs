@@ -20,6 +20,7 @@ using Blazix.Primitives.Fixtures.Client.ListValuesFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
@@ -244,6 +245,8 @@ public static class FixtureCatalog
         ["composite-list-relay"] = new(typeof(CompositeListRelayFixture)),
         ["composite-list-selected"] = new(typeof(CompositeListSelectedFixture)),
         ["composite-list-measure"] = new(typeof(CompositeListMeasureFixture)),
+        ["navigation-menu-basic"] = new(typeof(NavigationMenuBasicFixture)),
+        ["navigation-menu-prerender"] = new(typeof(NavigationMenuPrerenderFixture), Prerender: true),
         // M5 track 10 (issue 174): Combobox.
         ["combobox-root"] = new(typeof(ComboboxRootFixture)),
     };

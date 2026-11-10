@@ -1,0 +1,521 @@
+@namespace Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures
+@using Blazix.Primitives
+@inherits NavigationMenuFixtureBase
+
+@*
+    The `navigation-menu-basic` fixture (tests/browser/navigation-menu.spec.ts, M5 track 5): NavigationMenuRoot.test.tsx's
+    TestNavigationMenu. Two Items `item-1` and `item-2`, each a Trigger `trigger-<n>` ("Item <n>", an Icon) and a Content
+    `content-<n>` with two Links `link-<n>-a`, `link-<n>-b`; a Portal, a Positioner `positioner`, a Popup `popup-root`, a
+    Viewport `viewport`. The query:
+    - `value` makes the Root controlled (`none` is null; `[data-set-value]` buttons set it); `defaultValue`; `delay`,
+      `closeDelay` (ms); `orientation=vertical`; `rtl` (a DirectionProvider); `side` (the Positioner's: `left`,
+      `inline-start`, `inline-end`, `top`); `keepMounted` (the Portal), `keepMountedContent`;
+    - `disabled=<n>` disables trigger `<n>` (`[data-enable]` enables it again); `topLink` adds an Item with a Link
+      `top-link`; `closeOnClick` on every Link;
+    - `nested=inline` puts an inline nested Root `nested-root` (List `nested-list` and Viewport `nested-viewport`, Items
+      `nested-<n>` with Triggers `nested-trigger-<n>`, Contents `nested-content-<n>` and Links `nested-link-<n>`) in
+      content 1; `nested=portal` gives it a Portal, a Positioner `nested-positioner` on the right and a Popup
+      `nested-popup-root` around that Viewport instead; `nestedDefault=nested-1` its default; `nested=deep` puts Base UI's
+      three levels there instead (`level2-trigger-<n>`, `level2-content-<n>`, `level2-link-<n>`, default `level2-1`, and
+      in `level2-content-1` the same with `level3-`, default `level3-1`), all inline; `nested=falsy` puts an inline nested
+      Root with `TValue` `bool?` there, its default and its first Item's value `false`, the Links closing on click;
+      `nested=tabBoundary` puts NavigationMenuRoot.test.tsx's TestInlineNestedNavigationMenuTabForwardBoundary's nested Root
+      there instead (default `nested-2`; `nested-trigger-<n>`, `nested-content-<n>`, the last Link `nested-last-link`) and
+      `nested=tabFlow` its TestInlineNestedNavigationMenuTabFlow's, vertical (default `developers`; `nested-trigger-<value>`,
+      `nested-content-<value>`, `nested-link-get-started`, `nested-link-composition`), content 1 then without its two Links;
+      `actionContent` gives content 2 a button `action` instead of its Links;
+      `nestedSide` (`right`, `left`, `bottom`, `top`) places the inline nested Viewport, 200×100, 20 px from nested trigger 1
+      on that side; `nestedPopup` (`dialog`, `popover`) puts after content 1's Links a Dialog (Trigger `dialog-trigger`,
+      Popup `dialog-popup` with a button `dialog-button`) or a Popover (`popover-trigger`, `popover-popup`,
+      `popover-button`); Base UI's Popups stop a click's React propagation, which crosses their Portal into the menu,
+      and the DOM's bubbling from a portaled Popup never reaches the menu;
+    - `[data-remove-first]` removes Item 1, and with `value` `[data-drop-first]` renders Item 1 as a link `item-1-link` in
+      place of its Trigger and Content and sets the value to null, in one update (NavigationMenuTrigger.test.tsx's
+      TestActiveItemDropsTrigger); `customList` renders the List as a `div` `custom-list`; `emptyItem` puts first an Item whose Trigger
+      `trigger-empty` has no Content; `sized` gives content 1 400×200 and content 2 300×150, fixed;
+    - `fade` gives the Popup a 400 ms exit animation `nav-popup-out`, `contentFade` every Content one, `nav-content-out`
+      (with the host's `animations=1`); `fluid` makes content 1 40vw wide;
+      `noViewport` renders the text "Popup" in the Popup instead of a Viewport; `arrow` adds an Arrow `arrow`;
+    - `fixed` keeps a controlled value where the page set it (ValueChanged ignored); `cancel`, `retain` (the base's);
+      `scopedExit` gives the Popup and the Contents Base UI's scoped exit transitions (the Popup's ending style narrows its
+      transition to opacity and transform, 150 ms; with the host's `animations=1`); `vetoOpenKey` gives trigger 1 a consumer `onkeydown` that calls `PreventPartHandler()` on ArrowDown and counts its
+      calls in `data-veto-calls`; `data-handles` lists each trigger's attached `navigation-menu` and `interactions` handles
+      (`trigger-2:navigation-menu`), the marker of the attach-order titles.
+    With `side`, the menu sits 300 px down and 400 px in, so the requested side has room.
+    The List is a row (a column when vertical, the Positioner then on the right), so the popup never covers a trigger.
+    Around the menu: a `before` and an `after` button, in that order in the DOM but laid out in a row above the menu, so
+    the popup never covers them either. `[data-unmount]` calls Unmount, `[data-close]` CloseAsync.
+*@
+<FixtureContainer Name="@FixtureName" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-value-changes="@ValueChanges" data-open-change-completes="@OpenChangeCompletes" data-veto-calls="@vetoCalls" data-handles="@string.Join(' ', handles)">
+    <style>
+        .sized-1 { width: 400px; height: 200px; }
+        .sized-2 { width: 300px; height: 150px; }
+        @@keyframes nav-popup-out { to { opacity: 0; } }
+        @@keyframes nav-content-out { to { opacity: 0; } }
+        .fade[data-ending-style] { animation: nav-popup-out 400ms; }
+        .content-fade[data-ending-style] { animation: nav-content-out 400ms; }
+        .fluid { width: 40vw; }
+        .scoped-popup { transition-property: opacity, transform, width, height; transition-duration: 350ms; transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+        .scoped-popup[data-starting-style], .scoped-popup[data-ending-style] { opacity: 0; transform: scale(0.9); }
+        .scoped-popup[data-ending-style] { transition-property: opacity, transform; transition-duration: 150ms; transition-timing-function: ease; }
+        .scoped-content { transition: opacity 175ms ease, transform 350ms cubic-bezier(0.4, 0, 0.2, 1); }
+        .scoped-content[data-starting-style], .scoped-content[data-ending-style] { opacity: 0; }
+        .menu-frame.roomy { margin: 300px 0 0 400px; }
+        [data-testid="popup-root"] { width: var(--popup-width, auto); height: var(--popup-height, auto); }
+        [data-testid="list"], [data-testid="nested-list"] { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+        [data-testid="list"].vertical { flex-direction: column; align-items: flex-start; }
+        .menu-frame { display: grid; grid-template-columns: max-content max-content 1fr; grid-template-areas: "before after ." "menu menu menu"; gap: 8px; align-items: start; }
+        .menu-frame > [data-testid="before"] { grid-area: before; }
+        .menu-frame > [data-testid="after"] { grid-area: after; }
+        .menu-frame > [data-testid="root"] { grid-area: menu; }
+        [data-testid="custom-list"] { display: flex; gap: 8px; }
+        .nested-side { display: flex; gap: 20px; align-items: flex-start; }
+        .nested-side [data-testid="nested-list"] { flex-direction: column; }
+        .nested-side-left { flex-direction: row-reverse; }
+        .nested-side-bottom { flex-direction: column; }
+        .nested-side-top { flex-direction: column-reverse; }
+        .nested-side-bottom [data-testid="nested-list"], .nested-side-top [data-testid="nested-list"] { flex-direction: row; }
+        .nested-side [data-testid="nested-viewport"] { width: 200px; height: 100px; overflow: hidden; }
+    </style>
+    <div class="@(roomy ? "menu-frame roomy" : "menu-frame")">
+        <button type="button" data-testid="before">Before</button>
+        @if (rtl)
+        {
+            <DirectionProvider Direction="TextDirection.Rtl">@Menu</DirectionProvider>
+        }
+        else
+        {
+            @Menu
+        }
+        <button type="button" data-testid="after">After</button>
+    </div>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    <button type="button" tabindex="-1" data-close data-key-control @onclick="() => root!.CloseAsync()" @onkeydown="OnShift(() => root!.CloseAsync())">Close</button>
+    <button type="button" tabindex="-1" data-remove-first data-key-control @onclick="() => showFirst = false" @onkeydown="OnShift(() => showFirst = false)">Remove first</button>
+    @if (disabled is not null)
+    {
+        <button type="button" tabindex="-1" data-enable data-key-control @onclick="() => disabled = null" @onkeydown="OnShift(() => disabled = null)">Enable</button>
+    }
+    @if (controlled)
+    {
+        <button type="button" tabindex="-1" data-drop-first data-key-control @onclick="DropFirst" @onkeydown="OnShift(DropFirst)">Drop first</button>
+        <button type="button" tabindex="-1" data-set-value="none" data-key-control @onclick="() => controlledValue = null" @onkeydown="OnShift(() => controlledValue = null)">Set none</button>
+        <button type="button" tabindex="-1" data-set-value="item-1" data-key-control @onclick="@(() => controlledValue = "item-1")" @onkeydown="@(OnShift(() => controlledValue = "item-1"))">Set 1</button>
+        <button type="button" tabindex="-1" data-set-value="item-2" data-key-control @onclick="@(() => controlledValue = "item-2")" @onkeydown="@(OnShift(() => controlledValue = "item-2"))">Set 2</button>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<Task> attachments = [];
+    private readonly List<string> handles = [];
+
+    /// <summary>Gets or sets the fixture's name on its container: `navigation-menu-prerender` reuses this page prerendered.</summary>
+    [Parameter]
+    public string FixtureName { get; set; } = "navigation-menu-basic";
+    private readonly NavigationMenuTrigger?[] triggers = new NavigationMenuTrigger?[3];
+    private NavigationMenuRoot<string>? root;
+    private bool controlled;
+    private string? controlledValue;
+    private string? defaultValue;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private Orientation orientation = Orientation.Horizontal;
+    private bool rtl;
+    private Side? side;
+    private bool keepMounted;
+    private bool keepMountedContent;
+    private string? disabled;
+    private bool topLink;
+    private bool closeOnClick;
+    private string? nested;
+    private string? nestedDefault;
+    private bool sized;
+    private bool fade;
+    private bool contentFade;
+    private bool fluid;
+    private bool noViewport;
+    private bool arrow;
+    private bool fixedValue;
+    private bool roomy;
+    private bool vetoOpenKey;
+    private bool scopedExit;
+    private bool showFirst = true;
+    private bool firstDropped;
+    private bool emptyItem;
+    private bool customList;
+    private bool actionContent;
+    private string? nestedSide;
+    private string? nestedPopup;
+    private int vetoCalls;
+
+    protected override IEnumerable<Task> Attachments => attachments;
+
+    protected override void OnInitialized()
+    {
+        string? value = Query("value");
+        controlled = value is not null;
+        controlledValue = value == "none" ? null : value;
+        defaultValue = Query("defaultValue");
+        delay = Query("delay") is { } d ? new Duration(int.Parse(d, System.Globalization.CultureInfo.InvariantCulture)) : null;
+        closeDelay = Query("closeDelay") is { } c ? new Duration(int.Parse(c, System.Globalization.CultureInfo.InvariantCulture)) : null;
+        orientation = Query("orientation") == "vertical" ? Orientation.Vertical : Orientation.Horizontal;
+        rtl = QueryFlag("rtl") == true;
+        side = Query("side") switch
+        {
+            "left" => Side.Left,
+            "top" => Side.Top,
+            "inline-start" => Side.InlineStart,
+            "inline-end" => Side.InlineEnd,
+            _ => orientation == Orientation.Vertical ? Side.Right : null,
+        };
+        keepMounted = QueryFlag("keepMounted") == true;
+        keepMountedContent = QueryFlag("keepMountedContent") == true;
+        disabled = Query("disabled");
+        topLink = QueryFlag("topLink") == true;
+        closeOnClick = QueryFlag("closeOnClick") == true;
+        nested = Query("nested") is "inline" or "portal" or "deep" or "falsy" or "tabBoundary" or "tabFlow" ? Query("nested") : null;
+        nestedDefault = Query("nestedDefault");
+        sized = QueryFlag("sized") == true;
+        fade = QueryFlag("fade") == true;
+        contentFade = QueryFlag("contentFade") == true;
+        fluid = QueryFlag("fluid") == true;
+        noViewport = QueryFlag("noViewport") == true;
+        arrow = QueryFlag("arrow") == true;
+        fixedValue = QueryFlag("fixed") == true;
+        roomy = Query("side") is not null;
+        vetoOpenKey = QueryFlag("vetoOpenKey") == true;
+        scopedExit = QueryFlag("scopedExit") == true;
+        emptyItem = QueryFlag("emptyItem") == true;
+        customList = QueryFlag("customList") == true;
+        actionContent = QueryFlag("actionContent") == true;
+        nestedSide = Query("nestedSide") is "right" or "left" or "bottom" or "top" ? Query("nestedSide") : null;
+        nestedPopup = Query("nestedPopup") is "dialog" or "popover" ? Query("nestedPopup") : null;
+    }
+
+    private void DropFirst()
+    {
+        firstDropped = true;
+        controlledValue = null;
+    }
+
+    private async Task MarkAsync(Task attached, string handle)
+    {
+        await attached;
+        handles.Add(handle);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void VetoOpenKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowDown")
+        {
+            vetoCalls++;
+            e.PreventPartHandler();
+        }
+    }
+
+    private string? ContentClass(int n)
+    {
+        string? size = sized ? "sized-" + n.ToString(System.Globalization.CultureInfo.InvariantCulture) : fluid && n == 1 ? "fluid" : null;
+        string? fadeClass = contentFade ? "content-fade" : scopedExit ? "scoped-content" : null;
+        return fadeClass is null ? size : size is null ? fadeClass : size + " " + fadeClass;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && root is not null)
+        {
+            attachments.Add(root.TwinsAttached);
+            foreach (NavigationMenuTrigger? trigger in triggers)
+            {
+                if (trigger is not null)
+                {
+                    attachments.Add(trigger.TwinsAttached);
+                    int n = Array.IndexOf(triggers, trigger);
+                    _ = MarkAsync(trigger.ModuleAttached, $"trigger-{n}:navigation-menu");
+                    _ = MarkAsync(trigger.InteractionsAttached, $"trigger-{n}:interactions");
+                }
+            }
+        }
+    }
+
+    private RenderFragment Menu => @<text>
+    @if (controlled)
+    {
+        <NavigationMenuRoot TValue="string" @ref="root" Value="@controlledValue" ValueChanged="@(v => controlledValue = fixedValue ? controlledValue : v)" OnValueChange="RecordValueChange" OnOpenChangeComplete="RecordOpenChangeComplete" Delay="delay" CloseDelay="closeDelay" Orientation="orientation" data-testid="root">
+            @Body
+        </NavigationMenuRoot>
+    }
+    else
+    {
+        <NavigationMenuRoot TValue="string" @ref="root" DefaultValue="@defaultValue" OnValueChange="RecordValueChange" OnOpenChangeComplete="RecordOpenChangeComplete" Delay="delay" CloseDelay="closeDelay" Orientation="orientation" data-testid="root">
+            @Body
+        </NavigationMenuRoot>
+    }
+</text>;
+
+    private static RenderFragment CustomListElement => @<div data-testid="custom-list" />;
+
+    private RenderFragment Body => @<text>
+    <NavigationMenuList data-testid="@(customList ? null : "list")" Render="@(customList ? CustomListElement : null)" class="@(orientation == Orientation.Vertical ? "vertical" : null)">
+        @if (emptyItem)
+        {
+            <NavigationMenuItem TValue="string" Value="@("item-empty")">
+                <NavigationMenuTrigger data-testid="trigger-empty">Empty</NavigationMenuTrigger>
+            </NavigationMenuItem>
+        }
+        @for (int i = showFirst ? 1 : 2; i <= 2; i++)
+        {
+            int n = i;
+            <NavigationMenuItem TValue="string" Value="@("item-" + n)" @key="n">
+                @if (firstDropped && n == 1)
+                {
+                    <a href="@(PageUrl + "#item-1")" data-testid="item-1-link">Item 1 active</a>
+                }
+                else if (vetoOpenKey && n == 1)
+                {
+                    <NavigationMenuTrigger @ref="triggers[n]" data-testid="@("trigger-" + n)" @onkeydown="VetoOpenKey">
+                        Item @n
+                        <NavigationMenuIcon />
+                    </NavigationMenuTrigger>
+                }
+                else
+                {
+                    <NavigationMenuTrigger @ref="triggers[n]" data-testid="@("trigger-" + n)" Disabled="@(disabled == n.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+                        Item @n
+                        <NavigationMenuIcon />
+                    </NavigationMenuTrigger>
+                }
+                @if (!firstDropped || n != 1)
+                {
+                    <NavigationMenuContent data-testid="@("content-" + n)" KeepMounted="keepMountedContent" class="@ContentClass(n)">
+                        @if (actionContent && n == 2)
+                        {
+                            <button type="button" data-testid="action">Action</button>
+                        }
+                        else if (n != 1 || nested is not ("tabBoundary" or "tabFlow"))
+                        {
+                            <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-a")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-a")">Link @n A</NavigationMenuLink>
+                            <NavigationMenuLink href="@(PageUrl + "#link-" + n + "-b")" CloseOnClick="closeOnClick" data-testid="@("link-" + n + "-b")">Link @n B</NavigationMenuLink>
+                        }
+                        @if (nestedPopup is not null && n == 1)
+                        {
+                            @NestedPopup
+                        }
+                        @if (nested == "deep" && n == 1)
+                        {
+                            @DeepLevel2
+                        }
+                        else if (nested == "falsy" && n == 1)
+                        {
+                            @FalsyNested
+                        }
+                        else if (nested == "tabBoundary" && n == 1)
+                        {
+                            @TabBoundaryNested
+                        }
+                        else if (nested == "tabFlow" && n == 1)
+                        {
+                            @TabFlowNested
+                        }
+                        else if (nested is not null && n == 1)
+                        {
+                            <NavigationMenuRoot TValue="string" DefaultValue="@nestedDefault" data-testid="nested-root" class="@(nestedSide is null ? null : "nested-side nested-side-" + nestedSide)">
+                                <NavigationMenuList data-testid="nested-list">
+                                    @for (int j = 1; j <= 2; j++)
+                                    {
+                                        int m = j;
+                                        <NavigationMenuItem TValue="string" Value="@("nested-" + m)">
+                                            <NavigationMenuTrigger data-testid="@("nested-trigger-" + m)">Nested @m</NavigationMenuTrigger>
+                                            <NavigationMenuContent data-testid="@("nested-content-" + m)">
+                                                <NavigationMenuLink href="@(PageUrl + "#nested-" + m)" CloseOnClick="closeOnClick" data-testid="@("nested-link-" + m)">Nested link @m</NavigationMenuLink>
+                                            </NavigationMenuContent>
+                                        </NavigationMenuItem>
+                                    }
+                                </NavigationMenuList>
+                                @if (nested == "portal")
+                                {
+                                    <NavigationMenuPortal>
+                                        <NavigationMenuPositioner Side="Side.Right" data-testid="nested-positioner">
+                                            <NavigationMenuPopup data-testid="nested-popup-root">
+                                                <NavigationMenuViewport data-testid="nested-viewport" />
+                                            </NavigationMenuPopup>
+                                        </NavigationMenuPositioner>
+                                    </NavigationMenuPortal>
+                                }
+                                else
+                                {
+                                    <NavigationMenuViewport data-testid="nested-viewport" />
+                                }
+                            </NavigationMenuRoot>
+                        }
+                    </NavigationMenuContent>
+                }
+            </NavigationMenuItem>
+        }
+        @if (topLink)
+        {
+            <NavigationMenuItem TValue="string">
+                <NavigationMenuLink href="@(PageUrl + "#top")" data-testid="top-link">Top</NavigationMenuLink>
+            </NavigationMenuItem>
+        }
+    </NavigationMenuList>
+    <NavigationMenuPortal KeepMounted="keepMounted" data-testid="portal">
+        <NavigationMenuPositioner Side="side" data-testid="positioner">
+            <NavigationMenuPopup data-testid="popup-root" class="@(fade ? "fade" : scopedExit ? "scoped-popup" : null)">
+                @if (arrow)
+                {
+                    <NavigationMenuArrow data-testid="arrow" />
+                }
+                @if (noViewport)
+                {
+                    @("Popup")
+                }
+                else
+                {
+                    <NavigationMenuViewport data-testid="viewport" />
+                }
+            </NavigationMenuPopup>
+        </NavigationMenuPositioner>
+    </NavigationMenuPortal>
+</text>;
+
+    private RenderFragment DeepLevel2 => @<text>
+    <NavigationMenuRoot TValue="string" DefaultValue="@("level2-1")" data-testid="level2-root">
+        <NavigationMenuList>
+            @for (int i = 1; i <= 2; i++)
+            {
+                int m = i;
+                <NavigationMenuItem TValue="string" Value="@("level2-" + m)">
+                    <NavigationMenuTrigger data-testid="@("level2-trigger-" + m)">Level 2 item @m</NavigationMenuTrigger>
+                    <NavigationMenuContent data-testid="@("level2-content-" + m)">
+                        <NavigationMenuLink href="@(PageUrl + "#level2-" + m)" CloseOnClick="closeOnClick" data-testid="@("level2-link-" + m)">Level 2 link @m</NavigationMenuLink>
+                        @if (m == 1)
+                        {
+                            @DeepLevel3
+                        }
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+            }
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="level2-viewport" />
+    </NavigationMenuRoot>
+</text>;
+
+    private RenderFragment DeepLevel3 => @<text>
+    <NavigationMenuRoot TValue="string" DefaultValue="@("level3-1")" data-testid="level3-root">
+        <NavigationMenuList>
+            @for (int i = 1; i <= 2; i++)
+            {
+                int m = i;
+                <NavigationMenuItem TValue="string" Value="@("level3-" + m)">
+                    <NavigationMenuTrigger data-testid="@("level3-trigger-" + m)">Level 3 item @m</NavigationMenuTrigger>
+                    <NavigationMenuContent data-testid="@("level3-content-" + m)">
+                        <NavigationMenuLink href="@(PageUrl + "#level3-" + m)" CloseOnClick="closeOnClick" data-testid="@("level3-link-" + m)">Level 3 link @m</NavigationMenuLink>
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+            }
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="level3-viewport" />
+    </NavigationMenuRoot>
+</text>;
+
+    private RenderFragment FalsyNested => @<text>
+    <NavigationMenuRoot TValue="bool?" DefaultValue="false" data-testid="nested-root">
+        <NavigationMenuList data-testid="nested-list">
+            <NavigationMenuItem TValue="bool?" Value="false">
+                <NavigationMenuTrigger data-testid="nested-trigger-1">Nested 1</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-1">
+                    <NavigationMenuLink href="@(PageUrl + "#nested-1")" CloseOnClick="true" data-testid="nested-link-1">Nested link 1</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem TValue="bool?" Value="true">
+                <NavigationMenuTrigger data-testid="nested-trigger-2">Nested 2</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-2">
+                    <NavigationMenuLink href="@(PageUrl + "#nested-2")" data-testid="nested-link-2">Nested link 2</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="nested-viewport" />
+    </NavigationMenuRoot>
+</text>;
+
+    private RenderFragment NestedPopup => @<text>
+    @if (nestedPopup == "dialog")
+    {
+        <DialogRoot TPayload="NoPayload">
+            <DialogTrigger TPayload="NoPayload" data-testid="dialog-trigger">Open dialog</DialogTrigger>
+            <DialogPortal>
+                <DialogPopup data-testid="dialog-popup" style="position: fixed; z-index: 10; top: 200px; left: 200px">
+                    <button type="button" data-testid="dialog-button">Dialog button</button>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else
+    {
+        <PopoverRoot TPayload="NoPayload">
+            <PopoverTrigger TPayload="NoPayload" data-testid="popover-trigger">Open popover</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup data-testid="popover-popup">
+                        <button type="button" data-testid="popover-button">Popover button</button>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+    }
+</text>;
+
+    private RenderFragment TabBoundaryNested => @<text>
+    <NavigationMenuRoot TValue="string" DefaultValue="@("nested-2")" data-testid="nested-root">
+        <NavigationMenuList data-testid="nested-list">
+            <NavigationMenuItem TValue="string" Value="@("nested-1")">
+                <NavigationMenuTrigger data-testid="nested-trigger-1">Engineering Leads</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-1">
+                    <NavigationMenuLink href="@(PageUrl + "#releases")">Releases</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem TValue="string" Value="@("nested-2")">
+                <NavigationMenuTrigger data-testid="nested-trigger-2">Startups</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-2">
+                    <NavigationMenuLink href="@(PageUrl + "#quick-start")">Quick start</NavigationMenuLink>
+                    <NavigationMenuLink href="@(PageUrl + "#menu")">Menu</NavigationMenuLink>
+                    <NavigationMenuLink href="@(PageUrl + "#select")" data-testid="nested-last-link">Select</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="nested-viewport" />
+    </NavigationMenuRoot>
+</text>;
+
+    private RenderFragment TabFlowNested => @<text>
+    <NavigationMenuRoot TValue="string" DefaultValue="@("developers")" Orientation="Orientation.Vertical" data-testid="nested-root">
+        <NavigationMenuList data-testid="nested-list">
+            <NavigationMenuItem TValue="string" Value="@("developers")">
+                <NavigationMenuTrigger data-testid="nested-trigger-developers">Developers</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-developers">
+                    <NavigationMenuLink href="@(PageUrl + "#get-started")" data-testid="nested-link-get-started">Get started</NavigationMenuLink>
+                    <NavigationMenuLink href="@(PageUrl + "#composition")" data-testid="nested-link-composition">Composition</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem TValue="string" Value="@("design-systems")">
+                <NavigationMenuTrigger data-testid="nested-trigger-design-systems">Design Systems</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-design-systems">
+                    <NavigationMenuLink href="@(PageUrl + "#styling")">Styling</NavigationMenuLink>
+                    <NavigationMenuLink href="@(PageUrl + "#accessibility")">Accessibility</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem TValue="string" Value="@("engineering-leads")">
+                <NavigationMenuTrigger data-testid="nested-trigger-engineering-leads">Engineering Leads</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="nested-content-engineering-leads">
+                    <NavigationMenuLink href="@(PageUrl + "#releases")">Releases</NavigationMenuLink>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuViewport data-testid="nested-viewport" />
+    </NavigationMenuRoot>
+</text>;
+}

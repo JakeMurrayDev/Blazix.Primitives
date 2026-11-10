@@ -16,7 +16,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class PositionerBehaviorTests : IDisposable
 {
-    private const string PrePosition = "position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0;";
+    private const string PrePosition = "position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0; pointer-events: none;";
 
     private readonly PositioningTestContext host = new();
 
@@ -43,12 +43,24 @@ public sealed class PositionerBehaviorTests : IDisposable
         Assert.Equal("start", element.GetAttribute("data-align"));
         Assert.False(element.HasAttribute("hidden"));
         Assert.False(element.HasAttribute("data-anchor-hidden"));
-        Assert.Equal($"{PrePosition} pointer-events: none; transition: none; color: red", element.GetAttribute("style"));
+        Assert.Equal($"{PrePosition} transition: none; color: red", element.GetAttribute("style"));
 
-        // A kept-mounted positioner that is not mounted carries `hidden`; an open, settled one has no pointer-events or
-        // transition declaration.
+        // A kept-mounted positioner that is not mounted carries `hidden`.
         cut.Render(p => p.Add(x => x.Mounted, false).Add(x => x.Open, true).Add(x => x.TransitionStatus, (TransitionStatus?)null).Add(x => x.KeepMounted, true));
         Assert.True(cut.Find("div").HasAttribute("hidden"));
+    }
+
+    // G5 of PR 168 (settled by the orchestrator 2026-11-04): Base UI positions in a layout effect before paint. Here the
+    // first pass lands after attach, a round trip after this render on Server, so an open Positioner renders without
+    // taking the pointer, as a closed one does.
+    [Fact(DisplayName = "port: renders an open Positioner that takes no pointer before the first pass")]
+    [Trait("Requirement", "FLT-DOM-02")]
+    [Trait("Requirement", "FLT-ANI-02")]
+    public void Renders_an_open_positioner_that_takes_no_pointer()
+    {
+        IRenderedComponent<TestPositioner> cut = host.Context.Render<TestPositioner>(p => p.Add(x => x.Open, true));
+
+        Assert.Equal("position: fixed; top: 0px; left: 0px; --available-width: 100vw; --available-height: 100vh; opacity: 0; pointer-events: none;", cut.Find("div").GetAttribute("style"));
     }
 
     [Fact(DisplayName = "freezes the style and the placement attributes at attach, and sends the consumer's later style in an update")]

@@ -43,7 +43,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/menu.md | MNU | approved | 308 reqs | |
 | components/menubar.md | MBR | approved | 91 reqs (opus) | builds on menu |
 | components/meter.md | MTR | implemented | 52 reqs (opus) | |
-| components/navigation-menu.md | NAV | approved | 208 reqs |
+| components/navigation-menu.md | NAV | approved | 208 reqs; revised 2026-11-04, M5 track 5 ([issue 163](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/163)), 207 live (NAV-EDGE-05 withdrawn); all 127 of Base UI's titles ported, green on both modes since PR 184's fixes (PR 168) |
 | components/number-field.md | NUM | approved | 177 reqs | |
 | components/otp-field.md | OTP | approved | 169 reqs | |
 | components/popover.md | POP | implemented | 214 reqs; `implemented` 2026-10-29 (chosen by the user); Menu/Combobox clauses and FLT PTR-01/A11Y-03 open to M5 with dated notes |
