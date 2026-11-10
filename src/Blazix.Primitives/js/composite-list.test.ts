@@ -139,6 +139,33 @@ describe('useListNavigation', () => {
     });
   });
 
+  // CMP-ALG-24's dated note: a close ends the wait to show (the interim review of PR 183, F3). Here the close and the
+  // later show change no attribute on the observed chain, so only the close can stop the wait; the reopen finds the list
+  // showing and focuses it, and a later attribute write must not run the first open's search again.
+  it('port: a close ends the wait to show, so an attribute write after a visible reopen runs no earlier search', async () => {
+    const harness = app({ keepMounted: true });
+    let visible = false;
+    menu(harness).checkVisibility = () => visible;
+
+    keyDown(harness.reference, 'ArrowDown');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    harness.popup.setOpen(false);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    visible = true;
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(1));
+
+    menu(harness).setAttribute('data-probe', '');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(document.activeElement).toBe(harness.item(1));
+  });
+
   // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
   // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
   // to and the element focus came from, in the session's data slot; the close clears it.
