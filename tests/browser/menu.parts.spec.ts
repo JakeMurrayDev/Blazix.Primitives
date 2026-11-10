@@ -447,7 +447,8 @@ test.describe('<Menu.SubmenuTrigger />', () => {
     const fixture = await gotoPopupFixture(touchPage, mode, 'menu-root', { defaultOpen: true, noTrigger: true, content: 'more' });
     await expect(fixture).toHaveAttribute('data-popup-attached', 'true');
     const submenuTrigger = touchPage.getByRole('menuitem', { name: 'More', exact: true });
-    const point = await center(submenuTrigger);
+    // A trigger-less menu with no anchor is never positioned (menu.helpers.ts, `center`).
+    const point = await center(submenuTrigger, { unanchored: true });
 
     await touchPage.touchscreen.tap(point.x, point.y);
     await expect(touchPage.getByTestId('submenu')).toBeVisible();

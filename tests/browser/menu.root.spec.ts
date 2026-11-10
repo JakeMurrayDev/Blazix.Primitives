@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
-import { center, clickThrough, fire, holdClock, moveTo, parkPointer, pressCharacter, recorded, touchTest, withClock } from './menu.helpers';
+import { center, clickThrough, fire, holdClock, moveTo, positionerOf, waitForPositioned, parkPointer, pressCharacter, recorded, touchTest, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // MenuRoot.test.tsx's L4 titles (M5 track 6, issue 172; docs/components/menu.md) on `menu-root`, titles verbatim, every
@@ -84,6 +84,7 @@ test.describe('<Menu.Root />', () => {
       await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByTestId('item-One')).toBeVisible();
 
+      await waitForPositioned(positionerOf(page.getByTestId('item-One')));
       const triggerBox = (await trigger(page).boundingBox())!;
       const itemBox = (await page.getByTestId('item-One').boundingBox())!;
       expect(itemBox.y - (triggerBox.y + triggerBox.height)).toBeGreaterThanOrEqual(20);
@@ -1141,7 +1142,7 @@ test.describe('<Menu.Root />', () => {
       const fixture = await renderOpen(page, mode, { noTrigger: true, content: 'items', items: 'Item 1|Item 2|Item 3' });
       const item2 = page.getByTestId('item-Item 2');
 
-      await moveTo(page, item2);
+      await moveTo(page, item2, { unanchored: true });
 
       await expect(item2).toBeFocused();
       await expect.poll(async () => (await recorded(fixture, 'data-highlights', '|')).at(-1)).toBe('Item 2:pointer:mousemove:');
@@ -1152,7 +1153,7 @@ test.describe('<Menu.Root />', () => {
       const fixture = await renderOpen(page, mode, { noTrigger: true, highlightItemOnHover: false, content: 'items', items: 'Item 1|Item 2|Item 3' });
       const item2 = page.getByTestId('item-Item 2');
 
-      await moveTo(page, item2);
+      await moveTo(page, item2, { unanchored: true });
       await settle(fixture);
 
       await expect(item2).not.toBeFocused();
@@ -1163,7 +1164,7 @@ test.describe('<Menu.Root />', () => {
       const fixture = await renderOpen(page, mode, { noTrigger: true, highlightItemOnHover: false, content: 'lone-submenu' });
       const submenuTrigger = page.getByTestId('submenu-trigger');
 
-      await moveTo(page, submenuTrigger);
+      await moveTo(page, submenuTrigger, { unanchored: true });
       await settle(fixture);
 
       await expect(submenuTrigger).not.toHaveAttribute('data-highlighted', /.*/);

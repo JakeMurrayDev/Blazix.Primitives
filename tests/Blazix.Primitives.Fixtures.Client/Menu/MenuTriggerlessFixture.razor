@@ -22,6 +22,7 @@
                   data-open-changes="@OpenChanges" data-first-open-changes="@string.Join(' ', firstChanges)"
                   data-submenu-open-change-completes="@string.Join(' ', submenuCompletes)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <div id="menu-triggerless-page">
     <DirectionProvider Direction="@direction">
         @if (Case == "anchor")
         {
@@ -80,10 +81,12 @@
             </MenuRoot>
         }
     </DirectionProvider>
+    </div>
 </FixtureContainer>
 
 @code {
-    private static readonly AnchorValue s_body = "body";
+    // Base UI anchors to `document.body`; an AnchorValue text is an element id, so the page wrapper stands in for the body.
+    private static readonly AnchorValue s_body = "menu-triggerless-page";
     private readonly List<string> firstChanges = [];
     private readonly List<string> submenuCompletes = [];
     private TextDirection direction = TextDirection.Ltr;

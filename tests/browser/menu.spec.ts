@@ -4,6 +4,7 @@ import { detachedTriggersConformanceTests } from './suites/detachedTriggersConfo
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { gotoPopupFixture, openChanges, settle } from './suites/popupFixture';
+import { center, moveTo } from './menu.helpers';
 import { popupListConformanceTests } from './suites/popupListConformanceTests';
 import { positionerConformanceTests } from './suites/positioner-conformance';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
@@ -60,15 +61,7 @@ popupListConformanceTests({
 // `runFor`, which leaves it held, so a title resumes it once its timers have run (C#'s renders reach the page through
 // timers too) and again in `finally`, because the clock belongs to the worker's context.
 
-async function center(locator: Locator): Promise<{ x: number; y: number }> {
-  const box = (await locator.boundingBox())!;
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-}
-
-async function moveTo(page: Page, locator: Locator): Promise<void> {
-  const point = await center(locator);
-  await page.mouse.move(point.x, point.y, { steps: 4 });
-}
+// The shared geometry helpers wait for the popup's first positioning pass before reading a box inside it (issue 191).
 
 async function submenuChanges(fixture: Locator): Promise<string[]> {
   return ((await fixture.getAttribute('data-submenu-open-changes')) ?? '').split(' ').filter(Boolean);
