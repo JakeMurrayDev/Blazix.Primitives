@@ -1127,7 +1127,11 @@ export function attach(
       size({
         ...commonCollisionProps,
         apply({ availableWidth, availableHeight, rects }) {
-          if (!mounted) {
+          // internals/useAnchorPositioning.ts:363: nothing once unmounted. The module hears of the unmount from the
+          // Positioner's `hidden`, one update after the exit's end hid the popup inside it: a closed Positioner with an
+          // empty box is that moment (SEL-POS-06; M5 track 9, settled by the orchestrator 2026-11-10), and the next open
+          // starts from the size it closed with.
+          if (!mounted || (!open && rects.floating.width === 0 && rects.floating.height === 0)) {
             return;
           }
 
