@@ -201,7 +201,9 @@ internal static class OwnershipRegistry
         // select module writes the aligned placement and layout styles, the Popup's --transform-origin, the List's style
         // and the scroll arrows' data-visible (mirrored in SelectScrollArrowState.Visible); transitions writes the
         // transition attributes and `transition: none`; composite writes the items' highlight and tabindex (mirrored in
-        // SelectItemState.Highlighted); the popup module writes the internal backdrop's clip-path.
+        // SelectItemState.Highlighted); the popup module writes the internal backdrop's clip-path; the form module writes
+        // the hidden input's value property from attach, C# rendering the initial value once (the Radio shape).
+        new("select", "Hidden form-participation `<input>`", "value", Writer.CsharpToJs),
         new("select", "Backdrop", "data-starting-style", Writer.Js, "SelectBackdropState.TransitionStatus"),
         new("select", "Backdrop", "data-ending-style", Writer.Js, "SelectBackdropState.TransitionStatus"),
         new("select", "Positioner", "pointer-events", Writer.CsharpToJs),
