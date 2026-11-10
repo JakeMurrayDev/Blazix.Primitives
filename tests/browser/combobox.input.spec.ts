@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { expect, test, type Page, type RenderMode } from './helpers';
-import { gotoCombobox } from './combobox.helpers';
+import { center, gotoCombobox } from './combobox.helpers';
 import { settle } from './suites/popupFixture';
 
 // Base UI's ComboboxInput.test.tsx, ComboboxInput.android.test.tsx, ComboboxInput.gecko.test.tsx, ComboboxInputGroup.test.tsx
@@ -20,11 +20,11 @@ function listbox(page: Page): Locator {
 }
 
 /**
- * Waits for the chips container's handle to hold its chips' ids (js/combobox.ts `chipIdsKey`, set when the handle attaches):
+ * Waits for the chips container's handle to hold all its chips' ids (the chips register one by one, so the last chip is only known once all are) (js/combobox.ts `chipIdsKey`, set when the handle attaches):
  * `data-attached` covers the root's session and the input, not the Chips part, and the input's key toward the chips reads
  * those ids.
  */
-async function chipsReady(page: Page): Promise<void> {
+async function chipsReady(page: Page, count: number): Promise<void> {
   const chips = input(page).locator('xpath=..');
   await expect
     .poll(() =>
@@ -34,7 +34,7 @@ async function chipsReady(page: Page): Promise<void> {
         return ids.length;
       }),
     )
-    .toBeGreaterThan(0);
+    .toBe(count);
 }
 
 /** The input's caret, polled: the key's handler may run after the key event reached the page. */
@@ -226,7 +226,7 @@ test.describe('<Combobox.Input />', () => {
 
     test('clears the chip highlight when focus returns to the input', async ({ page, mode }) => {
       await goto(page, mode, 'chips-focus');
-      await chipsReady(page);
+      await chipsReady(page, 3);
 
       await input(page).focus();
       await expect(input(page)).toBeFocused();
@@ -243,7 +243,7 @@ test.describe('<Combobox.Input />', () => {
 
     test('removes the last chip after clicking from a chip back to the input', async ({ page, mode }) => {
       const fixture = await goto(page, mode, 'chips-click-back');
-      await chipsReady(page);
+      await chipsReady(page, 3);
 
       await input(page).click();
       await expect(input(page)).toBeFocused();
@@ -261,7 +261,7 @@ test.describe('<Combobox.Input />', () => {
     test('removes the last chip after leaving a chip and tabbing back to the input', async ({ page, mode }) => {
       const fixture = await goto(page, mode, 'chips-tab-back');
       const outside = page.getByTestId('outside');
-      await chipsReady(page);
+      await chipsReady(page, 3);
 
       await outside.click();
       await page.keyboard.press('Tab');
@@ -293,7 +293,7 @@ test.describe('<Combobox.Input />', () => {
 
     test('treats a null selectionStart as the beginning of a custom input', async ({ page, mode }) => {
       await goto(page, mode, 'number');
-      await chipsReady(page);
+      await chipsReady(page, 1);
 
       expect(await input(page).evaluate((element: HTMLInputElement) => element.selectionStart)).toBe(null);
       await input(page).focus();
@@ -393,7 +393,7 @@ test.describe('<Combobox.Input />', () => {
 
     test('removes the last rendered chip when pressing Backspace in an empty input', async ({ page, mode }) => {
       const fixture = await goto(page, mode, 'value-slice');
-      await chipsReady(page);
+      await chipsReady(page, 2);
 
       await input(page).click();
       await expect(input(page)).toBeFocused();
@@ -404,7 +404,7 @@ test.describe('<Combobox.Input />', () => {
 
     test('removes the last chip after tabbing from a chip back to the input', async ({ page, mode }) => {
       const fixture = await goto(page, mode, 'value-closed');
-      await chipsReady(page);
+      await chipsReady(page, 3);
 
       await input(page).click();
       await expect(input(page)).toBeFocused();
@@ -421,7 +421,7 @@ test.describe('<Combobox.Input />', () => {
 
     test('focuses the last chip with ArrowLeft after tabbing from a chip back to the input', async ({ page, mode }) => {
       await goto(page, mode, 'value-closed');
-      await chipsReady(page);
+      await chipsReady(page, 3);
       const lastChip = page.getByTestId('cherry');
 
       await input(page).click();
@@ -452,6 +452,7 @@ test.describe('<Combobox.Input />', () => {
 
       await input(page).click();
       await expect(listbox(page)).toBeVisible();
+      await center(listbox(page)); // positioned: the popup's first positioning pass has landed
 
       await page.keyboard.press('Tab');
 
@@ -460,6 +461,7 @@ test.describe('<Combobox.Input />', () => {
 
       await input(page).click();
       await expect(listbox(page)).toBeVisible();
+      await center(listbox(page)); // positioned: the popup's first positioning pass has landed
 
       await page.keyboard.press('Tab');
 
@@ -520,11 +522,13 @@ test.describe('<Combobox.InputGroup />', () => {
 
     await page.getByRole('button', { name: 'Open' }).click();
     await expect(listbox(page)).toBeVisible();
+      await center(listbox(page)); // positioned: the popup's first positioning pass has landed
 
     await page.getByTestId('pad').click();
     await settle(fixture);
 
     await expect(listbox(page)).toBeVisible();
+      await center(listbox(page)); // positioned: the popup's first positioning pass has landed
   });
 
   test('focuses the input and opens when clicking input-group padding around chips', async ({ page, mode }) => {
@@ -534,6 +538,7 @@ test.describe('<Combobox.InputGroup />', () => {
 
     await expect(input(page)).toBeFocused();
     await expect(listbox(page)).toBeVisible();
+      await center(listbox(page)); // positioned: the popup's first positioning pass has landed
   });
 
   test('does not handle chip presses a second time when chips are nested inside the input group', async ({ page, mode }) => {
