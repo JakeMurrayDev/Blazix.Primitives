@@ -31,6 +31,13 @@ internal static class FormValue
             return (string)(object)value!;
         }
 
+        // JavaScript's String(): a boolean is "true" or "false", where C# formats "True" or "False" (CMB-API-68; settled by
+        // the orchestrator 2026-11-10).
+        if (typeof(TValue) == typeof(bool) || typeof(TValue) == typeof(bool?))
+        {
+            return (bool)(object)value! ? "true" : "false";
+        }
+
         return string.Create(CultureInfo.InvariantCulture, $"{value}");
     }
 }
