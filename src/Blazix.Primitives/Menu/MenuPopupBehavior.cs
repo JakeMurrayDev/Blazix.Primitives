@@ -40,6 +40,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private readonly CompositeRootBehavior list;
     private readonly PopupModuleAttachment module;
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private MenuRootContext? root;
     private PositionerContext? positioner;
     private PopupPortalContext? portal;
@@ -268,6 +269,9 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         attributes.Set("tabindex", "-1");
         attributes.Set(PopupMarkerAttributes.Focusable, string.Empty);
+
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, status!.Value);
         if (state.RootId is { } rootId)
         {
             attributes.Set("data-rootownerid", rootId);
@@ -469,6 +473,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await twin.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();

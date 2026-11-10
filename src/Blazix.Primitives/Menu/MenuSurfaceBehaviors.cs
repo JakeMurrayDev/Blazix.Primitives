@@ -21,6 +21,7 @@ internal sealed class MenuBackdropBehavior : IAsyncDisposable
     private readonly string familyName;
     private readonly IJSRuntime jsRuntime;
     private readonly Action requestRender;
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private MenuRootContext? root;
     private IMenuParentContext? parentContext;
     private MenuSubscription? subscription;
@@ -130,6 +131,8 @@ internal sealed class MenuBackdropBehavior : IAsyncDisposable
             attributes.Set("hidden", true);
         }
 
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches (PopupTransitionAttributes).
+        transitionAttributes.Add(attributes, status!.Value);
         attributes.Set(MergeProps.StyleAttribute, hoverOpened!.Value ? HoverStyle : BaseStyle);
     }
 
@@ -164,6 +167,7 @@ internal sealed class MenuBackdropBehavior : IAsyncDisposable
 
         TransitionsOptions options = TransitionsOptions();
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await twin.AttachAsync(target, options);
         attaching = null;
     }
