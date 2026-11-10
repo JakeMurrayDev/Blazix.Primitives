@@ -343,6 +343,19 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Contains(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
     }
 
+    [Fact(DisplayName = "port: an input outside the popup follows a change of the root's id")]
+    [Trait("Requirement", "CMB-API-27")]
+    [Trait("Requirement", "CMB-API-39")]
+    public void An_outside_input_follows_a_change_of_the_roots_id()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Id"] = "first" });
+        Assert.Equal("first", cut.Find("[data-testid=input]").Id);
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["Id"] = "second" }));
+
+        Assert.Equal("second", cut.Find("[data-testid=input]").Id);
+    }
+
     private List<string> CompositeOptions()
     {
         List<string> options = [];
