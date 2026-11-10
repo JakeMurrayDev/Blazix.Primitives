@@ -342,6 +342,52 @@ describe('select module: aligned placement (port titles)', () => {
     expect(positioner.style.bottom).toBe('');
   });
 
+  // Interim review F3 (M5 track 9): Base UI's placement effect runs on `open`, the elements, the latch, the List,
+  // `highlightItemOnHover`, the direction and `isPositioned` (select/popup/SelectPopup.tsx:407-419), not on the items or
+  // their texts. Port deviation: a text the placement found missing that registers later re-places once (the port's texts
+  // register after its first pass can run).
+  function alignedPlacement() {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1, selectedTextId: 'text-a' };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger, popup]);
+    handles.push(handle);
+    const placements = () => fake.reports.filter((report) => report.method === 'OnPlaced').length;
+    const update = (next: Record<string, unknown>) => handle.update(JSON.stringify({ ...options, ...next }), [trigger, popup]);
+    return { positioner, placements, update };
+  }
+
+  it('keeps the placement when the item map changes while open, clearing only the heights (SEL-POS-13)', () => {
+    const { positioner, placements, update } = alignedPlacement();
+    expect(placements()).toBe(1);
+    update({ itemsRevision: 1 });
+    expect(placements()).toBe(1);
+    expect(positioner.style.height).toBe('');
+  });
+
+  it('places again on a reopen during the exit (SEL-POS-07)', () => {
+    const { placements, update } = alignedPlacement();
+    update({ open: false, ending: true });
+    update({ open: true, ending: false });
+    expect(placements()).toBe(2);
+  });
+
+  it('keeps the placement when the selected text changes while open, and places once when a missing first text registers (SEL-POS-07)', () => {
+    const { placements, update } = alignedPlacement();
+    update({ selectedTextId: 'text-b' });
+    expect(placements()).toBe(1);
+    update({ selectedTextId: 'text-b', firstTextId: 'text-first' });
+    expect(placements()).toBe(2);
+  });
+
   // Interim review F2 (M5 track 9): Base UI derives the layout from the List on every render (SelectPopup.tsx:457-458,
   // SelectList.tsx:38-40), so a List that arrives after the placement started takes the functional styles from the Popup.
   it('moves the aligned layout to a List that arrives after the placement started (SEL-DOM-27, SEL-DOM-32)', () => {
