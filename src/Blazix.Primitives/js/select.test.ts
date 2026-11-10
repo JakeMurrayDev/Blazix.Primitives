@@ -333,7 +333,7 @@ describe('select module: aligned placement (port titles)', () => {
     expect(positioner.style.transform).toBe('');
     expect(positioner.style.left).toBe('100px');
     expect(positioner.style.top).toBe('190px');
-    expect(positioner.style.bottom).toBe('auto');
+    expect(positioner.style.bottom).toBe('');
 
     handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
     expect(positioner.style.position).toBe('fixed');
@@ -342,3 +342,32 @@ describe('select module: aligned placement (port titles)', () => {
     expect(positioner.style.bottom).toBe('');
   });
 });
+
+describe('select module: attach order (port titles)', () => {
+  // Interim review B2 (M5 track 9): a kept-mounted scroll arrow's handle can attach before the positioner's `select`
+  // handle; the positioner adopts it when it attaches, so the arrow follows the list's scrolls from then on.
+  it('links a scroll arrow that attached before its positioner, so a scroll updates its visibility (SEL-STA-29)', () => {
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const upArrow = document.createElement('div');
+    let scrollTop = 0;
+    stubScroller(popup, { scrollHeight: 400, clientHeight: 200 }, () => scrollTop, (value) => {
+      scrollTop = value;
+    });
+    popup.append(upArrow);
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+
+    handles.push(attach(upArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), createFakeTwin().twin, [positioner]));
+    handles.push(
+      attach(positioner, JSON.stringify({ part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1 }), createFakeTwin().twin, [trigger, popup]),
+    );
+
+    scrollTop = 100;
+    popup.dispatchEvent(new Event('scroll'));
+
+    expect(upArrow.hasAttribute('data-visible')).toBe(true);
+  });
+});
+
