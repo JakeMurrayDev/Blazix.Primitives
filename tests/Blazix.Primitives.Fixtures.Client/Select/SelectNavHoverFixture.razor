@@ -1,0 +1,64 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-hover` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the `prop: highlightItemOnHover` describe
+    of SelectRoot.test.tsx (6729-6855). One page per case (`?case=`); the trigger carries `data-testid="trigger"`, the items
+    a, b, c are plain texts:
+    - `default`: a default-open root, an unaligned positioner, `HighlightItemOnHover` at its default.
+    - `disabled`: the same with `HighlightItemOnHover` false.
+    - `aligned-first`: a closed root with an aligned positioner and an unconstrained popup, a 120×36 trigger with the
+      placeholder "Pick one" under 120 px of padding.
+    The container records the open changes.
+*@
+<FixtureContainer Name="select-nav-hover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    @if (Case == "aligned-first")
+    {
+        <div style="padding-top: 120px; padding-left: 24px">
+            <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                <SelectTrigger @ref="trigger" data-testid="trigger" style="width: 120px; height: 36px">
+                    <SelectValue TValue="string">
+                        <Placeholder>Pick one</Placeholder>
+                    </SelectValue>
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner data-testid="positioner">
+                        <SelectPopup data-testid="popup" style="max-height: none">
+                            <SelectItem Value="@("a")">a</SelectItem>
+                            <SelectItem Value="@("b")">b</SelectItem>
+                            <SelectItem Value="@("c")">c</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" DefaultOpen="true" HighlightItemOnHover="@(Case != "disabled")" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner data-testid="positioner" AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                        <SelectItem Value="@("c")">c</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    }
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

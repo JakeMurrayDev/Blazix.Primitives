@@ -1,0 +1,66 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-aligned` fixture (tests/browser/select-nav.spec.ts; M5 track 9): SelectRoot.test.tsx's
+    `item-aligned popup interaction` describe (6908-7037). Thirty items `Item 0..29`, each 30 px tall, in an aligned
+    positioner (the default); the trigger is 30 px tall and carries `data-testid="trigger"`. One page per case:
+    - `edges`: value `Item 15` under 240 px of padding, a popup capped at 200 px (`data-testid="popup"`); the items hold
+      their text directly.
+    - `grow`: value `Item 1` in a fixed wrapper at left 20, bottom 160, a popup capped at 400 px, a positioner with
+      `data-testid="positioner"`, and the items' text in ItemText.
+    The container records the open changes.
+*@
+<FixtureContainer Name="select-nav-aligned" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    @if (Case == "grow")
+    {
+        <div style="position: fixed; left: 20px; bottom: 160px">
+            <SelectRoot TValue="string" @ref="root" DefaultValue="@("Item 1")" OnOpenChange="RecordOpenChange">
+                <SelectTrigger @ref="trigger" data-testid="trigger" style="height: 30px"><SelectValue TValue="string" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner data-testid="positioner">
+                        <SelectPopup data-testid="popup" style="max-height: 400px">
+                            @for (int index = 0; index < 30; index++)
+                            {
+                                string item = $"Item {index}";
+                                <SelectItem @key="item" Value="@item" style="height: 30px"><SelectItemText>@item</SelectItemText></SelectItem>
+                            }
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>
+    }
+    else
+    {
+        <div style="padding-top: 240px">
+            <SelectRoot TValue="string" @ref="root" DefaultValue="@("Item 15")" OnOpenChange="RecordOpenChange">
+                <SelectTrigger @ref="trigger" data-testid="trigger" style="height: 30px"><SelectValue TValue="string" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner data-testid="positioner">
+                        <SelectPopup data-testid="popup" style="max-height: 200px">
+                            @for (int index = 0; index < 30; index++)
+                            {
+                                string item = $"Item {index}";
+                                <SelectItem @key="item" Value="@item" style="height: 30px">@item</SelectItem>
+                            }
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>
+    }
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

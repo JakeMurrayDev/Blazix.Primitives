@@ -1,0 +1,122 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-multiple` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the multiple-mode titles of
+    SelectRoot.test.tsx (5909-6350). One page per case (`?case=`); every trigger carries `data-testid="trigger"`:
+    - `deselect-active`: `Values` fixed to [a] (controlled, no handler: a press reports and changes nothing), items a, b, c.
+    - `anchor-keyboard`, `deselect-keyboard`: `DefaultValues` [b, c] over a, b, c. `anchor-continue`: over a, b, c, d.
+    - `aligned`: forty `opt-<n>` items with ItemText, `DefaultValues` [opt-10, opt-30], a 160×36 trigger under 120 px of
+      padding, an aligned positioner and an unconstrained popup (`data-testid="popup"`).
+    - `scroll-into-view`: a hundred `item <n>` items, `DefaultValues` [item 80, item 90], an unaligned positioner and a
+      popup capped at 200 px that scrolls.
+    The container records `data-values-changes` (`a,b:reason`, space-separated) and the open changes.
+*@
+<FixtureContainer Name="select-nav-multiple" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-values-changes="@string.Join(' ', valuesChanges)">
+    <div style="@(Case == "aligned" ? "padding-top: 120px; padding-left: 32px" : null)">
+        @switch (Case)
+        {
+            case "deselect-active":
+                <SelectRoot TValue="string" @ref="root" Multiple="true" Values="@s_fixed" OnValuesChange="RecordValuesChange" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem Value="@("a")">a</SelectItem>
+                                <SelectItem Value="@("b")">b</SelectItem>
+                                <SelectItem Value="@("c")">c</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                break;
+
+            case "anchor-keyboard":
+            case "deselect-keyboard":
+                <SelectRoot TValue="string" @ref="root" Multiple="true" DefaultValues="@s_bc" OnValuesChange="RecordValuesChange" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem Value="@("a")">a</SelectItem>
+                                <SelectItem Value="@("b")">b</SelectItem>
+                                <SelectItem Value="@("c")">c</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                break;
+
+            case "anchor-continue":
+                <SelectRoot TValue="string" @ref="root" Multiple="true" DefaultValues="@s_bc" OnValuesChange="RecordValuesChange" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem Value="@("a")">a</SelectItem>
+                                <SelectItem Value="@("b")">b</SelectItem>
+                                <SelectItem Value="@("c")">c</SelectItem>
+                                <SelectItem Value="@("d")">d</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                break;
+
+            case "aligned":
+                <SelectRoot TValue="string" @ref="root" Multiple="true" DefaultValues="@s_opts" OnValuesChange="RecordValuesChange" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger @ref="trigger" data-testid="trigger" style="width: 160px; height: 36px"><SelectValue TValue="string" /></SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner data-testid="positioner">
+                            <SelectPopup data-testid="popup" style="max-height: none; min-height: 100px">
+                                @for (int index = 0; index < 40; index++)
+                                {
+                                    string option = $"opt-{index}";
+                                    <SelectItem @key="option" Value="@option"><SelectItemText>@option</SelectItemText></SelectItem>
+                                }
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                break;
+
+            case "scroll-into-view":
+                <SelectRoot TValue="string" @ref="root" Multiple="true" DefaultValues="@s_items" OnValuesChange="RecordValuesChange" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup data-testid="popup" style="max-height: 200px; overflow-y: auto">
+                                @for (int index = 0; index < 100; index++)
+                                {
+                                    string option = $"item {index}";
+                                    <SelectItem @key="option" Value="@option"><SelectItemText>@option</SelectItemText></SelectItem>
+                                }
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                break;
+        }
+    </div>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_fixed = ["a"];
+    private static readonly string[] s_bc = ["b", "c"];
+    private static readonly string[] s_opts = ["opt-10", "opt-30"];
+    private static readonly string[] s_items = ["item 80", "item 90"];
+
+    private readonly List<string> valuesChanges = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private void RecordValuesChange(ValueChangeEventArgs<IReadOnlyList<string>> args) =>
+        valuesChanges.Add($"{string.Join(',', args.Value)}:{args.Details.Reason.ToLiteral()}");
+}

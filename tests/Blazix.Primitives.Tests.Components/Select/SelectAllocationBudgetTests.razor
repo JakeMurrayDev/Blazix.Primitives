@@ -13,7 +13,7 @@
 @code {
     private const int Count = 300;
 
-    // First measurement 2026-11-10 (arm64, .NET 11, Release; M5 track 9): the envelope of 12 runs of this class, each the
+    // First measurement 2026-11-10 (arm64, .NET 11, Release; M5 track 9): the envelope of 12 runs of this class and 6 runs of every Select class together, each the
     // least of five, plus the CI runner's +112 bytes floor shift (InteractionsAllocationBudgetTests, 2026-10-29). The
     // re-render (the root and all 300 items with their indicator and text, about 377 bytes an `int` item) and the
     // highlight move (two items) are the library's. A value change also counts bUnit's markup of the whole tree, which bUnit
@@ -21,10 +21,10 @@
     // bound. They only tighten.
     private static (long Rerender, long Highlight, long ValueChange) Budgets(string kind) => kind switch
     {
-        "int" => (113112, 1664, 4466320),
-        "string" => (91440, 1616, 4473096),
+        "int" => (113160, 1664, 4466416),
+        "string" => (91440, 1616, 4476776),
         "enum" => (113128, 1664, 4469824),
-        _ => (226112, 2496, 4914864),
+        _ => (226112, 2496, 4916376),
     };
 
     public enum Fruit
