@@ -42,6 +42,12 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private bool disabledParameter;
 
+    private string? consumerId;
+
+    private string? generatedId;
+
+    private CompositeListRole? listRole;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxTriggerBehavior"/> class.</summary>
@@ -136,33 +142,25 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     /// <param name="consumerAttributes">The consumer's attributes.</param>
     public void Apply(bool nativeButton, bool disabled, string? consumerId, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
-        ComboboxStore root = Store;
         disabledParameter = disabled;
-        bool insidePopup = root.State.InputInsidePopup;
-
-        // CMB-API-45 (ComboboxTrigger.tsx:89-90): the root's id with the input inside the popup, else the consumer's.
-        id = consumerId ?? (insidePopup ? root.State.Id : generatedId);
-        string? own = id;
-        root.SetElementIds(ids => ids with { Trigger = own });
-        reference.SetList(root.ListNavigation, insidePopup ? CompositeListRole.Reference : CompositeListRole.Trigger);
+        this.consumerId = consumerId;
+        this.generatedId = generatedId;
         reference.SetConsumerAttributes(consumerAttributes);
         button.Native = nativeButton;
         button.FocusableWhenDisabled = null;
         button.Disabled = Disabled;
         button.SetConsumerAttributes(consumerAttributes);
         interactions.SetConsumerAttributes(consumerAttributes);
-        interactions.SessionToken = root.SessionToken;
-        InteractionsClickOptions? click = Disabled ? null : s_click;
-        if (!string.Equals(interactions.Options.TriggerId, id, StringComparison.Ordinal) || !ReferenceEquals(interactions.Options.Click, click))
-        {
-            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click };
-        }
+        interactions.SessionToken = Store.SessionToken;
+        Resolve();
     }
 
     /// <summary>Adds the trigger's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
     public void AddPartAttributes(AttributeList attributes)
     {
+        // The layout can change with no parameter set (an outside input registering after the trigger rendered).
+        Resolve();
         ComboboxStoreState state = Store.State;
         bool insidePopup = state.InputInsidePopup;
         bool open = state.Lifecycle.EffectiveOpen;
@@ -280,6 +278,34 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         Task twinSync = SyncTwinAsync(element);
         await button.AfterRenderAsync(true, element, id, composite: false);
         await Task.WhenAll(pressed, listed, twinSync);
+    }
+
+    // CMB-API-45 (ComboboxTrigger.tsx:89-90, derived at every render): the root's id with the input inside the popup, else
+    // the consumer's or a generated one; the list role follows the layout.
+    private void Resolve()
+    {
+        ComboboxStore root = Store;
+        bool insidePopup = root.State.InputInsidePopup;
+        string? next = consumerId ?? (insidePopup ? root.State.Id : generatedId);
+        if (!string.Equals(next, id, StringComparison.Ordinal))
+        {
+            string? previous = id;
+            id = next;
+            root.SetElementIds(ids => ids.Trigger is null || ids.Trigger == previous ? ids with { Trigger = next } : ids);
+        }
+
+        CompositeListRole role = insidePopup ? CompositeListRole.Reference : CompositeListRole.Trigger;
+        if (listRole != role)
+        {
+            listRole = role;
+            reference.SetList(root.ListNavigation, role);
+        }
+
+        InteractionsClickOptions? click = Disabled ? null : s_click;
+        if (!string.Equals(interactions.Options.TriggerId, id, StringComparison.Ordinal) || !ReferenceEquals(interactions.Options.Click, click))
+        {
+            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click };
+        }
     }
 
     private async Task SyncTwinAsync(ElementReference? element)

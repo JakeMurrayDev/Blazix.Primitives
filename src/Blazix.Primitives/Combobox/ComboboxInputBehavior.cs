@@ -56,6 +56,12 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private bool hasPositionerParent;
 
+    private string? consumerId;
+
+    private string? generatedId;
+
+    private bool listRoleSet;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxInputBehavior"/> class.</summary>
@@ -167,29 +173,21 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <param name="consumerAttributes">The consumer's attributes, for the declined handlers.</param>
     public void Apply(bool disabled, string? consumerId, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
-        ComboboxStore root = Store;
         disabledParameter = disabled;
-
-        // CMB-API-27 (ComboboxInput.tsx:97): the root's id outside the popup; inside, the consumer's or a generated one.
-        id = consumerId ?? (insidePopup ? generatedId : root.State.Id);
-        string? own = id;
-        root.SetElementIds(ids => ids with { Input = own });
-        reference.SetList(root.ListNavigation, insidePopup ? CompositeListRole.Trigger : CompositeListRole.Reference);
+        this.consumerId = consumerId;
+        this.generatedId = generatedId;
         reference.SetConsumerAttributes(consumerAttributes);
         interactions.SetConsumerAttributes(consumerAttributes);
-        interactions.SessionToken = root.SessionToken;
-        bool clickEnabled = !Disabled && root.OpenOnInputClick;
-        InteractionsClickOptions? click = clickEnabled ? insidePopup ? s_clickInside : s_clickOutside : null;
-        if (!string.Equals(interactions.Options.TriggerId, id, StringComparison.Ordinal) || !ReferenceEquals(interactions.Options.Click, click))
-        {
-            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click };
-        }
+        interactions.SessionToken = Store.SessionToken;
+        Resolve();
     }
 
     /// <summary>Adds the input's attributes: the fixed ones, the combobox ARIA outside the popup and the rendered value.</summary>
     /// <param name="attributes">The part's attributes.</param>
     public void AddPartAttributes(AttributeList attributes)
     {
+        // The root's id can change with no parameter set of the input.
+        Resolve();
         ComboboxStore root = Store;
         ComboboxStoreState state = root.State;
 
@@ -397,6 +395,33 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     // CMB-KEY-05, EVT-09 (ComboboxInput.tsx:347-362): on WebAssembly the closed Escape's clear runs inside the dispatch, and
     // the keydown stops when a value was selected, the root is not inline and the callbacks did not allow propagation.
+    // CMB-API-27 (ComboboxInput.tsx:97, derived at every render): the root's id outside the popup; inside, the consumer's or
+    // a generated one.
+    private void Resolve()
+    {
+        ComboboxStore root = Store;
+        string? next = consumerId ?? (insidePopup ? generatedId : root.State.Id);
+        if (!string.Equals(next, id, StringComparison.Ordinal))
+        {
+            string? previous = id;
+            id = next;
+            root.SetElementIds(ids => ids.Input is null || ids.Input == previous ? ids with { Input = next } : ids);
+        }
+
+        if (!listRoleSet)
+        {
+            listRoleSet = true;
+            reference.SetList(root.ListNavigation, insidePopup ? CompositeListRole.Trigger : CompositeListRole.Reference);
+        }
+
+        bool clickEnabled = !Disabled && root.OpenOnInputClick;
+        InteractionsClickOptions? click = clickEnabled ? insidePopup ? s_clickInside : s_clickOutside : null;
+        if (!string.Equals(interactions.Options.TriggerId, id, StringComparison.Ordinal) || !ReferenceEquals(interactions.Options.Click, click))
+        {
+            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click };
+        }
+    }
+
     private DecisionPolicy Decide(string point, EventSnapshot snapshot)
     {
         if (!string.Equals(point, ComboboxTwin.ClearPoint, StringComparison.Ordinal))
