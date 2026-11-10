@@ -9,8 +9,9 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
-// SEL-STA-15 (select/trigger/SelectTrigger.tsx:218-226, 236-257); design point 4 (a), pending the user: the value is in
-// the state, not projected (SEL-DOM-08). PopupSide is C#'s render of the positioning report (SEL-STA-28, never `none`).
+// SEL-STA-15 (select/trigger/SelectTrigger.tsx:218-226, 236-257); design point 4 (a), settled by the orchestrator
+// 2026-11-04: the value is in the state, not projected (SEL-DOM-08). PopupSide is C#'s render of the positioning report
+// (SEL-STA-28, never `none`).
 /// <summary>Represents the state of a select trigger, which the part exposes as data attributes and passes to its class and style functions.</summary>
 /// <typeparam name="TValue">The type of the select's values.</typeparam>
 /// <param name="Disabled">A value indicating whether the trigger is disabled, its own flag, the root's or the field's; projected as <c>data-disabled</c>.</param>

@@ -292,7 +292,7 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
     [Parameter]
     public Func<TValue, TValue, bool>? IsItemEqualToValue { get; set; }
 
-    // SEL-API-19 (design point N1, pending the user)
+    // SEL-API-19 (design point N1, settled by the orchestrator 2026-11-04)
     /// <summary>Gets or sets the labels of the values the select can hold, which the value part shows.</summary>
     /// <value>A list of values with their labels, or <see langword="null"/>. Supply at most one of <see cref="Items"/>, <see cref="ItemGroups"/> and <see cref="ItemLabels"/>.</value>
     [Parameter]

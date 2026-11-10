@@ -6,8 +6,9 @@ using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Blazix.Primitives;
 
-// SEL-STA-16 (select/value/SelectValue.tsx:42-45, 70-79); design point 4 (a), pending the user: the value is in the state,
-// never projected (SEL-DOM-08; the Accordion precedent, ADR 08 Amendments 2026-10-26), as two fields, one per mode.
+// SEL-STA-16 (select/value/SelectValue.tsx:42-45, 70-79); design point 4 (a), settled by the orchestrator 2026-11-04:
+// the value is in the state, never projected (SEL-DOM-08; the Accordion precedent, ADR 08 Amendments 2026-10-26), as
+// two fields, one per mode.
 /// <summary>Represents the state of a select value, which the part exposes as data attributes and passes to its class and style functions.</summary>
 /// <typeparam name="TValue">The type of the select's values.</typeparam>
 /// <param name="Value">The selected value of a single select; not projected.</param>
@@ -122,7 +123,8 @@ public sealed class SelectValue<TValue> : PartBase<SelectValueState<TValue>>
         consumerContent = ChildContent;
         ChildContent = resolvedContent;
 
-        // Design point N2 (pending the user): the other mode's template is an always-on error, as the root's parameters are.
+        // Design point N2 (settled by the orchestrator 2026-11-04): the other mode's template is an always-on error, as
+        // the root's parameters are.
         if (multiple!.Value && ValueContent is not null)
         {
             throw new InvalidOperationException("Blazix: `SelectValue` received `ValueContent` while the root's `Multiple` is true. Use `ValuesContent` in multiple mode.");

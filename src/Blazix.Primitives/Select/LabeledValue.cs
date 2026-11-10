@@ -6,7 +6,7 @@ namespace Blazix.Primitives;
 // SEL-API-19 (select/root/SelectRoot.tsx:698-702, internals/resolveValueLabel.tsx:5-36); ADR 08 Amendments 2026-11-03 (2)
 // and (4): Base UI's `{ value, label }` item and its `{ items, ... }` group, typed, with `string` labels; shared by the
 // value-typed lists (Select, Combobox, Autocomplete), so not family-prefixed (ADR 08 §3's shared-concept rule). Design point
-// N1 of M5 track 9, pending the user.
+// N1 of M5 track 9, settled by the orchestrator 2026-11-04.
 /// <summary>Represents a value a list can hold and the label shown for it.</summary>
 /// <typeparam name="TValue">The type of the value.</typeparam>
 /// <param name="Value">The value.</param>

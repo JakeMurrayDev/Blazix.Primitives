@@ -2,10 +2,10 @@ using Blazix.Primitives.Rendering;
 
 namespace Blazix.Primitives;
 
-// SEL-STA-20/21/22/25, SEL-POS-14 (select/positioner/SelectPositioner.tsx:114): Base UI's `Side | 'none'`. Decision 8 of the
-// M5 plan (chosen by the user 2026-11-03) and design point 2 of M5 track 9 (the name, pending the user): a family enum beside
-// its first consumer (ADR 08 §3's enum rule, a family-prefixed literal set), projected kebab-case; the Trigger's
-// `popupSide` stays `Side?` (SEL-STA-28: never `none`).
+// SEL-STA-20/21/22/25, SEL-POS-14 (select/positioner/SelectPositioner.tsx:114): Base UI's `Side | 'none'`. Decision 8
+// of the M5 plan (chosen by the user 2026-11-03) and design point 2 of M5 track 9 (the name, settled by the
+// orchestrator 2026-11-04): a family enum beside its first consumer (ADR 08 §3's enum rule, a family-prefixed literal
+// set), projected kebab-case; the Trigger's `popupSide` stays `Side?` (SEL-STA-28: never `none`).
 /// <summary>Specifies the side of the anchor a select's popup is placed on, or <see cref="None"/> while it is placed over the trigger.</summary>
 public enum SelectSide
 {
