@@ -1,0 +1,320 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The consumer App of ComboboxRoot.test.tsx's top-level, manual-unmount and selection titles (batch A): a string Root given
+   the parameters a test supplies (`RootParameters`, splatted, as in ComboboxHarness), with the consumer's own state for the
+   titles whose App holds it (`ControlValue`, `ControlValues`, `ControlInput`, `ControlOpen`: the Root is controlled by that
+   state, and a change the callback does not cancel is written back, as React's setState is). The host is the callbacks'
+   receiver, so a callback renders it again with its state, as a React commit does. The parts: an Input outside or inside
+   the popup, an optional Trigger (with a Value inside), `Extra` content, a Portal > Positioner > Popup (or an inline List),
+   and a List of static items (`StaticItems`, or `VisibleItems` of the consumer's input text) or the root's Items through
+   ItemContent; each item's text is `Labels(value)`, nothing when that is null. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="Parameters">
+    @if (WithInput && !InputInsidePopup)
+    {
+        <ComboboxInput data-testid="input" />
+    }
+    @if (WithTrigger && TriggerValue)
+    {
+        <ComboboxTrigger data-testid="trigger"><ComboboxValue TValue="string" /></ComboboxTrigger>
+    }
+    else if (WithTrigger)
+    {
+        <ComboboxTrigger data-testid="trigger">Open</ComboboxTrigger>
+    }
+    @Extra
+    @if (InlineList)
+    {
+        @ListFragment
+    }
+    else
+    {
+        <ComboboxPortal KeepMounted="KeepMounted">
+            <ComboboxPositioner>
+                <ComboboxPopup data-testid="popup">
+                    @if (WithInput && InputInsidePopup)
+                    {
+                        <ComboboxInput data-testid="input" />
+                    }
+                    @PopupExtra
+                    @ListFragment
+                </ComboboxPopup>
+            </ComboboxPositioner>
+        </ComboboxPortal>
+    }
+</ComboboxRoot>
+
+@code {
+    private string? value;
+
+    private IReadOnlyList<string>? values;
+
+    private string inputValue = string.Empty;
+
+    private bool open;
+
+    private IReadOnlyList<string>? staticItemsOverride;
+
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public bool WithInput { get; set; } = true;
+
+    [Parameter]
+    public bool InputInsidePopup { get; set; }
+
+    [Parameter]
+    public bool WithTrigger { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the Trigger shows a Value part instead of its text.</summary>
+    [Parameter]
+    public bool TriggerValue { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the List is a direct child of the Root, without a popup.</summary>
+    [Parameter]
+    public bool InlineList { get; set; }
+
+    [Parameter]
+    public RenderFragment? Extra { get; set; }
+
+    [Parameter]
+    public RenderFragment? PopupExtra { get; set; }
+
+    /// <summary>Gets or sets a List of the test's own, in place of the host's.</summary>
+    [Parameter]
+    public RenderFragment? ListContent { get; set; }
+
+    /// <summary>Gets or sets the List's static items; <see langword="null"/> for the root's Items through ItemContent.</summary>
+    [Parameter]
+    public IReadOnlyList<string>? StaticItems { get; set; }
+
+    /// <summary>Gets or sets the List's static items as a function of the consumer's input text, which wins over <see cref="StaticItems"/>.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<string>>? VisibleItems { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the static items carry no @key, so a changed value reaches the Item that rendered the previous one (React's unkeyed children).</summary>
+    [Parameter]
+    public bool Positional { get; set; }
+
+    /// <summary>Gets or sets an item's text by its value; the value itself when not set, nothing when it returns null.</summary>
+    [Parameter]
+    public Func<string, string?>? Labels { get; set; }
+
+    [Parameter]
+    public bool ControlValue { get; set; }
+
+    [Parameter]
+    public string? InitialValue { get; set; }
+
+    [Parameter]
+    public bool ControlValues { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string>? InitialValues { get; set; }
+
+    [Parameter]
+    public bool ControlInput { get; set; }
+
+    [Parameter]
+    public string InitialInputValue { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool ControlOpen { get; set; }
+
+    [Parameter]
+    public bool InitialOpen { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    public List<(string? Value, EventReason Reason)> ValueChanges { get; } = [];
+
+    public List<(IReadOnlyList<string> Values, EventReason Reason)> ValuesChanges { get; } = [];
+
+    public List<(string Text, EventReason Reason)> InputChanges { get; } = [];
+
+    public List<(bool Open, EventReason Reason, EventSnapshot? Event)> OpenChanges { get; } = [];
+
+    public List<bool> Completes { get; } = [];
+
+    public List<(string? Value, EventReason Reason, int Index)> Highlights { get; } = [];
+
+    /// <summary>Gets or sets a step run inside OnValueChange, before the consumer's state is written.</summary>
+    public Action<ValueChangeEventArgs<string>>? OnValue { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnOpenChange, before the consumer's state is written.</summary>
+    public Action<ValueChangeEventArgs<bool>>? OnOpen { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnOpenChangeComplete.</summary>
+    public Action<bool>? OnComplete { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the consumer keeps its value when the root asks to change it, without canceling.</summary>
+    public bool RefuseValueChanges { get; set; }
+
+    private string ListTestId => "list";
+
+    private IReadOnlyList<string>? CurrentStaticItems => VisibleItems is { } visible ? visible(inputValue) : staticItemsOverride ?? StaticItems;
+
+    private RenderFragment ListFragment => ListContent ?? (CurrentStaticItems is null ? TemplateList : StaticList);
+
+    private RenderFragment StaticList => @<ComboboxList TValue="string" data-testid="@ListTestId">
+        @if (Positional)
+        {
+            @for (int i = 0; i < CurrentStaticItems!.Count; i++)
+            {
+                string item = CurrentStaticItems[i];
+                <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + i)">@LabelOf(item)</ComboboxItem>
+            }
+        }
+        else
+        {
+            @foreach (string item in CurrentStaticItems!)
+            {
+                <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@LabelOf(item)</ComboboxItem>
+            }
+        }
+    </ComboboxList>;
+
+    private RenderFragment TemplateList => @<ComboboxList TValue="string" data-testid="@ListTestId">
+        <ItemContent>
+            <ComboboxItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@LabelOf(context.Value)</ComboboxItem>
+        </ItemContent>
+    </ComboboxList>;
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new(RootParameters);
+            if (ControlValue)
+            {
+                parameters["Value"] = value;
+            }
+
+            if (ControlValues)
+            {
+                parameters["Values"] = values;
+            }
+
+            if (ControlInput)
+            {
+                parameters["InputValue"] = inputValue;
+            }
+
+            if (ControlOpen)
+            {
+                parameters["Open"] = open;
+            }
+
+            bool multiple = parameters.TryGetValue(nameof(ComboboxRoot<string>.Multiple), out object? flag) && flag is true;
+            if (multiple)
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<string>.OnValuesChange), EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, HandleValues));
+            }
+            else
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<string>.OnValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, HandleValue));
+            }
+
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnInputValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, HandleInput));
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnOpenChange), EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, HandleOpen));
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnOpenChangeComplete), EventCallback.Factory.Create<bool>(this, HandleComplete));
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnItemHighlighted), EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, HandleHighlight));
+            return parameters;
+        }
+    }
+
+    /// <summary>Writes the consumer's open state, from a callback the host receives (it renders after the callback).</summary>
+    /// <param name="next">The open state.</param>
+    public void SetOpenState(bool next) => open = next;
+
+    /// <summary>Writes the consumer's value and renders, as an external button's setState does.</summary>
+    /// <param name="next">The value.</param>
+    /// <returns>A task that completes once the host rendered.</returns>
+    public Task SetValueAsync(string? next) => InvokeAsync(() =>
+    {
+        value = next;
+        StateHasChanged();
+    });
+
+    /// <summary>Writes the consumer's values and renders, as an external button's setState does.</summary>
+    /// <param name="next">The values.</param>
+    /// <returns>A task that completes once the host rendered.</returns>
+    public Task SetValuesAsync(IReadOnlyList<string>? next) => InvokeAsync(() =>
+    {
+        values = next;
+        StateHasChanged();
+    });
+
+    /// <summary>Replaces the static items and renders, as a consumer's setState does.</summary>
+    /// <param name="next">The items.</param>
+    /// <returns>A task that completes once the host rendered.</returns>
+    public Task SetStaticItemsAsync(IReadOnlyList<string> next) => InvokeAsync(() =>
+    {
+        staticItemsOverride = next;
+        StateHasChanged();
+    });
+
+    /// <summary>Renders the host again, as a consumer's state change that changes no prop of the root does.</summary>
+    /// <returns>A task that completes once the host rendered.</returns>
+    public Task RerenderAsync() => InvokeAsync(StateHasChanged);
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        value = InitialValue;
+        values = InitialValues;
+        inputValue = InitialInputValue;
+        open = InitialOpen;
+    }
+
+    private string? LabelOf(string item) => Labels is { } labels ? labels(item) : item;
+
+    private void HandleValue(ValueChangeEventArgs<string> args)
+    {
+        ValueChanges.Add((args.Value, args.Details.Reason));
+        OnValue?.Invoke(args);
+        if (!args.Details.IsCanceled && !RefuseValueChanges)
+        {
+            value = args.Value;
+        }
+    }
+
+    private void HandleValues(ValueChangeEventArgs<IReadOnlyList<string>> args)
+    {
+        ValuesChanges.Add((args.Value, args.Details.Reason));
+        if (!args.Details.IsCanceled && !RefuseValueChanges)
+        {
+            values = args.Value;
+        }
+    }
+
+    private void HandleInput(ValueChangeEventArgs<string> args)
+    {
+        InputChanges.Add((args.Value, args.Details.Reason));
+        if (!args.Details.IsCanceled)
+        {
+            inputValue = args.Value;
+        }
+    }
+
+    private void HandleOpen(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add((args.Value, args.Details.Reason, args.Details.Event));
+        OnOpen?.Invoke(args);
+        if (!args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private void HandleComplete(bool opened)
+    {
+        Completes.Add(opened);
+        OnComplete?.Invoke(opened);
+    }
+
+    private void HandleHighlight(ComboboxItemHighlightedEventArgs<string> args) =>
+        Highlights.Add((args.Value, args.Details.Reason, args.Details.Index));
+}
