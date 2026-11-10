@@ -33,7 +33,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/checkbox-group.md | CKG | implemented | 83 reqs; revised 2026-10-27, M4 track 1 (proposed): the five portal titles of CKG-STR-02, CKG-FRM-03/06 and CKG-FOC-02 green at L4 on the test-only portal |
 | components/collapsible.md | COL | implemented | pilot; 104 reqs |
 | components/combobox.md | CMB | approved | 247 reqs |
-| components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu |
+| components/context-menu.md | CTX | approved | 95 reqs (opus) | builds on menu; revised 2026-11-11: ported by M5 track 7 ([issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194), PR 228, draft), the rows' port notes and Writer tables; `implemented` waits for CI on both modes and the design points' settlement |
 | components/dialog.md | DLG | implemented | 191 reqs (1 withdrawn for the port); revised 2026-10-29, M4 tracks 8 and 9 (the AlertDialog-rendering titles run; `implemented` 2026-10-29, chosen by the user, with PR 152); C# handlers inside a shadow-root portal container a documented deviation (ADR 04 Amendments 2026-10-29); revised 2026-11-10, M5 track 6 (the Menu-rendering titles run); open: Select-rendering clauses (track 9), Drawer clauses (M6), DLG-EVT-05's retained-close clause closed by PR 152 |
 | components/drawer.md | DRW | approved | 152 reqs (opus) | builds on dialog |
 | components/field.md | FLD | implemented | 143 reqs; owns normative Field.Control text; revised 2026-10-23, PR 1c; rows open to tracks 4–8 and M5/M6 listed in PR 1c |

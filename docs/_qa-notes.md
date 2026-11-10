@@ -117,3 +117,12 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - MNU-STR-07: Portal and Backdrop read the Root's context and throw outside a Root (`menu/portal/MenuPortal.tsx:21`, `menu/backdrop/MenuBackdrop.tsx:23`); the bullet listed them as exempt.
 - MNU-FOC-10, MNU-DIS-09, MNU-ANI-02: their "MNU-DOM-11" references meant the internal backdrop (MNU-DOM-25) or the Backdrop (MNU-DOM-10).
 - §3.7 Viewport: `data-activation-direction`, `data-transitioning`, `[data-previous]` and its size variables are written by the `popup` module, not C# (dated Writer note in §3.7).
+
+## 2026-11-11, ContextMenu port (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194))
+
+Facts the port found against context-menu.md, each recorded on its row:
+- CTX-ARIA-05: a modal portal renders no `aria-owns` owner span (FloatingPortal renders it with its guards), so the root clause holds by absence; submenus' carry `role="group"`.
+- CTX-ANI-02 (§16 Q5): Chromium gives a right click's `contextmenu` `detail` 0, so a right-click open is an instant `click` open.
+- CTX-API-06: Base UI's handler stops the propagation of `contextmenu` and a single-touch `touchstart`, so a consumer handler on either cannot be left to Blazor's delegated dispatch; the module runs all five (design point 3 (a) of M5 track 7).
+- CTX-DOM-04's L4 title: Base UI's internal-backdrop selector also matches the consumer Backdrop once the modal focus manager marks it in a browser; the port's title takes the root Positioner's previous sibling.
+
