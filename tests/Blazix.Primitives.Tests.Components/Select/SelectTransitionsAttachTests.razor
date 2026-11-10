@@ -1,0 +1,93 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using Bunit
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.JSInterop
+@*
+    Issue 213 for Select (M5 track 9; the shape main's PR 215 fixed in the other families): a render during a pending
+    transitions attach awaited it and sent nothing, so what only an update carries (the Popup's style, the unmount requests)
+    waited for the next render. The held runtime is a test double, not interop: the analyzer reads its members as JS interop.
+*@
+
+@code {
+#pragma warning disable BL0016
+    private string popupStyle = "color: red";
+    private SelectRoot<string>? root;
+
+    [Fact(DisplayName = "port: a style change while the popup's transitions handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "SEL-DOM-17")]
+    public async Task A_style_change_while_the_popups_handle_attaches_reaches_the_module()
+    {
+        BunitJSModuleInterop handle = SetUpTransitions();
+        HeldAttachRuntime runtime = Hold();
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true">
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup style="@popupStyle"><SelectItem Value="@("a")">a</SelectItem></SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await runtime.WaitForHeldAttachAsync(options => options.Contains("color: red", StringComparison.Ordinal));
+
+        popupStyle = "color: blue";
+        await cut.InvokeAsync(() => cut.Instance.RefreshAsync());
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(Renderer.Dispatcher, handle, options => options.Contains("color: blue", StringComparison.Ordinal)));
+    }
+
+    [Fact(DisplayName = "port: a close while the backdrop's transitions handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "SEL-DOM-17")]
+    public async Task A_close_while_the_backdrops_handle_attaches_reaches_the_module()
+    {
+        BunitJSModuleInterop handle = SetUpTransitions();
+        HeldAttachRuntime runtime = Hold();
+        RenderSelect(@<SelectRoot TValue="string" @ref="root" DefaultOpen="true" OnOpenChange="RetainOnClose">
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPortal>
+                <SelectBackdrop />
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup><SelectItem Value="@("a")">a</SelectItem></SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await runtime.WaitForHeldAttachAsync(IsBackdrop);
+
+        // A retained close before the attach returns (an unmount would remove the Backdrop: no trigger focus force-mounted it).
+        await root!.CloseAsync();
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(
+            Renderer.Dispatcher,
+            handle,
+            options => IsBackdrop(options) && options.Contains("\"open\":false", StringComparison.Ordinal)));
+    }
+
+    // The Popup's options report the open's completion; the Backdrop's do not.
+    private static bool IsBackdrop(string options) => !options.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal);
+
+    private static void RetainOnClose(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value)
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+    }
+
+    private BunitJSModuleInterop SetUpTransitions()
+    {
+        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        return handle;
+    }
+
+    private HeldAttachRuntime Hold()
+    {
+        HeldAttachRuntime runtime = new(JSInterop.JSRuntime, "transitions.js");
+        Services.AddSingleton<IJSRuntime>(runtime);
+        return runtime;
+    }
+#pragma warning restore BL0016
+}
