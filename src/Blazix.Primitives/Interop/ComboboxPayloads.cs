@@ -20,5 +20,5 @@ internal sealed record ComboboxRequest(int Index, EventSnapshot Event);
 
 // CMB-KEY-04 (parts.ts:46-58: the selection is attributed to the keydown) and the close without a highlight (FRM-07).
 /// <summary>The payload of a keydown the module handled.</summary>
-/// <param name="Event">The snapshot of the keydown.</param>
-internal sealed record ComboboxKeyReport(EventSnapshot Event);
+/// <param name="Event">The snapshot of the keydown, or <see langword="null"/> when a selection's attribution ends.</param>
+internal sealed record ComboboxKeyReport(EventSnapshot? Event);

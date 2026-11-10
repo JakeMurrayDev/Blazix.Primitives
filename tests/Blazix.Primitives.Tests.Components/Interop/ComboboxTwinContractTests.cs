@@ -91,7 +91,7 @@ public sealed class ComboboxTwinContractTests
         twin.RemoveRequested += request => received.Add($"remove:{request.Index}");
         twin.OpenCanceled += snapshot => received.Add($"cancel:{snapshot.Type}");
         twin.DismissPressed += snapshot => received.Add($"dismiss:{snapshot.Type}");
-        twin.SelectionEventReported += snapshot => received.Add($"selection:{snapshot.Key}");
+        twin.SelectionEventReported += snapshot => received.Add($"selection:{snapshot?.Key}");
         twin.EnterCloseRequested += snapshot => received.Add($"enter:{snapshot.Key}");
         twin.InputPressed += snapshot => received.Add($"press:{snapshot.Type}");
         twin.OpenRequested += snapshot => received.Add($"open:{snapshot.Key}");

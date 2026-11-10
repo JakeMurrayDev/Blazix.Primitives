@@ -59,8 +59,8 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when an internal dismiss button was pressed, Base UI's <c>close-press</c>.</summary>
     public event Action<EventSnapshot>? DismissPressed;
 
-    /// <summary>Occurs before Enter's synthetic click on the highlighted item, with the keydown the selection is attributed to.</summary>
-    public event Action<EventSnapshot>? SelectionEventReported;
+    /// <summary>Occurs before Enter's synthetic click on the highlighted item, with the keydown the selection is attributed to, and after it, with <see langword="null"/>.</summary>
+    public event Action<EventSnapshot?>? SelectionEventReported;
 
     /// <summary>Occurs when Enter on an open list without a highlight closes the popup, with the reason <c>none</c>.</summary>
     public event Action<EventSnapshot>? EnterCloseRequested;
@@ -108,7 +108,7 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Receives Enter on an open list without a highlight.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
     [JSInvokable]
-    public void OnEnterClose(string payloadJson) => EnterCloseRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event);
+    public void OnEnterClose(string payloadJson) => EnterCloseRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event ?? EventSnapshot.CreatePlaceholder());
 
     /// <summary>Receives a press on the input group or the chips that focused the input.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>

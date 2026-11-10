@@ -254,9 +254,11 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       return false;
     }
     stopEvent(event);
-    // parts.ts:46-58 (clickHighlightedItem): the selection is attributed to the keydown.
+    // parts.ts:46-58 (clickHighlightedItem): the selection is attributed to the keydown for the click only; the second report
+    // ends the attribution, so a click that selected nothing leaves none for a later selection.
     channel.report('OnSelectionEvent', { event: eventInfo(event) });
     item.click();
+    channel.report('OnSelectionEvent', { event: null });
     return true;
   };
 
