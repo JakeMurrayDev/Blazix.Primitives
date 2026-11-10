@@ -726,3 +726,47 @@ function stubShort(): void {
   stubProperty(popup, 'scrollHeight', 64);
   stubProperty(popup, 'clientHeight', 63);
 }
+
+// SelectArrow.test.tsx runs only the conformance suite (L2 here, `SelectArrowConformanceTests`); this port title is the L4
+// half of its rows (M5 track 9, final review B2) on `select-basic` with `arrow`: what the `positioning` module writes on the
+// Arrow outside aligned mode, and nothing rendered while aligned.
+test.describe('<Select.Arrow />', () => {
+  // SEL-DOM-40, SEL-POS-20, SEL-STR-09
+  test("port: outside aligned mode the Arrow carries the positioning module's style, data-side, data-align and data-uncentered, and aligned it renders nothing", async ({ page, mode }) => {
+    const centerOffset = async () => {
+      const arrowBox = (await page.getByTestId('arrow').boundingBox())!;
+      const triggerBox = (await page.getByTestId('trigger').boundingBox())!;
+      return Math.abs(Math.round(arrowBox.x + arrowBox.width / 2 - (triggerBox.x + triggerBox.width / 2)));
+    };
+
+    await gotoPopupFixture(page, mode, 'select-basic', { align: false, arrow: 'center' });
+    await page.getByTestId('trigger').click();
+    const arrow = page.getByTestId('arrow');
+    await expect(arrow).toBeVisible();
+    await expect(arrow).toHaveAttribute('aria-hidden', 'true');
+    await expect(arrow).toHaveAttribute('data-open', '');
+    await expect(arrow).toHaveAttribute('data-side', 'bottom');
+    await expect(arrow).toHaveAttribute('data-align', 'center');
+    await expect(arrow).not.toHaveAttribute('data-uncentered');
+    expect(await arrow.evaluate((element) => (element as HTMLElement).style.position)).toBe('absolute');
+    await expect.poll(centerOffset).toBe(0);
+    for (const name of ['data-closed', 'data-anchor-hidden', 'data-starting-style', 'data-ending-style']) {
+      await expect(arrow).not.toHaveAttribute(name);
+    }
+
+    // A 20px trigger at the left edge under a 200px popup: the popup shifts inside the viewport and the arrow cannot center.
+    await gotoPopupFixture(page, mode, 'select-basic', { align: false, arrow: 'edge' });
+    await page.getByTestId('trigger').click();
+    await expect(arrow).toHaveAttribute('data-uncentered', '');
+    await expect(arrow).toHaveAttribute('data-side', 'bottom');
+    expect(await arrow.evaluate((element) => (element as HTMLElement).style.left)).toMatch(/px$/);
+    expect(await centerOffset()).not.toBe(0);
+
+    // Aligned (the default): the popup is placed over the trigger and the Arrow renders nothing.
+    await gotoPopupFixture(page, mode, 'select-basic', { arrow: 'center' });
+    await page.getByTestId('trigger').click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'none');
+    await expect(arrow).toHaveCount(0);
+  });
+});
