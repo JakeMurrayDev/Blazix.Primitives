@@ -297,6 +297,50 @@ Mounting and transition statuses follow MNU §4.5 / §9.
 
 The consumer `ContextMenu.Backdrop` (MNU-DOM-10) additionally registers its element with the context menu (used by CTX-PTR-03). Source: `menu/backdrop/MenuBackdrop.tsx:29-39`.
 
+Port note 2026-11-11 (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); ADR 04 §2 and Amendments 2026-11-03 (2), chosen by the user; sheet C contradiction 2): the Writer cells of the shells restate menu.md's here, because the ownership lint checks each document on its own and the port's ContextMenu state records mirror the same fields (the AlertDialog precedent, alert-dialog.md §5.1). The items' `tabindex` and `data-highlighted` are the `composite` list handle's from attach (ADR 04 §2's row naming ContextMenu's item shells).
+
+### 5.2.1 `ContextMenu.Positioner` element
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-anchor-hidden` | `anchorHidden` | CTX-DOM-05 (MNU-DOM-04) | JS |
+| `data-side` | resolved side | CTX-DOM-05 (MNU-DOM-04) | C# → JS |
+| `data-align` | resolved alignment | CTX-DOM-05 (MNU-DOM-04) | C# → JS |
+| `--anchor-width`, `--anchor-height`, `--available-width`, `--available-height`, `--transform-origin`, `--positioner-width`, `--positioner-height` | Positioner inline style | MNU-POS-08 | C# → JS |
+
+### 5.2.2 `ContextMenu.Popup` element
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` / `data-ending-style` | transition status | CTX-DOM-05 (MNU-DOM-06) | JS |
+
+### 5.2.3 `ContextMenu.Backdrop` element
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` / `data-ending-style` | transition status | CTX-DOM-05 (MNU-DOM-10) | JS |
+
+### 5.2.4 `ContextMenu.Arrow` element
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-side`, `data-align` | resolved placement | CTX-DOM-05 (MNU-DOM-11) | C# → JS |
+| `data-uncentered` | `uncentered === true` | CTX-DOM-05 (MNU-DOM-11) | JS |
+
+### 5.2.5 Item elements (`ContextMenu.Item`, `ContextMenu.LinkItem`, `ContextMenu.CheckboxItem`, `ContextMenu.RadioItem`, `ContextMenu.SubmenuTrigger`)
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-highlighted` | highlighted | CTX-DOM-05 (MNU-DOM-13, 15, 16, 18) | C# → JS |
+| `tabindex` | per MNU-DOM-14, MNU-DOM-18 | CTX-DOM-05 (MNU-DOM-14) | C# → JS |
+
+### 5.2.6 Indicator elements (`ContextMenu.CheckboxItemIndicator`, `ContextMenu.RadioItemIndicator`)
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` / `data-ending-style` | the indicator's transition status | CTX-DOM-05 (MNU-DOM-17) | JS |
+
+
 ### 5.3 ARIA
 
 - **CTX-ARIA-01** — MUST. The Trigger carries no ARIA: no `aria-haspopup`, `aria-expanded`, `aria-controls` and no role (it is a plain `<div>` unless the consumer substitutes an element). Discoverability is the consumer's responsibility (the docs require an alternative visible control).
@@ -311,6 +355,12 @@ The consumer `ContextMenu.Backdrop` (MNU-DOM-10) additionally registers its elem
   Source: `menu/portal/MenuPortal.tsx:32`. Test: none.
 
 Items, groups, indicators, submenu triggers: MNU-ARIA-07…13 (adopted).
+
+| Element | Attribute | Value | Req | Writer |
+|---|---|---|---|---|
+| Trigger | `role`, `aria-haspopup`, `aria-expanded`, `aria-controls` | never emitted | CTX-ARIA-01 | C# |
+| Popup | `role` | `"menu"` | CTX-ARIA-02 | C# |
+| Content outside the tree | `aria-hidden` | `"true"` while the root popup is open (the modal focus manager) | CTX-ARIA-04 | JS |
 
 ## 6. Interactions
 
