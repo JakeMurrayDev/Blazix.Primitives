@@ -351,3 +351,55 @@ describe('the trigger', () => {
     expect([document.activeElement, press.defaultPrevented]).toEqual([document.body, false]);
   });
 });
+
+describe('the input group and the chips', () => {
+  function setupGroup(part: 'input-group' | 'chips', overrides: Partial<ComboboxOptions> = {}): { group: HTMLElement; input: HTMLInputElement; button: HTMLButtonElement; chips: HTMLElement; fake: FakeTwin } {
+    const group = document.createElement('div');
+    const input = document.createElement('input');
+    input.id = 'the-input';
+    const button = document.createElement('button');
+    const chips = document.createElement('div');
+    chips.id = 'the-chips';
+    const chip = document.createElement('span');
+    chips.append(chip);
+    group.append(chips, input, button);
+    document.body.append(group);
+    const fake = createFakeTwin();
+    handles.push(attach(group, options({ part, inputId: 'the-input', chipsId: 'the-chips', ...overrides }), fake.twin));
+    return { group, input, button, chips, fake };
+  }
+
+  function press(target: Element): MouseEvent {
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  it('port: a press on the input group focuses the input and reports an input press', () => {
+    const { group, input, fake } = setupGroup('input-group');
+    const event = press(group);
+    expect([event.defaultPrevented, document.activeElement, fake.reported('OnInputPress').length]).toEqual([true, input, 1]);
+  });
+
+  it('port: a press on an interactive element or inside the chips container of an input group is left alone', () => {
+    const { group, button, chips, fake } = setupGroup('input-group');
+    press(group);
+    const onButton = press(button);
+    const onChip = press(chips.firstElementChild!);
+    expect([onButton.defaultPrevented, onChip.defaultPrevented, fake.reported('OnInputPress').length]).toEqual([false, false, 1]);
+  });
+
+  it('port: a press on a disabled input group prevents its default and reports nothing', () => {
+    const enabled = setupGroup('input-group');
+    press(enabled.group);
+    const disabled = setupGroup('input-group', { disabled: true });
+    const event = press(disabled.group);
+    expect([enabled.fake.reported('OnInputPress').length, event.defaultPrevented, disabled.fake.reported('OnInputPress').length]).toEqual([1, true, 0]);
+  });
+
+  it('port: a press on the chips container focuses the input and reports an input press', () => {
+    const { chips, input, fake } = setupGroup('chips');
+    const event = press(chips.firstElementChild!);
+    expect([event.defaultPrevented, document.activeElement, fake.reported('OnInputPress').length]).toEqual([true, input, 1]);
+  });
+});
