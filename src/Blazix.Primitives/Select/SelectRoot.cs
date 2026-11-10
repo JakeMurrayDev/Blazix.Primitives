@@ -573,6 +573,8 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
         ListNavigationBehavior navigation = list!;
         navigation.Enabled = !state.Disabled;
         navigation.FocusItemOnHover = HighlightItemOnHover;
+        // SEL-STA-07, SEL-ANI-14: the highlight stays on its item while the popup animates out.
+        navigation.RetainHighlightWhileClosing = true;
         navigation.DisabledIndices = s_noDisabledIndices;
         navigation.SelectedIndex = state.SelectedIndex;
 
