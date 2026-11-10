@@ -52,6 +52,14 @@ function typeInto(input: HTMLInputElement, text: string, inputType = 'insertText
 }
 
 describe('the input', () => {
+  it('ComboboxChip: an input that attaches with focusOnAttach takes the focus, and one without it does not', () => {
+    const { input: focused } = setupInput('', { focusOnAttach: true });
+    expect(document.activeElement).toBe(focused);
+    focused.blur();
+    const { input: plain } = setupInput('');
+    expect(document.activeElement).not.toBe(plain);
+  });
+
   it('port: classifies an inputType other than insertReplacementText as typed, and a missing one as autofill-like', () => {
     expect(isTypedInput(new InputEvent('input', { inputType: 'insertText' }), false)).toBe(true);
     expect(isTypedInput(new InputEvent('input', { inputType: 'insertReplacementText' }), false)).toBe(false);
