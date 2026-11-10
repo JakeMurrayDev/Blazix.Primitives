@@ -258,6 +258,12 @@ public static class FixtureCatalog
         ["select-press-trigger"] = new(typeof(SelectPressTriggerFixture)),
         ["select-press-indicator"] = new(typeof(SelectPressIndicatorFixture)),
         // select-press fixtures above this line (M5 track 9, L4 agent press)
+        ["select-lifecycle-actions"] = new(typeof(SelectLifecycleActionsFixture)),
+        ["select-lifecycle-basic"] = new(typeof(SelectLifecycleBasicFixture)),
+        ["select-lifecycle-touch"] = new(typeof(SelectLifecycleTouchFixture)),
+        ["select-lifecycle-arrows"] = new(typeof(SelectLifecycleArrowsFixture)),
+        ["select-lifecycle-popover"] = new(typeof(SelectLifecyclePopoverFixture)),
+        // select-lifecycle fixtures above this line (M5 track 9, L4 agent lifecycle)
         ["select-form-state"] = new(typeof(SelectFormStateFixture)),
         ["select-form-external"] = new(typeof(SelectFormExternalFixture)),
         ["select-form-submit"] = new(typeof(SelectFormSubmitFixture)),
