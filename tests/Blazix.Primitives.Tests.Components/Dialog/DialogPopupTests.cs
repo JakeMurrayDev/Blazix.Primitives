@@ -196,6 +196,37 @@ public sealed class DialogPopupTests : IDisposable
         Assert.Equal(before, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
 
+    // Issue 213 (the shape PR 183 fixed in Menu's item indicator): a render during the pending transitions attach awaited it
+    // and sent nothing. After its attach Dialog sends only a moved unmount request count, so an unmount requested during the
+    // attach waited for the next render, with the retained close's ending phase held until then.
+    [Fact(DisplayName = "port: an unmount requested while the popup's transitions handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "DLG-EVT-05")]
+    public async Task An_unmount_while_the_popups_handle_attaches_reaches_the_module()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        IRenderedComponent<DialogHarness> cut = test.Context.Render<DialogHarness>(p => p
+            .Add(x => x.DefaultOpen, true)
+            .Add(x => x.Modal, false)
+            .Add(x => x.KeepMounted, true)
+            .Add(x => x.OnOpenChange, args =>
+            {
+                if (!args.Value)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+            }));
+        await runtime.WaitForHeldAttachAsync(options => options.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal));
+
+        // A retained close, then the consumer's unmount, both before the attach returns.
+        await test.RequestAsync(cut, open: false, "escape-key", DialogTestContext.EscapeJson);
+        await cut.InvokeAsync(() => cut.Instance.Root!.Unmount());
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(test.Context.Renderer.Dispatcher, test.TransitionsHandle, options => options.Contains("\"unmountRequests\":1", StringComparison.Ordinal)));
+    }
+
+
     private async Task AssertUnmountDropsTheStalledAttachAsync(string module, string? optionsFragment, bool modal)
     {
         StalledAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, module, optionsFragment);

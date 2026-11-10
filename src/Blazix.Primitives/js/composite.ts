@@ -2266,6 +2266,8 @@ interface ListState {
   emittingOpen: boolean | null;
   previousOpen: boolean;
   previousMounted: boolean;
+  /** The `focusItemOnOpen` option of the last sync, one of the dependencies of `keyRef`'s reset. */
+  previousFocusItemOnOpen: boolean | 'auto';
   cancelQueuedFocus: (() => void) | null;
   readonly focusFrame: FrameSlot;
   readonly waitFrame: FrameSlot;
@@ -2679,16 +2681,22 @@ function syncOpenAndMount(state: ListState, handle: ListHandle): void {
   const renderedActiveIndex = state.activeIndex;
   // :374-376, CMP-STA-41
   handle.session.dataRef.current.orientation = orientationOf(list);
-  // :378-385, CMP-STA-38
+  // :378-387, CMP-STA-38: Base UI's effect runs when `open` or `focusItemOnOpen` changes, so a sync while the list stays
+  // closed (a close's unmount that lands after the next opening key) keeps the key and the trigger's focus-on-open value.
+  const focusItemOnOpen = focusItemOnOpenOf(list);
+  if (open !== state.previousOpen || focusItemOnOpen !== state.previousFocusItemOnOpen) {
+    if (!open) {
+      state.key = null;
+    }
+    if (!open || focusItemOnOpen !== 'auto') {
+      state.focusItemOnOpen = focusItemOnOpen;
+    }
+  }
+  state.previousFocusItemOnOpen = focusItemOnOpen;
   if (!open) {
-    state.key = null;
     delete handle.session.dataRef.current[LIST_OPEN_FOCUS_KEY];
     // A close ends a wait to show (CMP-ALG-24's dated note), so the open it belonged to runs no search later.
     state.stopWaitForShow?.();
-  }
-  const focusItemOnOpen = focusItemOnOpenOf(list);
-  if (!open || focusItemOnOpen !== 'auto') {
-    state.focusItemOnOpen = focusItemOnOpen;
   }
   if (enabledOf(list)) {
     // :389-403, CMP-STA-33
@@ -2739,6 +2747,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     emittingOpen: null,
     previousOpen: session.open,
     previousMounted: false,
+    previousFocusItemOnOpen: focusItemOnOpenOf(list),
     cancelQueuedFocus: null,
     focusFrame: createFrameSlot(),
     waitFrame: createFrameSlot(),
