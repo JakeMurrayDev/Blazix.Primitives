@@ -26,8 +26,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private readonly InteractionsTriggerBehavior interactions;
 
-    private readonly CompositeRootBehavior reference;
-
     private ComboboxStore? store;
 
     private FieldRootContext? fieldScope;
@@ -46,8 +44,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private string? generatedId;
 
-    private CompositeListRole? listRole;
-
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxTriggerBehavior"/> class.</summary>
@@ -62,7 +58,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         this.services = services;
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
         interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, onClick, onMouseDown);
-        reference = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown);
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -78,7 +73,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     public string? Id => id;
 
     /// <summary>Gets a task that completes once the trigger's handles have attached.</summary>
-    public Task TwinAttached => Task.WhenAll(button.TwinAttached, interactions.TwinAttached, reference.TwinAttached);
+    public Task TwinAttached => Task.WhenAll(button.TwinAttached, interactions.TwinAttached);
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -96,7 +91,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         }
 
         fieldScope?.RemoveListener(services.RequestRender);
-        reference.Dispose();
         button.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         await Task.WhenAll(interactions.DisposeAsync().AsTask(), twinDisposal);
@@ -131,6 +125,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             OnFocusChange(false);
             return Task.CompletedTask;
         }));
+        twin.OpenRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ListNavigation, snapshot))));
         twin.OpenCanceled += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.CancelOpen, snapshot))));
     }
 
@@ -145,7 +140,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         disabledParameter = disabled;
         this.consumerId = consumerId;
         this.generatedId = generatedId;
-        reference.SetConsumerAttributes(consumerAttributes);
         button.Native = nativeButton;
         button.FocusableWhenDisabled = null;
         button.Disabled = Disabled;
@@ -166,7 +160,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         bool open = state.Lifecycle.EffectiveOpen;
         button.Disabled = Disabled;
         button.AddAttributes(attributes, id, composite: false);
-        reference.AddAttributes(attributes, id);
         interactions.AddAttributes(attributes);
         attributes.Set("id", id);
 
@@ -206,7 +199,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
     public bool ForwardsConsumerHandler(string eventName) =>
-        button.ForwardsConsumerHandler(eventName) && interactions.ForwardsConsumerHandler(eventName) && reference.ForwardsConsumerHandler(eventName);
+        button.ForwardsConsumerHandler(eventName) && interactions.ForwardsConsumerHandler(eventName);
 
     /// <summary>Runs the declined consumer <c>onclick</c>.</summary>
     /// <param name="args">The click.</param>
@@ -230,7 +223,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     /// <summary>Runs the declined consumer <c>onkeydown</c> unless a decision already ran it.</summary>
     /// <param name="args">The keydown.</param>
     /// <returns>A task that completes when the handler has run.</returns>
-    public Task HandleKeyDownAsync(KeyboardEventArgs args) => reference.HandleKeyDownAsync(args);
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) => button.HandleKeyDownAsync(args);
 
     /// <summary>Runs the declined consumer <c>onkeyup</c>.</summary>
     /// <param name="args">The keyup.</param>
@@ -274,14 +267,14 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         button.Disabled = Disabled;
         interactions.SessionToken = Store.SessionToken;
         Task pressed = interactions.AfterRenderAsync(true, element, id);
-        Task listed = reference.AfterRenderAsync(true, element, id);
         Task twinSync = SyncTwinAsync(element);
         await button.AfterRenderAsync(true, element, id, composite: false);
-        await Task.WhenAll(pressed, listed, twinSync);
+        await Task.WhenAll(pressed, twinSync);
     }
 
     // CMB-API-45 (ComboboxTrigger.tsx:89-90, derived at every render): the root's id with the input inside the popup, else
-    // the consumer's or a generated one; the list role follows the layout.
+    // the consumer's or a generated one. The trigger joins no list (ComboboxTrigger.tsx:150-166): the input is the list's
+    // reference in both layouts (review B7, settled by the orchestrator 2026-11-10).
     private void Resolve()
     {
         ComboboxStore root = Store;
@@ -294,12 +287,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             root.SetElementIds(ids => ids.Trigger is null || ids.Trigger == previous ? ids with { Trigger = next } : ids);
         }
 
-        CompositeListRole role = insidePopup ? CompositeListRole.Reference : CompositeListRole.Trigger;
-        if (listRole != role)
-        {
-            listRole = role;
-            reference.SetList(root.ListNavigation, role);
-        }
 
         InteractionsClickOptions? click = Disabled ? null : s_click;
         if (!string.Equals(interactions.Options.TriggerId, id, StringComparison.Ordinal) || !ReferenceEquals(interactions.Options.Click, click))

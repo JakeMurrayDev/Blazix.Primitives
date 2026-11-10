@@ -543,10 +543,21 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
     }
     channel.report('OnBlur', eventInfo(event));
   };
+  // ComboboxTrigger.tsx:247-256: ArrowDown or ArrowUp stops the key, asks for the open with list-navigation and focuses the
+  // input (the trigger holds no list-navigation props; the input is the list's reference in both layouts).
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+    stopEvent(event);
+    channel.report('OnOpenRequest', eventInfo(event));
+    (options.inputId ? doc.getElementById(options.inputId) : null)?.focus();
+  };
   element.addEventListener('pointerdown', trackPointer);
   element.addEventListener('pointerenter', trackPointer);
   element.addEventListener('mousedown', onMouseDown);
   element.addEventListener('focusout', onFocusOut);
+  element.addEventListener('keydown', onKeyDown);
   return {
     update(optionsJson: string) {
       options = parseOptions<ComboboxOptions>(optionsJson);
@@ -557,6 +568,7 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
       element.removeEventListener('pointerenter', trackPointer);
       element.removeEventListener('mousedown', onMouseDown);
       element.removeEventListener('focusout', onFocusOut);
+      element.removeEventListener('keydown', onKeyDown);
     },
   };
 }

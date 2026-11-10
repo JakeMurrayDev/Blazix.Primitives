@@ -202,7 +202,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         attributes.Set("spellcheck", "false");
         attributes.Set("autocorrect", "off");
         attributes.Set("autocapitalize", "none");
-        if (!insidePopup || state.Inline)
+        // AriaCombobox.tsx:1348-1376: in both layouts (review B7, settled by the orchestrator 2026-11-10).
         {
             bool expanded = state.Expanded;
             attributes.Set("role", "combobox");
@@ -408,7 +408,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         if (!listRoleSet)
         {
             listRoleSet = true;
-            reference.SetList(root.ListNavigation, insidePopup ? CompositeListRole.Trigger : CompositeListRole.Reference);
+            // AriaCombobox.tsx:1452-1474: the input holds listNavigation.reference in both layouts (review B7).
+            reference.SetList(root.ListNavigation, CompositeListRole.Reference);
         }
 
         bool clickEnabled = !Disabled && root.OpenOnInputClick;
