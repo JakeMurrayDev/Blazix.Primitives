@@ -753,6 +753,19 @@ State object (`Menu.FilterProvider.State`): `{}`.
 
 State object (`Menu.Input.State`): `{ highlighted: boolean }` — the input "owns" the visible focus ring: `true` while it is focus-visible and either the last modality was pointer or no item is highlighted (MNU-STA-22). Source: `filter-dropdown/input/FilterDropdownInput.tsx:55-57,141-147`. Data attribute: `data-highlighted` (MNU-DOM-21).
 
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-highlighted` | the input shows its focus ring (MNU-STA-22) | MNU-DOM-21 | JS |
+| `value` | the query | MNU-API-57 | C# → JS |
+| `aria-activedescendant` | the highlighted item's id, while one is highlighted | MNU-ARIA-14 | JS |
+
+Writer note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design points 1 (a) and 5 (a), settled by the orchestrator 2026-11-11):
+- The table is added for the Writer column.
+- The `menu-filter` module writes `data-highlighted` from focus-visible and keyboard modality, which are known only when the event happens, and C# mirrors it in `MenuInputState.Highlighted`.
+- `value` follows the `Input`/`Field.Control` precedent (ADR 04 Amendments 2026-10-22): C# renders it once under the handover and sends committed values, and the module writes them.
+- `composite`'s list handle writes `aria-activedescendant` on its reference, the input (ADR 04 Amendments 2026-11-03 (2)).
+
 ### 3.23 `Menu.Clear`
 
 **Default element:** `<button>`. **Accepts `render`:** yes. **Accepts `className`/`style` as function of state:** yes (`Menu.Clear.State`). MUST be inside a filterable menu.
