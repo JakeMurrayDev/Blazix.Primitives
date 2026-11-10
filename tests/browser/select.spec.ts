@@ -1,5 +1,5 @@
 // L4 for docs/components/select.md (M5 track 9, issue 173): Server then WebAssembly.
-import { expect, test, throttleCpu } from './helpers';
+import { delayCircuit, expect, test, throttleCpu } from './helpers';
 import { waitForPositioned } from './helpers/positioner';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPopupFixture } from './suites/popupFixture';
@@ -50,6 +50,20 @@ test.describe('Select: smoke', () => {
     await expect(fixture).toHaveAttribute('data-value-changes', 'fuji:item-press');
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByTestId('value')).toHaveText('Fuji');
+  });
+
+  // SEL-PTR-08 (port title, M5 track 9): the Positioner's `select` handle classifies the items' clicks, so it attaches as
+  // soon as the force-mounted Popup renders, not after the `positioning` handle that only an open attaches. With a slow
+  // circuit a click right after the open otherwise found no handle (final review F4's change, reverted in 4113a016).
+  test('port: selects an item clicked right after the open on a slow circuit', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the circuit delay is a Server round trip');
+    await delayCircuit(page, 60);
+    const fixture = await gotoPopupFixture(page, mode, 'select-basic', { align: 'false' });
+    const trigger = page.getByTestId('trigger');
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await page.getByRole('option', { name: 'Fuji' }).click();
+    await expect(fixture).toHaveAttribute('data-value-changes', 'fuji:item-press');
   });
 
   test('places the popup over the trigger by default and aligns the selected text with the value', async ({ page, mode }) => {
