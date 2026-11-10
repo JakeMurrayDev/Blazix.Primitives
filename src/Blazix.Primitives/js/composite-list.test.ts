@@ -831,6 +831,46 @@ describe('list highlight writer (port)', () => {
   });
 });
 
+// CMP-KEY-22's dated note of 2026-11-10 (found by TLB-STR-05; settled by the orchestrator 2026-11-10): Base UI's useButton
+// returns from a disabled button's keydown before the trigger's merged handlers run, list navigation's and typeahead's
+// among them (internals/use-button/useButton.ts:116-119; MenuTrigger.tsx:261 merges `getButtonProps` last). The gate reads
+// useButton's `disabled` parameter, which reaches the DOM as the `disabled` attribute or, on a button focusable when
+// disabled, as `aria-disabled="true"`; the port's reference and trigger handles read their element (`isElementDisabled`).
+describe('a disabled list trigger (port)', () => {
+  async function ignoresKeysUntilEnabled(attribute: 'disabled' | 'aria-disabled', value: string): Promise<void> {
+    const harness = app({ synchronous: true, list: { typeahead: { resetMs: 750, labels: ['one', 'two', 'three'] } } });
+    harness.reference.setAttribute(attribute, value);
+
+    // The character first, while the list is closed, so an unguarded handle would report it as a match.
+    const events = ['t', 'ArrowDown', 'ArrowUp'].map((key) => keyDown(harness.reference, key));
+
+    expect({
+      prevented: events.map((event) => event.defaultPrevented),
+      decisions: harness.decisions.map((decision) => [decision.point, decision.event.key]),
+      matches: harness.matches.map((match) => match.index),
+      openRequests: harness.openRequests.map((request) => request.open),
+      mounted: harness.floating !== null,
+    }).toEqual({ prevented: [false, false, false], decisions: [], matches: [], openRequests: [], mounted: false });
+
+    harness.reference.removeAttribute(attribute);
+    keyDown(harness.reference, 'ArrowDown');
+
+    expect(harness.decisions.map((decision) => [decision.point, decision.event.key])).toEqual([[NAVIGATE_POINT, 'ArrowDown']]);
+    expect(harness.openRequests).toEqual([expect.objectContaining({ open: true, reason: 'list-navigation', triggerId: harness.reference.id })]);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+  }
+
+  it('port: a disabled trigger\'s list handle ignores the arrow keys and typeahead, and opens on ArrowDown once enabled', async () => {
+    await ignoresKeysUntilEnabled('disabled', '');
+  });
+
+  it('port: an aria-disabled trigger\'s list handle, focusable when disabled, ignores the arrow keys and typeahead, and opens on ArrowDown once enabled', async () => {
+    await ignoresKeysUntilEnabled('aria-disabled', 'true');
+  });
+});
+
 // Virtual focus (M5 track 1, Deliverable 5; ADR 04 Amendments 2026-11-03 (2); CMP-ARIA-01, CMP-ARIA-02, CMP-KEY-20,
 // CMP-KEY-33, CMP-FOC-05). The module writes `aria-activedescendant` from the active item's own element id (a dated
 // deviation from CMP-ARIA-01's `{id}-{index}` scheme), on the reference and, unless the reference is a typeable combobox,
