@@ -463,6 +463,34 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Contains("\"focusItemOnOpen\":false", LastListNavigationOptions(), StringComparison.Ordinal);
     }
 
+    // ADR 16 decision 11 (review F17): Base UI memoizes the filtered items on their inputs (AriaCombobox.tsx:358-438), so a
+    // parameter set that changes none of them runs no filter.
+    [Fact(DisplayName = "port: a parameter set with unchanged inputs runs no filter")]
+    [Trait("Requirement", "CMB-STA-23")]
+    public void A_parameter_set_with_unchanged_inputs_runs_no_filter()
+    {
+        int calls = 0;
+        Dictionary<string, object?> parameters = new()
+        {
+            ["Items"] = (IReadOnlyList<string>)s_apricots,
+            ["DefaultOpen"] = true,
+            ["DefaultInputValue"] = "ap",
+            ["Filter"] = (Func<string, string, Func<string, string>?, bool>)((item, query, _) =>
+            {
+                calls++;
+                return item.StartsWith(query, StringComparison.Ordinal);
+            }),
+        };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        Assert.Equal(["apple", "apricot"], Options(cut));
+        int before = calls;
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+
+        Assert.Equal(["apple", "apricot"], Options(cut));
+        Assert.Equal(before, calls);
+    }
+
     private static void Follow(IRenderedComponent<ComboboxHarness> cut, Dictionary<string, object?> parameters)
     {
         if (cut.Instance.OpenChanges.Count != 0)
