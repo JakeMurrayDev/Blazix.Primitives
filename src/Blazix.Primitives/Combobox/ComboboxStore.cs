@@ -241,6 +241,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private readonly Dictionary<CompositeItemBehavior, TValue> itemValues = new(ReferenceEqualityComparer.Instance);
 
+    private readonly Dictionary<CompositeItemBehavior, int> renderedPositions = new(ReferenceEqualityComparer.Instance);
+
     private ItemSlot<TValue>[] renderedValues = [];
 
     private string? closeQuery;
@@ -260,6 +262,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private bool derivedQueryChanged;
 
     private PendingHighlight? pendingHighlight;
+
+    private HighlightDependencies? resolvedFor;
 
     private bool hadInputClear;
 
@@ -758,11 +762,25 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Records the value an item part renders, which the list joins to the reported order.</summary>
     /// <param name="item">The item's composite behavior.</param>
     /// <param name="value">The item's value.</param>
-    public void RegisterRenderedValue(CompositeItemBehavior item, TValue value) => itemValues[item] = value;
+    public void RegisterRenderedValue(CompositeItemBehavior item, TValue value)
+    {
+        // ComboboxItem.tsx:98-109: an item writes its value at its index whenever the value changes, so a positional
+        // template that hands an item another value under the same id keeps the registry current.
+        if (itemValues.TryGetValue(item, out TValue? previous) && !Equality.Is(previous, value) && renderedPositions.TryGetValue(item, out int position))
+        {
+            renderedValues[position] = new ItemSlot<TValue>(value, true);
+        }
+
+        itemValues[item] = value;
+    }
 
     /// <summary>Removes an item part's value.</summary>
     /// <param name="item">The item's composite behavior.</param>
-    public void UnregisterRenderedValue(CompositeItemBehavior item) => itemValues.Remove(item);
+    public void UnregisterRenderedValue(CompositeItemBehavior item)
+    {
+        itemValues.Remove(item);
+        renderedPositions.Remove(item);
+    }
 
     /// <summary>Gets an item part's value as a slot of the rendered registry.</summary>
     /// <param name="item">The item's composite behavior.</param>
@@ -772,9 +790,16 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     /// <summary>Records the values of the items that rendered, in order, for a list without <c>Items</c>.</summary>
     /// <param name="values">The rendered items' values joined to the reported order.</param>
-    public void SetRenderedValues(ItemSlot<TValue>[] values)
+    /// <param name="order">The items, in the reported order.</param>
+    public void SetRenderedValues(ItemSlot<TValue>[] values, IReadOnlyList<CompositeItemBehavior> order)
     {
         renderedValues = values;
+        renderedPositions.Clear();
+        for (int i = 0; i < order.Count; i++)
+        {
+            renderedPositions[order[i]] = i;
+        }
+
         SyncSelectedIndex();
     }
 
@@ -1306,7 +1331,26 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     {
         // AriaCombobox.tsx:1089-1235, the post-commit highlight: the typed query's first item, the clear's restore, and the
         // reconciliation of an index the filtered list no longer holds. The microtask of :1138 maps to this boundary (ADR 01
-        // decision 3: no C# microtasks; its purpose is "after every write of this commit").
+        // decision 3: no C# microtasks; its purpose is "after every write of this commit"). Base UI's effect runs when its
+        // dependencies change (:1229-1241), so this runs when they moved since the last run; the rendered registry stands
+        // for the items that register in Base UI's commit and reach C# with the module's order report here.
+        HighlightDependencies dependencies = new(
+            State.ActiveIndex,
+            inputs.AutoHighlight,
+            State.HasItems,
+            HasFilteredItemsInput,
+            State.MembershipRevision,
+            State.Inline,
+            IsOpen,
+            State.InputValue,
+            renderedValues,
+            pendingHighlight is not null);
+        if (resolvedFor == dependencies)
+        {
+            return;
+        }
+
+        resolvedFor = dependencies;
         IReadOnlyList<TValue> candidates = CandidateValues();
         if (pendingHighlight is { } pending)
         {
@@ -1539,6 +1583,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     };
 
     private static OpenChangeEventDetails ToOpenDetails(ChangeEventDetails details) => new(details.Reason, details.Event, details.Trigger);
+
+    private readonly record struct HighlightDependencies(
+        int? ActiveIndex,
+        ComboboxAutoHighlightMode AutoHighlight,
+        bool HasItems,
+        bool HasFilteredItems,
+        int MembershipRevision,
+        bool Inline,
+        bool Open,
+        string InputValue,
+        ItemSlot<TValue>[] Rendered,
+        bool Pending);
 
     private readonly record struct PendingHighlight(bool HasQuery, bool Selection)
     {

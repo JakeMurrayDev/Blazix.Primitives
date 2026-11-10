@@ -249,7 +249,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
             slots[i] = store.RenderedValueOf(ordered[i]);
         }
 
-        store.SetRenderedValues(slots);
+        store.SetRenderedValues(slots, ordered);
     }
 
     private async Task Observe(Task task)
