@@ -7,7 +7,7 @@
 | Tests | `packages/react/test/popupConformanceTests.tsx`, `test/detachedTriggersConformanceTests.tsx`, `test/viewportConformanceTests.tsx`, `test/popupFocusPropsTests.tsx`; `utils/popups/{store,popupTriggerMap,popupHandle,inlineRect}.test.ts`, `utils/popups/{popupStoreUtils,useTriggerFocusGuards}.test.tsx`, `utils/popups/popupStoreUtils.spec.ts` (type-level only), `utils/{useSwipeDismiss,usePopupViewport}.test.tsx`, `utils/popupStateMapping.test.ts` |
 | Prefix | `PSH` |
 | Status | approved |
-| Revised | 2026-11-10 |
+| Revised | 2026-11-11 |
 | Used by | `dialog.md` (DLG), `alert-dialog.md` (ADL), `drawer.md` (DRW), `popover.md` (POP), `menu.md` (MNU), `context-menu.md` (CTX), `menubar.md` (MBR), `tooltip.md` (TIP), `preview-card.md` (PRV), `select.md` (SEL), `combobox.md` (CMB), `autocomplete.md` (AUT), `navigation-menu.md` (NAV), `toast.md` (TST). See §6 for which pieces each uses. |
 
 ## 1. Purpose
@@ -474,6 +474,7 @@ Keys handled by this mechanism (all others pass through to FLT/UBT/the component
   Note (2026-11-03; ADR 12 Amendments 2026-10-27 item 4 and 2026-11-03): open to M5. The Root-level variant's users are Menu, Select and Combobox (tracks 6, 9 and 10); each family's pull request turns it green and notes it.
   Note (2026-11-04, M5 track 2, [issue 160](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/160); ADR 05 Amendments 2026-11-04): built on the open lifecycle. `PopupLifecycleStore<TState>` records the open method (`SetOpenInteractionType`, `PopupLifecycleState.OpenMethod`) only while closed, and its render-batch boundary resets it to `null` at the first boundary after a committed close (L1 `PopupLifecycleTests` "port: the open interaction type is written only while closed and is reset at the boundary after a close", "port: the open interaction type recorded before an open survives a boundary before the open commits"). The row stays open to tracks 6, 9 and 10, whose triggers report the press.
   Port note (2026-11-10, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); ADR 12 Amendments 2026-11-03 (4); final review B4): Menu's half is green. `MenuRootBehavior` records the trigger's interaction type through `SetOpenInteractionType`, and `menu.root.spec.ts`'s "interaction type tracking (openMethod)" titles ("should apply scroll lock when opened via mouse", "should not apply scroll lock when opened via touch", contained and detached triggers) passed on both modes in CI run 42829719126 at ba664657. Select's and Combobox's halves stay open to tracks 9 and 10.
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); PR 205's final review B2): Select's half is covered at L4 by `select-lifecycle.spec.ts` "keeps touch interaction type when reopening quickly after close", "keeps touch positioning during the close transition" and the touch scroll-lock titles, green on Server and WebAssembly.
 
 #### 4.7.2 Mixed mousedown/click toggle guard
 
