@@ -113,6 +113,7 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
     private bool instant;
     private bool wasOpen;
     private bool disposed;
+    private bool countedMount;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -258,8 +259,14 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        // G4b: the Trigger's click role reads the mount from this render, before the registration of the after-render below.
-        root!.Store.SetPositionerMounted(Enabled);
+        // G4b: the Trigger's click role reads the mount from this render, before the registration of the after-render below. A
+        // count, so a Positioner swapped in one render (`@key`) mounts before the old one's disposal subtracts its own.
+        if (Enabled != countedMount)
+        {
+            countedMount = Enabled;
+            root!.Store.CountPositionerMount(Enabled);
+        }
+
         positioner!.SetDirectionContext(DirectionContext);
         positioner.SetPortalContext(Portal);
         floating!.PortalContext = Portal;
@@ -306,7 +313,11 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
             }
 
             root?.Store.SetPositioner(false);
-            root?.Store.SetPositionerMounted(false);
+            if (countedMount)
+            {
+                countedMount = false;
+                root?.Store.CountPositionerMount(false);
+            }
         }
 
         base.Dispose(disposing);
