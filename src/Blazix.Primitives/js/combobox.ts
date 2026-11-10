@@ -19,6 +19,7 @@
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
 import { contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
 import { eventInfo } from './event-info';
+import { isInteractiveElement } from './interactions';
 import type { Platform } from './platform';
 import {
   createTwinChannel,
@@ -662,11 +663,6 @@ function attachChipRemove(element: HTMLElement, initial: ComboboxOptions, channe
   };
 }
 
-// The interactive elements a press on the input group or the chips leaves alone (floating-ui-react/utils/element.ts:55-62;
-// a copy, so this component module imports no mechanism module's code).
-const INTERACTIVE_SELECTOR =
-  "button,a[href],[role=\"button\"],select,[tabindex]:not([tabindex=\"-1\"]),input:not([type='hidden']):not([disabled]),[contenteditable]:not([contenteditable='false']),textarea:not([disabled])";
-
 // The input group's and the chips' press (PTR-08; combobox/utils/handleInputPress.ts): a press on the element, or on a
 // descendant that is not interactive (nor, for the group, inside the chips container), keeps the focus off the element,
 // focuses the input and reports the press, which opens the popup when the root opens on input click.
@@ -678,7 +674,7 @@ function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channe
     const doc = element.ownerDocument;
     if (targetElement !== element) {
       const chips = ignoreChips && options.chipsId ? doc.getElementById(options.chipsId) : null;
-      if (contains(chips, targetElement) || targetElement?.closest(INTERACTIVE_SELECTOR) != null) {
+      if (contains(chips, targetElement) || isInteractiveElement(targetElement)) {
         return;
       }
     }
