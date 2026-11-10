@@ -1,4 +1,8 @@
 using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -74,4 +78,148 @@ public static class ComboboxTriggerDataAttributes
 
     /// <summary>Represents the attribute present while the control is focused: <c>data-focused</c>.</summary>
     public const string Focused = "data-focused";
+}
+
+// Base UI's Combobox.Trigger (combobox/trigger/ComboboxTrigger.tsx; CMB §3.9). Over ComboboxTriggerBehavior; the state is the
+// field's with the trigger's own flags (CMB-STA-07), projected by the input's mapping (CMB-DOM-04).
+/// <summary>Represents the button that opens a combobox's popup, Base UI's <c>Combobox.Trigger</c>, rendered as a <c>button</c>.</summary>
+/// <remarks>
+/// With the input inside the popup the trigger is the combobox: it carries the combobox's ARIA and the root's id. With the
+/// input outside, it is a button beside the input that is not a tab stop.
+/// </remarks>
+public sealed class ComboboxTrigger : PartBase<ComboboxTriggerState>
+{
+    private static readonly StateAttributesMapping<ComboboxTriggerState> s_mapping = ComboboxStateMapping.CreateInput<ComboboxTriggerState>();
+
+    private readonly EventCallback onKeyDown;
+
+    private readonly EventCallback onKeyUp;
+
+    private readonly EventCallback onClick;
+
+    private readonly EventCallback onMouseDown;
+
+    private readonly EventCallback onFocus;
+
+    private readonly EventCallback onBlur;
+
+    private ComboboxTriggerBehavior? behavior;
+
+    private ComboboxTriggerState state = new(false, false, false, null, false, false, false, false, null, false, true);
+
+    /// <summary>Initializes a new instance of the <see cref="ComboboxTrigger"/> class.</summary>
+    public ComboboxTrigger()
+    {
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
+        onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => behavior!.HandleKeyUpAsync(e));
+        onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
+        onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.HandleMouseDownAsync(e));
+        onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => behavior!.OnFocusChange(true));
+        onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.OnFocusChange(false));
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private ILogger<ComboboxTrigger> Logger { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
+
+    [Inject]
+    private ButtonDevelopmentLog DevelopmentLog { get; set; } = null!;
+
+    [CascadingParameter]
+    private ComboboxStore? Root { get; set; }
+
+    [CascadingParameter]
+    private FieldRootContext? Field { get; set; }
+
+    // CMB-API-43
+    /// <summary>Gets or sets a value indicating whether the rendered element is a native <c>button</c>; the default is <see langword="true"/>.</summary>
+    [Parameter]
+    public bool NativeButton { get; set; } = true;
+
+    // CMB-API-44
+    /// <summary>Gets or sets a value indicating whether the trigger is disabled; the combobox's and the field's disabled state also apply.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <inheritdoc />
+    protected override string DefaultTagName => "button";
+
+    /// <inheritdoc />
+    protected override ComboboxTriggerState State
+    {
+        get
+        {
+            ComboboxTriggerBehavior trigger = behavior!;
+            ComboboxStoreState root = trigger.Store.State;
+            FieldStateSnapshot fieldState = trigger.Field;
+            bool open = root.Lifecycle.EffectiveOpen;
+            Side? side = root.Lifecycle.Mounted ? root.PopupSide : null;
+            bool listEmpty = root.FilteredCount == 0;
+            bool placeholder = root.SelectionMode != ComboboxSelectionMode.None && !root.HasSelectedValue;
+            if (state.Disabled != fieldState.Disabled || state.Touched != fieldState.Touched || state.Dirty != fieldState.Dirty || state.Valid != fieldState.Valid
+                || state.Filled != fieldState.Filled || state.Focused != fieldState.Focused || state.Open != open || state.ReadOnly != root.ReadOnly
+                || state.PopupSide != side || state.ListEmpty != listEmpty || state.Placeholder != placeholder)
+            {
+                state = new ComboboxTriggerState(fieldState.Disabled, fieldState.Touched, fieldState.Dirty, fieldState.Valid, fieldState.Filled, fieldState.Focused, open, root.ReadOnly, side, listEmpty, placeholder);
+            }
+
+            return state;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override StateAttributesMapping<ComboboxTriggerState>? StateAttributesMapping => s_mapping;
+
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => true;
+
+    // For the fixtures: completes once the trigger's handles are attached.
+    internal Task TwinAttached => behavior?.TwinAttached ?? Task.CompletedTask;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        behavior = new ComboboxTriggerBehavior(new ComboboxPartServices("Combobox", JSRuntime, Logger, IdGenerator, StateHasChanged, InvokeAsync, DispatchExceptionAsync), DevelopmentLog, onKeyDown, onKeyUp, onClick, onMouseDown);
+        base.OnInitialized();
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
+        behavior!.Apply(NativeButton, Disabled, consumerId, GeneratedId, AdditionalAttributes);
+    }
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.AfterRenderAsync(Element);
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && behavior is not null)
+        {
+            _ = behavior.DisposeAsync().AsTask();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
+    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, Field, SubscribeTo);
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName) => behavior!.ForwardsConsumerHandler(eventName);
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        behavior!.AddPartAttributes(attributes);
+        attributes.Set("onfocus", onFocus);
+        attributes.Set("onblur", onBlur);
+    }
 }

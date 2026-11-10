@@ -1,3 +1,4 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
@@ -9,71 +10,323 @@ namespace Blazix.Primitives;
 // -1 outside, role="combobox" with the input inside, aria-haspopup dialog/listbox, aria-expanded. Its handles:
 // - `interactions` trigger role, Click { Event = "mousedown" } (CMB-PTR-02), the consumer's onmousedown declined
 //   (InteractionsTriggerBehavior's veto; ADR 01's "C#-origin consumer vetoes");
-// - `composite` list handle: Reference with the input inside, else Trigger; the closed typeahead (CMB-KEY-12);
-// - `combobox` `trigger`: the mousedown default and the one-shot mouseup (`cancel-open`, CMB-PTR-03).
+// - `composite` list handle: Reference with the input inside, else Trigger; the closed typeahead (CMB-KEY-12) waits for the
+//   composite grant;
+// - `combobox` `trigger`: the press's focus move and the one-shot mouseup (`cancel-open`, CMB-PTR-03).
+// The id is the root's with the input inside (CMB-API-45); outside, the consumer's, else a generated one, which Base UI does
+// not render: the interactions and composite handles register the trigger by its id.
 /// <summary>The behavior of a combobox-family trigger: its button, its press, its list handle and its ARIA.</summary>
 internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 {
+    private static readonly InteractionsClickOptions s_click = new() { Event = "mousedown" };
+
+    private readonly ComboboxPartServices services;
+
+    private readonly ButtonBehavior button;
+
+    private readonly InteractionsTriggerBehavior interactions;
+
+    private readonly CompositeRootBehavior reference;
+
+    private ComboboxStore? store;
+
+    private FieldRootContext? fieldScope;
+
+    private ComboboxTwin? twin;
+
+    private TwinHandle<ComboboxOptions>? handle;
+
+    private ComboboxOptions? sentOptions;
+
+    private string? id;
+
+    private bool disabledParameter;
+
+    private bool disposed;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxTriggerBehavior"/> class.</summary>
     /// <param name="services">The part's services.</param>
     /// <param name="developmentLog">The button mechanism's development log.</param>
-    /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler.</param>
-    /// <param name="onKeyUp">The part's own <c>onkeyup</c> handler.</param>
+    /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler, which calls <see cref="HandleKeyDownAsync"/>.</param>
+    /// <param name="onKeyUp">The part's own <c>onkeyup</c> handler, which calls <see cref="HandleKeyUpAsync"/>.</param>
     /// <param name="onClick">The part's own <c>onclick</c> handler, which calls <see cref="HandleClickAsync"/>.</param>
     /// <param name="onMouseDown">The part's own <c>onmousedown</c> handler, which calls <see cref="HandleMouseDownAsync"/>.</param>
-    public ComboboxTriggerBehavior(ComboboxPartServices services, ButtonDevelopmentLog developmentLog, EventCallback onKeyDown, EventCallback onKeyUp, EventCallback onClick, EventCallback onMouseDown) =>
-        throw new NotImplementedException();
+    public ComboboxTriggerBehavior(ComboboxPartServices services, ButtonDevelopmentLog developmentLog, EventCallback onKeyDown, EventCallback onKeyUp, EventCallback onClick, EventCallback onMouseDown)
+    {
+        this.services = services;
+        button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
+        interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, onClick, onMouseDown);
+        reference = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown);
+    }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => throw new NotImplementedException();
+    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox trigger is used before its first render.");
 
     /// <summary>Gets the field's state the trigger projects.</summary>
-    public FieldStateSnapshot Field => throw new NotImplementedException();
+    public FieldStateSnapshot Field => (fieldScope?.State ?? FieldStateSnapshot.Default) with { Disabled = Disabled };
 
     /// <summary>Gets a value indicating whether the trigger is disabled, by the part, the root or the field.</summary>
-    public bool Disabled => throw new NotImplementedException();
+    public bool Disabled => disabledParameter || Store.State.Disabled || (fieldScope?.Disabled ?? false);
+
+    /// <summary>Gets the id the trigger renders.</summary>
+    public string? Id => id;
 
     /// <summary>Gets a task that completes once the trigger's handles have attached.</summary>
-    public Task TwinAttached => throw new NotImplementedException();
+    public Task TwinAttached => Task.WhenAll(button.TwinAttached, interactions.TwinAttached, reference.TwinAttached);
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => throw new NotImplementedException();
+    public async ValueTask DisposeAsync()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+        if (store is not null && id is not null)
+        {
+            string own = id;
+            store.SetElementIds(ids => ids.Trigger == own ? ids with { Trigger = null } : ids);
+        }
+
+        reference.Dispose();
+        button.Dispose();
+        Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
+        await Task.WhenAll(interactions.DisposeAsync().AsTask(), twinDisposal);
+    }
 
     /// <summary>Reads the root and the field and subscribes the part.</summary>
-    /// <param name="store">The cascaded store, or <see langword="null"/> outside a root.</param>
+    /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
     /// <param name="field">The cascaded field, or <see langword="null"/>.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    public void Subscribe(ComboboxStore? store, FieldRootContext? field, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe) =>
-        throw new NotImplementedException();
+    public void Subscribe(ComboboxStore? cascaded, FieldRootContext? field, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
+    {
+        store = ComboboxParts.RequireRoot(cascaded, services.Family);
+        fieldScope = field;
+        SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
+        subscription.Select(ComboboxStoreState.Open);
+        subscription.Select(ComboboxStoreState.InsidePopup);
+        subscription.Select(ComboboxStoreState.ListEmpty);
+        subscription.Select(static state => state.Lifecycle.Mounted ? state.PopupSide : null);
+        subscription.Select(static state => state.Disabled);
+        subscription.Select(static state => state.ReadOnly);
+        subscription.Select(static state => state.Required);
+        subscription.Select(static state => state.Id);
+        subscription.Select(static state => state.HasSelectedValue);
+        subscription.Select(static state => state.ElementIds.Input);
+        subscription.Select(static state => state.ElementIds.List);
+        subscription.Select(static state => state.ElementIds.Popup);
+        subscription.Select(static state => state.ElementIds.Label);
+        twin = new ComboboxTwin(services.JSRuntime);
+        twin.OpenCanceled += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.CancelOpen, snapshot))));
+    }
 
     /// <summary>Applies the part's parameters.</summary>
     /// <param name="nativeButton">The part's <c>NativeButton</c>.</param>
     /// <param name="disabled">The part's <c>Disabled</c>.</param>
-    /// <param name="id">The id the part renders.</param>
+    /// <param name="consumerId">The consumer's id, or <see langword="null"/>.</param>
+    /// <param name="generatedId">The part's generated id, used outside the popup when the consumer gave none.</param>
     /// <param name="consumerAttributes">The consumer's attributes.</param>
-    public void Apply(bool nativeButton, bool disabled, string? id, IReadOnlyDictionary<string, object>? consumerAttributes) => throw new NotImplementedException();
+    public void Apply(bool nativeButton, bool disabled, string? consumerId, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
+    {
+        ComboboxStore root = Store;
+        disabledParameter = disabled;
+        bool insidePopup = root.State.InputInsidePopup;
+
+        // CMB-API-45 (ComboboxTrigger.tsx:89-90): the root's id with the input inside the popup, else the consumer's.
+        id = consumerId ?? (insidePopup ? root.State.Id : generatedId);
+        string? own = id;
+        root.SetElementIds(ids => ids with { Trigger = own });
+        reference.SetList(root.ListNavigation, insidePopup ? CompositeListRole.Reference : CompositeListRole.Trigger);
+        reference.SetConsumerAttributes(consumerAttributes);
+        button.Native = nativeButton;
+        button.FocusableWhenDisabled = null;
+        button.Disabled = Disabled;
+        button.SetConsumerAttributes(consumerAttributes);
+        interactions.SetConsumerAttributes(consumerAttributes);
+        interactions.SessionToken = root.SessionToken;
+        InteractionsClickOptions? click = Disabled ? null : s_click;
+        if (!string.Equals(interactions.Options.TriggerId, id, StringComparison.Ordinal) || !ReferenceEquals(interactions.Options.Click, click))
+        {
+            interactions.Options = new InteractionsTriggerOptions { TriggerId = id, Click = click };
+        }
+    }
 
     /// <summary>Adds the trigger's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes) => throw new NotImplementedException();
+    public void AddPartAttributes(AttributeList attributes)
+    {
+        ComboboxStoreState state = Store.State;
+        bool insidePopup = state.InputInsidePopup;
+        bool open = state.Lifecycle.EffectiveOpen;
+        button.Disabled = Disabled;
+        button.AddAttributes(attributes, id, composite: false);
+        reference.AddAttributes(attributes, id);
+        interactions.AddAttributes(attributes);
+        attributes.Set("id", id);
+
+        // CMB-DOM-05, ARIA-07 (ComboboxTrigger.tsx:150-166).
+        attributes.Set("tabindex", insidePopup ? "0" : "-1");
+        if (insidePopup)
+        {
+            attributes.Set("role", "combobox");
+        }
+
+        attributes.Set("aria-expanded", open ? "true" : "false");
+        attributes.Set("aria-haspopup", insidePopup ? "dialog" : "listbox");
+        string? controls = !open ? null : insidePopup ? state.ElementIds.Popup ?? state.Id + "-popup" : state.ElementIds.List;
+        if (controls is not null)
+        {
+            attributes.Set("aria-controls", controls);
+        }
+
+        if (insidePopup && state.Required)
+        {
+            attributes.Set("aria-required", "true");
+        }
+
+        if (insidePopup && state.ReadOnly)
+        {
+            attributes.Set("aria-readonly", "true");
+        }
+
+        // CMB-ARIA-16 (resolveAriaLabelledBy): the field's label, else the combobox's.
+        if ((fieldScope?.Labelable.Label.Id ?? state.ElementIds.Label) is { } labelledBy)
+        {
+            attributes.Set("aria-labelledby", labelledBy);
+        }
+    }
 
     /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => throw new NotImplementedException();
+    public bool ForwardsConsumerHandler(string eventName) =>
+        button.ForwardsConsumerHandler(eventName) && interactions.ForwardsConsumerHandler(eventName) && reference.ForwardsConsumerHandler(eventName);
 
-    /// <summary>Runs the declined consumer <c>onclick</c> and the button's click.</summary>
+    /// <summary>Runs the declined consumer <c>onclick</c>.</summary>
     /// <param name="args">The click.</param>
-    /// <returns>A task that completes when the handlers have run.</returns>
-    public Task HandleClickAsync(MouseEventArgs args) => throw new NotImplementedException();
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleClickAsync(MouseEventArgs args) => interactions.HandleClickAsync(args);
 
-    /// <summary>Runs the declined consumer <c>onmousedown</c> inside the press decision.</summary>
+    /// <summary>Forces the list to mount, then runs the declined consumer <c>onmousedown</c> unless the press already ran it.</summary>
     /// <param name="args">The mousedown.</param>
     /// <returns>A task that completes when the handler has run.</returns>
-    public Task HandleMouseDownAsync(MouseEventArgs args) => throw new NotImplementedException();
+    public Task HandleMouseDownAsync(MouseEventArgs args)
+    {
+        // CMB-STA-32 (ComboboxTrigger.tsx:182-188): a press mounts the items so the selected one can be highlighted.
+        if (!Disabled)
+        {
+            Store.ForceMount();
+        }
+
+        return interactions.HandleMouseDownAsync(args);
+    }
+
+    /// <summary>Runs the declined consumer <c>onkeydown</c> unless a decision already ran it.</summary>
+    /// <param name="args">The keydown.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) => reference.HandleKeyDownAsync(args);
+
+    /// <summary>Runs the declined consumer <c>onkeyup</c>.</summary>
+    /// <param name="args">The keyup.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleKeyUpAsync(KeyboardEventArgs args) => button.HandleKeyUpAsync(args);
+
+    /// <summary>Records the trigger's focus for the field and forces the list to mount.</summary>
+    /// <param name="focused">Whether the trigger received or lost the focus.</param>
+    public void OnFocusChange(bool focused)
+    {
+        // ComboboxTrigger.tsx:171-185: a focus mounts the items for typeahead; a blur into the popup is not a blur.
+        if (focused && !Disabled)
+        {
+            Store.ForceMount();
+        }
+
+        if (fieldScope is null)
+        {
+            return;
+        }
+
+        if (!focused)
+        {
+            fieldScope.SetTouched(true);
+        }
+
+        fieldScope.SetFocused(this, focused, Disabled);
+    }
 
     /// <summary>Attaches the handles and sends their changed options.</summary>
     /// <param name="element">The trigger's element.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
-    public Task AfterRenderAsync(ElementReference? element) => throw new NotImplementedException();
+    public async Task AfterRenderAsync(ElementReference? element)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        button.Disabled = Disabled;
+        interactions.SessionToken = Store.SessionToken;
+        Task pressed = interactions.AfterRenderAsync(true, element, id);
+        Task listed = reference.AfterRenderAsync(true, element, id);
+        Task twinSync = SyncTwinAsync(element);
+        await button.AfterRenderAsync(true, element, id, composite: false);
+        await Task.WhenAll(pressed, listed, twinSync);
+    }
+
+    private async Task SyncTwinAsync(ElementReference? element)
+    {
+        if (twin is null || element is not { } target)
+        {
+            return;
+        }
+
+        ComboboxStoreState state = Store.State;
+        ComboboxOptions options = new()
+        {
+            Part = ComboboxTwin.TriggerPart,
+            SessionToken = Store.SessionToken,
+            InsidePopup = state.InputInsidePopup,
+            Disabled = Disabled,
+            Open = state.Lifecycle.EffectiveOpen,
+            InputId = state.ElementIds.Input,
+            ListId = state.ElementIds.List,
+            PopupId = state.ElementIds.Popup,
+        };
+        if (handle is null)
+        {
+            sentOptions = options;
+            handle = await twin.AttachAsync(target, options);
+            return;
+        }
+
+        if (options != sentOptions)
+        {
+            sentOptions = options;
+            await handle.UpdateAsync(options);
+        }
+    }
+
+    private Task RouteAsync(OpenChangeRequest request)
+    {
+        ComboboxStore root = Store;
+        if (request.InteractionType is { } type)
+        {
+            root.SetOpenInteractionType(type);
+        }
+
+        return root.RequestOpenAsync(request.Open, request.Details);
+    }
+
+    private async Task Observe(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await services.DispatchException(exception);
+        }
+    }
 }
