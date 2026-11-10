@@ -402,6 +402,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Asks the input's handle to submit its form after this render, as an item press of a root that submits on item click does.</summary>
     public void RequestSubmit() => Write(State with { SubmitRevision = State.SubmitRevision + 1 });
 
+    // Final review N1: an item takes these before its consumer's onclick, which may yield on Server while their end reports
+    // arrive.
+    /// <summary>Takes the keydown Enter's click is attributed to and the <c>href</c> of a link press, clearing both.</summary>
+    /// <returns>The values the click's selection reads.</returns>
+    public ComboboxClickContext TakeClickContext()
+    {
+        ComboboxClickContext taken = new(selectionEvent, linkPress);
+        selectionEvent = null;
+        linkPress = null;
+        return taken;
+    }
+
     /// <summary>Records the <c>href</c> of a press inside a link of an item, before its click, and clears it after.</summary>
     /// <param name="href">The link's <c>href</c>, or <see langword="null"/> once the click was dispatched.</param>
     public void SetLinkPress(string? href) => linkPress = href;
@@ -410,18 +422,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <param name="value">The item's value.</param>
     /// <param name="event">The press, or the keydown that started it.</param>
     /// <param name="present"><see langword="false"/> for the null item, whose press selects nothing.</param>
+    /// <param name="context">The values taken before the consumer's <c>onclick</c>, or <see langword="null"/> to take them now.</param>
     /// <returns>A task that completes when the selection and its follow-ups have run.</returns>
-    public async Task SelectAsync(TValue value, EventSnapshot @event, bool present = true)
+    public async Task SelectAsync(TValue value, EventSnapshot @event, bool present = true, ComboboxClickContext? context = null)
     {
         // AriaCombobox.tsx:880-950 (handleSelection): Enter's synthetic click is attributed to its keydown.
-        EventSnapshot source = selectionEvent ?? @event;
-        selectionEvent = null;
+        ComboboxClickContext taken = context ?? TakeClickContext();
+        EventSnapshot source = taken.SelectionEvent ?? @event;
         ChangeEventDetails details = CreateDetails(EventReason.ItemPress, source);
 
         // CMB-PTR-05 (AriaCombobox.tsx:885-892): a press inside an `<a href>` is the link's; a `#` link closes the popup.
-        if (linkPress is { } href)
+        if (taken.LinkPress is { } href)
         {
-            linkPress = null;
             if (href.StartsWith('#'))
             {
                 await RequestOpenAsync(false, ToOpenDetails(details));
@@ -1697,3 +1709,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         public TValue? ToggledValue { get; init; }
 }
 }
+
+/// <summary>What an item press reads that a report set before its click: Enter's keydown and a link press.</summary>
+/// <param name="SelectionEvent">The keydown Enter's synthetic click is attributed to, or <see langword="null"/>.</param>
+/// <param name="LinkPress">The <c>href</c> of a press inside a link of the item, or <see langword="null"/>.</param>
+internal readonly record struct ComboboxClickContext(EventSnapshot? SelectionEvent, string? LinkPress);

@@ -508,9 +508,13 @@ internal sealed class ComboboxGroupLabelBehavior : IDisposable
 /// <typeparam name="TValue">The type of the item's value.</typeparam>
 internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 {
+    private const string ClickEvent = "onclick";
+
     private readonly ComboboxPartServices services;
 
     private readonly ButtonBehavior button;
+
+    private readonly FieldConsumerHandlers clickHandlers = new(ClickEvent);
 
     private readonly EventCallback onKeyDown;
 
@@ -643,6 +647,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         button.Native = nativeButton;
         button.FocusableWhenDisabled = true;
         button.SetConsumerAttributes(consumerAttributes);
+        clickHandlers.Set(consumerAttributes);
         item!.SetRegistration(itemId, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(itemValue), index: index);
         item.SetConsumerAttributes(Disabled ? null : consumerAttributes);
         root.RegisterRenderedValue(item, itemValue, valueSupplied || ComboboxStore<TValue>.ValueAcceptsNull);
@@ -667,22 +672,30 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
     /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName) && item!.ForwardsConsumerHandler(eventName);
+    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName) && item!.ForwardsConsumerHandler(eventName) && !clickHandlers.Declines(eventName);
 
     /// <summary>Runs the selection after the consumer's <c>onclick</c>, unless it called <c>PreventPartHandler()</c>.</summary>
     /// <param name="args">The click.</param>
     /// <returns>A task that completes when the selection has run.</returns>
-    public Task HandleClickAsync(MouseEventArgs args)
+    public async Task HandleClickAsync(MouseEventArgs args)
     {
         // CMB-EVT-12 (ComboboxItem.tsx:159-165): a disabled item's click never reaches here (the button behavior suppresses
-        // it); readOnly runs the consumer's onclick and selects nothing.
+        // it); readOnly runs the consumer's onclick and selects nothing. The part declines the consumer's onclick and runs it
+        // here, after taking Enter's attribution and a link press, whose end reports can arrive while it yields on Server
+        // (final review N1).
         ComboboxStore<TValue> root = store!;
-        if (Disabled || root.State.ReadOnly)
+        if (Disabled)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return SelectAsync(root, EventSnapshot.FromEventArgs(args));
+        ComboboxClickContext context = root.TakeClickContext();
+        if (await clickHandlers.RunAsync(ClickEvent, args) || root.State.ReadOnly)
+        {
+            return;
+        }
+
+        await SelectAsync(root, EventSnapshot.FromEventArgs(args), context);
     }
 
     /// <summary>Forwards a key to the button behavior.</summary>
@@ -735,9 +748,9 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 
     // ComboboxItem.tsx:150-161 (commitSelection): with submitOnItemClick the selection is flushed, then the form submitted,
     // whatever the selection did.
-    private async Task SelectAsync(ComboboxStore<TValue> root, EventSnapshot @event)
+    private async Task SelectAsync(ComboboxStore<TValue> root, EventSnapshot @event, ComboboxClickContext context)
     {
-        await root.SelectAsync(value, @event, present: !NullItem);
+        await root.SelectAsync(value, @event, present: !NullItem, context);
         if (root.Inputs.SubmitOnItemClick)
         {
             root.RequestSubmit();
