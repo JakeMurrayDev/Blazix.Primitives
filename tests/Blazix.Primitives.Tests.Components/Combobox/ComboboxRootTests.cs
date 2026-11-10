@@ -1,6 +1,8 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -375,6 +377,23 @@ public sealed class ComboboxRootTests : IDisposable
 
         Assert.Equal(["banana"], cut.Instance.Root!.Store.FilteredValues);
         Assert.Equal(renders, value.RenderCount);
+    }
+
+    // The fixture page logged it on WebAssembly: a later parameter set without DefaultInputValue was compared with the
+    // first set's as a changed default.
+    [Fact(DisplayName = "port: a re-render that supplies no DefaultInputValue logs no development warning")]
+    [Trait("Requirement", "CMB-EDGE-03")]
+    public void A_rerender_without_DefaultInputValue_logs_no_development_warning()
+    {
+        CapturingLogger<ComboboxRoot<string>> logger = new();
+        test.Context.Services.AddSingleton<ILogger<ComboboxRoot<string>>>(logger);
+        Dictionary<string, object?> parameters = new() { ["DefaultValue"] = "banana", ["Items"] = (IReadOnlyList<string>)s_fruits };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        Assert.Equal("banana", cut.Instance.Root!.Store.State.InputValue);
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+
+        Assert.Empty(logger.Entries);
     }
 
     private List<string> CompositeOptions()
