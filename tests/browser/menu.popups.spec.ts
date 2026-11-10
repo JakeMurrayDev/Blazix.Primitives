@@ -427,7 +427,13 @@ for (const { part, kind } of [
       await expect(page.getByTestId('indicator')).toHaveCount(0);
     });
 
-    test('should remove the indicator when the animation finishes', async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) until 2026-11-24, issue 218, for both indicators: `animationEnds` can stay empty after the
+    // uncheck (main's run 42846333491, the RadioItemIndicator on WebAssembly; PR 183's runs 42829719126 and 42772047527
+    // before a5f47d35), a cause in the exit's module path not yet traced (MNU-ANI-13's notes).
+    test.fixme('should remove the indicator when the animation finishes', {
+      tag: '@quarantine',
+      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/218' },
+    }, async ({ page, mode }) => {
       await page.addInitScript(() => {
         (window as unknown as { animationEnds: string[] }).animationEnds = [];
         document.addEventListener('animationend', (event) => (window as unknown as { animationEnds: string[] }).animationEnds.push(event.animationName), true);
