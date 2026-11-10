@@ -276,7 +276,6 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.ClearPart,
-            SessionToken = Store.SessionToken,
             Disabled = Disabled,
             ReadOnly = Store.State.ReadOnly,
             InputId = Store.State.ElementIds.Input,

@@ -57,22 +57,18 @@ export const POPUP_PART = 'popup';
 /** The options of a `combobox` handle; mirrors `ComboboxOptions` in C#. */
 export interface ComboboxOptions extends TwinOptions {
   part?: string;
-  sessionToken?: string | null;
   insidePopup?: boolean;
   inline?: boolean;
   disabled?: boolean;
   readOnly?: boolean;
   multiple?: boolean;
   hasValue?: boolean;
-  grid?: boolean;
   virtualized?: boolean;
   chipsId?: string | null;
   listId?: string | null;
   popupId?: string | null;
   value?: string | null;
   valueRevision?: number;
-  controlled?: boolean;
-  decide?: boolean;
   open?: boolean;
   mounted?: boolean;
   rtl?: boolean;

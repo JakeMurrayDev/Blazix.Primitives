@@ -106,7 +106,7 @@ describe('the input', () => {
     handle.update(options({ value: '', valueRevision: 2 }));
     expect(input.value).toBe('');
     typeInto(input, 'x');
-    handle.update(options({ value: '', valueRevision: 3, controlled: true }));
+    handle.update(options({ value: '', valueRevision: 3 }));
     expect(input.value).toBe('');
   });
 

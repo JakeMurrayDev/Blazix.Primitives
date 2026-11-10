@@ -705,7 +705,6 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.PopupPart,
-            SessionToken = Store.SessionToken,
             InsidePopup = state.InputInsidePopup,
             InputId = state.ElementIds.Input,
             ListId = state.ElementIds.List,

@@ -117,7 +117,6 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.InputGroupPart,
-            SessionToken = Store.SessionToken,
             Disabled = state.Disabled,
             InputId = state.ElementIds.Input,
             ChipsId = state.ElementIds.Chips,

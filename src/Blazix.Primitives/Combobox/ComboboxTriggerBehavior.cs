@@ -319,7 +319,6 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.TriggerPart,
-            SessionToken = Store.SessionToken,
             InsidePopup = state.InputInsidePopup,
             Disabled = Disabled,
             Open = state.Lifecycle.EffectiveOpen,

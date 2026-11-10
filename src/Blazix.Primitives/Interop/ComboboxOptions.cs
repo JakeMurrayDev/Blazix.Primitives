@@ -14,9 +14,6 @@ internal sealed record ComboboxOptions : TwinOptions
     /// <value>One of the part literals of <see cref="ComboboxTwin"/>; the default is <see cref="ComboboxTwin.InputPart"/>.</value>
     public string Part { get; init; } = ComboboxTwin.InputPart;
 
-    /// <summary>Gets the interactions session's token, which joins the handles of one root.</summary>
-    public string? SessionToken { get; init; }
-
     /// <summary>Gets a value indicating whether the input renders inside the popup.</summary>
     public bool InsidePopup { get; init; }
 
@@ -32,11 +29,8 @@ internal sealed record ComboboxOptions : TwinOptions
     /// <summary>Gets a value indicating whether the root keeps several values.</summary>
     public bool Multiple { get; init; }
 
-    /// <summary>Gets a value indicating whether there is something to clear: a value or text; the closed Escape's fallback reads it.</summary>
+    /// <summary>Gets a value indicating whether a value is selected, Base UI's <c>isClear</c> condition; the closed Escape's fallback and Backspace into the chips read it.</summary>
     public bool HasValue { get; init; }
-
-    /// <summary>Gets a value indicating whether the list is a grid.</summary>
-    public bool Grid { get; init; }
 
     /// <summary>Gets a value indicating whether the list renders a window of its items, which owns its scroll.</summary>
     public bool Virtualized { get; init; }
@@ -56,12 +50,6 @@ internal sealed record ComboboxOptions : TwinOptions
 
     /// <summary>Gets the revision of <see cref="Value"/>, raised by every committed write.</summary>
     public int ValueRevision { get; init; }
-
-    /// <summary>Gets a value indicating whether the consumer owns the input text, so the module re-asserts it.</summary>
-    public bool Controlled { get; init; }
-
-    /// <summary>Gets a value indicating whether the module asks the <c>clear</c> and <c>remove</c> points inside the dispatch.</summary>
-    public bool Decide { get; init; }
 
     /// <summary>Gets a value indicating whether the popup is open, for Enter's activation.</summary>
     public bool Open { get; init; }

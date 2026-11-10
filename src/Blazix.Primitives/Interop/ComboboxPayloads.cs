@@ -14,7 +14,10 @@ internal sealed record ComboboxInputChange(string Text, bool Typed, bool Composi
 
 // CMB-KEY-05, KEY-10, PTR-10, EVT-09: on Server the point's fallback ran in the dispatch, and C# runs the request now.
 /// <summary>The payload of a clear or a removal the module started.</summary>
-/// <param name="Index">The chip's index for a removal, or <c>-1</c> for a clear or the last value.</param>
+/// <param name="Index">
+/// The chip's index for a chip's removal; for Backspace into an empty input, the number of rendered chips; <c>-1</c> for the
+/// closed Escape's clear.
+/// </param>
 /// <param name="Event">The snapshot of the keydown or click.</param>
 internal sealed record ComboboxRequest(int Index, EventSnapshot Event);
 

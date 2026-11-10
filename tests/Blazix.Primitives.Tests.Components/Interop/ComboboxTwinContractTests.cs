@@ -38,22 +38,18 @@ public sealed class ComboboxTwinContractTests
         await attached.UpdateAsync(new ComboboxOptions
         {
             Part = ComboboxTwin.InputPart,
-            SessionToken = "t",
             InsidePopup = true,
             Inline = true,
             Disabled = true,
             ReadOnly = true,
             Multiple = true,
             HasValue = true,
-            Grid = true,
             Virtualized = true,
             ChipsId = "c",
             ListId = "l",
             PopupId = "p",
             Value = "v",
             ValueRevision = 3,
-            Controlled = true,
-            Decide = true,
             Open = true,
             Mounted = true,
             Rtl = true,
@@ -66,12 +62,12 @@ public sealed class ComboboxTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
         Assert.Equal(
-            """{"part":"input","insidePopup":false,"inline":false,"disabled":false,"readOnly":false,"multiple":false,"hasValue":false,"grid":false,"virtualized":false,"valueRevision":0,"controlled":false,"decide":false,"open":false,"mounted":false,"rtl":false,"touchOpened":false}""",
+            """{"part":"input","insidePopup":false,"inline":false,"disabled":false,"readOnly":false,"multiple":false,"hasValue":false,"virtualized":false,"valueRevision":0,"open":false,"mounted":false,"rtl":false,"touchOpened":false}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<ComboboxTwin>>(attach.Arguments[2]);
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"part":"input","sessionToken":"t","insidePopup":true,"inline":true,"disabled":true,"readOnly":true,"multiple":true,"hasValue":true,"grid":true,"virtualized":true,"chipsId":"c","listId":"l","popupId":"p","value":"v","valueRevision":3,"controlled":true,"decide":true,"open":true,"mounted":true,"rtl":true,"inputId":"i","touchOpened":true}""",
+            """{"part":"input","insidePopup":true,"inline":true,"disabled":true,"readOnly":true,"multiple":true,"hasValue":true,"virtualized":true,"chipsId":"c","listId":"l","popupId":"p","value":"v","valueRevision":3,"open":true,"mounted":true,"rtl":true,"inputId":"i","touchOpened":true}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }

@@ -161,7 +161,6 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.ChipsPart,
-            SessionToken = Store.SessionToken,
             Disabled = state.Disabled,
             ReadOnly = state.ReadOnly,
             Rtl = Rtl,
@@ -472,7 +471,6 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.ChipRemovePart,
-            SessionToken = Store.SessionToken,
             Disabled = Disabled,
             ReadOnly = state.ReadOnly,
             InputId = state.ElementIds.Input,

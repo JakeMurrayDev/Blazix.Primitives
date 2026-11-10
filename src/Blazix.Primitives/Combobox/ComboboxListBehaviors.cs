@@ -199,7 +199,6 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         ComboboxOptions options = new()
         {
             Part = ComboboxTwin.ListPart,
-            SessionToken = Store.SessionToken,
             Inline = state.Inline,
             Disabled = state.Disabled,
             ReadOnly = state.ReadOnly,
