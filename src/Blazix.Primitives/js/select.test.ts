@@ -4,7 +4,7 @@
 // `role="option"`, the arrows), with the geometry stubbed as Base UI's test stubs it.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { styleWriter } from './dom';
-import { attach, getArrowVisibility, getTargetScrollTop, POSITIONER_PART, SCROLL_ARROW_PART } from './select';
+import { attach, getArrowVisibility, getTargetScrollTop, POSITIONER_PART, SCROLL_ARROW_PART, TRIGGER_PART } from './select';
 import type { TwinHandle } from './twin';
 import { createFakeTwin } from './test-support/fake-twin';
 
@@ -470,3 +470,26 @@ describe('select module: the arrows on unmount (port titles)', () => {
   });
 });
 
+describe('select module: the trigger (port titles)', () => {
+  // Interim review F5 (M5 track 9): Base UI reads the positioner live on the release (SelectTrigger.tsx:186-191), so a
+  // Positioner that mounted after the trigger's last update still holds the press: the open's batch mounts it, and the
+  // trigger's after-render runs before the Positioner's.
+  it('keeps a press open when it is released over a Positioner that mounted after the trigger last updated (SEL-PTR-04)', () => {
+    vi.useFakeTimers();
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const label = document.createElement('div');
+    positioner.append(label);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(0, 0, 100, 40);
+    const fake = createFakeTwin();
+    handles.push(attach(trigger, JSON.stringify({ part: TRIGGER_PART, open: false }), fake.twin, []));
+    handles.push(attach(positioner, JSON.stringify({ part: POSITIONER_PART, open: true, mounted: true, trigger: 0 }), createFakeTwin().twin, [trigger]));
+
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    vi.advanceTimersByTime(0);
+    label.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 300, clientY: 300 }));
+
+    expect(fake.reports.filter((report) => report.method === 'OnCancelOpen')).toEqual([]);
+  });
+});
