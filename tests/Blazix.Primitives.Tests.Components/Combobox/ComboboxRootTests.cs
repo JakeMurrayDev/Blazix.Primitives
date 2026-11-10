@@ -322,6 +322,27 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Equal(["a", "a"], cut.FindAll("input[name=fruit]").Select(input => input.GetAttribute("value")));
     }
 
+    [Fact(DisplayName = "port: with filtered item groups, a typed query's auto-highlight waits for the groups to arrive")]
+    [Trait("Requirement", "CMB-API-17")]
+    [Trait("Requirement", "CMB-API-13")]
+    public async Task The_auto_highlight_waits_for_filtered_item_groups()
+    {
+        Dictionary<string, object?> Parameters(IReadOnlyList<ComboboxItemGroup<string>> groups) => new()
+        {
+            ["FilteredItemGroups"] = groups,
+            ["AutoHighlight"] = true,
+            ["DefaultOpen"] = true,
+        };
+
+        IRenderedComponent<ComboboxHarness> cut = Render(Parameters([]));
+        await test.TypeAsync(cut, "a");
+        Assert.DoesNotContain(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
+
+        cut.Render(p => p.Add(x => x.RootParameters, Parameters([new ComboboxItemGroup<string>("fruit", ["apple", "apricot"])])));
+
+        Assert.Contains(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
+    }
+
     private List<string> CompositeOptions()
     {
         List<string> options = [];
