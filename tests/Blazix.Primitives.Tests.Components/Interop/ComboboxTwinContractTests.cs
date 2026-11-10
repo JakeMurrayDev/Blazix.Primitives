@@ -55,6 +55,11 @@ public sealed class ComboboxTwinContractTests
             Rtl = true,
             InputId = "i",
             TouchOpened = true,
+            ChipIds = ["a", "b"],
+            Index = 2,
+            DismissId = "d",
+            SubmitRevision = 4,
+            SubmitFormElement = 0,
             DecidesKeyDown = true,
             DecidesPress = true,
         });
@@ -69,7 +74,7 @@ public sealed class ComboboxTwinContractTests
         Assert.IsType<DotNetObjectReference<ComboboxTwin>>(attach.Arguments[2]);
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"part":"input","insidePopup":true,"inline":true,"disabled":true,"readOnly":true,"multiple":true,"hasValue":true,"virtualized":true,"chipsId":"c","listId":"l","popupId":"p","value":"v","valueRevision":3,"open":true,"mounted":true,"rtl":true,"inputId":"i","touchOpened":true,"decidesKeyDown":true,"decidesPress":true}""",
+            """{"part":"input","insidePopup":true,"inline":true,"disabled":true,"readOnly":true,"multiple":true,"hasValue":true,"virtualized":true,"chipsId":"c","listId":"l","popupId":"p","value":"v","valueRevision":3,"open":true,"mounted":true,"rtl":true,"inputId":"i","touchOpened":true,"chipIds":["a","b"],"index":2,"dismissId":"d","submitRevision":4,"submitFormElement":0,"decidesKeyDown":true,"decidesPress":true}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
@@ -96,6 +101,7 @@ public sealed class ComboboxTwinContractTests
         twin.OpenRequested += snapshot => received.Add($"open:{snapshot.Key}");
         twin.ItemLinkPressed += href => received.Add($"link:{href ?? "end"}");
         twin.KeyHandled += snapshot => received.Add($"key:{snapshot.Key}");
+        twin.Blurred += snapshot => received.Add($"blur:{snapshot.Type}");
 
         twin.OnInputChange($$"""{"text":"ab","typed":true,"composing":false,"event":{{KeyJson}}}""");
         twin.OnClear($$"""{"index":-1,"event":{{KeyJson}}}""");
@@ -109,8 +115,9 @@ public sealed class ComboboxTwinContractTests
         twin.OnItemLinkPress("""{"href":"#a"}""");
         twin.OnItemLinkPress("""{"href":null}""");
         twin.OnKeyHandled(KeyJson);
+        twin.OnBlur(KeyJson);
 
-        Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape", "press:keydown", "open:Escape", "link:#a", "link:end", "key:Escape"], received);
+        Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape", "press:keydown", "open:Escape", "link:#a", "link:end", "key:Escape", "blur:keydown"], received);
     }
 
     [Fact]
