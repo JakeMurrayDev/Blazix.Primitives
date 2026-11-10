@@ -13,7 +13,13 @@
                     case "checkbox":
                         @if (Checked is { } controlled)
                         {
-                            <MenuCheckboxItem id="item-1" Checked="controlled">Item</MenuCheckboxItem>
+                            <MenuCheckboxItem id="item-1" Checked="controlled">
+                                Item
+                                @if (IndicatorKeepMounted)
+                                {
+                                    <MenuCheckboxItemIndicator data-testid="indicator" KeepMounted="true" />
+                                }
+                            </MenuCheckboxItem>
                         }
                         else
                         {
@@ -58,6 +64,10 @@
 
     [Parameter]
     public bool KeepMounted { get; set; }
+
+    /// <summary>Gives the controlled checkbox item a kept-mounted indicator.</summary>
+    [Parameter]
+    public bool IndicatorKeepMounted { get; set; }
 
     [Parameter]
     public bool Cancel { get; set; }
