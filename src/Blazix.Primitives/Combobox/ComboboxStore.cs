@@ -289,6 +289,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private int? savedActiveIndex;
 
+    private (string Text, ChangeEventDetails Details)? pendingAutofill;
+
     private TValue? observedValue;
 
     private bool observedPresent;
@@ -555,17 +557,15 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         ForceMount();
-        ReadOnlySpan<ItemSlot<TValue>> registry = state.HasItems ? filteredSlots : renderedValues;
-        foreach (ItemSlot<TValue> slot in registry)
+        if (!state.HasItems && renderedValues.Length == 0)
         {
-            if (slot.Present
-                && (string.Equals(ValueTextOf(slot.Value), text, StringComparison.OrdinalIgnoreCase) || string.Equals(LabelOf(slot.Value), text, StringComparison.OrdinalIgnoreCase))
-                && !ValueNull.IsNull(slot.Value))
-            {
-                await SetSelectedValueAsync(slot.Value, details);
-                return;
-            }
+            // AriaCombobox.tsx:1677-1689: the match runs once the forced mount has committed (a microtask there); here once
+            // the mounted items have reported their order (SetRenderedValues asks for the boundary).
+            pendingAutofill = (text, details);
+            return;
         }
+
+        await MatchAutofillAsync(text, details);
     }
 
     /// <inheritdoc />
@@ -916,6 +916,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
         SyncSelectedIndex();
         ReassertSelectedIndex();
+        if (pendingAutofill is not null)
+        {
+            RequestBoundary();
+        }
     }
 
     /// <summary>Determines whether <paramref name="value"/> is selected, Base UI's <c>isSelected</c> selector.</summary>
@@ -1090,6 +1094,12 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     {
         await base.AtBatchBoundaryAsync();
         await ObserveQueryAndOpenAsync();
+        if (pendingAutofill is { } autofill && renderedValues.Length != 0)
+        {
+            pendingAutofill = null;
+            await MatchAutofillAsync(autofill.Text, autofill.Details);
+        }
+
         if (labelSyncPending)
         {
             labelSyncPending = false;
@@ -1711,6 +1721,21 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         observedPresent = singlePresent;
         observedValue = value;
         return true;
+    }
+
+    private async Task MatchAutofillAsync(string text, ChangeEventDetails details)
+    {
+        ReadOnlySpan<ItemSlot<TValue>> registry = State.HasItems ? filteredSlots : renderedValues;
+        foreach (ItemSlot<TValue> slot in registry)
+        {
+            if (slot.Present
+                && (string.Equals(ValueTextOf(slot.Value), text, StringComparison.OrdinalIgnoreCase) || string.Equals(LabelOf(slot.Value), text, StringComparison.OrdinalIgnoreCase))
+                && !ValueNull.IsNull(slot.Value))
+            {
+                await SetSelectedValueAsync(slot.Value, details);
+                return;
+            }
+        }
     }
 
     private async Task ObserveAsync(Task task)
