@@ -1221,6 +1221,49 @@ describe('positioning module: setAligned', () => {
     expect(positioner.getAttribute('data-side')).toBe('bottom');
     expect(setAligned(document.createElement('div'), true)).toBe(false);
   });
+
+  // DP1 (a) of M5 track 9, settled by the orchestrator 2026-11-04 (select/positioner/SelectPositioner.tsx:115): Base UI
+  // renders `{ position: 'fixed' }` in place of the anchored styles while aligned, so no anchored translate is left to
+  // move the popup the select module places over its trigger; usePositioner's `pointer-events: none` while closed stays.
+  it('stands its layer down to position: fixed while told aligned, with no anchored translate, and restores it after', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    await settle();
+    expect(positioner.style.transform).toMatch(/^translate\(/);
+
+    setAligned(positioner, true);
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.transform).toBe('');
+    expect(positioner.style.top).toBe('');
+    expect(positioner.style.left).toBe('');
+    expect(positioner.style.opacity).toBe('');
+    expect(positioner.style.getPropertyValue('--available-height')).toBe('');
+
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(positioner.style.transform).toBe('');
+
+    setAligned(positioner, false);
+    expect(positioner.style.position).toBe('absolute');
+    expect(positioner.style.transform).toMatch(/^translate\(/);
+  });
+
+  it('keeps opacity 0 on an aligned handle until its first pass, so nothing shows before the placement', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    let placed = 0;
+    setAligned(positioner, true, () => {
+      placed++;
+      expect(positioner.style.opacity).toBe('');
+    });
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.opacity).toBe('0');
+    expect(placed).toBe(0);
+
+    await settle();
+    expect(placed).toBeGreaterThan(0);
+    expect(positioner.style.opacity).toBe('');
+  });
 });
 
 describe('positioning module: the handle', () => {
