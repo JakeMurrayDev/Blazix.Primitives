@@ -89,7 +89,7 @@ internal sealed partial record MenuStoreState<TPayload>(
 
     // MNU-STA-06 (MenuStore.ts:81-83).
     /// <inheritdoc />
-    bool IMenuState.Modal => Parent.Kind is MenuParentKind.None or MenuParentKind.ContextMenu && Modal != false;
+    bool IMenuState.Modal => Parent.Kind is null or MenuParentKind.ContextMenu && Modal != false;
 
     /// <inheritdoc />
     bool IMenuState.ModalSupplied => Modal is not null;
@@ -105,7 +105,7 @@ internal sealed partial record MenuStoreState<TPayload>(
     string? IMenuState.RootId => Parent.Kind switch
     {
         MenuParentKind.Menu => Parent.Menu!.State.RootId,
-        MenuParentKind.None => RootId,
+        null => RootId,
         _ => Parent.Context!.RootId,
     };
 

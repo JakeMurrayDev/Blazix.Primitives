@@ -9,12 +9,10 @@ namespace Blazix.Primitives;
 // cascade with IsFixed. A submenu's parent (Base UI's `{ type: 'menu', store }`) is the enclosing MenuRootContext, not
 // this interface. Design point 8 of M5 track 6: one cascade type whose contexts each hold the one enclosing them
 // (Enclosing), so the resolution checks the nearest bar first, as Base UI does.
-/// <summary>Specifies the kind of parent a menu has, which picks its defaults and its branches.</summary>
+// ADR 08 §3: a top-level menu, Base UI's `{ type: undefined }`, is a null kind (the interim review of PR 183, F7).
+/// <summary>Specifies the kind of parent a menu has, which picks its defaults and its branches; a top-level menu has none.</summary>
 internal enum MenuParentKind
 {
-    /// <summary>A top-level menu (Base UI's <c>{ type: undefined }</c>).</summary>
-    None,
-
     /// <summary>A submenu inside another menu.</summary>
     Menu,
 
@@ -112,10 +110,10 @@ internal interface IMenuParentContext
 }
 
 /// <summary>Represents the resolved parent of a menu.</summary>
-/// <param name="Kind">The parent's kind.</param>
+/// <param name="Kind">The parent's kind, or <see langword="null"/> for a top-level menu.</param>
 /// <param name="Menu">The enclosing menu's context when <paramref name="Kind"/> is <see cref="MenuParentKind.Menu"/>.</param>
 /// <param name="Context">The menubar's or context menu's context, for those kinds.</param>
-internal readonly record struct MenuParent(MenuParentKind Kind, MenuRootContext? Menu, IMenuParentContext? Context)
+internal readonly record struct MenuParent(MenuParentKind? Kind, MenuRootContext? Menu, IMenuParentContext? Context)
 {
     /// <summary>Gets the parent of a top-level menu.</summary>
     public static MenuParent None => default;

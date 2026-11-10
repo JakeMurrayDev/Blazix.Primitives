@@ -280,7 +280,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     // MenuRoot.tsx:207-213 (MNU-EDGE-02): a nested menu ignores a supplied modal, warning in development on every render.
     private void WarnNestedModal(bool? modal, ILogger? logger)
     {
-        if (modal is not null && parent.Kind != MenuParentKind.None && logger is not null && DevelopmentWarnings.IsEnabled)
+        if (modal is not null && parent.Kind is not null && logger is not null && DevelopmentWarnings.IsEnabled)
         {
             DevelopmentWarnings.Write(logger, "Blazix: The `Modal` parameter is not supported on nested menus. It will be ignored.");
         }
@@ -298,7 +298,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.Orientation = orientation;
         navigation.TriggerOrientation = orientation;
         navigation.Rtl = DirectionProviderContext.Read(direction) == TextDirection.Rtl;
-        navigation.Nested = parent.Kind != MenuParentKind.None;
+        navigation.Nested = parent.Kind is not null;
         navigation.ParentOrientation = parent.Kind == MenuParentKind.Menubar
             ? (parent.Context!.Orientation == Orientation.Horizontal ? "horizontal" : "vertical")
             : null;

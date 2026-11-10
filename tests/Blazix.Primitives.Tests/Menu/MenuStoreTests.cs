@@ -46,7 +46,7 @@ public sealed class MenuStoreTests
     {
         EventSnapshot snapshot = detail < 0 ? KeyDown(reason == EventReason.EscapeKey ? "Escape" : "ArrowDown") : Click(detail);
 
-        Assert.Equal(expected, MenuStore<NoPayload>.InstantTypeFor(Enum.Parse<MenuParentKind>(parent), open, new OpenChangeEventDetails(reason, snapshot)));
+        Assert.Equal(expected, MenuStore<NoPayload>.InstantTypeFor(ParentKind(parent), open, new OpenChangeEventDetails(reason, snapshot)));
     }
 
     [Theory(DisplayName = "port: a keyboard open is a navigation key's, or a press whose click has no detail")]
@@ -176,9 +176,9 @@ public sealed class MenuStoreTests
     [Trait("Requirement", "MNU-STA-06")]
     public void Prop_modal(string parentName, bool? modal, bool expected)
     {
-        MenuParentKind parent = Enum.Parse<MenuParentKind>(parentName);
+        MenuParentKind? parent = ParentKind(parentName);
         MenuStore<NoPayload> store = Store();
-        store.SetParent(new MenuParent(parent, null, parent is MenuParentKind.Menubar or MenuParentKind.ContextMenu ? new TestParent(parent) : null));
+        store.SetParent(new MenuParent(parent, null, parent is MenuParentKind.Menubar or MenuParentKind.ContextMenu ? new TestParent(parent.Value) : null));
         store.SetRootFields(disabled: false, modal, rootId: "root", highlightItemOnHover: true);
 
         Assert.Equal(expected, ((IMenuState)store.State).Modal);
@@ -208,9 +208,9 @@ public sealed class MenuStoreTests
     [Trait("Requirement", "MNU-STA-07")]
     public void Prop_disabled(string parentName, bool own, bool parentDisabled, bool expected)
     {
-        MenuParentKind parent = Enum.Parse<MenuParentKind>(parentName);
+        MenuParentKind? parent = ParentKind(parentName);
         MenuStore<NoPayload> store = Store();
-        store.SetParent(new MenuParent(parent, null, parent == MenuParentKind.None ? null : new TestParent(parent) { Disabled = parentDisabled }));
+        store.SetParent(new MenuParent(parent, null, parent is { } kind ? new TestParent(kind) { Disabled = parentDisabled } : null));
         store.SetRootFields(own, modal: null, rootId: "root", highlightItemOnHover: true);
 
         Assert.Equal(expected, ((IMenuState)store.State).Disabled);
@@ -255,10 +255,10 @@ public sealed class MenuStoreTests
     [Trait("Requirement", "MNU-STR-19")]
     public void The_parent_kind_resolves_in_base_ui_order(bool isSubmenu, bool enclosingMenu, string contextName, string expectedName)
     {
-        MenuParentKind context = Enum.Parse<MenuParentKind>(contextName);
-        MenuParentKind expected = Enum.Parse<MenuParentKind>(expectedName);
+        MenuParentKind? context = ParentKind(contextName);
+        MenuParentKind? expected = ParentKind(expectedName);
         MenuRootContext? enclosing = enclosingMenu ? new MenuStore<NoPayload>("parent", "parent-token").CreateContext("Menu") : null;
-        IMenuParentContext? parent = context == MenuParentKind.None ? null : new TestParent(context);
+        IMenuParentContext? parent = context is { } kind ? new TestParent(kind) : null;
 
         MenuParent resolved = MenuParent.Resolve(isSubmenu, enclosing, parent);
 
@@ -311,6 +311,9 @@ public sealed class MenuStoreTests
         Assert.False(first.IsOpen);
         Assert.False(second.IsOpen);
     }
+
+    // The data names a top-level menu "None", Base UI's `{ type: undefined }`; the port's kind is null (ADR 08 §3).
+    private static MenuParentKind? ParentKind(string name) => name == "None" ? null : Enum.Parse<MenuParentKind>(name);
 
     private sealed class TestParent(MenuParentKind kind) : IMenuParentContext
     {
