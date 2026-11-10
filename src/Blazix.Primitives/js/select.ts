@@ -86,20 +86,6 @@ const TRANSFORM_STYLE_RESETS: ReadonlyArray<readonly [string, string]> = [
   ['translate', '0 0'],
 ];
 
-// SEL-POS-07 (select/positioner/SelectPositioner.tsx:114-115): while aligned, Base UI renders `{ position: 'fixed' }` in
-// place of the anchored styles. The `positioning` layer stays under the consumer's styles, so the aligned band, over them,
-// resets what that layer places: the anchored coordinates and transform no longer apply (design point 1 of M5 track 9,
-// option (b): no `positioning.ts` edit beyond `setAligned`).
-const ALIGNED_POSITIONER_STYLES: ReadonlyArray<readonly [string, string]> = [
-  ['position', 'fixed'],
-  ['top', 'auto'],
-  ['right', 'auto'],
-  ['bottom', 'auto'],
-  ['left', 'auto'],
-  ['transform', 'none'],
-  ['will-change', 'auto'],
-];
-
 const OPTION_SELECTOR = '[role="option"]';
 
 /** The options of a `select` handle; mirrors `SelectOptions` in C#. */
@@ -540,11 +526,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       return;
     }
     writeLayout(true);
-    writeLayer(positionerLayer, ALIGNED_POSITIONER_STYLES);
     alignedSent = setAligned(element, true, place);
-    if (!alignedSent) {
-      positionerLayer.clear();
-    }
   };
 
   const stopAligned = () => {
