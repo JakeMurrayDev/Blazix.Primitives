@@ -84,8 +84,12 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Clears the selection and the input text, as the clear button and the closed Escape do.</summary>
     /// <param name="reason">The request's reason: <see cref="EventReason.ClearPress"/> or <see cref="EventReason.EscapeKey"/>.</param>
     /// <param name="event">The native event, or <see langword="null"/>.</param>
-    /// <returns>A task that completes with the request's details, whose <see cref="ChangeEventDetails.IsPropagationAllowed"/> the module reads.</returns>
-    public abstract Task<ChangeEventDetails> ClearAsync(EventReason reason, EventSnapshot? @event);
+    /// <param name="shareDetails">
+    /// <see langword="true"/> for one details object for the text and the value (the closed Escape); <see langword="false"/>
+    /// for one each (the clear button), so canceling the text's change leaves the value's.
+    /// </param>
+    /// <returns>A task that completes with the value's details, whose <see cref="ChangeEventDetails.IsPropagationAllowed"/> the module reads.</returns>
+    public abstract Task<ChangeEventDetails> ClearAsync(EventReason reason, EventSnapshot? @event, bool shareDetails = true);
 
     /// <summary>Takes the text a browser autofilled into the hidden input.</summary>
     /// <param name="text">The autofilled text.</param>
@@ -499,11 +503,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     }
 
     /// <inheritdoc />
-    public override async Task<ChangeEventDetails> ClearAsync(EventReason reason, EventSnapshot? @event)
+    public override async Task<ChangeEventDetails> ClearAsync(EventReason reason, EventSnapshot? @event, bool shareDetails = true)
     {
-        // ComboboxInput.tsx:347-362 (the closed Escape) and ComboboxClear.tsx (the clear button): the text, then the value.
-        ChangeEventDetails details = CreateDetails(reason, @event);
-        await SetInputValueAsync(string.Empty, details);
+        // ComboboxInput.tsx:347-362 (the closed Escape, one details object) and ComboboxClear.tsx:108-117 (the clear button,
+        // one for the text and one for the value): the text, then the value.
+        ChangeEventDetails textDetails = CreateDetails(reason, @event);
+        await SetInputValueAsync(string.Empty, textDetails);
+        ChangeEventDetails details = shareDetails ? textDetails : CreateDetails(reason, @event);
         if (Multiple)
         {
             await SetSelectedValuesAsync([], details);
