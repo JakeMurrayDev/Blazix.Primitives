@@ -167,9 +167,15 @@ public sealed class ComboboxChipsTests : IDisposable
 
         await cut.InvokeAsync(runtime.Release);
 
-        // The import resolves on the thread pool, so the update follows the release; under a full parallel run the pool can
-        // take seconds to reach it, so the wait is generous (it timed out at 5 s once in a full Release run, 2026-11-11).
-        cut.WaitForAssertion(() => Assert.Contains(runtime.ChipsOptions(), json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal)), TimeSpan.FromSeconds(30));
+        // The update renders nothing, so a wait that re-checks on renders can miss it under load: the title polls the
+        // module's record, on the renderer's thread that writes it (it timed out in a full Combobox run, 2026-11-11).
+        bool Sent(List<string> options) => options.Exists(json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal));
+        for (int wait = 0; wait < 500 && !Sent(await cut.InvokeAsync(runtime.ChipsOptions)); wait++)
+        {
+            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(Sent(await cut.InvokeAsync(runtime.ChipsOptions)));
     }
 #pragma warning restore BL0016
 
@@ -354,7 +360,8 @@ public sealed class ComboboxChipsTests : IDisposable
 #pragma warning disable BL0016
     private sealed class HeldModuleRuntime(string heldPath) : IJSRuntime
     {
-        private readonly TaskCompletionSource<IJSObjectReference> held = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Completed inline by Release, inside the renderer's dispatcher.
+        private readonly TaskCompletionSource<IJSObjectReference> held = new();
 
         private readonly List<FakeHandle> handles = [];
 
@@ -375,7 +382,7 @@ public sealed class ComboboxChipsTests : IDisposable
             if (identifier == "import" && args is [string path, ..])
             {
                 return path == heldPath
-                    ? new ValueTask<TValue>(held.Task.ContinueWith(task => (TValue)task.Result, TaskScheduler.Default))
+                    ? new ValueTask<TValue>((Task<TValue>)(object)held.Task)
                     : ValueTask.FromResult((TValue)(object)new FakeModule(this));
             }
 
