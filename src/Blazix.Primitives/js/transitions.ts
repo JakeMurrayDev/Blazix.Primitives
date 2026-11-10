@@ -198,10 +198,45 @@ export function animationsDisabled(): boolean {
  * @returns The finite animations.
  */
 export function getFiniteAnimations(element: Element, options?: GetAnimationsOptions): Animation[] {
-  return element.getAnimations(options).filter((animation) => {
+  return finiteAnimations(element.getAnimations(options));
+}
+
+function finiteAnimations(animations: Animation[]): Animation[] {
+  return animations.filter((animation) => {
     const timing = animation.effect?.getTiming();
     return timing?.duration !== Infinity && timing?.iterations !== Infinity;
   });
+}
+
+// Issue 218 (MNU-ANI-13; option (a), settled by the orchestrator 2026-11-11): a browser's first read can find no animation
+// about a millisecond after an exit's style was written, although the computed style already declares it, and completing
+// then drops the animation before its first tick. Base UI's useAnimationsFinished reads once.
+/**
+ * Determines whether an element's computed style declares motion: an animation name other than `none`, or a transition
+ * with a property and a duration above zero.
+ * @param element The element.
+ * @returns `true` when the computed style declares an animation or a transition.
+ */
+function declaresMotion(element: Element): boolean {
+  const style = getComputedStyle(element);
+  if (style.animationName.split(',').some((name) => name.trim() !== '' && name.trim() !== 'none')) {
+    return true;
+  }
+  return style.transitionProperty.trim() !== 'none' && style.transitionDuration.split(',').some((duration) => cssTimeMs(duration) > 0);
+}
+
+/**
+ * Reads a CSS time such as `0.25s` or `250ms` in milliseconds.
+ * @param value The time.
+ * @returns The milliseconds, or `0` when the value is not a time.
+ */
+function cssTimeMs(value: string): number {
+  const trimmed = value.trim();
+  const amount = Number.parseFloat(trimmed);
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+  return trimmed.endsWith('ms') ? amount : amount * 1000;
 }
 
 let pendingFlush: (() => void)[] | null = null;
@@ -274,9 +309,11 @@ export function createAnimationsWatcher(element: WatchedElement, waitForStarting
         return;
       }
 
-      const inspect = () => {
+      // `read` is the first frame's own read, so that frame calls `getAnimations` once.
+      const inspect = (read?: Animation[]) => {
         // Discard the fulfilled Animation values so a pending wait cannot retain its targets.
-        Promise.all(getFiniteAnimations(resolved).map((animation) => animation.finished.then(noop))).then(
+        const animations = read ? finiteAnimations(read) : getFiniteAnimations(resolved);
+        Promise.all(animations.map((animation) => animation.finished.then(noop))).then(
           () => {
             if (!signal?.aborted) {
               done();
@@ -313,7 +350,15 @@ export function createAnimationsWatcher(element: WatchedElement, waitForStarting
         return;
       }
 
-      frame.request(inspect);
+      // An exit's first read that finds no animation while the style declares one reads again on the next frame.
+      frame.request(() => {
+        const read = resolved.getAnimations();
+        if (read.length === 0 && declaresMotion(resolved)) {
+          frame.request(() => inspect());
+          return;
+        }
+        inspect(read);
+      });
     },
     cancel() {
       frame.cancel();
