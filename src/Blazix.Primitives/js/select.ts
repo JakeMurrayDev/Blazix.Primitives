@@ -345,10 +345,11 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
 
   const candidate = (): boolean => Boolean(options.mounted && options.alignItemWithTrigger && !options.touchOpened);
 
-  // SEL-STA-29: the arrows' visibility, reported once per change and written on the attached arrows.
+  // SEL-STA-29: the arrows' visibility, reported once per change and written on the attached arrows. While unmounted the
+  // flags stay reset (the unmount clears them, `clearArrows`), as Base UI's store keeps them until the next placement.
   const updateArrowVisibility = () => {
     const scroller = scrollerElement();
-    if (!scroller) {
+    if (!scroller || !options.mounted) {
       return;
     }
     const next = getArrowVisibility(scroller);
@@ -802,7 +803,12 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       }
     }
     if (!options.mounted) {
+      // SEL-STA-29 (SelectRoot.tsx:206-214): the unmount resets both flags; C# resets its own in the same write, and a kept
+      // arrow (a force-mounted portal) keeps no `data-visible` from the last session.
       reportedArrows = null;
+      for (const arrow of state.arrows) {
+        arrow.element.removeAttribute('data-visible');
+      }
     }
     syncScrollListener();
     syncResize();
