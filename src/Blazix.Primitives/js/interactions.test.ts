@@ -5575,6 +5575,45 @@ describe('Menu', () => {
     target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, ...init }));
   }
 
+  describe('guard return', () => {
+    // MenuSubmenuTrigger.tsx:108-125, 246-253: a positioner holding the guard before the popup, and the submenu's trigger.
+    function guardedSubmenu(closeOnGuardReturn: boolean) {
+      const menu = harness({ open: true });
+      menu.attachSession();
+      const trigger = element('button', `${menu.token}-trigger`);
+      menu.attachTrigger(trigger, { trigger: { menu: { closeOnGuardReturn } } });
+      menu.setReference(trigger);
+      const positioner = element('div');
+      const before = document.createElement('span');
+      before.setAttribute('data-base-ui-focus-guard', '');
+      before.setAttribute('data-type', 'inside');
+      before.tabIndex = 0;
+      const item = document.createElement('button');
+      positioner.append(before, item);
+      menu.attachFloating(positioner, { floating: { hover: null, menu: {} } });
+      return { menu, trigger, before, item };
+    }
+
+    function moveFocus(from: Element, to: Element): void {
+      from.dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true, relatedTarget: to }));
+      to.dispatchEvent(new FocusEvent('focus', { composed: true, relatedTarget: from }));
+    }
+
+    it('port: focus returning to the submenu trigger through the guard before the popup closes it with focus-out, and direct focus does not', () => {
+      const direct = guardedSubmenu(true);
+      moveFocus(direct.item, direct.trigger);
+      expect(changesSince(direct.menu, 0)).toEqual([]);
+
+      const off = guardedSubmenu(false);
+      moveFocus(off.before, off.trigger);
+      expect(changesSince(off.menu, 0)).toEqual([]);
+
+      const returned = guardedSubmenu(true);
+      moveFocus(returned.before, returned.trigger);
+      expect(changesSince(returned.menu, 0)).toEqual([[false, 'focus-out']]);
+    });
+  });
+
   describe('release activation', () => {
     it('port: a press on a closed menu\'s trigger arms the release after 200 ms, and a release over an item then clicks it once with detail 1', async () => {
       vi.useFakeTimers();
