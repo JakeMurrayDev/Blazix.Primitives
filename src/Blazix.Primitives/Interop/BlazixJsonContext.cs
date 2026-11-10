@@ -64,4 +64,9 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(NavigationMenuActivation))]
 [JsonSerializable(typeof(NavigationMenuFocusOut))]
 [JsonSerializable(typeof(NavigationMenuViewportInertChange))]
+[JsonSerializable(typeof(MenuFilterOptions))]
+[JsonSerializable(typeof(MenuFilterValueChange))]
+[JsonSerializable(typeof(MenuFilterTexts))]
+[JsonSerializable(typeof(MenuFilterHighlightedChange))]
+[JsonSerializable(typeof(MenuFilterFocusOut))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;
