@@ -3030,6 +3030,18 @@ function commonKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispat
   const rtl = list.rtl === true;
   const isGrid = list.grid === true;
 
+  // CMB-KEY-13 (AriaCombobox.tsx:1456-1469, granted by the orchestrator 2026-11-11): in grid mode a typeable combobox input
+  // with no highlight is still editing its query, so ArrowLeft and ArrowRight keep the caret; the list navigation skips them.
+  if (
+    isGrid &&
+    state.activeIndex == null &&
+    (event.key === ARROW_LEFT || event.key === ARROW_RIGHT) &&
+    currentTarget === referenceElementOf(state, handle.session) &&
+    isTypeableCombobox(currentTarget)
+  ) {
+    return;
+  }
+
   // CMP-KEY-27, CMP-DIS-01, CMP-EVT-07: the nested close across the list's orientation.
   if (list.nested && !list.keepOpenOnCrossOrientationKey && isCrossOrientationCloseKey(event.key, orientation, rtl, isGrid)) {
     if (!proceed(dispatch, handle)) {
