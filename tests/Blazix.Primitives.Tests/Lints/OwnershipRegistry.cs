@@ -252,6 +252,47 @@ internal static class OwnershipRegistry
         new("preview-card", "Viewport", "data-transitioning", Writer.Js, "PreviewCardViewportState.Transitioning"),
         new("preview-card", "Viewport", "--popup-width", Writer.Js),
         new("preview-card", "Viewport", "--popup-height", Writer.Js),
+        // Menu (M5 track 6, issue 172; ADR 04 §2 and Amendments 2026-10-27 and 2026-11-03 (2), menu.md §3): transitions
+        // writes the Backdrop's, the Popup's and the indicators' transition attributes; positioning writes the
+        // Positioner's and the Arrow's placement and variables from attach; the popup module writes the Viewport's
+        // containers, direction and transitioning flag; composite's list handle writes every item's data-highlighted and
+        // tabindex (mirrored in the state records).
+        new("menu", "Backdrop", "data-starting-style", Writer.Js, "MenuBackdropState.TransitionStatus"),
+        new("menu", "Backdrop", "data-ending-style", Writer.Js, "MenuBackdropState.TransitionStatus"),
+        new("menu", "Popup", "data-starting-style", Writer.Js, "MenuPopupState.TransitionStatus"),
+        new("menu", "Popup", "data-ending-style", Writer.Js, "MenuPopupState.TransitionStatus"),
+        new("menu", "Positioner", "data-anchor-hidden", Writer.Js, "MenuPositionerState.AnchorHidden"),
+        new("menu", "Positioner", "data-side", Writer.CsharpToJs, "MenuPositionerState.Side"),
+        new("menu", "Positioner", "data-align", Writer.CsharpToJs, "MenuPositionerState.Align"),
+        new("menu", "Positioner", "--anchor-width", Writer.CsharpToJs),
+        new("menu", "Positioner", "--anchor-height", Writer.CsharpToJs),
+        new("menu", "Positioner", "--available-width", Writer.CsharpToJs),
+        new("menu", "Positioner", "--available-height", Writer.CsharpToJs),
+        new("menu", "Positioner", "--transform-origin", Writer.CsharpToJs),
+        new("menu", "Positioner", "--positioner-width", Writer.CsharpToJs),
+        new("menu", "Positioner", "--positioner-height", Writer.CsharpToJs),
+        new("menu", "Arrow", "data-side", Writer.CsharpToJs, "MenuArrowState.Side"),
+        new("menu", "Arrow", "data-align", Writer.CsharpToJs, "MenuArrowState.Align"),
+        new("menu", "Arrow", "data-uncentered", Writer.Js, "MenuArrowState.Uncentered"),
+        new("menu", "Viewport", "data-activation-direction", Writer.Js, "MenuViewportState.ActivationDirection"),
+        new("menu", "Viewport", "data-transitioning", Writer.Js, "MenuViewportState.Transitioning"),
+        new("menu", "Viewport", "data-previous", Writer.Js),
+        new("menu", "Viewport", "--popup-width", Writer.Js),
+        new("menu", "Viewport", "--popup-height", Writer.Js),
+        new("menu", "Item", "data-highlighted", Writer.CsharpToJs, "MenuItemState.Highlighted"),
+        new("menu", "Item", "tabindex", Writer.CsharpToJs),
+        new("menu", "LinkItem", "data-highlighted", Writer.CsharpToJs, "MenuLinkItemState.Highlighted"),
+        new("menu", "LinkItem", "tabindex", Writer.CsharpToJs),
+        new("menu", "CheckboxItem", "data-highlighted", Writer.CsharpToJs, "MenuCheckboxItemState.Highlighted"),
+        new("menu", "CheckboxItem", "tabindex", Writer.CsharpToJs),
+        new("menu", "RadioItem", "data-highlighted", Writer.CsharpToJs, "MenuRadioItemState.Highlighted"),
+        new("menu", "RadioItem", "tabindex", Writer.CsharpToJs),
+        new("menu", "SubmenuTrigger", "data-highlighted", Writer.CsharpToJs, "MenuSubmenuTriggerState.Highlighted"),
+        new("menu", "SubmenuTrigger", "tabindex", Writer.CsharpToJs),
+        new("menu", "CheckboxItemIndicator", "data-starting-style", Writer.Js, "MenuCheckboxItemIndicatorState.TransitionStatus"),
+        new("menu", "CheckboxItemIndicator", "data-ending-style", Writer.Js, "MenuCheckboxItemIndicatorState.TransitionStatus"),
+        new("menu", "RadioItemIndicator", "data-starting-style", Writer.Js, "MenuRadioItemIndicatorState.TransitionStatus"),
+        new("menu", "RadioItemIndicator", "data-ending-style", Writer.Js, "MenuRadioItemIndicatorState.TransitionStatus"),
         // Combobox (M5 track 10, issue 174; ADR 04 §2, Amendments 2026-11-03 (2) and (6), chosen by the user 2026-11-03, and
         // the `form` list additions of 2026-11-04). The list handle writes the Item's data-highlighted and the Input's
         // aria-activedescendant from attach (Highlighted mirrored); the combobox module writes the Input's value from update

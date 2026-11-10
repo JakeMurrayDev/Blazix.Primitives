@@ -1,0 +1,115 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuCheckboxItem.test.tsx's and MenuRadioItem.test.tsx's trees: a controlled, non-modal menu that starts open (Base UI
+   opens it by pressing the trigger; `SetOpen` closes and reopens it as the trigger would) holding checkbox items
+   (`Kind` "checkbox") or a radio group of items 1 and 2 (`Kind` "radio"). The changes and the items' handlers are
+   recorded; `Cancel` cancels each change. `Kind` "radio-outside" renders a radio item with no group. *@
+<MenuRoot TPayload="NoPayload" Open="open" OpenChanged="v => open = v" OnOpenChange="RecordOpenChange" Modal="false">
+    <MenuTrigger TPayload="NoPayload" data-testid="trigger">Open</MenuTrigger>
+    <MenuPortal KeepMounted="KeepMounted">
+        <MenuPositioner>
+            <MenuPopup data-testid="popup">
+                @switch (Kind)
+                {
+                    case "checkbox":
+                        @if (Checked is { } controlled)
+                        {
+                            <MenuCheckboxItem id="item-1" Checked="controlled">
+                                Item
+                                @if (IndicatorKeepMounted)
+                                {
+                                    <MenuCheckboxItemIndicator data-testid="indicator" KeepMounted="true" />
+                                }
+                            </MenuCheckboxItem>
+                        }
+                        else
+                        {
+                            <MenuCheckboxItem id="item-1" CloseOnClick="CloseOnClick" Disabled="FirstDisabled" OnCheckedChange="RecordChecked"
+                                              @onclick="OnClick" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp">Item</MenuCheckboxItem>
+                        }
+                        break;
+                    case "radio":
+                        <MenuRadioGroup TValue="int" DefaultValue="0" Disabled="GroupDisabled" OnValueChange="RecordValue">
+                            <MenuRadioItem TValue="int" id="item-1" Value="1" CloseOnClick="CloseOnClick" Disabled="FirstDisabled"
+                                           @onclick="OnClick" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp">one</MenuRadioItem>
+                            <MenuRadioItem TValue="int" id="item-2" Value="2"
+                                           @onclick="OnClick" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp">two</MenuRadioItem>
+                        </MenuRadioGroup>
+                        break;
+                    case "radio-outside":
+                        <MenuRadioItem TValue="string" Value="@("one")" />
+                        break;
+                }
+            </MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>
+</MenuRoot>
+
+@code {
+    private bool open = true;
+
+    [Parameter]
+    public string Kind { get; set; } = "checkbox";
+
+    [Parameter]
+    public bool? Checked { get; set; }
+
+    [Parameter]
+    public bool CloseOnClick { get; set; }
+
+    [Parameter]
+    public bool FirstDisabled { get; set; }
+
+    [Parameter]
+    public bool GroupDisabled { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    /// <summary>Gives the controlled checkbox item a kept-mounted indicator.</summary>
+    [Parameter]
+    public bool IndicatorKeepMounted { get; set; }
+
+    [Parameter]
+    public bool Cancel { get; set; }
+
+    public List<string> OpenChanges { get; } = [];
+
+    public List<bool> CheckedChanges { get; } = [];
+
+    public List<int> ValueChanges { get; } = [];
+
+    public int Handled { get; private set; }
+
+    /// <summary>Opens or closes the menu as the trigger's press would.</summary>
+    public void SetOpen(bool value)
+    {
+        open = value;
+        StateHasChanged();
+    }
+
+    private void RecordOpenChange(ValueChangeEventArgs<bool> args) => OpenChanges.Add($"{args.Value}:{args.Details.Reason}");
+
+    private void RecordChecked(ValueChangeEventArgs<bool> args)
+    {
+        CheckedChanges.Add(args.Value);
+        if (Cancel)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void RecordValue(ValueChangeEventArgs<int> args)
+    {
+        ValueChanges.Add(args.Value);
+        if (Cancel)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void OnClick() => Handled++;
+
+    private void OnKeyDown() => Handled++;
+
+    private void OnKeyUp() => Handled++;
+}

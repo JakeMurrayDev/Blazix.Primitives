@@ -1,0 +1,159 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-viewport` fixture (tests/browser/menu.spec.ts, M5 track 6): viewportConformanceTests on Menu's parts
+    (MenuViewport.test.tsx), the popover-viewport fixture's contract.
+*@
+
+<FixtureContainer Name="menu-viewport" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-remount-trigger data-key-control @onclick="RemountAsync" @onkeydown="OnShift(RemountAsync)">Remount trigger</button>
+    <button type="button" data-set-payload data-key-control @onclick='() => laggingPayload = "ready"' @onkeydown='OnShift(() => laggingPayload = "ready")'>Set payload</button>
+    <button type="button" data-unmount data-key-control @onclick="() => mounted = false" @onkeydown="OnShift(() => mounted = false)">Unmount</button>
+
+    @if (!mounted)
+    {
+    }
+    else if (direction == TextDirection.Rtl)
+    {
+        <DirectionProvider Direction="TextDirection.Rtl">@Root</DirectionProvider>
+    }
+    else
+    {
+        @Root
+    }
+</FixtureContainer>
+
+@code {
+    // A real pointer where Base UI fires a synthetic one (the lesson of PR 168): user-event's click reaches a trigger the modal
+    // menu's internal backdrop covers, a Playwright click lands on the backdrop, so the switching titles open the menu
+    // non-modal unless the query sets `modal=true` (MNU-API-08's default is modal; a dated note on the rows).
+    private bool? modal = false;
+
+    private readonly MenuTrigger<string>?[] triggerRefs = new MenuTrigger<string>?[8];
+    private MenuRoot<string>? root;
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private string? defaultTriggerId;
+    private bool keepMounted;
+    private Side? side;
+    private TextDirection direction;
+    private int triggerCount = 2;
+    private int triggerKey;
+    private bool strict;
+    private string? laggingPayload;
+    private bool mounted = true;
+
+    protected override IEnumerable<Task> Attachments =>
+        [.. triggerRefs.Take(triggerCount).Select(trigger => trigger?.TwinsAttached ?? Task.CompletedTask), root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        modal = QueryFlag("modal") ?? false;
+        controlled = QueryFlag("open") is not null || Case == "controlled";
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        defaultTriggerId = Query("defaultTriggerId");
+        keepMounted = QueryFlag("keepMounted") == true;
+        triggerCount = int.TryParse(Query("triggerCount"), out int count) ? count : 2;
+        strict = QueryFlag("strict") == true;
+        direction = Query("direction") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+        side = Query("side") switch
+        {
+            "top" => Side.Top,
+            "bottom" => Side.Bottom,
+            "left" => Side.Left,
+            "right" => Side.Right,
+            "inline-start" => Side.InlineStart,
+            "inline-end" => Side.InlineEnd,
+            _ => null,
+        };
+    }
+
+    private RenderFragment Root => @<text>
+        @if (controlled)
+        {
+            <MenuRoot TPayload="string" Modal="@modal" @ref="root" Open="@open" DefaultTriggerId="@defaultTriggerId" OnOpenChange="FollowOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+                @Triggers
+            </MenuRoot>
+        }
+        else
+        {
+            <MenuRoot TPayload="string" Modal="@modal" @ref="root" DefaultOpen="@defaultOpen" DefaultTriggerId="@defaultTriggerId" OnOpenChange="RetainOrRecord" OnOpenChangeComplete="RecordOpenChangeComplete" PayloadContent="@Content">
+                @Triggers
+            </MenuRoot>
+        }
+    </text>;
+
+    private RenderFragment Triggers => @<text>
+        @for (int number = 1; number <= triggerCount; number++)
+        {
+            int index = number - 1;
+            string id = $"trigger-{number}";
+            string text = $"Trigger {number}";
+            string key = $"{id}-{triggerKey}";
+            // A lone trigger carries no payload (the suite's default content, `Content`); the lagging case's first trigger
+            // never does and its second only once `[data-set-payload]` gave it one.
+            if (triggerCount == 1 || (Case == "lagging" && (number == 1 || laggingPayload is null)))
+            {
+                <MenuTrigger TPayload="string" @key="key" @ref="triggerRefs[index]" id="@id" data-testid="@id">@text</MenuTrigger>
+            }
+            else
+            {
+                string payload = Case == "lagging" ? laggingPayload! : number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                <MenuTrigger TPayload="string" @key="key" @ref="triggerRefs[index]" id="@id" data-testid="@id" Payload="@payload">@text</MenuTrigger>
+            }
+        }
+    </text>;
+
+    private RenderFragment<string?> Content => payload => @<text>
+        <MenuPortal KeepMounted="@keepMounted">
+            <MenuPositioner Side="@side" CollisionAvoidance="@(side is null ? null : new CollisionAvoidance(Side: CollisionAvoidanceMode.None))">
+                <MenuPopup data-testid="popup">
+                    <MenuViewport data-testid="viewport">
+                        <div data-testid="content">@(payload is null ? "Content" : $"Content {payload}")</div>
+                    </MenuViewport>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </text>;
+
+    // `open=true` stays open; case=controlled follows the request.
+    private void FollowOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (Case == "controlled")
+        {
+            open = args.Value;
+        }
+    }
+
+    // case=retained: Base UI's preventUnmountOnClose() keeps the closed popup mounted.
+    private void RetainOrRecord(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value && Case == "retained")
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+
+        RecordOpenChange(args);
+    }
+
+    // The trigger remounts with a new key and the same id; strict=true remounts it twice, a render between (the handler's
+    // first yield renders).
+    private async Task RemountAsync()
+    {
+        triggerKey++;
+        if (strict)
+        {
+            await Task.Yield();
+            triggerKey++;
+        }
+    }
+}

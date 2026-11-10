@@ -1,0 +1,71 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-anchor` fixture (tests/browser/menu.parts.spec.ts, M5 track 6): MenuPositioner.test.tsx's "prop: anchor". An open
+    menu (bottom, start, no arrow padding) inside a 50 px margin, and an `anchor` div 100 px below. `case`:
+    - `ref`: the anchor element, taken after the first render (Base UI's ref);
+    - `element`: the same element held as state and re-rendered (Base UI's callback ref);
+    - `function`: the anchor's element id, which the port resolves when it positions (AnchorValue has no function case);
+    - `virtual`: a virtual anchor at (200, 100), zero-sized;
+    - `null-function`: an anchor value with no value, made anew at every render (Base UI's non-memoized `() => null`);
+    - `switch`: a trigger as well; `[data-anchor-none]` takes the anchor away, `[data-anchor-ref]` gives it back.
+*@
+<FixtureContainer Name="menu-anchor" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-anchored="@(anchorSet ? "true" : "false")">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-anchor-none data-key-control @onclick="() => useAnchor = false" @onkeydown="OnShift(() => useAnchor = false)">undefined</button>
+    <button type="button" data-anchor-ref data-key-control @onclick="() => useAnchor = true" @onkeydown="OnShift(() => useAnchor = true)">ref</button>
+    <div style="margin: 50px">
+        <MenuRoot TPayload="NoPayload" @ref="root" Open="true">
+            @if (Case == "switch")
+            {
+                <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">trigger</MenuTrigger>
+            }
+            <MenuPortal>
+                <MenuPositioner Side="Side.Bottom" Align="Align.Start" Anchor="@Anchor" ArrowPadding="0" data-testid="positioner">
+                    <MenuPopup>
+                        <MenuItem>1</MenuItem>
+                        <MenuItem>2</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        <div @ref="anchorElement" id="menu-anchor-target" data-testid="anchor" style="@(Case == "switch" ? "margin-top: 100px; width: 10px; height: 10px" : "margin-top: 100px")"></div>
+    </div>
+</FixtureContainer>
+
+@code {
+    private static readonly AnchorValue s_virtual = new VirtualAnchor(200, 100, 0, 0);
+    private ElementReference anchorElement;
+    private bool anchorSet;
+    private bool useAnchor = true;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private AnchorValue? Anchor => Case switch
+    {
+        "ref" or "element" => anchorSet ? anchorElement : (AnchorValue?)null,
+        "switch" => anchorSet && useAnchor ? anchorElement : (AnchorValue?)null,
+        "function" => "menu-anchor-target",
+        "virtual" => s_virtual,
+        "null-function" => new AnchorValue((string?)null),
+        _ => (AnchorValue?)null,
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            // The element exists from the first render on, as a ref's current or a callback ref's state does.
+            anchorSet = true;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,837 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Rendering
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-root` fixture (tests/browser/menu.root.spec.ts, M5 track 6): MenuRoot.test.tsx's `TestMenuContents`, with the
+    test's test ids (`item-1`.. `item-5`, `submenu-trigger`, `submenu`, `item-4_1`, `item-4_2`, `nested-submenu-trigger`,
+    `nested-submenu`, `item-4_3_1`, `item-4_3_2`, `menu`, `menu-positioner`, plus `trigger` and `submenu-positioner`).
+
+    The query takes each `TestMenu` prop the test file passes:
+    - `detached` (DetachedTriggerMenu: the trigger after the root, with a handle), `noTrigger`, `triggerRender=custom-id`
+      or `count` (a RenderFunction counting its renders), `triggerId`, `triggerDomId`.
+    - The root: `open=true|false` (controlled; `followOpen` follows its changes, `ignoreFocusOut` not a `focus-out` close),
+      `defaultOpen`, `modal`, `disabled`, `orientation=horizontal`, `dir=rtl`, `highlightItemOnHover=false`, `cancelClose`,
+      `retainEveryClose`, `retainFirstClose`, `unobserved` (no OnItemHighlighted until `[data-observe-highlights]` is pressed).
+    - The trigger: `openOnHover`, `delay`, `closeDelay`. Each submenu root and its trigger: `closeParentOnEsc`,
+      `subOrientation=horizontal`, `subOpenOnHover=false`, `subDelay`, `subCloseDelay`.
+    - The portal, positioner and popup: `keepMounted`, `sideOffset`, `positionerStyle`, `popupClass`.
+    - `content`, the test's `popupProps.children`: absent for the default tree; `items` (`items`, `|`-separated, with
+      `hiddenItems`, `nativeDisabledItems` and `itemLabels`, the last `|`-separated `text=label`), `grouped`, `non-string`,
+      `typeahead-submenu`, `item-submenu`, `keep-mounted-submenu`, `lone-submenu`, `disabled-kinds`, `highlight`, `reporting` (`[data-insert-item]` adds an item first),
+      `dynamic`, `deferred`.
+    - The page around it: `inputs` (`before` and `after`), `opener` (a button that sets a controlled root open),
+      `beforeButton` (a button `before-button` ahead of the root), `container=shadow` (the submenu's portal in an open shadow
+      root).
+    - MenuTrigger.test.tsx's props: `triggerDisabled`, `triggerNonNative` (a `span`), `triggerStyle`, `triggerVeto=mousedown|click`,
+      `handle` (a root handle with a contained trigger, its IsOpen in `data-handle-open`), `followOpenOnly` (a controlled
+      root that takes only opens), `noPortal`, `twoTriggers` (`trigger-1`, `trigger-2`), `[data-toggle-root]` unmounting the root.
+    - The other files' props: `loopFocus=false`, `backdrop` (a MenuBackdrop `backdrop`), `finalFocusLog` (the popup's resolver,
+      its interaction types in `data-final-focus-calls`) and these `content` values: `two-level`, `three-level`, `more`
+      (`playNext` adds the item after it), `numbered`, `label`, `disabled-submenu`, `icon-submenu`, `sr`, `custom-button`,
+      `custom-link`, `plain-list`, `list-three`, `checkbox` (`items`; `data-checkbox-changes`), `radio` (`items`;
+      `data-radio-changes`), `link`.
+
+    The container records `data-open-changes`, `data-open-change-completes`, `data-submenu-open-changes` and
+    `data-nested-open-changes` (the two submenu levels), `data-item-clicks` (`|`-separated `text:detail`),
+    `data-highlights` (`|`-separated `label:reason:eventType:key`), `data-highlight-ids` (`|`-separated item ids, empty for
+    a cleared highlight), `data-outside-clicks`, `data-trigger-renders`, and `data-popup-attached` once the root's popup is
+    mounted and attached (a title that starts open waits for it). Key controls: `[data-set-open]`, `[data-close-action]`
+    (the root's CloseAsync), `[data-unmount-action]` (its Unmount), `[data-observe-highlights]`.
+*@
+<FixtureContainer Name="menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-popup-attached="@(popupAttached ? "true" : "false")"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-submenu-open-changes="@string.Join(' ', submenuChanges)"
+                  data-nested-open-changes="@string.Join(' ', nestedChanges)"
+                  data-item-clicks="@string.Join('|', itemClicks)"
+                  data-highlights="@string.Join('|', highlights)" data-highlight-ids="@string.Join('|', highlightIds)"
+                  data-outside-clicks="@outsideClicks" data-trigger-renders="@triggerRenders"
+                  data-handle-open="@(handle?.IsOpen == true ? "true" : "false")"
+                  data-final-focus-calls="@string.Join(' ', finalFocusCalls)"
+                  data-checkbox-changes="@string.Join(' ', checkboxChanges)" data-radio-changes="@string.Join(' ', radioChanges)">
+    <style>
+        .transition-test-indicator { transition: transform 100ms ease-out, opacity 100ms ease-out; }
+        .transition-test-indicator[data-ending-style] { opacity: 0; transform: scale(0.98); }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+    <button type="button" data-close-action data-key-control @onclick="() => root!.CloseAsync()" @onkeydown="OnShift(() => root!.CloseAsync())">Close</button>
+    <button type="button" data-unmount-action data-key-control @onclick="() => root!.Unmount()" @onkeydown="OnShift(() => root!.Unmount())">Unmount</button>
+    <button type="button" data-observe-highlights data-key-control @onclick="ToggleObserved" @onkeydown="OnShift(ToggleObserved)">Observe</button>
+    <button type="button" data-insert-item data-key-control @onclick="() => inserted = true" @onkeydown="OnShift(() => inserted = true)">Insert item</button>
+    <button type="button" data-toggle-root data-key-control @onclick="() => rootMounted = !rootMounted" @onkeydown="OnShift(() => rootMounted = !rootMounted)">Toggle root</button>
+    <button type="button" data-rename-sub-trigger data-key-control @onclick="@(() => subTriggerId = "second")" @onkeydown="@OnShift(() => subTriggerId = "second")">Rename submenu trigger</button>
+    <div data-shadow-host @ref="shadowHost"></div>
+    @if (withOpener)
+    {
+        <button type="button" data-testid="opener" @onclick="() => open = true">Open menu programmatically</button>
+    }
+    @if (withInputs)
+    {
+        <input data-testid="before" aria-label="Before" />
+    }
+    @if (beforeButton)
+    {
+        <button type="button" data-testid="before-button">Before</button>
+    }
+    @if (rootMounted)
+    {
+        <DirectionProvider Direction="@direction">
+            <MenuRoot TPayload="NoPayload" @ref="root" @attributes="RootParameters" Handle="@handle" DefaultOpen="@defaultOpen" Modal="@modal"
+                      Disabled="@disabled" Orientation="@orientation" HighlightItemOnHover="@highlightItemOnHover" LoopFocus="@loopFocus"
+                      OnOpenChange="RootChange" OnOpenChangeComplete="RootComplete" OnItemHighlighted="@highlightCallback">
+                @if (!detached && !noTrigger)
+                {
+                    @TriggerPart
+                }
+                @if (!noPortal)
+                {
+                    <MenuPortal KeepMounted="@keepMounted">
+                        @if (withBackdrop)
+                        {
+                            <MenuBackdrop data-testid="backdrop" />
+                        }
+                        <MenuPositioner data-testid="menu-positioner" SideOffset="@sideOffset" style="@positionerStyle">
+                            <MenuPopup @ref="popup" data-testid="menu" class="@popupClass" FinalFocusResolver="@finalFocusResolver">
+                                @PopupContent
+                            </MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                }
+            </MenuRoot>
+            @if (detached)
+            {
+                @TriggerPart
+            }
+        </DirectionProvider>
+    }
+    @if (withInputs)
+    {
+        <input data-testid="after" aria-label="After" />
+    }
+    <button type="button" data-testid="outside" @onclick="() => outsideClicks++">Outside</button>
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment s_disabledButton = @<button type="button" disabled></button>;
+    private static readonly RenderFragment s_customIdButton = @<button type="button" id="custom-trigger"></button>;
+    private static readonly RenderFragment s_span = @<span></span>;
+    private readonly List<string> finalFocusCalls = [];
+    private readonly List<string> checkboxChanges = [];
+    private readonly List<string> radioChanges = [];
+    private readonly List<string> submenuChanges = [];
+    private readonly List<string> nestedChanges = [];
+    private readonly List<string> itemClicks = [];
+    private readonly List<string> highlights = [];
+    private readonly List<string> highlightIds = [];
+    private string[] items = [];
+    private HashSet<string> hiddenItems = [];
+    private HashSet<string> nativeDisabledItems = [];
+    private Dictionary<string, string> itemLabels = [];
+    private MenuHandle<NoPayload>? handle;
+    private bool detached;
+    private bool noTrigger;
+    private string? triggerRender;
+    private string? triggerId;
+    private bool controlled;
+    private bool open;
+    private bool followOpen;
+    private bool ignoreFocusOut;
+    private bool defaultOpen;
+    private bool? modal;
+    private bool disabled;
+    private Orientation orientation = Orientation.Vertical;
+    private TextDirection direction = TextDirection.Ltr;
+    private bool highlightItemOnHover = true;
+    private bool retainFirstClose;
+    private bool? openOnHover;
+    private Duration? delay;
+    private Duration? closeDelay;
+    private bool closeParentOnEsc;
+    private Orientation subOrientation = Orientation.Vertical;
+    private bool subOpenOnHover = true;
+    private Duration? subDelay;
+    private Duration? subCloseDelay;
+    private bool keepMounted;
+    private OffsetValue? sideOffset;
+    private string? positionerStyle;
+    private string? popupClass;
+    private string? content;
+    private bool withInputs;
+    private bool withOpener;
+    private bool itemsFiltered;
+    private int outsideClicks;
+    private int triggerRenders;
+    private bool popupAttached;
+    private EventCallback<MenuItemHighlightedEventArgs> highlightCallback;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private MenuTrigger<NoPayload>? secondTrigger;
+    private MenuPopup? popup;
+    private ElementReference shadowHost;
+    private PortalContainerValue? submenuContainer;
+    private Func<InteractionType, FocusTargetValue?>? finalFocusResolver;
+    private Dictionary<string, object> triggerAttributes = [];
+    private bool rootMounted = true;
+    private bool beforeButton;
+    private bool triggerDisabled;
+    private bool triggerNonNative;
+    private bool followOpenOnly;
+    private bool loopFocus = true;
+    private bool withBackdrop;
+    private bool noPortal;
+    private bool twoTriggers;
+    private bool playNext;
+    private bool inserted;
+    private string? subTriggerId;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Page { get; set; } = null!;
+
+    // The host's base is the site root, so a fragment alone would leave the page.
+    private string PagePath => new Uri(Page.Uri).PathAndQuery;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        secondTrigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private Dictionary<string, object> RootParameters
+    {
+        get
+        {
+            Dictionary<string, object> parameters = [];
+            if (controlled)
+            {
+                parameters["Open"] = open;
+            }
+
+            if (triggerId is not null)
+            {
+                parameters["TriggerId"] = triggerId;
+            }
+
+            return parameters;
+        }
+    }
+
+    // URLSearchParams writes a space as `+`; the base class unescapes percent escapes only.
+    private string? Text(string name) => Query(name)?.Replace('+', ' ');
+
+    private Duration? Milliseconds(string name) =>
+        Query(name) is { } value ? int.Parse(value, CultureInfo.InvariantCulture) : null;
+
+    private HashSet<string> Set(string name) =>
+        Text(name) is { Length: > 0 } list ? [.. list.Split('|')] : [];
+
+    protected override void OnInitialized()
+    {
+        detached = QueryFlag("detached") == true;
+        handle = detached || QueryFlag("handle") == true ? new MenuHandle<NoPayload>() : null;
+        beforeButton = QueryFlag("beforeButton") == true;
+        triggerDisabled = QueryFlag("triggerDisabled") == true;
+        triggerNonNative = QueryFlag("triggerNonNative") == true;
+        followOpenOnly = QueryFlag("followOpenOnly") == true;
+        loopFocus = QueryFlag("loopFocus") != false;
+        withBackdrop = QueryFlag("backdrop") == true;
+        noPortal = QueryFlag("noPortal") == true;
+        twoTriggers = QueryFlag("twoTriggers") == true;
+        playNext = QueryFlag("playNext") == true;
+        subTriggerId = Query("subTriggerId");
+        if (Query("container") == "shadow")
+        {
+            submenuContainer = PortalContainerValue.Pending;
+        }
+
+        if (QueryFlag("finalFocusLog") == true)
+        {
+            finalFocusResolver = type =>
+            {
+                finalFocusCalls.Add(type.ToString().ToLowerInvariant());
+                return new FocusTargetValue(true);
+            };
+        }
+
+        if (Text("triggerStyle") is { } triggerStyle)
+        {
+            triggerAttributes["style"] = triggerStyle;
+        }
+
+        if (Query("triggerDomId") is { } domId)
+        {
+            triggerAttributes["id"] = domId;
+        }
+
+        switch (Query("triggerVeto"))
+        {
+            case "mousedown":
+                triggerAttributes["onmousedown"] = EventCallback.Factory.Create<MouseEventArgs>(this, static e => e.PreventPartHandler());
+                break;
+            case "click":
+                triggerAttributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, static e => e.PreventPartHandler());
+                break;
+        }
+
+        noTrigger = QueryFlag("noTrigger") == true;
+        triggerRender = Query("triggerRender");
+        triggerId = Query("triggerId");
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        followOpen = QueryFlag("followOpen") == true;
+        ignoreFocusOut = QueryFlag("ignoreFocusOut") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        modal = QueryFlag("modal");
+        disabled = QueryFlag("disabled") == true;
+        orientation = Query("orientation") == "horizontal" ? Orientation.Horizontal : Orientation.Vertical;
+        direction = Query("dir") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+        highlightItemOnHover = QueryFlag("highlightItemOnHover") != false;
+        retainFirstClose = QueryFlag("retainFirstClose") == true;
+        openOnHover = QueryFlag("openOnHover");
+        delay = Milliseconds("delay");
+        closeDelay = Milliseconds("closeDelay");
+        closeParentOnEsc = QueryFlag("closeParentOnEsc") == true;
+        subOrientation = Query("subOrientation") == "horizontal" ? Orientation.Horizontal : Orientation.Vertical;
+        subOpenOnHover = QueryFlag("subOpenOnHover") != false;
+        subDelay = Milliseconds("subDelay");
+        subCloseDelay = Milliseconds("subCloseDelay");
+        keepMounted = QueryFlag("keepMounted") == true;
+        if (Query("sideOffset") is { } offset)
+        {
+            sideOffset = double.Parse(offset, CultureInfo.InvariantCulture);
+        }
+
+        positionerStyle = Text("positionerStyle");
+        popupClass = Query("popupClass");
+        content = Query("content");
+        withInputs = QueryFlag("inputs") == true;
+        withOpener = QueryFlag("opener") == true;
+        if (Text("items") is { Length: > 0 } list)
+        {
+            items = list.Split('|');
+        }
+
+        hiddenItems = Set("hiddenItems");
+        nativeDisabledItems = Set("nativeDisabledItems");
+        itemLabels = Set("itemLabels").Select(pair => pair.Split('=')).ToDictionary(pair => pair[0], pair => pair[1]);
+        if (QueryFlag("unobserved") != true)
+        {
+            ToggleObserved();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && submenuContainer is not null)
+        {
+            try
+            {
+                submenuContainer = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createOpenShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
+
+        if (!popupAttached && popup is { } mounted && RendererInfo.IsInteractive)
+        {
+            await mounted.TwinAttached;
+            popupAttached = true;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleObserved() =>
+        highlightCallback = highlightCallback.HasDelegate
+            ? default
+            : EventCallback.Factory.Create<MenuItemHighlightedEventArgs>(this, RecordHighlight);
+
+    private void RootChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && retainFirstClose && args.Details is OpenChangeEventDetails details)
+        {
+            retainFirstClose = false;
+            details.PreventUnmountOnClose();
+        }
+
+        if (followOpenOnly && args.Value)
+        {
+            open = true;
+        }
+
+        if (followOpen && !(ignoreFocusOut && args.Details.Reason == EventReason.FocusOut))
+        {
+            open = args.Value;
+        }
+
+        // MenuRoot.test.tsx's DynamicMenu: the list shrinks in a later task after an open.
+        if (args.Value && content == "dynamic")
+        {
+            _ = FilterItemsSoon();
+        }
+    }
+
+    private async Task FilterItemsSoon()
+    {
+        await Task.Yield();
+        itemsFiltered = true;
+        StateHasChanged();
+    }
+
+    private void RootComplete(bool completed)
+    {
+        RecordOpenChangeComplete(completed);
+        if (!completed && content == "dynamic")
+        {
+            itemsFiltered = false;
+        }
+    }
+
+    private void Click(MouseEventArgs args, string text) =>
+        itemClicks.Add(string.Create(CultureInfo.InvariantCulture, $"{text}:{args.Detail}"));
+
+    private void RecordHighlight(MenuItemHighlightedEventArgs args)
+    {
+        highlights.Add($"{args.Details.Label}:{args.Details.Reason.ToLiteral()}:{args.Details.Event?.Type}:{args.Details.Event?.Key}");
+        highlightIds.Add(args.ItemId ?? "");
+    }
+
+    private void RecordSubmenuChange(ValueChangeEventArgs<bool> args) =>
+        submenuChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private void RecordNestedChange(ValueChangeEventArgs<bool> args) =>
+        nestedChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private void RecordSubmenuTrigger(ValueChangeEventArgs<bool> args)
+    {
+        RecordSubmenuChange(args);
+        if (args.Details is OpenChangeEventDetails details)
+        {
+            submenuChanges.Add($"trigger:{details.Trigger?.Id}");
+        }
+    }
+
+    private void RecordCheckboxChange(ValueChangeEventArgs<bool> args) =>
+        checkboxChanges.Add(args.Value ? "true" : "false");
+
+    private void RecordRadioChange(ValueChangeEventArgs<string> args) =>
+        radioChanges.Add(args.Value);
+
+    private RenderFragment<RenderProps<MenuTriggerState>> CountingTrigger => props =>
+    {
+        triggerRenders++;
+        return builder =>
+        {
+            builder.OpenElement(0, "button");
+            builder.AddMultipleAttributes(1, props.Attributes);
+            builder.AddContent(2, props.ChildContent);
+            builder.CloseElement();
+        };
+    };
+
+    private RenderFragment TriggerPart => triggerRender switch
+    {
+        "custom-id" => @<MenuTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" Render="@s_customIdButton" data-testid="trigger">Toggle</MenuTrigger>,
+        "count" => @<MenuTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" RenderFunction="@CountingTrigger" data-testid="trigger">Toggle</MenuTrigger>,
+        _ when twoTriggers => @<text>
+            <MenuTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" data-testid="trigger-1">Trigger 1</MenuTrigger>
+            <MenuTrigger TPayload="NoPayload" @ref="secondTrigger" Handle="@handle" data-testid="trigger-2">Trigger 2</MenuTrigger>
+        </text>,
+        _ => @<MenuTrigger TPayload="NoPayload" @ref="trigger" Handle="@handle" NativeButton="@(!triggerNonNative)" Render="@(triggerNonNative ? s_span : null)"
+                           Disabled="@triggerDisabled" OpenOnHover="@openOnHover" Delay="@delay" CloseDelay="@closeDelay" @attributes="triggerAttributes" data-testid="trigger">Toggle</MenuTrigger>,
+    };
+
+    private RenderFragment PopupContent => content switch
+    {
+        "items" => ItemsContent,
+        "grouped" => GroupedContent,
+        "non-string" => NonStringContent,
+        "typeahead-submenu" => TypeaheadSubmenuContent,
+        "item-submenu" => ItemSubmenuContent,
+        "keep-mounted-submenu" => KeepMountedSubmenuContent,
+        "lone-submenu" => LoneSubmenuContent,
+        "disabled-kinds" => DisabledKindsContent,
+        "highlight" => HighlightContent,
+        "reporting" => ReportingContent,
+        "dynamic" => DynamicContent,
+        "deferred" => DeferredContent,
+        "two-level" => TwoLevelContent,
+        "three-level" => ThreeLevelContent,
+        "more" => MoreContent,
+        "numbered" => NumberedContent,
+        "label" => LabelContent,
+        "disabled-submenu" => DisabledSubmenuContent,
+        "icon-submenu" => IconSubmenuContent,
+        "sr" => ScreenReaderContent,
+        "custom-button" => CustomButtonContent,
+        "custom-link" => CustomLinkContent,
+        "plain-list" => PlainListContent,
+        "list-three" => ListThreeContent,
+        "checkbox" => CheckboxContent,
+        "radio" => RadioContent,
+        "link" => LinkContent,
+        _ => DefaultContent,
+    };
+
+    private RenderFragment DefaultContent => @<text>
+        <MenuItem data-testid="item-1" @onclick="@(e => Click(e, "Item 1"))">Item 1</MenuItem>
+        <MenuItem data-testid="item-2" @onclick="@(e => Click(e, "Item 2"))">Item 2</MenuItem>
+        <MenuItem data-testid="item-3" Disabled="true" @onclick="@(e => Click(e, "Item 3"))">Item 3</MenuItem>
+        <MenuSubmenuRoot CloseParentOnEsc="@closeParentOnEsc" Orientation="@subOrientation" OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger" OpenOnHover="@subOpenOnHover" Delay="@subDelay" CloseDelay="@subCloseDelay">Item 4</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner data-testid="submenu-positioner">
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem data-testid="item-4_1" @onclick="@(e => Click(e, "Item 4.1"))">Item 4.1</MenuItem>
+                        <MenuItem data-testid="item-4_2" @onclick="@(e => Click(e, "Item 4.2"))">Item 4.2</MenuItem>
+                        <MenuSubmenuRoot CloseParentOnEsc="@closeParentOnEsc" Orientation="@subOrientation" OnOpenChange="RecordNestedChange">
+                            <MenuSubmenuTrigger data-testid="nested-submenu-trigger" OpenOnHover="@subOpenOnHover" Delay="@subDelay" CloseDelay="@subCloseDelay">Item 4.3</MenuSubmenuTrigger>
+                            <MenuPortal>
+                                <MenuPositioner>
+                                    <MenuPopup data-testid="nested-submenu">
+                                        <MenuItem data-testid="item-4_3_1">Item 4.3.1</MenuItem>
+                                        <MenuItem data-testid="item-4_3_2">Item 4.3.2</MenuItem>
+                                    </MenuPopup>
+                                </MenuPositioner>
+                            </MenuPortal>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+        <MenuItem data-testid="item-5" @onclick="@(e => Click(e, "Item 5"))">Item 5</MenuItem>
+    </text>;
+
+    private RenderFragment ItemsContent => @<text>
+        @foreach (string text in items)
+        {
+            string captured = text;
+            @if (nativeDisabledItems.Contains(text))
+            {
+                <MenuItem @key="text" data-testid="@($"item-{text}")" NativeButton="true" Render="@s_disabledButton">@text</MenuItem>
+            }
+            else
+            {
+                <MenuItem @key="text" data-testid="@($"item-{text}")" Label="@itemLabels.GetValueOrDefault(text)"
+                          style="@(hiddenItems.Contains(text) ? "display: none" : null)"
+                          @onclick="@(e => Click(e, captured))">@text</MenuItem>
+            }
+        }
+    </text>;
+
+    private RenderFragment GroupedContent => @<text>
+        <MenuGroup>
+            <MenuItem>Apple</MenuItem>
+            <MenuItem>Banana</MenuItem>
+        </MenuGroup>
+        <MenuGroup>
+            <MenuItem>Cherry</MenuItem>
+        </MenuGroup>
+    </text>;
+
+    private RenderFragment NonStringContent => @<text>
+        <MenuItem>Aa</MenuItem>
+        <MenuItem>Ba</MenuItem>
+        <MenuItem></MenuItem>
+        <MenuItem><div>Nested Content</div></MenuItem>
+        <MenuItem></MenuItem>
+        <MenuItem></MenuItem>
+        <MenuItem>Bc</MenuItem>
+    </text>;
+
+    private RenderFragment TypeaheadSubmenuContent => @<text>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger">Add to Playlist</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>Add now</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment ItemSubmenuContent => @<text>
+        <MenuItem>Item 1</MenuItem>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger">Item 2</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>Nested 2.1</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+        <MenuItem>Item 3</MenuItem>
+    </text>;
+
+    private RenderFragment KeepMountedSubmenuContent => @<text>
+        <MenuItem data-testid="item-1">Item 1</MenuItem>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="0">Item 2</MenuSubmenuTrigger>
+            <MenuPortal KeepMounted="true">
+                <MenuPositioner data-testid="submenu-positioner">
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>Item 2.1</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+        <MenuItem data-testid="item-3">Item 3</MenuItem>
+    </text>;
+
+    private RenderFragment LoneSubmenuContent => @<text>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger" OpenOnHover="@subOpenOnHover">Submenu</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu-popup">
+                        <MenuItem>Nested item</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment DisabledKindsContent => @<text>
+        <MenuItem data-testid="item">Item</MenuItem>
+        <MenuCheckboxItem data-testid="checkbox-item">Checkbox item</MenuCheckboxItem>
+        <MenuRadioGroup TValue="string">
+            <MenuRadioItem TValue="string" data-testid="radio-item" Value="@("radio")">Radio item</MenuRadioItem>
+        </MenuRadioGroup>
+    </text>;
+
+    private RenderFragment HighlightContent => @<text>
+        <MenuItem>One</MenuItem>
+        <MenuItem>Two</MenuItem>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger>Three</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuItem>Nested</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment ReportingContent => @<text>
+        @if (inserted)
+        {
+            <MenuItem>Archive</MenuItem>
+        }
+        <MenuItem>One</MenuItem>
+        <MenuItem>Two</MenuItem>
+    </text>;
+
+    private RenderFragment DynamicContent => @<text>
+        <MenuItem>Add to Library</MenuItem>
+        @if (!itemsFiltered)
+        {
+            <MenuItem>Add to Playlist</MenuItem>
+            <MenuItem>Play Next</MenuItem>
+            <MenuItem>Play Last</MenuItem>
+        }
+        <MenuItem>Favorite</MenuItem>
+        <MenuItem>Share</MenuItem>
+    </text>;
+
+    private RenderFragment TwoLevelContent => @<text>
+        <MenuItem>Standalone</MenuItem>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger" OpenOnHover="@subOpenOnHover">More</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem data-testid="submenu-item">Nested</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment ThreeLevelContent => @<text>
+        <MenuItem>Item 1</MenuItem>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger-1">Level 2</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="level-2">
+                        <MenuItem>Item 2</MenuItem>
+                        <MenuSubmenuRoot OnOpenChange="RecordNestedChange">
+                            <MenuSubmenuTrigger data-testid="submenu-trigger-2">Level 3</MenuSubmenuTrigger>
+                            <MenuPortal>
+                                <MenuPositioner>
+                                    <MenuPopup data-testid="level-3">
+                                        <MenuItem>Deep Item</MenuItem>
+                                    </MenuPopup>
+                                </MenuPositioner>
+                            </MenuPortal>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment MoreContent => @<text>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger" OpenOnHover="@subOpenOnHover" id="@subTriggerId">More</MenuSubmenuTrigger>
+            <MenuPortal Container="@submenuContainer">
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>Alpha</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+        @if (playNext)
+        {
+            <MenuItem>Play Next</MenuItem>
+        }
+    </text>;
+
+    private RenderFragment NumberedContent => @<text>
+        <MenuItem>1</MenuItem>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger">2</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>2.1</MenuItem>
+                        <MenuItem>2.2</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment LabelContent => @<text>
+        <MenuItem>Alpha</MenuItem>
+        <MenuSubmenuRoot>
+            <MenuSubmenuTrigger data-testid="submenu-trigger" Label="Reports">More</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuItem>Monthly</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment DisabledSubmenuContent => @<text>
+        <MenuItem>1</MenuItem>
+        <MenuSubmenuRoot>
+            <MenuSubmenuTrigger data-testid="submenu-trigger" Disabled="true" Delay="0">Open submenu</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu-popup">
+                        <MenuItem>2.1</MenuItem>
+                        <MenuItem>2.2</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment IconSubmenuContent => @<text>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuTrigger">
+            <MenuSubmenuTrigger data-testid="submenu-trigger">More <span data-testid="icon">▸</span></MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>Alpha</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment ScreenReaderContent => @<text>
+        <MenuSubmenuRoot OnOpenChange="RecordSubmenuChange">
+            <MenuSubmenuTrigger data-testid="submenu-trigger" OpenOnHover="@subOpenOnHover">More</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="submenu">
+                        <MenuItem>Alpha</MenuItem>
+                        <MenuItem>Beta</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment CustomButtonContent => @<text>
+        <button type="button">Custom</button>
+        <MenuItem>One</MenuItem>
+        <MenuItem>Two</MenuItem>
+        <MenuItem>Three</MenuItem>
+    </text>;
+
+    private RenderFragment CustomLinkContent => @<text>
+        <a href="#profile" @onclick:preventDefault="true">Profile</a>
+        <MenuItem>One</MenuItem>
+        <MenuItem>Two</MenuItem>
+        <MenuItem>Three</MenuItem>
+    </text>;
+
+    private RenderFragment PlainListContent => @<text>
+        <div>Header</div>
+        <MenuList data-testid="list">
+            <MenuItem data-testid="item-1">Rename</MenuItem>
+            <MenuItem data-testid="item-2">Delete</MenuItem>
+        </MenuList>
+    </text>;
+
+    private RenderFragment ListThreeContent => @<MenuList data-testid="list">
+        <MenuItem>Rename</MenuItem>
+        <MenuItem>Duplicate</MenuItem>
+        <MenuItem>Delete</MenuItem>
+    </MenuList>;
+
+    private RenderFragment CheckboxContent => @<text>
+        @foreach (string text in items)
+        {
+            <MenuCheckboxItem @key="text" OnCheckedChange="RecordCheckboxChange">@text</MenuCheckboxItem>
+        }
+    </text>;
+
+    private RenderFragment RadioContent => @<MenuRadioGroup TValue="string" DefaultValue="@("0")" OnValueChange="RecordRadioChange">
+        @foreach (string text in items)
+        {
+            <MenuRadioItem @key="text" TValue="string" Value="@text">@text</MenuRadioItem>
+        }
+    </MenuRadioGroup>;
+
+    private RenderFragment LinkContent => @<text>
+        @foreach (string text in items)
+        {
+            <MenuLinkItem @key="text" href="@($"{PagePath}#{text.Replace(' ', '-').ToLowerInvariant()}")">@text</MenuLinkItem>
+        }
+    </text>;
+
+    private RenderFragment DeferredContent => @<MenuDeferredContent>
+        <MenuItem>One</MenuItem>
+        <MenuItem>Two</MenuItem>
+    </MenuDeferredContent>;
+}

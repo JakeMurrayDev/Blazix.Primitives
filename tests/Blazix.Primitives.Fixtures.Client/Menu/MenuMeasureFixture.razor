@@ -1,0 +1,52 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-measure` fixture (tests/browser/menu-figures.spec.ts; ADR 14 Amendments 2026-11-03, issues 5, 28, 25): an open
+    menu with `count` items in the `form` of the query, "plain" or "substitute" (each item with a `Render` substitute). The
+    Rerender button renders the fixture, so every item renders; `data-tick` changes in the same batch.
+*@
+<FixtureContainer Name="menu-measure" data-attached="@(Attached ? "true" : "false")" data-tick="@tick">
+    <button type="button" data-testid="rerender" @onclick="() => tick++">Rerender</button>
+    <MenuRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" Modal="false">
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    @for (int i = 0; i < count; i++)
+                    {
+                        string label = string.Create(CultureInfo.InvariantCulture, $"Item {i}");
+                        @if (form == "substitute")
+                        {
+                            <MenuItem Render="Substitute">@label</MenuItem>
+                        }
+                        else
+                        {
+                            <MenuItem>@label</MenuItem>
+                        }
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment Substitute = @<div data-substitute="true"></div>;
+    private int tick;
+    private int count;
+    private string form = "plain";
+    private MenuRoot<NoPayload>? root;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        count = int.Parse(Query("count") ?? "100", CultureInfo.InvariantCulture);
+        form = Query("form") ?? "plain";
+        base.OnInitialized();
+    }
+}

@@ -221,6 +221,18 @@ Normative. Each row is a requirement whose stated timing Server cannot meet with
 - "C#-origin consumer vetoes" gains CMP-KEY-24 and EVT-08, the list handle's `leave` point (ADR 04 Amendments 2026-11-03 (3)): on Server a canceled Shift+Tab close still moves focus. Server: the focus moves to the trigger at 2–3 and the cancel reaches C# at 158; WebAssembly: the cancel lands inside the keydown, at 18–19, and the focus stays in the list. ("port: leave: a canceled Shift+Tab close keeps the focus on WebAssembly and still moves it on Server")
 - The list measurement fixture's messages and bytes per held key and per typeahead burst are ADR 14's (Amendments 2026-11-03, its line of 2026-11-04).
 
+**2026-11-04, Menu's IDs on the relaxation table (M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); the rows' substitutes unchanged).** menu.md §9 names each with its row:
+- "EVD-EVT-18, PSH-ANI-03" gains MNU-PTR-05, PTR-07 and PTR-09 to PTR-11 (the hover opens and closes, and the submenu's `sibling-open` close, requested by `interactions` at their timer).
+- "PSH-KEY-07" gains MNU-KEY-10.
+- "FLT-FOC-11" gains MNU-FOC-06 to FOC-08 and DIS-08.
+- "PSH-STA-23, …" gains MNU-DIS-13 (the close when the active trigger unmounts).
+- "RND-STA-01 for mirrored fields" gains MNU-DOM-13 and DOM-14 (the items' `Highlighted` mirror).
+- "EVD-STA-07, CMP-STA-10, FFI registration" gains MNU-EDGE-09.
+- The list handles' `navigate` point gains MNU-KEY-02; the `leave` point gains MNU-KEY-11.
+- "C#-origin consumer vetoes" (the press from the `mousedown`) gains MNU-PTR-01 and EVT-14.
+- The platform flags row's MNU-A11Y-01 was added by track 2.
+Menu's figures are the list rows' (track 1's test-only hosts run Menu's options), except the drag-release, which is pointer state in `interactions` and is met on both modes.
+
 **2026-11-10, Combobox's consumer vetoes (M5 track 10, [issue 174](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/174); ADR 04 Amendments 2026-11-10, the `combobox` twin's `navigate` and `press`, chosen by the user 2026-11-10; written by the implementing pull request, [PR 193](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/193)).** The "C#-origin consumer vetoes" row gains two lines, with its text unchanged.
 - *`navigate`:* CMB-KEY-04, CMB-KEY-05, CMB-KEY-06 and CMB-KEY-07, the Input's `onKeyDown` against its own keys. The verdict paths:
   - On WebAssembly the input's `combobox` handle asks `navigate` before its keys while C# holds the handler. C# runs the handler inside the dispatch, once per keydown: the event's type, key, modifiers and `timeStamp` key the verdict, which also answers the `composite` reference handle's `navigate` for the same keydown. A `PreventPartHandler()` stops both. Blazor's later dispatch of the key skips the handler.

@@ -1,0 +1,178 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-positioner` fixture (tests/browser/menu.spec.ts, M5 track 6): positionerConformanceTests with
+    `viewport: true` (MenuPositioner.test.tsx:633-648), the popover-positioner fixture's case contract.
+*@
+
+<FixtureContainer Name="menu-positioner" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case">
+    <button type="button" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @if (Case == "anchored")
+    {
+        <div style="position: fixed; top: 0; left: 0">
+            <MenuRoot TPayload="NoPayload" @ref="root" Open="true">
+                <MenuTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger"
+                                style="@($"width: 100px; height: 100px; position: relative; top: {top}px")">Trigger</MenuTrigger>
+                <MenuPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
+                    <MenuPositioner data-testid="positioner">
+                        <MenuPopup style="width: 100px; height: 100px">Popup</MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </div>
+        <button type="button" data-move data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => top = 100" @onkeydown="OnShift(() => top = 100)">Move</button>
+    }
+    else if (Case == "custom-anchor")
+    {
+        <MenuRoot TPayload="NoPayload" @ref="root" Open="true">
+            <MenuTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger" style="width: 100px; height: 100px">Trigger</MenuTrigger>
+            <div @ref="customAnchor" data-testid="custom-anchor" style="width: 50px; height: 50px; position: relative">Anchor</div>
+            <MenuPortal KeepMounted="true">
+                <MenuPositioner data-testid="positioner" Anchor="@anchor">
+                    <MenuPopup style="width: 100px; height: 100px">Popup</MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    }
+    else if (Case is "ancestor-scroll" or "anchor-hidden")
+    {
+        <div data-testid="scroller" style="height: 72px; overflow: auto">
+            <div style="height: 200px">
+                <MenuRoot TPayload="NoPayload" @ref="root" Open="true">
+                    <MenuTrigger TPayload="NoPayload" @ref="trigger" Render="@s_div" NativeButton="false" data-testid="trigger" style="width: 72px; height: 36px">Trigger</MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner data-testid="positioner" DisableAnchorTracking="@(Case == "ancestor-scroll")">
+                            <MenuPopup style="width: 52px; height: 24px">Popup</MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+            </div>
+        </div>
+    }
+    else if (Case == "collision-padding")
+    {
+        <MenuRoot TPayload="NoPayload" @ref="root" Open="@open">
+            <div style="position: fixed; bottom: 8px; left: 16px">
+                <MenuTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger" style="@AnchorSize">Trigger</MenuTrigger>
+            </div>
+            <MenuPortal Container="@s_host">
+                <MenuPositioner data-testid="positioner" Side="Side.Bottom" SideOffset="8" CollisionPadding="12" CollisionAvoidance="s_noFallback">
+                    <MenuPopup style="width: 200px; height: 1000px; max-height: var(--available-height); padding: 0; border: 0">Popup</MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        <button type="button" data-open-button data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Open</button>
+    }
+    else
+    {
+        <DirectionProvider Direction="@direction">
+            <MenuRoot TPayload="NoPayload" @ref="root" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload" @ref="trigger" id="trigger" data-testid="trigger" style="@("position: fixed; top: 0; left: 0; " + AnchorSize)">Trigger</MenuTrigger>
+                <MenuPortal Container="@s_host">
+                    <MenuPositioner @ref="positioner" data-testid="positioner" Side="@side" Align="@align" SideOffset="@sideOffset" AlignOffset="@alignOffset">
+                        <MenuPopup style="width: 52px; height: 24px; padding: 0; border: 0; box-sizing: border-box">
+                            @if (Case == "viewport" || (Case == "viewport-toggle" && viewport))
+                            {
+                                <MenuViewport>Popup</MenuViewport>
+                            }
+                            else
+                            {
+                                @("Popup")
+                            }
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </DirectionProvider>
+        @if (Case == "viewport-toggle")
+        {
+            <button type="button" data-viewport-toggle data-key-control style="position: fixed; right: 0; top: 0" @onclick="() => viewport = !viewport" @onkeydown="OnShift(() => viewport = !viewport)">Toggle Viewport</button>
+        }
+    }
+    @* The suite finds the positioner in the container: the portal moves it into this static host, so the positioner's
+       containing block is still the initial one. *@
+    <div id="menu-positioner-host"></div>
+</FixtureContainer>
+
+@code {
+    private static readonly CollisionAvoidance s_noFallback = new(FallbackAxisSide: FallbackAxisSide.None);
+    private static readonly RenderFragment s_div = @<div></div>;
+    private static readonly PortalContainerValue s_host = new("#menu-positioner-host");
+    private const string AnchorSize = "width: 72px; height: 36px; box-sizing: border-box; margin: 0; padding: 0; border: 0";
+
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private MenuPositioner? positioner;
+    private bool open;
+    private bool viewport;
+    private Side? side;
+    private Align? align;
+    private TextDirection direction = TextDirection.Ltr;
+    private OffsetValue? sideOffset;
+    private OffsetValue? alignOffset;
+    private int top;
+    private ElementReference customAnchor;
+    private AnchorValue? anchor;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        positioner?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        sideOffset = Case switch
+        {
+            "sideOffset-number" => 7,
+            "sideOffset-function" => new Offset(AnchorWidth: 1, PositionerWidth: 1),
+            _ => null,
+        };
+        alignOffset = Case switch
+        {
+            "alignOffset-number" => 7,
+            "alignOffset-function" => new Offset(PositionerWidth: 1),
+            _ => null,
+        };
+        if (Case.StartsWith("sideOffset-override-", StringComparison.Ordinal) || Case.StartsWith("alignOffset-override-", StringComparison.Ordinal))
+        {
+            bool sideCase = Case.StartsWith("sideOffset-", StringComparison.Ordinal);
+            int number = Case[^1] - '0';
+            OffsetOverride keyed = number switch
+            {
+                1 => new OffsetOverride(Primitives.Side.Right, null, Constant: 5),
+                2 => new OffsetOverride(null, Primitives.Align.End, Constant: 5),
+                3 => new OffsetOverride(Primitives.Side.InlineEnd, null, Constant: 5),
+                _ => new OffsetOverride(Primitives.Side.InlineStart, null, Constant: 5),
+            };
+            OffsetValue offset = new Offset { Overrides = [keyed] };
+            (side, align, direction) = number switch
+            {
+                1 => (Primitives.Side.Left, (Align?)null, TextDirection.Ltr),
+                2 => (Primitives.Side.Right, Primitives.Align.Start, TextDirection.Ltr),
+                3 => (Primitives.Side.InlineStart, null, TextDirection.Ltr),
+                _ => (Primitives.Side.InlineStart, null, TextDirection.Rtl),
+            };
+            sideOffset = sideCase ? offset : null;
+            alignOffset = sideCase ? null : offset;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // Base UI's anchor is a state ref, null on the first render and the element from the next one.
+        if (firstRender && Case == "custom-anchor")
+        {
+            anchor = customAnchor;
+            StateHasChanged();
+        }
+    }
+}

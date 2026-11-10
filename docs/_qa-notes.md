@@ -110,3 +110,10 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - ToggleGroup: `toggleMultiple` renamed `multiple` (v1.0.0-beta.4); Toolbar: no `cols` (removed v1.0.0-beta.5), no Home/End.
 - Form: `onClearErrors` removed in v1.0.0-alpha.9; not a prop in 1.9.0.
 - NumberField: no `role="spinbutton"`/`aria-value*`, no PageUp/PageDown, no Enter commit, no `pattern`, no cursor CSS variables.
+
+## 2026-11-04, menu.md fidelity corrections (M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172))
+
+- MNU-FOC-09: `finalFocus`'s function receives the close's interaction type (`'mouse' | 'touch' | 'pen' | 'keyboard' | ''`), as MNU-API-31 says, not a reason category (`FloatingFocusManager.tsx:50-66`).
+- MNU-STR-07: Portal and Backdrop read the Root's context and throw outside a Root (`menu/portal/MenuPortal.tsx:21`, `menu/backdrop/MenuBackdrop.tsx:23`); the bullet listed them as exempt.
+- MNU-FOC-10, MNU-DIS-09, MNU-ANI-02: their "MNU-DOM-11" references meant the internal backdrop (MNU-DOM-25) or the Backdrop (MNU-DOM-10).
+- §3.7 Viewport: `data-activation-direction`, `data-transitioning`, `[data-previous]` and its size variables are written by the `popup` module, not C# (dated Writer note in §3.7).

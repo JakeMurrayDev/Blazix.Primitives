@@ -1207,6 +1207,12 @@ export interface CompositeListOptions {
   parentOrientation?: Orientation | undefined;
   /** Whether an item is highlighted on open; absent for `'auto'` (a keyboard open only). */
   focusItemOnOpen?: boolean | undefined;
+  // SEL-STA-07.
+  /**
+   * Whether the highlight survives the close's reset, as Base UI's Select ignores that `onNavigate()` while closed;
+   * absent for `false`.
+   */
+  retainHighlightWhileClosing?: boolean | undefined;
   /** Whether a step past either end clears the highlight under virtual focus; absent for `false`. */
   allowEscape?: boolean | undefined;
   /** `false` to keep the closed list closed on an arrow key; absent for `true`. */
@@ -2263,6 +2269,9 @@ interface ListState {
   cancelQueuedFocus: (() => void) | null;
   readonly focusFrame: FrameSlot;
   readonly waitFrame: FrameSlot;
+  // CMP-ALG-24's dated note.
+  /** Stops the wait for a hidden list to show; `null` while none runs. */
+  stopWaitForShow: (() => void) | null;
   floating: ListFloating | null;
   references: Set<ListReference>;
   /** Every live handle of the list, the most recent last. */
@@ -2271,6 +2280,8 @@ interface ListState {
   appliedRevision: number;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
   reportedIndex: number | null | undefined;
+  /** The item element of the highlight last reported, as an index can come to point at another element. */
+  reportedElement: Element | null;
   /** The elements that carry the `aria-activedescendant` the module wrote under virtual focus. */
   readonly descendantTargets: Set<Element>;
   readonly typeahead: TypeaheadState;
@@ -2470,13 +2481,16 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
   });
 }
 
-// CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied.
+// CMP-EVT-04 as a report: once per change of the highlight, with the C# revision applied. MenuRoot.tsx:574-592: a change
+// is of the index or of the element at it, which a registry publication can move while the index stays (MNU-EVT-11); an
+// item removed in this commit stays registered until the publication that calls back here.
 function reportHighlight(state: ListState, handle: ListHandle, event: Event | undefined): void {
-  if (state.activeIndex === state.reportedIndex) {
+  const element = state.activeIndex != null ? (elementsOf(state)[state.activeIndex] ?? null) : null;
+  if ((state.activeIndex === state.reportedIndex && element === state.reportedElement) || element?.isConnected === false) {
     return;
   }
   state.reportedIndex = state.activeIndex;
-  const element = state.activeIndex != null ? elementsOf(state)[state.activeIndex] : null;
+  state.reportedElement = element;
   // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): the registry's label, resolved on every
   // rebuild (CMP-STA-06/07), sent only for a highlighted item that has one.
   const label = state.activeIndex != null ? state.floating?.registry.labels[state.activeIndex] : null;
@@ -2560,6 +2574,35 @@ function navigateTo(state: ListState, handle: ListHandle, event?: Event): void {
   commitHighlight(state, handle, state.index === -1 ? null : state.index, event);
 }
 
+// CMP-ALG-24's dated note (M5 track 6, MNU-FOC-03): a kept-mounted list's handle is attached before the open, and the
+// relay reaches it before the batch that shows the popup (ADR 01's commit path), where Base UI's effect runs after the
+// commit. While the session stays open, the wait ends with the batch that shows the list: C# renders the attributes that
+// hide it on the list or an ancestor (a closed Positioner's `hidden`), so an attribute change there is where visibility
+// can change. The observer runs in the microtask after the batch, before paint; a close or a later wait stops it.
+function waitForShow(state: ListState, handle: ListHandle, element: Element, then: () => void): void {
+  state.stopWaitForShow?.();
+  const observer = new MutationObserver(() => {
+    if (!isOpen(state, handle.session) || state.floating?.element !== element) {
+      stop();
+    } else if (isElementVisible(element)) {
+      stop();
+      then();
+    }
+  });
+  const stop = () => {
+    observer.disconnect();
+    if (state.stopWaitForShow === stop) {
+      state.stopWaitForShow = null;
+    }
+  };
+  for (let node: Node | null = element; node !== null; node = node.parentNode ?? (node instanceof ShadowRoot ? node.host : null)) {
+    if (node instanceof Element) {
+      observer.observe(node, { attributes: true });
+    }
+  }
+  state.stopWaitForShow = stop;
+}
+
 // useListNavigation.ts:407-477 for one value of `activeIndex`: the item focus while open, and the initial sync.
 function syncActiveIndex(state: ListState, handle: ListHandle, activeIndex: number | null): void {
   const list = handle.list();
@@ -2601,6 +2644,14 @@ function syncActiveIndex(state: ListState, handle: ListHandle, activeIndex: numb
           runs += 1;
           return;
         }
+        // The search below skips invisible items, so a hidden list waits for the batch that shows it (waitForShow).
+        if (!isOpen(state, handle.session)) {
+          return;
+        }
+        if (state.floating && !isElementVisible(state.floating.element)) {
+          waitForShow(state, handle, state.floating.element, waitForListPopulated);
+          return;
+        }
         const current = handle.list();
         const rtl = current.rtl === true;
         // `disabledIndices` is deliberately left out, so DOM-disabled items are skipped on open (mui/base-ui#2604).
@@ -2632,6 +2683,8 @@ function syncOpenAndMount(state: ListState, handle: ListHandle): void {
   if (!open) {
     state.key = null;
     delete handle.session.dataRef.current[LIST_OPEN_FOCUS_KEY];
+    // A close ends a wait to show (CMP-ALG-24's dated note), so the open it belonged to runs no search later.
+    state.stopWaitForShow?.();
   }
   const focusItemOnOpen = focusItemOnOpenOf(list);
   if (!open || focusItemOnOpen !== 'auto') {
@@ -2648,7 +2701,9 @@ function syncOpenAndMount(state: ListState, handle: ListHandle): void {
       }
     } else if (state.previousMounted) {
       state.index = -1;
-      navigateTo(state, handle);
+      if (list.retainHighlightWhileClosing !== true) {
+        navigateTo(state, handle);
+      }
     }
     // :407-477 with the highlight of the render that opened or mounted the list.
     syncActiveIndex(state, handle, renderedActiveIndex);
@@ -2687,11 +2742,13 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     cancelQueuedFocus: null,
     focusFrame: createFrameSlot(),
     waitFrame: createFrameSlot(),
+    stopWaitForShow: null,
     floating: null,
     references: new Set(),
     handles: new Set(),
     appliedRevision: 0,
     reportedIndex: null,
+    reportedElement: null,
     descendantTargets: new Set(),
     typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
     // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
@@ -3468,6 +3525,7 @@ function attachList(
         }
       }
       writeHighlight(state, handle);
+      reportHighlight(state, handle, undefined);
     });
   } else {
     referencePart = { element, isReference: options.reference != null };
@@ -3625,6 +3683,7 @@ function attachList(
         state.references.delete(referencePart);
       }
       if (registry && state.floating === floatingPart) {
+        state.stopWaitForShow?.();
         state.floating = null;
         // The unmount's effects (CMP-STA-33's reset, CMP-FOC-08), with the options of the handle that unmounted.
         syncOpenAndMount(state, handle);

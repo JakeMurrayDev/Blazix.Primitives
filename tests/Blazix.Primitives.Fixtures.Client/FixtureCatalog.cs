@@ -20,6 +20,7 @@ using Blazix.Primitives.Fixtures.Client.ListValuesFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.MenuFixtures;
 using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
@@ -189,6 +190,25 @@ public static class FixtureCatalog
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
         ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
+
+        // M5 track 6 (issue 172): Menu's fixtures.
+        ["menu-conformance"] = new(typeof(MenuConformanceFixture)),
+        ["menu-triggers"] = new(typeof(MenuTriggersFixture)),
+        ["menu-viewport"] = new(typeof(MenuViewportFixture)),
+        ["menu-focus"] = new(typeof(MenuFocusFixture)),
+        ["menu-positioner"] = new(typeof(MenuPositionerFixture)),
+        ["menu-list"] = new(typeof(MenuListFixture)),
+        ["menu-nested"] = new(typeof(MenuNestedFixture)),
+        ["menu-measure"] = new(typeof(MenuMeasureFixture)),
+        ["menu-root"] = new(typeof(MenuRootFixture)),
+        ["menu-dialog"] = new(typeof(MenuDialogFixture)),
+        ["menu-transition"] = new(typeof(MenuTransitionFixture)),
+        ["menu-triggerless"] = new(typeof(MenuTriggerlessFixture)),
+        ["menu-toolbar"] = new(typeof(MenuToolbarFixture)),
+        ["menu-perf"] = new(typeof(MenuPerfFixture)),
+        ["menu-guards"] = new(typeof(MenuGuardsFixture)),
+        ["menu-nesting"] = new(typeof(MenuNestingFixture)),
+        ["menu-anchor"] = new(typeof(MenuAnchorFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
         ["preview-card-conformance"] = new(typeof(PreviewCardConformanceFixture)),
