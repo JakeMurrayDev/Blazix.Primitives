@@ -62,6 +62,7 @@ public sealed class ComboboxTwinContractTests
             SubmitFormElement = 0,
             DecidesKeyDown = true,
             DecidesPress = true,
+            FocusOnAttach = true,
         });
         await attached.DisposeAsync();
         await attached.DisposeAsync();
@@ -69,12 +70,12 @@ public sealed class ComboboxTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
         Assert.Equal(
-            """{"part":"input","insidePopup":false,"inline":false,"disabled":false,"readOnly":false,"multiple":false,"hasValue":false,"virtualized":false,"valueRevision":0,"open":false,"mounted":false,"rtl":false,"touchOpened":false,"decidesKeyDown":false,"decidesPress":false}""",
+            """{"part":"input","insidePopup":false,"inline":false,"disabled":false,"readOnly":false,"multiple":false,"hasValue":false,"virtualized":false,"valueRevision":0,"open":false,"mounted":false,"rtl":false,"touchOpened":false,"decidesKeyDown":false,"decidesPress":false,"focusOnAttach":false}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<ComboboxTwin>>(attach.Arguments[2]);
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"part":"input","insidePopup":true,"inline":true,"disabled":true,"readOnly":true,"multiple":true,"hasValue":true,"virtualized":true,"chipsId":"c","listId":"l","popupId":"p","value":"v","valueRevision":3,"open":true,"mounted":true,"rtl":true,"inputId":"i","touchOpened":true,"chipIds":["a","b"],"index":2,"dismissId":"d","submitRevision":4,"submitFormElement":0,"decidesKeyDown":true,"decidesPress":true}""",
+            """{"part":"input","insidePopup":true,"inline":true,"disabled":true,"readOnly":true,"multiple":true,"hasValue":true,"virtualized":true,"chipsId":"c","listId":"l","popupId":"p","value":"v","valueRevision":3,"open":true,"mounted":true,"rtl":true,"inputId":"i","touchOpened":true,"chipIds":["a","b"],"index":2,"dismissId":"d","submitRevision":4,"submitFormElement":0,"decidesKeyDown":true,"decidesPress":true,"focusOnAttach":true}""",
             update.Arguments[0]);
         Assert.Single(handle.Invocations["dispose"]);
     }
