@@ -7,10 +7,10 @@ using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
-// SEL-STA-25 (select/scroll-arrow/SelectScrollArrow.tsx:40, 73-78, 153-170): Base UI's one `SelectScrollArrow.State`, shared
-// by both parts (ADR 08 §3's companion table gains it by a dated line). Visible and TransitionStatus are JavaScript's from
-// attach (the `select` module writes `data-visible`, the `transitions` module the phase): mirrored. Side is C#'s, from the
-// Positioner's (SEL-STA-25: `none` while aligned, §16 Q13).
+// SEL-STA-25 (select/scroll-arrow/SelectScrollArrow.tsx:40, 73-78, 153-170): Base UI's one `SelectScrollArrow.State`,
+// shared by both parts (the exception to ADR 08 §3's part-name rule, recorded in its note of 2026-11-10). Visible and
+// TransitionStatus are JavaScript's from attach (the `select` module writes `data-visible`, the `transitions` module
+// the phase): mirrored. Side is C#'s, from the Positioner's (SEL-STA-25: `none` while aligned, §16 Q13).
 /// <summary>Represents the state of a select scroll arrow, which the part exposes as data attributes and passes to its class and style functions.</summary>
 /// <param name="Direction">The direction the arrow scrolls the list in, <c>up</c> or <c>down</c>; projected as <c>data-direction</c>.</param>
 /// <param name="Visible">A value indicating whether the list can scroll in the arrow's direction; its <c>data-visible</c> is written by the browser-side behavior.</param>
