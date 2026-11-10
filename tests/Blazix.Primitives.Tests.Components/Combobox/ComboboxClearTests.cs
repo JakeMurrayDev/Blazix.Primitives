@@ -157,6 +157,38 @@ public sealed class ComboboxClearTests : IDisposable
         Assert.True(clear.HasAttribute("data-starting-style"));
     }
 
+    // ComboboxRoot.test.tsx "reports no keyboard reason when the clear button clears the highlight" reads the same at L4; here
+    // the store's order: the click's own clear is the one reported, not the cleared text's post-commit reset.
+    [Fact(DisplayName = "port: the clear button's highlight clear is reported with its click")]
+    [Trait("Requirement", "CMB-API-37")]
+    [Trait("Requirement", "CMB-EVT-05")]
+    public async Task The_clear_buttons_highlight_clear_is_reported_with_its_click()
+    {
+        List<ComboboxItemHighlightedEventArgs<string>> highlights = [];
+        IRenderedComponent<ComboboxTypedHarness<string>> cut = test.Context.Render<ComboboxTypedHarness<string>>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?>
+            {
+                ["Items"] = (IReadOnlyList<string>)s_fruits,
+                ["DefaultOpen"] = true,
+                ["OnItemHighlighted"] = EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, highlights.Add),
+            })
+            .Add(x => x.Extra, (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<ComboboxClear>(0);
+                builder.AddAttribute(1, "data-testid", "clear");
+                builder.AddAttribute(2, nameof(ComboboxClear.KeepMounted), true);
+                builder.CloseComponent();
+            })));
+        await cut.TypeAsync(test, "ap");
+        await cut.HighlightAsync(test, 0, "apple");
+        highlights.Clear();
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=clear]").Click(new Microsoft.AspNetCore.Components.Web.MouseEventArgs { Type = "click" }));
+
+        ComboboxItemHighlightedEventArgs<string> cleared = Assert.Single(highlights);
+        Assert.Equal((-1, EventReason.None, "click"), (cleared.Details.Index, cleared.Details.Reason, cleared.Details.Event?.Type));
+    }
+
     private List<string> SessionOptions()
     {
         List<string> options = [];
