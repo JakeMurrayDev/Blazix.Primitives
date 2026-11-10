@@ -42,6 +42,11 @@ export interface PopupListConformanceConfig {
   listEnd: 'wrap' | 'stop' | 'escape';
   /** Titles listed open, each with its row and the track or milestone that proves it. */
   open?: Readonly<Record<string, string>>;
+  /**
+   * Titles quarantined for this configuration only (ADR 11 §4), each with its issue's URL: `test.fixme` with the
+   * `@quarantine` tag and the issue annotation, so the nightly counts them.
+   */
+  quarantined?: Readonly<Record<string, string>>;
 }
 
 interface RenderListOptions {
@@ -74,6 +79,7 @@ export function popupListConformanceTests(config: PopupListConformanceConfig): v
     triggerClickCloses = true,
     listEnd,
     open: listedOpen = {},
+    quarantined = {},
   } = config;
 
   async function renderList(page: Page, mode: RenderMode, options: RenderListOptions = {}): Promise<Rendered> {
@@ -259,8 +265,16 @@ export function popupListConformanceTests(config: PopupListConformanceConfig): v
     await expect(rendered.fixture).toHaveAttribute('data-value-changes', '');
   }
 
-  /** Declares a title; one listed open is skipped with its reason. */
+  /** Declares a title; one listed open is skipped with its reason, and one quarantined is a `test.fixme`. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
+    const issue = quarantined[title];
+    if (issue) {
+      test.fixme(title, { tag: '@quarantine', annotation: { type: 'issue', description: issue } }, async ({ page, mode }) => {
+        await body({ page, mode });
+      });
+      return;
+    }
+
     test(title, async ({ page, mode }) => {
       test.skip(title in listedOpen, listedOpen[title]);
       await body({ page, mode });
