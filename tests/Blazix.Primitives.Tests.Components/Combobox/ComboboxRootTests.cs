@@ -189,6 +189,16 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Equal("Blazix: `ComboboxRootContext` is missing. Combobox parts must be placed within `<ComboboxRoot>`.", error.Message);
     }
 
+    [Fact(DisplayName = "port: the item of a default value renders selected on the first render")]
+    [Trait("Requirement", "CMB-ARIA-09")]
+    public void The_item_of_a_default_value_renders_selected_on_the_first_render()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true, ["DefaultValue"] = "banana" }, staticItems: s_fruits);
+
+        Assert.Equal("true", cut.Find("[data-testid=item-banana]").GetAttribute("aria-selected"));
+        Assert.Equal("false", cut.Find("[data-testid=item-apple]").GetAttribute("aria-selected"));
+    }
+
     private IRenderedComponent<ComboboxHarness> Render(Dictionary<string, object?> parameters, IReadOnlyList<string>? staticItems = null) =>
         test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, parameters).Add(x => x.StaticItems, staticItems));
 }
