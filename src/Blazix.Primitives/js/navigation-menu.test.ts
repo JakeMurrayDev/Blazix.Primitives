@@ -502,6 +502,17 @@ describe('the Popup anchoring side', () => {
     await settle();
     expect(rendered.popup!.style.position).toBe('');
   });
+
+  it('pins the popup when the positioner attaches after it, before the next frame', async () => {
+    const rendered = renderMenu({ popupHandles: false });
+    rendered.positioner!.setAttribute('data-side', 'left');
+    const part = (name: string) => JSON.stringify({ part: name, rootRef: 0 });
+    handles.push(attach(rendered.popup!, part('popup'), rendered.dotnet, [rendered.root]));
+    handles.push(attach(rendered.positioner!, part('positioner'), rendered.dotnet, [rendered.root]));
+    await flushMicrotasks();
+    const style = rendered.popup!.style;
+    expect([style.position, style.top, style.right]).toEqual(['absolute', '0px', '0px']);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------------------
