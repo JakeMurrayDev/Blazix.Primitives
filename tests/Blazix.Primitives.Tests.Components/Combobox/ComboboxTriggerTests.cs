@@ -231,6 +231,32 @@ public sealed class ComboboxTriggerTests : IDisposable
         Assert.Equal(EventReason.CancelOpen, reason);
     }
 
+    [Fact(DisplayName = "port: a trigger rendered before an outside input gives up the root's id and the combobox role")]
+    [Trait("Requirement", "CMB-API-45")]
+    [Trait("Requirement", "CMB-ARIA-07")]
+    public void A_trigger_before_an_outside_input_gives_up_the_roots_id()
+    {
+        RenderFragment extra = builder =>
+        {
+            builder.OpenComponent<ComboboxTrigger>(0);
+            builder.AddComponentParameter(1, "data-testid", "trigger");
+            builder.CloseComponent();
+            builder.OpenComponent<ComboboxInput>(2);
+            builder.AddComponentParameter(3, "data-testid", "input");
+            builder.CloseComponent();
+        };
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["Id"] = "fruit" })
+            .Add(x => x.WithInput, false)
+            .Add(x => x.Extra, extra));
+
+        Assert.Equal("fruit", cut.Find("[data-testid=input]").Id);
+        Assert.NotEqual("fruit", Trigger(cut).Id);
+        Assert.False(Trigger(cut).HasAttribute("role"));
+        Assert.Equal("-1", Trigger(cut).GetAttribute("tabindex"));
+    }
+
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");
 
     private string TriggerOptions(string id) =>
