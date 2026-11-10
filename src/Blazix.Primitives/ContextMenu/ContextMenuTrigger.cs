@@ -99,6 +99,9 @@ public sealed class ContextMenuTrigger : PartBase<ContextMenuTriggerState>
     /// <summary>Gets a task that completes once the trigger's handle has attached.</summary>
     internal Task TwinAttached => attachedSource.Task;
 
+    /// <summary>Gets the trigger's twin, which tests drive as the module would.</summary>
+    internal ContextMenuTwin ModuleTwin => twin!;
+
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">The trigger is not inside a <see cref="ContextMenuRoot"/>.</exception>
     protected override void OnInitialized()
