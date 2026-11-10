@@ -23,6 +23,7 @@ namespace Blazix.Primitives;
 /// <param name="PopupId">The id the popup renders, or <see langword="null"/> while none is registered.</param>
 /// <param name="ViewportId">The id the viewport renders, or <see langword="null"/> while none is registered.</param>
 /// <param name="HasPositioner">Whether a positioner is registered.</param>
+/// <param name="PositionerMounted">Whether a positioner is rendered, from the render that mounts it.</param>
 /// <param name="HasViewportTarget">Whether a viewport target, the element the contents move into, is registered.</param>
 /// <param name="CloseReason">The reason of the latest close request, or <see langword="null"/>.</param>
 /// <param name="Answered">The number of the module's focus-out reports answered.</param>
@@ -35,6 +36,7 @@ internal sealed partial record NavigationMenuStoreState(
     string? PopupId,
     string? ViewportId,
     bool HasPositioner,
+    bool PositionerMounted,
     bool HasViewportTarget,
     EventReason? CloseReason,
     int Answered)
@@ -63,6 +65,7 @@ internal sealed partial record NavigationMenuStoreState(
         PopupId: null,
         ViewportId: null,
         HasPositioner: false,
+        PositionerMounted: false,
         HasViewportTarget: false,
         CloseReason: null,
         Answered: 0);
@@ -100,6 +103,8 @@ internal static class NavigationMenuSelectors
     public static readonly Func<NavigationMenuStoreState, string?> ViewportId = static state => state.ViewportId;
 
     public static readonly Func<NavigationMenuStoreState, bool> HasPositioner = static state => state.HasPositioner;
+
+    public static readonly Func<NavigationMenuStoreState, bool> PositionerMounted = static state => state.PositionerMounted;
 
     public static readonly Func<NavigationMenuStoreState, bool> HasViewportTarget = static state => state.HasViewportTarget;
 
@@ -185,6 +190,16 @@ internal sealed class NavigationMenuStore : PopupLifecycleStore<NavigationMenuSt
         if (State.HasPositioner != registered)
         {
             Write(State with { HasPositioner = registered });
+        }
+    }
+
+    /// <summary>Writes whether a positioner is rendered.</summary>
+    /// <param name="mounted">The new value.</param>
+    public void SetPositionerMounted(bool mounted)
+    {
+        if (State.PositionerMounted != mounted)
+        {
+            Write(State with { PositionerMounted = mounted });
         }
     }
 

@@ -258,6 +258,8 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        // G4b: the Trigger's click role reads the mount from this render, before the registration of the after-render below.
+        root!.Store.SetPositionerMounted(Enabled);
         positioner!.SetDirectionContext(DirectionContext);
         positioner.SetPortalContext(Portal);
         floating!.PortalContext = Portal;
@@ -304,6 +306,7 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
             }
 
             root?.Store.SetPositioner(false);
+            root?.Store.SetPositionerMounted(false);
         }
 
         base.Dispose(disposing);
