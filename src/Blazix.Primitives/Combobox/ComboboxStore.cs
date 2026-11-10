@@ -277,6 +277,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool hadInputClear;
 
+    private bool handlingInputChange;
+
+    private TValue? observedValue;
+
+    private bool observedPresent;
+
+    private bool highlightDeferred;
+
     private (bool Emitted, TValue? Value, int Index) lastHighlight;
 
     private string syncedLabel = string.Empty;
@@ -490,51 +498,30 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <inheritdoc />
     public override async Task HandleInputChangeAsync(string text, bool typed, bool composing, EventSnapshot @event)
     {
-        // ComboboxInput.tsx:240-317 (onChange; the composition branch keeps the text uncommitted).
-        bool autoHighlight = inputs.AutoHighlight != ComboboxAutoHighlightMode.Off;
-        if (composing)
+        // Base UI's post-commit effects run after the whole handler, its highlight clear included (ComboboxInput.tsx:311-316):
+        // the selection's label sync (AriaCombobox.tsx:1295-1308), then the highlight (:1089-1235). A commit here renders
+        // synchronously, so the highlight waits for the handler, and the sync runs before it returns, not at a later
+        // keystroke's boundary.
+        handlingInputChange = true;
+        try
         {
-            if (text.Length == 0 && !inputs.OpenOnInputClick && !State.InputInsidePopup)
-            {
-                await RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.InputClear, @event));
-            }
-
-            string trimmedComposing = text.Trim();
-            await MaybeOpenOnInputAsync(trimmedComposing, opens: true, autoHighlight, @event);
-            if (IsOpen && State.ActiveIndex is not null && !(autoHighlight && trimmedComposing.Length != 0))
-            {
-                await ClearHighlightAsync(@event);
-            }
-
-            return;
+            await HandleInputChangeCoreAsync(text, typed, composing, @event);
+        }
+        finally
+        {
+            handlingInputChange = false;
         }
 
-        ChangeEventDetails changeDetails = CreateDetails(EventReason.InputChange, @event);
-        await SetInputValueAsync(text, changeDetails, typed);
-        if (changeDetails.IsCanceled)
+        if (labelSyncPending)
         {
-            return;
+            labelSyncPending = false;
+            await SyncInputToSelectedLabelAsync();
         }
 
-        bool empty = text.Length == 0;
-        if (empty && !State.InputInsidePopup)
+        if (highlightDeferred)
         {
-            ChangeEventDetails clearDetails = CreateDetails(EventReason.InputClear, @event);
-            if (Single)
-            {
-                await SetSelectedValueAsync(default!, clearDetails, present: false);
-            }
-
-            if (!inputs.OpenOnInputClick)
-            {
-                await RequestOpenAsync(false, ToOpenDetails(clearDetails));
-            }
-        }
-
-        await MaybeOpenOnInputAsync(text.Trim(), typed, autoHighlight, @event);
-        if (IsOpen && State.ActiveIndex is not null && !autoHighlight)
-        {
-            await ClearHighlightAsync(@event);
+            highlightDeferred = false;
+            await ResolvePendingHighlightAsync();
         }
     }
 
@@ -793,6 +780,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         if (firstSet && next.Inline && OpenState.Value && hasItems && next.SelectionMode != ComboboxSelectionMode.None)
         {
             Write(State with { SelectedIndex = FindSelectedIndex() });
+        }
+
+        // AriaCombobox.tsx:1295-1308 (handleSelectedValueChanged): a controlled value the consumer changed outside a commit
+        // resyncs the input to its label, whether or not the query changed since the open.
+        if (ObserveSelectedValue() && !firstSet && Single && !HasInputValueParameter && !State.InputInsidePopup)
+        {
+            labelSynced = false;
+            labelSyncPending = true;
         }
 
         // CMB-STA-20 (AriaCombobox.tsx:1280-1331): a selection or label change resyncs the input's derived label.
@@ -1263,7 +1258,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             singlePresent = present && (!ValueNull.IsNull(value) || !s_nullable);
         }
 
-        OnSelectionCommitted();
+        // A controlled value the consumer has not taken yet leaves the selection as it was: its label sync waits for the
+        // consumer's change (useValueChanged(selectedValue) runs on a change only).
+        OnSelectionCommitted(ObserveSelectedValue());
 
         bool fillInput = (State.SelectionMode == ComboboxSelectionMode.None && inputs.FillInputOnItemPress) || (Single && !State.InputInsidePopup);
         if (fillInput)
@@ -1286,14 +1283,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         return true;
     }
 
-    private void OnSelectionCommitted()
+    private void OnSelectionCommitted(bool valueChanged = true)
     {
         Write(State with { HasSelectedValue = ComputeHasSelectedValue(State.SelectionMode), SelectionRevision = State.SelectionRevision + 1 });
         SelectionCommitted?.Invoke();
 
         // CMB-STA-20: in single mode with the input outside the popup and no input value given, the input follows the label,
         // after the commit (Base UI's useValueChanged, a layout effect: after the selection's own fill).
-        if (Single && !HasInputValueParameter && !State.InputInsidePopup)
+        if (valueChanged && Single && !HasInputValueParameter && !State.InputInsidePopup)
         {
             labelSynced = false;
             labelSyncPending = true;
@@ -1429,8 +1426,64 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         return values;
     }
 
+    private async Task HandleInputChangeCoreAsync(string text, bool typed, bool composing, EventSnapshot @event)
+    {
+        // ComboboxInput.tsx:240-317 (onChange; the composition branch keeps the text uncommitted).
+        bool autoHighlight = inputs.AutoHighlight != ComboboxAutoHighlightMode.Off;
+        if (composing)
+        {
+            if (text.Length == 0 && !inputs.OpenOnInputClick && !State.InputInsidePopup)
+            {
+                await RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.InputClear, @event));
+            }
+
+            string trimmedComposing = text.Trim();
+            await MaybeOpenOnInputAsync(trimmedComposing, opens: true, autoHighlight, @event);
+            if (IsOpen && State.ActiveIndex is not null && !(autoHighlight && trimmedComposing.Length != 0))
+            {
+                await ClearHighlightAsync(@event);
+            }
+
+            return;
+        }
+
+        ChangeEventDetails changeDetails = CreateDetails(EventReason.InputChange, @event);
+        await SetInputValueAsync(text, changeDetails, typed);
+        if (changeDetails.IsCanceled)
+        {
+            return;
+        }
+
+        bool empty = text.Length == 0;
+        if (empty && !State.InputInsidePopup)
+        {
+            ChangeEventDetails clearDetails = CreateDetails(EventReason.InputClear, @event);
+            if (Single)
+            {
+                await SetSelectedValueAsync(default!, clearDetails, present: false);
+            }
+
+            if (!inputs.OpenOnInputClick)
+            {
+                await RequestOpenAsync(false, ToOpenDetails(clearDetails));
+            }
+        }
+
+        await MaybeOpenOnInputAsync(text.Trim(), typed, autoHighlight, @event);
+        if (IsOpen && State.ActiveIndex is not null && !autoHighlight)
+        {
+            await ClearHighlightAsync(@event);
+        }
+    }
+
     private async Task ResolvePendingHighlightAsync()
     {
+        if (handlingInputChange)
+        {
+            highlightDeferred = true;
+            return;
+        }
+
         // AriaCombobox.tsx:1089-1235, the post-commit highlight: the typed query's first item, the clear's restore, and the
         // reconciliation of an index the filtered list no longer holds. The microtask of :1138 maps to this boundary (ADR 01
         // decision 3: no C# microtasks; its purpose is "after every write of this commit"). Base UI's effect runs when its
@@ -1584,6 +1637,20 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             listBehavior.SelectedIndex = index;
         }
+    }
+
+    // useValueChanged(selectedValue): whether the single selection moved since it was last observed, which records it.
+    private bool ObserveSelectedValue()
+    {
+        TValue? value = singlePresent ? valueState.Value : default;
+        if (observedPresent == singlePresent && Equality.Is(observedValue, value))
+        {
+            return false;
+        }
+
+        observedPresent = singlePresent;
+        observedValue = value;
+        return true;
     }
 
     private async Task ObserveAsync(Task task)
