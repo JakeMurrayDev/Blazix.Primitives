@@ -1401,12 +1401,9 @@ test.describe('<Tooltip.Root /> a retained close', () => {
 });
 
 test.describe('<Tooltip.Viewport />', () => {
-  // Quarantined (ADR 11 §4) until 2026-11-24, issue 207: the poll for the far-edge `right` anchoring can sample after the
-  // transition has ended (a poll over a short-lived state).
-  test.fixme('anchors the positioner from the far edge while it transitions', {
-    tag: '@quarantine',
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/207' },
-  }, async ({ page, mode }) => {
+  // Issue 207: the far-edge anchoring holds while the Positioner has a transition, so the poll below waits on an end state.
+  // It was missed on Server when the end of the starting phase landed after the last pass; the port title below pins that.
+  test('anchors the positioner from the far edge while it transitions', async ({ page, mode }) => {
     await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'far-edge' });
 
     await page.getByRole('button', { name: 'Trigger', exact: true }).focus();
