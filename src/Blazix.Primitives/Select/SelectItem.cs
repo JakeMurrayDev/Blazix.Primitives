@@ -39,6 +39,7 @@ internal sealed class SelectItemContext
 {
     private readonly List<Action> listeners = [];
     private readonly Action<string?> textChanged;
+    private bool notifyPending;
 
     /// <summary>Initializes a new instance of the <see cref="SelectItemContext"/> class.</summary>
     /// <param name="textChanged">Called with the id of the item's text element when it changes.</param>
@@ -73,7 +74,7 @@ internal sealed class SelectItemContext
     /// <param name="textId">The text element's id, or <see langword="null"/> when it goes away.</param>
     public void SetText(string? textId) => textChanged(textId);
 
-    /// <summary>Records whether the item's value is selected and tells the listeners when it changed.</summary>
+    /// <summary>Records whether the item's value is selected; the listeners run at the next <see cref="Publish"/>.</summary>
     /// <param name="selected">Whether the item's value is selected.</param>
     public void SetSelected(bool selected)
     {
@@ -83,6 +84,18 @@ internal sealed class SelectItemContext
         }
 
         Selected = selected;
+        notifyPending = true;
+    }
+
+    /// <summary>Runs the listeners once after <see cref="Selected"/> changed.</summary>
+    public void Publish()
+    {
+        if (!notifyPending)
+        {
+            return;
+        }
+
+        notifyPending = false;
         for (int i = 0; i < listeners.Count; i++)
         {
             listeners[i]();
@@ -112,6 +125,7 @@ public sealed class SelectItem<TValue> : PartBase<SelectItemState>
     private readonly EventCallback onKeyUp;
     private readonly SelectItemContext itemContext;
     private readonly RenderFragment cascadedContent;
+    private readonly RenderFragment publishedContent;
     private readonly Action highlightChanged;
     private SelectStore<TValue>? store;
     private ButtonBehavior? button;
@@ -135,6 +149,14 @@ public sealed class SelectItem<TValue> : PartBase<SelectItemState>
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => button!.HandleKeyUpAsync(e));
         itemContext = new SelectItemContext(OnTextChanged);
         cascadedContent = RenderCascade;
+
+        // RND §10's indicator claim: the listeners run from inside the cascade's child content, after the item's diff
+        // queued the cascade, so an indicator's listener render and its parameter render coalesce into one.
+        publishedContent = builder =>
+        {
+            itemContext.Publish();
+            consumerContent?.Invoke(builder);
+        };
         highlightChanged = OnHighlightChanged;
     }
 
@@ -393,7 +415,7 @@ public sealed class SelectItem<TValue> : PartBase<SelectItemState>
         builder.OpenComponent<CascadingValue<SelectItemContext>>(0);
         builder.AddComponentParameter(1, nameof(CascadingValue<SelectItemContext>.Value), itemContext);
         builder.AddComponentParameter(2, nameof(CascadingValue<SelectItemContext>.IsFixed), true);
-        builder.AddComponentParameter(3, nameof(CascadingValue<SelectItemContext>.ChildContent), consumerContent);
+        builder.AddComponentParameter(3, nameof(CascadingValue<SelectItemContext>.ChildContent), publishedContent);
         builder.CloseComponent();
     }
 }
