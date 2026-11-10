@@ -128,9 +128,7 @@ internal sealed class ComboboxBackdropBehavior : IAsyncDisposable
 
     private TransitionsTwin? transitions;
 
-    private TwinHandle<TransitionsOptions>? handle;
-
-    private TransitionsOptions? sent;
+    private readonly ComboboxHandleSync<TransitionsTwin, TransitionsOptions> sync = new();
 
     private TransitionStatus? mirrored;
 
@@ -186,9 +184,9 @@ internal sealed class ComboboxBackdropBehavior : IAsyncDisposable
         attributes.Set("style", "user-select: none; -webkit-user-select: none");
     }
 
-    /// <summary>Attaches the transitions handle.</summary>
+    /// <summary>Attaches the transitions sync.Handle.</summary>
     /// <param name="element">The backdrop's element.</param>
-    /// <returns>A task that completes when the handle has its options.</returns>
+    /// <returns>A task that completes when the sync.Handle has its options.</returns>
     public async Task AfterRenderAsync(ElementReference? element)
     {
         if (disposed || element is not { } target)
@@ -207,16 +205,9 @@ internal sealed class ComboboxBackdropBehavior : IAsyncDisposable
                 mirrored = change.Status;
                 services.RequestRender();
             };
-            sent = options;
-            handle = await transitions.AttachAsync(target, options);
-            return;
         }
 
-        if (handle is not null && options != sent)
-        {
-            sent = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(transitions, target, options);
     }
 }
 

@@ -42,6 +42,9 @@ public sealed class ComboboxChips : PartBase<EmptyState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    /// <summary>Gets a task that completes once the chips' handles have attached.</summary>
+    internal Task TwinAttached => behavior?.TwinAttached ?? Task.CompletedTask;
+
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {

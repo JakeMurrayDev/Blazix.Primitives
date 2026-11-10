@@ -33,9 +33,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
-
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private TransitionsTwin? transitions;
 
@@ -99,7 +97,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
     /// <summary>Gets a value indicating whether the clear button is disabled, by the part, the root or the field.</summary>
     public bool Disabled => disabledParameter || Store.State.Disabled || (fieldScope?.Disabled ?? false);
 
-    /// <summary>Gets a task that completes once the transitions handle has attached.</summary>
+    /// <summary>Gets a task that completes once the transitions sync.Handle has attached.</summary>
     public Task TwinAttached => attached.Task;
 
     /// <inheritdoc />
@@ -219,7 +217,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
             return;
         }
 
-        // ComboboxClear.tsx:86-112: the text and the value with one details object, then the highlight. The module's handle
+        // ComboboxClear.tsx:86-112: the text and the value with one details object, then the highlight. The module's sync.Handle
         // moves the focus to the input on the click.
         EventSnapshot snapshot = EventSnapshot.FromEventArgs(args);
         await root.ClearAsync(EventReason.ClearPress, snapshot, shareDetails: false);
@@ -236,7 +234,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
     /// <returns>A task that completes when the handler has run.</returns>
     public Task HandleKeyUpAsync(KeyboardEventArgs args) => button.HandleKeyUpAsync(args);
 
-    /// <summary>Attaches the button, the press default and the transitions handle, and sends their changed options.</summary>
+    /// <summary>Attaches the button, the press default and the transitions sync.Handle, and sends their changed options.</summary>
     /// <param name="rendered">The clear button's element, or <see langword="null"/> while it does not render.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
     public async Task AfterRenderAsync(ElementReference? rendered)
@@ -280,18 +278,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
             ReadOnly = Store.State.ReadOnly,
             InputId = Store.State.ElementIds.Input,
         };
-        if (handle is null)
-        {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
-        }
-
-        if (options != sentOptions)
-        {
-            sentOptions = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(twin, target, options);
     }
 
     private async Task SyncTransitionsAsync(ElementReference target)
@@ -337,16 +324,15 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
             await released.DisposeAsync();
         }
 
-        if (handle is { } pressDefault)
+        if (sync.Handle is { } pressDefault)
         {
-            handle = null;
-            sentOptions = null;
+            sync.Reset();
             await pressDefault.DisposeAsync();
         }
     }
 
     // The C# half of the transition machine for this render (TransitionStatusRules): an element created visible starts in
-    // 'starting'; an element with no transitions handle to animate it leaves at once.
+    // 'starting'; an element with no transitions sync.Handle to animate it leaves at once.
     private void ApplyVisibility()
     {
         bool creating = visible && !mounted && (!keepMounted || transitionsHandle is null);

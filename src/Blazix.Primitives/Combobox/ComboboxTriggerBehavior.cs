@@ -32,9 +32,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
-
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private string? id;
 
@@ -320,18 +318,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             ListId = state.ElementIds.List,
             PopupId = state.ElementIds.Popup,
         };
-        if (handle is null)
-        {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
-        }
-
-        if (options != sentOptions)
-        {
-            sentOptions = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(twin, target, options);
     }
 
     private Task RouteAsync(OpenChangeRequest request)

@@ -34,9 +34,8 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
 
     private FormTwin? twin;
 
-    private TwinHandle<FormOptions>? handle;
 
-    private FormOptions? sentOptions;
+    private readonly ComboboxHandleSync<FormTwin, FormOptions> sync = new();
 
     private string? id;
 
@@ -205,26 +204,14 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
         {
             Label = new FormLabelOptions { Native = false, ControlId = ControlId, Decides = consumerHandlers.Any, DevelopmentChecks = false },
         };
-        if (handle is not null)
-        {
-            if (options != sentOptions)
-            {
-                sentOptions = options;
-                await handle.UpdateAsync(options);
-            }
-
-            return;
-        }
-
         twin ??= new FormTwin(services.JSRuntime) { LabelDecider = Decide };
-        sentOptions = options;
         if (element is { } target)
         {
-            handle = await twin.AttachAsync(target, options);
+            await sync.SyncAsync(twin, target, options);
         }
-        else if (id is not null)
+        else if (id is { } elementId)
         {
-            handle = await twin.AttachAsync(id, options);
+            await sync.SyncAsync(twin, elementId, options);
         }
     }
 

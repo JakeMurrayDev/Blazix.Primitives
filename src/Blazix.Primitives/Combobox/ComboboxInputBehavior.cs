@@ -54,9 +54,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
 
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private string? id;
 
@@ -417,26 +416,15 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             SubmitFormElement = state.SubmitRevision != 0 && root.HiddenInput is not null ? 0 : null,
             DecidesKeyDown = consumerKeyDown.IsHandler,
         };
-        if (handle is null)
+        // The hidden input travels with the update that moves the submit revision (AriaCombobox.tsx:945-948).
+        TwinReferences? references = null;
+        if (options.SubmitFormElement is not null && root.HiddenInput is { } hidden)
         {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
+            references = new TwinReferences();
+            references.Add(hidden);
         }
 
-        if (options != sentOptions)
-        {
-            // The hidden input travels with the update that moves the submit revision (AriaCombobox.tsx:945-948).
-            TwinReferences? references = null;
-            if (options.SubmitFormElement is not null && root.HiddenInput is { } hidden)
-            {
-                references = new TwinReferences();
-                references.Add(hidden);
-            }
-
-            sentOptions = options;
-            await handle.UpdateAsync(options, references);
-        }
+        await sync.SyncAsync(twin, target, options, references);
     }
 
     // CMB-KEY-05, EVT-09 (ComboboxInput.tsx:347-362): on WebAssembly the closed Escape's clear runs inside the dispatch, and
@@ -584,7 +572,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private void OnInputValueCommitted()
     {
-        if (!disposed && handle is not null)
+        if (!disposed && sync.Handle is not null)
         {
             _ = Observe(SyncTwinAsync(lastElement));
         }

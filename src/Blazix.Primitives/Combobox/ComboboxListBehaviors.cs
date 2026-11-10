@@ -29,9 +29,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
-
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private RenderFragment? cascadedContent;
 
@@ -112,7 +110,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         subscription.Select(static state => state.ReadOnly);
         subscription.Select(static state => state.Grid);
 
-        // The open state reaches the list's handle with no render of the list (decision 11: its items render only on a
+        // The open state reaches the list's sync.Handle with no render of the list (decision 11: its items render only on a
         // membership change).
         openSubscription = new SelectorSubscription<ComboboxStoreState>(store, onOpenChanged);
         openSubscription.Select(ComboboxStoreState.Open);
@@ -219,7 +217,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
             return;
         }
 
-        // A portaled part's handle attaches once the portal has moved its node (M4 track 1's design point 3): in place the
+        // A portaled part's sync.Handle attaches once the portal has moved its node (M4 track 1's design point 3): in place the
         // node is `display: none`, where every item is invisible.
         if (!composite.TwinAttached.IsCompleted)
         {
@@ -250,18 +248,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
             InsidePopup = state.InputInsidePopup,
             Open = state.Lifecycle.EffectiveOpen,
         };
-        if (handle is null)
-        {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
-        }
-
-        if (options != sentOptions)
-        {
-            sentOptions = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(twin, target, options);
     }
 
     // CMB-STA-25 (ComboboxItem.tsx:92-121): without Items the rendered items' values, in the reported order, are the registry

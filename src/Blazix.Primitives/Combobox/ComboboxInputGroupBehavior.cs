@@ -23,9 +23,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
-
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private string? id;
 
@@ -113,9 +111,9 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
         press.AddAttributes(attributes, onMouseDown);
     }
 
-    /// <summary>Attaches the group's handle and sends its changed options.</summary>
+    /// <summary>Attaches the group's sync.Handle and sends its changed options.</summary>
     /// <param name="element">The group's element.</param>
-    /// <returns>A task that completes when the handle has its options.</returns>
+    /// <returns>A task that completes when the sync.Handle has its options.</returns>
     public async Task AfterRenderAsync(ElementReference? element)
     {
         if (disposed || twin is null || element is not { } target)
@@ -132,18 +130,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
             ChipsId = state.ElementIds.Chips,
             DecidesPress = press.Decides,
         };
-        if (handle is null)
-        {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
-        }
-
-        if (options != sentOptions)
-        {
-            sentOptions = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(twin, target, options);
     }
 
     // combobox/utils/handleInputPress.ts:35-37: the module focused the input; the press opens when the root opens on input click.

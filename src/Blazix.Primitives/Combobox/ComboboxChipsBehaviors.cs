@@ -26,9 +26,7 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
-
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private string[] chipIds = [];
 
@@ -47,6 +45,9 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
     }
 
     private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Chips` is used before its first render.");
+
+    /// <summary>Gets a task that completes once the chips' handles have attached.</summary>
+    public Task TwinAttached => Task.WhenAll(sync.Attached, list.TwinAttached);
 
     /// <summary>Gets the context the chips register through.</summary>
     public ComboboxChipsContext Context => context;
@@ -178,18 +179,7 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
             ChipIds = chipIds,
             DecidesPress = press.Decides,
         };
-        if (handle is null)
-        {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
-        }
-
-        if (options != sentOptions)
-        {
-            sentOptions = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(twin, target, options);
     }
 
     // combobox/utils/handleInputPress.ts:35-37.
@@ -355,9 +345,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
 
     private ComboboxTwin? twin;
 
-    private TwinHandle<ComboboxOptions>? handle;
-
-    private ComboboxOptions? sentOptions;
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
 
     private bool disabledParameter;
 
@@ -459,7 +447,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
     /// <returns>A task that completes when the handler has run.</returns>
     public Task HandleKeyUpAsync(KeyboardEventArgs args) => button.HandleKeyUpAsync(args);
 
-    /// <summary>Attaches the button and the remove handle and sends their changed options.</summary>
+    /// <summary>Attaches the button and the remove sync.Handle and sends their changed options.</summary>
     /// <param name="element">The button's element.</param>
     /// <param name="id">The id the part renders, or <see langword="null"/>.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
@@ -490,18 +478,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
             InputId = state.ElementIds.Input,
             Index = chip!.Index,
         };
-        if (handle is null)
-        {
-            sentOptions = options;
-            handle = await twin.AttachAsync(target, options);
-            return;
-        }
-
-        if (options != sentOptions)
-        {
-            sentOptions = options;
-            await handle.UpdateAsync(options);
-        }
+        await sync.SyncAsync(twin, target, options);
     }
 
     // CMB-PTR-10, KEY-10 (ComboboxChipRemove.tsx:100-114): on WebAssembly the removal runs inside the dispatch; the event stops unless
