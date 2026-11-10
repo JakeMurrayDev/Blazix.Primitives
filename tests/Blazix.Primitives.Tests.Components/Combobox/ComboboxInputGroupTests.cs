@@ -3,6 +3,7 @@ using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Web;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -17,6 +18,43 @@ public sealed class ComboboxInputGroupTests : IDisposable
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
+
+    // ADR 04 Amendments 2026-11-10: the press asks `press` while C# holds a consumer onmousedown; C# runs it inside the
+    // dispatch, and Blazor's later dispatch of that mousedown skips it (CMB-PTR-08's preventBaseUIHandler clause).
+    [Fact(DisplayName = "port: the input group's onmousedown runs once inside press, and its PreventPartHandler() vetoes the press")]
+    [Trait("Requirement", "CMB-PTR-08")]
+    public async Task The_input_groups_onmousedown_runs_once_inside_press()
+    {
+        int calls = 0;
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxInputGroup>(0);
+            builder.AddComponentParameter(1, "data-testid", "group");
+            builder.AddComponentParameter(2, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, e =>
+            {
+                calls++;
+                e.PreventPartHandler();
+            }));
+            builder.AddComponentParameter(3, "ChildContent", (RenderFragment)(inner =>
+            {
+                inner.OpenComponent<ComboboxInput>(0);
+                inner.AddComponentParameter(1, "data-testid", "input");
+                inner.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.WithInput, false).Add(x => x.Extra, (RenderFragment)Extra));
+        Assert.Contains("\"decidesPress\":true", test.LastOptions(ComboboxTwin.InputGroupPart), StringComparison.Ordinal);
+        ComboboxTwin twin = test.TwinOf(ComboboxTwin.InputGroupPart);
+
+        Assert.Equal("stop", await cut.InvokeAsync(() => twin.Decide(ComboboxTwin.PressPoint, ComboboxTestContext.Event(ComboboxTestContext.Click, "mousedown", 2))));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=group]").MouseDown(new MouseEventArgs { Type = "mousedown", Detail = 1 }));
+        Assert.Equal(1, calls);
+        await cut.InvokeAsync(() => cut.Find("[data-testid=group]").MouseDown(new MouseEventArgs { Type = "mousedown", Detail = 1 }));
+
+        Assert.Equal(2, calls);
+    }
 
     [Fact(DisplayName = "has role prop")]
     [Trait("Requirement", "CMB-DOM-03")]

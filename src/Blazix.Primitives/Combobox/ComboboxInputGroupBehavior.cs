@@ -19,6 +19,8 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
 
     private FieldRootContext? fieldScope;
 
+    private readonly ComboboxPressVeto press;
+
     private ComboboxTwin? twin;
 
     private TwinHandle<ComboboxOptions>? handle;
@@ -34,6 +36,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
     public ComboboxInputGroupBehavior(ComboboxPartServices services)
     {
         this.services = services;
+        press = new ComboboxPressVeto(services.DispatchException);
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -41,6 +44,9 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
 
     /// <summary>Gets the field's state the group projects, with the root's disabled state.</summary>
     public FieldStateSnapshot Field => (fieldScope?.State ?? FieldStateSnapshot.Default) with { Disabled = Store.State.Disabled };
+
+    /// <summary>Gets the consumer's <c>onmousedown</c> veto of the press.</summary>
+    public ComboboxPressVeto Press => press;
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -82,14 +88,16 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
         subscription.Select(static state => state.HasSelectedValue);
         subscription.Select(static state => state.ElementIds.Input);
         subscription.Select(static state => state.ElementIds.Chips);
-        twin = new ComboboxTwin(services.JSRuntime);
+        twin = new ComboboxTwin(services.JSRuntime) { Decider = press.Decide };
         twin.InputPressed += snapshot => _ = Observe(services.InvokeAsync(() => OnInputPressAsync(snapshot)));
     }
 
     /// <summary>Applies the part's rendered id and publishes it to the store.</summary>
     /// <param name="id">The id the part renders: the consumer's or a generated one.</param>
-    public void Apply(string? id)
+    /// <param name="consumerAttributes">The consumer's attributes, for the declined <c>onmousedown</c>.</param>
+    public void Apply(string? id, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
+        press.Set(consumerAttributes);
         this.id = id;
         string? own = id;
         Store.SetElementIds(ids => ids with { InputGroup = own });
@@ -97,10 +105,12 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
 
     /// <summary>Adds the group's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes)
+    /// <param name="onMouseDown">The part's own <c>onmousedown</c>, for the consumer's declined one.</param>
+    public void AddPartAttributes(AttributeList attributes, EventCallback onMouseDown)
     {
         attributes.Set("role", "group");
         attributes.Set("id", id);
+        press.AddAttributes(attributes, onMouseDown);
     }
 
     /// <summary>Attaches the group's handle and sends its changed options.</summary>
@@ -120,6 +130,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
             Disabled = state.Disabled,
             InputId = state.ElementIds.Input,
             ChipsId = state.ElementIds.Chips,
+            DecidesPress = press.Decides,
         };
         if (handle is null)
         {

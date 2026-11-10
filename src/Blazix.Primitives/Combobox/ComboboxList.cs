@@ -129,29 +129,7 @@ public sealed class ComboboxList<TValue> : PartBase<ComboboxListState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
 
-    // The implicit Collection (ComboboxList.tsx:52-61): one template call per filtered item or group, keyed by position.
-    private void RenderTemplate(RenderTreeBuilder builder)
-    {
-        ComboboxStore<TValue> store = behavior!.Store;
-        if (GroupContent is { } groupContent && store.FilteredGroups is { } groups)
-        {
-            for (int i = 0; i < groups.Count; i++)
-            {
-                builder.AddContent(0, groupContent(groups[i]));
-            }
-
-            return;
-        }
-
-        if (ItemContent is { } itemContent)
-        {
-            IReadOnlyList<TValue> values = store.FilteredValues;
-            for (int i = 0; i < values.Count; i++)
-            {
-                builder.AddContent(1, itemContent(new ComboboxListItem<TValue>(values[i], i)));
-            }
-        }
-    }
+    private void RenderTemplate(RenderTreeBuilder builder) => behavior!.BuildTemplate(builder, ItemContent, GroupContent);
 }
 
 // Design point 2 (a), settled by the orchestrator 2026-11-04: the template's argument, the item and its index (Base UI's

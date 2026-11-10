@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -84,9 +85,14 @@ public sealed class ComboboxInputGroup : PartBase<ComboboxInputGroupState>
 {
     private static readonly StateAttributesMapping<ComboboxInputGroupState> s_mapping = ComboboxStateMapping.CreateInput<ComboboxInputGroupState>();
 
+    private readonly EventCallback onMouseDown;
+
     private ComboboxInputGroupBehavior? behavior;
 
     private ComboboxInputGroupState state = new(false, false, false, null, false, false, false, false, null, false, true);
+
+    /// <summary>Initializes a new instance of the <see cref="ComboboxInputGroup"/> class.</summary>
+    public ComboboxInputGroup() => onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.Press.RunConsumerAsync(e));
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -143,7 +149,7 @@ public sealed class ComboboxInputGroup : PartBase<ComboboxInputGroupState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => behavior!.Apply(Id);
+    protected override void OnParametersSet() => behavior!.Apply(Id, AdditionalAttributes);
 
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.AfterRenderAsync(Element);
@@ -163,5 +169,8 @@ public sealed class ComboboxInputGroup : PartBase<ComboboxInputGroupState>
     protected override void SubscribeSelectors() => behavior!.Subscribe(Root, Field, SubscribeTo);
 
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
+    protected override bool ForwardsConsumerHandler(string eventName) => behavior!.Press.ForwardsConsumerHandler(eventName);
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes, onMouseDown);
 }
