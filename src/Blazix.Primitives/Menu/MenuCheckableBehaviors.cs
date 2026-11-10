@@ -437,7 +437,9 @@ internal sealed class MenuItemIndicatorBehavior : IAsyncDisposable
             attaching ??= AttachAsync(target, transitions);
             await attaching;
         }
-        else if (Options() is { } options && options != sent)
+
+        // A render during the attach (an uncheck before the module loaded) sends what the attach did not carry.
+        if (handle is not null && !disposed && Options() is { } options && options != sent)
         {
             sent = options;
             await handle.UpdateAsync(options);
