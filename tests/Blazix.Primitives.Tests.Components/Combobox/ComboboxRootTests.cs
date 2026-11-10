@@ -283,6 +283,20 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Equal(dismissId, trigger);
     }
 
+    [Fact(DisplayName = "port: an exception of the consumer's callback in the inside input's blank write reaches the root")]
+    [Trait("Requirement", "CMB-STA-19")]
+    public void An_exception_in_the_inside_inputs_blank_write_reaches_the_root()
+    {
+        Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?>
+            {
+                ["DefaultValue"] = "apple",
+                ["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, _ => throw new InvalidOperationException("consumer")),
+            })
+            .Add(x => x.InputInsidePopup, true)
+            .Add(x => x.KeepMounted, true)));
+    }
+
     private List<string> CompositeOptions()
     {
         List<string> options = [];
