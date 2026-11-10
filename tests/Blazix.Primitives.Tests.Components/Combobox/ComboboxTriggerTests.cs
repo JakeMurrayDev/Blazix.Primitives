@@ -2,6 +2,7 @@ using AngleSharp.Dom;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
@@ -312,7 +313,46 @@ public sealed class ComboboxTriggerTests : IDisposable
         Assert.Equal(EventReason.ListNavigation, reason);
     }
 
+    // ComboboxTrigger.tsx:196-199: with the input outside the popup, or none, a trigger press makes the trigger the floating
+    // root's DOM reference, so its next press toggles the popup closed and a popup without an input anchors to it.
+    [Theory(DisplayName = "port: a trigger press with the input outside the popup makes the trigger the session's active trigger")]
+    [InlineData(true)]
+    [InlineData(false)]
+    [Trait("Requirement", "CMB-PTR-02")]
+    [Trait("Requirement", "CMB-POS-01")]
+    public async Task A_trigger_press_makes_the_trigger_the_active_trigger(bool withInput)
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new(), withInput ? Layout.InputOutside : Layout.NoInput);
+        string id = Trigger(cut).Id!;
+
+        await cut.InvokeAsync(() => Trigger(cut).MouseDownAsync(new MouseEventArgs { Button = 0, Type = "mousedown" }));
+
+        Assert.Contains("\"activeTriggerId\":\"" + id + "\"", LastSessionOptions(), StringComparison.Ordinal);
+    }
+
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");
+
+    private string LastSessionOptions()
+    {
+        string last = string.Empty;
+        foreach (JSRuntimeInvocation attach in test.Interactions.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains("\"session\":", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in test.InteractionsHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains("\"session\":", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        return last;
+    }
 
     private string TriggerOptions(string id) =>
         (string)test.Interactions.Invocations["attach"].Last(attach => attach.Arguments[1] is string json && json.Contains("\"triggerId\":\"" + id + "\"", StringComparison.Ordinal)).Arguments[1]!;
