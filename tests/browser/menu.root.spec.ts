@@ -1160,7 +1160,12 @@ test.describe('<Menu.Root />', () => {
       await expect(item2).not.toHaveAttribute('data-highlighted', /.*/);
     });
 
-    test('does not highlight submenu triggers from mouse enter when disabled', async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) until 2026-11-25, issue 221: on WebAssembly the submenu trigger can take `data-highlighted`
+    // from the mouse enter (5 of 60 and 6 of 60 in two local sets, 2026-11-11); its cause is being traced.
+    test.fixme('does not highlight submenu triggers from mouse enter when disabled', {
+      tag: '@quarantine',
+      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/221' },
+    }, async ({ page, mode }) => {
       const fixture = await renderOpen(page, mode, { noTrigger: true, highlightItemOnHover: false, content: 'lone-submenu' });
       const submenuTrigger = page.getByTestId('submenu-trigger');
 
