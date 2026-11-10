@@ -153,7 +153,10 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
 
     // CMB-API-09..11
     /// <summary>Gets or sets the input's text, for <c>@bind-InputValue</c>.</summary>
-    /// <value>Leave it unset, or set <see langword="null"/>, for an uncontrolled text derived from the selection.</value>
+    /// <value>
+    /// Supplied at the first parameter set, the text is controlled; <see langword="null"/> shows the label derived from the
+    /// selection. Leave it unset for an uncontrolled text.
+    /// </value>
     [Parameter]
     public string? InputValue { get; set; }
 

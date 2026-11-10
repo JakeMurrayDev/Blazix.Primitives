@@ -267,6 +267,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private Func<TValue, string>? collectionLabel;
 
+    private bool inputNullControlled;
+
     /// <summary>Occurs when the selected value or values changed, for the hidden inputs and the field.</summary>
     public event Action? SelectionCommitted;
 
@@ -619,14 +621,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
         bool inputSupplied = parameters.TryGetValue(names.InputValue, out string? inputValue);
         bool defaultInputSupplied = parameters.TryGetValue(names.DefaultInputValue, out string? defaultInputValue);
-        if (firstSet)
-        {
-            // CMB-STA-19: hasInputValue is whether either was given at the first render.
-            HasInputValueParameter = inputSupplied || defaultInputSupplied;
-        }
 
-        // STA-19: a supplied null is "derive"; the derived default is computed at the first ApplyInputs.
-        inputValueState.Update(inputSupplied && inputValue is not null, inputValue ?? string.Empty, defaultInputSupplied && defaultInputValue is not null, defaultInputValue ?? string.Empty);
+        // CMB-STA-19 (AriaCombobox.tsx:283, read at every render): hasInputValue is a given text, InputValue or
+        // DefaultInputValue. InputValue is controlled iff supplied at the first parameter set, and a supplied null shows the
+        // text derived from the selection, so `@bind-InputValue` on a field that starts null both derives and binds.
+        HasInputValueParameter = (inputSupplied && inputValue is not null) || (defaultInputSupplied && defaultInputValue is not null);
+        inputNullControlled = inputSupplied && inputValue is null;
+        inputValueState.Update(inputSupplied, inputValue ?? string.Empty, defaultInputSupplied && defaultInputValue is not null, defaultInputValue ?? string.Empty);
     }
 
     /// <summary>Applies the root's inputs: the flags, the filtered items, the labels and the input's derived label.</summary>
@@ -647,6 +648,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         ComboboxStoreState state = State;
+        bool textChanged = false;
         bool disabled = fieldDisabled || next.Disabled;
         bool hasItems = next.Items is not null || next.ItemGroups is not null;
         string id = next.Id ?? fieldControlId ?? state.Id;
@@ -676,7 +678,6 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             }
             else if (next.SelectionMode == ComboboxSelectionMode.Single)
             {
-                RefreshDerivation(state);
                 initialDefaultInputValue = singlePresent ? LabelOf(valueState.Value) : string.Empty;
             }
 
@@ -687,21 +688,30 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
             state = state with
             {
-                InputValue = inputValueState.Value,
+                InputValue = inputNullControlled ? initialDefaultInputValue : inputValueState.Value,
                 HasSelectedValue = ComputeHasSelectedValue(next.SelectionMode),
             };
         }
         else
         {
+            // ADR 04 Amendments 2026-11-03 (6): a controlled text the consumer changed reaches the input's handle with a new
+            // revision, as a commit does.
+            string text = !inputValueState.IsControlled ? state.InputValue : inputNullControlled ? DerivedInputText() : inputValueState.Value;
+            textChanged = inputValueState.IsControlled && !string.Equals(text, state.InputValue, StringComparison.Ordinal);
             state = state with
             {
-                InputValue = inputValueState.IsControlled ? inputValueState.Value : state.InputValue,
+                InputValue = text,
+                InputRevision = textChanged ? state.InputRevision + 1 : state.InputRevision,
                 HasSelectedValue = ComputeHasSelectedValue(next.SelectionMode),
             };
         }
 
         Write(state);
         RefreshDerivation(State);
+        if (textChanged)
+        {
+            NotifyInputValueCommitted();
+        }
 
         // CMB-STA-20 (AriaCombobox.tsx:1280-1331): a selection or label change resyncs the input's derived label.
         string selectedLabel = Single && singlePresent ? LabelOf(valueState.Value) : string.Empty;
@@ -797,6 +807,12 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             if (typed && !inputValueState.IsControlled)
             {
                 await CommitInputValueAsync(text);
+            }
+            else if (typed)
+            {
+                // A controlled text the consumer kept: the input's handle writes it over the typed edit.
+                Write(State with { InputRevision = State.InputRevision + 1 });
+                NotifyInputValueCommitted();
             }
 
             return false;
@@ -1311,6 +1327,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             listBehavior.SelectedIndex = index;
         }
     }
+
+    // STA-19's derived text, which a supplied null InputValue shows: the selected label in single mode, else empty.
+    private string DerivedInputText() => Single && singlePresent ? LabelOf(valueState.Value) : string.Empty;
 
     // CMB-API-32, EDGE-12 (AriaCombobox.tsx:216-229): the collection given as the items first, then a collection given as the
     // current filtered items (the external window); nothing from a past window is remembered.
