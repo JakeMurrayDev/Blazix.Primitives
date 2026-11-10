@@ -1,5 +1,5 @@
 // L4 for docs/components/select.md (M5 track 9, issue 173): Server then WebAssembly.
-import { expect, test } from './helpers';
+import { expect, test, throttleCpu } from './helpers';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPopupFixture } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
@@ -67,3 +67,21 @@ test.describe('Select: smoke', () => {
     expect(Math.abs(text!.x - value!.x)).toBeLessThan(2);
   });
 });
+
+test.describe('Select: keyboard open', () => {
+  // SEL-KEY-01, SEL-STR-06 (port title, M5 track 9): focusing the trigger force-mounts the popup on a 0 ms timer
+  // (SelectTrigger.tsx's onFocus), and an ArrowDown right after it opens the list; on a slow page the force-mount's
+  // render lands between the key and the open. The list still opens on the first item, as Base UI's effects order it.
+  test('port: a keyboard open racing the trigger\'s force-mount still opens on the first item', async ({ page, mode }) => {
+    await gotoPopupFixture(page, mode, 'select-list', { itemStyle: 'height: 30px', scrollerStyle: 'height: 100px; overflow-y: auto' });
+    await throttleCpu(page, 6);
+    const trigger = page.getByTestId('trigger');
+    await trigger.focus();
+    await page.keyboard.press('ArrowDown');
+
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('option', { name: 'Item 0' })).toHaveAttribute('data-highlighted', '');
+    await expect(page.getByRole('option', { name: 'Item 0' })).toBeFocused();
+  });
+});
+
