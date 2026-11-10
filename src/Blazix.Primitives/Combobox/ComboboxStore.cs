@@ -331,7 +331,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private bool HasInputValueParameter { get; set; }
 
     /// <inheritdoc />
-    public override ListNavigationContext ListNavigation => listNavigation ?? throw new InvalidOperationException("Blazix: the combobox's list navigation is created at its root's first parameter set.");
+    public override ListNavigationContext ListNavigation => listNavigation ?? throw new InvalidOperationException($"Blazix: the list navigation of `<{Family}Root>` is created at its first parameter set.");
 
     /// <inheritdoc />
     public override IReadOnlyList<string?> FilteredLabels => filteredLabels;
@@ -1156,8 +1156,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
-        IReadOnlyList<TValue> values = CandidateValues();
-        TValue value = at < values.Count ? values[at] : default!;
+        // The candidate at the index, read without copying the rendered registry (final review N2).
+        TValue value = CandidateAt(at);
         lastHighlight = (true, value, at);
         await InvokeHighlightedAsync(value, at, @event);
     }
@@ -1366,6 +1366,16 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             RefreshDerivation(State);
         }
+    }
+
+    private TValue CandidateAt(int index)
+    {
+        if (State.HasItems || inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null)
+        {
+            return index < filtered.Flat.Count ? filtered.Flat[index] : default!;
+        }
+
+        return index < renderedValues.Length ? renderedValues[index].Value : default!;
     }
 
     private IReadOnlyList<TValue> CandidateValues()

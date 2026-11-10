@@ -120,7 +120,7 @@ describe('the input', () => {
     expect(pending).toEqual([]);
   });
 
-  it('moves the caret to the start on Home and to the end on End', () => {
+  it('port: moves the caret to the start on Home and to the end on End', () => {
     const { input } = setupInput('hello world');
     input.setSelectionRange(5, 5);
     const home = new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true });
@@ -130,7 +130,7 @@ describe('the input', () => {
     expect(input.selectionStart).toBe(11);
   });
 
-  it('swaps Home and End in a right-to-left input on Gecko', () => {
+  it('uses Gecko RTL caret positions for Home and End', () => {
     expect(caretFor('Home', 5, true, true)).toBe(5);
     expect(caretFor('End', 5, true, true)).toBe(0);
     expect(caretFor('Home', 5, true, false)).toBe(0);
@@ -432,7 +432,7 @@ describe('the list and the press defaults', () => {
     return { list, item, handle };
   }
 
-  it('prevents the default of a pointerdown and a mousedown on an item, so the input keeps the focus', () => {
+  it('port: prevents the default of a pointerdown and a mousedown on an item, so the input keeps the focus', () => {
     const { item } = setupList();
     const pointerDown = new PointerEvent('pointerdown', { bubbles: true, cancelable: true, isPrimary: true });
     const mouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
