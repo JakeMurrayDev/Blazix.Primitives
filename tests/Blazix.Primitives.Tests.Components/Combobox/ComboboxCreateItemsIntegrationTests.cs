@@ -202,8 +202,9 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
     }
 
     // The highlight on mount is the list navigation's, which navigates to the selected index it holds while open and mounted
-    // (useListNavigation.ts:389-403; the module's L3 titles). The port's half, read here at L2, is the root's seed of that index
-    // for an inline list open on mount (AriaCombobox.tsx:454-470); the module's report then highlights the item.
+    // (useListNavigation.ts:389-403; the module's L3 titles), and the item shows the module's report, so the visible highlight
+    // is read at L4. The port's half, read here, is the root's seed of that index for an inline list open on mount
+    // (AriaCombobox.tsx:454-470), and the report of that index resolving to the selected derived value.
     [Fact(DisplayName = "highlights an initially selected derived value on mount when inline")]
     [Trait("Requirement", "CMB-STA-28")]
     public async Task Highlights_an_initially_selected_derived_value_on_mount_when_inline()
@@ -219,10 +220,8 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
         Assert.Contains("\"selectedIndex\":2", LastListNavigationOptions(), StringComparison.Ordinal);
 
         await cut.HighlightAsync(test, 2, "Carol");
-        AngleSharp.Dom.IElement carol = cut.Option("Carol");
 
-        Assert.True(carol.HasAttribute("data-highlighted"));
-        Assert.Equal(carol.Id, cut.Find("[data-testid=input]").GetAttribute("aria-activedescendant"));
+        Assert.Equal(3, cut.Instance.Highlighted[^1]);
     }
 
     [Fact(DisplayName = "uses the root locale for filtering")]

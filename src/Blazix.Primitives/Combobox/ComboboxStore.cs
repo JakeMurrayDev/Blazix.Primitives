@@ -788,6 +788,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             NotifyInputValueCommitted();
         }
 
+        // CMB-STA-28 (AriaCombobox.tsx:454-470): an inline list open on the first render never runs the closed sync, so the
+        // selection's index is seeded once, for the list navigation to highlight and scroll to on mount.
+        if (firstSet && next.Inline && OpenState.Value && hasItems && next.SelectionMode != ComboboxSelectionMode.None)
+        {
+            Write(State with { SelectedIndex = FindSelectedIndex() });
+        }
+
         // CMB-STA-20 (AriaCombobox.tsx:1280-1331): a selection or label change resyncs the input's derived label.
         string selectedLabel = Single && singlePresent ? LabelOf(valueState.Value) : string.Empty;
         bool itemsChanged = !ReferenceEquals(lastItems, next.Items) || !ReferenceEquals(lastGroups, next.ItemGroups);
