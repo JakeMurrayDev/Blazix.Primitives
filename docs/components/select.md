@@ -915,7 +915,7 @@ Note 2026-11-04 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix
 | `id` | `${rootId}-hidden-input` when the input has no `name`; absent otherwise | SEL-DOM-48 | C# |
 | `name` | effective name in single mode; absent in multiple mode | SEL-DOM-47 | C# |
 | `form`, `autocomplete` | from props | SEL-API-08/09 | C# |
-| `value` | serialized value (single); `""` (multiple) | SEL-DOM-51 | C# |
+| `value` | serialized value (single); `""` (multiple) | SEL-DOM-51 | C# → JS |
 | `disabled`, `readonly` | from effective disabled / `readOnly` | SEL-DOM-47 | C# |
 | `required` | `required && !(multiple && hasSelectedValue)` | SEL-DOM-50 | C# |
 | `aria-describedby`, `aria-invalid` | FFI-ARIA-03 | SEL-ARIA-07 | C# |
