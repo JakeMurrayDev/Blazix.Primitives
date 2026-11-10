@@ -558,27 +558,36 @@ function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channe
   };
 }
 
-// The press defaults of the clear button and the chip remove buttons (PTR-07): a press there keeps
-// the focus where it is, so the input stays focused.
+// The press defaults of the clear button and the chip remove buttons (PTR-07): a press there keeps the focus where it is, so
+// the input stays focused; a click that is not disabled or read-only moves the focus to the input (ComboboxClear.tsx:111,
+// ComboboxChipRemove.tsx:89), after C#'s clear or removal is dispatched.
 function attachPressDefault(element: HTMLElement, initial: ComboboxOptions): TwinHandle {
   let options = initial;
+  const input = (): HTMLElement | null => (options.inputId ? element.ownerDocument.getElementById(options.inputId) : null);
   const onMouseDown = (event: MouseEvent): void => {
     if (options.disabled) {
       return;
     }
-    const doc = element.ownerDocument;
-    const input = options.inputId ? doc.getElementById(options.inputId) : null;
-    if (input && getTarget(event) !== input) {
+    const target = input();
+    if (target && getTarget(event) !== target) {
       event.preventDefault();
     }
   };
+  const onClick = (): void => {
+    if (options.disabled || options.readOnly) {
+      return;
+    }
+    input()?.focus();
+  };
   element.addEventListener('mousedown', onMouseDown);
+  element.addEventListener('click', onClick);
   return {
     update(optionsJson: string) {
       options = parseOptions<ComboboxOptions>(optionsJson);
     },
     dispose() {
       element.removeEventListener('mousedown', onMouseDown);
+      element.removeEventListener('click', onClick);
     },
   };
 }
