@@ -21,6 +21,8 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
 
     private readonly CompositeRootBehavior composite;
 
+    private readonly Action onOpenChanged;
+
     private ComboboxStore<TValue>? store;
 
     private PopupPortalContext? portal;
@@ -37,6 +39,10 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
 
     private string? id;
 
+    private SelectorSubscription<ComboboxStoreState>? openSubscription;
+
+    private ElementReference? lastElement;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxListBehavior{TValue}"/> class.</summary>
@@ -47,6 +53,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         this.services = services;
         composite = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown);
         composite.ItemsChanged += OnItemsChanged;
+        onOpenChanged = () => _ = Observe(SyncTwinAsync(lastElement));
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -73,6 +80,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         }
 
         disposed = true;
+        openSubscription?.Dispose();
         composite.ItemsChanged -= OnItemsChanged;
         composite.Dispose();
         if (store is not null && id is not null)
@@ -103,7 +111,11 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         subscription.Select(static state => state.SelectionMode);
         subscription.Select(static state => state.ReadOnly);
         subscription.Select(static state => state.Grid);
-        subscription.Select(ComboboxStoreState.Open);
+
+        // The open state reaches the list's handle with no render of the list (decision 11: its items render only on a
+        // membership change).
+        openSubscription = new SelectorSubscription<ComboboxStoreState>(store, onOpenChanged);
+        openSubscription.Select(ComboboxStoreState.Open);
         composite.SetList(store.ListNavigation, CompositeListRole.Floating);
         composite.ReportItems = !store.State.HasItems;
         twin = new ComboboxTwin(services.JSRuntime);
@@ -184,6 +196,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         }
 
         Task compositeSync = composite.AfterRenderAsync(true, element, id);
+        lastElement = element;
         Task twinSync = SyncTwinAsync(element);
         await Task.WhenAll(compositeSync, twinSync);
     }
@@ -237,6 +250,18 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         }
 
         store.SetRenderedValues(slots);
+    }
+
+    private async Task Observe(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await services.DispatchException(exception);
+        }
     }
 }
 
@@ -822,7 +847,6 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
         store = ComboboxParts.RequireRoot<TValue>(cascaded, family, "Value");
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Selection);
-        subscription.Select(ComboboxStoreState.Membership);
     }
 
     /// <summary>Throws when the template given is the other selection mode's.</summary>
