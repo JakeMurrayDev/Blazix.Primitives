@@ -87,6 +87,60 @@ public sealed class ComboboxInputTests : IDisposable
         Assert.Equal(["Home", "End", "a"], keys);
     }
 
+    [Fact(DisplayName = "should not open popup when disabled")]
+    [Trait("Requirement", "CMB-API-38")]
+    public async Task Should_not_open_popup_when_disabled()
+    {
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxInput>(0);
+            builder.AddComponentParameter(1, "data-testid", "input");
+            builder.AddComponentParameter(2, nameof(ComboboxInput.Disabled), true);
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.WithInput, false)
+            .Add(x => x.StaticItems, ["a", "b"])
+            .Add(x => x.Extra, (RenderFragment)Extra));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Click());
+
+        Assert.False(cut.Instance.Root!.Store.IsOpen);
+        Assert.Empty(cut.FindAll("[role=listbox]"));
+    }
+
+    [Fact(DisplayName = "should render aria-readonly and readonly attributes when readOnly")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    [Trait("Requirement", "CMB-ARIA-17")]
+    public void Should_render_aria_readonly_and_readonly_when_readOnly()
+    {
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["ReadOnly"] = true }));
+
+        IElement input = cut.Find("[data-testid=input]");
+        Assert.Equal("true", input.GetAttribute("aria-readonly"));
+        Assert.True(input.HasAttribute("readonly"));
+    }
+
+    [Fact(DisplayName = "toggles data-list-empty when the filtered list is empty")]
+    [Trait("Requirement", "CMB-STA-12")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    public async Task Toggles_data_list_empty_when_the_filtered_list_is_empty()
+    {
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Items"] = (IReadOnlyList<string>)["apple", "banana"],
+            ["DefaultOpen"] = true,
+        }));
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-list-empty"));
+
+        await test.TypeAsync(cut, "zzz");
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-list-empty"));
+        await test.TypeAsync(cut, string.Empty);
+
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-list-empty"));
+    }
+
     [Fact(DisplayName = "port: the consumer's onclick and onmousedown on the input run once per event")]
     [Trait("Requirement", "RND-API-04")]
     public async Task The_consumers_onclick_and_onmousedown_run_once()

@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
 import { gotoPopupFixture } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/combobox.md (M5 track 10, issue 174) on the `combobox-*` fixtures, every title on both
@@ -56,6 +56,20 @@ test.describe('Combobox typing and the list', () => {
     await expect(page.getByRole('listbox')).toBeHidden();
     await expect(input(page)).toHaveValue('cherry');
     await expect(fixture).toHaveAttribute('data-value-changes', 'cherry:item-press');
+  });
+
+  // Session M's probe (2026-11-11): at 120 ms each way the Enter title failed 20 of 20 on Server, ArrowDown on the open,
+  // filtered list leaving the item unhighlighted.
+  test('port: on Server under latency, ArrowDown on the open filtered list highlights its first item', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the round trip exists on Server only');
+    await delayCircuit(page, 120);
+    await gotoCombobox(page, mode);
+    await input(page).click();
+    await input(page).pressSequentially('ch');
+    await expect(page.getByRole('option')).toHaveText(['cherry']);
+    await input(page).press('ArrowDown');
+
+    await expect(page.getByRole('option', { name: 'cherry' })).toHaveAttribute('data-highlighted', '');
   });
 
   test('port: a click on an item selects it and keeps the focus on the input', async ({ page, mode }) => {

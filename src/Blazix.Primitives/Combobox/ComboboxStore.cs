@@ -735,7 +735,6 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             Virtualized = next.Virtualized,
             Modal = next.Modal,
             HasItems = hasItems,
-            Lifecycle = state.Lifecycle with { Disabled = disabled },
         };
 
         if (firstSet)

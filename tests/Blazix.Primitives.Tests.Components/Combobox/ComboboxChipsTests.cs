@@ -149,6 +149,88 @@ public sealed class ComboboxChipsTests : IDisposable
         Assert.Equal(EventReason.ChipRemovePress, reason);
     }
 
+    [Fact(DisplayName = "should remove chip on click when enabled")]
+    [Trait("Requirement", "CMB-PTR-10")]
+    public async Task Should_remove_chip_on_click_when_enabled()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
+        await ReportOrderAsync(cut, cut.Find("[data-testid=chip-apple]").Id!, cut.Find("[data-testid=chip-cherry]").Id!);
+
+        await cut.InvokeAsync(() => RemoveTwins()[0].Decide(ComboboxTwin.RemovePoint, ComboboxTestContext.Click));
+
+        (IReadOnlyList<string> values, _) = Assert.Single(cut.Instance.ValuesChanges);
+        Assert.Equal(["cherry"], values);
+    }
+
+    [Fact(DisplayName = "should not remove chip when disabled")]
+    [Trait("Requirement", "CMB-PTR-10")]
+    public async Task Should_not_remove_chip_when_disabled()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["Disabled"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
+        await ReportOrderAsync(cut, cut.Find("[data-testid=chip-apple]").Id!, cut.Find("[data-testid=chip-cherry]").Id!);
+
+        await cut.InvokeAsync(() => RemoveTwins()[0].Decide(ComboboxTwin.RemovePoint, ComboboxTestContext.Click));
+        await cut.InvokeAsync(() => RemoveTwins()[0].OnRemove($$"""{"index":0,"event":{{ComboboxTestContext.Click}}}"""));
+
+        Assert.Empty(cut.Instance.ValuesChanges);
+        Assert.NotNull(cut.Find("[data-testid=chip-apple]"));
+    }
+
+    [Fact(DisplayName = "should render disabled attribute when disabled")]
+    [Trait("Requirement", "CMB-PTR-10")]
+    public void Should_render_disabled_attribute_when_disabled()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["Disabled"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
+
+        Assert.Equal("true", cut.Find("[data-testid=remove-apple]").GetAttribute("aria-disabled"));
+    }
+
+    [Fact(DisplayName = "should have proper tab index")]
+    [Trait("Requirement", "CMB-PTR-10")]
+    public void Should_have_proper_tab_index()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
+
+        Assert.Equal("-1", cut.Find("[data-testid=remove-apple]").GetAttribute("tabindex"));
+    }
+
+    // Focus is the browser's: the L2 half is that the button stays focusable (no disabled attribute) and removes nothing.
+    [Fact(DisplayName = "should be focusable but not functional when readOnly")]
+    [Trait("Requirement", "CMB-PTR-10")]
+    public async Task Should_be_focusable_but_not_functional_when_readOnly()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["ReadOnly"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
+        await ReportOrderAsync(cut, cut.Find("[data-testid=chip-apple]").Id!, cut.Find("[data-testid=chip-cherry]").Id!);
+        Assert.False(cut.Find("[data-testid=remove-apple]").HasAttribute("disabled"));
+
+        await cut.InvokeAsync(() => RemoveTwins()[0].Decide(ComboboxTwin.RemovePoint, ComboboxTestContext.Key("Enter")));
+
+        Assert.Empty(cut.Instance.ValuesChanges);
+        Assert.NotNull(cut.Find("[data-testid=remove-apple]"));
+    }
+
+    [Fact(DisplayName = "throws a descriptive error when rendered outside <Combobox.Chip>")]
+    [Trait("Requirement", "CMB-STR-02")]
+    public void Throws_a_descriptive_error_when_rendered_outside_a_chip()
+    {
+        RenderFragment extra = builder =>
+        {
+            builder.OpenComponent<ComboboxChips>(0);
+            builder.AddComponentParameter(1, "ChildContent", (RenderFragment)(inner =>
+            {
+                inner.OpenComponent<ComboboxChipRemove>(0);
+                inner.CloseComponent();
+            }));
+            builder.CloseComponent();
+        };
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["Multiple"] = true })
+            .Add(x => x.Extra, extra)));
+
+        Assert.StartsWith("Blazix: `ComboboxChipContext` is missing.", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "port: a chip outside the chips container throws the missing chips error")]
     [Trait("Requirement", "CMB-STR-02")]
     public void A_chip_outside_the_chips_container_throws()
