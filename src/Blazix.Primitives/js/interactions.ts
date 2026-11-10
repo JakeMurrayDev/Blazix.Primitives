@@ -2908,7 +2908,10 @@ function clearSafePolygonPointerEventsMutation(instance: PointerEventsMutationSt
   if (scopeElement && scopeElement[pointerEventsOwner] === instance) {
     instance.pointerEventsScopeElement?.style.removeProperty('pointer-events');
     instance.pointerEventsReferenceElement?.style.removeProperty('pointer-events');
-    instance.pointerEventsFloatingElement?.style.removeProperty('pointer-events');
+    // Only the lock's own value: a `none` the floating element carries is the `positioning` module's.
+    if (instance.pointerEventsFloatingElement?.style.pointerEvents === 'auto') {
+      instance.pointerEventsFloatingElement.style.removeProperty('pointer-events');
+    }
     delete scopeElement[pointerEventsOwner];
   }
 
@@ -2945,7 +2948,16 @@ function applySafePolygonPointerEventsMutation(
 
   scopeElement.style.pointerEvents = 'none';
   referenceElement.style.pointerEvents = 'auto';
-  floatingElement.style.pointerEvents = 'auto';
+  // G5 of PR 168 (ADR 04 Amendments 2026-11-04 and 2026-11-10): the `positioning` module holds the floating element at
+  // `pointer-events: none` until the first pass of the open, as Base UI positions before paint and its transparent
+  // Positioner never sits at the origin under a resting pointer. The lock leaves that value, and makes the element `auto`
+  // once it is lifted (the observer below sees the module's write).
+  const liftFloating = () => {
+    if (floatingElement.style.pointerEvents !== 'none' && floatingElement.style.pointerEvents !== 'auto') {
+      floatingElement.style.pointerEvents = 'auto';
+    }
+  };
+  liftFloating();
 
   // ADR 04 Amendments 2026-11-04 (design point 3, settled by the orchestrator 2026-11-04): Blazor rewrites an element's
   // whole `style` attribute when its rendered value changes (a Trigger's or a List's C#-rendered `style`), which drops the
@@ -2963,7 +2975,7 @@ function applySafePolygonPointerEventsMutation(
       }
       reassert(scopeElement, 'none');
       reassert(referenceElement, 'auto');
-      reassert(floatingElement, 'auto');
+      liftFloating();
     });
     for (const element of [scopeElement, referenceElement, floatingElement]) {
       observer.observe(element, { attributes: true, attributeFilter: ['style'] });
@@ -3749,7 +3761,8 @@ function createHoverFloatingController(context: HandleContext): Controller {
       const parentFloating =
         parentId === null ? null : (record.tree.nodesRef.current.find((node) => node.id === parentId)?.context?.elements?.floating ?? null);
 
-      if (parentFloating) {
+      // A parent lock's `auto`; a `none` is the `positioning` module's (G5, see applySafePolygonPointerEventsMutation).
+      if (parentFloating?.style.pointerEvents === 'auto') {
         parentFloating.style.pointerEvents = '';
       }
 
