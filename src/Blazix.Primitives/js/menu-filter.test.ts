@@ -2,8 +2,15 @@
 // menu/filter-root/useMenuFilterKeyDown.test.ts, both `it.each` tables with every row, against the module's pure
 // getMenuFilterKeyAction (MNU-KEY-22, KEY-30 re-tagged to L3 with "(L4 for …)" for the rest).
 
-import { describe, expect, it } from 'vitest';
-import { getMenuFilterKeyAction, type MenuFilterKey, type MenuFilterKeyAction } from './menu-filter';
+import { afterEach, describe, expect, it } from 'vitest';
+import { attach, getMenuFilterKeyAction, type MenuFilterKey, type MenuFilterKeyAction, type MenuFilterOptions } from './menu-filter';
+import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
+import type { TwinHandle } from './twin';
+
+interface ValueChange {
+  value: string;
+  reason: string;
+}
 
 function key(value: string, init: Partial<MenuFilterKey> = {}): MenuFilterKey {
   return {
@@ -70,5 +77,109 @@ describe('getMenuFilterKeyAction', () => {
         hasValue,
       }),
     ).toBe(expected);
+  });
+});
+
+// The Input handle (MNU-EVT-16, EVT-19, KEY-31, STA-22, DOM-21's value): an `input` element C# rendered, attached as the
+// MenuInput's twin would, with the options C# sends.
+describe('the Input handle', () => {
+  const handles: TwinHandle[] = [];
+
+  afterEach(() => {
+    handles.splice(0).forEach((handle) => handle.dispose());
+    document.body.replaceChildren();
+  });
+
+  function renderInput(options: Partial<MenuFilterOptions> = {}, fake: FakeTwin = createFakeTwin()) {
+    const input = document.createElement('input');
+    input.value = options.value ?? '';
+    document.body.append(input);
+    const json = (next: Partial<MenuFilterOptions>) => JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, valueRevision: 0, ...next });
+    const handle = attach(input, json(options), fake.twin);
+    handles.push(handle);
+    return { input, fake, handle, update: (next: Partial<MenuFilterOptions>) => handle.update(json({ ...options, ...next })) };
+  }
+
+  function type(input: HTMLInputElement, value: string, init: InputEventInit = {}) {
+    input.value = value;
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, ...init }));
+  }
+
+  it('port: reports a typed edit as input-change and an emptied input as input-clear', () => {
+    const { input, fake } = renderInput();
+
+    type(input, 'ap');
+    type(input, '');
+
+    expect(fake.reported<ValueChange>('OnValueChange').map(({ value, reason }) => [value, reason])).toEqual([
+      ['ap', 'input-change'],
+      ['', 'input-clear'],
+    ]);
+  });
+
+  it('port: drops an edit made while the menu is closed', () => {
+    const { input, fake, update } = renderInput();
+    update({ open: false });
+
+    type(input, 'ap');
+
+    expect(fake.reported('OnValueChange')).toEqual([]);
+    type(input, 'a');
+    update({ open: true });
+    type(input, 'ap');
+    expect(fake.reported<ValueChange>('OnValueChange').map(({ value }) => value)).toEqual(['ap']);
+  });
+
+  it('port: reports nothing during an IME composition and the committed text at compositionend', () => {
+    const { input, fake } = renderInput();
+
+    input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    type(input, 'に', { isComposing: true });
+    type(input, '日本', { isComposing: true });
+    expect(fake.reported('OnValueChange')).toEqual([]);
+    input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '日本' }));
+
+    expect(fake.reported<ValueChange>('OnValueChange').map(({ value, reason }) => [value, reason])).toEqual([['日本', 'input-change']]);
+  });
+
+  it('port: writes a committed value when its revision moves and the text differs, and re-asserts one the consumer did not apply', () => {
+    const { input, update } = renderInput({ value: 'a', valueRevision: 1 });
+    type(input, 'ab');
+
+    update({ value: 'ab', valueRevision: 2 });
+    expect(input.value).toBe('ab');
+
+    type(input, 'abc');
+    update({ value: 'ab', valueRevision: 2 });
+    expect(input.value).toBe('abc');
+
+    update({ value: 'ab', valueRevision: 3 });
+    expect(input.value).toBe('ab');
+
+    update({ value: '', valueRevision: 4 });
+    expect(input.value).toBe('');
+  });
+
+  it('port: shows the focus ring while focused, until keyboard navigation highlights an item', async () => {
+    const { input, fake } = renderInput();
+
+    input.focus();
+    expect(input.hasAttribute('data-highlighted')).toBe(true);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    input.setAttribute('aria-activedescendant', 'item-1');
+    await Promise.resolve();
+    expect(input.hasAttribute('data-highlighted')).toBe(false);
+
+    input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(input.hasAttribute('data-highlighted')).toBe(true);
+    input.blur();
+    expect(input.hasAttribute('data-highlighted')).toBe(false);
+    expect(fake.reported<{ highlighted: boolean }>('OnHighlightedChange').map((r) => r.highlighted)).toEqual([true, false, true, false]);
+  });
+
+  it('port: attaching the same element twice returns the first handle', () => {
+    const { input, handle, fake } = renderInput();
+
+    expect(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), fake.twin)).toBe(handle);
   });
 });
