@@ -1,0 +1,12 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-parts` fixture (M5 track 10, issue 174): ComboboxItem, List, Popup, Clear, ItemIndicator, Positioner and createItems tests, ported at L4. The query's `case` picks the Base UI
+    test's rendering. Recorded callbacks render through `Records` (ComboboxL4FixtureBase).
+*@
+<FixtureContainer Name="combobox-parts" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+</FixtureContainer>

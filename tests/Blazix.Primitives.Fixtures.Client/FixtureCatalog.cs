@@ -249,5 +249,22 @@ public static class FixtureCatalog
         ["navigation-menu-prerender"] = new(typeof(NavigationMenuPrerenderFixture), Prerender: true),
         // M5 track 10 (issue 174): Combobox.
         ["combobox-root"] = new(typeof(ComboboxRootFixture)),
+        // M5 track 10 (issue 174), the Base UI titles of Combobox's [L4] rows (session M2): one block per spec file.
+        // combobox.input.spec.ts
+        ["combobox-input"] = new(typeof(ComboboxInputL4Fixture)),
+        // combobox.trigger.spec.ts
+        ["combobox-trigger"] = new(typeof(ComboboxTriggerL4Fixture)),
+        // combobox.chips.spec.ts
+        ["combobox-chips"] = new(typeof(ComboboxChipsL4Fixture)),
+        // combobox.parts.spec.ts
+        ["combobox-parts"] = new(typeof(ComboboxPartsL4Fixture)),
+        // combobox.root-a.spec.ts
+        ["combobox-root-a"] = new(typeof(ComboboxRootAL4Fixture)),
+        // combobox.root-b.spec.ts
+        ["combobox-root-b"] = new(typeof(ComboboxRootBL4Fixture)),
+        // combobox.root-c.spec.ts
+        ["combobox-root-c"] = new(typeof(ComboboxRootCL4Fixture)),
+        // combobox.suites.spec.ts
+        ["combobox-suite"] = new(typeof(ComboboxSuiteL4Fixture)),
     };
 }

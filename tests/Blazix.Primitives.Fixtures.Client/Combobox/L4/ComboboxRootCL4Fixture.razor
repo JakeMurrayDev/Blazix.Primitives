@@ -1,0 +1,12 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-root-c` fixture (M5 track 10, issue 174): ComboboxRoot.test.tsx, lines 10000 on, ported at L4. The query's `case` picks the Base UI
+    test's rendering. Recorded callbacks render through `Records` (ComboboxL4FixtureBase).
+*@
+<FixtureContainer Name="combobox-root-c" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+</FixtureContainer>
