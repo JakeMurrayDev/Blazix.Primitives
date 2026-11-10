@@ -106,6 +106,36 @@
         Assert.Empty(StoreOf<string>(cut).Values);
     }
 
+    // SEL-STA-09, SEL-FRM-18 (SelectRoot.tsx:526-541): Base UI force-mounts on any autofill that is not prevented while
+    // enabled and editable, and drops the multiple-mode value only in the microtask's match.
+    [Fact(DisplayName = "port: an autofill in multiple mode force-mounts the items and changes no value")]
+    [Trait("Requirement", "SEL-STA-09")]
+    [Trait("Requirement", "SEL-FRM-18")]
+    public async Task An_autofill_in_multiple_mode_force_mounts_the_items()
+    {
+        List<IReadOnlyList<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Multiple="true" Name="select" OnValuesChange="e => changes.Add(e.Value)">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await this.SettleFormAsync(cut);
+        Assert.Empty(cut.FindAll("[role=\"option\"]"));
+
+        await AutofillAsync(cut, "b");
+
+        Assert.Equal(2, cut.FindAll("[role=\"option\"]").Count);
+        Assert.Empty(changes);
+    }
+
     [Fact(DisplayName = "leaves the value untouched when autofill matches no item")]
     [Trait("Requirement", "SEL-FRM-19")]
     public async Task Leaves_the_value_untouched_when_autofill_matches_no_item()
