@@ -341,6 +341,39 @@ describe('select module: aligned placement (port titles)', () => {
     expect(positioner.style.top).toBe('');
     expect(positioner.style.bottom).toBe('');
   });
+
+  // Interim review F4 (M5 track 9): the fallback holds until the unmount, as Base UI's state does
+  // (select/positioner/SelectPositioner.tsx:70-82), so an update sent before C# latched it re-runs nothing.
+  it('falls back once and holds it until the unmount, whatever an update still in flight says (SEL-POS-04)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    // Within 20 px of the viewport's top edge: the collision fallback.
+    trigger.getBoundingClientRect = () => new DOMRect(100, 10, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 50, 180, 120);
+
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger, popup]);
+    handles.push(handle);
+    const fallbacks = () => fake.reports.filter((report) => report.method === 'OnAlignedChange').length;
+    expect(fallbacks()).toBe(1);
+
+    // An update C# sent before it latched the fallback.
+    handle.update(JSON.stringify({ ...options, highlightItemOnHover: false }), [trigger, popup]);
+    expect(fallbacks()).toBe(1);
+
+    // The next session is aligned again.
+    handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    handle.update(JSON.stringify(options), [trigger, popup]);
+    expect(fallbacks()).toBe(1);
+    expect(fake.reports.some((report) => report.method === 'OnPlaced')).toBe(true);
+  });
 });
 
 describe('select module: attach order (port titles)', () => {
