@@ -5,8 +5,7 @@ namespace Blazix.Primitives;
 // MNU §4.4, STA-15..21, STA-23, STA-24 (filter-dropdown/root/FilterDropdownRoot.tsx:86-196, filter-dropdown/store.ts:9-17,
 // menu/filter-root/MenuFilterList.tsx:101-123): the C# filter of one filterable menu (plan decision 10, ADR 01 :199). The
 // visible set is computed at the render batch's boundary (MenuRootContext.AtBatchBoundaryAsync), once per batch, over the
-// collator or the consumer's Filter; a filtered-out item renders nothing and unregisters from composite. Interface commit
-// of M5 track 12: the acting bodies throw until their red-first commits.
+// collator or the consumer's Filter; a filtered-out item renders nothing and unregisters from composite.
 
 /// <summary>Represents what the filter does to the highlight after a change.</summary>
 internal enum MenuFilterHighlight
@@ -36,9 +35,12 @@ internal readonly record struct MenuFilterPass(bool Open, string Query, Func<str
 /// <summary>Represents one item registered with a menu's filter.</summary>
 internal sealed class MenuFilterItem
 {
+    private readonly Action changed;
+    private bool visible = true;
+
     /// <summary>Initializes a new instance of the <see cref="MenuFilterItem"/> class.</summary>
     /// <param name="changed">The callback run when the item's visibility changes, which renders the item.</param>
-    public MenuFilterItem(Action changed) => throw new NotImplementedException();
+    public MenuFilterItem(Action changed) => this.changed = changed ?? throw new ArgumentNullException(nameof(changed));
 
     /// <summary>Gets or sets the item's explicit label, or <see langword="null"/>.</summary>
     public string? Label { get; set; }
@@ -50,20 +52,35 @@ internal sealed class MenuFilterItem
     public string? FilterText => Label ?? Text;
 
     /// <summary>Gets a value indicating whether the item matches the query; a hidden item renders nothing.</summary>
-    public bool Visible => throw new NotImplementedException();
+    public bool Visible => visible;
+
+    // Only a change notifies, so a keystroke that keeps an item visible never renders it (MNU-STA-16).
+    internal void SetVisible(bool value)
+    {
+        if (visible != value)
+        {
+            visible = value;
+            changed();
+        }
+    }
 }
 
 /// <summary>Represents the filter of one filterable menu: the query's registration of items, the visible set and the highlight rules.</summary>
 internal sealed class MenuFilterEngine
 {
+    private readonly List<MenuFilterItem> items = [];
+    private HashSet<MenuFilterItem>? visibleItems;
+    private HashSet<MenuFilterItem>? spare;
+    private string? lastFilterQuery;
+
     /// <summary>Gets the number of registered items, updated as items register and unregister.</summary>
-    public int RegisteredCount => throw new NotImplementedException();
+    public int RegisteredCount => items.Count;
 
     /// <summary>Gets a value indicating whether a visible set exists: <see langword="false"/> while the query is empty or matching is off.</summary>
-    public bool HasVisibleSet => throw new NotImplementedException();
+    public bool HasVisibleSet => visibleItems is not null;
 
     /// <summary>Gets a value indicating whether the menu shows no item: no item registered and no visible set, or an empty visible set.</summary>
-    public bool IsEmpty => throw new NotImplementedException();
+    public bool IsEmpty => visibleItems is null ? items.Count == 0 : visibleItems.Count == 0;
 
     // STA-19: open and (Always, or true with a non-empty trimmed query).
     /// <summary>Determines whether the automatic highlight applies to the current query.</summary>
@@ -71,25 +88,87 @@ internal sealed class MenuFilterEngine
     /// <param name="autoHighlight">The automatic highlight mode.</param>
     /// <param name="filterQuery">The trimmed query.</param>
     /// <returns><see langword="true"/> when the first visible item is highlighted automatically.</returns>
-    public static bool AutoHighlightEnabled(bool open, AutoHighlightValue autoHighlight, string filterQuery) => throw new NotImplementedException();
+    public static bool AutoHighlightEnabled(bool open, AutoHighlightValue autoHighlight, string filterQuery) =>
+        open && (autoHighlight.IsAlways || (autoHighlight.IsEnabled && filterQuery.Length > 0));
 
     /// <summary>Registers an item with the filter.</summary>
     /// <param name="item">The item.</param>
     /// <returns>The registration; disposing it unregisters the item.</returns>
-    public IDisposable Register(MenuFilterItem item) => throw new NotImplementedException();
+    public IDisposable Register(MenuFilterItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        items.Add(item);
+        return new Registration(this, item);
+    }
 
     // STA-15, STA-16, STA-18, STA-19: FilterDropdownRoot.tsx:131-184, run once per render batch.
     /// <summary>Recomputes the visible set and decides the highlight.</summary>
     /// <param name="pass">The inputs of the pass.</param>
     /// <returns>What happens to the highlight.</returns>
-    public MenuFilterHighlight Recompute(in MenuFilterPass pass) => throw new NotImplementedException();
+    public MenuFilterHighlight Recompute(in MenuFilterPass pass)
+    {
+        string filterQuery = pass.Query.Trim();
+        // An unused filter must not re-run the automatic highlight (FilterDropdownRoot.tsx:86-88).
+        Func<string, string, bool>? match = filterQuery.Length == 0 ? null : pass.Match;
+        bool autoHighlightEnabled = AutoHighlightEnabled(pass.Open, pass.AutoHighlight, filterQuery);
+        bool queryChanged = lastFilterQuery is not null && !string.Equals(lastFilterQuery, filterQuery, StringComparison.Ordinal);
+        lastFilterQuery = filterQuery;
+
+        // :137-151: with no query or external filtering every registered item is visible; external filtering still follows
+        // the automatic highlight, and a registry update keeps the current highlight.
+        if (match is null)
+        {
+            Publish(null);
+            if (autoHighlightEnabled && items.Count > 0)
+            {
+                return queryChanged || !pass.HasHighlight ? MenuFilterHighlight.First : MenuFilterHighlight.Keep;
+            }
+
+            return filterQuery.Length == 0 && queryChanged ? MenuFilterHighlight.Clear : MenuFilterHighlight.Keep;
+        }
+
+        // :155-159 (STA-16): publishing an empty result before anything registered would hide every item as it arrives.
+        if (visibleItems is null && items.Count == 0)
+        {
+            return MenuFilterHighlight.Keep;
+        }
+
+        HashSet<MenuFilterItem> next = spare ?? [];
+        next.Clear();
+        bool hasNewMatch = visibleItems is null;
+        foreach (MenuFilterItem item in items)
+        {
+            // Design point 2 (b'): an item whose text has not been reported stays visible until it is.
+            string? text = item.FilterText;
+            if (text is null || match(text, filterQuery))
+            {
+                next.Add(item);
+                hasNewMatch |= visibleItems?.Contains(item) != true;
+            }
+        }
+
+        // :172-184: new matches or a smaller result set invalidate the previous item identities; the first filtered result
+        // has none to invalidate unless the query itself changed.
+        if (hasNewMatch || visibleItems!.Count != next.Count)
+        {
+            MenuFilterHighlight highlight = autoHighlightEnabled && next.Count > 0
+                ? MenuFilterHighlight.First
+                : visibleItems is not null || queryChanged ? MenuFilterHighlight.Clear : MenuFilterHighlight.Keep;
+            Publish(next);
+            return highlight;
+        }
+
+        spare = next;
+        return autoHighlightEnabled && queryChanged && next.Count > 0 ? MenuFilterHighlight.First : MenuFilterHighlight.Keep;
+    }
 
     // STA-18: FilterDropdownRoot.tsx:98-107, indexes are positional.
     /// <summary>Decides the highlight after a query change was requested.</summary>
     /// <param name="canceled">A value indicating whether the consumer canceled the change.</param>
     /// <param name="autoHighlight">The automatic highlight mode.</param>
     /// <returns>What happens to the highlight.</returns>
-    public static MenuFilterHighlight AfterValueChange(bool canceled, AutoHighlightValue autoHighlight) => throw new NotImplementedException();
+    public static MenuFilterHighlight AfterValueChange(bool canceled, AutoHighlightValue autoHighlight) =>
+        !canceled && !autoHighlight.IsEnabled ? MenuFilterHighlight.Clear : MenuFilterHighlight.Keep;
 
     // STA-20: FilterDropdownRoot.tsx:109-125, MenuFilterList.tsx:101-123.
     /// <summary>Decides the highlight after the ordered item list changed while open.</summary>
@@ -97,7 +176,41 @@ internal sealed class MenuFilterEngine
     /// <param name="autoHighlightEnabled">A value indicating whether the automatic highlight applies to the current query.</param>
     /// <param name="itemCount">The number of items in the list.</param>
     /// <returns>What happens to the highlight.</returns>
-    public static MenuFilterHighlight AfterItemsChange(bool sameItemAtHighlight, bool autoHighlightEnabled, int itemCount) => throw new NotImplementedException();
+    public static MenuFilterHighlight AfterItemsChange(bool sameItemAtHighlight, bool autoHighlightEnabled, int itemCount) =>
+        sameItemAtHighlight ? MenuFilterHighlight.Keep : autoHighlightEnabled && itemCount > 0 ? MenuFilterHighlight.First : MenuFilterHighlight.Clear;
+
+    // Swaps the published set (the previous one becomes the next pass's scratch) and notifies the items whose visibility
+    // changed; null publishes "every item visible".
+    private void Publish(HashSet<MenuFilterItem>? next)
+    {
+        if (next is null && visibleItems is null)
+        {
+            return;
+        }
+
+        HashSet<MenuFilterItem>? previous = visibleItems;
+        visibleItems = next;
+        spare = previous;
+        foreach (MenuFilterItem item in items)
+        {
+            item.SetVisible(next is null || next.Contains(item));
+        }
+    }
+
+    private sealed class Registration(MenuFilterEngine engine, MenuFilterItem item) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                engine.items.Remove(item);
+            }
+        }
+    }
 }
 
 // MNU §4.4: what a filterable root shares with its filter parts (the Input, Clear, Empty, List, groups, items and submenu
