@@ -2352,6 +2352,25 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect(document.activeElement).toBe(harness.item(3));
   });
 
+  // MenuRoot.tsx:574-592 (MNU-EVT-11, EVT-13): an index can come to point at a different element while its value stays the
+  // same, so the highlight is reported again when the registry settles, with no event (Base UI's `none`).
+  it('port: a list change that points the highlighted index at another item reports the highlight again with no event', async () => {
+    const harness = app({ items: ['One', 'Two'] });
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(1));
+    const before = harness.highlights.length;
+
+    harness.setItems(['Archive', 'One', 'Two']);
+    await nextTask();
+
+    expect(harness.highlights.length).toBeGreaterThan(before);
+    expect(harness.highlights.at(-1)).toMatchObject({ event: null });
+  });
+
   it('port: a C# highlight request out of bounds moves neither the focus nor the cursor, while one in bounds does', async () => {
     const harness = app();
     keyDown(harness.reference, 'ArrowDown');
