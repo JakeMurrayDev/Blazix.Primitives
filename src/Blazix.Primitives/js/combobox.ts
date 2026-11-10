@@ -532,10 +532,27 @@ function attachList(element: HTMLElement, initial: ComboboxOptions, channel: Twi
     setTimeout(() => channel.report('OnItemLinkPress', { href: null }), 0);
   };
 
+  // ComboboxList.tsx:83-99: the list's own Enter clicks the highlighted item, attributed to the keydown as the input's is
+  // (parts.ts:46-58); with no highlight the keydown is left to the form.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (options.disabled || options.readOnly || event.key !== 'Enter') {
+      return;
+    }
+    const item = element.querySelector('[role="option"][data-highlighted]');
+    if (!(item instanceof HTMLElement)) {
+      return;
+    }
+    stopEvent(event);
+    channel.report('OnSelectionEvent', { event: eventInfo(event) });
+    item.click();
+    channel.report('OnSelectionEvent', { event: null });
+  };
+
   element.addEventListener('pointerdown', onPointerDown, true);
   element.addEventListener('mousedown', onMouseDown);
   element.addEventListener('mouseup', onMouseUp);
   element.addEventListener('click', onClick);
+  element.addEventListener('keydown', onKeyDown);
   return {
     update(optionsJson: string) {
       options = parseOptions<ComboboxOptions>(optionsJson);
@@ -548,6 +565,7 @@ function attachList(element: HTMLElement, initial: ComboboxOptions, channel: Twi
       element.removeEventListener('mousedown', onMouseDown);
       element.removeEventListener('mouseup', onMouseUp);
       element.removeEventListener('click', onClick);
+      element.removeEventListener('keydown', onKeyDown);
     },
   };
 }

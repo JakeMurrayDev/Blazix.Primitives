@@ -176,6 +176,23 @@ public sealed class ComboboxItemTests : IDisposable
         Assert.Equal("keydown", change.Details.Event?.Type);
     }
 
+    // ComboboxList.tsx:83-99: the list's module handle clicks the highlighted item for its own Enter, between two reports on
+    // the list's twin, as the input's handle does for the input's Enter.
+    [Fact(DisplayName = "port: the list's own Enter attributes the selection to its keydown")]
+    [Trait("Requirement", "CMB-KEY-04")]
+    public async Task The_lists_own_Enter_attributes_the_selection_to_its_keydown()
+    {
+        IRenderedComponent<ComboboxLinkHarness> cut = test.Context.Render<ComboboxLinkHarness>(p => p.Add(x => x.Href, null));
+        ComboboxTwin list = test.TwinOf(ComboboxTwin.ListPart);
+
+        await cut.InvokeAsync(() => list.OnSelectionEvent($$"""{"event":{{ComboboxTestContext.Key("Enter")}}}"""));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=link-one]").Click());
+        await cut.InvokeAsync(() => list.OnSelectionEvent("""{"event":null}"""));
+
+        ValueChangeEventArgs<string> change = Assert.Single(cut.Instance.ValueChanges);
+        Assert.Equal("keydown", change.Details.Event?.Type);
+    }
+
     private async Task ClickLinkAsync(IRenderedComponent<ComboboxLinkHarness> cut, bool hash)
     {
         ComboboxTwin list = test.TwinOf(ComboboxTwin.ListPart);

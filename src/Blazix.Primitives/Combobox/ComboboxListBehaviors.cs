@@ -119,6 +119,9 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         twin = new ComboboxTwin(services.JSRuntime);
         ComboboxStore<TValue> root = store;
         twin.ItemLinkPressed += root.SetLinkPress;
+
+        // ComboboxList.tsx:83-99: the list's own Enter clicks the highlighted item for the keydown, as the input's does.
+        twin.SelectionEventReported += root.SetSelectionEvent;
     }
 
     /// <summary>Applies the id the part renders and the consumer's attributes.</summary>

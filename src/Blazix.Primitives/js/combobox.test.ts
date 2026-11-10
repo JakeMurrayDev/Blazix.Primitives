@@ -495,7 +495,7 @@ describe('the list and the press defaults', () => {
     item.setAttribute('data-highlighted', '');
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     list.dispatchEvent(enter);
-    handle.update(JSON.stringify(options({ part: 'list', open: true, readOnly: true })));
+    handle.update(options({ part: 'list', open: true, readOnly: true }));
     const readOnly = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     list.dispatchEvent(readOnly);
     expect([clicks, unhighlighted.defaultPrevented, enter.defaultPrevented, readOnly.defaultPrevented, fake.reported('OnSelectionEvent').length]).toEqual([['click'], false, true, false, 2]);
