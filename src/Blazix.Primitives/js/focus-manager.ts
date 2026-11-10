@@ -1547,8 +1547,14 @@ export function attach(
       }
 
       const referenceReturnElement = reference?.isConnected ? reference : null;
+      // C# stops the manager before the `portal` module takes the moved popup out of the document, while Base UI's cleanup
+      // runs once its portal node left it: an element focused inside the popup when the effect armed (a re-arm while open)
+      // is disconnected there, so it is no return target here either.
+      const leaving = disposed || removed;
       const previousReturnElement =
-        elementFocusedBeforeOpen?.isConnected && getNodeName(elementFocusedBeforeOpen) !== 'body'
+        elementFocusedBeforeOpen?.isConnected &&
+        getNodeName(elementFocusedBeforeOpen) !== 'body' &&
+        !(leaving && contains(portalNode(floating) ?? floating, elementFocusedBeforeOpen))
           ? elementFocusedBeforeOpen
           : null;
 
