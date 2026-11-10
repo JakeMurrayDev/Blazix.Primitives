@@ -90,6 +90,8 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
             store.SetElementIds(ids => ids.Trigger == own ? ids with { Trigger = null, TriggerLabelable = null } : ids);
         }
 
+        // A focused trigger that unmounts takes the field's focus with it (no blur reaches it).
+        fieldScope?.SetFocused(this, false, Disabled);
         fieldScope?.RemoveListener(services.RequestRender);
         button.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;

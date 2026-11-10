@@ -139,6 +139,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             store.InputValueCommitted -= OnInputValueCommitted;
         }
 
+        // A focused input that unmounts takes the field's focus with it (no blur reaches it).
+        fieldScope?.SetFocused(this, false, Disabled);
         fieldScope?.RemoveListener(services.RequestRender);
 
         reference.Dispose();
