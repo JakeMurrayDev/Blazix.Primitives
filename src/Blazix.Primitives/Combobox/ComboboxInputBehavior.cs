@@ -59,10 +59,12 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <summary>Initializes a new instance of the <see cref="ComboboxInputBehavior"/> class.</summary>
     /// <param name="services">The part's services.</param>
     /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler, which calls <see cref="HandleKeyDownAsync"/>.</param>
-    public ComboboxInputBehavior(ComboboxPartServices services, EventCallback onKeyDown)
+    /// <param name="onClick">The part's own <c>onclick</c> handler, which calls <see cref="HandleClickAsync"/>.</param>
+    /// <param name="onMouseDown">The part's own <c>onmousedown</c> handler, which calls <see cref="HandleMouseDownAsync"/>.</param>
+    public ComboboxInputBehavior(ComboboxPartServices services, EventCallback onKeyDown, EventCallback onClick, EventCallback onMouseDown)
     {
         this.services = services;
-        interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, default);
+        interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, onClick, onMouseDown);
         reference = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, onKeyDown);
     }
 
@@ -185,8 +187,10 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         ComboboxStore root = Store;
         ComboboxStoreState state = root.State;
 
-        // The list handle's part handler for the consumer's declined onkeydown, and its render mark.
+        // The list handle's part handler for the consumer's declined onkeydown, and its render mark; the press handle's part
+        // handlers for the consumer's declined onclick and onmousedown.
         reference.AddAttributes(attributes, id);
+        interactions.AddAttributes(attributes);
 
         // AriaCombobox.tsx:1348-1376: an input-like control (always, on the server and before hydration) takes the four
         // fixed attributes and the combobox ARIA.
@@ -268,6 +272,16 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <param name="args">The keydown.</param>
     /// <returns>A task that completes when the handler has run.</returns>
     public Task HandleKeyDownAsync(KeyboardEventArgs args) => reference.HandleKeyDownAsync(args);
+
+    /// <summary>Runs the declined consumer <c>onclick</c> unless the press already ran it.</summary>
+    /// <param name="args">The click.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleClickAsync(MouseEventArgs args) => interactions.HandleClickAsync(args);
+
+    /// <summary>Runs the declined consumer <c>onmousedown</c> unless the press already ran it.</summary>
+    /// <param name="args">The mousedown.</param>
+    /// <returns>A task that completes when the handler has run.</returns>
+    public Task HandleMouseDownAsync(MouseEventArgs args) => interactions.HandleMouseDownAsync(args);
 
     /// <summary>Renders the start dismiss button while the popup is open and the focus manager is modal.</summary>
     /// <param name="builder">The part's render tree builder.</param>

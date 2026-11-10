@@ -90,6 +90,10 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
 
     private readonly EventCallback onKeyDown;
 
+    private readonly EventCallback onClick;
+
+    private readonly EventCallback onMouseDown;
+
     private readonly EventCallback onFocus;
 
     private readonly EventCallback onBlur;
@@ -102,6 +106,8 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     public ComboboxInput()
     {
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => behavior!.HandleKeyDownAsync(e));
+        onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
+        onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.HandleMouseDownAsync(e));
         onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => behavior!.OnFocusChange(true));
         onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.OnFocusChange(false));
     }
@@ -169,7 +175,7 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        behavior = new ComboboxInputBehavior(new ComboboxPartServices("Combobox", JSRuntime, Logger, IdGenerator, StateHasChanged, InvokeAsync, DispatchExceptionAsync), onKeyDown);
+        behavior = new ComboboxInputBehavior(new ComboboxPartServices("Combobox", JSRuntime, Logger, IdGenerator, StateHasChanged, InvokeAsync, DispatchExceptionAsync), onKeyDown, onClick, onMouseDown);
         base.OnInitialized();
     }
 
