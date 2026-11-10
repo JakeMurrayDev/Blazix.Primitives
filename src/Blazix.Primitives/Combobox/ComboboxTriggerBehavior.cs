@@ -219,6 +219,11 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         // CMB-STA-32 (ComboboxTrigger.tsx:182-188): a press mounts the items so the selected one can be highlighted.
         if (!Disabled)
         {
+            if (!Store.State.InputInsidePopup && id is not null)
+            {
+                Store.SetDomReference(id);
+            }
+
             Store.ForceMount();
         }
 

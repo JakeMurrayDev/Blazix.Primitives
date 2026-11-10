@@ -79,6 +79,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Gets a value indicating whether an empty-state part is mounted.</summary>
     public bool EmptyMounted => emptyParts > 0;
 
+    /// <summary>Gets the id of the trigger a press made the floating root's DOM reference, or <see langword="null"/>.</summary>
+    public string? DomReferenceTriggerId { get; private set; }
+
     /// <summary>Runs the input's change: the text, then the clears, the open and the highlight it implies.</summary>
     /// <param name="text">The input's text after the change.</param>
     /// <param name="typed">Whether the change is typed input.</param>
@@ -182,6 +185,19 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Mounts the list while closed, for typeahead or autofill.</summary>
     public abstract void ForceMount();
+
+    // ComboboxTrigger.tsx:196-199: with the input outside the popup, a trigger press makes the trigger the floating root's DOM
+    // reference: its next press toggles the popup (useClick's active trigger) and a popup with no anchor follows it.
+    /// <summary>Makes a trigger the floating root's DOM reference, which the interactions session reads as its active trigger.</summary>
+    /// <param name="triggerId">The trigger's id.</param>
+    public void SetDomReference(string triggerId)
+    {
+        if (!string.Equals(DomReferenceTriggerId, triggerId, StringComparison.Ordinal))
+        {
+            DomReferenceTriggerId = triggerId;
+            NotifySessionInputsChanged();
+        }
+    }
 
     /// <summary>Raises <see cref="InputValueCommitted"/>.</summary>
     protected void NotifyInputValueCommitted() => InputValueCommitted?.Invoke();

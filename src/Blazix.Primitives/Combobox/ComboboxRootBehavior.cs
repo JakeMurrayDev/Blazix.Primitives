@@ -377,6 +377,10 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         // AriaCombobox.tsx:1333-1340: the floating context is open while inline (CMB-ARIA-02).
         session!.Open = state.Inline || lifecycle.EffectiveOpen;
         session.FloatingId = lifecycle.FloatingId;
+
+        // AriaCombobox.tsx:1336-1338: the floating root's reference is the trigger while the input is inside the popup (or there
+        // is none); a trigger press with the input outside makes the trigger the DOM reference (ComboboxTrigger.tsx:196-199).
+        session.ActiveTriggerId = store.DomReferenceTriggerId ?? (state.InputInsidePopup ? state.ElementIds.Trigger : null);
         session.Ending = lifecycle.DerivedTransitionStatus == TransitionStatus.Ending;
         session.Mounted = lifecycle.Mounted;
         session.Relay = lifecycle.OpenChange;
