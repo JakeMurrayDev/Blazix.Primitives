@@ -1,6 +1,6 @@
 namespace Blazix.Primitives.Interop;
 
-// M5 track 12's design point 1 (a), pending the orchestrator: the `menu-filter` component module, one handle per part that
+// M5 track 12's design point 1 (a), settled by the orchestrator 2026-11-11: the `menu-filter` component module, one handle per part that
 // owns a MenuFilterTwin (the Input, the Trigger's relay, the List and the Popup), joined to its menu by MenuKey, a key C#
 // generates per filterable root and never renders. Fields a part does not use are left null and so not sent; handlers read
 // the options of the latest update.

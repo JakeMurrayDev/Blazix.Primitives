@@ -46,6 +46,11 @@ internal abstract class MenuRootContext
     /// <summary>Gets the menu's items, by rendered id.</summary>
     public MenuItemRegistry Items { get; } = new();
 
+    // MNU §4.4 (M5 track 12): set once by a root that consumed a MenuFilterProvider (MNU-STR-14); a plain menu keeps null,
+    // so its parts keep their plain path.
+    /// <summary>Gets the filter of a filterable menu, or <see langword="null"/> for a plain menu.</summary>
+    public MenuFilterRootContext? Filter { get; internal set; }
+
     /// <summary>Gets the registered submenus, for the tree's closes.</summary>
     internal IReadOnlyList<MenuRootContext> ChildMenus => Children;
 

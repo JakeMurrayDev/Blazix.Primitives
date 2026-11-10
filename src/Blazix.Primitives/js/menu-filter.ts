@@ -1,4 +1,4 @@
-// The `menu-filter` component module (M5 track 12's design point 1 (a), pending the orchestrator): Menu's filter mode in the
+// The `menu-filter` component module (M5 track 12's design point 1 (a), settled by the orchestrator 2026-11-11): Menu's filter mode in the
 // browser, for docs/components/menu.md §6.1.1 and the filter rows of §5.8 and §6.2. One handle per part that owns a
 // MenuFilterTwin, joined to its menu by `menuKey`:
 // - the Input: composition (EVT-19, KEY-31), the committed-value writes (C# -> JS, the Input/Field.Control precedent of

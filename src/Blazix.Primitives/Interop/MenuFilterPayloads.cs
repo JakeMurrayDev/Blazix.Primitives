@@ -8,14 +8,14 @@ namespace Blazix.Primitives.Interop;
 /// <param name="Event">The event the change came from.</param>
 internal sealed record MenuFilterValueChange(string Value, string Reason, EventSnapshot? Event);
 
-// MNU-STA-17; M5 track 12's design point 2 (b′), pending the orchestrator: the List handle's report of the textContent of
+// MNU-STA-17; M5 track 12's design point 2 (b′), settled by the orchestrator 2026-11-11: the List handle's report of the textContent of
 // the items C# named in TextIds, at attach and after a mutation changes one, coalesced to one report per microtask.
 /// <summary>Represents the rendered texts of a menu's items the list reported.</summary>
 /// <param name="Ids">The items' ids.</param>
 /// <param name="Texts">The items' texts, in the order of <paramref name="Ids"/>.</param>
 internal sealed record MenuFilterTexts(IReadOnlyList<string> Ids, IReadOnlyList<string> Texts);
 
-// MNU-STA-22; M5 track 12's design point 5 (a), pending the orchestrator: the module writes the Input's data-highlighted
+// MNU-STA-22; M5 track 12's design point 5 (a), settled by the orchestrator 2026-11-11: the module writes the Input's data-highlighted
 // and reports it, which C# mirrors as MenuInputState.Highlighted.
 /// <summary>Represents a change of the input's focus ring the module reported.</summary>
 /// <param name="Highlighted">The new value.</param>
