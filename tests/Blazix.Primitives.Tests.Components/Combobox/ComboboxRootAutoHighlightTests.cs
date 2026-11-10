@@ -26,7 +26,7 @@ public sealed class ComboboxRootAutoHighlightTests : IDisposable
 
         Assert.NotEmpty(cut.FindAll("[role=listbox]"));
         Assert.Null(Store(cut).State.ActiveIndex);
-        Assert.All(test.HighlightRequests(), request => Assert.Null(request));
+        Assert.All(test.HighlightRequestIndexes(), request => Assert.Null(request));
     }
 
     [Fact(DisplayName = "highlights the first matching item after typing (single mode)")]
@@ -38,7 +38,7 @@ public sealed class ComboboxRootAutoHighlightTests : IDisposable
         await test.TypeEachAsync(cut, "ch");
 
         Assert.Equal("cherry", cut.HighlightedText(Store(cut)));
-        Assert.Equal(0, test.HighlightRequests()[^1]);
+        Assert.Equal(0, test.HighlightRequestIndexes()[^1]);
     }
 
     [Fact(DisplayName = "highlights the first matching item for a static list without the items prop")]

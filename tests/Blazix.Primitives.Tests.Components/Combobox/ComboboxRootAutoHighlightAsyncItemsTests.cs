@@ -29,7 +29,7 @@ public sealed class ComboboxRootAutoHighlightAsyncItemsTests : IDisposable
         await test.EchoAsync(cut);
 
         Assert.Equal("32", cut.HighlightedText(Store(cut)));
-        Assert.Equal(0, test.HighlightRequests()[^1]);
+        Assert.Equal(0, test.HighlightRequestIndexes()[^1]);
         (string? value, int index, EventReason reason) = Assert.Single(cut.Instance.Highlights);
         Assert.Equal(("32", 0, EventReason.None), (value, index, reason));
 
@@ -98,7 +98,7 @@ public sealed class ComboboxRootAutoHighlightAsyncItemsTests : IDisposable
 
         Assert.Equal(["blackberry", "blueberry"], cut.OptionTexts());
         Assert.Equal("blackberry", cut.HighlightedText(store));
-        Assert.Equal(0, test.HighlightRequests()[^1]);
+        Assert.Equal(0, test.HighlightRequestIndexes()[^1]);
     }
 
     [Fact(DisplayName = "discards the request when an ignored typed open is followed by another open")]
@@ -142,7 +142,7 @@ public sealed class ComboboxRootAutoHighlightAsyncItemsTests : IDisposable
 
         Assert.NotNull(cut.OptionNamed("32"));
         Assert.Null(cut.HighlightedText(Store(cut)));
-        Assert.DoesNotContain(0, test.HighlightRequests());
+        Assert.DoesNotContain(0, test.HighlightRequestIndexes());
     }
 
     [Fact(DisplayName = "discards the request when the controlled input is cleared")]

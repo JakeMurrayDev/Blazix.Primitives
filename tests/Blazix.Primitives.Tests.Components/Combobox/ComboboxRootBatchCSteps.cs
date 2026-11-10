@@ -290,7 +290,7 @@ internal static class ComboboxRootBatchCSteps
     /// <summary>Gets the indexes of the highlights C# asked the list's handles for, in order (<see langword="null"/> for a clear).</summary>
     /// <param name="test">The test context.</param>
     /// <returns>The requested indexes.</returns>
-    public static List<int?> HighlightRequests(this ComboboxTestContext test) => test.Requests().Select(request => request.Index).ToList();
+    public static List<int?> HighlightRequestIndexes(this ComboboxTestContext test) => test.Requests().Select(request => request.Index).ToList();
 
     /// <summary>Gets the options the list navigation's handles sent last.</summary>
     /// <param name="test">The test context.</param>
