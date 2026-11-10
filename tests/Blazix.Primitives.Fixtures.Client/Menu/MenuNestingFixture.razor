@@ -1,0 +1,102 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-nesting` fixture (tests/browser/menu.others.spec.ts, M5 track 6): the Menu titles of other families' test files.
+    `case`: `dialog` (a modal Dialog holding a modal Menu, DialogRoot.test.tsx), `toolbar` (a ToolbarButton substituting a
+    MenuTrigger, ToolbarButton.test.tsx; `disabled`; its clicks in `data-button-clicks`), `popover` (a default-open, kept-mounted
+    Popover holding Before, a Menu and After, PopoverRoot.test.tsx). The sync button is last: a Tab from the page's start
+    reaches the toolbar.
+*@
+<FixtureContainer Name="menu-nesting" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-button-clicks="@buttonClicks" data-dialog-open-changes="@dialogChanges">
+    @switch (Case)
+    {
+        case "dialog":
+            <DialogRoot TPayload="NoPayload" @ref="dialog" OnOpenChange="RecordDialogChange">
+                <DialogTrigger TPayload="NoPayload" @ref="dialogTrigger" data-testid="dialog-trigger">Open</DialogTrigger>
+                <DialogPortal>
+                    <DialogPopup data-testid="dialog-popup" style="position: relative; z-index: 1">
+                        <MenuRoot TPayload="NoPayload" @ref="menu" OnOpenChange="RecordOpenChange">
+                            <MenuTrigger TPayload="NoPayload" data-testid="menu-trigger">Open menu</MenuTrigger>
+                            @MenuContent
+                        </MenuRoot>
+                    </DialogPopup>
+                </DialogPortal>
+            </DialogRoot>
+            break;
+        case "toolbar":
+            <ToolbarRoot @ref="toolbar">
+                <MenuRoot TPayload="NoPayload" @ref="menu" OnOpenChange="RecordOpenChange">
+                    <ToolbarButton @ref="toolbarButton" data-testid="button" Disabled="@(QueryFlag("disabled") == true)" Render="@ToolbarTrigger" @onclick="() => buttonClicks++">Toggle</ToolbarButton>
+                    @ToolbarItems
+                </MenuRoot>
+            </ToolbarRoot>
+            break;
+        default:
+            <PopoverRoot TPayload="NoPayload" DefaultOpen="true">
+                <PopoverPortal KeepMounted="true">
+                    <PopoverPositioner>
+                        <PopoverPopup data-testid="popover-popup">
+                            <button type="button" data-testid="before">Before</button>
+                            <MenuRoot TPayload="NoPayload" @ref="menu" OnOpenChange="RecordOpenChange">
+                                <MenuTrigger TPayload="NoPayload" @ref="menuTrigger" data-testid="menu-trigger">Menu</MenuTrigger>
+                                @MenuContent
+                            </MenuRoot>
+                            <button type="button" data-testid="after">After</button>
+                        </PopoverPopup>
+                    </PopoverPositioner>
+                </PopoverPortal>
+            </PopoverRoot>
+            break;
+    }
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private int buttonClicks;
+    private string dialogChanges = "";
+    private DialogRoot<NoPayload>? dialog;
+    private DialogTrigger<NoPayload>? dialogTrigger;
+    private MenuRoot<NoPayload>? menu;
+    private MenuTrigger<NoPayload>? menuTrigger;
+    private MenuTrigger<NoPayload>? toolbarMenuTrigger;
+    private ToolbarRoot? toolbar;
+    private ToolbarButton? toolbarButton;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        dialog?.SessionAttached ?? Task.CompletedTask,
+        dialogTrigger?.TwinAttached ?? Task.CompletedTask,
+        menu?.SessionAttached ?? Task.CompletedTask,
+        menuTrigger?.TwinsAttached ?? Task.CompletedTask,
+        toolbarMenuTrigger?.TwinsAttached ?? Task.CompletedTask,
+        toolbar?.TwinAttached ?? Task.CompletedTask,
+        toolbarButton?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    private void RecordDialogChange(ValueChangeEventArgs<bool> args) =>
+        dialogChanges += $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()} ";
+
+    private RenderFragment ToolbarTrigger => @<MenuTrigger TPayload="NoPayload" @ref="toolbarMenuTrigger" />;
+
+    private RenderFragment MenuContent => @<MenuPortal>
+        <MenuPositioner data-testid="menu-positioner">
+            <MenuPopup>
+                <MenuItem>Item</MenuItem>
+            </MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>;
+
+    private RenderFragment ToolbarItems => @<MenuPortal>
+        <MenuPositioner>
+            <MenuPopup>
+                <MenuItem data-testid="item-1">1</MenuItem>
+                <MenuItem data-testid="item-2">2</MenuItem>
+                <MenuItem data-testid="item-3">3</MenuItem>
+            </MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>;
+}

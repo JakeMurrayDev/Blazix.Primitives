@@ -39,6 +39,9 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// <remarks>The argument is the declared mode: <see langword="true"/> for native.</remarks>
     public event Action<bool>? NativeButtonMismatched;
 
+    /// <summary>Occurs when the development check finds the element rendered disabled while the part is not.</summary>
+    public event Action? DisabledElementDetected;
+
     /// <summary>Gets or sets the C# handler chain of the activation decision point.</summary>
     /// <value>
     /// A function that receives the <c>keydown</c> or <c>keyup</c> about to activate the element and returns
@@ -116,6 +119,11 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
         NativeButtonMismatch mismatch = Deserialize(payloadJson, BlazixJsonContext.Default.NativeButtonMismatch);
         NativeButtonMismatched?.Invoke(mismatch.ExpectedNative);
     }
+
+    /// <summary>Receives the result of the development check of an element rendered disabled while the part is not.</summary>
+    /// <param name="payloadJson">The report's JSON, which carries nothing.</param>
+    [JSInvokable]
+    public void OnDisabledElementDetected(string payloadJson) => DisabledElementDetected?.Invoke();
 
     /// <inheritdoc />
     /// <remarks>

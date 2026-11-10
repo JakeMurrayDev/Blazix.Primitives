@@ -17,6 +17,9 @@ public sealed class InteractionsLiteralsTests
     [InlineData("input-press", EventReason.InputPress)]
     [InlineData("focus-out", EventReason.FocusOut)]
     [InlineData("escape-key", EventReason.EscapeKey)]
+    // Menu's interactions additions (M5 track 6; ADR 04 Amendments 2026-11-04, Menu's additions as built, items (2), (3)).
+    [InlineData("sibling-open", EventReason.SiblingOpen)]
+    [InlineData("cancel-open", EventReason.CancelOpen)]
     public void Every_reason_the_module_reports_parses_to_its_member_and_round_trips(string literal, EventReason reason)
     {
         Assert.Equal(reason, InteractionsLiterals.ParseReason(literal));

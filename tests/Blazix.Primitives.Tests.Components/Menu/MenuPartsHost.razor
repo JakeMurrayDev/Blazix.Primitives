@@ -1,0 +1,135 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The small trees of the render titles of MenuTrigger.test.tsx, MenuPositioner.test.tsx, MenuSubmenuTrigger.test.tsx
+   and MenuRoot.test.tsx, by `Case`. *@
+@switch (Case)
+{
+    case "trigger-alone":
+        <MenuTrigger TPayload="NoPayload" />
+        break;
+    case "positioner-outside-portal":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPositioner><MenuPopup /></MenuPositioner>
+        </MenuRoot>
+        break;
+    case "trigger-disabled":
+        <MenuRoot TPayload="NoPayload" Disabled="RootDisabled">
+            <MenuTrigger TPayload="NoPayload" Disabled="TriggerDisabled" />
+        </MenuRoot>
+        break;
+    case "radio-group":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuRadioGroup TValue="string" Disabled="RadioGroupDisabled" />
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "submenu-disabled-element":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuSubmenuRoot>
+                            <MenuSubmenuTrigger NativeButton="true" RenderFunction="AsDisabledButton">Open submenu</MenuSubmenuTrigger>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "group":
+        <MenuRoot TPayload="NoPayload" Open="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuGroup data-testid="group" />
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "trigger-in-popover":
+        <PopoverRoot TPayload="NoPayload" Open="true">
+            <PopoverTrigger TPayload="NoPayload">Open</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup>
+                        <MenuRoot TPayload="NoPayload">
+                            @if (NotNative)
+                            {
+                                <MenuTrigger TPayload="NoPayload" data-testid="menu-trigger" NativeButton="false" RenderFunction="AsSpan" />
+                            }
+                            else
+                            {
+                                <MenuTrigger TPayload="NoPayload" data-testid="menu-trigger" />
+                            }
+                        </MenuRoot>
+                    </PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>
+        break;
+    case "submenu-trigger-alone":
+        <MenuSubmenuTrigger />
+        break;
+    case "submenu-root-alone":
+        <MenuSubmenuRoot>
+            <MenuSubmenuTrigger>More</MenuSubmenuTrigger>
+        </MenuSubmenuRoot>
+        break;
+    case "submenu":
+        <MenuRoot TPayload="NoPayload" Open="true" Disabled="RootDisabled">
+            <MenuTrigger TPayload="NoPayload">Open menu</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="menu">
+                        <MenuItem>1</MenuItem>
+                        <MenuSubmenuRoot Open="SubmenuOpen">
+                            <MenuSubmenuTrigger data-testid="submenu-trigger" Disabled="SubmenuDisabled">Open submenu</MenuSubmenuTrigger>
+                            <MenuPortal>
+                                <MenuPositioner>
+                                    <MenuPopup data-testid="submenu">
+                                        <MenuItem>2.1</MenuItem>
+                                        <MenuItem>2.2</MenuItem>
+                                    </MenuPopup>
+                                </MenuPositioner>
+                            </MenuPortal>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+}
+
+@code {
+    [Parameter]
+    public string Case { get; set; } = "submenu";
+
+    [Parameter]
+    public bool NotNative { get; set; }
+
+    [Parameter]
+    public bool SubmenuOpen { get; set; }
+
+    [Parameter]
+    public bool SubmenuDisabled { get; set; }
+
+    [Parameter]
+    public bool RootDisabled { get; set; }
+
+    [Parameter]
+    public bool TriggerDisabled { get; set; }
+
+    [Parameter]
+    public bool RadioGroupDisabled { get; set; }
+
+    private static RenderFragment AsDisabledButton(RenderProps<MenuSubmenuTriggerState> props) =>
+        @<button type="button" disabled @attributes="props.Attributes">@props.ChildContent</button>;
+
+    private static RenderFragment AsSpan(RenderProps<MenuTriggerState> props) =>
+        @<span @attributes="props.Attributes">@props.ChildContent</span>;
+}
