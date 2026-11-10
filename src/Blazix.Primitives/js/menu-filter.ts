@@ -13,7 +13,19 @@
 // Interface commit: the option and report names; every acting body throws until its red-first commit.
 
 import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey } from './composite';
-import { type DotNetTwin, type TwinCaptures, type TwinHandle, type TwinOptions, type TwinReferences } from './twin';
+import { eventInfo } from './event-info';
+import { platform } from './platform';
+import {
+  createTwinChannel,
+  parseOptions,
+  resolveElement,
+  type DotNetTwin,
+  type TwinCaptures,
+  type TwinChannel,
+  type TwinHandle,
+  type TwinOptions,
+  type TwinReferences,
+} from './twin';
 
 /** The part names, as `MenuFilterTwin`'s constants. */
 export type MenuFilterPart = 'input' | 'trigger' | 'list' | 'popup';
@@ -131,6 +143,142 @@ export function getMenuFilterKeyAction(event: MenuFilterKey, context: MenuFilter
   return hasValue ? 'edit' : 'navigate';
 }
 
+const handleKey = Symbol('blazix.menu-filter.handle');
+
+interface MenuFilterElement extends HTMLElement {
+  [handleKey]?: TwinHandle;
+}
+
+const HIGHLIGHTED = 'data-highlighted';
+
+// The Input (filter-dropdown/input/FilterDropdownInput.tsx; menu/input/MenuInput.tsx).
+function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channel: TwinChannel): TwinHandle {
+  let options = initial;
+  let disposed = false;
+  // EVT-19, KEY-31 (FilterDropdownInput.tsx:84-103): IME text is not committed until the composition ends.
+  let composing = false;
+  // STA-22 (FilterDropdownRoot.tsx:49-58): both seeded from a keyboard open on every open.
+  let focusVisible = input.ownerDocument.activeElement === input || options.keyboardOpen === true;
+  let keyboardModality = options.keyboardOpen === true;
+  // C# renders the input without data-highlighted (MenuInputState.Highlighted starts false), so only a change is reported.
+  let highlighted = false;
+  let lastRevision = options.valueRevision ?? null;
+
+  // FilterDropdownInput.tsx:45-53: an edit made while the popup animates out would land after the close reset the query.
+  const commit = (event: Event): void => {
+    if (options.open !== true) {
+      return;
+    }
+    const value = input.value;
+    channel.report('OnValueChange', { value, reason: value === '' ? 'input-clear' : 'input-change', event: eventInfo(event) });
+  };
+
+  const syncHighlighted = (): void => {
+    const next = focusVisible && (!keyboardModality || !input.hasAttribute('aria-activedescendant'));
+    if (next === highlighted) {
+      return;
+    }
+    highlighted = next;
+    input.toggleAttribute(HIGHLIGHTED, next);
+    channel.report('OnHighlightedChange', { highlighted: next });
+  };
+
+  // C# -> JS (ADR 04 Amendments 2026-10-22, the Input/Field.Control precedent): a committed value is written when its
+  // revision moves and the live text differs, which also re-asserts a controlled value the consumer did not apply.
+  const writeValue = (): void => {
+    const revision = options.valueRevision ?? null;
+    if (revision === lastRevision) {
+      return;
+    }
+    lastRevision = revision;
+    const value = options.value ?? '';
+    if (!composing && input.value !== value) {
+      input.value = value;
+    }
+  };
+
+  const onInput = (event: Event): void => {
+    if (composing) {
+      return;
+    }
+    commit(event);
+  };
+  const onCompositionStart = (): void => {
+    // Some Android keyboards treat all typing as one composition.
+    if (platform.os.android) {
+      return;
+    }
+    composing = true;
+  };
+  const onCompositionEnd = (event: Event): void => {
+    if (!composing) {
+      return;
+    }
+    composing = false;
+    commit(event);
+  };
+  const onFocus = (): void => {
+    focusVisible = true;
+    syncHighlighted();
+  };
+  const onBlur = (): void => {
+    focusVisible = false;
+    syncHighlighted();
+  };
+  const onKeyDown = (): void => {
+    keyboardModality = true;
+    syncHighlighted();
+  };
+  const onPointer = (): void => {
+    keyboardModality = false;
+    syncHighlighted();
+  };
+  // ADR 04 :504: composite writes aria-activedescendant on its reference, the Input; the focus ring follows it.
+  const observer = new MutationObserver(syncHighlighted);
+  observer.observe(input, { attributes: true, attributeFilter: ['aria-activedescendant'] });
+
+  input.addEventListener('input', onInput);
+  input.addEventListener('compositionstart', onCompositionStart);
+  input.addEventListener('compositionend', onCompositionEnd);
+  input.addEventListener('focus', onFocus);
+  input.addEventListener('blur', onBlur);
+  input.addEventListener('keydown', onKeyDown);
+  input.addEventListener('pointerdown', onPointer);
+  input.addEventListener('mouseenter', onPointer);
+  syncHighlighted();
+
+  return {
+    update(optionsJson: string): void {
+      if (disposed) {
+        return;
+      }
+      const wasOpen = options.open === true;
+      options = parseOptions<MenuFilterOptions>(optionsJson);
+      if (!wasOpen && options.open === true) {
+        focusVisible = input.ownerDocument.activeElement === input || options.keyboardOpen === true;
+        keyboardModality = options.keyboardOpen === true;
+      }
+      writeValue();
+      syncHighlighted();
+    },
+    dispose(): void {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      observer.disconnect();
+      input.removeEventListener('input', onInput);
+      input.removeEventListener('compositionstart', onCompositionStart);
+      input.removeEventListener('compositionend', onCompositionEnd);
+      input.removeEventListener('focus', onFocus);
+      input.removeEventListener('blur', onBlur);
+      input.removeEventListener('keydown', onKeyDown);
+      input.removeEventListener('pointerdown', onPointer);
+      input.removeEventListener('mouseenter', onPointer);
+    },
+  };
+}
+
 /**
  * Attaches a `menu-filter` handle to a part's element.
  * @param elementOrId The part's element, or its id.
@@ -138,7 +286,7 @@ export function getMenuFilterKeyAction(event: MenuFilterKey, context: MenuFilter
  * @param twinReference The part's `MenuFilterTwin`.
  * @param references The elements the options name by index.
  * @param captures The captured element references.
- * @returns The handle.
+ * @returns The handle; a repeated attach of the same element returns the first one.
  */
 export function attach(
   elementOrId: Element | string | null,
@@ -147,10 +295,31 @@ export function attach(
   references?: TwinReferences,
   captures?: TwinCaptures,
 ): TwinHandle {
-  void elementOrId;
-  void optionsJson;
-  void twinReference;
   void references;
-  void captures;
-  throw new Error('menu-filter: not implemented');
+  const element = resolveElement(elementOrId, captures?.[0]) as MenuFilterElement;
+  const existing = element[handleKey];
+  if (existing) {
+    return existing;
+  }
+  const options = parseOptions<MenuFilterOptions>(optionsJson);
+  const channel = createTwinChannel(twinReference);
+  let inner: TwinHandle;
+  switch (options.part) {
+    case 'input':
+      inner = attachInput(element as HTMLInputElement, options, channel);
+      break;
+    default:
+      throw new Error(`menu-filter: the ${options.part} part is not implemented`);
+  }
+  const handle: TwinHandle = {
+    update: (json, refs, caps) => inner.update(json, refs, caps),
+    dispose: () => {
+      inner.dispose();
+      if (element[handleKey] === handle) {
+        delete element[handleKey];
+      }
+    },
+  };
+  element[handleKey] = handle;
+  return handle;
 }
