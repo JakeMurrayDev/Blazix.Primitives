@@ -126,12 +126,15 @@ interface Rect {
 }
 
 const positionerHandle = Symbol('blazix.select.positioner');
+// Interim review B2: arrows whose handle attached before the positioner's wait here, and the positioner adopts them.
+const waitingArrows = Symbol('blazix.select.waitingArrows');
 const listHandle = Symbol('blazix.select.list');
 const arrowHandle = Symbol('blazix.select.arrow');
 const triggerHandle = Symbol('blazix.select.trigger');
 
 interface SelectElement extends HTMLElement {
   [positionerHandle]?: PositionerState;
+  [waitingArrows]?: Set<ArrowState>;
   [listHandle]?: TwinHandle;
   [arrowHandle]?: TwinHandle;
   [triggerHandle]?: TwinHandle;
@@ -148,6 +151,7 @@ interface PositionerState {
   scroller(): HTMLElement | null;
   items(): HTMLElement[];
   updateArrowVisibility(): void;
+  scheduleArrowVisibility(): void;
 }
 
 interface ArrowState {
@@ -489,11 +493,11 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       if (isTopPositioned) {
         const topOffset = Math.max(0, viewportHeight - idealHeight);
         positionerLayer.set('top', positionerRect.height >= maxHeight ? '0' : `${topOffset}px`);
-        positionerLayer.set('bottom', 'auto');
+        positionerLayer.remove('bottom');
         positionerLayer.set('height', `${height}px`);
         scroller.scrollTop = getMaxScrollTop(scroller);
       } else {
-        positionerLayer.set('top', 'auto');
+        positionerLayer.remove('top');
         positionerLayer.set('bottom', '0');
         scroller.scrollTop = scrollTop;
       }
@@ -787,8 +791,14 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       }
     } else if (!candidate()) {
       stopAligned();
+      // SelectPopup.tsx:217-246: an anchored open is placed once the popup shows (scroll events then update the arrows),
+      // and its flags reset on the close.
       if (options.open && !options.ending) {
+        initialPlaced = true;
         scheduleArrowVisibility();
+      } else if (!options.open) {
+        initialPlaced = false;
+        reachedMaxHeight = false;
       }
     }
     if (!options.mounted) {
@@ -860,8 +870,18 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     scroller: scrollerElement,
     items,
     updateArrowVisibility,
+    scheduleArrowVisibility,
   };
   element[positionerHandle] = state;
+  const waiting = element[waitingArrows];
+  if (waiting) {
+    delete element[waitingArrows];
+    for (const arrow of waiting) {
+      state.arrows.add(arrow);
+    }
+    updateArrowVisibility();
+    scheduleArrowVisibility();
+  }
   sync();
   return handle;
 }
@@ -892,13 +912,27 @@ function attachList(element: SelectElement, initial: SelectOptions): TwinHandle 
 function attachScrollArrow(element: SelectElement, initial: SelectOptions, twinReference: DotNetTwin, references: TwinReferences, captures: TwinCaptures): TwinHandle {
   const twin = createTwinChannel(twinReference);
   const positionerElement = resolveReference<SelectElement>(references, initial.positioner, captures);
-  const positioner = positionerElement?.[positionerHandle] ?? null;
   const arrow: ArrowState = { element, direction: initial.direction === 'down' ? 'down' : 'up' };
   const isUp = arrow.direction === 'up';
-  positioner?.arrows.add(arrow);
-  positioner?.updateArrowVisibility();
+  // An arrow's handle can attach before the positioner's: the positioner is resolved on each use until it has a handle,
+  // and the arrow joins it then. Its visibility is also read again on the next frame, once the scroller has its layout.
+  let positioner: PositionerState | null = null;
+  const resolvePositioner = (): PositionerState | null => {
+    if (positioner === null && !disposed) {
+      positioner = positionerElement?.[positionerHandle] ?? null;
+      if (positioner !== null) {
+        positioner.arrows.add(arrow);
+        positioner.updateArrowVisibility();
+        positioner.scheduleArrowVisibility();
+      }
+    }
+    return positioner;
+  };
   let timer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
+  if (resolvePositioner() === null && positionerElement) {
+    (positionerElement[waitingArrows] ??= new Set()).add(arrow);
+  }
 
   const clear = () => {
     if (timer !== null) {
@@ -910,16 +944,17 @@ function attachScrollArrow(element: SelectElement, initial: SelectOptions, twinR
   // SEL-PTR-16.
   const scrollNextItem = () => {
     timer = null;
-    const scroller = positioner?.scroller();
-    if (disposed || !positioner || !scroller) {
+    const current = resolvePositioner();
+    const scroller = current?.scroller();
+    if (disposed || !current || !scroller) {
       return;
     }
     twin.report('OnClearHighlight', {});
-    positioner.updateArrowVisibility();
+    current.updateArrowVisibility();
     const maxScrollTop = getMaxScrollOffset(scroller.scrollHeight, scroller.clientHeight);
     const scrollTop = normalizeScrollOffset(scroller.scrollTop, maxScrollTop);
     const isScrolledToEdge = scrollTop === (isUp ? 0 : maxScrollTop);
-    const itemElements = positioner.items();
+    const itemElements = current.items();
     if (scrollTop !== scroller.scrollTop) {
       scroller.scrollTop = scrollTop;
     }
@@ -946,7 +981,7 @@ function attachScrollArrow(element: SelectElement, initial: SelectOptions, twinR
 
   const handle: TwinHandle = {
     update() {
-      positioner?.updateArrowVisibility();
+      resolvePositioner()?.updateArrowVisibility();
     },
     dispose() {
       if (disposed) {
@@ -957,6 +992,7 @@ function attachScrollArrow(element: SelectElement, initial: SelectOptions, twinR
       element.removeEventListener('mousemove', onMouseMove);
       element.removeEventListener('mouseleave', clear);
       positioner?.arrows.delete(arrow);
+      positionerElement?.[waitingArrows]?.delete(arrow);
       delete element[arrowHandle];
     },
   };
