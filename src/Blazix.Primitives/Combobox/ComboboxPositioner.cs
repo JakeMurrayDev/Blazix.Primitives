@@ -74,9 +74,6 @@ public sealed class ComboboxPositioner : PartBase<ComboboxPositionerState>
 
     private ComboboxPositionerBehavior? behavior;
     private ComboboxPositionerState? state;
-    private RenderFragment? cascadedContent;
-    private RenderFragment? cascade;
-    private ComboboxPositionerContext? familyContext;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -201,22 +198,7 @@ public sealed class ComboboxPositioner : PartBase<ComboboxPositionerState>
     protected override void OnParametersSet()
     {
         behavior!.Apply(Inputs(), DirectionContext);
-        if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))
-        {
-            cascadedContent = ChildContent;
-            RenderFragment shared = behavior.Context.Cascade(cascadedContent);
-            ComboboxPositionerContext marker = familyContext ??= new ComboboxPositionerContext(behavior.Context);
-            cascade = builder =>
-            {
-                builder.OpenComponent<CascadingValue<ComboboxPositionerContext>>(0);
-                builder.AddComponentParameter(1, nameof(CascadingValue<ComboboxPositionerContext>.Value), marker);
-                builder.AddComponentParameter(2, nameof(CascadingValue<ComboboxPositionerContext>.IsFixed), true);
-                builder.AddComponentParameter(3, nameof(CascadingValue<ComboboxPositionerContext>.ChildContent), shared);
-                builder.CloseComponent();
-            };
-        }
-
-        ChildContent = cascade;
+        ChildContent = behavior.Cascade(ChildContent);
     }
 
     /// <inheritdoc />

@@ -3,10 +3,81 @@
 @inherits ComboboxL4FixtureBase
 
 @*
-    The `combobox-suite` fixture (M5 track 10, issue 174): the shared popup, popup-list and positioner suites, ported at L4. The query's `case` picks the Base UI
-    test's rendering. Recorded callbacks render through `Records` (ComboboxL4FixtureBase).
+    The `combobox-suite` fixture (tests/browser/combobox.suites.spec.ts, M5 track 10, issue 174): popupConformanceTests
+    (tests/browser/suites/) on Combobox's parts, as ComboboxRoot.test.tsx's createComponent renders them: the Input as the
+    suite's `trigger`, a Portal (the suite's portal props) > Positioner > Popup > List (the suite's popup props: the List
+    carries the listbox role) holding one Item. The query sets the root's props:
+    - `open=true|false`: a controlled root (the `[data-set-open]` controls change it, as the suite's rerender does);
+      absent, the root is uncontrolled;
+    - `defaultOpen`, `cancelOpen`, `cancelClose`, `allowPropagation`, `retainEveryClose`, `popupId`, `keepMounted`;
+    - `animated`: the List takes the `popup-animated` class, 200 ms keyframes on `[data-open]` and `[data-ending-style]`.
 *@
-<FixtureContainer Name="combobox-suite" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
-                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+<FixtureContainer Name="combobox-suite" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes combobox-suite-enter { from { opacity: 0; } }
+        @@keyframes combobox-suite-exit { to { opacity: 0; } }
+        .popup-animated[data-open] { animation: combobox-suite-enter 200ms; }
+        .popup-animated[data-ending-style] { animation: combobox-suite-exit 200ms; }
+    </style>
     @SyncButton
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+
+    @if (controlled)
+    {
+        <ComboboxRoot TValue="string" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </ComboboxRoot>
+    }
+    else
+    {
+        <ComboboxRoot TValue="string" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </ComboboxRoot>
+    }
 </FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private bool keepMounted;
+    private readonly Dictionary<string, object> listAttributes = [];
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        keepMounted = QueryFlag("keepMounted") == true;
+        listAttributes["data-testid"] = "popup";
+        if (Query("popupId") is { } id)
+        {
+            listAttributes["id"] = id;
+        }
+
+        if (QueryFlag("animated") == true)
+        {
+            listAttributes["class"] = "popup-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <ComboboxInput @ref="input" data-testid="trigger" />
+        <ComboboxPortal KeepMounted="@keepMounted">
+            <ComboboxPositioner style="position: relative; z-index: 1">
+                <ComboboxPopup>
+                    <ComboboxList TValue="string" @attributes="listAttributes">
+                        <ComboboxItem TValue="string" Value="@("item")">Item</ComboboxItem>
+                    </ComboboxList>
+                </ComboboxPopup>
+            </ComboboxPositioner>
+        </ComboboxPortal>
+    </text>;
+}

@@ -1,13 +1,14 @@
 @namespace Blazix.Primitives.Tests.Components
+@using Microsoft.AspNetCore.Components.Web
 @* Item "one" rendered as an anchor (with `Href`, or without one when it is null) and item "two", as ComboboxItem.test.tsx's
    link titles render them (review F14). *@
-<ComboboxRoot TValue="string" @ref="Root" DefaultOpen="true">
+<ComboboxRoot TValue="string" @ref="Root" DefaultOpen="true" OnValueChange="args => ValueChanges.Add(args)">
     <ComboboxInput data-testid="input" />
     <ComboboxPortal>
         <ComboboxPositioner>
             <ComboboxPopup>
                 <ComboboxList TValue="string">
-                    <ComboboxItem TValue="string" Value="@("one")" data-testid="link-one" RenderFunction="LinkRender">one</ComboboxItem>
+                    <ComboboxItem TValue="string" Value="@("one")" data-testid="link-one" RenderFunction="LinkRender" onclick="@ItemClick">one</ComboboxItem>
                     <ComboboxItem TValue="string" Value="@("two")">two</ComboboxItem>
                 </ComboboxList>
             </ComboboxPopup>
@@ -18,6 +19,12 @@
 @code {
     [Parameter]
     public string? Href { get; set; }
+
+    /// <summary>Gets or sets the consumer's onclick on item "one", which may yield (final review N1).</summary>
+    [Parameter]
+    public Func<MouseEventArgs, Task>? ItemClick { get; set; }
+
+    public List<ValueChangeEventArgs<string>> ValueChanges { get; } = [];
 
     public ComboboxRoot<string>? Root { get; private set; }
 

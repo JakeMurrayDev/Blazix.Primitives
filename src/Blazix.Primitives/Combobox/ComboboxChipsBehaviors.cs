@@ -20,6 +20,8 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
 
     private readonly ComboboxChipsContext context;
 
+    private readonly ComboboxPressVeto press;
+
     private ComboboxStore? store;
 
     private ComboboxTwin? twin;
@@ -41,12 +43,16 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         this.services = services;
         list = new CompositeListBehavior(services.JSRuntime, services.Ids, services.RequestRender);
         context = new ComboboxChipsContext(list.Context, OnChipsChanged);
+        press = new ComboboxPressVeto(services.DispatchException);
     }
 
     private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Chips` is used before its first render.");
 
     /// <summary>Gets the context the chips register through.</summary>
     public ComboboxChipsContext Context => context;
+
+    /// <summary>Gets the consumer's <c>onmousedown</c> veto of the press.</summary>
+    public ComboboxPressVeto Press => press;
 
     /// <summary>Gets or sets a value indicating whether the reading direction is right to left, for the chip keys.</summary>
     public bool Rtl { get; set; }
@@ -85,7 +91,7 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         subscription.Select(static state => state.ReadOnly);
         subscription.Select(static state => state.ElementIds.Input);
         list.ItemsChanged += services.RequestRender;
-        twin = new ComboboxTwin(services.JSRuntime);
+        twin = new ComboboxTwin(services.JSRuntime) { Decider = press.Decide };
         twin.InputPressed += snapshot => _ = Observe(services.InvokeAsync(() => OnInputPressAsync(snapshot)));
         twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => RemoveAsync(request)));
         twin.OpenRequested += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ListNavigation, snapshot))));
@@ -93,8 +99,10 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
 
     /// <summary>Applies the id the part renders and publishes it.</summary>
     /// <param name="id">The consumer's id or a generated one.</param>
-    public void Apply(string? id)
+    /// <param name="consumerAttributes">The consumer's attributes, for the declined <c>onmousedown</c>.</param>
+    public void Apply(string? id, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
+        press.Set(consumerAttributes);
         this.id = id;
         string? own = id;
         Store.SetElementIds(ids => ids with { Chips = own });
@@ -102,8 +110,10 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
 
     /// <summary>Adds the container's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
-    public void AddPartAttributes(AttributeList attributes)
+    /// <param name="onMouseDown">The part's own <c>onmousedown</c>, for the consumer's declined one.</param>
+    public void AddPartAttributes(AttributeList attributes, EventCallback onMouseDown)
     {
+        press.AddAttributes(attributes, onMouseDown);
         // ComboboxChips.tsx:30-31: NVDA stays in focus mode inside a toolbar.
         if (Store.State.HasSelectedValue)
         {
@@ -166,6 +176,7 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
             Rtl = Rtl,
             InputId = state.ElementIds.Input,
             ChipIds = chipIds,
+            DecidesPress = press.Decides,
         };
         if (handle is null)
         {
