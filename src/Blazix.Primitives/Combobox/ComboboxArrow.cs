@@ -1,4 +1,8 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -33,4 +37,86 @@ public static class ComboboxArrowDataAttributes
 
     /// <summary>Represents the attribute present while the arrow is not centered on the anchor: <c>data-uncentered</c>.</summary>
     public const string Uncentered = "data-uncentered";
+}
+
+// Base UI's Combobox.Arrow (combobox/arrow/ComboboxArrow.tsx; CMB §3.16). Over ComboboxArrowBehavior: aria-hidden, the
+// positioner's arrow mirror (side, align, uncentered) and its arrow element registration.
+/// <summary>Represents an arrow pointing from a combobox's popup to its anchor, Base UI's <c>Combobox.Arrow</c>, rendered as a <c>div</c>.</summary>
+public sealed class ComboboxArrow : PartBase<ComboboxArrowState>
+{
+    private static readonly StateAttributesMapping<ComboboxArrowState> s_mapping = PopupStateMapping.CreateOpen<ComboboxArrowState>();
+
+    private ComboboxArrowBehavior? behavior;
+
+    private ComboboxArrowState state = new(false, null, null, false);
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private ILogger<ComboboxArrow> Logger { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
+
+    [CascadingParameter]
+    private ComboboxStore? Root { get; set; }
+
+    [CascadingParameter]
+    private PositionerContext? Positioner { get; set; }
+
+    /// <inheritdoc />
+    protected override string DefaultTagName => "div";
+
+    /// <inheritdoc />
+    protected override ComboboxArrowState State
+    {
+        get
+        {
+            ComboboxArrowBehavior arrow = behavior!;
+            PositionerMirror mirror = arrow.Arrow.Mirror;
+            if (state.Open != arrow.Open || state.Side != mirror.Side || state.Align != mirror.Align || state.Uncentered != mirror.Uncentered)
+            {
+                state = new ComboboxArrowState(arrow.Open, mirror.Side, mirror.Align, mirror.Uncentered);
+            }
+
+            return state;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override StateAttributesMapping<ComboboxArrowState>? StateAttributesMapping => s_mapping;
+
+    /// <inheritdoc />
+    protected override bool UsesGeneratedId => true;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        behavior = new ComboboxArrowBehavior(new ComboboxPartServices("Combobox", JSRuntime, Logger, IdGenerator, StateHasChanged, InvokeAsync, DispatchExceptionAsync));
+        base.OnInitialized();
+    }
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.Arrow.AfterRenderAsync();
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            behavior?.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
+    protected override void SubscribeSelectors() => behavior!.Subscribe(Root, Positioner, SubscribeTo);
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
+
+    /// <inheritdoc />
+    protected override void FinishAttributes(AttributeList attributes) => behavior!.Arrow.FinishAttributes(attributes, Id!);
 }
