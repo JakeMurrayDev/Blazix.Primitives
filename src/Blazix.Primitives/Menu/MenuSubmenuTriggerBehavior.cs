@@ -200,6 +200,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
 
         button.Native = parameters.Item.NativeButton;
         button.Disabled = disabled;
+        button.DisabledElementPart = familyName + "SubmenuTrigger";
         button.FocusableWhenDisabled = true;
         button.SetConsumerAttributes(attributes);
         interactions.SetConsumerAttributes(attributes);
