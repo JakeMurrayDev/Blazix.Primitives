@@ -1,8 +1,11 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -100,6 +103,43 @@ public sealed class ComboboxLabelTests : IDisposable
         string options = LabelOptions();
         Assert.Contains("\"native\":false", options, StringComparison.Ordinal);
         Assert.Contains("\"controlId\":\"fruit\"", options, StringComparison.Ordinal);
+    }
+
+    // Base UI renders the tree with renderToString, which runs no layout effect, so the label's registration never reaches
+    // the trigger. HtmlRenderer renders the same HTML a prerender does: no OnAfterRender runs.
+    [Fact(DisplayName = "does not link Combobox.Label to trigger before hydration")]
+    [Trait("Requirement", "CMB-ARIA-07")]
+    [Trait("Requirement", "CMB-EDGE-06")]
+    public async Task Does_not_link_the_label_to_the_trigger_before_hydration()
+    {
+        RenderFragment content = builder =>
+        {
+            builder.OpenComponent<ComboboxLabel>(0);
+            builder.AddAttribute(1, "data-testid", "label");
+            builder.AddComponentParameter(2, nameof(ComboboxLabel.ChildContent), (RenderFragment)(b => b.AddContent(0, "Food")));
+            builder.CloseComponent();
+            builder.OpenComponent<ComboboxTrigger>(3);
+            builder.AddAttribute(4, "data-testid", "trigger");
+            builder.CloseComponent();
+            builder.OpenComponent<ComboboxInput>(5);
+            builder.AddAttribute(6, "data-testid", "input");
+            builder.CloseComponent();
+        };
+        await using HtmlRenderer renderer = new(test.Context.Services, NullLoggerFactory.Instance);
+        string html = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            HtmlRootComponent root = await renderer.RenderComponentAsync<ComboboxRoot<string>>(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                [nameof(ComboboxRoot<string>.Inline)] = true,
+                [nameof(ComboboxRoot<string>.ChildContent)] = content,
+            }));
+            return root.ToHtmlString();
+        });
+        using AngleSharp.Html.Dom.IHtmlDocument document = new AngleSharp.Html.Parser.HtmlParser().ParseDocument(html);
+
+        Assert.NotEqual(string.Empty, document.QuerySelector("[data-testid=label]")!.Id ?? string.Empty);
+        Assert.NotEqual(string.Empty, document.QuerySelector("[data-testid=trigger]")!.Id ?? string.Empty);
+        Assert.False(document.QuerySelector("[data-testid=trigger]")!.HasAttribute("aria-labelledby"));
     }
 
     private string LabelOptions()
