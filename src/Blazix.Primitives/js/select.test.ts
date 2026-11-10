@@ -342,6 +342,33 @@ describe('select module: aligned placement (port titles)', () => {
     expect(positioner.style.bottom).toBe('');
   });
 
+  // Interim review F2 (M5 track 9): Base UI derives the layout from the List on every render (SelectPopup.tsx:457-458,
+  // SelectList.tsx:38-40), so a List that arrives after the placement started takes the functional styles from the Popup.
+  it('moves the aligned layout to a List that arrives after the placement started (SEL-DOM-27, SEL-DOM-32)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const list = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
+    handles.push(handle);
+    expect(popup.style.overflowY).toBe('auto');
+
+    popup.append(list);
+    handle.update(JSON.stringify({ ...options, list: 2 }), [trigger, popup, list]);
+
+    expect([list.style.position, list.style.maxHeight, list.style.overflowX, list.style.overflowY]).toEqual(['relative', '100%', 'hidden', 'auto']);
+    expect(popup.style.height).toBe('100%');
+    expect([popup.style.position, popup.style.maxHeight, popup.style.overflowX, popup.style.overflowY]).toEqual(['', '', '', '']);
+  });
+
   // Interim review F4 (M5 track 9): the fallback holds until the unmount, as Base UI's state does
   // (select/positioner/SelectPositioner.tsx:70-82), so an update sent before C# latched it re-runs nothing.
   it('falls back once and holds it until the unmount, whatever an update still in flight says (SEL-POS-04)', () => {
