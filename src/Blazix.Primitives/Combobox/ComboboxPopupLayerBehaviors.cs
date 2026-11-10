@@ -446,6 +446,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private string? consumerId;
 
+    private bool published;
+
     private string? id;
 
     private string? dismissId;
@@ -530,12 +532,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         finalFocus = final;
         finalFocusResolver = finalResolver;
         consumerId = consumer;
-        ComboboxStoreState state = Store.State;
-
-        // CMB-DOM-24 (ComboboxPopup.tsx:65, root/utils/index.ts:13-15): `{rootId}-popup` with the input inside.
-        id = consumer ?? (state.InputInsidePopup ? state.Id + "-popup" : null);
-        string? own = id;
-        Store.SetElementIds(ids => ids with { Popup = own });
+        Resolve();
         focus.SetInputs(FocusInputs());
     }
 
@@ -543,6 +540,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     /// <param name="attributes">The part's attributes.</param>
     public void AddPartAttributes(AttributeList attributes)
     {
+        // The layout and the root's id can change with no parameter set of the popup.
+        Resolve();
         ComboboxStoreState state = Store.State;
         if (id is not null)
         {
@@ -596,6 +595,23 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
         await focusSync;
         await Store.AtBatchBoundaryAsync();
+    }
+
+    // CMB-DOM-24 (ComboboxPopup.tsx:65, root/utils/index.ts:13-15, derived at every render): the consumer's id, else
+    // `{rootId}-popup` with the input inside; published over the popup's own previous id (review F20).
+    private void Resolve()
+    {
+        ComboboxStoreState state = Store.State;
+        string? next = consumerId ?? (state.InputInsidePopup ? state.Id + "-popup" : null);
+        if (published && string.Equals(next, id, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        string? previous = id;
+        id = next;
+        published = true;
+        Store.SetElementIds(ids => ids.Popup is null || ids.Popup == previous ? ids with { Popup = next } : ids);
     }
 
     private FocusManagerInputs FocusInputs()
