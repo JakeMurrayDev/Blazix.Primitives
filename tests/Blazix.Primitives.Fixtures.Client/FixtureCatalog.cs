@@ -21,6 +21,7 @@ using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
+using Blazix.Primitives.Fixtures.Client.SelectFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.PreviewCardFixtures;
@@ -246,5 +247,12 @@ public static class FixtureCatalog
         ["composite-list-measure"] = new(typeof(CompositeListMeasureFixture)),
         ["navigation-menu-basic"] = new(typeof(NavigationMenuBasicFixture)),
         ["navigation-menu-prerender"] = new(typeof(NavigationMenuPrerenderFixture), Prerender: true),
+
+        // M5 track 9 (issue 173, Deliverable 11): Select.
+        ["select-basic"] = new(typeof(SelectBasicFixture)),
+        ["select-conformance"] = new(typeof(SelectConformanceFixture)),
+        ["select-focus"] = new(typeof(SelectFocusFixture)),
+        ["select-list"] = new(typeof(SelectListFixture)),
+        ["select-positioner"] = new(typeof(SelectPositionerFixture)),
     };
 }
