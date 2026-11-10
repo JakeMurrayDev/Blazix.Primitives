@@ -20,6 +20,7 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
     private static readonly StateAttributesMapping<FixturePopupPopupState> s_mapping = PopupStateMapping.CreateOpen<FixturePopupPopupState>();
 
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly PopupTransitionAttributes transitionAttributes = new();
     private StoreSelection<FixturePopupStoreState<TPayload>, bool>? open;
     private StoreSelection<FixturePopupStoreState<TPayload>, bool>? mounted;
     private IDisposable? boundaryPart;
@@ -90,6 +91,7 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
             transitionsHandle = null;
             sentTransitions = null;
             attaching = null;
+            transitionAttributes.Release();
             await previous.DisposeAsync();
         }
 
@@ -125,6 +127,9 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
         }
 
         attributes.Set("role", "dialog");
+
+        // D11 (TRN-STA-03): the status attributes are C#'s until the transitions handle attaches, as the families' Popups do.
+        transitionAttributes.Add(attributes, Store!.Popup.DerivedTransitionStatus);
 
         // TRN-DOM-06: a kept-mounted popup that is not mounted is hidden (the module hides it as its exit ends, ahead of this).
         if (KeepMounted && !mounted!.Value)
@@ -170,6 +175,7 @@ public sealed class FixturePopupPopup<TPayload> : PartBase<FixturePopupPopupStat
     private async Task AttachTransitionsAsync(ElementReference element, TransitionsOptions options)
     {
         sentTransitions = options;
+        transitionAttributes.HandOver();
         transitionsHandle = await transitions!.AttachAsync(element, options);
         attaching = null;
         attached.TrySetResult();
