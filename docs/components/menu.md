@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/menu/page.mdx` |
 | Prefix | `MNU` |
 | Status | approved |
-| Revised | 2026-11-04 |
+| Revised | 2026-11-10 |
 | Builds on | none |
 | Derived by | [context-menu](context-menu.md), [menubar](menubar.md) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |

@@ -7,7 +7,7 @@
 | Tests | `floating-ui-react/hooks/useFloating.test.tsx`, `useClick.test.tsx`, `useDismiss.test.tsx`, `useFocus.test.tsx`, `useClientPoint.test.tsx`, `useHoverReferenceInteraction.test.tsx`, `useHoverFloatingInteraction.test.tsx`, `floating-ui-react/safePolygon.test.ts`, `floating-ui-react/components/FloatingDelayGroup.test.tsx`, `FloatingFocusManager.test.tsx`, `FloatingPortal.test.tsx`, `floating-ui-react/utils/tabbable.test.ts`, `markOthers.test.ts`, `nodes.test.ts`, `event.test.ts`, `internals/useAnchorPositioning.test.tsx`, `utils/hideMiddleware.test.ts`, `packages/react/test/positionerConformanceTests.tsx`, `packages/react/test/waitForPositioned.ts`, `packages/react/test/floating-ui-tests/*` (test shims) |
 | Prefix | `FLT` |
 | Status | approved |
-| Revised | 2026-11-04 |
+| Revised | 2026-11-10 |
 | Used by | `components/popover.md`, `components/tooltip.md`, `components/preview-card.md`, `components/menu.md`, `components/context-menu.md`, `components/menubar.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/navigation-menu.md`, `components/dialog.md`, `components/alert-dialog.md`, `components/drawer.md`, `components/toast.md` (positioner root context only); builds on `architecture/popup-store-and-handles.md` (PSH), `architecture/event-details-and-reasons.md` (EVD), `architecture/rendering-and-composition.md` (RND), `architecture/transitions-and-mounting.md` (TRN), `architecture/shared-utilities.md` (UTL) |
 
 ## 1. Purpose
