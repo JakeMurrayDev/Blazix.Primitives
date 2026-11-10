@@ -1,3 +1,4 @@
+using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components.Rendering;
 
@@ -64,6 +65,36 @@ internal static class ComboboxParts
     /// <returns>The error.</returns>
     public static InvalidOperationException MissingGroup(string family) =>
         new($"Blazix: `{family}GroupContext` is missing. `{family}Group` parts must be placed within `<{family}Group>`.");
+
+    // useFieldValidation.ts:367-376 (getValidationProps), applied after the merge as the field's controls do: the consumer's
+    // description ids composed with the field's, and aria-invalid while the field is invalid and neither it nor the part is
+    // disabled (ComboboxTrigger.tsx:258; ComboboxInput.tsx:127-129 outside the popup).
+    /// <summary>Sets the field's validation attributes over the merged ones.</summary>
+    /// <param name="attributes">The merged attributes.</param>
+    /// <param name="field">The enclosing field, or <see langword="null"/>.</param>
+    /// <param name="disabled">Whether the part is disabled.</param>
+    public static void AddValidationAttributes(AttributeList attributes, FieldRootContext? field, bool disabled)
+    {
+        if (field is null)
+        {
+            return;
+        }
+
+        string? consumer = attributes.TryGetValue("aria-describedby", out AttributeValue current) && current.TryGetValue(out string text) ? text : null;
+        if (field.Labelable.DescribedBy(consumer) is { } describedBy)
+        {
+            attributes.Set("aria-describedby", describedBy);
+        }
+        else
+        {
+            attributes.Remove("aria-describedby");
+        }
+
+        if (field.State.Valid == false && !field.Disabled && !disabled)
+        {
+            attributes.Set("aria-invalid", "true");
+        }
+    }
 }
 
 // combobox/utils/ComboboxInternalDismissButton.tsx (CMB-STR-07, DOM-22): a visually hidden non-native button with no

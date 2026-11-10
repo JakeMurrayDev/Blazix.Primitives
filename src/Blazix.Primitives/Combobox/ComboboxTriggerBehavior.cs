@@ -202,6 +202,10 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     public bool ForwardsConsumerHandler(string eventName) =>
         button.ForwardsConsumerHandler(eventName) && interactions.ForwardsConsumerHandler(eventName);
 
+    /// <summary>Sets the field's validation attributes over the merged ones.</summary>
+    /// <param name="attributes">The merged attributes.</param>
+    public void FinishAttributes(AttributeList attributes) => ComboboxParts.AddValidationAttributes(attributes, fieldScope, Disabled);
+
     /// <summary>Runs the declined consumer <c>onclick</c>.</summary>
     /// <param name="args">The click.</param>
     /// <returns>A task that completes when the handler has run.</returns>

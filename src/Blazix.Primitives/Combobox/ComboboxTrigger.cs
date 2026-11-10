@@ -218,4 +218,7 @@ public sealed class ComboboxTrigger : PartBase<ComboboxTriggerState>
         behavior!.AddPartAttributes(attributes);
         attributes.Set("onfocus", onFocus);
     }
+
+    /// <inheritdoc />
+    protected override void FinishAttributes(AttributeList attributes) => behavior!.FinishAttributes(attributes);
 }

@@ -216,5 +216,8 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     }
 
     /// <inheritdoc />
+    protected override void FinishAttributes(AttributeList attributes) => behavior!.FinishAttributes(attributes);
+
+    /// <inheritdoc />
     protected override void BuildBeforeElement(RenderTreeBuilder builder) => behavior!.BuildBeforeElement(builder);
 }

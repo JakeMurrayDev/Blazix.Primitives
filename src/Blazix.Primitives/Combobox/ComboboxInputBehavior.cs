@@ -309,6 +309,16 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
     public bool ForwardsConsumerHandler(string eventName) => reference.ForwardsConsumerHandler(eventName) && interactions.ForwardsConsumerHandler(eventName);
 
+    /// <summary>Sets the field's validation attributes over the merged ones, unless the input sits in the popup.</summary>
+    /// <param name="attributes">The merged attributes.</param>
+    public void FinishAttributes(AttributeList attributes)
+    {
+        if (!hasPositionerParent)
+        {
+            ComboboxParts.AddValidationAttributes(attributes, fieldScope, Disabled);
+        }
+    }
+
     /// <summary>Runs the declined consumer <c>onkeydown</c> unless a decision already ran it.</summary>
     /// <param name="args">The keydown.</param>
     /// <returns>A task that completes when the handler has run.</returns>
