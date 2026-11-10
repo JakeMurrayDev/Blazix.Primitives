@@ -21,12 +21,13 @@ internal static class ComboboxParts
     /// <typeparam name="TValue">The type of the part's value.</typeparam>
     /// <param name="store">The cascaded store, or <see langword="null"/>.</param>
     /// <param name="family">The family whose parts the error names.</param>
+    /// <param name="part">The part's name without the family, such as <c>Item</c>.</param>
     /// <returns>The store.</returns>
     /// <exception cref="InvalidOperationException">The store is missing or holds another value type.</exception>
-    public static ComboboxStore<TValue> RequireRoot<TValue>(ComboboxStore? store, string family) => RequireRoot(store, family) switch
+    public static ComboboxStore<TValue> RequireRoot<TValue>(ComboboxStore? store, string family, string part) => RequireRoot(store, family) switch
     {
         ComboboxStore<TValue> typed => typed,
-        _ => throw new InvalidOperationException($"Blazix: `{family}Item` has a value type that differs from its `<{family}Root>`'s. Write `TValue` on the item, or give it a value of the root's exact type."),
+        _ => throw new InvalidOperationException($"Blazix: `{family}{part}` has a value type that differs from its `<{family}Root>`'s. Write `TValue` on the part, or give it a value of the root's exact type."),
     };
 
     /// <summary>Gets the error of a positioner outside a portal.</summary>

@@ -37,7 +37,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox input group is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}InputGroup` is used before its first render.");
 
     /// <summary>Gets the field's state the group projects, with the root's disabled state.</summary>
     public FieldStateSnapshot Field => (fieldScope?.State ?? FieldStateSnapshot.Default) with { Disabled = Store.State.Disabled };

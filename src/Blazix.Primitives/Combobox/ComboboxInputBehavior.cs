@@ -71,7 +71,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox input is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Input` is used before its first render.");
 
     /// <summary>Gets a value indicating whether the input renders inside the popup.</summary>
     public bool InsidePopup => insidePopup;

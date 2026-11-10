@@ -50,7 +50,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException("Blazix: the combobox list is used before its first render.");
+    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}List` is used before its first render.");
 
     /// <summary>Gets the composite context the items register in.</summary>
     public CompositeRootContext Composite => composite.Context;
@@ -93,7 +93,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
     /// <param name="subscribe">The part's subscription factory over the store.</param>
     public void Subscribe(ComboboxStore? cascaded, PopupPortalContext? portalContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
     {
-        store = ComboboxParts.RequireRoot<TValue>(cascaded, services.Family);
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, services.Family, "List");
         portal = portalContext;
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
 
@@ -285,7 +285,7 @@ internal sealed class ComboboxCollectionBehavior<TValue> : IDisposable
     /// <param name="groupContext">The cascaded group context, or <see langword="null"/>.</param>
     public void Subscribe(ComboboxStore? cascaded, ComboboxGroupContext<TValue>? groupContext)
     {
-        store = ComboboxParts.RequireRoot<TValue>(cascaded, family);
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, family, "Collection");
         group = groupContext;
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Membership);
@@ -517,7 +517,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
     /// <param name="subscribe">The part's subscription factory over the store.</param>
     public void Subscribe(ComboboxStore? cascaded, CompositeRootContext? composite, bool row, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
     {
-        store = ComboboxParts.RequireRoot<TValue>(cascaded, services.Family);
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, services.Family, "Item");
         isRow = row;
         item = new CompositeItemBehavior(composite, services.Family + "Item", onKeyDown, services.RequestRender);
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
@@ -760,7 +760,7 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException("Blazix: the combobox value is used before its first render.");
+    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException($"Blazix: `{family}Value` is used before its first render.");
 
     /// <summary>Gets a value indicating whether a value is selected.</summary>
     public bool HasValue => Store.State.HasSelectedValue;
@@ -820,7 +820,7 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     public void Subscribe(ComboboxStore? cascaded, string family)
     {
         this.family = family;
-        store = ComboboxParts.RequireRoot<TValue>(cascaded, family);
+        store = ComboboxParts.RequireRoot<TValue>(cascaded, family, "Value");
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Selection);
         subscription.Select(ComboboxStoreState.Membership);

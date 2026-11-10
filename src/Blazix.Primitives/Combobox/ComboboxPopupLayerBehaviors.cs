@@ -41,7 +41,7 @@ internal sealed class ComboboxPortalBehavior : IAsyncDisposable
     public PopupPortalBehavior Portal => portal;
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox portal is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Portal` is used before its first render.");
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -144,7 +144,7 @@ internal sealed class ComboboxBackdropBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox backdrop is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Backdrop` is used before its first render.");
 
     /// <summary>Gets the mirrored transition status.</summary>
     public TransitionStatus? TransitionStatus => mirrored ?? Store.Lifecycle.DerivedTransitionStatus;
@@ -266,7 +266,7 @@ internal sealed class ComboboxPositionerBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox positioner is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Positioner` is used before its first render.");
 
     /// <summary>Gets the positioner context the popup, the arrow, the input and the list read.</summary>
     public PositionerContext Context => positioner.Context;
@@ -461,7 +461,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox popup is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Popup` is used before its first render.");
 
     /// <summary>Gets the positioner's mirror the popup projects.</summary>
     public PositionerMirror Mirror => positioner!.Mirror;
@@ -818,7 +818,7 @@ internal sealed class ComboboxLiveRegionBehavior : IAsyncDisposable
         empty = isEmpty;
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox live region is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}{(empty ? "Empty" : "Status")}` is used before its first render.");
 
     /// <summary>Gets a value indicating whether the region renders its children.</summary>
     public bool ShowsChildren => !empty || Store.State.FilteredCount == 0;

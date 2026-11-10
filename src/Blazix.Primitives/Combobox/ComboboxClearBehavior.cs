@@ -85,7 +85,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox clear button is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Clear` is used before its first render.");
 
     /// <summary>Gets a value indicating whether there is something to clear.</summary>
     public bool Visible => visible;

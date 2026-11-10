@@ -60,7 +60,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox trigger is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Trigger` is used before its first render.");
 
     /// <summary>Gets the field's state the trigger projects.</summary>
     public FieldStateSnapshot Field => (fieldScope?.State ?? FieldStateSnapshot.Default) with { Disabled = Disabled };

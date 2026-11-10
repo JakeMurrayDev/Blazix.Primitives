@@ -54,7 +54,7 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox label is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Label` is used before its first render.");
 
     /// <summary>Gets the field's state the label projects.</summary>
     public FieldStateSnapshot Field => fieldScope?.State ?? FieldStateSnapshot.Default;

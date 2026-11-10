@@ -43,7 +43,7 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         context = new ComboboxChipsContext(list.Context, OnChipsChanged);
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox chips are used before their first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Chips` is used before its first render.");
 
     /// <summary>Gets the context the chips register through.</summary>
     public ComboboxChipsContext Context => context;
@@ -237,7 +237,7 @@ internal sealed class ComboboxChipBehavior : IDisposable
         this.services = services;
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox chip is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Chip` is used before its first render.");
 
     /// <summary>Gets the chip context its remove button reads.</summary>
     public ComboboxChipContext Context => context;
@@ -364,7 +364,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException("Blazix: the combobox chip remove button is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}ChipRemove` is used before its first render.");
 
     /// <summary>Gets a value indicating whether the button is disabled, by the part or the root.</summary>
     public bool Disabled => disabledParameter || Store.State.Disabled;
