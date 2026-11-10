@@ -339,6 +339,10 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
 
     private readonly ButtonBehavior button;
 
+    // ComboboxChipRemove.tsx:100-114: the consumer's onClick runs before the removal, on the element whose click the module
+    // stops, so the part declines it and runs it itself; its PreventBaseUIHandler() keeps the chip.
+    private readonly FieldConsumerHandlers clickHandlers = new("onclick");
+
     private ComboboxStore? store;
 
     private ComboboxChipContext? chip;
@@ -406,7 +410,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
         subscription.Select(static state => state.ReadOnly);
         subscription.Select(static state => state.ElementIds.Input);
         twin = new ComboboxTwin(services.JSRuntime) { Decider = Decide };
-        twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => Removes ? Store.RemoveAtAsync(request.Index, EventReason.ChipRemovePress, request.Event) : Task.CompletedTask));
+        twin.RemoveRequested += request => _ = Observe(services.InvokeAsync(() => RemoveReportedAsync(request.Index, request.Event)));
     }
 
     /// <summary>Applies the part's parameters.</summary>
@@ -420,6 +424,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
         button.FocusableWhenDisabled = true;
         button.Disabled = Disabled || Store.State.ReadOnly;
         button.SetConsumerAttributes(consumerAttributes);
+        clickHandlers.Set(consumerAttributes);
     }
 
     /// <summary>Adds the button's attributes.</summary>
@@ -435,7 +440,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
     /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
     /// <param name="eventName">The event's attribute name.</param>
     /// <returns><see langword="false"/> for a handler the part declines and runs itself.</returns>
-    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName);
+    public bool ForwardsConsumerHandler(string eventName) => button.ForwardsConsumerHandler(eventName) && !clickHandlers.Declines(eventName);
 
     /// <summary>Runs the declined consumer <c>onkeydown</c>.</summary>
     /// <param name="args">The keydown.</param>
@@ -490,6 +495,11 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
             return DecisionPolicy.Run;
         }
 
+        if (IsClick(snapshot) && clickHandlers.RunSynchronously("onclick", FieldConsumerHandlers.ToMouseEventArgs(snapshot), services.DispatchException))
+        {
+            return DecisionPolicy.Run;
+        }
+
         Task<ChangeEventDetails?> removing = Store.RemoveAtAsync(chip!.Index, EventReason.ChipRemovePress, snapshot);
         if (!removing.IsCompleted)
         {
@@ -499,6 +509,20 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
 
         return removing.Result is { IsPropagationAllowed: true } ? DecisionPolicy.Run : DecisionPolicy.Stop;
     }
+
+    // On Server the decision falls back to the module's stop and the removal is reported: the consumer's onClick runs first,
+    // a round trip late, and its PreventBaseUIHandler() still keeps the chip (ADR 04 Amendments 2026-11-10).
+    private async Task RemoveReportedAsync(int index, EventSnapshot @event)
+    {
+        if (!Removes || (IsClick(@event) && await clickHandlers.RunAsync("onclick", FieldConsumerHandlers.ToMouseEventArgs(@event))))
+        {
+            return;
+        }
+
+        await Store.RemoveAtAsync(index, EventReason.ChipRemovePress, @event);
+    }
+
+    private static bool IsClick(EventSnapshot snapshot) => string.Equals(snapshot.Type, "click", StringComparison.Ordinal);
 
     private async Task Observe(Task task)
     {
