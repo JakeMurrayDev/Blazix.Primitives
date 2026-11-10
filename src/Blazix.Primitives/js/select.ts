@@ -331,6 +331,8 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
   // before it latched the report re-runs nothing.
   let fellBack = false;
   let placementKey: string | null = null;
+  // Each open is a session of its own: a reopen during the exit places again (SelectPopup.tsx:407-419's `open`).
+  let openSession = 0;
   let reportedArrows: { up: boolean; down: boolean } | null = null;
   let arrowFrame: number | null = null;
 
@@ -427,7 +429,10 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     }
 
     const list = listElement();
-    const key = JSON.stringify([trigger.id, list !== null, options.highlightItemOnHover, options.rtl, options.itemsRevision ?? 0, options.selectedTextId, options.firstTextId]);
+    // SelectPopup.tsx:407-419: the elements, the List, `highlightItemOnHover`, the direction and the open, not the items or
+    // their texts. Port deviation (SEL-POS-07): the texts register in C#'s render, so a text that was missing at the
+    // placement and registers later places once more.
+    const key = JSON.stringify([openSession, trigger.id, list !== null, options.highlightItemOnHover, options.rtl, options.selectedTextId != null, options.firstTextId != null]);
     if (initialPlaced && key === placementKey) {
       return;
     }
@@ -687,6 +692,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     selection.allowUnselectedMouseUp = false;
     selection.dragY = 0;
     if (open) {
+      openSession += 1;
       gateTimer = setTimeout(() => {
         gateTimer = null;
         selection.allowSelectedMouseUp = true;
