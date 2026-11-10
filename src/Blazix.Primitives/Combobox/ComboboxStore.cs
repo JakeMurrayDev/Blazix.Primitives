@@ -139,6 +139,11 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <returns>A task that completes when the request and the callback have run.</returns>
     public abstract Task ClearHighlightAsync(EventSnapshot? @event);
 
+    /// <summary>Clears the text, the selection and the highlight for a press of the clear button.</summary>
+    /// <param name="event">The click.</param>
+    /// <returns>A task that completes when the clear and its callbacks have run.</returns>
+    public abstract Task ClearByPressAsync(EventSnapshot @event);
+
     /// <summary>Clears an inline list's highlight as its input loses the focus, and restores it as the input regains the focus within the same open cycle.</summary>
     /// <param name="focused">Whether the input received or lost the focus.</param>
     /// <returns>A task that completes when the highlight was handled.</returns>
@@ -561,6 +566,15 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         await RunHandlerAsync(() => HandleInputChangeCoreAsync(text, typed, composing, @event));
     }
 
+    // ComboboxClear.tsx:100-128: the text and the value, each with its own details, then no highlight with the click, all in
+    // the handler, whose post-commit effects follow it.
+    /// <inheritdoc />
+    public override Task ClearByPressAsync(EventSnapshot @event) => RunHandlerAsync(async () =>
+    {
+        await ClearAsync(EventReason.ClearPress, @event, shareDetails: false);
+        await ClearHighlightAsync(@event);
+    });
+
     // CMB-EVT-11 (AriaCombobox.tsx:1627-1689): multiple mode ignores the text; no-selection mode writes it; single mode
     // requests the first value whose serialized text or label matches it case-insensitively, with the reason none (a
     // canceled request leaves the field untouched, the field's reaction following the committed value only).
@@ -665,6 +679,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         // AriaCombobox.tsx:1433-1448 (onNavigate): automatic navigation while closed is ignored, except an inline clear, and
         // nothing is taken while the popup is exiting.
         if ((@event is null && !IsOpen && !(State.Inline && index is null)) || Lifecycle.DerivedTransitionStatus == TransitionStatus.Ending)
+        {
+            return;
+        }
+
+        // Base UI's onNavigate cannot run inside a DOM event handler: an eventless report that reaches C# while the store runs one
+        // (the module's reset after the handler's own text change, received at one of its awaits) yields to the handler's highlight.
+        if (@event is null && handlingEvent)
         {
             return;
         }
@@ -1513,7 +1534,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         return values;
     }
 
-    // An input change's own writes, then Base UI's post-commit effects: the selection's label sync (AriaCombobox.tsx:
+    // A DOM event handler's own writes, then Base UI's post-commit effects: the selection's label sync (AriaCombobox.tsx:
     // 1295-1308), then the highlight (:1089-1235). A commit here renders synchronously, so the highlight waits for the handler,
     // and the sync runs before it returns, not at a later event's boundary.
     private async Task RunHandlerAsync(Func<Task> handler)

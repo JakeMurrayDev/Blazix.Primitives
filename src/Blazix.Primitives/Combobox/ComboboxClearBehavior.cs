@@ -217,11 +217,9 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
             return;
         }
 
-        // ComboboxClear.tsx:86-112: the text and the value with one details object, then the highlight. The module's sync.Handle
-        // moves the focus to the input on the click.
-        EventSnapshot snapshot = EventSnapshot.FromEventArgs(args);
-        await root.ClearAsync(EventReason.ClearPress, snapshot, shareDetails: false);
-        await root.ClearHighlightAsync(snapshot);
+        // ComboboxClear.tsx:100-128: the text, the value, then the highlight, in one handler scope. The module's handle moves the
+        // focus to the input on the click.
+        await root.ClearByPressAsync(EventSnapshot.FromEventArgs(args));
     }
 
     /// <summary>Runs the declined consumer <c>onkeydown</c>.</summary>
