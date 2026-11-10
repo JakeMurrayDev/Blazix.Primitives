@@ -59,6 +59,9 @@ internal static class InteractionsLiterals
             "input-press" => EventReason.InputPress,
             "focus-out" => EventReason.FocusOut,
             "escape-key" => EventReason.EscapeKey,
+            // Menu's sibling close and drag-release cancel (M5 track 6).
+            "sibling-open" => EventReason.SiblingOpen,
+            "cancel-open" => EventReason.CancelOpen,
             _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Blazix: `{literal}` is not a reason the `interactions` module reports."),
         };
     }

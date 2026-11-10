@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The list part measurement of ADR 14 (issues 5, 28, 25): an open menu with `Count` items in one `Form`: "plain", "substitute"
+   (each item with a `Render` substitute, the scratch render of ADR 02) or "bag" (each item with three unmatched attributes).
+   Every render of the host renders every item, as a parent passing new child content does. *@
+<MenuRoot TPayload="NoPayload" DefaultOpen="true">
+    <MenuPortal>
+        <MenuPositioner>
+            <MenuPopup>
+                @for (int i = 0; i < Count; i++)
+                {
+                    @switch (Form)
+                    {
+                        case "substitute":
+                            <MenuItem Render="Substitute">Item</MenuItem>
+                            break;
+                        case "bag":
+                            <MenuItem data-a="a" data-b="b" data-c="c">Item</MenuItem>
+                            break;
+                        default:
+                            <MenuItem>Item</MenuItem>
+                            break;
+                    }
+                }
+            </MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>
+</MenuRoot>
+
+@code {
+    private static readonly RenderFragment Substitute = @<li data-substitute="true"></li>;
+
+    [Parameter]
+    public int Count { get; set; }
+
+    [Parameter]
+    public string Form { get; set; } = "plain";
+}

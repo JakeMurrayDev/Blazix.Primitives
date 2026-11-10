@@ -125,6 +125,14 @@ internal sealed class ButtonBehavior : IDisposable
     /// </value>
     public bool InputItem { get; set; }
 
+    // MNU-EDGE-06 (MenuSubmenuTrigger.tsx:134-145; settled by the orchestrator 2026-11-10 as option (a)).
+    /// <summary>Gets or sets the component name the disabled-element development warning names.</summary>
+    /// <value>
+    /// The part's name, such as <c>MenuSubmenuTrigger</c>, which turns the module's check on; the default <see langword="null"/>
+    /// leaves it off.
+    /// </value>
+    public string? DisabledElementPart { get; set; }
+
     /// <summary>Gets or sets the part's request for a toggle of its hidden input.</summary>
     /// <value>
     /// A function that receives the input's new <c>checked</c> value, or <see langword="null"/> when the toggle is decided
@@ -151,6 +159,7 @@ internal sealed class ButtonBehavior : IDisposable
         if (twin is not null)
         {
             twin.NativeButtonMismatched -= ReportNativeButtonMismatch;
+            twin.DisabledElementDetected -= ReportDisabledElement;
             twin.Toggled -= OnToggled;
             twin.ActivationDecider = null;
             twin.ToggleDecider = null;
@@ -349,6 +358,7 @@ internal sealed class ButtonBehavior : IDisposable
     {
         ButtonTwin created = new(jsRuntime) { ActivationDecider = Decide, ToggleDecider = DecideToggle };
         created.NativeButtonMismatched += ReportNativeButtonMismatch;
+        created.DisabledElementDetected += ReportDisabledElement;
         created.Toggled += OnToggled;
         return created;
     }
@@ -365,6 +375,7 @@ internal sealed class ButtonBehavior : IDisposable
             ReadOnly = ReadOnly,
             SuppressEnter = SuppressEnter,
             InputItem = InputItem,
+            DisabledElementCheck = DisabledElementPart is not null,
         };
     }
 
@@ -372,7 +383,8 @@ internal sealed class ButtonBehavior : IDisposable
     private ButtonOptions? NextOptions(bool composite)
     {
         if (sentOptions is { } sent && sent.Disabled == Disabled && sent.FocusableWhenDisabled == FocusableWhenDisabled && sent.Native == Native && sent.Composite == composite
-            && sent.HiddenInput == HiddenInput && sent.ReadOnly == ReadOnly && sent.SuppressEnter == SuppressEnter && sent.InputItem == InputItem)
+            && sent.HiddenInput == HiddenInput && sent.ReadOnly == ReadOnly && sent.SuppressEnter == SuppressEnter && sent.InputItem == InputItem
+            && sent.DisabledElementCheck == (DisabledElementPart is not null))
         {
             return null;
         }
@@ -381,6 +393,14 @@ internal sealed class ButtonBehavior : IDisposable
     }
 
     private void ReportNativeButtonMismatch(bool expectedNative) => developmentLog.ReportNativeButtonMismatch(logger, expectedNative);
+
+    private void ReportDisabledElement()
+    {
+        if (DisabledElementPart is { } part)
+        {
+            developmentLog.ReportDisabledElement(logger, part);
+        }
+    }
 
     // The activation decision point, on WebAssembly only (ButtonTwin.ActivationDecider): the consumer's key handler
     // runs here, inside the dispatch, so its PreventPartHandler() can stop the activation (UBT-KEY-03/04/06).

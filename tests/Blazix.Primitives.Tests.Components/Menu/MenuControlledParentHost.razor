@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Tests.Components
+@* A controlled, kept-mounted root with a default-open submenu, whose open changes are recorded (MenuPositioner.test.tsx's
+   "closes an open submenu with a sibling reason when its controlled parent closes"). *@
+<MenuRoot TPayload="NoPayload" Open="Open">
+    <MenuPortal KeepMounted="true">
+        <MenuPositioner>
+            <MenuPopup>
+                <MenuSubmenuRoot DefaultOpen="true" OnOpenChange="Record">
+                    <MenuSubmenuTrigger>More</MenuSubmenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner>
+                            <MenuPopup />
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuSubmenuRoot>
+            </MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>
+</MenuRoot>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; } = true;
+
+    public List<string> SubmenuChanges { get; } = [];
+
+    private void Record(ValueChangeEventArgs<bool> args) => SubmenuChanges.Add($"{args.Value}:{args.Details.Reason}");
+}

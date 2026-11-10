@@ -64,6 +64,12 @@ internal sealed record CompositeListOptions
     /// </value>
     public bool? FocusItemOnOpen { get; init; }
 
+    // SEL-STA-07 (Select's finding; queued by the orchestrator 2026-11-10): Base UI's Select ignores the close's reset.
+    /// <summary>Gets a value indicating whether the highlight survives the close's reset while the popup animates out.</summary>
+    /// <value><see langword="true"/> for Select's list; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool RetainHighlightWhileClosing { get; init; }
+
     /// <summary>Gets a value indicating whether a step past either end clears the highlight under virtual focus.</summary>
     /// <value><see langword="true"/> to allow it; the default is <see langword="false"/>, which is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

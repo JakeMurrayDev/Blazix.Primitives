@@ -1,0 +1,34 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-toolbar` fixture (tests/browser/menu.parts.spec.ts, M5 track 6): MenuPopup.test.tsx's "stops toolbar navigation
+    keys": a kept-mounted menu inside a ToolbarRoot. Base UI renders the toolbar's context alone and relies on React's portal
+    bubbling, so the portal's container here is inside the wrapper `parent`, where a keydown in the popup bubbles natively
+    (the ToolbarPopoverFixture precedent).
+*@
+<FixtureContainer Name="menu-toolbar" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <ToolbarRoot>
+        <div data-testid="parent">
+            <MenuRoot TPayload="NoPayload" @ref="root">
+                <MenuPortal KeepMounted="true" Container="@s_host">
+                    <MenuPositioner>
+                        <MenuPopup @ref="popup" data-testid="popup"></MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+            <div id="menu-toolbar-host"></div>
+        </div>
+    </ToolbarRoot>
+</FixtureContainer>
+
+@code {
+    private static readonly PortalContainerValue s_host = new("#menu-toolbar-host");
+    private MenuRoot<NoPayload>? root;
+    private MenuPopup? popup;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask];
+}
