@@ -1,24 +1,8 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page } from './helpers';
+import { test, waitForPositioned, type Page } from './helpers';
 
 // Shared by the `menu.*.spec.ts` files (M5 track 6, issue 172). Named `menu.helpers.ts` so the L4 scope classifier
 // (.github/scripts/classify-paths.mjs, the part before the first dot) counts it as the family's.
-
-/**
- * Waits until a Positioner's first positioning pass has landed: until then it is transparent (inline `opacity: 0`), which
- * `toBeVisible()` ignores, and a box read inside it is the unpositioned layout (issue 191). The same wait as PR 203's
- * `waitForPositioned` in `helpers/`, kept here until that PR reaches this branch.
- */
-export async function waitForPositioned(positioner: Locator, options: { clockFrozen?: boolean } = {}): Promise<void> {
-  await expect
-    .poll(async () => {
-      if (options.clockFrozen) {
-        await positioner.page().clock.runFor(16);
-      }
-      return positioner.evaluate((element) => (element as HTMLElement).style.opacity);
-    })
-    .not.toBe('0');
-}
 
 /** The Positioner an element sits in, when it sits in one: its outermost ancestor carrying `data-side`. */
 export function positionerOf(locator: Locator): Locator {

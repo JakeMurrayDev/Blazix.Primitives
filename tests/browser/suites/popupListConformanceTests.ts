@@ -186,7 +186,9 @@ export function popupListConformanceTests(config: PopupListConformanceConfig): v
   async function hoverVisiblePart(page: Page, index: number): Promise<void> {
     // A positioned instance (Menu's) reads the item's box only after the Positioner's first pass; the composite-list hosts
     // have no Positioner.
-    const positioner = page.locator('[role="presentation"][data-side]', { has: page.locator('[data-testid="scroller"]') });
+    // The Positioner is the scroller's outermost ancestor carrying `data-side`: a Menu popup that holds a List also renders
+    // `role="presentation"` and `data-side`, so a role-and-attribute match finds two elements (2026-11-10, M5 track 6).
+    const positioner = page.getByTestId('scroller').locator('xpath=ancestor::*[@data-side][last()]');
     if ((await positioner.count()) > 0) {
       await waitForPositioned(positioner);
     }

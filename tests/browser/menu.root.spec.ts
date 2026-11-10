@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
-import { expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
-import { center, clickThrough, fire, holdClock, moveTo, positionerOf, waitForPositioned, parkPointer, pressCharacter, recorded, touchTest, withClock } from './menu.helpers';
+import { expect, isScrollLocked, test, waitForPositioned, type Page, type RenderMode } from './helpers';
+import { center, clickThrough, fire, holdClock, moveTo, positionerOf, parkPointer, pressCharacter, recorded, touchTest, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // MenuRoot.test.tsx's L4 titles (M5 track 6, issue 172; docs/components/menu.md) on `menu-root`, titles verbatim, every
