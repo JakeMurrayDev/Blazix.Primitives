@@ -434,7 +434,9 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
             attaching ??= AttachTransitionsAsync(element, transitions);
             await attaching;
         }
-        else if (TransitionsOptions() is { } options && options != sentTransitions)
+
+        // Issue 213 (main's PR 215): a render during the attach sends what the attach did not carry.
+        if (transitionsHandle is not null && !disposed && TransitionsOptions() is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);
