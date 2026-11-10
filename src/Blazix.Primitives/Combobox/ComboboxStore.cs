@@ -635,6 +635,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
+        // The module's answer to the store's own request, an eventless report of the index the store holds and has reported,
+        // changes nothing: Base UI's list navigation does not call onNavigate for an index set from outside, so the post-commit
+        // highlight is emitted once (AriaCombobox.tsx:1210-1225).
+        if (@event is null && index is int at && State.ActiveIndex == at && lastHighlight.Emitted && lastHighlight.Index == at)
+        {
+            return;
+        }
+
         await SetIndicesAsync(index, @event, fromModule: true);
     }
 
