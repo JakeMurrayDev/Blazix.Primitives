@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { delayCircuit, expect, test, waitForPositioned, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, waitForPositioned, type Page, type RenderMode } from './helpers';
 import { center, holdClock, parkPointer, positionerOf, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -449,3 +449,285 @@ test.describe('<ContextMenu.Trigger />', () => {
     expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
   });
 });
+
+// The `none` rows' port titles and the rows no Base UI title cites (ADR 13 §1; the brief's Tests first), on both modes.
+test.describe('ContextMenu port titles', () => {
+  async function popupBox(page: Page): Promise<{ x: number; y: number }> {
+    await positioned(page.getByTestId('popup'));
+    const box = (await page.getByTestId('popup').boundingBox())!;
+    return { x: box.x, y: box.y };
+  }
+
+  test('port: a right click anchors the popup at the pointer, its top-left corner 2 px right of and 5 px above it', async ({ page, mode }) => {
+    await render(page, mode);
+    const point = await rightClick(page, page.getByTestId('trigger'), { x: 60, y: 40 });
+
+    const box = await popupBox(page);
+    expect(Math.round(box.x)).toBe(Math.round(point.x + 2));
+    expect(Math.round(box.y)).toBe(Math.round(point.y - 5));
+  });
+
+  test('port: a long press anchors a 10 x 10 rect at the touch, the popup 2 px right of it and 5 px below it', async ({ page, mode }) => {
+    await render(page, mode);
+    await withClock(page, async () => {
+      await holdClock(page);
+      await touch(page.getByTestId('trigger'), 'touchstart', [{ x: 150, y: 120 }]);
+      await page.clock.runFor(500);
+      await awaitShown(page, mode, page.getByTestId('popup'));
+    });
+
+    const box = await popupBox(page);
+    expect(Math.round(box.x)).toBe(152);
+    expect(Math.round(box.y)).toBe(125);
+  });
+
+  test('port: a menu opened by DefaultOpen before any gesture is anchored at the viewport origin, inside the collision padding', async ({ page, mode }) => {
+    await render(page, mode, { defaultOpen: true });
+
+    // The origin rect places the popup at (2, -5); the shift keeps it 5 px inside the layout viewport.
+    const box = await popupBox(page);
+    expect(Math.round(box.x)).toBe(5);
+    expect(Math.round(box.y)).toBe(5);
+  });
+
+  test('port: on macOS the first right-button release over an item of a DefaultOpen menu activates it', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { defaultOpen: true }, 'mac');
+    const item = page.getByTestId('second');
+    const point = await center(item);
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.up({ button: 'right' });
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('Second');
+    expect((await openChanges(fixture)).at(-1)).toBe('false:item-press');
+  });
+
+  test('port: a right click while open moves the popup to the new point and calls onOpenChange(true) again', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    const first = await rightClick(page, page.getByTestId('trigger'), { x: 30, y: 30 });
+    await expect.poll(async () => Math.round((await popupBox(page)).x)).toBe(Math.round(first.x + 2));
+
+    // The second right click lands on the internal backdrop over the trigger, whose native menu stays suppressed; the
+    // trigger is reached by the `contextmenu` it would receive on a page without the modal backdrop, dispatched there.
+    const second = { x: first.x + 120, y: first.y + 60 };
+    await page.getByTestId('trigger').evaluate((element, at) => {
+      element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: at.x, clientY: at.y }));
+    }, second);
+
+    await expect.poll(async () => Math.round((await popupBox(page)).x)).toBe(Math.round(second.x + 2));
+    await expect.poll(() => openChanges(fixture)).toEqual(['true:trigger-press', 'true:trigger-press']);
+  });
+
+  test('port: page scroll is locked while open, a long press open included, and unlocked after the close', async ({ page, mode }) => {
+    await render(page, mode);
+    await withClock(page, async () => {
+      await holdClock(page);
+      await touch(page.getByTestId('trigger'), 'touchstart', [{ x: 100, y: 100 }]);
+      await page.clock.runFor(500);
+      await awaitShown(page, mode, page.getByRole('menu'));
+    });
+    await expect.poll(() => isScrollLocked(page)).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect.poll(() => isScrollLocked(page)).toBe(false);
+  });
+
+  test('port: content outside the tree is aria-hidden while the root popup is open, and not after the close', async ({ page, mode }) => {
+    await render(page, mode);
+    // The modal focus manager marks the body's other children (FLT-ARIA-01), so the outside button is hidden through one.
+    const hidden = () => page.getByTestId('outside').evaluate((element) => element.closest('[aria-hidden="true"]') !== null);
+    expect(await hidden()).toBe(false);
+
+    await rightClick(page, page.getByTestId('trigger'));
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect.poll(hidden).toBe(true);
+    expect(await page.getByRole('menu').evaluate((element) => element.closest('[aria-hidden="true"]') !== null)).toBe(false);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect.poll(hidden).toBe(false);
+  });
+
+  test('port: arrow keys, Enter and Space on a focused trigger do not open the menu', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { button: true });
+    const surface = page.getByRole('button', { name: 'Right click me' });
+    await surface.focus();
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', ' ']) {
+      await page.keyboard.press(key);
+    }
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  test('port: after a right-click open the popup has focus and the first ArrowDown highlights the first item', async ({ page, mode }) => {
+    await render(page, mode);
+    await rightClick(page, page.getByTestId('trigger'));
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeFocused();
+    await expect(page.locator('[data-highlighted]')).toHaveCount(0);
+
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('item')).toHaveAttribute('data-highlighted', '');
+  });
+
+  test('port: Tab inside the root popup keeps focus in the context menu and does not close it', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await rightClick(page, page.getByTestId('trigger'));
+    await expect(page.getByRole('menu')).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    expect(await page.getByRole('menu').evaluate((menu) => menu.contains(document.activeElement))).toBe(true);
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+  });
+
+  // CTX-KEY-07 is not replicated (ADR 04 Amendments 2026-10-18, corrected 2026-11-04): the root context menu keeps its
+  // cross-orientation close key, so no root close has the reason `list-navigation`.
+  test('port: the cross-orientation close key leaves the root context menu open', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await rightClick(page, page.getByTestId('trigger'));
+    await expect(page.getByRole('menu')).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('item')).toHaveAttribute('data-highlighted', '');
+
+    await page.keyboard.press('ArrowLeft');
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+  });
+
+  test('port: a left-button release over an item is no release activation, and a left click still activates it', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { defaultOpen: true }, 'mac');
+    const label = await center(page.getByTestId('group-label'));
+    const item = await center(page.getByTestId('second'));
+    await page.mouse.move(label.x, label.y);
+    await page.mouse.down();
+    await page.mouse.move(item.x, item.y, { steps: 2 });
+    await page.mouse.up();
+    await settle(fixture);
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('');
+
+    await page.mouse.click(item.x, item.y);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('Second');
+  });
+
+  test('port: moving the pointer in and out of the root popup does not close it', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await rightClick(page, page.getByTestId('trigger'));
+    await positioned(page.getByTestId('popup'));
+    const item = await center(page.getByTestId('item'));
+    await page.mouse.move(item.x, item.y, { steps: 3 });
+    await page.mouse.move(600, 500, { steps: 3 });
+    await waitMsReal(page);
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+  });
+
+  test('port: while the root is disabled a menu held open by Open is dismissed by neither Escape nor an outside press', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { open: true, disabled: true });
+    await expect(page.getByRole('menu')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5);
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual([]);
+  });
+
+  test('port: every root open change carries no trigger element', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await rightClick(page, page.getByTestId('trigger'));
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+    expect(await fixture.getAttribute('data-open-triggers')).toBe('none none');
+  });
+
+  test('port: a canceled open stays closed, and the release after 500 ms requests no close', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { cancelOpen: true });
+    await withClock(page, async () => {
+      await holdClock(page);
+      await rightDown(page, page.getByTestId('trigger'));
+      await settle(fixture);
+      await page.clock.runFor(501);
+      await page.mouse.up({ button: 'right' });
+    });
+    await settle(fixture);
+
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+  });
+
+  // CTX §16 Q5 recorded, not assumed: Chromium dispatches a right click's `contextmenu` with `detail` 0, which MNU-STA-04
+  // reads as a keyboard click, so a right-click open skips its enter transition as Base UI's does in that browser.
+  test('port: a right-click open, whose contextmenu event has detail 0 in Chromium, is an instant click open', async ({ page, mode }) => {
+    await render(page, mode);
+    await page.getByTestId('trigger').evaluate((element) => {
+      element.addEventListener('contextmenu', (event) => element.setAttribute('data-detail', String((event as MouseEvent).detail)), { capture: true });
+    });
+    await rightClick(page, page.getByTestId('trigger'));
+    await expect(page.getByRole('menu')).toBeVisible();
+
+    await expect(page.getByTestId('trigger')).toHaveAttribute('data-detail', '0');
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-instant', 'click');
+  });
+
+  // The standing attach-order rule: the trigger's and the root's handles attach before the menu's session when its module
+  // (`js/interactions.js`) is held; the module takes its own reference on the session, so the root's first arm and origin
+  // anchor are not lost, and the first gesture after the release anchors and opens at the pointer.
+  test('port: the context-menu handles attached before the session keep the first arm and the gesture anchor', async ({ page, mode }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // The entry is fingerprinted (`js/interactions.<hash>.js`); the context-menu module reaches the shared code through its chunks.
+    await page.route(/\/_content\/Blazix\.Primitives\/js\/interactions(\.[a-z0-9]+)?\.js$/, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'platform', { configurable: true, get: () => 'MacIntel' });
+    });
+    if (mode === 'server') {
+      await delayCircuit(page, SERVER_DELAY_MS);
+    }
+    await parkPointer(page);
+    await page.goto(`${fixtureUrl(mode, FIXTURE)}?defaultOpen=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    const fixture = page.locator(Fixture.container(FIXTURE));
+    await expect(fixture).toHaveAttribute('data-trigger-attached', 'true');
+    expect(await fixture.getAttribute('data-attached')).toBe('false');
+
+    release();
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    // The root's first arm: the first right-button release over an item activates it (CTX-EDGE-06).
+    const item = await center(page.getByTestId('second'));
+    await page.mouse.move(item.x, item.y);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.up({ button: 'right' });
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('Second');
+  });
+});
+
+/** Lets 300 ms of the page's time pass with the clock flowing (a hover close's delays included). */
+async function waitMsReal(page: Page): Promise<void> {
+  await withClock(page, async () => {
+    await page.clock.runFor(300);
+  });
+}

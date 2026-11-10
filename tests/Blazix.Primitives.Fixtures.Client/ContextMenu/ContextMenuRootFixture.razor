@@ -18,14 +18,16 @@
     - `nested`: an inner context menu inside the outer Trigger (the nested title).
     - `flip`: an open root whose Positioner flips (`collisionAvoidance` side flip) against a virtual anchor at (100,
       `anchorY`), the popup 150 by 100.
-    The container records `data-open-changes` (`open:reason`), `data-open-events` (the event types),
+    The container records `data-open-changes` (`open:reason`), `data-open-events` (the event types), `data-open-triggers`
+    (`none` or `set`: whether the details name a trigger), `data-item-clicks`,
     `data-submenu-open-changes` and `data-inner-open-changes`, and `data-attached` once the roots' sessions and the
-    triggers' handles attached.
+    triggers' handles attached, and `data-trigger-attached` once the trigger's handle alone did.
 *@
 <FixtureContainer Name="context-menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-events="@string.Join(' ', events)"
                   data-submenu-open-changes="@string.Join(' ', submenuChanges)" data-inner-open-changes="@string.Join(' ', innerChanges)"
-                  data-item-clicks="@string.Join(' ', clicks)">
+                  data-item-clicks="@string.Join(' ', clicks)" data-open-triggers="@string.Join(' ', triggers)"
+                  data-trigger-attached="@(triggerAttached ? "true" : "false")">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-testid="toggle-trigger" data-key-control @onkeydown="OnShift(() => triggerMounted = !triggerMounted)">Toggle trigger</button>
     <button type="button" data-testid="outside">Outside</button>
@@ -113,6 +115,9 @@
                             }
                             <ContextMenuItem data-testid="item" @onclick="@(() => clicks.Add("Action"))">Action</ContextMenuItem>
                             <ContextMenuItem data-testid="second" @onclick="@(() => clicks.Add("Second"))">Second</ContextMenuItem>
+                            <ContextMenuGroup>
+                                <ContextMenuGroupLabel data-testid="group-label">Group</ContextMenuGroupLabel>
+                            </ContextMenuGroup>
                             @if (Query("plainMenu") == "popup")
                             {
                                 @PlainMenu()
@@ -131,6 +136,8 @@
     private readonly List<string> submenuChanges = [];
     private readonly List<string> innerChanges = [];
     private readonly List<string> clicks = [];
+    private readonly List<string> triggers = [];
+    private bool triggerAttached;
     private ContextMenuRoot? root;
     private ContextMenuRoot? innerRoot;
     private ContextMenuTrigger? trigger;
@@ -148,7 +155,19 @@
         innerTrigger?.TwinAttached ?? Task.CompletedTask,
     ];
 
-    private OffsetValue? AlignOffset => Query("alignOffset") is { } value ? (OffsetValue)double.Parse(value, CultureInfo.InvariantCulture) : null;
+    // Not a conditional with a `null` arm: OffsetValue converts `null` implicitly (its function case), which would send 0.
+    private OffsetValue? AlignOffset
+    {
+        get
+        {
+            if (Query("alignOffset") is { } value)
+            {
+                return double.Parse(value, CultureInfo.InvariantCulture);
+            }
+
+            return null;
+        }
+    }
 
     private Side? SideValue => Query("side") switch
     {
@@ -179,9 +198,24 @@
         container = QueryFlag("container") == true;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The attach-order title: the trigger's handle, which may attach before the menu's session the base awaits.
+        Task attachments = base.OnAfterRenderAsync(firstRender);
+        if (!triggerAttached && trigger is { } attaching && RendererInfo.IsInteractive)
+        {
+            await attaching.TwinAttached;
+            triggerAttached = true;
+            StateHasChanged();
+        }
+
+        await attachments;
+    }
+
     private void RecordContextChange(ValueChangeEventArgs<bool> args)
     {
         events.Add(args.Details.Event.Type);
+        triggers.Add(args.Details.Trigger is null ? "none" : "set");
         RecordOpenChange(args);
     }
 
