@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { delayCircuit, expect, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, waitForPositioned, Fixture, fixtureUrl, test, type Page, type RenderMode } from './helpers';
 import { gotoPopupFixture, openChangeCompletes, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/navigation-menu.md (M5 track 5, issue 163) on the `navigation-menu-*` fixtures, every
@@ -364,6 +364,7 @@ test.describe('<NavigationMenu.Link /> pointerdown', () => {
     await hoverTrigger(page, 1);
     await page.clock.runFor(OPEN_DELAY + 10);
     await expect(content(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
 
     const link = page.getByTestId('link-1-a');
     await hoverElement(page, link);
@@ -383,6 +384,7 @@ test.describe('<NavigationMenu.Root /> pointer-events lock', () => {
     await hoverTrigger(page, n);
     await page.clock.runFor(OPEN_DELAY + 10);
     await expect(content(page, n)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
   }
 
   test('blocks pointer events on the list while traversing from a top-level trigger to the popup', async ({ page, mode }) => {
@@ -859,6 +861,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await hoverOpen(page, trigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await waitForPositioned(page.getByTestId('positioner'));
 
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
@@ -881,6 +884,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await hoverOpen(page, trigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
     await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'false');
+    await waitForPositioned(page.getByTestId('positioner'));
 
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
@@ -902,6 +906,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await hoverOpen(page, trigger(page, 1));
     await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
     await expect(nestedContent(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
 
     await hoverOpen(page, nestedTrigger(page, 2));
     await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
@@ -922,6 +927,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     const fixture = await gotoMenu(page, mode, { nested: 'inline', nestedDefault: 'nested-1' });
     await hoverOpen(page, trigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
     await hoverOpen(page, nestedTrigger(page, 2));
     await expect(nestedTrigger(page, 2)).toHaveAttribute('aria-expanded', 'true');
     await expect(nestedContent(page, 2)).toBeVisible();
@@ -944,6 +950,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await hoverOpen(page, trigger(page, 1));
     await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
     await expect(nestedContent(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
 
     // Base UI leaves the trigger and the popup; the real pointer crosses the popup on its way out.
     await hoverElement(page, page.getByTestId('link-1-a'));
@@ -1056,10 +1063,12 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await hoverOpen(page, trigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await waitForPositioned(page.getByTestId('positioner'));
 
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
     await expect(nestedTrigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    await waitForPositioned(page.getByTestId('nested-positioner'));
 
     await hoverElement(page, page.getByTestId('nested-popup-root'));
     await page.clock.runFor(CLOSE_DELAY + 10);
@@ -1073,6 +1082,7 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await gotoMenu(page, mode, { nested: 'portal', closeDelay: 200 });
     await hoverOpen(page, trigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
 
@@ -1088,8 +1098,10 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     await gotoMenu(page, mode, { nested: 'portal', closeOnClick: true });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('nested-positioner'));
 
     await page.getByTestId('nested-link-1').click();
 
@@ -1102,8 +1114,10 @@ test.describe('<NavigationMenu.Root /> nested', () => {
     const fixture = await gotoMenu(page, mode, { nested: 'portal', closeOnClick: true });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
     await hoverOpen(page, nestedTrigger(page, 1));
     await expect(nestedContent(page, 1)).toBeVisible();
+    await waitForPositioned(page.getByTestId('nested-positioner'));
 
     await page.getByTestId('nested-link-1').click();
 
@@ -1167,15 +1181,8 @@ test.describe('<NavigationMenu.Root /> inline nested lock', () => {
     await freezeClock(page);
     await hoverOpen(page, trigger(page, 1));
     await expect(content(page, 1)).toBeVisible();
-    // Issue 191: the Positioner stays transparent until its first pass (FLT-STA-09, Base UI's `opacity: 0` while not
-    // positioned), and toBeVisible ignores opacity, so a title read the nested trigger's box before the pass moved the
-    // popup and moved the pointer to a stale point. The titles read no geometry before the pass. This is a readiness check
-    // on a stable end state, the pass having landed (the opacity stays once set), not a poll over a transient style, so it
-    // stays within ADR 06 §2. The clock steps, since the pass may wait for a frame and the clock is frozen.
-    await expect.poll(async () => {
-      await page.clock.runFor(16);
-      return page.getByTestId('positioner').evaluate((element) => (element as HTMLElement).style.opacity);
-    }).not.toBe('0');
+    // Issue 191: the Positioner's first pass, with the clock stepped since it is frozen (PR 203's shared wait).
+    await waitForPositioned(page.getByTestId('positioner'), { clockFrozen: true });
   }
 
   type Side = 'right' | 'left' | 'bottom' | 'top';
@@ -1715,6 +1722,7 @@ test.describe('size', () => {
     await hoverTrigger(page, 1);
     await page.clock.runFor(OPEN_DELAY + 10);
     await expect(page.getByTestId('link-1-a')).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
 
     // Across the panel, which releases the List's lock, to the other trigger: on WebAssembly the hover interaction
     // switches inside the same dispatch, after the activation measured the direction.
@@ -1732,6 +1740,7 @@ test.describe('size', () => {
     await hoverTrigger(page, 1);
     await page.clock.runFor(OPEN_DELAY + 10);
     await expect(page.getByTestId('link-1-a')).toBeVisible();
+    await waitForPositioned(page.getByTestId('positioner'));
     const positioner = page.getByTestId('positioner');
     const firstLeft = (await positioner.boundingBox())!.x;
 
