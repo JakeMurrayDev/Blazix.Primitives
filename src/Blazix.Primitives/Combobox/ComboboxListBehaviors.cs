@@ -471,13 +471,15 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 
     private ComboboxStore<TValue>? store;
 
-    private StoreSelection<ComboboxStoreState, (ComboboxItemBehavior<TValue> Owner, TValue Value), bool>? selected;
+    private StoreSelection<ComboboxStoreState, (ComboboxItemBehavior<TValue> Owner, TValue Value, bool NullItem), bool>? selected;
 
     private RenderFragment? cascadedContent;
 
     private RenderFragment? cascade;
 
     private TValue value = default!;
+
+    private bool valueSupplied;
 
     private bool disabledParameter;
 
@@ -499,6 +501,9 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
         context = new ComboboxItemContext();
     }
+
+    // Base UI's `null` item: no value, or a null one.
+    private bool NullItem => !valueSupplied || ValueNull.IsNull(value);
 
     /// <summary>Gets the item context the indicator reads.</summary>
     public ComboboxItemContext Context => context;
@@ -550,7 +555,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 
         // Base UI's `isSelected` selector with the item's value as its argument: re-evaluated on a selection change and when
         // the value changes (the argument compares by value, so the owner alone would never re-evaluate).
-        selected = subscription.Select(static (state, arg) => arg.Owner.EvaluateSelected(state.SelectionRevision, arg.Value), (Owner: this, Value: value));
+        selected = subscription.Select(static (state, arg) => arg.Owner.EvaluateSelected(state.SelectionRevision, arg.Value, arg.NullItem), (Owner: this, Value: value, NullItem: NullItem));
     }
 
     /// <summary>Applies the part's parameters.</summary>
@@ -563,15 +568,26 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
     /// <param name="consumerAttributes">The consumer's attributes.</param>
     public void Apply(TValue itemValue, bool valueSupplied, int? index, bool disabled, bool nativeButton, string? itemId, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
-        _ = valueSupplied;
         ComboboxStore<TValue> root = store!;
-        bool valueChanged = !Equality.Is(value, itemValue);
+
+        // ADR 08 Amendments 2026-11-03 (2): an omitted Value is Base UI's `null` (ComboboxItem.tsx:44), told by the
+        // supplied flag, so a value-type root never reads it as default(TValue). A multiple root of a non-nullable value
+        // type cannot hold it (the NavigationMenuItem precedent of Amendments 2026-11-04).
+        if (!valueSupplied && !ComboboxStore<TValue>.ValueAcceptsNull && root.State.SelectionMode == ComboboxSelectionMode.Multiple)
+        {
+            throw new InvalidOperationException(
+                $"Blazix: A `{services.Family}Item` without a `Value` stands for `null`, which a multiple `{services.Family}Root` of a non-nullable value type cannot hold. "
+                + "Give the item a `Value`, or use a nullable `TValue` such as `int?`.");
+        }
+
+        bool valueChanged = !Equality.Is(value, itemValue) || this.valueSupplied != valueSupplied;
         value = itemValue;
+        this.valueSupplied = valueSupplied;
         disabledParameter = disabled;
         id = itemId;
         if (valueChanged && selected is not null)
         {
-            selected.Arg = (Owner: this, Value: itemValue);
+            selected.Arg = (Owner: this, Value: itemValue, NullItem: NullItem);
         }
 
         button.Disabled = Disabled;
@@ -580,7 +596,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         button.SetConsumerAttributes(consumerAttributes);
         item!.SetRegistration(itemId, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(itemValue), index: index);
         item.SetConsumerAttributes(Disabled ? null : consumerAttributes);
-        root.RegisterRenderedValue(item, itemValue);
+        root.RegisterRenderedValue(item, itemValue, valueSupplied || ComboboxStore<TValue>.ValueAcceptsNull);
         context.Set(Selected, index ?? -1);
     }
 
@@ -617,7 +633,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        return root.SelectAsync(value, EventSnapshot.FromEventArgs(args));
+        return root.SelectAsync(value, EventSnapshot.FromEventArgs(args), present: !NullItem);
     }
 
     /// <summary>Forwards a key to the button behavior.</summary>
@@ -668,10 +684,10 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         await item!.AfterRenderAsync(element);
     }
 
-    private bool EvaluateSelected(int revision, TValue candidate)
+    private bool EvaluateSelected(int revision, TValue candidate, bool nullItem)
     {
         _ = revision;
-        return store is not null && store.State.SelectionMode != ComboboxSelectionMode.None && store.IsSelected(candidate);
+        return store is not null && store.State.SelectionMode != ComboboxSelectionMode.None && store.IsSelected(candidate, nullItem);
     }
 }
 

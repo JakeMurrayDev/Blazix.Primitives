@@ -385,14 +385,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Gets a value indicating whether the root was given an input value or a default input value at its first render.</summary>
     public bool HasInputValue => HasInputValueParameter;
 
+    /// <summary>Gets a value indicating whether the values can be <see langword="null"/>: a reference or nullable value type.</summary>
+    internal static bool ValueAcceptsNull => s_nullable;
+
     /// <inheritdoc />
     public override void SetSelectionEvent(EventSnapshot? @event) => selectionEvent = @event;
 
     /// <summary>Selects or toggles an item, as an item press does.</summary>
     /// <param name="value">The item's value.</param>
     /// <param name="event">The press, or the keydown that started it.</param>
+    /// <param name="present"><see langword="false"/> for the null item, whose press selects nothing.</param>
     /// <returns>A task that completes when the selection and its follow-ups have run.</returns>
-    public async Task SelectAsync(TValue value, EventSnapshot @event)
+    public async Task SelectAsync(TValue value, EventSnapshot @event, bool present = true)
     {
         // AriaCombobox.tsx:880-950 (handleSelection): Enter's synthetic click is attributed to its keydown.
         EventSnapshot source = selectionEvent ?? @event;
@@ -430,7 +434,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
-        if (!await SetSelectedValueAsync(value, details))
+        if (!await SetSelectedValueAsync(value, details, present))
         {
             return;
         }
@@ -762,16 +766,27 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     /// <summary>Records the value an item part renders, which the list joins to the reported order.</summary>
     /// <param name="item">The item's composite behavior.</param>
     /// <param name="value">The item's value.</param>
-    public void RegisterRenderedValue(CompositeItemBehavior item, TValue value)
+    /// <param name="present"><see langword="false"/> for an item without a value under a root of a non-nullable value type.</param>
+    public void RegisterRenderedValue(CompositeItemBehavior item, TValue value, bool present = true)
     {
         // ComboboxItem.tsx:98-109: an item writes its value at its index whenever the value changes, so a positional
-        // template that hands an item another value under the same id keeps the registry current.
-        if (itemValues.TryGetValue(item, out TValue? previous) && !Equality.Is(previous, value) && renderedPositions.TryGetValue(item, out int position))
+        // template that hands an item another value under the same id keeps the registry current. An item without a value
+        // of a value-type root holds an absent slot, which matches no value.
+        bool had = itemValues.TryGetValue(item, out TValue? previous);
+        bool changed = present ? !had || !Equality.Is(previous, value) : had;
+        if (present)
         {
-            renderedValues[position] = new ItemSlot<TValue>(value, true);
+            itemValues[item] = value;
+        }
+        else
+        {
+            itemValues.Remove(item);
         }
 
-        itemValues[item] = value;
+        if (changed && renderedPositions.TryGetValue(item, out int position))
+        {
+            renderedValues[position] = new ItemSlot<TValue>(present ? value : default!, present);
+        }
     }
 
     /// <summary>Removes an item part's value.</summary>
@@ -805,12 +820,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     /// <summary>Determines whether <paramref name="value"/> is selected, Base UI's <c>isSelected</c> selector.</summary>
     /// <param name="value">An item's value.</param>
+    /// <param name="nullItem">Whether the item stands for <c>null</c>: it has no value, or a <see langword="null"/> one.</param>
     /// <returns><see langword="true"/> if the item is selected.</returns>
-    public bool IsSelected(TValue value)
+    public bool IsSelected(TValue value, bool nullItem)
     {
+        // itemEquality.ts:17-19: a null operand matches only a null one, so the null item is selected while nothing is.
         return State.SelectionMode switch
         {
-            ComboboxSelectionMode.Single => singlePresent && ItemEquality.Compare(value, valueState.Value, inputs.IsItemEqualToValue),
+            ComboboxSelectionMode.Single => singlePresent ? !nullItem && ItemEquality.Compare(value, valueState.Value, inputs.IsItemEqualToValue) : nullItem,
             ComboboxSelectionMode.Multiple => ItemEquality.Includes(SelectedValues, value, inputs.IsItemEqualToValue),
             _ => false,
         };
