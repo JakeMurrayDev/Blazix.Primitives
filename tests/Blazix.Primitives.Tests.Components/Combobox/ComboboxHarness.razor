@@ -12,6 +12,7 @@
     <ComboboxPortal KeepMounted="KeepMounted">
         <ComboboxPositioner>
             <ComboboxPopup data-testid="popup">
+                @PopupExtra
                 @if (WithInput && InputInsidePopup)
                 {
                     <ComboboxInput data-testid="input" />
@@ -63,6 +64,9 @@
 
     [Parameter]
     public RenderFragment? Extra { get; set; }
+
+    [Parameter]
+    public RenderFragment? PopupExtra { get; set; }
 
     public ComboboxRoot<string>? Root { get; private set; }
 
