@@ -1615,7 +1615,7 @@ describe('positioning module: the size variables at the close', () => {
   // (internals/useAnchorPositioning.ts:363). The module hears of the unmount from the Positioner's `hidden`, one update after
   // the exit's end hid the popup inside it; a pass in between measures the collapsed Positioner, and the next open would
   // start from that size (Select's touch-dismiss reopen stayed on the side the collapsed popup fit).
-  it('port: writes no size variables once a closed Positioner has collapsed, so the next open starts from the size it closed with', async () => {
+  it('port: writes no size variables once a closed Positioner has collapsed, so the next open starts from the size it closed with, and still writes for one that keeps a box or is open', async () => {
     stubViewport();
     const { positioner } = setup();
     await settle();
@@ -1632,34 +1632,30 @@ describe('positioning module: the size variables at the close', () => {
 
     expect(spies.computePosition.mock.calls.length).toBeGreaterThan(passes);
     expect(positioner.style.getPropertyValue('--available-height')).toBe(height);
-  });
 
-  // The guard's boundary (final review N1): only a closed Positioner whose box has collapsed is the unmount's stand-in.
-  it('port: still writes the size variables for a closed Positioner that keeps a box, and for an open one with an empty box', async () => {
-    stubViewport();
-    const { positioner } = setup();
-    await settle();
-    const opened = positioner.style.getPropertyValue('--available-height');
-
-    // Open with an empty box (jsdom's): a viewport change still reaches the variables.
-    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 600 });
-    window.dispatchEvent(new Event('resize'));
-    await settle();
-    const resized = positioner.style.getPropertyValue('--available-height');
-    expect(resized).toMatch(/px$/);
-    expect(resized).not.toBe(opened);
-
-    // Closed and still laid out (a consumer's padding, or content outside the Popup): not the unmount's moment.
+    // The boundary (final review N1), folded into this title so it is red against the base (ADR 11 §3): a closed
+    // Positioner that keeps a box still writes, and so does an open one with an empty box.
     Object.defineProperty(positioner, 'offsetWidth', { configurable: true, value: 120 });
     Object.defineProperty(positioner, 'offsetHeight', { configurable: true, value: 80 });
     positioner.style.width = '120px';
     positioner.style.height = '80px';
-    positioner.removeAttribute('data-open');
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 500 });
+    window.dispatchEvent(new Event('resize'));
     await settle();
-    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 300 });
+    const kept = positioner.style.getPropertyValue('--available-height');
+    expect(kept).toMatch(/px$/);
+    expect(kept).not.toBe(height);
+
+    Object.defineProperty(positioner, 'offsetWidth', { configurable: true, value: 0 });
+    Object.defineProperty(positioner, 'offsetHeight', { configurable: true, value: 0 });
+    positioner.style.width = '';
+    positioner.style.height = '';
+    positioner.setAttribute('data-open', '');
+    await settle();
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 700 });
     window.dispatchEvent(new Event('resize'));
     await settle();
     expect(positioner.style.getPropertyValue('--available-height')).toMatch(/px$/);
-    expect(positioner.style.getPropertyValue('--available-height')).not.toBe(resized);
+    expect(positioner.style.getPropertyValue('--available-height')).not.toBe(kept);
   });
 });
