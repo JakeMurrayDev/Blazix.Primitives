@@ -231,16 +231,16 @@ internal sealed class MenuFilterRootContext
     public string Query => provider.Value;
 
     /// <summary>Gets a value indicating whether the Clear button renders: the query is not empty.</summary>
-    public bool ShowsClear => throw new NotImplementedException();
+    public bool ShowsClear => Query.Length > 0;
 
     /// <summary>Gets the id of the filter list, which the input's <c>aria-controls</c> names, or <see langword="null"/>.</summary>
-    public string? ListId => throw new NotImplementedException();
+    public string? ListId { get; private set; }
 
     /// <summary>Gets the input's element, the list's reference and the nested menus' return target, or <see langword="null"/>.</summary>
-    public ElementReference? InputElement => throw new NotImplementedException();
+    public ElementReference? InputElement { get; private set; }
 
     /// <summary>Gets a value indicating whether the input shows its focus ring, the menu-filter module's mirror.</summary>
-    public bool InputHighlighted => throw new NotImplementedException();
+    public bool InputHighlighted { get; private set; }
 
     /// <summary>Registers the menu's input, its focus owner.</summary>
     /// <param name="element">The input's element.</param>
@@ -249,7 +249,7 @@ internal sealed class MenuFilterRootContext
 
     /// <summary>Records the filter list's rendered id.</summary>
     /// <param name="id">The id, or <see langword="null"/> when the list renders none.</param>
-    public void SetListId(string? id) => throw new NotImplementedException();
+    public void SetListId(string? id) => ListId = string.IsNullOrEmpty(id) ? null : id;
 
     /// <summary>Requests a query change through the provider's <c>OnValueChange</c>.</summary>
     /// <param name="value">The new query.</param>

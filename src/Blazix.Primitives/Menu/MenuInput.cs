@@ -25,7 +25,7 @@ public static class MenuInputDataAttributes
 // Base UI's Menu.Input (menu/input/MenuInput.tsx, filter-dropdown/input/FilterDropdownInput.tsx); the contract is
 // docs/components/menu.md §3.22 (MNU-STR-15, API-59, DOM-21, ARIA-14, STA-22, EVT-16, EVT-19, KEY-31, A11Y-02). value and
 // aria-activedescendant are the browser-side behavior's after attach (the Input/Field.Control precedent of ADR 04
-// Amendments 2026-10-22; ADR 04 :504). Interface commit: the acting bodies throw until their red-first commits.
+// Amendments 2026-10-22; ADR 04 :504).
 /// <summary>
 /// Represents the text input that filters a menu's items, Base UI's <c>Menu.Input</c>, rendered as an <c>input</c> with
 /// the <c>searchbox</c> role.
@@ -33,6 +33,9 @@ public static class MenuInputDataAttributes
 /// <remarks>It must be placed in a menu wrapped in <see cref="MenuFilterProvider"/>.</remarks>
 public sealed class MenuInput : PartBase<MenuInputState>
 {
+    private MenuInputState state = new(false);
+    private MenuFilterRootContext? filter;
+
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
 
@@ -45,7 +48,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
     protected override string DefaultTagName => "input";
 
     /// <inheritdoc />
-    protected override MenuInputState State => throw new NotImplementedException();
+    protected override MenuInputState State => state;
 
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
@@ -53,7 +56,44 @@ public sealed class MenuInput : PartBase<MenuInputState>
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        _ = RootContext?.Filter ?? throw MenuParts.MissingFilter("Input");
-        throw new NotImplementedException();
+        // MNU-EDGE-04, STR-15.
+        filter = RootContext?.Filter ?? throw MenuParts.MissingFilter("Input");
+        base.OnInitialized();
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (state.Highlighted != filter!.InputHighlighted)
+        {
+            state = new MenuInputState(filter.InputHighlighted);
+        }
+    }
+
+    // MNU-DOM-21 (filter-dropdown/input/FilterDropdownInput.tsx:44-53, 150-163; menu/input/MenuInput.tsx:32-65), API-59: the
+    // id stays on the part's own element (issue 115); disabled is the root's or the part's. value is the committed query,
+    // which C# renders (C# -> JS, ADR 04 Amendments 2026-10-22); aria-activedescendant and data-highlighted are the
+    // browser-side behaviors'.
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        attributes.Set("type", "text");
+        attributes.Set("role", "searchbox");
+        attributes.Set("inputmode", "search");
+        attributes.Set("autocomplete", "off");
+        attributes.Set("spellcheck", "false");
+        attributes.Set("autocorrect", "off");
+        attributes.Set("autocapitalize", "none");
+        if (filter!.ListId is { } listId)
+        {
+            attributes.Set("aria-controls", listId);
+        }
+
+        if (Disabled || RootContext!.State.Disabled)
+        {
+            attributes.Set("disabled", true);
+        }
+
+        attributes.Set("value", filter.Query);
     }
 }
