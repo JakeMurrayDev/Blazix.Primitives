@@ -443,6 +443,18 @@ describe('the clear and chip remove buttons', () => {
     return { button, input };
   }
 
+  it('port: a mousedown on the clear button always prevents its default, disabled or without an input', () => {
+    const results: boolean[] = [];
+    for (const overrides of [{}, { disabled: true }, { inputId: null }]) {
+      const { button } = setupButton('clear', overrides);
+      const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      button.dispatchEvent(press);
+      results.push(press.defaultPrevented);
+      document.body.replaceChildren();
+    }
+    expect(results).toEqual([true, true, true]);
+  });
+
   it('port: a click on the clear or a chip remove button moves the focus to the input, unless disabled or read-only', () => {
     const results: boolean[] = [];
     for (const part of ['clear', 'chip-remove'] as const) {
