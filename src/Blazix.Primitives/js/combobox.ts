@@ -25,6 +25,7 @@ import {
   createTwinChannel,
   parseOptions,
   resolveElement,
+  resolveReference,
   type DecisionPolicy,
   type DotNetTwin,
   type TwinCaptures,
@@ -84,6 +85,7 @@ export interface ComboboxOptions extends TwinOptions {
   index?: number;
   dismissId?: string | null;
   submitRevision?: number | null;
+  submitFormElement?: number | null;
   decidesKeyDown?: boolean;
   decidesPress?: boolean;
 }
@@ -390,14 +392,15 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   doc.addEventListener('click', onDocumentClick, true);
 
   return {
-    update(optionsJson: string) {
+    update(optionsJson: string, references?: TwinReferences) {
       options = parseOptions<ComboboxOptions>(optionsJson);
-      // ComboboxItem.tsx:150-158, AriaCombobox.tsx:945-950: an item press of a root that submits on item click submits the
-      // form once its selection rendered, which this update follows.
+      // ComboboxItem.tsx:150-158, AriaCombobox.tsx:945-948: an item press of a root that submits on item click submits, once
+      // its selection rendered (which this update follows), the hidden validation input's form, else the input's.
       const submit = options.submitRevision ?? 0;
       if (submit !== lastSubmit) {
         lastSubmit = submit;
-        const form = element.form;
+        const hidden = resolveReference<HTMLInputElement>(references, options.submitFormElement);
+        const form = hidden?.form ?? element.form;
         if (form && typeof form.requestSubmit === 'function') {
           form.requestSubmit();
         }

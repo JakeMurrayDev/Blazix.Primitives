@@ -414,6 +414,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             InputId = id,
             DismissId = state.ElementIds.StartDismiss,
             SubmitRevision = state.SubmitRevision == 0 ? null : state.SubmitRevision,
+            SubmitFormElement = state.SubmitRevision != 0 && root.HiddenInput is not null ? 0 : null,
             DecidesKeyDown = consumerKeyDown.IsHandler,
         };
         if (handle is null)
@@ -425,8 +426,16 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
         if (options != sentOptions)
         {
+            // The hidden input travels with the update that moves the submit revision (AriaCombobox.tsx:945-948).
+            TwinReferences? references = null;
+            if (options.SubmitFormElement is not null && root.HiddenInput is { } hidden)
+            {
+                references = new TwinReferences();
+                references.Add(hidden);
+            }
+
             sentOptions = options;
-            await handle.UpdateAsync(options);
+            await handle.UpdateAsync(options, references);
         }
     }
 

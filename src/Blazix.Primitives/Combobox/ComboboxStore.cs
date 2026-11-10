@@ -1,6 +1,7 @@
 using System.Globalization;
 using Blazix.Primitives.Store;
 using Blazix.Primitives.Utilities;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
 namespace Blazix.Primitives;
@@ -63,6 +64,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets or sets the route of an exception of work the store starts outside a request, to the root.</summary>
     public Func<Exception, Task>? DispatchException { get; set; }
+
+    /// <summary>Gets or sets the root's hidden validation input, whose form an item press of a root that submits on item click submits first.</summary>
+    public ElementReference? HiddenInput { get; set; }
     /// <summary>Gets the id of the form that owns the hidden input.</summary>
     public abstract string? Form { get; }
 

@@ -82,6 +82,10 @@ internal sealed record ComboboxOptions : TwinOptions
     /// <value>The revision, or <see langword="null"/> before the first request and on handles other than the input.</value>
     public int? SubmitRevision { get; init; }
 
+    /// <summary>Gets the index, in the update's references, of the hidden validation input whose form is submitted first.</summary>
+    /// <value>The index, or <see langword="null"/> when the update sends none.</value>
+    public int? SubmitFormElement { get; init; }
+
     /// <summary>Gets a value indicating whether C# holds the consumer's <c>onKeyDown</c>, so the input's handle asks <c>navigate</c> before its keys.</summary>
     public bool DecidesKeyDown { get; init; }
 
