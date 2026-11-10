@@ -1929,6 +1929,9 @@ test.describe('Server relaxations', () => {
     await hoverTrigger(page, 1);
     await page.clock.runFor(OPEN_DELAY + 10);
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
+    // The patient window runs on the page's clock: paused from the open's render, the click lands inside it however long a
+    // loaded host takes.
+    await freezeClock(page);
 
     await clickInPlace(page);
     await settle(fixture);
