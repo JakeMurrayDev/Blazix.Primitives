@@ -259,6 +259,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private string? derivedQuery;
 
+    private DerivationKey? derivedKey;
+
     private bool derivedQueryChanged;
 
     private PendingHighlight? pendingHighlight;
@@ -1546,6 +1548,27 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         string filterQuery = bypass ? string.Empty : inputs.FilterQuery ?? query;
         bool hasItems = inputs.Items is not null || inputs.ItemGroups is not null;
         bool ignoreExternal = hasItems && (inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null) && bypass;
+
+        // AriaCombobox.tsx:358-438 memoizes the filtered items on their inputs (ADR 16 decision 11): unchanged inputs, by
+        // reference for the lists and the delegates, filter nothing again.
+        DerivationKey key = new(
+            inputs.Items,
+            inputs.ItemGroups,
+            inputs.FilteredItems,
+            inputs.FilteredItemGroups,
+            ignoreExternal,
+            filterQuery,
+            inputs.Limit,
+            inputs.FilterSupplied,
+            inputs.Filter,
+            inputs.ItemToStringLabel,
+            collator);
+        if (derivedKey is { } previous && previous.Matches(key))
+        {
+            return;
+        }
+
+        derivedKey = key;
         ComboboxItemPredicate<TValue> predicate = inputs.FilterSupplied
             ? inputs.Filter is { } custom ? ComboboxItemPredicate<TValue>.Custom(custom, FilterItemToString) : ComboboxItemPredicate<TValue>.Off
             : ComboboxItemPredicate<TValue>.Collator(collator, FilterItemToString);
@@ -1622,6 +1645,34 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     };
 
     private static OpenChangeEventDetails ToOpenDetails(ChangeEventDetails details) => new(details.Reason, details.Event, details.Trigger);
+
+    // Compared by Matches: the lists and the delegates by reference, as Base UI's memo compares its dependencies.
+    private readonly record struct DerivationKey(
+        object? Items,
+        object? ItemGroups,
+        object? FilteredItems,
+        object? FilteredItemGroups,
+        bool IgnoreExternal,
+        string FilterQuery,
+        int Limit,
+        bool FilterSupplied,
+        object? Filter,
+        object? ItemToStringLabel,
+        CollatorFilter Collator)
+    {
+        public bool Matches(in DerivationKey other) =>
+            ReferenceEquals(Items, other.Items)
+            && ReferenceEquals(ItemGroups, other.ItemGroups)
+            && ReferenceEquals(FilteredItems, other.FilteredItems)
+            && ReferenceEquals(FilteredItemGroups, other.FilteredItemGroups)
+            && IgnoreExternal == other.IgnoreExternal
+            && string.Equals(FilterQuery, other.FilterQuery, StringComparison.Ordinal)
+            && Limit == other.Limit
+            && FilterSupplied == other.FilterSupplied
+            && ReferenceEquals(Filter, other.Filter)
+            && ReferenceEquals(ItemToStringLabel, other.ItemToStringLabel)
+            && Collator == other.Collator;
+    }
 
     private readonly record struct HighlightDependencies(
         int? ActiveIndex,
