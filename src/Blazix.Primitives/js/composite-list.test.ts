@@ -115,7 +115,7 @@ describe('useListNavigation', () => {
 
   // CMP-ALG-24's dated note: the wait ends with the batch that shows the list, read from the attributes of the list and its
   // ancestors (a closed Positioner's `hidden`), however many frames later, and not after a count of frames.
-  it('port: a kept-mounted list hidden by an ancestor focuses its first item when it shows, however many frames later', async () => {
+  it('port: a kept-mounted list hidden by an ancestor focuses its first item when it shows, however many frames later, and a close ends that wait', async () => {
     const container = document.createElement('div');
     document.body.append(container);
     const harness = app({ keepMounted: true, container });
@@ -137,38 +137,29 @@ describe('useListNavigation', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(harness.item(0));
     });
-  });
 
-  // CMP-ALG-24's dated note: a close ends the wait to show (the interim review of PR 183, F3). Here the close and the
-  // later show change no attribute on the observed chain, so only the close can stop the wait; the reopen finds the list
-  // showing and focuses it, and a later attribute write must not run the first open's search again.
-  it('port: a close ends the wait to show, so an attribute write after a visible reopen runs no earlier search', async () => {
-    const harness = app({ keepMounted: true });
+    // A close ends the wait (the interim review of PR 183, F3): here the close and the later show change no attribute on the
+    // observed chain, so only the close can stop it; after a reopen that finds the list showing, an attribute write must not
+    // run the first open's search again.
+    const second = app({ keepMounted: true });
     let visible = false;
-    menu(harness).checkVisibility = () => visible;
-
-    keyDown(harness.reference, 'ArrowDown');
+    menu(second).checkVisibility = () => visible;
+    keyDown(second.reference, 'ArrowDown');
     await new Promise((resolve) => setTimeout(resolve, 20));
-    harness.popup.setOpen(false);
+    second.popup.setOpen(false);
     await new Promise((resolve) => setTimeout(resolve, 20));
     visible = true;
-
-    keyDown(harness.reference, 'ArrowDown');
+    keyDown(second.reference, 'ArrowDown');
     await waitFor(() => {
-      expect(document.activeElement).toBe(harness.item(0));
+      expect(document.activeElement).toBe(second.item(0));
     });
-    keyDown(menu(harness), 'ArrowDown');
-    expect(document.activeElement).toBe(harness.item(1));
-
-    menu(harness).setAttribute('data-probe', '');
+    keyDown(menu(second), 'ArrowDown');
+    expect(document.activeElement).toBe(second.item(1));
+    menu(second).setAttribute('data-probe', '');
     await new Promise((resolve) => setTimeout(resolve, 20));
-
-    expect(document.activeElement).toBe(harness.item(1));
+    expect(document.activeElement).toBe(second.item(1));
   });
 
-  // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
-  // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
-  // to and the element focus came from, in the session's data slot; the close clears it.
   it('port: the open focus marks the item it moved focus to and the element focus came from, until the close', async () => {
     const harness = app();
     const slot = () => getSession(harness.popup.token)?.dataRef.current['blazix.composite.openFocus'];
