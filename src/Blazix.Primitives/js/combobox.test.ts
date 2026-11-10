@@ -183,7 +183,18 @@ describe('the input', () => {
     input.setAttribute('aria-activedescendant', 'item-1');
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     input.dispatchEvent(enter);
-    expect([clicks, enter.defaultPrevented, fake.reported('OnSelectionEvent').length]).toEqual([['click'], true, 1]);
+    expect([clicks, enter.defaultPrevented, fake.reported('OnSelectionEvent').length]).toEqual([['click'], true, 2]);
+  });
+
+  it('port: the keydown attribution ends after the click, as parts.ts clears its ref', () => {
+    const { input, fake } = setupInput('', { open: true });
+    const item = document.createElement('div');
+    item.id = 'item-1';
+    document.body.append(item);
+    input.setAttribute('aria-activedescendant', 'item-1');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    const reports = fake.reported<{ event: unknown }>('OnSelectionEvent');
+    expect(reports.map((report) => report.event === null)).toEqual([false, true]);
   });
 
   it('port: Enter on an open list without a highlight is not prevented and reports the close', () => {
