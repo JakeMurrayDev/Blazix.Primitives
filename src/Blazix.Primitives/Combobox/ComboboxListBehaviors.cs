@@ -180,6 +180,35 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         return cascade;
     }
 
+    // The implicit Collection (ComboboxList.tsx:52-61): one template call per filtered item or group, keyed by position. Here
+    // rather than in the part, so Autocomplete's List shell renders the same (review B1 of the final review).
+    /// <summary>Renders the group template once per filtered group, else the item template once per filtered item.</summary>
+    /// <param name="builder">The part's render tree builder.</param>
+    /// <param name="itemContent">The part's <c>ItemContent</c>.</param>
+    /// <param name="groupContent">The part's <c>GroupContent</c>.</param>
+    public void BuildTemplate(RenderTreeBuilder builder, RenderFragment<ComboboxListItem<TValue>>? itemContent, RenderFragment<ComboboxItemGroup<TValue>>? groupContent)
+    {
+        ComboboxStore<TValue> root = Store;
+        if (groupContent is not null && root.FilteredGroups is { } groups)
+        {
+            for (int i = 0; i < groups.Count; i++)
+            {
+                builder.AddContent(0, groupContent(groups[i]));
+            }
+
+            return;
+        }
+
+        if (itemContent is not null)
+        {
+            IReadOnlyList<TValue> values = root.FilteredValues;
+            for (int i = 0; i < values.Count; i++)
+            {
+                builder.AddContent(1, itemContent(new ComboboxListItem<TValue>(values[i], i)));
+            }
+        }
+    }
+
     /// <summary>Attaches the handles after the portal moved, and sends their changed options.</summary>
     /// <param name="element">The list's element.</param>
     /// <returns>A task that completes when the handles have their options.</returns>
@@ -315,6 +344,24 @@ internal sealed class ComboboxCollectionBehavior<TValue> : IDisposable
         group = groupContext;
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Membership);
+    }
+
+    // ComboboxCollection.tsx: one template call per item, keyed by position. Here rather than in the part, so Autocomplete's
+    // Collection shell renders the same (review B1 of the final review).
+    /// <summary>Renders the item template once per item of the group, else of the filtered items.</summary>
+    /// <param name="builder">The part's render tree builder.</param>
+    /// <param name="itemContent">The part's <c>ItemContent</c>.</param>
+    public void BuildItems(RenderTreeBuilder builder, RenderFragment<ComboboxListItem<TValue>>? itemContent)
+    {
+        if (itemContent is null || Items is not { } items)
+        {
+            return;
+        }
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            builder.AddContent(0, itemContent(new ComboboxListItem<TValue>(items[i], i)));
+        }
     }
 }
 
