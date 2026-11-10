@@ -1337,6 +1337,12 @@ export interface CompositeOptions extends TwinOptions {
    */
   registrationOnly?: boolean | undefined;
   /**
+   * CMB-KEY-12 (`combobox/trigger/ComboboxTrigger.tsx:109-122`; composite grant, option (a) settled 2026-11-11): a list
+   * reference that runs only the list's typeahead, and only while the list is closed, as Combobox's trigger runs the list's
+   * `useTypeahead` beside the input that navigates it. Its navigation keys are left to the element.
+   */
+  typeaheadOnly?: boolean | undefined;
+  /**
    * Whether the highlight follows the item marked active when focus is outside the root and the item is not
    * `aria-disabled="true"`, except once after a keydown on that item; the re-validation against the disabled indices does
    * not run.
@@ -3597,14 +3603,15 @@ function attachList(
     }
     const list = handle.list();
     const dispatch: KeyDispatch = { event, vetoed: null, stopped: false };
-    if (enabledOf(list)) {
+    const typeaheadOnly = options.typeaheadOnly === true;
+    if (enabledOf(list) && !typeaheadOnly) {
       if (isFloating) {
         floatingKeyDown(state, handle, dispatch);
       } else {
         triggerKeyDown(state, handle, dispatch);
       }
     }
-    if (list.typeahead && typeaheadProceeds(dispatch, handle, event)) {
+    if (list.typeahead && (!typeaheadOnly || !isOpen(state, handle.session)) && typeaheadProceeds(dispatch, handle, event)) {
       const stoppedBefore = event.defaultPrevented;
       typeaheadKeyDown(state, handle, event);
       if (!stoppedBefore && event.defaultPrevented) {
