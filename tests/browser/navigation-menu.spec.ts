@@ -2180,6 +2180,9 @@ test.describe('attach order', () => {
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
     await expect.poll(stalled.hits).toBeGreaterThan(0);
+    // With navigation-menu.js stalled, the interactions handle's click role is the only path that opens, and on Server it
+    // attaches round trips after the page is interactive: the fixture renders it once C# has it.
+    await expect(page.locator(Fixture.container(FIXTURE))).toHaveAttribute('data-handles', /(^| )trigger-1:interactions( |$)/);
 
     await trigger(page, 1).click();
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
