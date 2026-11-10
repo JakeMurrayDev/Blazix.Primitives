@@ -113,6 +113,32 @@ describe('useListNavigation', () => {
     });
   });
 
+  // CMP-ALG-24's dated note: the wait ends with the batch that shows the list, read from the attributes of the list and its
+  // ancestors (a closed Positioner's `hidden`), however many frames later, and not after a count of frames.
+  it('port: a kept-mounted list hidden by an ancestor focuses its first item when it shows, however many frames later', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const harness = app({ keepMounted: true, container });
+    container.hidden = true;
+    // A browser's `checkVisibility` reads the ancestors; jsdom has none.
+    menu(harness).checkVisibility = () => !container.hidden;
+    // Frames as microtasks, so any count of them passes before the list shows.
+    let frame = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      queueMicrotask(() => callback(performance.now()));
+      return ++frame;
+    });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(document.activeElement).not.toBe(harness.item(0));
+
+    container.hidden = false;
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+  });
+
   // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
   // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
   // to and the element focus came from, in the session's data slot; the close clears it.
