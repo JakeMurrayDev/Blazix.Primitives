@@ -37,4 +37,28 @@ public sealed class ComboboxInputTests : IDisposable
 
         Assert.Equal(["a"], keys);
     }
+
+    [Fact(DisplayName = "port: the consumer's onclick and onmousedown on the input run once per event")]
+    [Trait("Requirement", "RND-API-04")]
+    public async Task The_consumers_onclick_and_onmousedown_run_once()
+    {
+        List<string> events = [];
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxInput>(0);
+            builder.AddComponentParameter(1, "data-testid", "input");
+            builder.AddComponentParameter(2, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, _ => events.Add("click")));
+            builder.AddComponentParameter(3, "onmousedown", EventCallback.Factory.Create<MouseEventArgs>(this, _ => events.Add("mousedown")));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.WithInput, false)
+            .Add(x => x.Extra, (RenderFragment)Extra));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").MouseDown());
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Click());
+
+        Assert.Equal(["mousedown", "click"], events);
+    }
 }

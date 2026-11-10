@@ -199,6 +199,96 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Equal("false", cut.Find("[data-testid=item-apple]").GetAttribute("aria-selected"));
     }
 
+    [Fact(DisplayName = "port: the first render with items exposes the filtered list, not an empty one")]
+    [Trait("Requirement", "CMB-STA-21")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    public void The_first_render_with_items_exposes_the_filtered_list()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = (IReadOnlyList<string>)s_fruits, ["DefaultOpen"] = true });
+
+        Assert.Equal(3, cut.Instance.Root!.Store.State.FilteredCount);
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-list-empty"));
+    }
+
+    [Fact(DisplayName = "port: a controlled input text the consumer changes is sent to the input's handle with a new revision")]
+    [Trait("Requirement", "CMB-API-09")]
+    public void A_controlled_input_text_change_is_sent_with_a_new_revision()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a" });
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = "b" }));
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"b\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a typed change the consumer cancels re-asserts the controlled text")]
+    [Trait("Requirement", "CMB-API-09")]
+    [Trait("Requirement", "CMB-EVT-07")]
+    public async Task A_canceled_typed_change_reasserts_the_controlled_text()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a" });
+        cut.Instance.OnInput = args => args.Details.Cancel();
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+
+        await test.TypeAsync(cut, "ab");
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"a\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a supplied null input text derives the text from the selection")]
+    [Trait("Requirement", "CMB-STA-19")]
+    [Trait("Requirement", "CMB-API-09")]
+    public void A_supplied_null_input_text_derives_from_the_selection()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = null, ["DefaultValue"] = "apple" });
+
+        Assert.Equal("apple", cut.Find("[data-testid=input]").GetAttribute("value"));
+        Assert.True(cut.Instance.Root!.Store.InputControlled);
+    }
+
+    [Fact(DisplayName = "port: a typed query that keeps the filtered list sends the auto-highlight to the list handle")]
+    [Trait("Requirement", "CMB-API-17")]
+    [Trait("Requirement", "CMB-STA-24")]
+    public async Task A_typed_query_that_keeps_the_list_sends_the_auto_highlight()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new()
+        {
+            ["Items"] = (IReadOnlyList<string>)["apple", "apricot", "avocado"],
+            ["AutoHighlight"] = true,
+            ["DefaultOpen"] = true,
+        });
+
+        await test.TypeAsync(cut, "a");
+
+        Assert.Equal(0, cut.Instance.Root!.Store.State.ActiveIndex);
+        Assert.Contains(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
+    }
+
+    private List<string> CompositeOptions()
+    {
+        List<string> options = [];
+        foreach (JSRuntimeInvocation attach in test.Composite.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json)
+            {
+                options.Add(json);
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in test.CompositeHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json)
+            {
+                options.Add(json);
+            }
+        }
+
+        return options;
+    }
+
     private IRenderedComponent<ComboboxHarness> Render(Dictionary<string, object?> parameters, IReadOnlyList<string>? staticItems = null) =>
         test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, parameters).Add(x => x.StaticItems, staticItems));
 }
