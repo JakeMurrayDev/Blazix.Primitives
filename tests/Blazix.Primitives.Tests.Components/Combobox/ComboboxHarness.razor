@@ -26,7 +26,7 @@
                     <ComboboxList TValue="string" data-testid="list">
                         @foreach (string item in items)
                         {
-                            <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@item</ComboboxItem>
+                            <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@item@ItemExtra?.Invoke(item)</ComboboxItem>
                         }
                     </ComboboxList>
                 }
@@ -34,7 +34,7 @@
                 {
                     <ComboboxList TValue="string" data-testid="list">
                         <ItemContent>
-                            <ComboboxItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value</ComboboxItem>
+                            <ComboboxItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value@ItemExtra?.Invoke(context.Value)</ComboboxItem>
                         </ItemContent>
                     </ComboboxList>
                 }
@@ -67,6 +67,9 @@
 
     [Parameter]
     public RenderFragment? PopupExtra { get; set; }
+
+    [Parameter]
+    public RenderFragment<string>? ItemExtra { get; set; }
 
     public ComboboxRoot<string>? Root { get; private set; }
 
