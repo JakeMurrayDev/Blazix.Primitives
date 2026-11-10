@@ -331,6 +331,15 @@ public sealed class CompositeTwinContractTests
         Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
+    // SEL-STA-07 (queued by the orchestrator 2026-11-10): the list option crosses by its module name, only when true.
+    [Fact(DisplayName = "port: the retain-highlight-while-closing list option is written by its module name, only when true")]
+    [Trait("Requirement", "CMP-STA-33")]
+    public void Retain_highlight_while_closing_is_written_by_its_module_name_only_when_true()
+    {
+        Assert.Contains("\"retainHighlightWhileClosing\":true", JsonSerializer.Serialize(new CompositeListOptions { RetainHighlightWhileClosing = true }, BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("retainHighlightWhileClosing", JsonSerializer.Serialize(new CompositeListOptions(), BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-EVT-04")]
     [Trait("Requirement", "CMP-EVT-06")]
