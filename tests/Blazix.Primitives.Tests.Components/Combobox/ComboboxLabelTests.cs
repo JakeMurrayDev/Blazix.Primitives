@@ -105,6 +105,43 @@ public sealed class ComboboxLabelTests : IDisposable
         Assert.Contains("\"controlId\":\"fruit\"", options, StringComparison.Ordinal);
     }
 
+    // ComboboxLabel.tsx:37 (localControlId = triggerElement?.id ?? (inputInsidePopup ? rootId : undefined)): outside the popup
+    // Base UI renders no trigger id of its own, so the label focuses only an id the consumer gave the trigger.
+    [Fact(DisplayName = "port: with the input outside the popup, the label focuses no trigger without an id the consumer gave")]
+    [Trait("Requirement", "CMB-ARIA-16")]
+    public void With_the_input_outside_the_label_focuses_no_trigger_without_a_consumer_id()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new(), inputInside: false);
+
+        Assert.NotNull(cut.Find("[data-testid=trigger]"));
+        Assert.Contains("\"native\":false", LabelOptions(), StringComparison.Ordinal);
+        Assert.DoesNotContain("\"controlId\"", LabelOptions(), StringComparison.Ordinal);
+    }
+
+    // useLabel.ts:28 (resolvedControlId = contextControlId ?? fallbackControlId): inside a Field the label focuses the field's
+    // control, the root's id the combobox claimed (AriaCombobox.tsx:160), which the input outside the popup renders.
+    [Fact(DisplayName = "port: inside a Field the label focuses the field's control id")]
+    [Trait("Requirement", "CMB-ARIA-16")]
+    public void Inside_a_field_the_label_focuses_the_fields_control_id()
+    {
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxLabel>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<ComboboxTrigger>(1);
+            builder.AddComponentParameter(2, "data-testid", "trigger");
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<FieldRoot> cut = test.Context.Render<FieldRoot>(p => p.AddChildContent<ComboboxHarness>(h => h
+            .Add(x => x.RootParameters, new Dictionary<string, object?>())
+            .Add(x => x.Extra, (RenderFragment)Extra)));
+
+        string inputId = cut.Find("[data-testid=input]").Id!;
+        Assert.NotEqual(inputId, cut.Find("[data-testid=trigger]").Id);
+        Assert.Contains("\"controlId\":\"" + inputId + "\"", LabelOptions(), StringComparison.Ordinal);
+    }
+
     // Base UI renders the tree with renderToString, which runs no layout effect, so the label's registration never reaches
     // the trigger. HtmlRenderer renders the same HTML a prerender does: no OnAfterRender runs.
     [Fact(DisplayName = "does not link Combobox.Label to trigger before hydration")]
