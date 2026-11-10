@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -60,5 +61,62 @@ public sealed class ComboboxInputTests : IDisposable
         await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Click());
 
         Assert.Equal(["mousedown", "click"], events);
+    }
+
+    [Fact(DisplayName = "port: an input inside another family's positioner stays outside the combobox's own popup")]
+    [Trait("Requirement", "CMB-STR-03")]
+    public void An_input_inside_another_familys_positioner_stays_outside()
+    {
+        PositionerBehavior foreign = new(test.Context.JSInterop.JSRuntime, () => { }, action => { action(); return Task.CompletedTask; });
+        RenderFragment harness = builder =>
+        {
+            builder.OpenComponent<ComboboxHarness>(0);
+            builder.AddComponentParameter(1, nameof(ComboboxHarness.RootParameters), new Dictionary<string, object?> { ["Id"] = "fruit" });
+            builder.CloseComponent();
+        };
+
+        IRenderedComponent<IComponent> cut = test.Context.Render(foreign.Context.Cascade(harness));
+        IElement input = cut.Find("[data-testid=input]");
+
+        Assert.Equal("combobox", input.GetAttribute("role"));
+        Assert.Equal("fruit", input.Id);
+        Assert.False(cut.FindComponent<ComboboxHarness>().Instance.Root!.Store.State.InputInsidePopup);
+    }
+
+    [Fact(DisplayName = "port: a combobox popup inside another family's positioner but outside its own throws the missing positioner error")]
+    [Trait("Requirement", "CMB-STR-02")]
+    public void A_popup_outside_its_own_positioner_throws()
+    {
+        PositionerBehavior foreign = new(test.Context.JSInterop.JSRuntime, () => { }, action => { action(); return Task.CompletedTask; });
+        RenderFragment harness = builder =>
+        {
+            builder.OpenComponent<ComboboxHarness>(0);
+            builder.AddComponentParameter(1, nameof(ComboboxHarness.Extra), (RenderFragment)(extra =>
+            {
+                extra.OpenComponent<ComboboxPopup>(0);
+                extra.CloseComponent();
+            }));
+            builder.CloseComponent();
+        };
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render(foreign.Context.Cascade(harness)));
+
+        Assert.Equal("Blazix: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
+    }
+
+    [Fact(DisplayName = "port: an inline input keeps its field's state")]
+    [Trait("Requirement", "CMB-STA-05")]
+    public void An_inline_input_keeps_its_fields_state()
+    {
+        RenderFragment content = builder =>
+        {
+            builder.OpenComponent<ComboboxHarness>(0);
+            builder.AddComponentParameter(1, nameof(ComboboxHarness.RootParameters), new Dictionary<string, object?> { ["Inline"] = true });
+            builder.CloseComponent();
+        };
+
+        IRenderedComponent<FieldRoot> cut = test.Context.Render<FieldRoot>(p => p.Add(x => x.Touched, true).AddChildContent(content));
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-touched"));
     }
 }
