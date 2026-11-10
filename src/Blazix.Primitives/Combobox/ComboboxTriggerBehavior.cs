@@ -120,6 +120,11 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         subscription.Select(static state => state.ElementIds.Popup);
         subscription.Select(static state => state.ElementIds.Label);
         twin = new ComboboxTwin(services.JSRuntime);
+        twin.Blurred += snapshot => _ = Observe(services.InvokeAsync(() =>
+        {
+            OnFocusChange(false);
+            return Task.CompletedTask;
+        }));
         twin.OpenCanceled += snapshot => _ = Observe(services.InvokeAsync(() => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.CancelOpen, snapshot))));
     }
 

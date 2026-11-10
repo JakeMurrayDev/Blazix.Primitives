@@ -537,9 +537,20 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
     pendingRelease = onRelease;
     doc.addEventListener('mouseup', onRelease, { once: true });
   };
+  // ComboboxTrigger.tsx:186-189: a blur into the popup is not a blur; any other is reported for the field.
+  const onFocusOut = (event: FocusEvent): void => {
+    const related = event.relatedTarget as Element | null;
+    const popup = options.popupId ? doc.getElementById(options.popupId) : null;
+    const list = options.listId ? doc.getElementById(options.listId) : null;
+    if (contains(popup, related) || contains(list, related)) {
+      return;
+    }
+    channel.report('OnBlur', eventInfo(event));
+  };
   element.addEventListener('pointerdown', trackPointer);
   element.addEventListener('pointerenter', trackPointer);
   element.addEventListener('mousedown', onMouseDown);
+  element.addEventListener('focusout', onFocusOut);
   return {
     update(optionsJson: string) {
       options = parseOptions<ComboboxOptions>(optionsJson);
@@ -549,6 +560,7 @@ function attachTrigger(element: HTMLElement, initial: ComboboxOptions, channel: 
       element.removeEventListener('pointerdown', trackPointer);
       element.removeEventListener('pointerenter', trackPointer);
       element.removeEventListener('mousedown', onMouseDown);
+      element.removeEventListener('focusout', onFocusOut);
     },
   };
 }

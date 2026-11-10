@@ -101,8 +101,6 @@ public sealed class ComboboxTrigger : PartBase<ComboboxTriggerState>
 
     private readonly EventCallback onFocus;
 
-    private readonly EventCallback onBlur;
-
     private ComboboxTriggerBehavior? behavior;
 
     private ComboboxTriggerState state = new(false, false, false, null, false, false, false, false, null, false, true);
@@ -115,7 +113,6 @@ public sealed class ComboboxTrigger : PartBase<ComboboxTriggerState>
         onClick = CreateHandler<MouseEventArgs>("onclick", e => behavior!.HandleClickAsync(e));
         onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.HandleMouseDownAsync(e));
         onFocus = CreateHandler<FocusEventArgs>("onfocus", _ => behavior!.OnFocusChange(true));
-        onBlur = CreateHandler<FocusEventArgs>("onblur", _ => behavior!.OnFocusChange(false));
     }
 
     [Inject]
@@ -220,6 +217,5 @@ public sealed class ComboboxTrigger : PartBase<ComboboxTriggerState>
     {
         behavior!.AddPartAttributes(attributes);
         attributes.Set("onfocus", onFocus);
-        attributes.Set("onblur", onBlur);
     }
 }
