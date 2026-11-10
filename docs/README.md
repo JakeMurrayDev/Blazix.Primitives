@@ -60,7 +60,7 @@ Start with [conventions.md](conventions.md) (scope, ID scheme, writing rules). C
 | components/toast.md | TST | approved | 186 reqs |
 | components/toggle.md | TGL | implemented | 57 reqs; revised 2026-10-27, M3 tracks 2 and 4 | |
 | components/toggle-group.md | TGG | implemented | 71 reqs; revised 2026-10-27, M3 tracks 3 and 4 | |
-| components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-29, M4 tracks 5, 8 and 9 (the Dialog, Popover and AlertDialog clauses run); revised 2026-11-10, M5 track 6 (the Menu clauses run); TLB-KEY-15, TLB-FOC-06 and the Select clauses open to track 9; the non-native Switch shape open to issue 115 | |
+| components/toolbar.md | TLB | implemented | 94 reqs; revised 2026-10-29, M4 tracks 5, 8 and 9 (the Dialog, Popover and AlertDialog clauses run); revised 2026-11-10, M5 track 6 (the Menu clauses run); revised 2026-11-11, M5 track 9 (TLB-KEY-15, TLB-FOC-06 and the Select clauses run); the non-native Switch shape open to issue 115 | |
 | components/tooltip.md | TIP | implemented | 169 reqs; `implemented` 2026-10-29 (chosen by the user); TIP-POS-08's `none` clause, TIP-PTR-20 (skipped, noted) and the hand-off payload (issue 142) with dated notes |
 
 Out of scope for v1.9.0: `filter-dropdown`, `internals/temporal*` (not exported).
