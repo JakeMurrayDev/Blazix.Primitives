@@ -159,11 +159,14 @@ describe('the input', () => {
   });
 
   it('port: on Server the closed Escape lets the keydown bubble when there is nothing to clear, or the root is inline', () => {
-    const { input } = setupInput('', { hasValue: false, mounted: false });
     const outside: string[] = [];
     document.body.addEventListener('keydown', () => outside.push('bubbled'));
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-    expect(outside).toEqual(['bubbled']);
+    for (const overrides of [{ hasValue: false }, { hasValue: true, inline: true }, { hasValue: true }]) {
+      const { input, fake } = setupInput('', { mounted: false, ...overrides });
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      outside.push(String(fake.reported('OnClear').length));
+    }
+    expect(outside).toEqual(['bubbled', '1', 'bubbled', '1', '1']);
   });
 
   it('port: on WebAssembly the closed Escape asks the clear point and reports nothing, its verdict deciding the propagation', () => {
@@ -171,6 +174,17 @@ describe('the input', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(fake.decisions.map((decision) => decision.point)).toEqual([CLEAR_POINT]);
     expect(fake.reported('OnClear')).toHaveLength(0);
+
+    const outside: string[] = [];
+    document.body.addEventListener('keydown', () => outside.push('bubbled'));
+    for (const verdict of ['stop', 'run'] as const) {
+      const element = document.createElement('input');
+      document.body.append(element);
+      handles.push(createAttach(desktop)(element, options({ hasValue: true, mounted: false }), createFakeTwin({ synchronous: true, verdict }).twin));
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      outside.push(verdict);
+    }
+    expect(outside).toEqual(['stop', 'bubbled', 'run']);
   });
 
   // The session's trigger half listens on the input too, and whichever attached first runs first; on WebAssembly its
@@ -223,6 +237,48 @@ describe('the input', () => {
     expect(reports.map((report) => report.event === null)).toEqual([false, true]);
   });
 
+  it('port: an Enter a composition owns (which 229) clicks nothing and reports nothing', () => {
+    const { input, fake } = setupInput('', { open: true });
+    const item = document.createElement('div');
+    item.id = 'item-1';
+    const clicks: string[] = [];
+    item.addEventListener('click', () => clicks.push('click'));
+    document.body.append(item);
+    input.setAttribute('aria-activedescendant', 'item-1');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    const composing = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    Object.defineProperty(composing, 'which', { value: 229 });
+    input.dispatchEvent(composing);
+    expect([clicks, composing.defaultPrevented, fake.reported('OnSelectionEvent').length]).toEqual([['click'], false, 2]);
+  });
+
+  it('port: a read-only input stops an Enter on an open list with a highlight, so it neither clicks nor submits', () => {
+    const { input } = setupInput('', { open: true, readOnly: true });
+    const item = document.createElement('div');
+    item.id = 'item-1';
+    const clicks: string[] = [];
+    item.addEventListener('click', () => clicks.push('click'));
+    document.body.append(item);
+    const outside: string[] = [];
+    document.body.addEventListener('keydown', () => outside.push('bubbled'));
+    input.setAttribute('aria-activedescendant', 'item-1');
+    const highlighted = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    input.dispatchEvent(highlighted);
+    input.removeAttribute('aria-activedescendant');
+    const plain = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    input.dispatchEvent(plain);
+    expect([highlighted.defaultPrevented, plain.defaultPrevented, outside, clicks]).toEqual([true, false, ['bubbled'], []]);
+  });
+
+  it('port: a key with a modifier returns before the keys the input handles', () => {
+    const { input, fake } = setupInput('apple', { hasValue: true, mounted: false });
+    for (const modifier of ['ctrlKey', 'shiftKey', 'altKey', 'metaKey']) {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, [modifier]: true }));
+    }
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(fake.reported('OnClear')).toHaveLength(1);
+  });
+
   it('port: Enter on an open list without a highlight is not prevented and reports the close', () => {
     const { input, fake } = setupInput('', { open: true });
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
@@ -247,6 +303,11 @@ describe('the input', () => {
     const { input } = setupInput('', { listId: 'list', popupId: 'popup' });
     typeInto(input, 'a');
     expect(scroller.scrollTop).toBe(0);
+
+    scroller.scrollTop = 50;
+    const virtual = setupInput('', { listId: 'list', popupId: 'popup', virtualized: true });
+    typeInto(virtual.input, 'a');
+    expect(scroller.scrollTop).toBe(50);
   });
 
   it('port: the start dismiss button before the input reports its press', () => {
@@ -322,6 +383,37 @@ describe('the list and the press defaults', () => {
     icon.dispatchEvent(onIcon);
     input.dispatchEvent(onInput);
     expect([onIcon.defaultPrevented, onInput.defaultPrevented]).toEqual([true, false]);
+  });
+});
+
+describe('the popup', () => {
+  function setupPopup(overrides: Partial<ComboboxOptions> = {}): { popup: HTMLElement; item: HTMLElement; input: HTMLInputElement } {
+    const input = document.createElement('input');
+    input.id = 'the-input';
+    const popup = document.createElement('div');
+    popup.tabIndex = -1;
+    const list = document.createElement('div');
+    list.id = 'the-list';
+    const item = document.createElement('div');
+    item.tabIndex = -1;
+    list.append(item);
+    popup.append(list);
+    document.body.append(input, popup);
+    handles.push(attach(popup, options({ part: 'popup', inputId: 'the-input', listId: 'the-list', ...overrides }), createFakeTwin().twin));
+    return { popup, item, input };
+  }
+
+  it('port: focus landing on the popup or inside the list returns to the input, except after a touch open', () => {
+    const results: boolean[] = [];
+    for (const touchOpened of [false, true]) {
+      for (const target of ['popup', 'item'] as const) {
+        const parts = setupPopup({ touchOpened });
+        parts[target].focus();
+        results.push(document.activeElement === parts.input);
+        document.body.replaceChildren();
+      }
+    }
+    expect(results).toEqual([true, true, false, false]);
   });
 });
 
