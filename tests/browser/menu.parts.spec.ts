@@ -992,6 +992,67 @@ test.describe('<Menu.LinkItem />', () => {
 });
 
 test.describe('<Menu.Positioner />', () => {
+  // MNU-POS-01. The port's anchor is an element, an element id or a virtual rectangle (AnchorValue; ADR 05 Amendments
+  // 2026-10-27): Base UI's function anchor is ported as the element id, which the port resolves when it positions, and the
+  // non-memoized `() => null` as an anchor value with no value made at every render.
+  test.describe('prop: anchor', () => {
+    async function render(page: Page, mode: RenderMode, name: string): Promise<{ fixture: Locator; transform: () => Promise<string> }> {
+      const fixture = await gotoPopupFixture(page, mode, 'menu-anchor', { case: name });
+      await expect(fixture).toHaveAttribute('data-anchored', 'true');
+      const positioner = page.getByTestId('positioner');
+      return { fixture, transform: () => positioner.evaluate((element: HTMLElement) => element.style.getPropertyValue('transform')) };
+    }
+
+    const anchorTranslate = async (page: Page) => {
+      const rect = await page.getByTestId('anchor').evaluate((element) => {
+        const { left, bottom } = element.getBoundingClientRect();
+        return { left, bottom };
+      });
+      return `translate(${rect.left}px, ${rect.bottom}px)`;
+    };
+
+    for (const [title, name] of [
+      ['should be placed near the specified element when a ref is passed', 'ref'],
+      ['should be placed near the specified element when an element is passed', 'element'],
+      ['should be placed near the specified element when a function returning an element is passed', 'function'],
+    ] as const) {
+      test(title, async ({ page, mode }) => {
+        const { transform } = await render(page, mode, name);
+
+        await expect.poll(transform).toBe(await anchorTranslate(page));
+      });
+    }
+
+    test('should be placed at the specified position', async ({ page, mode }) => {
+      const { transform } = await render(page, mode, 'virtual');
+
+      await expect.poll(transform).toBe('translate(200px, 100px)');
+    });
+
+    test('should accept a non-memoized function as an anchor', async ({ page, mode }) => {
+      const { fixture } = await render(page, mode, 'null-function');
+      await settle(fixture);
+
+      await expect(page.getByTestId('positioner')).toBeAttached();
+      await expect(page.getByRole('menuitem')).toHaveCount(2);
+    });
+
+    test('should react to the anchor changing from a ref to undefined and back', async ({ page, mode }) => {
+      const { fixture, transform } = await render(page, mode, 'switch');
+      await expect.poll(transform).toBe(await anchorTranslate(page));
+
+      await pressInPage(fixture.locator('[data-anchor-none]'));
+      const triggerRect = await page.getByTestId('trigger').evaluate((element) => {
+        const { left, bottom } = element.getBoundingClientRect();
+        return { left, bottom };
+      });
+      await expect.poll(transform).toBe(`translate(${Math.floor(triggerRect.left)}px, ${triggerRect.bottom}px)`);
+
+      await pressInPage(fixture.locator('[data-anchor-ref]'));
+      await expect.poll(transform).toBe(await anchorTranslate(page));
+    });
+  });
+
   test.describe('prop: keepMounted', () => {
     test('when keepMounted=true, should keep the content mounted when closed', async ({ page, mode }) => {
       await render(page, mode, { modal: false, keepMounted: true, content: 'items', items: '1|2' });
