@@ -44,6 +44,12 @@ export const CLEAR_POINT = 'clear';
 /** The decision point asked before a chip's removal. */
 export const REMOVE_POINT = 'remove';
 
+/** The decision point the input asks before its own keys while C# holds the consumer's `onKeyDown` (ADR 04 Amendments 2026-11-10). */
+export const NAVIGATE_POINT = 'navigate';
+
+/** The decision point the chips and the input group ask before a press while C# holds the consumer's `onMouseDown`. */
+export const PRESS_POINT = 'press';
+
 /** The part literals; mirror `ComboboxTwin`'s constants. */
 export const INPUT_PART = 'input';
 export const TRIGGER_PART = 'trigger';
@@ -78,6 +84,8 @@ export interface ComboboxOptions extends TwinOptions {
   index?: number;
   dismissId?: string | null;
   submitRevision?: number | null;
+  decidesKeyDown?: boolean;
+  decidesPress?: boolean;
 }
 
 /** The payload of a classified change of the input text; mirrors `ComboboxInputChange`. */
@@ -282,7 +290,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     mountedAtStart = isMounted();
   };
 
-  const onKeyDown = (event: KeyboardEvent): void => {
+  const handleKey = (event: KeyboardEvent): void => {
     if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
       return;
     }
@@ -347,6 +355,22 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       }
       // Enter without a highlight closes with `none` and leaves the keydown to the form (FRM-07).
       channel.report('OnEnterClose', { event: eventInfo(event) });
+    }
+  };
+
+  // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): Base UI merges the consumer's onKeyDown before the
+  // input's own handler, so its preventBaseUIHandler() skips the input's keys. While C# holds that handler, every keydown
+  // asks `navigate` first: on WebAssembly C# runs it inside the dispatch, once per event for this handle and the composite
+  // reference handle; on Server the point falls back to `run`, and a key this handle stopped, which Blazor never
+  // dispatches, is reported so the handler still runs, a round trip late.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (options.decidesKeyDown && isStopVerdict(channel.decide(NAVIGATE_POINT, event, 'run'))) {
+      return;
+    }
+    const stoppedBefore = event.cancelBubble;
+    handleKey(event);
+    if (options.decidesKeyDown && !channel.synchronous && !stoppedBefore && event.cancelBubble) {
+      channel.report('OnKeyHandled', eventInfo(event));
     }
   };
 
@@ -733,6 +757,11 @@ function attachChipRemove(element: HTMLElement, initial: ComboboxOptions, channe
 function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channel: TwinChannel, ignoreChips: boolean): TwinHandle {
   let options = initial;
   const onMouseDown = (event: MouseEvent): void => {
+    // ADR 04 Amendments 2026-11-10: the consumer's onMouseDown runs first, and its preventBaseUIHandler() skips the press
+    // (handleInputPress.ts:9); on Server the point falls back to `run`.
+    if (options.decidesPress && isStopVerdict(channel.decide(PRESS_POINT, event, 'run'))) {
+      return;
+    }
     const target = getTarget(event);
     const targetElement = target instanceof Element ? target : null;
     const doc = element.ownerDocument;

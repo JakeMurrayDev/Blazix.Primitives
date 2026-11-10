@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -10,7 +11,12 @@ namespace Blazix.Primitives;
 /// <remarks>The arrow keys move between its chips, Backspace or Delete removes one, and a press outside a chip focuses the input.</remarks>
 public sealed class ComboboxChips : PartBase<EmptyState>
 {
+    private readonly EventCallback onMouseDown;
+
     private ComboboxChipsBehavior? behavior;
+
+    /// <summary>Initializes a new instance of the <see cref="ComboboxChips"/> class.</summary>
+    public ComboboxChips() => onMouseDown = CreateHandler<MouseEventArgs>("onmousedown", e => behavior!.Press.RunConsumerAsync(e));
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -56,7 +62,7 @@ public sealed class ComboboxChips : PartBase<EmptyState>
     {
         ComboboxChipsBehavior chips = behavior!;
         chips.Rtl = DirectionProviderContext.Read(Direction) == TextDirection.Rtl;
-        chips.Apply(Id);
+        chips.Apply(Id, AdditionalAttributes);
         RenderFragment? content = ChildContent;
         ChildContent = builder => chips.BuildContent(builder, content);
     }
@@ -79,5 +85,8 @@ public sealed class ComboboxChips : PartBase<EmptyState>
     protected override void SubscribeSelectors() => behavior!.Subscribe(Root, SubscribeTo);
 
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
+    protected override bool ForwardsConsumerHandler(string eventName) => behavior!.Press.ForwardsConsumerHandler(eventName);
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes, onMouseDown);
 }
