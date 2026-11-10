@@ -213,10 +213,12 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
             ["DefaultValue"] = 3,
         }, p => p.Add(x => x.InlineList, true).Add(x => x.ItemText, UserName));
 
-        AngleSharp.Dom.IElement carol = cut.Option("Carol");
+        // The module writes `data-highlighted` and `aria-activedescendant` from the highlight it is asked for (ADR 04
+        // Amendments 2026-11-03 (2)); at L2 the highlight is the store's, which seeds it from the selection on mount.
+        int carol = cut.OptionTexts().IndexOf("Carol");
 
-        Assert.True(carol.HasAttribute("data-highlighted"));
-        Assert.Equal(carol.Id, cut.Find("[data-testid=input]").GetAttribute("aria-activedescendant"));
+        Assert.Equal(carol, cut.Instance.Root!.Store.State.SelectedIndex);
+        Assert.Equal(carol, cut.Instance.Root.Store.State.ActiveIndex);
     }
 
     [Fact(DisplayName = "uses the root locale for filtering")]
