@@ -113,6 +113,31 @@ describe('useListNavigation', () => {
     });
   });
 
+  // SEL-STA-07 (Select's finding; queued by the orchestrator 2026-11-10): useListNavigation.ts's close resets the index and
+  // calls `onNavigate()`, which Base UI's Select ignores while closed, so its highlight stays on the item while the popup
+  // animates out. A list with `retainHighlightWhileClosing` keeps it; one without clears it, as Menu's does.
+  it('port: a list that retains its highlight while closing keeps it through the close, and one that does not clears it', async () => {
+    const retained = app({ keepMounted: true, list: { retainHighlightWhileClosing: true } });
+    keyDown(retained.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(retained.item(0));
+    });
+    keyDown(menu(retained), 'ArrowDown');
+    expect(highlighted(retained.item(1))).toBe(true);
+    retained.setOpen(false);
+    await nextTask();
+    expect(highlighted(retained.item(1))).toBe(true);
+
+    const cleared = app({ keepMounted: true });
+    keyDown(cleared.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(cleared.item(0));
+    });
+    cleared.setOpen(false);
+    await nextTask();
+    expect(highlighted(cleared.item(0))).toBe(false);
+  });
+
   // CMP-ALG-24's dated note: the wait ends with the batch that shows the list, read from the attributes of the list and its
   // ancestors (a closed Positioner's `hidden`), however many frames later, and not after a count of frames.
   it('port: a kept-mounted list hidden by an ancestor focuses its first item when it shows, however many frames later, and a close ends that wait', async () => {
