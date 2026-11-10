@@ -120,6 +120,43 @@ public sealed class ComboboxRootFieldTests : IDisposable
         Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid"));
     }
 
+    // AriaCombobox.tsx:838-850 for "validates when the popup is blurred": the store's half, a close by focus-out from inside the
+    // popup, which the focus manager requests (its focus-out close is L4).
+    [Fact(DisplayName = "port: a focus-out close from inside the popup touches the field, ends its focus and validates in onBlur mode")]
+    [Trait("Requirement", "CMB-FOC-08")]
+    [Trait("Requirement", "CMB-DIS-04")]
+    public async Task A_focus_out_close_from_inside_the_popup_touches_and_validates()
+    {
+        int validations = 0;
+        IRenderedComponent<ComboboxFieldHost> cut = test.Context.Render<ComboboxFieldHost>(p => p
+            .Add(x => x.ValidationMode, ValidationMode.OnBlur)
+            .Add(x => x.Validate, _ =>
+            {
+                validations++;
+                return ValueTask.FromResult<FieldValidationResult?>("error");
+            })
+            .Add(x => x.Content, builder =>
+            {
+                builder.OpenComponent<ComboboxTypedHarness<string>>(0);
+                builder.AddComponentParameter(1, nameof(ComboboxTypedHarness<string>.RootParameters), new Dictionary<string, object?>
+                {
+                    ["Items"] = (IReadOnlyList<string>)["one"],
+                    ["DefaultOpen"] = true,
+                });
+                builder.AddComponentParameter(2, nameof(ComboboxTypedHarness<string>.WithInput), false);
+                builder.AddComponentParameter(3, nameof(ComboboxTypedHarness<string>.WithTrigger), true);
+                builder.CloseComponent();
+            }));
+        IRenderedComponent<ComboboxTypedHarness<string>> combobox = cut.FindComponent<ComboboxTypedHarness<string>>();
+        ComboboxStore store = combobox.Instance.Root!.Store;
+        await cut.InvokeAsync(() => cut.Find("[data-testid=trigger]").Focus());
+
+        await cut.InvokeAsync(() => store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut, null)));
+
+        AngleSharp.Dom.IElement trigger = cut.Find("[data-testid=trigger]");
+        Assert.Equal((1, true, false), (validations, trigger.HasAttribute("data-touched"), trigger.HasAttribute("data-focused")));
+    }
+
     [Fact(DisplayName = "Combobox.Label does not label Combobox.Input and warns when input is the form control")]
     [Trait("Requirement", "CMB-STR-10")]
     public void Combobox_Label_does_not_label_the_input_and_warns()
