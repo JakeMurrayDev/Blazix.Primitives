@@ -257,6 +257,67 @@ public sealed class ComboboxTriggerTests : IDisposable
         Assert.Equal("-1", Trigger(cut).GetAttribute("tabindex"));
     }
 
+    [Fact(DisplayName = "port: with the input inside the popup, the input is the combobox (ComboboxRoot.test.tsx:711's findByRole)")]
+    [Trait("Requirement", "CMB-ARIA-01")]
+    [Trait("Requirement", "CMB-ARIA-03")]
+    public void With_the_input_inside_the_popup_the_input_is_the_combobox()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true }, Layout.InputInside);
+        IElement input = cut.Find("[data-testid=input]");
+
+        Assert.Equal("combobox", input.GetAttribute("role"));
+        Assert.Equal("true", input.GetAttribute("aria-expanded"));
+        Assert.Equal("listbox", input.GetAttribute("aria-haspopup"));
+        Assert.Equal(cut.Find("[data-testid=list]").Id, input.GetAttribute("aria-controls"));
+        Assert.Equal("list", input.GetAttribute("aria-autocomplete"));
+        Assert.Equal("combobox", Trigger(cut).GetAttribute("role"));
+    }
+
+    [Fact(DisplayName = "port: the input is the list's reference in both layouts, and the trigger joins no list")]
+    [Trait("Requirement", "CMB-ARIA-03")]
+    public void The_input_is_the_lists_reference_and_the_trigger_joins_no_list()
+    {
+        foreach (Layout layout in new[] { Layout.InputInside, Layout.InputOutside })
+        {
+            using ComboboxTestContext context = new();
+            IRenderedComponent<ComboboxHarness> cut = context.Context.Render<ComboboxHarness>(p => p
+                .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true })
+                .Add(x => x.InputInsidePopup, layout == Layout.InputInside)
+                .Add(x => x.Extra, (RenderFragment)(builder =>
+                {
+                    builder.OpenComponent<ComboboxTrigger>(0);
+                    builder.AddComponentParameter(1, "data-testid", "trigger");
+                    builder.CloseComponent();
+                })));
+
+            Assert.Contains("\"reference\":{}", CompositeOptionsOf(context, cut.Find("[data-testid=input]")), StringComparison.Ordinal);
+            string trigger = CompositeOptionsOf(context, Trigger(cut));
+            Assert.DoesNotContain("\"reference\":{}", trigger, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"trigger\":{}", trigger, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact(DisplayName = "port: the module's ArrowDown on the trigger opens the popup with list-navigation")]
+    [Trait("Requirement", "CMB-KEY-01")]
+    public async Task ArrowDown_on_the_trigger_opens_with_list_navigation()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new(), Layout.InputInside);
+
+        await cut.InvokeAsync(() => test.TwinOf(ComboboxTwin.TriggerPart).OnOpenRequest(ComboboxTestContext.Key("ArrowDown")));
+
+        (bool open, EventReason reason) = Assert.Single(cut.Instance.OpenChanges);
+        Assert.True(open);
+        Assert.Equal(EventReason.ListNavigation, reason);
+    }
+
+    private static string CompositeOptionsOf(ComboboxTestContext context, IElement element)
+    {
+        string? reference = element.GetAttribute("blazor:elementReference");
+        return string.Join("\n", context.Composite.Invocations["attach"]
+            .Where(attach => attach.Arguments[0] is ElementReference target && target.Id == reference)
+            .Select(attach => attach.Arguments[1] as string));
+    }
+
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");
 
     private string TriggerOptions(string id) =>

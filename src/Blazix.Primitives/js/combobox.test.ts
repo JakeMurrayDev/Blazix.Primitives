@@ -375,6 +375,14 @@ describe('the trigger', () => {
     expect(fake.reported('OnBlur')).toHaveLength(1);
   });
 
+  it('port: ArrowDown or ArrowUp on the trigger asks for the open, stops the key and focuses the input', () => {
+    const { trigger, input, fake } = setupTrigger({ insidePopup: false });
+    const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+    trigger.dispatchEvent(down);
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    expect([down.defaultPrevented, document.activeElement, fake.reported('OnOpenRequest').length]).toEqual([true, input, 2]);
+  });
+
   it('port: a mouse press focuses the input, and keeps the focus there when the input is outside the popup', () => {
     const { trigger, input } = setupTrigger({ insidePopup: false });
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
