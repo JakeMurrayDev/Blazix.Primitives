@@ -736,8 +736,9 @@ internal sealed class ComboboxItemIndicatorBehavior : IAsyncDisposable
     }
 }
 
-// combobox/value/ComboboxValue.tsx (CMB §3.10, API-46/47): the selected value's label (ValueLabels), or the template, or
-// the placeholder. Combobox only (Autocomplete has its own Value).
+// combobox/value/ComboboxValue.tsx (CMB §3.10, API-46/47): the selected value's label, or a template, or the placeholder.
+// Combobox only (Autocomplete has its own Value). A null item's label, which Base UI lets win over the placeholder, comes with
+// the item collections of design point 2 (ComboboxItems.Create); until then a null value has no label.
 /// <summary>The behavior of a combobox value.</summary>
 /// <typeparam name="TValue">The type of the items' values.</typeparam>
 internal sealed class ComboboxValueBehavior<TValue> : IDisposable
@@ -747,6 +748,8 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     private ComboboxStore<TValue>? store;
 
     private SelectorSubscription<ComboboxStoreState>? subscription;
+
+    private string family = string.Empty;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxValueBehavior{TValue}"/> class.</summary>
     /// <param name="requestRender">Asks the part to render.</param>
@@ -761,19 +764,42 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     /// <summary>Gets a value indicating whether a value is selected.</summary>
     public bool HasValue => Store.State.HasSelectedValue;
 
+    /// <summary>Gets a value indicating whether the root keeps several values.</summary>
+    public bool Multiple => Store.State.SelectionMode == ComboboxSelectionMode.Multiple;
+
+    /// <summary>Gets the single selected value, or the default value when none is selected.</summary>
+    public TValue Value => Store.State.HasSelectedValue ? Store.SelectedValue : default!;
+
+    /// <summary>Gets the selected values, an empty list when none are selected.</summary>
+    public IReadOnlyList<TValue> Values => Store.SelectedValues;
+
     /// <summary>Gets the selected value's label, or the labels joined with <c>", "</c> in multiple mode.</summary>
     public string Label
     {
         get
         {
             ComboboxStore<TValue> root = Store;
-            if (root.State.SelectionMode == ComboboxSelectionMode.Multiple)
+            if (root.State.SelectionMode != ComboboxSelectionMode.Multiple)
             {
-                IReadOnlyList<TValue> values = root.SelectedValues;
-                return string.Join(", ", values.Select(root.LabelOf));
+                return root.State.HasSelectedValue ? root.LabelOf(root.SelectedValue) : string.Empty;
             }
 
-            return root.State.HasSelectedValue ? root.LabelOf(root.SelectedValue) : string.Empty;
+            IReadOnlyList<TValue> values = root.SelectedValues;
+            switch (values.Count)
+            {
+                case 0:
+                    return string.Empty;
+                case 1:
+                    return root.LabelOf(values[0]);
+                default:
+                    string[] labels = new string[values.Count];
+                    for (int i = 0; i < labels.Length; i++)
+                    {
+                        labels[i] = root.LabelOf(values[i]);
+                    }
+
+                    return string.Join(", ", labels);
+            }
         }
     }
 
@@ -789,9 +815,28 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     /// <param name="family">The family whose parts the diagnostics name.</param>
     public void Subscribe(ComboboxStore? cascaded, string family)
     {
+        this.family = family;
         store = ComboboxParts.RequireRoot<TValue>(cascaded, family);
         subscription = new SelectorSubscription<ComboboxStoreState>(store, requestRender);
         subscription.Select(ComboboxStoreState.Selection);
         subscription.Select(ComboboxStoreState.Membership);
+    }
+
+    /// <summary>Throws when the template given is the other selection mode's.</summary>
+    /// <param name="hasValueContent">Whether the single mode's template is given.</param>
+    /// <param name="hasValuesContent">Whether the multiple mode's template is given.</param>
+    /// <exception cref="InvalidOperationException">The template does not fit the root's selection mode.</exception>
+    public void CheckTemplates(bool hasValueContent, bool hasValuesContent)
+    {
+        bool multiple = Multiple;
+        if (multiple && hasValueContent)
+        {
+            throw new InvalidOperationException($"Blazix: `<{family}Value>` was given `ValueContent`, but its `<{family}Root>` is multiple. Use `ValuesContent`, which receives the selected values.");
+        }
+
+        if (!multiple && hasValuesContent)
+        {
+            throw new InvalidOperationException($"Blazix: `<{family}Value>` was given `ValuesContent`, but its `<{family}Root>` is not multiple. Use `ValueContent`, which receives the selected value.");
+        }
     }
 }

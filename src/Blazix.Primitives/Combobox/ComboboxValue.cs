@@ -38,9 +38,32 @@ public sealed class ComboboxValue<TValue> : ComponentBase, IDisposable
         behavior.Subscribe(Root, "Combobox");
     }
 
+    // CMB-API-46/47: the mode's template, then ChildContent, then the placeholder while nothing is selected, then the label(s).
     /// <inheritdoc />
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
+        ComboboxValueBehavior<TValue> value = behavior!;
+        value.CheckTemplates(ValueContent is not null, ValuesContent is not null);
+        if (ValuesContent is { } valuesContent)
+        {
+            builder.AddContent(0, valuesContent(value.Values));
+        }
+        else if (ValueContent is { } valueContent)
+        {
+            builder.AddContent(1, valueContent(value.Value));
+        }
+        else if (ChildContent is { } childContent)
+        {
+            builder.AddContent(2, childContent);
+        }
+        else if (!value.HasValue && Placeholder is { } placeholder)
+        {
+            builder.AddContent(3, placeholder);
+        }
+        else
+        {
+            builder.AddContent(4, value.Label);
+        }
     }
 
     /// <inheritdoc />
