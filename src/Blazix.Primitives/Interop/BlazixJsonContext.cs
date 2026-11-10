@@ -43,6 +43,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(ComboboxInputChange))]
 [JsonSerializable(typeof(ComboboxRequest))]
 [JsonSerializable(typeof(ComboboxKeyReport))]
+[JsonSerializable(typeof(ComboboxLinkPress))]
 [JsonSerializable(typeof(TabsOptions))]
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]

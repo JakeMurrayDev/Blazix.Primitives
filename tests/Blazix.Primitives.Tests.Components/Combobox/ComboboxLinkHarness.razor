@@ -1,0 +1,25 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Item "one" rendered as an anchor (with `Href`, or without one when it is null) and item "two", as ComboboxItem.test.tsx's
+   link titles render them (review F14). *@
+<ComboboxRoot TValue="string" @ref="Root" DefaultOpen="true">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="string">
+                    <ComboboxItem TValue="string" Value="@("one")" data-testid="link-one" RenderFunction="LinkRender">one</ComboboxItem>
+                    <ComboboxItem TValue="string" Value="@("two")">two</ComboboxItem>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public string? Href { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    private RenderFragment<RenderProps<ComboboxItemState>> LinkRender => props => @<a href="@Href" @attributes="props.Attributes">@props.ChildContent</a>;
+}

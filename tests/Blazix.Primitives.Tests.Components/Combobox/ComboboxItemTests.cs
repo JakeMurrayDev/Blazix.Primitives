@@ -102,6 +102,55 @@ public sealed class ComboboxItemTests : IDisposable
         Assert.StartsWith("Blazix: A `ComboboxItem` without a `Value` stands for `null`", error.Message, StringComparison.Ordinal);
     }
 
+    // CMB-PTR-05 (AriaCombobox.tsx:885-892): a press inside an `<a href>` is the link's. The `combobox` module reports it
+    // from the list's click listener, which runs before Blazor's, and reports null once the click is dispatched.
+    [Fact(DisplayName = "clicking a link inside an item does not select or close (anchor with href)")]
+    [Trait("Requirement", "CMB-PTR-05")]
+    public async Task Clicking_a_link_inside_an_item_does_not_select_or_close()
+    {
+        IRenderedComponent<ComboboxLinkHarness> cut = test.Context.Render<ComboboxLinkHarness>(p => p.Add(x => x.Href, "/somewhere"));
+
+        await ClickLinkAsync(cut, hash: false);
+
+        Assert.False(cut.Instance.Root!.Store.State.HasSelectedValue);
+        Assert.True(cut.Instance.Root.Store.IsOpen);
+    }
+
+    [Fact(DisplayName = "clicking a hash link inside an item does not select and closes popup (anchor with #hash)")]
+    [Trait("Requirement", "CMB-PTR-05")]
+    public async Task Clicking_a_hash_link_inside_an_item_does_not_select_and_closes_the_popup()
+    {
+        IRenderedComponent<ComboboxLinkHarness> cut = test.Context.Render<ComboboxLinkHarness>(p => p.Add(x => x.Href, "#section"));
+
+        await ClickLinkAsync(cut, hash: true);
+
+        Assert.False(cut.Instance.Root!.Store.State.HasSelectedValue);
+        Assert.False(cut.Instance.Root.Store.IsOpen);
+    }
+
+    [Fact(DisplayName = "clicking an anchor without href behaves like normal item (selects and closes)")]
+    [Trait("Requirement", "CMB-PTR-05")]
+    public async Task Clicking_an_anchor_without_href_behaves_like_a_normal_item()
+    {
+        IRenderedComponent<ComboboxLinkHarness> cut = test.Context.Render<ComboboxLinkHarness>(p => p.Add(x => x.Href, null));
+        Assert.False(cut.Find("[data-testid=link-one]").HasAttribute("href"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=link-one]").Click());
+
+        Assert.Equal("one", cut.Instance.Root!.Store.SelectedValue);
+        Assert.False(cut.Instance.Root.Store.IsOpen);
+    }
+
+    private async Task ClickLinkAsync(IRenderedComponent<ComboboxLinkHarness> cut, bool hash)
+    {
+        ComboboxTwin list = test.TwinOf(ComboboxTwin.ListPart);
+        string href = cut.Find("[data-testid=link-one]").GetAttribute("href")!;
+        Assert.Equal(hash, href.StartsWith('#'));
+        await cut.InvokeAsync(() => list.OnItemLinkPress($$"""{"href":"{{href}}"}"""));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=link-one]").Click());
+        await cut.InvokeAsync(() => list.OnItemLinkPress("""{"href":null}"""));
+    }
+
     private Task Highlight(IRenderedComponent<ComboboxPositionalHarness> cut, int index, string itemId)
     {
         string json = $$"""{"index":{{index}},"itemId":"{{itemId}}","event":{{ComboboxTestContext.Key("ArrowDown")}},"revision":1000}""";

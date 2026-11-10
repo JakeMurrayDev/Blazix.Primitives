@@ -77,6 +77,7 @@ public sealed class ComboboxTwinContractTests
     [Trait("Requirement", "CMB-KEY-17")]
     [Trait("Requirement", "CMB-KEY-05")]
     [Trait("Requirement", "CMB-KEY-04")]
+    [Trait("Requirement", "CMB-PTR-05")]
     public async Task The_reports_raise_their_events_with_the_parsed_payloads()
     {
         using BunitContext context = new();
@@ -91,6 +92,7 @@ public sealed class ComboboxTwinContractTests
         twin.EnterCloseRequested += snapshot => received.Add($"enter:{snapshot.Key}");
         twin.InputPressed += snapshot => received.Add($"press:{snapshot.Type}");
         twin.OpenRequested += snapshot => received.Add($"open:{snapshot.Key}");
+        twin.ItemLinkPressed += href => received.Add($"link:{href ?? "end"}");
 
         twin.OnInputChange($$"""{"text":"ab","typed":true,"composing":false,"event":{{KeyJson}}}""");
         twin.OnClear($$"""{"index":-1,"event":{{KeyJson}}}""");
@@ -101,8 +103,10 @@ public sealed class ComboboxTwinContractTests
         twin.OnEnterClose($$"""{"event":{{KeyJson}}}""");
         twin.OnInputPress(KeyJson);
         twin.OnOpenRequest(KeyJson);
+        twin.OnItemLinkPress("""{"href":"#a"}""");
+        twin.OnItemLinkPress("""{"href":null}""");
 
-        Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape", "press:keydown", "open:Escape"], received);
+        Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape", "press:keydown", "open:Escape", "link:#a", "link:end"], received);
     }
 
     [Fact]

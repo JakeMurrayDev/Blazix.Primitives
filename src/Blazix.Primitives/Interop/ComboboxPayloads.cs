@@ -25,3 +25,8 @@ internal sealed record ComboboxRequest(int Index, EventSnapshot Event);
 /// <summary>The payload of a keydown the module handled.</summary>
 /// <param name="Event">The snapshot of the keydown, or <see langword="null"/> when a selection's attribution ends.</param>
 internal sealed record ComboboxKeyReport(EventSnapshot? Event);
+
+// CMB-PTR-05 (AriaCombobox.tsx:885-892): a press inside an `<a href>` is the link's; a `#` link also closes the popup.
+/// <summary>The payload of a press inside a link of an item: before its click is dispatched, and after it.</summary>
+/// <param name="Href">The link's <c>href</c>, or <see langword="null"/> once the click was dispatched.</param>
+internal sealed record ComboboxLinkPress(string? Href);

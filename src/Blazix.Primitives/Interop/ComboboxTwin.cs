@@ -62,6 +62,9 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs before Enter's synthetic click on the highlighted item, with the keydown the selection is attributed to, and after it, with <see langword="null"/>.</summary>
     public event Action<EventSnapshot?>? SelectionEventReported;
 
+    /// <summary>Occurs before the click of a press inside a link of an item, with its <c>href</c>, and after it, with <see langword="null"/>.</summary>
+    public event Action<string?>? ItemLinkPressed;
+
     /// <summary>Occurs when Enter on an open list without a highlight closes the popup, with the reason <c>none</c>.</summary>
     public event Action<EventSnapshot>? EnterCloseRequested;
 
@@ -107,6 +110,11 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
     [JSInvokable]
     public void OnSelectionEvent(string payloadJson) => SelectionEventReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event);
+
+    /// <summary>Receives a press inside a link of an item before its click is dispatched, and its end after it.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="ComboboxLinkPress"/>.</param>
+    [JSInvokable]
+    public void OnItemLinkPress(string payloadJson) => ItemLinkPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxLinkPress).Href);
 
     /// <summary>Receives Enter on an open list without a highlight.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
