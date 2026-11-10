@@ -813,6 +813,10 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       if (alignedSent && initialPlaced) {
         // An input changed while placed: SEL-POS-09, SEL-POS-13 (cleared heights before the next placement).
         place();
+      } else if (alignedSent) {
+        // Interim review F1 (b): an attempt that found an input missing placed nothing, and with anchor tracking off while
+        // aligned no pass calls back again: ask again, which calls back at once when the Positioner is positioned.
+        setAligned(element, true, place);
       }
     } else if (!candidate()) {
       stopAligned();
