@@ -388,6 +388,30 @@ describe('select module: aligned placement (port titles)', () => {
     expect(placements()).toBe(2);
   });
 
+  // Interim review F1 (b) (M5 track 9): the first attempt found no Popup, and the Positioner was already positioned, so
+  // no pass calls back again (anchor tracking is off while aligned): the update that brings the Popup asks again.
+  it('places once the Popup arrives after a first attempt that found none (SEL-POS-07)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0 };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger]);
+    handles.push(handle);
+    const placements = () => fake.reports.filter((report) => report.method === 'OnPlaced').length;
+    expect(placements()).toBe(0);
+
+    handle.update(JSON.stringify({ ...options, popup: 1 }), [trigger, popup]);
+    expect(placements()).toBe(1);
+    expect(positioner.style.top).toBe('190px');
+  });
+
   // Interim review F2 (M5 track 9): Base UI derives the layout from the List on every render (SelectPopup.tsx:457-458,
   // SelectList.tsx:38-40), so a List that arrives after the placement started takes the functional styles from the Popup.
   it('moves the aligned layout to a List that arrives after the placement started (SEL-DOM-27, SEL-DOM-32)', () => {
