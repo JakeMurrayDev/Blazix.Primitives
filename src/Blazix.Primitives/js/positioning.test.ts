@@ -1582,3 +1582,27 @@ describe('positioning module: a reopen while still mounted', () => {
   });
 });
 
+describe('positioning module: the size variables at the close', () => {
+  // SEL-POS-06 (M5 track 9; settled by the orchestrator 2026-11-10): Base UI's size() writes nothing once unmounted
+  // (internals/useAnchorPositioning.ts:363). The module hears of the unmount from the Positioner's `hidden`, one update after
+  // the exit's end hid the popup inside it; a pass in between measures the collapsed Positioner, and the next open would
+  // start from that size (Select's touch-dismiss reopen stayed on the side the collapsed popup fit).
+  it('port: writes no size variables once a closed Positioner has collapsed, so the next open starts from the size it closed with', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    await settle();
+    const height = positioner.style.getPropertyValue('--available-height');
+    expect(height).toMatch(/px$/);
+
+    // Closed and still mounted; the content is gone, so the box is empty (as jsdom's always is).
+    positioner.removeAttribute('data-open');
+    await settle();
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 300 });
+    const passes = spies.computePosition.mock.calls.length;
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+
+    expect(spies.computePosition.mock.calls.length).toBeGreaterThan(passes);
+    expect(positioner.style.getPropertyValue('--available-height')).toBe(height);
+  });
+});
