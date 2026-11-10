@@ -186,6 +186,139 @@ public sealed class ComboboxItemTests : IDisposable
         await cut.InvokeAsync(() => list.OnItemLinkPress("""{"href":null}"""));
     }
 
+    [Fact(DisplayName = "selects item and closes in single mode")]
+    [Trait("Requirement", "CMB-API-56")]
+    public async Task Selects_item_and_closes_in_single_mode()
+    {
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["DefaultOpen"] = true }, ["one", "two"]);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-two]").Click());
+
+        Assert.Equal("two", cut.Instance.Root!.Store.State.InputValue);
+        Assert.False(cut.Instance.Root.Store.IsOpen);
+    }
+
+    [Fact(DisplayName = "reflects selected value with aria-selected when reopening")]
+    [Trait("Requirement", "CMB-API-56")]
+    [Trait("Requirement", "CMB-ARIA-09")]
+    public async Task Reflects_selected_value_with_aria_selected_when_reopening()
+    {
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["DefaultValue"] = "two" }, ["one", "two"]);
+
+        await cut.InvokeAsync(() => test.SessionTwin.OnRequest($$"""{"open":true,"reason":"trigger-press","event":{{ComboboxTestContext.Click}},"triggerId":null}"""));
+
+        Assert.Equal("true", cut.Find("[data-testid=item-two]").GetAttribute("aria-selected"));
+        Assert.Equal("false", cut.Find("[data-testid=item-one]").GetAttribute("aria-selected"));
+    }
+
+    [Fact(DisplayName = "does not select disabled item")]
+    [Trait("Requirement", "CMB-API-58")]
+    public async Task Does_not_select_disabled_item()
+    {
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["DefaultOpen"] = true }, ["one", "two"], value => value == "two" ? new Dictionary<string, object> { ["Disabled"] = true } : null);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-two]").Click());
+
+        Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
+        Assert.False(cut.Instance.Root.Store.State.HasSelectedValue);
+    }
+
+    [Fact(DisplayName = "inherits the disabled state from the root")]
+    [Trait("Requirement", "CMB-API-58")]
+    public async Task Inherits_the_disabled_state_from_the_root()
+    {
+        int clicks = 0;
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["DefaultOpen"] = true, ["Disabled"] = true }, ["one"], _ => OnClick(_ => clicks++));
+        Assert.True(cut.Find("[data-testid=item-one]").HasAttribute("data-disabled"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-one]").Click());
+
+        Assert.Equal(0, clicks);
+        Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
+    }
+
+    [Fact(DisplayName = "calls onClick when clicked with a pointer")]
+    [Trait("Requirement", "CMB-API-60")]
+    [Trait("Requirement", "CMB-EVT-10")]
+    [Trait("Requirement", "CMB-EVT-12")]
+    public async Task Calls_onClick_when_clicked_with_a_pointer()
+    {
+        int clicks = 0;
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["DefaultOpen"] = true }, ["apple", "banana"], _ => OnClick(_ => clicks++));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+
+        Assert.Equal(1, clicks);
+        Assert.Equal("banana", cut.Instance.Root!.Store.SelectedValue);
+    }
+
+    // Enter's click is the module's: it reports the keydown, clicks the highlighted item and reports the attribution's end.
+    [Fact(DisplayName = "calls onClick when selected with Enter key (via root interaction)")]
+    [Trait("Requirement", "CMB-API-60")]
+    [Trait("Requirement", "CMB-EVT-12")]
+    public async Task Calls_onClick_when_selected_with_Enter_key()
+    {
+        int clicks = 0;
+        List<string?> sources = [];
+        IRenderedComponent<ComboboxStaticHost> cut = Static(
+            new()
+            {
+                ["DefaultOpen"] = true,
+                ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => sources.Add(args.Details.Event?.Type)),
+            },
+            ["one", "two"],
+            _ => OnClick(_ => clicks++));
+        ComboboxTwin input = test.TwinOf(ComboboxTwin.InputPart);
+
+        await cut.InvokeAsync(() => input.OnSelectionEvent($$"""{"event":{{ComboboxTestContext.Key("Enter")}}}"""));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-one]").Click());
+        await cut.InvokeAsync(() => input.OnSelectionEvent("""{"event":null}"""));
+
+        Assert.Equal(1, clicks);
+        Assert.Equal(["keydown"], sources);
+    }
+
+    [Fact(DisplayName = "does not select the item when onClick prevents Base UI handler")]
+    [Trait("Requirement", "CMB-API-60")]
+    [Trait("Requirement", "CMB-EVT-12")]
+    public async Task Does_not_select_the_item_when_onClick_prevents_the_handler()
+    {
+        int clicks = 0;
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["DefaultOpen"] = true }, ["one", "two"], value => value == "one" ? OnClick(e =>
+        {
+            clicks++;
+            e.PreventPartHandler();
+        }) : null);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-one]").Click());
+
+        Assert.Equal(1, clicks);
+        Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
+        Assert.True(cut.Instance.Root.Store.IsOpen);
+    }
+
+    [Fact(DisplayName = "multiple mode toggles selection and stays open")]
+    [Trait("Requirement", "CMB-STA-13")]
+    [Trait("Requirement", "CMB-DOM-09")]
+    [Trait("Requirement", "CMB-PTR-05")]
+    public async Task Multiple_mode_toggles_selection_and_stays_open()
+    {
+        IRenderedComponent<ComboboxStaticHost> cut = Static(new() { ["Multiple"] = true, ["DefaultOpen"] = true }, ["a", "b"]);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-a]").Click());
+        Assert.Equal("true", cut.Find("[data-testid=item-a]").GetAttribute("aria-selected"));
+        Assert.True(cut.Instance.Root!.Store.IsOpen);
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-a]").Click());
+
+        Assert.NotEqual("true", cut.Find("[data-testid=item-a]").GetAttribute("aria-selected"));
+    }
+
+    private static Dictionary<string, object> OnClick(Action<MouseEventArgs> handler) =>
+        new() { ["onclick"] = EventCallback.Factory.Create(new object(), handler) };
+
+    private IRenderedComponent<ComboboxStaticHost> Static(Dictionary<string, object?> root, IReadOnlyList<string> values, Func<string, IReadOnlyDictionary<string, object>?>? itemAttributes = null) =>
+        test.Context.Render<ComboboxStaticHost>(p => p.Add(x => x.RootParameters, root).Add(x => x.Values, values).Add(x => x.ItemAttributes, itemAttributes));
+
     private Task Highlight(IRenderedComponent<ComboboxPositionalHarness> cut, int index, string itemId)
     {
         string json = $$"""{"index":{{index}},"itemId":"{{itemId}}","event":{{ComboboxTestContext.Key("ArrowDown")}},"revision":1000}""";
