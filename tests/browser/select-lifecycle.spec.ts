@@ -391,7 +391,10 @@ test.describe('<Select.Root />', () => {
           const height = (await listbox(page).boundingBox())!.height;
           expect(height).toBeGreaterThan(200);
 
-          await page.getByTestId('outside').click();
+          // `user.click(outside)`: jsdom has no hit testing; here the modal popup's internal backdrop covers the button, so the
+          // real click lands where the button is, on the backdrop.
+          const outside = await centerOf(page.getByTestId('outside'));
+          await page.mouse.click(outside.x, outside.y);
         });
       });
 
