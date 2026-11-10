@@ -31,6 +31,11 @@ public static class SelectValueDataAttributes
 // - SEL-DOM-12: its element is the alignment's value reference; the last value part to render holds it (SEL-EDGE-17).
 /// <summary>Represents the text of a select's selected value, Base UI's <c>Select.Value</c>, rendered as a <c>span</c>.</summary>
 /// <typeparam name="TValue">The type of the select's values.</typeparam>
+/// <remarks>
+/// <typeparamref name="TValue"/> is inferred from the enclosing <see cref="SelectRoot{TValue}"/> when the part is written
+/// inside the root's markup. A part written elsewhere, such as in a <see cref="Microsoft.AspNetCore.Components.RenderFragment"/>
+/// field or in another component, names it: <c>TValue="string"</c>.
+/// </remarks>
 public sealed class SelectValue<TValue> : PartBase<SelectValueState<TValue>>
 {
     private static readonly IReadOnlyList<TValue> s_empty = [];

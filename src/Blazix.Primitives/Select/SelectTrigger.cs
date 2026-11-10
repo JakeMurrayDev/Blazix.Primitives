@@ -102,6 +102,11 @@ public static class SelectTriggerDataAttributes
 /// <c>button</c> with <c>role="combobox"</c>.
 /// </summary>
 /// <typeparam name="TValue">The type of the select's values.</typeparam>
+/// <remarks>
+/// <typeparamref name="TValue"/> is inferred from the enclosing <see cref="SelectRoot{TValue}"/> when the part is written
+/// inside the root's markup. A part written elsewhere, such as in a <see cref="Microsoft.AspNetCore.Components.RenderFragment"/>
+/// field or in another component, names it: <c>TValue="string"</c>.
+/// </remarks>
 public sealed class SelectTrigger<TValue> : PartBase<SelectTriggerState<TValue>>
 {
     private static readonly IReadOnlyList<TValue> s_empty = [];
