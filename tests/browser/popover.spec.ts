@@ -2,7 +2,7 @@ import { type Locator, type Route } from '@playwright/test';
 import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
-import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
+import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, recordTransitionStates, settle, type PopupFixtureOptions } from './suites/popupFixture';
 import { popupFocusPropsTests } from './suites/popupFocusPropsTests';
 import { positionerConformanceTests } from './suites/positioner-conformance';
 import { viewportConformanceTests } from './suites/viewportConformanceTests';
@@ -1713,6 +1713,47 @@ test.describe('Popover popup transition state', () => {
 
     await openPopover();
     expect(await popupHandle!.evaluate((element) => element === document.querySelector('[data-testid="popover-popup"]'))).toBe(true);
+  });
+
+  // D11 (TRN-STA-03; ADR 04 Amendments 2026-10-21, the handover for a newly rendered element): a popup that is not kept
+  // mounted is a new element at each opening, whose `transitions` handle attaches only after the portal's move, so its
+  // first render must already carry data-starting-style. Base UI's title with keepMounted off.
+  test('port: starts each opening once when the popup is not kept mounted', async ({ page, mode }) => {
+    const recorder = await recordTransitionStates(page, 'popover-popup');
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { popupClass: 'transition-state', animations: 1 });
+    const trigger = page.getByTestId('trigger');
+    const popup = page.getByTestId('popover-popup');
+
+    // The transition outlasts every phase, so each phase is finished explicitly instead of waited out.
+    const finishPhase = async (completesBefore: number) => {
+      await expect.poll(() => popup.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);
+      expect(await openChangeCompletes(fixture)).toHaveLength(completesBefore);
+      await popup.evaluate((element) => element.getAnimations().forEach((animation) => animation.finish()));
+    };
+
+    const openPopover = async () => {
+      await recorder.clear();
+      const before = (await openChangeCompletes(fixture)).length;
+      await trigger.click();
+      await expect(popup).toBeVisible();
+      await finishPhase(before);
+      await expect.poll(async () => (await openChangeCompletes(fixture)).slice(before)).toEqual(['true']);
+      expect((await recorder.states()).filter((state) => state.open)).toEqual([
+        { open: true, transitionStatus: 'starting' },
+        { open: true },
+      ]);
+    };
+
+    await openPopover();
+
+    const before = (await openChangeCompletes(fixture)).length;
+    await page.keyboard.press('Escape');
+    await finishPhase(before);
+    await expect.poll(async () => (await openChangeCompletes(fixture)).slice(before)).toEqual(['false']);
+    // Not kept mounted: the element leaves the document, and the next opening renders a new one.
+    await expect(popup).toHaveCount(0);
+
+    await openPopover();
   });
 });
 
