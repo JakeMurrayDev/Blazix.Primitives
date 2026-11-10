@@ -201,9 +201,12 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
         Assert.Equal("3", cut.InputText());
     }
 
+    // The highlight on mount is the list navigation's, which navigates to the selected index it holds while open and mounted
+    // (useListNavigation.ts:389-403; the module's L3 titles). The port's half, read here at L2, is the root's seed of that index
+    // for an inline list open on mount (AriaCombobox.tsx:454-470); the module's report then highlights the item.
     [Fact(DisplayName = "highlights an initially selected derived value on mount when inline")]
     [Trait("Requirement", "CMB-STA-28")]
-    public void Highlights_an_initially_selected_derived_value_on_mount_when_inline()
+    public async Task Highlights_an_initially_selected_derived_value_on_mount_when_inline()
     {
         IRenderedComponent<ComboboxTypedHarness<int>> cut = Render<int>(new()
         {
@@ -213,6 +216,9 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
             ["DefaultValue"] = 3,
         }, p => p.Add(x => x.InlineList, true).Add(x => x.ItemText, UserName));
 
+        Assert.Contains("\"selectedIndex\":2", LastListNavigationOptions(), StringComparison.Ordinal);
+
+        await cut.HighlightAsync(test, 2, "Carol");
         AngleSharp.Dom.IElement carol = cut.Option("Carol");
 
         Assert.True(carol.HasAttribute("data-highlighted"));
@@ -715,6 +721,29 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
         Assert.Equal(label, cut.Find("[data-testid=value]").TextContent);
         Assert.Equal("true", cut.Option(label).GetAttribute("aria-selected"));
         Assert.Equal(serialized, cut.Find("input[name=choice]").GetAttribute("value") ?? string.Empty);
+    }
+
+    // The options the list navigation holds: its attach's, then its updates'.
+    private string LastListNavigationOptions()
+    {
+        string last = string.Empty;
+        foreach (JSRuntimeInvocation attach in test.Composite.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains("\"virtual\":true", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in test.CompositeHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains("\"virtual\":true", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        return last;
     }
 
     private IRenderedComponent<ComboboxTypedHarness<TValue>> Render<TValue>(Dictionary<string, object?> root, Action<ComponentParameterCollectionBuilder<ComboboxTypedHarness<TValue>>>? configure = null) =>
