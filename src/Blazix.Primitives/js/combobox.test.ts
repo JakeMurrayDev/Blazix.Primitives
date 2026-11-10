@@ -610,6 +610,16 @@ describe('the trigger', () => {
     expect([down.defaultPrevented, document.activeElement, fake.reported('OnOpenRequest').length]).toEqual([true, input, 2]);
   });
 
+  // useButton.ts:116-119 returns from a disabled trigger's onKeyDown first (ADR 04 Amendments 2026-11-10, a disabled list
+  // trigger handles no keys; final review F3).
+  it('port: a disabled trigger handles no ArrowDown or ArrowUp', () => {
+    const { trigger, fake } = setupTrigger({ insidePopup: false, disabled: true });
+    const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+    trigger.dispatchEvent(down);
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    expect([down.defaultPrevented, fake.reported('OnOpenRequest').length]).toEqual([false, 0]);
+  });
+
   it('port: a mouse press focuses the input, and keeps the focus there when the input is outside the popup', () => {
     const { trigger, input } = setupTrigger({ insidePopup: false });
     const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
