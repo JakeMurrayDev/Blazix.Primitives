@@ -68,6 +68,9 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when a press on the input group or the chips focused the input, Base UI's <c>input-press</c>.</summary>
     public event Action<EventSnapshot>? InputPressed;
 
+    /// <summary>Occurs when ArrowDown or ArrowUp on a chip asks for the open, Base UI's <c>list-navigation</c>.</summary>
+    public event Action<EventSnapshot>? OpenRequested;
+
     /// <summary>Gets or sets the C# chain of the <c>clear</c> and <c>remove</c> points on WebAssembly.</summary>
     /// <value>A function from the point and the event to the verdict, or <see langword="null"/> for each point's fallback.</value>
     public Func<string, EventSnapshot, DecisionPolicy>? Decider { get; set; }
@@ -111,6 +114,11 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
     public void OnInputPress(string payloadJson) => InputPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+
+    /// <summary>Receives ArrowDown or ArrowUp on a chip.</summary>
+    /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
+    [JSInvokable]
+    public void OnOpenRequest(string payloadJson) => OpenRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
 
     /// <inheritdoc />
     /// <remarks>

@@ -70,25 +70,83 @@ internal sealed class ComboboxGroupContext<TValue> : IComboboxGroupContext
 /// <summary>The state a chips container shares with its chips: the registry.</summary>
 internal sealed class ComboboxChipsContext
 {
+    private readonly List<ComboboxChipContext> chips = [];
+
+    private readonly Action changed;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxChipsContext"/> class.</summary>
     /// <param name="list">The composite list the chips register in.</param>
-    public ComboboxChipsContext(CompositeListContext list)
+    /// <param name="changed">Called when a chip joins, leaves, or changes its id or index.</param>
+    public ComboboxChipsContext(CompositeListContext list, Action changed)
     {
         List = list;
+        this.changed = changed;
     }
 
     /// <summary>Gets the composite list the chips register in.</summary>
     public CompositeListContext List { get; }
+
+    /// <summary>Adds a chip.</summary>
+    /// <param name="chip">The chip's context.</param>
+    public void Add(ComboboxChipContext chip)
+    {
+        chips.Add(chip);
+        changed();
+    }
+
+    /// <summary>Removes a chip.</summary>
+    /// <param name="chip">The chip's context.</param>
+    public void Remove(ComboboxChipContext chip)
+    {
+        if (chips.Remove(chip))
+        {
+            changed();
+        }
+    }
+
+    /// <summary>Records that a chip's id or index changed.</summary>
+    public void Changed() => changed();
+
+    /// <summary>Gets the ids of the chips the composite list has indexed, in index order.</summary>
+    /// <returns>The ids; an unindexed chip is left out.</returns>
+    public string[] OrderedIds()
+    {
+        List<ComboboxChipContext> indexed = chips.FindAll(static chip => chip.Index >= 0 && chip.Id is not null);
+        indexed.Sort(static (left, right) => left.Index.CompareTo(right.Index));
+        string[] ids = new string[indexed.Count];
+        for (int i = 0; i < ids.Length; i++)
+        {
+            ids[i] = indexed[i].Id!;
+        }
+
+        return ids;
+    }
 }
 
 /// <summary>The state a chip shares with its remove button.</summary>
 internal sealed class ComboboxChipContext
 {
-    /// <summary>Gets or sets the chip's index among the chips.</summary>
-    public int Index { get; set; } = -1;
+    /// <summary>Occurs when the chip's index changes.</summary>
+    public event Action? IndexChanged;
 
-    /// <summary>Gets or sets a value indicating whether the chip is disabled.</summary>
-    public bool Disabled { get; set; }
+    /// <summary>Gets or sets the id the chip renders.</summary>
+    public string? Id { get; set; }
+
+    /// <summary>Gets the chip's index among the chips, or -1 before the list indexed it.</summary>
+    public int Index { get; private set; } = -1;
+
+    /// <summary>Records the chip's index and notifies the listeners when it changed.</summary>
+    /// <param name="index">The index the composite list reported.</param>
+    public void SetIndex(int index)
+    {
+        if (index == Index)
+        {
+            return;
+        }
+
+        Index = index;
+        IndexChanged?.Invoke();
+    }
 }
 
 // combobox/row/ComboboxRow.tsx's ComboboxRowContext: an item inside a row is a gridcell.

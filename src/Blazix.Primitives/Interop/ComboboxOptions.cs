@@ -77,4 +77,12 @@ internal sealed record ComboboxOptions : TwinOptions
 
     /// <summary>Gets a value indicating whether the popup was opened by touch, so the focus is not redirected to the input.</summary>
     public bool TouchOpened { get; init; }
+
+    /// <summary>Gets the ids of the chips in order, which a chips container's handle keeps for the chip keys and the input.</summary>
+    /// <value>The ids, or <see langword="null"/> for a part other than the chips container.</value>
+    public IReadOnlyList<string>? ChipIds { get; init; }
+
+    /// <summary>Gets the index of a chip remove button's chip, which its handle reports with a removal.</summary>
+    /// <value>The index, or <see langword="null"/> for a part other than a chip remove button.</value>
+    public int? Index { get; init; }
 }
