@@ -2,6 +2,7 @@
 @* MenuFilterRoot.test.tsx's Empty trees and MenuFilterRoot.scoping.test.tsx's "filters items by text and shows the empty
    state" (MNU-STA-15, STA-23, API-61, DOM-23), one per `Case`:
    - "no-items": an input, Empty and a list with no items;
+   - "texts": a list of two items without a label (ids rename and copy) and one with a label (Pin);
    - "unlabeled": an input, Empty holding a mount probe, and two items without a label;
    - "labeled": an input, Empty and one item of each kind with a label (Rename, Copy, Pin, Delete, Share).
    `DefaultQuery` seeds the provider; `OnEmptyMount` is the probe's callback. *@
@@ -17,6 +18,13 @@
                         case "no-items":
                             <MenuEmpty>No actions found</MenuEmpty>
                             <MenuList />
+                            break;
+                        case "texts":
+                            <MenuList>
+                                <MenuItem id="rename">Rename</MenuItem>
+                                <MenuItem id="copy">Copy</MenuItem>
+                                <MenuItem id="pin" Label="Pin">Pin</MenuItem>
+                            </MenuList>
                             break;
                         case "unlabeled":
                             <MenuEmpty><MenuFilterMountProbe Text="No results" OnMount="OnEmptyMount" /></MenuEmpty>

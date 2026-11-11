@@ -90,11 +90,46 @@ public sealed class MenuFilterItemsTests : BunitContext
         Assert.Equal(["Copy"], Items(cut));
     }
 
+    [Fact(DisplayName = "port: the list asks for the rendered texts of the items without a label")]
+    [Trait("Requirement", "MNU-STA-15")]
+    [Trait("Requirement", "MNU-STA-17")]
+    public void The_list_asks_for_the_texts_of_unlabeled_items()
+    {
+        Render<MenuFilterItemsHost>(p => p.Add(x => x.Case, "texts"));
+
+        string options = (string)ListAttach().Arguments[1]!;
+        Assert.Contains("\"part\":\"list\"", options, StringComparison.Ordinal);
+        Assert.Contains("\"textIds\":[\"rename\",\"copy\"]", options, StringComparison.Ordinal);
+        Assert.Matches("\"menuKey\":\"[^\"]+\"", options);
+    }
+
+    [Fact(DisplayName = "port: filters items without a label by the text the list reports, visible until it arrives")]
+    [Trait("Requirement", "MNU-STA-15")]
+    [Trait("Requirement", "MNU-STA-17")]
+    public async Task Filters_unlabeled_items_by_their_reported_text()
+    {
+        IRenderedComponent<MenuFilterItemsHost> cut = Render<MenuFilterItemsHost>(p => p
+            .Add(x => x.Case, "texts")
+            .Add(x => x.DefaultQuery, "co"));
+        Assert.Equal(["Rename", "Copy"], Items(cut));
+
+        MenuFilterTwin list = ((DotNetObjectReference<MenuFilterTwin>)ListAttach().Arguments[2]!).Value;
+        await cut.InvokeAsync(() => list.OnTexts("""{"ids":["rename","copy"],"texts":["Rename","Copy"]}"""));
+        Assert.Equal(["Copy"], Items(cut));
+
+        await Type(cut, Twin("input"), "ren");
+        Assert.Equal(["Rename"], Items(cut));
+    }
+
     private static string[] Items(IRenderedComponent<MenuFilterItemsHost> cut) =>
         [.. cut.FindAll("[role=menuitem], [role=menuitemcheckbox], [role=menuitemradio]").Select(item => item.TextContent.Trim())];
 
     private static Task Type(IRenderedComponent<MenuFilterItemsHost> cut, MenuFilterTwin twin, string value) =>
         cut.InvokeAsync(() => twin.OnValueChange($$"""{"value":"{{value}}","reason":"input-change","event":null}"""));
 
-    private MenuFilterTwin Twin() => ((DotNetObjectReference<MenuFilterTwin>)module.Invocations["attach"][^1].Arguments[2]!).Value;
+    private MenuFilterTwin Twin(string part = "input") =>
+        ((DotNetObjectReference<MenuFilterTwin>)module.Invocations["attach"].Last(i => ((string)i.Arguments[1]!).Contains($"\"part\":\"{part}\"", StringComparison.Ordinal)).Arguments[2]!).Value;
+
+    private JSRuntimeInvocation ListAttach() =>
+        Assert.Single(module.Invocations["attach"], i => ((string)i.Arguments[1]!).Contains("\"part\":\"list\"", StringComparison.Ordinal));
 }
