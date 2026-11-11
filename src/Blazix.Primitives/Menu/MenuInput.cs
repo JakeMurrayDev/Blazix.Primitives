@@ -90,6 +90,11 @@ public sealed class MenuInput : PartBase<MenuInputState>
             string.Equals(change.Reason, "input-clear", StringComparison.Ordinal) ? EventReason.InputClear : EventReason.InputChange,
             change.Event));
         module.Twin.HighlightedChanged += highlighted => _ = InvokeAsync(() => SetHighlighted(highlighted));
+
+        // MNU-KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input closes the menu with focus-out; the focus
+        // manager returns focus on the close.
+        module.Twin.FocusedOut += report => _ = InvokeAsync(() =>
+            RootContext.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut, report.Event)));
         base.OnInitialized();
     }
 
