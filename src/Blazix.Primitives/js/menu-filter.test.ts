@@ -287,15 +287,16 @@ describe('the key router', () => {
   }
 
   // An open filterable menu: the harness's input reference under virtual focus, with the menu-filter Input handle on it.
-  async function openFilterMenu(itemAttributes?: (index: number, label: string) => Record<string, string>): Promise<{ harness: ListHarness; input: HTMLInputElement }> {
+  async function openFilterMenu(itemAttributes?: (index: number, label: string) => Record<string, string>): Promise<{ harness: ListHarness; input: HTMLInputElement; fake: FakeTwin }> {
     const harness = createListHarness({ reference: 'input', list: { virtual: true }, ...(itemAttributes ? { itemAttributes } : {}) });
     harnesses.push(harness);
     const input = harness.reference as HTMLInputElement;
-    handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical' }), createFakeTwin().twin));
+    const fake = createFakeTwin();
+    handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical' }), fake.twin));
     input.focus();
     keyDown(input, 'ArrowDown');
     await vi.waitFor(() => expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id), { timeout: 1000, interval: 5 });
-    return { harness, input };
+    return { harness, input, fake };
   }
 
   // KEY-22's "leaves modified editing keys to the input while an item is highlighted": a modified main-axis arrow is an
@@ -310,7 +311,7 @@ describe('the key router', () => {
     expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
   });
 
-  // KEY-29 (useMenuFilterKeyDown.ts:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
+  // KEY-25 (useMenuFilterKeyDown.ts:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
   it('port: Enter on a highlighted item clicks it', async () => {
     const { harness, input } = await openFilterMenu();
     const clicks: MouseEvent[] = [];
@@ -323,7 +324,7 @@ describe('the key router', () => {
     expect(clicks[0]?.ctrlKey).toBe(true);
   });
 
-  // KEY-30 (useMenuFilterKeyDown.ts:161-169): the cross-axis key on a highlighted submenu trigger is the trigger's own.
+  // KEY-29 (useMenuFilterKeyDown.ts:161-169): the cross-axis key on a highlighted submenu trigger is the trigger's own.
   it('port: the cross-axis key on a highlighted submenu trigger is dispatched on the trigger', async () => {
     const { harness, input } = await openFilterMenu((index) => (index === 0 ? { 'aria-haspopup': 'menu' } : {}));
     input.value = 'on';
@@ -334,5 +335,15 @@ describe('the key router', () => {
 
     expect(keys).toEqual(['ArrowRight']);
     expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
+  });
+
+  // KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input asks C# to close with focus-out.
+  it('port: Shift+Tab in the input reports a focus-out close', async () => {
+    const { input, fake } = await openFilterMenu();
+
+    const event = keyDown(input, 'Tab', { shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fake.reported('OnFocusOut')).toHaveLength(1);
   });
 });
