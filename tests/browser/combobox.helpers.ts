@@ -168,3 +168,36 @@ export const touchTest = test.extend<{ touchPage: Page }>({
     await context.close();
   },
 });
+
+/**
+ * Records every `scrollIntoView` call (Base UI's `vi.spyOn(HTMLElement.prototype, 'scrollIntoView')`), calling through unless
+ * `callThrough` is false (Base UI's `.mockImplementation(() => {})`). Call it before the page loads.
+ */
+export async function spyScrollIntoView(page: Page, options: { callThrough?: boolean } = {}): Promise<void> {
+  await page.addInitScript((callThrough: boolean) => {
+    const calls: { id: string; options: unknown }[] = [];
+    (window as unknown as { scrollCalls: typeof calls }).scrollCalls = calls;
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, ...args: unknown[]) {
+      calls.push({ id: this.id, options: args[0] });
+      if (callThrough) {
+        (original as (...parameters: unknown[]) => void).apply(this, args);
+      }
+    };
+  }, options.callThrough ?? true);
+}
+
+/** The `scrollIntoView` calls recorded since the page loaded (or since `clearScrollCalls`): each element's id and options. */
+export function scrollCalls(page: Page): Promise<{ id: string; options: unknown }[]> {
+  return page.evaluate(() => (window as unknown as { scrollCalls: { id: string; options: unknown }[] }).scrollCalls.slice());
+}
+
+/** Base UI's `scrollIntoView.mockClear()`. */
+export function clearScrollCalls(page: Page): Promise<void> {
+  return page.evaluate(() => {
+    (window as unknown as { scrollCalls: unknown[] }).scrollCalls.length = 0;
+  });
+}
+
+/** The options Base UI's list navigation scrolls with. */
+export const NEAREST = { block: 'nearest', inline: 'nearest' };

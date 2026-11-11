@@ -1,0 +1,407 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-root-d` fixture (tests/browser/combobox.root-d.spec.ts, M5 track 10, issue 174): the Base UI titles of the rows the
+    2026-11-11 docs pass re-tagged [L4] (CMB-STA-21, STA-25, STA-26, STA-27, STA-28, EVT-04), from ComboboxRoot.test.tsx and one from
+    ComboboxInput.test.tsx. The query's `case` picks the test's rendering; each case below names its Base UI test.
+    The `inline` case (the default) reads `items` (`|`-separated), `multiple`, `defaultValue` (`|`-separated when `multiple`) and
+    `defaultInputValue`. Recorded through `Records` (ComboboxL4FixtureBase): `input-changes` (`value:reason`), `input-item-presses`
+    (`true`, `false` or `null`), `input-events` (each input change's event type, `base-ui` for the placeholder) and `highlights`
+    (`value:reason:index`). Controls that stand for Base UI's `setProps` carry `data-key-control` (pressed without moving focus).
+    The close-animation cases run a 10 s exit animation on the popup (`animation-test-popup`).
+*@
+<FixtureContainer Name="combobox-root-d" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" @attributes="Records">
+    <style>
+        @@keyframes combobox-close-test { to { opacity: 0; } }
+        .animation-test-popup[data-ending-style] { animation: combobox-close-test 10s linear; }
+    </style>
+    @SyncButton
+    @switch (Case)
+    {
+        // "does not restore the initial highlight after focus leaves an inline input (items prop)"
+        case "inline-controlled":
+            <ComboboxRoot TValue="string" @ref="root" Items="@threeItems" Inline="true" Open="true" Value="@value" OnValueChange="HandleValue">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <button type="button" @onclick="ChangeValue">Change value</button>
+                @ItemList
+            </ComboboxRoot>
+            break;
+
+        // "does not apply the initial highlight when a selection resolves after blur (items prop)"
+        case "inline-resolve":
+            <ComboboxRoot TValue="string" @ref="root" Items="@threeItems" Inline="true" Open="true" Value="@value" OnValueChange="HandleValue">
+                <ComboboxInput @ref="input" data-testid="input" />
+                @ItemList
+            </ComboboxRoot>
+            <button type="button">Blur target</button>
+            <button type="button" @onclick="ResolveSelection">Resolve selection</button>
+            break;
+
+        // "does not replace a pointer highlight when the initial selection resolves after mount (items prop)", "does not restore the
+        // initial highlight after pointer navigation is cleared (items prop)": `setProps({ items: ['apple', 'banana', 'cherry'] })` is the
+        // `set-items` control.
+        case "inline-late":
+            <ComboboxRoot TValue="string" @ref="root" Items="@lateItems" Inline="true" Open="true" DefaultValue="@("banana")">
+                <ComboboxInput @ref="input" data-testid="input" />
+                @ItemList
+            </ComboboxRoot>
+            <button type="button" data-testid="set-items" data-key-control @onclick="SetLateItems" @onkeydown="OnShift(SetLateItems)">Set items</button>
+            break;
+
+        // ComboboxInput.test.tsx "does not restore an inline highlight after the highlighted slot is removed"
+        case "inline-remove":
+            <div>
+                <ComboboxRoot TValue="string" @ref="root" Inline="true" Open="true" Items="@removableItems">
+                    <ComboboxInput @ref="input" />
+                    @ItemList
+                </ComboboxRoot>
+                <button type="button" @onclick="RemoveItems">remove items</button>
+            </div>
+            break;
+
+        // "waits for a controlled query clear to commit before restoring the selection (items prop)"
+        case "query-clear":
+            <ComboboxRoot TValue="string" @ref="root" Items="@fourItems" DefaultValue="@("banana")" InputValue="b" OnInputValueChange="IgnoreInput" DefaultOpen="true">
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput @ref="input" data-testid="input" />
+                            <button type="button" @onclick="ClearHighlight">Clear highlight</button>
+                            <button type="button" data-renders="@renders" @onclick="Rerender">Rerender</button>
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        // "restores the selected direct item after its registration index changes"
+        case "direct-reorder":
+            <ComboboxRoot TValue="string" @ref="root" OnInputValueChange="HandleQuery" DefaultValue="@("banana")" DefaultOpen="true" AutoHighlight="true"
+                          OnItemHighlighted="RecordHighlight">
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput @ref="input" data-testid="input" />
+                            <ComboboxList TValue="string">
+                                @foreach (string item in VisibleItems)
+                                {
+                                    <ComboboxItem TValue="string" Value="@item" @key="item">@item</ComboboxItem>
+                                }
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        // "shows every item when a controlled reopen interrupts a canceled mirrored-selection clear"
+        case "reopen-mirror":
+            <button type="button" data-testid="open" @onclick="OpenPopup">Open</button>
+            <ComboboxRoot TValue="string" @ref="root" Items="@fruits" Open="@open" OnOpenChange="HandleOpen" OnValueChange="MirrorSelection"
+                          InputValue="@inputValue" OnInputValueChange="CancelInputClear">
+                @AnimatedPopup(true)
+            </ComboboxRoot>
+            break;
+
+        // "keeps the typed filter when items change afterwards (input outside popup)"
+        case "refetch":
+            <button type="button" data-testid="refetch" @onclick="Refetch">refetch</button>
+            <ComboboxRoot TValue="string" @ref="root" Items="@refetchItems">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(false)
+            </ComboboxRoot>
+            break;
+
+        // "keeps filtering when typing reopens the popup (input outside popup)"
+        case "typing-reopen":
+            <ComboboxRoot TValue="string" @ref="root" Items="@fruits" DefaultValue="@("apple")">
+                <ComboboxInput @ref="input" data-testid="input" />
+                @AnimatedPopup(false)
+            </ComboboxRoot>
+            break;
+
+        // "does not re-emit a clear when closing again without typing (multiple, input outside popup)", "releases the frozen query when
+        // reopening during the close animation with the input outside the popup"
+        case "multiple-outside":
+            <ComboboxRoot TValue="string" @ref="root" Multiple="true" Items="@fruits" OnInputValueChange="RecordInputChange">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(false)
+            </ComboboxRoot>
+            break;
+
+        // "keeps a keystroke typed into an empty input when items refresh synchronously"
+        case "sync-refresh":
+            <ComboboxRoot TValue="string" @ref="root" Items="@refetchItems" DefaultValue="@("apple")" OnInputValueChange="RefetchOnInput">
+                <ComboboxInput @ref="input" data-testid="input" />
+                @AnimatedPopup(false)
+            </ComboboxRoot>
+            break;
+
+        // "unfreezes filtering when a controlled open ignores the close request (multiple, input outside popup)"
+        case "ignores-close":
+            <ComboboxRoot TValue="string" @ref="root" Multiple="true" Items="@fruits" Open="true" OnOpenChange="IgnoreOpen">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup data-testid="popup">
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        // "opens blank when the input only mirrors the selection (single, input inside popup)"
+        case "mirror-single":
+            <ComboboxRoot TValue="string" @ref="root" Items="@fruits" Value="@value" OnValueChange="MirrorValue" InputValue="@inputValue" OnInputValueChange="SetInputValue">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(true)
+            </ComboboxRoot>
+            break;
+
+        // "keeps an input value set in the same batch as a controlled reopen (input inside popup)"
+        case "preset":
+            <button type="button" data-testid="preset" @onclick="Preset">preset</button>
+            <ComboboxRoot TValue="string" @ref="root" Items="@fruits" Open="@open" OnOpenChange="HandleOpen" InputValue="@inputValue" OnInputValueChange="RecordAndSetInputValue">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(true)
+            </ComboboxRoot>
+            break;
+
+        // "shows every item when selection reopens the popup"
+        case "selection-reopen":
+            <ComboboxRoot TValue="string" @ref="root" Items="@fruits">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(false)
+            </ComboboxRoot>
+            break;
+
+        // "clears the pending filter with the "input-clear" reason when reopening interrupts the close animation"
+        case "input-clear-reopen":
+            <ComboboxRoot TValue="string" @ref="root" Multiple="true" Items="@fruits" OnInputValueChange="RecordAndCancelItemPress">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(true)
+            </ComboboxRoot>
+            break;
+
+        // "does not emit another clear when controlled input is already empty on interrupted close"
+        case "empty-controlled":
+            <ComboboxRoot TValue="string" @ref="root" Multiple="true" Items="@twoItems" InputValue="@inputValue" OnInputValueChange="RecordAndSetInputValue"
+                          OnOpenChange="ClearInputOnClose">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                @AnimatedPopup(true)
+            </ComboboxRoot>
+            break;
+
+        // "discards the request when a controlled close is interrupted" (AsyncCombobox, `open`): `setProps({ open: false, items: ['32'] })`
+        // and `setProps({ open: true, items: ['32'] })` are the `close` and `reopen` controls.
+        case "async":
+            <ComboboxRoot TValue="string" @ref="root" Items="@asyncItems" AutoHighlight="true" Filter="null" Open="@asyncOpen">
+                <ComboboxInput @ref="input" />
+                <ComboboxTrigger @ref="trigger" data-testid="trigger" />
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup data-testid="popup">
+                            <ComboboxEmpty>No matches</ComboboxEmpty>
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            <button type="button" data-testid="close" data-key-control @onclick="CloseAndLoad" @onkeydown="OnShift(CloseAndLoad)">Close</button>
+            <button type="button" data-testid="reopen" data-key-control @onclick="ReopenAndLoad" @onkeydown="OnShift(ReopenAndLoad)">Reopen</button>
+            break;
+
+        // The inline list with `items` and `open` (STA-27, STA-28): "highlights and scrolls the selected item into view on mount when inline
+        // (items prop)", "does not snap the highlight to a stale index while filtering an inline list (items prop)", "highlights the first
+        // selected item on mount and keeps the highlight when toggling in a multiple inline list (items prop)", "does not highlight a
+        // non-selected item when an initial input value pre-filters the inline list (items prop)".
+        case "inline":
+        default:
+            @if (multiple)
+            {
+                <ComboboxRoot TValue="string" @ref="root" Items="@items" Inline="true" Open="true" Multiple="true" DefaultValues="@defaultValues">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    @ItemList
+                </ComboboxRoot>
+            }
+            else
+            {
+                <ComboboxRoot TValue="string" @ref="root" Items="@items" Inline="true" Open="true" DefaultValue="@Query("defaultValue")"
+                              DefaultInputValue="@Query("defaultInputValue")">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    @ItemList
+                </ComboboxRoot>
+            }
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] fruits = ["apple", "apricot", "banana"];
+    private static readonly string[] twoItems = ["apple", "banana"];
+    private static readonly string[] threeItems = ["apple", "banana", "cherry"];
+    private static readonly string[] fourItems = ["apple", "banana", "blueberry", "cherry"];
+
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private ComboboxTrigger? trigger;
+    private string[] items = [];
+    private bool multiple;
+    private string[] defaultValues = [];
+    private string? value;
+    private string inputValue = "";
+    private bool open;
+    private string query = "";
+    private int renders;
+    private string[] lateItems = ["apple", "cherry"];
+    private string[] removableItems = ["apple"];
+    private string[] refetchItems = ["apple", "apricot", "banana"];
+    private string[] asyncItems = [];
+    private bool asyncOpen = true;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    // The direct items of "restores the selected direct item after its registration index changes": `query ? ['cherry'] : [all]`.
+    private IEnumerable<string> VisibleItems => query.Length > 0 ? ["cherry"] : threeItems;
+
+    // The List of strings: the root's `Items` rendered one Item each (Base UI's `(item) => <Combobox.Item key={item} value={item}>`).
+    private RenderFragment ItemList => @<ComboboxList TValue="string">
+        <ItemContent>
+            <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+        </ItemContent>
+    </ComboboxList>;
+
+    // The "reopening during the close animation" tests' Portal > Positioner > Popup (`animation-test-popup`) > [Input] > List.
+    private RenderFragment AnimatedPopup(bool withInput) => @<ComboboxPortal>
+        <ComboboxPositioner style="position: relative; z-index: 1">
+            <ComboboxPopup data-testid="popup" class="animation-test-popup">
+                @if (withInput)
+                {
+                    <ComboboxInput @ref="input" data-testid="input" />
+                }
+                @ItemList
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>;
+
+    protected override void OnInitialized()
+    {
+        items = Query("items")?.Split('|') ?? [];
+        multiple = QueryFlag("multiple") == true;
+        if (multiple)
+        {
+            defaultValues = Query("defaultValue")?.Split('|') ?? [];
+        }
+
+        value = Case == "inline-controlled" ? "banana" : null;
+    }
+
+    private void HandleValue(ValueChangeEventArgs<string> args) => value = args.Value;
+
+    private void ChangeValue() => value = "cherry";
+
+    private void ResolveSelection() => value = "banana";
+
+    private void SetLateItems() => lateItems = ["apple", "banana", "cherry"];
+
+    private void RemoveItems() => removableItems = [];
+
+    private static void IgnoreInput(ValueChangeEventArgs<string> args)
+    {
+    }
+
+    private static void IgnoreOpen(ValueChangeEventArgs<bool> args)
+    {
+    }
+
+    // ClearActiveIndexButton: `store.context.setIndices({ activeIndex: null })`. The port's store clears the highlight through
+    // ClearHighlightAsync, which also forgets the selected index (deviation noted in the spec).
+    private Task ClearHighlight() => root!.Store.ClearHighlightAsync(null);
+
+    private void Rerender() => renders++;
+
+    private void HandleQuery(ValueChangeEventArgs<string> args) => query = args.Value ?? "";
+
+    private void OpenPopup() => open = true;
+
+    private void HandleOpen(ValueChangeEventArgs<bool> args) => open = args.Value;
+
+    private void MirrorSelection(ValueChangeEventArgs<string> args) => inputValue = args.Value ?? "";
+
+    private void CancelInputClear(ValueChangeEventArgs<string> args)
+    {
+        if (args.Details.Reason == EventReason.InputClear)
+        {
+            args.Details.Cancel();
+        }
+        else
+        {
+            inputValue = args.Value ?? "";
+        }
+    }
+
+    private void Refetch() => refetchItems = [.. refetchItems];
+
+    private void RefetchOnInput(ValueChangeEventArgs<string> args) => refetchItems = [.. refetchItems];
+
+    private void MirrorValue(ValueChangeEventArgs<string> args)
+    {
+        value = args.Value;
+        inputValue = args.Value ?? "";
+    }
+
+    private void SetInputValue(ValueChangeEventArgs<string> args) => inputValue = args.Value ?? "";
+
+    private void Preset()
+    {
+        inputValue = "banana";
+        open = true;
+    }
+
+    private void RecordAndSetInputValue(ValueChangeEventArgs<string> args)
+    {
+        RecordInputChange(args);
+        inputValue = args.Value ?? "";
+    }
+
+    private void RecordAndCancelItemPress(ValueChangeEventArgs<string> args)
+    {
+        RecordInputChange(args);
+        bool? itemPress = (args.Details as ComboboxChangeEventDetails)?.IsItemPress;
+        Record("input-item-presses", itemPress is { } press ? (press ? "true" : "false") : "null");
+        Record("input-events", args.Details.Event.Type);
+        if (itemPress == true)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void ClearInputOnClose(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value)
+        {
+            inputValue = "";
+        }
+    }
+
+    private void CloseAndLoad()
+    {
+        asyncOpen = false;
+        asyncItems = ["32"];
+    }
+
+    private void ReopenAndLoad()
+    {
+        asyncOpen = true;
+        asyncItems = ["32"];
+    }
+}

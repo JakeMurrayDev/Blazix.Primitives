@@ -330,6 +330,8 @@ public static class FixtureCatalog
         ["combobox-root-b"] = new(typeof(ComboboxRootBL4Fixture)),
         // combobox.root-c.spec.ts
         ["combobox-root-c"] = new(typeof(ComboboxRootCL4Fixture)),
+        // combobox.root-d.spec.ts
+        ["combobox-root-d"] = new(typeof(ComboboxRootDL4Fixture)),
         // combobox.suites.spec.ts
         ["combobox-suite"] = new(typeof(ComboboxSuiteL4Fixture)),
         ["combobox-suite-list"] = new(typeof(ComboboxSuiteListL4Fixture)),
