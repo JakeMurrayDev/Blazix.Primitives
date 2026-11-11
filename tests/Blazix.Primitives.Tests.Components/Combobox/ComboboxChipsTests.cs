@@ -150,6 +150,37 @@ public sealed class ComboboxChipsTests : IDisposable
         Assert.Equal(EventReason.ChipRemovePress, reason);
     }
 
+    // ComboboxChipRemove.tsx:76-114: removeChip filters the selection by the chip's index and calls setSelectedValue whatever the
+    // index holds, so a chip whose value is already gone still reports the change and its allowPropagation() lets the event through
+    // (the second activation of "allows click and keyboard events to propagate when requested").
+    [Fact(DisplayName = "port: a chip remove whose value is already removed still reports the change, and allowPropagation() lets the event through")]
+    [Trait("Requirement", "CMB-KEY-10")]
+    [Trait("Requirement", "CMB-EVT-09")]
+    public async Task A_chip_remove_whose_value_is_already_removed_still_reports_the_change()
+    {
+        List<IReadOnlyList<string>> changes = [];
+        IRenderedComponent<ComboboxHarness> cut = Render(
+            new()
+            {
+                ["Multiple"] = true,
+                ["DefaultValues"] = (IReadOnlyList<string>)["apple"],
+                ["OnValuesChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, args =>
+                {
+                    changes.Add(args.Value);
+                    args.Details.AllowPropagation();
+                }),
+            },
+            ["apple"]);
+        await ReportOrderAsync(cut, cut.Find("[data-testid=chip-apple]").Id!);
+        ComboboxTwin remove = RemoveTwins()[0];
+
+        Assert.Equal("run", await cut.InvokeAsync(() => remove.Decide(ComboboxTwin.RemovePoint, ComboboxTestContext.Click)));
+        Assert.Equal("run", await cut.InvokeAsync(() => remove.Decide(ComboboxTwin.RemovePoint, ComboboxTestContext.Key("Enter"))));
+
+        Assert.Equal(2, changes.Count);
+        Assert.All(changes, Assert.Empty);
+    }
+
     // M2's Chips batch (2026-11-11): a render while the first attach awaits the module must not lose its options. The
     // combobox module's import is held; the chips register meanwhile; once it resolves, the chips' handle has their ids.
 #pragma warning disable BL0016 // The calls below go to the test's fake runtime, not to JavaScript.
