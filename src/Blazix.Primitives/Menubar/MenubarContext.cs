@@ -11,8 +11,9 @@ namespace Blazix.Primitives;
 //   with `sibling-open` and no event; a consumer's veto leaves two open.
 // - The cut-out is the bar's own element, by its id (Base UI's `contentElement`); the relay target is the bar's element.
 //   No backdrop is kept: a consumer Backdrop finds a context menu past the bar with `MenuParent.Find`.
+// It is also the bar's floating node: a detached Root held by a bar trigger names its session as its parent.
 /// <summary>The values of a menubar that its menus read as their parent.</summary>
-internal sealed class MenubarContext : IMenuParentContext
+internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
 {
     private readonly List<Action> listeners = [];
     private readonly List<MenuRootContext> openMenus = [];
@@ -60,6 +61,9 @@ internal sealed class MenubarContext : IMenuParentContext
 
     /// <inheritdoc />
     public int OutsidePressGrace => 0;
+
+    /// <inheritdoc />
+    public string? SessionToken { get; init; }
 
     /// <summary>Writes the bar's values from its parameters, notifying the subscribers when one changed.</summary>
     /// <param name="modal">The bar's <c>Modal</c>.</param>

@@ -73,6 +73,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     private IDisposable? parentContextSubscription;
     private IMenuParentContext? subscribedContext;
     private IDisposable? parentObservation;
+    private string? positionParentToken;
     private MenuParent parent;
     private EventCallback<MenuItemHighlightedEventArgs> onItemHighlighted;
     private string? rootId;
@@ -229,7 +230,8 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         store.SetParent(parent);
         store.SetRootFields(parameters.Disabled, parameters.Modal, rootId, parameters.HighlightItemOnHover);
         WarnNestedModal(parameters.Modal, store.Logger);
-        session!.ParentToken = floatingParent?.SessionToken;
+        positionParentToken = floatingParent?.SessionToken;
+        session!.ParentToken = ParentTokenOf(store.State.Parent);
         SetListOptions(parameters, direction);
 
         // MenuRoot.tsx:193: the root reads the store's parent, which the trigger holding the popup may have forwarded
@@ -325,12 +327,29 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.RelayTarget = RelayTargetOf(effective);
     }
 
-    // A forwarded parent: the list's options and the subscription to the menubar's or context menu's values follow it.
+    // MenuTrigger.tsx:95-108: a menubar parent forwarded by the trigger holding the popup brings the bar's floating node, so
+    // a detached Root names the bar's session as its parent; otherwise the enclosing popup's, from the Root's position.
+    private string? ParentTokenOf(MenuParent effective) =>
+        effective is { Kind: MenuParentKind.Menubar, Context: IFloatingNodeContext bar } ? bar.SessionToken : positionParentToken;
+
+    // A forwarded parent: the list's options, the parent token and the subscription to the menubar's or context menu's
+    // values follow it.
     private void OnEffectiveParentChanged(MenuParent effective)
     {
         if (list is { } navigation)
         {
             ApplyParentToList(navigation, effective);
+        }
+
+        if (session is { } current)
+        {
+            current.ParentToken = ParentTokenOf(effective);
+
+            // A forward after the Root's render (the trigger's own after-render) reaches the module now, as OnCommitted does.
+            if (rendered)
+            {
+                _ = current.AfterRenderAsync();
+            }
         }
 
         if (effective.Kind != MenuParentKind.Menu && !ReferenceEquals(subscribedContext, effective.Context))

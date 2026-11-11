@@ -134,8 +134,8 @@ public sealed class Menubar : PartBase<MenubarState>
         {
             EnableHomeAndEndKeys = true,
         };
-        context = new MenubarContext(OnFlagChanged, DispatchExceptionAsync);
         session = new InteractionsSessionBehavior(JSRuntime, IdGenerator, static _ => Task.CompletedTask, DispatchExceptionAsync);
+        context = new MenubarContext(OnFlagChanged, DispatchExceptionAsync) { SessionToken = session.Token };
         node = new FloatingNodeContext(session.Token);
     }
 
