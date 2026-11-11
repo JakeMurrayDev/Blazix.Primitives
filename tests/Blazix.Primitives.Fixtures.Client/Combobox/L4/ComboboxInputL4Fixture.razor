@@ -138,6 +138,16 @@
         string[] chips = ["apple", "banana", "cherry"];
         switch (Case)
         {
+            case "controlled-input":
+                // ComboboxInput.test.tsx "preserves caret position when controlled and inserting in the middle": the input
+                // value is controlled, and the change callback writes it back.
+                rootParameters["InputValue"] = string.Empty;
+                rootParameters["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args =>
+                {
+                    RecordInputChange(args);
+                    rootParameters["InputValue"] = args.Value;
+                });
+                break;
             case "readonly-type":
                 Single(["a", "b"]);
                 rootParameters["ReadOnly"] = true;
