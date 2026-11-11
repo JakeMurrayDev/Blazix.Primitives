@@ -5737,6 +5737,45 @@ describe('Menu', () => {
       }
     });
 
+    // MBR-STA-07 (MenuStore.ts:173-181, MenubarContext.ts:19-30): a menubar's menus share the bar's
+    // `allowMouseUpTriggerRef`. A session a menubar trigger's menu names as its parent holds the slot (Deliverable 4 of
+    // M5 track 8's brief), so a press on one bar trigger arms the release over another bar menu's item.
+    it('port: the menus of a session their menubar triggers name as parent share its release slot', async () => {
+      vi.useFakeTimers();
+      const bar = harness();
+      bar.attachSession();
+      const barMenu = () => {
+        const menu = harness();
+        menu.attachSession({ session: { parentToken: bar.token } });
+        const trigger = element('button', `${menu.token}-trigger`);
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(hoverRect(0, 0, 50, 20));
+        menu.attachTrigger(trigger, { trigger: { menu: { rootId: 'bar', release: true, keepArmedWhenClosed: true } } });
+        menu.setReference(trigger);
+        const positioner = element('div');
+        const popup = document.createElement('div');
+        popup.setAttribute('data-rootownerid', 'bar');
+        positioner.append(popup);
+        const item = document.createElement('div');
+        item.id = `${menu.token}-item`;
+        item.setAttribute('role', 'menuitem');
+        popup.append(item);
+        menu.attachFloating(positioner, { floating: { hover: null, menu: { itemHover: true, release: true } } });
+        const clicks: string[] = [];
+        item.addEventListener('click', () => clicks.push(item.id));
+        return { menu, trigger, item, clicks };
+      };
+      const file = barMenu();
+      const edit = barMenu();
+      mouse(file.trigger, 'mousedown');
+      file.menu.setOpen(true, 'trigger-press', file.trigger.id);
+      await vi.advanceTimersByTimeAsync(200);
+      file.menu.setOpen(false, 'sibling-open', file.trigger.id);
+      edit.menu.setOpen(true, 'trigger-hover', edit.trigger.id);
+
+      mouse(edit.item, 'mouseup', { clientX: 10, clientY: 40 });
+      expect(edit.clicks).toEqual([edit.item.id]);
+    });
+
     it('port: a release outside the trigger, its bounds and the tree cancels the open with cancel-open; one within them does not', async () => {
       vi.useFakeTimers();
       const inside = releaseTree();
