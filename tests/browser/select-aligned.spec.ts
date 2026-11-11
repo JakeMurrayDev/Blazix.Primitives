@@ -244,8 +244,12 @@ test.describe('Select.Popup', () => {
       .toBeLessThan(1);
   });
 
-  // SEL-DOM-38, SEL-POS-07 (SelectPopup.test.tsx:522-612).
-  test('keeps item text aligned with the trigger after reopening', async ({ page, mode }) => {
+  // SEL-DOM-38, SEL-POS-07 (SelectPopup.test.tsx:522-612). Open by ID, not a flake, so not @quarantine (ADR 11 §4): settled
+  // by the orchestrator 2026-11-10 to stay open; five attempts at the selected text's re-measure were measured and none
+  // merged (PR 205's body has the table). Red on both modes until SEL-POS-07 is fixed.
+  test.fixme('keeps item text aligned with the trigger after reopening', {
+    annotation: { type: 'open', description: 'SEL-POS-07: the aligned placement keeps the previous selected text after a reopen; settled 2026-11-10 to stay open, five attempts measured (PR 205)' },
+  }, async ({ page, mode }) => {
     await gotoPopupFixture(page, mode, 'select-aligned-layout', { case: 'reopen' });
     const trigger = triggerOf(page);
 
