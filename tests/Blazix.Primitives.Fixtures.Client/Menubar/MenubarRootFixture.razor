@@ -9,7 +9,7 @@
     The `menubar-root` fixture (tests/browser/menubar.spec.ts, M5 track 8, issue 195): Menubar.test.tsx's
     ContainedTriggerMenubar (`setup=contained`, the default): File (Open, Save, a Share submenu with Email and Print),
     Edit (Copy, Paste) and View (Zoom In, Zoom Out, a Layout submenu with a radio group), each a MenuRoot with its own
-    trigger. `orientation=vertical` turns the bar. A "Before" button precedes the bar for Tab. The container records each
+    trigger. `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
 <FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -17,7 +17,7 @@
                   data-view-changes="@string.Join(' ', viewChanges)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-testid="before">Before</button>
-    <Menubar @ref="bar" Orientation="@orientation" style="max-width: 25vw; display: flex">
+    <Menubar @ref="bar" Orientation="@orientation" LoopFocus="@loopFocus" Disabled="@disabled" style="max-width: 25vw; display: flex">
         <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
             <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
             <MenuPortal>
@@ -90,6 +90,8 @@
     private MenuTrigger<NoPayload>? editTrigger;
     private MenuTrigger<NoPayload>? viewTrigger;
     private Orientation orientation = Orientation.Horizontal;
+    private bool loopFocus = true;
+    private bool disabled;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -102,8 +104,12 @@
         viewTrigger?.TwinsAttached ?? Task.CompletedTask,
     ];
 
-    protected override void OnInitialized() =>
+    protected override void OnInitialized()
+    {
         orientation = Query("orientation") == "vertical" ? Orientation.Vertical : Orientation.Horizontal;
+        loopFocus = QueryFlag("loopFocus") != false;
+        disabled = QueryFlag("disabled") == true;
+    }
 
     private static void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
         changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));

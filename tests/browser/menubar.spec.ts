@@ -168,6 +168,73 @@ test.describe('<Menubar />', () => {
       });
     });
 
+    test.describe('prop: loopFocus', () => {
+      test.describe('when loopFocus == true', () => {
+        test('should loop around to the first item after the last one', async ({ page, mode }) => {
+          await render(page, mode, { loopFocus: true });
+          const firstItem = page.getByTestId('file-trigger');
+          await firstItem.focus();
+          await page.keyboard.press('ArrowRight');
+          await page.keyboard.press('ArrowRight');
+          await expect(page.getByTestId('view-trigger')).toBeFocused();
+
+          await page.keyboard.press('ArrowRight');
+          await expect(firstItem).toBeFocused();
+        });
+
+        test('should loop around to the last item after the first one', async ({ page, mode }) => {
+          await render(page, mode, { loopFocus: true });
+          await page.getByTestId('file-trigger').focus();
+          await expect(page.getByTestId('file-trigger')).toBeFocused();
+
+          await page.keyboard.press('ArrowLeft');
+          await expect(page.getByTestId('view-trigger')).toBeFocused();
+        });
+      });
+
+      test.describe('when loopFocus == false', () => {
+        test('should stay on the last item when navigating beyond it', async ({ page, mode }) => {
+          await render(page, mode, { loopFocus: false });
+          await page.getByTestId('file-trigger').focus();
+          await page.keyboard.press('ArrowRight');
+          await expect(page.getByTestId('edit-trigger')).toBeFocused();
+          await page.keyboard.press('ArrowRight');
+          const lastItem = page.getByTestId('view-trigger');
+          await expect(lastItem).toBeFocused();
+
+          await page.keyboard.press('ArrowRight');
+          await expect(lastItem).toBeFocused();
+        });
+
+        test('should stay on the first item when navigating before it', async ({ page, mode }) => {
+          await render(page, mode, { loopFocus: false });
+          const firstItem = page.getByTestId('file-trigger');
+          await firstItem.focus();
+
+          await page.keyboard.press('ArrowLeft');
+          await expect(firstItem).toBeFocused();
+        });
+      });
+    });
+
+    test.describe('prop: disabled', () => {
+      test('disables child menus when menubar is disabled', async ({ page, mode }) => {
+        await render(page, mode, { disabled: true });
+        const fileTrigger = page.getByTestId('file-trigger');
+        await expect(fileTrigger).toHaveAttribute('disabled', '');
+
+        // Base UI tabs from the document; the fixture's controls precede the bar, so the Tab starts on "Before".
+        await page.getByTestId('before').focus();
+        await page.keyboard.press('Tab');
+        await expect(fileTrigger).not.toBeFocused();
+
+        // A disabled button takes no Playwright click; the real pointer presses it.
+        const box = (await fileTrigger.boundingBox())!;
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+      });
+    });
+
     test.describe('role', () => {
       test('sets role="menubar" on the root element', async ({ page, mode }) => {
         await render(page, mode);
