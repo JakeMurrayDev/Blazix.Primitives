@@ -490,6 +490,29 @@ function controlledPopup(trigger: Element): Element | null {
   return id ? trigger.ownerDocument.getElementById(id) : null;
 }
 
+// NavigationMenuTrigger.tsx:694-708: every Trigger's blur reads the Root's one `popupElement`. Until the Popup's handle
+// attaches (a round trip or two after the open's render on Server), it is the Popup the active Trigger's `aria-controls`
+// names (NAV-ARIA-02), whichever Trigger asks; an inactive Trigger names none (PR 217's run 42847434971).
+/**
+ * Finds the menu's Popup: the attached one, else the one the active Trigger names.
+ * @param menu The menu.
+ * @returns The Popup, or `null` while no Trigger is active or the Popup is not in the document.
+ */
+function sharedPopup(menu: MenuState): Element | null {
+  if (menu.popup !== null) {
+    return menu.popup;
+  }
+  for (const trigger of menu.triggers) {
+    if (trigger.isActive()) {
+      const popup = controlledPopup(trigger.element);
+      if (popup !== null) {
+        return popup;
+      }
+    }
+  }
+  return null;
+}
+
 function getMenu(root: HTMLElement): MenuState {
   const element = root as MenuElement;
   const existing = element[menuKey];
@@ -1103,11 +1126,11 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
 
   // NAV-FOC-10, KEY-13; NavigationMenuTrigger.tsx:694-708. A closed menu still gets the request, whose redundant close
   // only records the reason (NAV-EVT-05, EVT-06).
-  // The Popup is the one the active Trigger's `aria-controls` names (NAV-ARIA-02), which C# renders with the open; the
-  // Popup's own handle attaches a round trip or two later on Server, and Base UI reads the element at the commit. A Popup
-  // is always inside a Positioner (NAV-STR-11), so it stands for both of Base UI's checks.
+  // The Popup is the menu's, shared by every Trigger (sharedPopup): before its handle attaches, the one the active
+  // Trigger's `aria-controls` names, which C# renders with the open. A Popup is always inside a Positioner (NAV-STR-11),
+  // so it stands for both of Base UI's checks.
   const onFocusOut = (event: FocusEvent) => {
-    const popup = menu.popup ?? controlledPopup(element);
+    const popup = sharedPopup(menu);
     if (event.target !== element || popup === null) {
       return;
     }
@@ -1309,14 +1332,17 @@ function attachList(element: HTMLElement, menu: MenuState): TwinHandle {
 }
 
 // NAV-FOC-11: a Link outside the Popup closes the menu when its blur leaves it; C# attaches no handle to a Link inside
-// a Content, whose check never passes (§16 Q7).
+// a Content, whose check never passes (§16 Q7). NavigationMenuLink.tsx:49-63 reads the Root's Positioner and Popup; the
+// Popup is the menu's shared one (sharedPopup), and a Popup is always inside a Positioner (NAV-STR-11), so it stands for
+// both checks before their handles attach.
 function attachLink(element: HTMLElement, menu: MenuState, channel: TwinChannel): TwinHandle {
   let disposed = false;
   const onFocusOut = (event: FocusEvent) => {
-    if (event.target !== element || menu.positioner === null || menu.popup === null || menu.closeInFlight) {
+    const popup = sharedPopup(menu);
+    if (event.target !== element || popup === null || menu.closeInFlight) {
       return;
     }
-    if (isOutsideMenuEvent(menu, element, event.relatedTarget as Element | null)) {
+    if (isOutsideMenuEvent(menu, element, event.relatedTarget as Element | null, popup)) {
       menu.closeInFlight = true;
       channel.report(FOCUS_OUT_REPORT, { event: eventInfo(event) });
     }
