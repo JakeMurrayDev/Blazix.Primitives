@@ -44,6 +44,20 @@ public sealed class ComboboxAutofillTests : IDisposable
         Assert.Equal("cherry", Assert.Single(cut.Instance.ValueChanges).Value);
     }
 
+    // ComboboxRoot.test.tsx: object items with itemToStringLabel and itemToStringValue; an autofill with the value's form text
+    // selects the item. The port's collection derives the value (the code) and the label (the country).
+    [Fact(DisplayName = "should handle browser autofill with object values")]
+    [Trait("Requirement", "CMB-EVT-11")]
+    public async Task Should_handle_browser_autofill_with_object_values()
+    {
+        IReadOnlyList<string> items = ComboboxItems.Create<(string Code, string Country), string>([("US", "United States"), ("CA", "Canada")], item => item.Code, item => item.Country);
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = items });
+
+        await AutofillAsync(cut, "CA");
+
+        Assert.Equal("CA", Assert.Single(cut.Instance.ValueChanges).Value);
+    }
+
     [Fact(DisplayName = "should handle browser autofill with object values when autofill uses the label")]
     [Trait("Requirement", "CMB-EVT-11")]
     public async Task Matches_the_label_of_a_collection_item()

@@ -130,6 +130,29 @@ public sealed class ComboboxItemsTests : IDisposable
         Assert.Equal("None", Render(new() { ["Items"] = withNull }, withValue: true, placeholder: "Pick one").Find("[data-testid=value]").TextContent);
     }
 
+    // ComboboxValue.test.tsx: two items share a value; the first one's label wins (the collection reports the duplicate).
+    [Fact(DisplayName = "handles duplicate values in items array (uses first match)")]
+    [Trait("Requirement", "CMB-EDGE-08")]
+    public void Handles_duplicate_values_in_items_array()
+    {
+        IReadOnlyList<string> items = ComboboxItems.Create<Fruit, string>([new("test", "First Label"), new("test", "Second Label"), new("other", "Other")], fruit => fruit.Id!, fruit => fruit.Name);
+
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = items, ["DefaultValue"] = "test" }, withValue: true);
+
+        Assert.Equal("First Label", cut.Find("[data-testid=value]").TextContent);
+    }
+
+    [Fact(DisplayName = "handles null items in grouped structure")]
+    [Trait("Requirement", "CMB-EDGE-05")]
+    public void Handles_null_items_in_grouped_structure()
+    {
+        IReadOnlyList<ComboboxItemGroup<string>> groups = ComboboxItems.CreateGrouped<Fruit, string>([new("options", [new(null, "None selected"), new("option1", "Option 1")])], fruit => fruit.Id!, fruit => fruit.Name);
+
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["ItemGroups"] = groups }, withValue: true);
+
+        Assert.Equal("None selected", cut.Find("[data-testid=value]").TextContent);
+    }
+
     [Fact(DisplayName = "handles grouped items correctly")]
     [Trait("Requirement", "CMB-API-46")]
     public void Handles_grouped_items()
