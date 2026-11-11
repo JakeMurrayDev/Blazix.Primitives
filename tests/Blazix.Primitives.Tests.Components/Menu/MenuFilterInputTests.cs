@@ -57,5 +57,18 @@ public sealed class MenuFilterInputTests : BunitContext
         Assert.True(Input(cut).HasAttribute("disabled"));
     }
 
+    [Fact(DisplayName = "port: points aria-controls at the filter list's id, its own or generated")]
+    [Trait("Requirement", "MNU-API-62")]
+    [Trait("Requirement", "MNU-DOM-21")]
+    public void Points_aria_controls_at_the_list()
+    {
+        IRenderedComponent<MenuFilterInputHost> generated = Render<MenuFilterInputHost>();
+        generated.WaitForAssertion(() => Assert.Equal(generated.Find("[role=menu]").Id, Input(generated).GetAttribute("aria-controls")));
+        Assert.False(string.IsNullOrEmpty(generated.Find("[role=menu]").Id));
+
+        IRenderedComponent<MenuFilterInputHost> own = Render<MenuFilterInputHost>(p => p.Add(x => x.ListId, "action-list"));
+        own.WaitForAssertion(() => Assert.Equal("action-list", Input(own).GetAttribute("aria-controls")));
+    }
+
     private static IElement Input(IRenderedComponent<MenuFilterInputHost> cut) => cut.Find("input");
 }
