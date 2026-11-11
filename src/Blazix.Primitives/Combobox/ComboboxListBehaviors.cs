@@ -543,6 +543,15 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
 
     private string? id;
 
+    private string? partId;
+
+    private int? explicitIndex;
+
+    // The filtered membership the virtualized fallback index was resolved against, -1 before it was.
+    private int resolvedMembership = -1;
+
+    private IReadOnlyDictionary<string, object>? consumerAttributes;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxItemBehavior{TValue}"/> class.</summary>
@@ -609,6 +618,13 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         subscription.Select(static state => state.Disabled);
         subscription.Select(static state => state.SelectionMode);
 
+        // ComboboxItem.tsx:224-286: a virtualized item resolves its index from the filtered values, so it renders again when
+        // they change (the flag is stable for an item's lifetime).
+        if (store.State.Virtualized)
+        {
+            subscription.Select(static state => state.MembershipRevision);
+        }
+
         // Base UI's `isSelected` selector with the item's value as its argument: re-evaluated on a selection change and when
         // the value changes (the argument compares by value, so the owner alone would never re-evaluate).
         selected = subscription.Select(static (state, arg) => arg.Owner.EvaluateSelected(state.SelectionRevision, arg.Value, arg.NullItem), (Owner: this, Value: value, NullItem: NullItem));
@@ -640,7 +656,6 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         value = itemValue;
         this.valueSupplied = valueSupplied;
         disabledParameter = disabled;
-        id = itemId;
         if (valueChanged && selected is not null)
         {
             selected.Arg = (Owner: this, Value: itemValue, NullItem: NullItem);
@@ -651,16 +666,24 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         button.FocusableWhenDisabled = true;
         button.SetConsumerAttributes(consumerAttributes);
         clickHandlers.Set(consumerAttributes);
-        item!.SetRegistration(itemId, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(itemValue), index: index);
-        item.SetConsumerAttributes(Disabled ? null : consumerAttributes);
-        root.RegisterRenderedValue(item, itemValue, valueSupplied || ComboboxStore<TValue>.ValueAcceptsNull);
-        context.Set(Selected, index ?? -1);
+        partId = itemId;
+        explicitIndex = index;
+        this.consumerAttributes = consumerAttributes;
+        Register(root);
+        item!.SetConsumerAttributes(Disabled ? null : consumerAttributes);
     }
 
     /// <summary>Adds the item's attributes.</summary>
     /// <param name="attributes">The part's attributes.</param>
     public void AddPartAttributes(AttributeList attributes)
     {
+        // A filter change renders a virtualized item without a parameter set: its index follows the filtered values.
+        ComboboxStore<TValue> root = store!;
+        if (explicitIndex is null && root.State.Virtualized && resolvedMembership != root.State.MembershipRevision)
+        {
+            Register(root);
+        }
+
         button.AddAttributes(attributes, id, composite: true);
         attributes.Set("id", id);
         attributes.Set("role", isRow ? "gridcell" : "option");
@@ -747,6 +770,24 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         context.Set(Selected, context.Index);
         await button.AfterRenderAsync(true, element, id, composite: true);
         await item!.AfterRenderAsync(element);
+    }
+
+    // ComboboxItem.tsx:73-81: the index is the explicit one, else, under a virtualized root, the item's position among the
+    // filtered values, else the module's document order; an index of -1 leaves the item unregistered, with no id unless the
+    // consumer gave one, and the module's registry drops it.
+    private void Register(ComboboxStore<TValue> root)
+    {
+        int? index = explicitIndex;
+        if (index is null && root.State.Virtualized)
+        {
+            resolvedMembership = root.State.MembershipRevision;
+            index = root.FilteredIndexOf(value, NullItem);
+        }
+
+        id = index == -1 ? ComboboxParts.ConsumerId(consumerAttributes) : partId;
+        item!.SetRegistration(id, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(value), index: index);
+        root.RegisterRenderedValue(item, value, valueSupplied || ComboboxStore<TValue>.ValueAcceptsNull);
+        context.Set(Selected, index ?? -1);
     }
 
     // ComboboxItem.tsx:150-161 (commitSelection): with submitOnItemClick the selection is flushed, then the form submitted,

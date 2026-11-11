@@ -1033,8 +1033,38 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     public ItemSlot<TValue> RenderedValueOf(CompositeItemBehavior item) =>
         itemValues.TryGetValue(item, out TValue? value) ? new ItemSlot<TValue>(value, true) : new ItemSlot<TValue>(default!, false);
 
+    /// <summary>Finds an item's position among the filtered values, the index of a virtualized item that gives none.</summary>
+    /// <param name="value">The item's value.</param>
+    /// <param name="nullItem">Whether the item stands for <c>null</c>: it has no value, or a <see langword="null"/> one.</param>
+    /// <returns>The index, or -1 when the filtered values do not hold the item.</returns>
+    public int FilteredIndexOf(TValue value, bool nullItem)
+    {
+        // ComboboxItem.tsx:227-246 (ComboboxItemVirtualizedIndex): findItemIndex over flatFilteredValues.
+        if (!UsesCollection)
+        {
+            return -1;
+        }
+
+        ReadOnlySpan<ItemSlot<TValue>> slots = filteredSlots;
+        if (!nullItem)
+        {
+            return ItemEquality.FindItemIndex(slots, value, inputs.IsItemEqualToValue);
+        }
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i].Present && ValueNull.IsNull(slots[i].Value))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     // ComboboxItem.tsx:98-109 (useCompositeListItem's index): an item given an explicit index writes its value at that index,
-    // as the module's registry places it, so the registry has holes where an indexed item is not mounted.
+    // as the module's registry places it, so the registry has holes where an indexed item is not mounted; an unregistered item
+    // (a negative index, ComboboxItem.tsx:74) writes none.
     /// <summary>Records the values of the items that rendered, for a list without <c>Items</c>.</summary>
     /// <param name="order">The items, in the reported order; an item with an explicit index holds that position.</param>
     public void SetRenderedValues(IReadOnlyList<CompositeItemBehavior> order)
@@ -1052,7 +1082,12 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         renderedPositions.Clear();
         for (int i = 0; i < order.Count; i++)
         {
-            int position = order[i].Registration.Index is int explicitIndex && explicitIndex >= 0 ? explicitIndex : i;
+            if (order[i].Registration.Index is < 0)
+            {
+                continue;
+            }
+
+            int position = order[i].Registration.Index is int explicitIndex ? explicitIndex : i;
             renderedPositions[order[i]] = position;
             values[position] = RenderedValueOf(order[i]);
         }

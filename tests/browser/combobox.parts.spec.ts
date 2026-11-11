@@ -266,6 +266,56 @@ test.describe('<Combobox.Item />', () => {
     expect(prevented).toBe(true);
   });
 
+  // Virtualized items without an explicit `index` resolve it from the filtered values (CMB-API-22, issue 29): the fixture's list
+  // renders the filtered items through ItemContent, with `indexed` passing each one's index.
+  async function filterVirtualized(page: Page, mode: RenderMode, items: string, indexed: boolean, query: string, gone: string): Promise<Locator> {
+    await gotoParts(page, mode, { items, virtualized: true, ...(indexed ? { indexed: true } : {}) });
+    const field = page.getByTestId('input');
+    await field.click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await center(page.getByRole('listbox'));
+
+    await field.pressSequentially(query);
+    await expect(option(page, gone)).toHaveCount(0);
+    return field;
+  }
+
+  test.describe('virtualized without explicit index', () => {
+    test('selects the highlighted filtered item with the keyboard after filtering', async ({ page, mode }) => {
+      const field = await filterVirtualized(page, mode, 'one|two|three|four|five', false, 'f', 'one');
+      await expect(option(page, 'four')).toBeVisible();
+
+      await page.keyboard.press('ArrowDown');
+      await expect(option(page, 'four')).toHaveAttribute('data-highlighted', '');
+      await page.keyboard.press('Enter');
+
+      await expect(field).toHaveValue('four');
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+    });
+
+    test('selects the clicked filtered item after filtering', async ({ page, mode }) => {
+      const field = await filterVirtualized(page, mode, 'one|two|three|four|five', false, 'f', 'one');
+
+      await option(page, 'five').click();
+
+      await expect(field).toHaveValue('five');
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+    });
+  });
+
+  test.describe('virtualized with explicit index', () => {
+    test('selects the highlighted filtered item with the keyboard after filtering', async ({ page, mode }) => {
+      const field = await filterVirtualized(page, mode, 'one|two|three', true, 't', 'one');
+
+      await page.keyboard.press('ArrowDown');
+      await expect(option(page, 'two')).toHaveAttribute('data-highlighted', '');
+      await page.keyboard.press('Enter');
+
+      await expect(field).toHaveValue('two');
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+    });
+  });
+
   test.describe('prop: index', () => {
     test('updates the highlight on hover in a non-virtualized list', async ({ page, mode }) => {
       await gotoParts(page, mode, { items: 'apple|banana|cherry', static: true, rootItems: true, indexed: true, defaultOpen: true, autoHighlight: true });

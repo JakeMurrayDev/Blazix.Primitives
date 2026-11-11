@@ -278,7 +278,7 @@
 
         case "basic":
         default:
-            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Virtualized="@(QueryFlag("skipFirst") == true)">
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Virtualized="@(QueryFlag("skipFirst") == true || QueryFlag("virtualized") == true)">
                 @if (QueryFlag("noInput") != true)
                 {
                     <ComboboxInput @ref="input" data-testid="input" />
