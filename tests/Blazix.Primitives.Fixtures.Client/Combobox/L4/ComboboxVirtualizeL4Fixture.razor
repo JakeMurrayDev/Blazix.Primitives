@@ -1,0 +1,64 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-virtualize` fixture (M5 track 10, issue 29; ADR 14's ADR 16 item, design point 1 (a)): a virtualized root
+    over 1,000 items whose list is Blazor's `Virtualize` over the consumer's filtered items (passed back as `FilteredItems`),
+    each an Item without `Index`, so it takes its position among the filtered values (CMB-API-22). A keyboard highlight is
+    revealed by `ScrollToItemAsync`, driven by `OnItemHighlighted`; each reveal is recorded as `data-reveals`. The root is
+    named `fruit` inside a form, so its hidden input carries the form value.
+*@
+<FixtureContainer Name="combobox-virtualize" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    <form data-testid="form">
+        <ComboboxRoot TValue="string" @ref="root" Name="fruit" Items="@items" FilteredItems="@filtered" Virtualized="true"
+                      OnInputValueChange="Filter" OnItemHighlighted="Reveal" OnValueChange="RecordValueChange">
+            <ComboboxInput @ref="input" data-testid="input" />
+            <ComboboxPortal>
+                <ComboboxPositioner style="position: relative; z-index: 1">
+                    <ComboboxPopup data-testid="popup">
+                        <ComboboxList TValue="string" data-testid="list" style="max-height: 240px; overflow-y: auto">
+                            <Virtualize @ref="virtualize" Items="@filtered" ItemSize="24" OverscanCount="2" Context="value">
+                                <ComboboxItem TValue="string" @key="value" Value="@value" style="height: 24px">@value</ComboboxItem>
+                            </Virtualize>
+                        </ComboboxList>
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </ComboboxRoot>
+    </form>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] items = [.. Enumerable.Range(0, 1000).Select(i => "item " + i.ToString("D3", System.Globalization.CultureInfo.InvariantCulture))];
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private Virtualize<string>? virtualize;
+    private List<string> filtered = [.. items];
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    private void Filter(ValueChangeEventArgs<string> args)
+    {
+        string query = args.Value.Trim();
+        filtered = query.Length == 0 ? [.. items] : [.. items.Where(item => item.Contains(query, StringComparison.OrdinalIgnoreCase))];
+        RecordInputChange(args);
+    }
+
+    // Design point 1 (a): the consumer reveals a keyboard highlight through Virtualize, as Base UI's virtualized example scrolls
+    // its virtualizer to the highlighted index.
+    private async Task Reveal(ComboboxItemHighlightedEventArgs<string> args)
+    {
+        if (virtualize is null || args.Details.Index < 0 || args.Details.Reason != EventReason.Keyboard)
+        {
+            return;
+        }
+
+        await virtualize.ScrollToItemAsync(args.Details.Index);
+        Record("reveals", args.Details.Index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+}
