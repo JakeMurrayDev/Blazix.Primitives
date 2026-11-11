@@ -38,6 +38,23 @@ public sealed class MenubarMenuGapTests : BunitContext
         Assert.Contains(cut.Instance.Parent.Changes, change => change.Open);
     }
 
+    // MenuRoot.tsx:193, 516-568: the Root's list reads the store's parent, so a detached menu held by a bar trigger
+    // navigates as the bar's nested list (the contained case is the control).
+    [Theory(DisplayName = "port: a bar menu navigates as a nested list of the bar, detached or contained")]
+    [InlineData("initial-open")]
+    [InlineData("detached")]
+    [Trait("Requirement", "MBR-STR-04")]
+    public void A_bar_menu_navigates_as_a_nested_list_of_the_bar(string setup)
+    {
+        IRenderedComponent<MenubarMenuGapHost> cut = Render<MenubarMenuGapHost>(p => p.Add(x => x.Case, setup));
+
+        cut.WaitForAssertion(
+            () => Assert.Contains(
+                JSInterop.Invocations.SelectMany(invocation => invocation.Arguments.OfType<string>()),
+                argument => argument.Contains("\"nested\":true", StringComparison.Ordinal) && argument.Contains("\"parentOrientation\":\"horizontal\"", StringComparison.Ordinal)),
+            TimeSpan.FromSeconds(2));
+    }
+
     // Design point 1 (a): Base UI arms on every closed trigger's press and resets the arm for a menu that is not open only
     // when the trigger has no parent (MenuTrigger.tsx:120-124, 240-256).
     [Fact(DisplayName = "port: a bar trigger arms the release and keeps the arm when its menu closes")]
