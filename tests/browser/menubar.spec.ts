@@ -408,7 +408,7 @@ test.describe('<Menubar />', () => {
     test('port: a focus-opened bar menu closes when its trigger blurs to an element outside it', async ({ page, mode }) => {
       // MBR-EVT-03 (FLT-FOC-04; MNU-FOC-16's bar clause). A bar menu takes its initial focus (MenuPopup.tsx:84-85), so the
       // title focuses the trigger again before the blur; the open is the focus switch of the touch titles above. The close's
-      // reason differs by mode, an open question (design point 7 of track 8): the focus manager's focusout on the trigger
+      // reason differs by mode, open by ID (design point 7 (a) of track 8, settled 2026-11-11): the focus manager's focusout on the trigger
       // closes with `focus-out` in a microtask (FloatingFocusManager.tsx:446-566, :587), before the trigger's 0 ms blur
       // timer's `trigger-focus` (useFocus.ts:185-233), so Base UI likely records `focus-out`, as the port does on Server;
       // WebAssembly records `trigger-focus`. The title asserts the close.
@@ -445,9 +445,9 @@ test.describe('<Menubar />', () => {
       // BTN-EDGE-02's Menubar example (UBT-STA-01, UBT-DOM-05, UBT-KEY-12): Base UI's useButton reads the composite root's
       // context (useButton.ts:25-26). Red on both modes (2026-11-11): the port's Button passes `composite: false`
       // (Button/Button.cs, "composite inference is M2's composite module"), so it renders tabindex="0" under any composite
-      // root. Open by ID, a Button-family gap, not the bar's.
-      test.info().annotations.push({ type: 'open', description: 'BTN-EDGE-02: the Button never infers composite mode under a composite root' });
-      test.fixme(true, 'BTN-EDGE-02: the Button never infers composite mode under a composite root');
+      // root. Open by ID, a Button-family gap, not the bar's: issue 238.
+      test.info().annotations.push({ type: 'open', description: 'BTN-EDGE-02 (issue 238): the Button never infers composite mode under a composite root' });
+      test.fixme(true, 'BTN-EDGE-02 (issue 238): the Button never infers composite mode under a composite root');
       const fixture = await render(page, mode, { case: 'button' });
       const button = page.getByTestId('bar-button');
       await expect(button).not.toHaveAttribute('tabindex');
