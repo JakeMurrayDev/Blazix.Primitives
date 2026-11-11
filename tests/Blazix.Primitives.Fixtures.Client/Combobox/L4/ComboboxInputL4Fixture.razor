@@ -140,12 +140,13 @@
         {
             case "controlled-input":
                 // ComboboxInput.test.tsx "preserves caret position when controlled and inserting in the middle": the input
-                // value is controlled, and the change callback writes it back.
+                // value is controlled, and the change callback writes it back before it records (the record renders the
+                // fixture, and a render inside the handler that still carries the previous text is the consumer's answer).
                 rootParameters["InputValue"] = string.Empty;
                 rootParameters["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args =>
                 {
-                    RecordInputChange(args);
                     rootParameters["InputValue"] = args.Value;
+                    RecordInputChange(args);
                 });
                 break;
             case "readonly-type":
