@@ -244,6 +244,11 @@ internal sealed class MenuFilterRootContext
     private bool dirty;
     private CultureInfo? defaultCulture;
     private Func<string, string, bool>? defaultMatch;
+    private readonly MenuSubscription rootSubscription;
+    private readonly MenuSelection<bool> open;
+    private readonly MenuSelection<bool> mounted;
+    private bool wasOpen;
+    private string? closeQuery;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
     /// <param name="provider">The provider the root consumed.</param>
@@ -253,6 +258,10 @@ internal sealed class MenuFilterRootContext
         this.provider = provider;
         this.root = root;
         inputText = provider.Value;
+        rootSubscription = root.Subscribe(OnRootChanged);
+        open = rootSubscription.Select(MenuSelectors.Open);
+        mounted = rootSubscription.Select(MenuSelectors.Mounted);
+        wasOpen = open.Value;
     }
 
     // MNU-STA-16, STA-23: the match the provider sets, or the collator's contains under its culture (MNU-API-54, API-56).
@@ -278,8 +287,10 @@ internal sealed class MenuFilterRootContext
     /// <summary>Gets the filter engine.</summary>
     public MenuFilterEngine Engine { get; } = new();
 
-    /// <summary>Gets the committed query.</summary>
-    public string Query => provider.Value;
+    // MNU-EVT-18 (useFilterDropdownCloseQuery.ts:19-38): while the popup animates out, the menu keeps showing the query it
+    // closed with, after the reset committed ''.
+    /// <summary>Gets the query the menu shows: the committed query, or the closing query until the menu reopens or unmounts.</summary>
+    public string Query => !open.Value && closeQuery is not null ? closeQuery : provider.Value;
 
     /// <summary>
     /// Gets the count of times the committed query was sent for the input to write: it moves only when the query differs
@@ -498,6 +509,39 @@ internal sealed class MenuFilterRootContext
         Flush();
     }
 
+    // MNU-EVT-18 (useFilterDropdownCloseQuery.ts:28-35): a close with a non-empty query requests '' with popup-close once
+    // the close has committed; reopening or unmounting drops the closing query, which writes the reset into a kept input.
+    private void OnRootChanged()
+    {
+        bool isOpen = open.Value;
+        bool closed = wasOpen && !isOpen;
+        wasOpen = isOpen;
+        if (closed && provider.Value.Length > 0)
+        {
+            closeQuery = provider.Value;
+            _ = ResetOnCloseAsync();
+        }
+        else if ((isOpen || !mounted.Value) && closeQuery is not null)
+        {
+            closeQuery = null;
+            Track();
+            Flush();
+            for (int i = 0; i < partSubscribers.Count; i++)
+            {
+                partSubscribers[i]();
+            }
+        }
+    }
+
+    private async Task ResetOnCloseAsync()
+    {
+        // After the close's own commit, not inside the store's notification.
+        await Task.Yield();
+        await provider.RequestValueAsync("", EventReason.PopupClose, null);
+        Track();
+        Flush();
+    }
+
     private bool Matches(MenuFilterItem item)
     {
         string query = Query.Trim();
@@ -506,9 +550,10 @@ internal sealed class MenuFilterRootContext
 
     private void Track()
     {
-        if (!string.Equals(provider.Value, inputText, StringComparison.Ordinal))
+        string query = Query;
+        if (!string.Equals(query, inputText, StringComparison.Ordinal))
         {
-            inputText = provider.Value;
+            inputText = query;
             QueryRevision++;
         }
     }
