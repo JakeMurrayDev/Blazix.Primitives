@@ -90,6 +90,72 @@ test.describe('<Menubar />', () => {
         await expect(page.getByTestId('edit-trigger')).toBeFocused();
       });
 
+      test('should open the menu with Space key', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').focus();
+
+        await page.keyboard.press(' ');
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+      });
+
+      test('should navigate within the menu using arrow keys', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').focus();
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await expect(page.getByTestId('file-item-1')).toBeFocused();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('file-item-2')).toBeFocused();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('share-trigger')).toBeFocused();
+      });
+
+      test('should open the submenu with right arrow key', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('file-item-1')).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('file-item-2')).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('share-trigger')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('share-menu')).toBeVisible();
+        await expect(page.getByTestId('share-item-1')).toBeFocused();
+      });
+
+      test('should close the menu with Escape key', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+      });
+
+      test('should close submenu with left arrow key and return focus to submenu trigger', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('file-item-1')).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('file-item-2')).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        const shareTrigger = page.getByTestId('share-trigger');
+        await expect(shareTrigger).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('share-item-1')).toBeFocused();
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(page.getByTestId('share-menu')).toHaveCount(0);
+        await expect(shareTrigger).toBeFocused();
+      });
+
       test('moves focus to the first and last triggers with Home and End', async ({ page, mode }) => {
         await render(page, mode);
         await page.getByTestId('file-trigger').focus();
