@@ -264,6 +264,9 @@ test.describe('<Combobox.Root />', () => {
         await fire(cherry, 'mousemove', { pointerType: 'mouse' });
         await expect(cherry).toHaveAttribute('data-highlighted', '');
         await waitFrames(page);
+        // On Server the hover's highlight reaches C# a round trip after the attribute shows; Base UI's `mockClear` comes after its
+        // report, so the title waits for it before taking the baseline.
+        await settle(fixture);
 
         await clearScrollCalls(page);
         const before = (await recorded(fixture, 'data-highlights')).length;
