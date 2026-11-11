@@ -64,8 +64,7 @@ public sealed class ComboboxChips : PartBase<EmptyState>
     protected override void OnParametersSet()
     {
         ComboboxChipsBehavior chips = behavior!;
-        chips.Rtl = DirectionProviderContext.Read(Direction) == TextDirection.Rtl;
-        chips.Apply(Id, AdditionalAttributes);
+        chips.Apply(Id, AdditionalAttributes, Direction);
         RenderFragment? content = ChildContent;
         ChildContent = builder => chips.BuildContent(builder, content);
     }

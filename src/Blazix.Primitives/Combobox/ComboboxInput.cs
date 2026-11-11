@@ -185,9 +185,7 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-        behavior!.Rtl = DirectionProviderContext.Read(Direction) == TextDirection.Rtl;
-        behavior.Apply(Disabled, consumerId, GeneratedId, AdditionalAttributes);
+        behavior!.Apply(Disabled, GeneratedId, AdditionalAttributes, Direction);
     }
 
     /// <inheritdoc />

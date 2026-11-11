@@ -188,8 +188,7 @@ public sealed class ComboboxTrigger : PartBase<ComboboxTriggerState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-        behavior!.Apply(NativeButton, Disabled, consumerId, GeneratedId, AdditionalAttributes);
+        behavior!.Apply(NativeButton, Disabled, GeneratedId, AdditionalAttributes);
     }
 
     /// <inheritdoc />

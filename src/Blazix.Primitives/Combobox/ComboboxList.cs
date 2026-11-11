@@ -106,14 +106,7 @@ public sealed class ComboboxList<TValue> : PartBase<ComboboxListState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        string? consumerId = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-        behavior!.Apply(consumerId, AdditionalAttributes);
-        if (Root is not null)
-        {
-            Root.ListInsideOtherPopup = FloatingNode is not null && !ReferenceEquals(FloatingNode, Root);
-        }
-
-        ChildContent = behavior.Cascade(ItemContent is not null || GroupContent is not null ? template : ChildContent);
+        ChildContent = behavior!.Apply(AdditionalAttributes, FloatingNode, ChildContent, template!, ItemContent is not null || GroupContent is not null);
     }
 
     /// <inheritdoc />

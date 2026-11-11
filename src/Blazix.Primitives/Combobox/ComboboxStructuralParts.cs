@@ -36,9 +36,7 @@ public sealed class ComboboxIcon : PartBase<EmptyState>
 /// <summary>Represents a row of a combobox's grid, Base UI's <c>Combobox.Row</c>, rendered as a <c>div</c>.</summary>
 public sealed class ComboboxRow : PartBase<EmptyState>
 {
-    private RenderFragment? cascadedContent;
-
-    private RenderFragment? cascade;
+    private readonly ComboboxRowBehavior behavior = new();
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -55,24 +53,7 @@ public sealed class ComboboxRow : PartBase<EmptyState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet()
-    {
-        if (cascade is null || !ReferenceEquals(cascadedContent, ChildContent))
-        {
-            cascadedContent = ChildContent;
-            RenderFragment? inner = ChildContent;
-            cascade = builder =>
-            {
-                builder.OpenComponent<CascadingValue<ComboboxRowContext>>(0);
-                builder.AddComponentParameter(1, nameof(CascadingValue<ComboboxRowContext>.Value), ComboboxRowContext.Instance);
-                builder.AddComponentParameter(2, nameof(CascadingValue<ComboboxRowContext>.IsFixed), true);
-                builder.AddComponentParameter(3, nameof(CascadingValue<ComboboxRowContext>.ChildContent), inner);
-                builder.CloseComponent();
-            };
-        }
-
-        ChildContent = cascade;
-    }
+    protected override void OnParametersSet() => ChildContent = behavior.Cascade(ChildContent);
 
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes) => ComboboxStaticAttributes.WriteRow(attributes);

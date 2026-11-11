@@ -3,6 +3,7 @@ using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Blazix.Primitives;
 
@@ -471,6 +472,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private string? consumerId;
 
+    private Action? positionerChanged;
+
     private bool published;
 
     private string? id;
@@ -511,6 +514,11 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         }
 
         disposed = true;
+        if (positionerChanged is not null)
+        {
+            positioner?.RemoveListener(positionerChanged);
+        }
+
         boundaryPart?.Dispose();
         store?.SetElementIds(static ids => ids with { Popup = null, EndDismiss = null });
         Task transitionsDisposal = transitions?.DisposeAsync().AsTask() ?? Task.CompletedTask;
@@ -523,10 +531,13 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     /// <param name="positionerContext">The cascaded positioner context, or <see langword="null"/>.</param>
     /// <param name="portalContext">The cascaded portal context, or <see langword="null"/>.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    public void Subscribe(ComboboxStore? cascaded, PositionerContext? positionerContext, PopupPortalContext? portalContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe)
+    /// <param name="onPositionerChanged">Called when the positioner's mirrored placement changed (CMB-DOM-12).</param>
+    public void Subscribe(ComboboxStore? cascaded, PositionerContext? positionerContext, PopupPortalContext? portalContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe, Action onPositionerChanged)
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         positioner = positionerContext ?? throw ComboboxParts.MissingPositioner(services.Family);
+        positionerChanged = onPositionerChanged;
+        positioner.AddListener(onPositionerChanged);
         portal = portalContext;
         focus.Portal = portalContext;
         SelectorSubscription<ComboboxStoreState> subscription = subscribe(store);
@@ -549,14 +560,19 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     /// <param name="initialResolver">The part's <c>InitialFocusResolver</c>.</param>
     /// <param name="final">The part's <c>FinalFocus</c>.</param>
     /// <param name="finalResolver">The part's <c>FinalFocusResolver</c>.</param>
-    /// <param name="consumer">The consumer's id, or <see langword="null"/>.</param>
-    public void Apply(FocusTargetValue? initial, Func<InteractionType, FocusTargetValue?>? initialResolver, FocusTargetValue? final, Func<InteractionType, FocusTargetValue?>? finalResolver, string? consumer)
+    /// <param name="render">The part's substitute element, or <see langword="null"/>.</param>
+    /// <param name="consumerAttributes">The consumer's attributes, for its <c>id</c>.</param>
+    public void Apply(FocusTargetValue? initial, Func<InteractionType, FocusTargetValue?>? initialResolver, FocusTargetValue? final, Func<InteractionType, FocusTargetValue?>? finalResolver, RenderFragment? render, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
         initialFocus = initial;
         initialFocusResolver = initialResolver;
         finalFocus = final;
         finalFocusResolver = finalResolver;
-        consumerId = consumer;
+
+        // CMB-DOM-24 (ComboboxPopup.tsx:56-62): the store's popup id is the rendered element's, so a substitute element's own
+        // id wins over the consumer's (RND-DOM-32 precedence (1)). A substitute callback is opaque to C#: its id is not read.
+        string? consumer = consumerAttributes is not null && consumerAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
+        consumerId = render is not null && SubstituteElementId(render) is { Length: > 0 } own ? own : consumer;
         Resolve();
         focus.SetInputs(FocusInputs());
     }
@@ -620,6 +636,53 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
         await focusSync;
         await Store.AtBatchBoundaryAsync();
+    }
+
+    // The id attribute of a substitute element's root: the first element frame's own attributes, or the start tag of a markup
+    // block Razor folded (as the render pipeline reads them, ADR 02 decision 1).
+    private static string? SubstituteElementId(RenderFragment render)
+    {
+        using RenderTreeBuilder builder = new();
+        render(builder);
+#pragma warning disable BL0006 // The frames are read through the public GetFrames(), as the render pipeline does (ADR 02 decision 1).
+        ArrayRange<RenderTreeFrame> frames = builder.GetFrames();
+        for (int i = 0; i < frames.Count; i++)
+        {
+            RenderTreeFrame frame = frames.Array[i];
+            if (frame.FrameType == RenderTreeFrameType.Element)
+            {
+                for (int j = i + 1; j < frames.Count && frames.Array[j].FrameType == RenderTreeFrameType.Attribute; j++)
+                {
+                    if (string.Equals(frames.Array[j].AttributeName, "id", StringComparison.Ordinal))
+                    {
+                        return frames.Array[j].AttributeValue as string;
+                    }
+                }
+
+                return null;
+            }
+
+            if (frame.FrameType == RenderTreeFrameType.Markup)
+            {
+                if (!MarkupRootParser.TryParse(frame.MarkupContent, out MarkupRootParser.Root root, out _))
+                {
+                    return null;
+                }
+
+                foreach (KeyValuePair<string, string> attribute in root.Attributes)
+                {
+                    if (string.Equals(attribute.Key, "id", StringComparison.Ordinal))
+                    {
+                        return attribute.Value;
+                    }
+                }
+
+                return null;
+            }
+        }
+#pragma warning restore BL0006
+
+        return null;
     }
 
     // CMB-DOM-24 (ComboboxPopup.tsx:65, root/utils/index.ts:13-15, derived at every render): the consumer's id, else

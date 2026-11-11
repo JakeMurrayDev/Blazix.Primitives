@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Blazix.Primitives.Utilities;
 
 namespace Blazix.Primitives;
@@ -166,4 +167,35 @@ internal sealed class ComboboxRowContext
 {
     /// <summary>Gets the one instance a row cascades.</summary>
     public static ComboboxRowContext Instance { get; } = new();
+}
+
+// CMB §3.23 (ComboboxRow.tsx): a row cascades its context, so its items render as gridcells. The behaviour is the row's whole
+// logic, so a shell over it (Autocomplete's Row) declares only its parameters (ADR 08 Amendments 2026-11-03 (3)).
+/// <summary>The behaviour of a combobox row: the cascade that makes its items gridcells, kept while the content is unchanged.</summary>
+internal sealed class ComboboxRowBehavior
+{
+    private RenderFragment? cascadedContent;
+
+    private RenderFragment? cascade;
+
+    /// <summary>Wraps the row's content in its context's cascade.</summary>
+    /// <param name="content">The part's <c>ChildContent</c>.</param>
+    /// <returns>The cascade, the same instance while <paramref name="content"/> is.</returns>
+    public RenderFragment Cascade(RenderFragment? content)
+    {
+        if (cascade is null || !ReferenceEquals(cascadedContent, content))
+        {
+            cascadedContent = content;
+            cascade = builder =>
+            {
+                builder.OpenComponent<CascadingValue<ComboboxRowContext>>(0);
+                builder.AddComponentParameter(1, nameof(CascadingValue<ComboboxRowContext>.Value), ComboboxRowContext.Instance);
+                builder.AddComponentParameter(2, nameof(CascadingValue<ComboboxRowContext>.IsFixed), true);
+                builder.AddComponentParameter(3, nameof(CascadingValue<ComboboxRowContext>.ChildContent), content);
+                builder.CloseComponent();
+            };
+        }
+
+        return cascade;
+    }
 }

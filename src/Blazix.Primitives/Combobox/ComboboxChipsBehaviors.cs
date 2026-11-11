@@ -55,8 +55,8 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
     /// <summary>Gets the consumer's <c>onmousedown</c> veto of the press.</summary>
     public ComboboxPressVeto Press => press;
 
-    /// <summary>Gets or sets a value indicating whether the reading direction is right to left, for the chip keys.</summary>
-    public bool Rtl { get; set; }
+    /// <summary>Gets a value indicating whether the reading direction is right to left, for the chip keys.</summary>
+    public bool Rtl { get; private set; }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -107,11 +107,13 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         }));
     }
 
-    /// <summary>Applies the id the part renders and publishes it.</summary>
+    /// <summary>Applies the id the part renders and publishes it, and the reading direction.</summary>
     /// <param name="id">The consumer's id or a generated one.</param>
     /// <param name="consumerAttributes">The consumer's attributes, for the declined <c>onmousedown</c>.</param>
-    public void Apply(string? id, IReadOnlyDictionary<string, object>? consumerAttributes)
+    /// <param name="direction">The cascaded direction provider, or <see langword="null"/>.</param>
+    public void Apply(string? id, IReadOnlyDictionary<string, object>? consumerAttributes, DirectionProviderContext? direction)
     {
+        Rtl = ComboboxParts.IsRtl(direction);
         press.Set(consumerAttributes);
         this.id = id;
         string? own = id;

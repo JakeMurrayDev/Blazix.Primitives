@@ -148,13 +148,12 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     /// <summary>Applies the part's parameters.</summary>
     /// <param name="nativeButton">The part's <c>NativeButton</c>.</param>
     /// <param name="disabled">The part's <c>Disabled</c>.</param>
-    /// <param name="consumerId">The consumer's id, or <see langword="null"/>.</param>
     /// <param name="generatedId">The part's generated id, used outside the popup when the consumer gave none.</param>
-    /// <param name="consumerAttributes">The consumer's attributes.</param>
-    public void Apply(bool nativeButton, bool disabled, string? consumerId, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
+    /// <param name="consumerAttributes">The consumer's attributes, for its <c>id</c> and the declined handlers.</param>
+    public void Apply(bool nativeButton, bool disabled, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
         disabledParameter = disabled;
-        this.consumerId = consumerId;
+        consumerId = ComboboxParts.ConsumerId(consumerAttributes);
         this.generatedId = generatedId;
         button.Native = nativeButton;
         button.FocusableWhenDisabled = null;

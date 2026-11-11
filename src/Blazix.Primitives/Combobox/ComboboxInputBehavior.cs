@@ -110,8 +110,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <summary>Gets the field's state the input projects (the default state inside the popup).</summary>
     public FieldStateSnapshot Field => hasPositionerParent || fieldScope is null ? FieldStateSnapshot.Default with { Disabled = Disabled } : fieldScope.State with { Disabled = Disabled };
 
-    /// <summary>Gets or sets a value indicating whether the reading direction is right to left.</summary>
-    public bool Rtl { get; set; }
+    /// <summary>Gets a value indicating whether the reading direction is right to left.</summary>
+    public bool Rtl { get; private set; }
 
     /// <summary>Gets the id the input renders.</summary>
     public string? Id => id;
@@ -194,13 +194,14 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     /// <summary>Applies the part's parameters.</summary>
     /// <param name="disabled">The part's <c>Disabled</c>.</param>
-    /// <param name="consumerId">The consumer's id, or <see langword="null"/>.</param>
     /// <param name="generatedId">The part's generated id, used inside the popup.</param>
-    /// <param name="consumerAttributes">The consumer's attributes, for the declined handlers.</param>
-    public void Apply(bool disabled, string? consumerId, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
+    /// <param name="consumerAttributes">The consumer's attributes, for its <c>id</c> and the declined handlers.</param>
+    /// <param name="direction">The cascaded direction provider, or <see langword="null"/>.</param>
+    public void Apply(bool disabled, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes, DirectionProviderContext? direction)
     {
         disabledParameter = disabled;
-        this.consumerId = consumerId;
+        Rtl = ComboboxParts.IsRtl(direction);
+        consumerId = ComboboxParts.ConsumerId(consumerAttributes);
         this.generatedId = generatedId;
         consumerKeyDown = default;
         if (consumerAttributes is not null)

@@ -124,19 +124,29 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         twin.SelectionEventReported += root.SetSelectionEvent;
     }
 
-    /// <summary>Applies the id the part renders and the consumer's attributes.</summary>
-    /// <param name="consumerId">The consumer's id, or <see langword="null"/> for the floating id.</param>
-    /// <param name="consumerAttributes">The consumer's attributes.</param>
-    public void Apply(string? consumerId, IReadOnlyDictionary<string, object>? consumerAttributes)
+    /// <summary>Applies the id the part renders (the consumer's, else the floating id), the consumer's attributes and the content.</summary>
+    /// <param name="consumerAttributes">The consumer's attributes, for its <c>id</c>.</param>
+    /// <param name="floatingNode">The nearest cascaded floating node, or <see langword="null"/>.</param>
+    /// <param name="childContent">The part's <c>ChildContent</c>.</param>
+    /// <param name="template">The part's template fragment, which renders <c>ItemContent</c> or <c>GroupContent</c>.</param>
+    /// <param name="hasTemplate">Whether the consumer gave <c>ItemContent</c> or <c>GroupContent</c>.</param>
+    /// <returns>The content the part renders: the template or the children, inside the list's cascade.</returns>
+    public RenderFragment Apply(IReadOnlyDictionary<string, object>? consumerAttributes, IFloatingNodeContext? floatingNode, RenderFragment? childContent, RenderFragment template, bool hasTemplate)
     {
         ComboboxStore<TValue> root = Store;
 
         // CMB-DOM-08 (ComboboxList.tsx:94): the floating id, which the input's aria-controls names.
+        string? consumerId = consumerAttributes is not null && consumerAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
         id = consumerId ?? root.Lifecycle.FloatingId;
         string? own = id;
         root.SetElementIds(ids => ids with { List = own });
         composite.ReportItems = !root.State.HasItems;
         composite.SetConsumerAttributes(consumerAttributes);
+
+        // CMB-STA-26's dated note: another popup's floating node between the root and the list (a Dialog's, a Popover's)
+        // stands for Base UI's closest `[role="dialog"]`.
+        root.ListInsideOtherPopup = floatingNode is not null && !ReferenceEquals(floatingNode, root);
+        return Cascade(hasTemplate ? template : childContent);
     }
 
     /// <summary>Adds the list's attributes.</summary>
