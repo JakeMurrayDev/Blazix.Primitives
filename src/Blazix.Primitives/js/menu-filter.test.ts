@@ -231,6 +231,20 @@ describe('the List handle', () => {
     expect(fake.reported<Texts>('OnTexts')[1]).toEqual({ ids: ['b'], texts: ['Duplicate'] });
   });
 
+  // MNU-PTR-20 (useMenuItemCommonProps.ts:12-14, 84): under virtual focus an item's mousedown keeps focus on the input.
+  it('port: prevents the mousedown default on an item, and leaves the list background alone', () => {
+    const { list } = renderList({ a: 'Rename', b: 'Copy' }, []);
+    list.querySelectorAll<HTMLElement>('[id]').forEach((element) => element.setAttribute('role', 'menuitem'));
+
+    const onItem = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    list.querySelector('#a span')!.dispatchEvent(onItem);
+    const onList = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    list.dispatchEvent(onList);
+
+    expect(onItem.defaultPrevented).toBe(true);
+    expect(onList.defaultPrevented).toBe(false);
+  });
+
   it('port: reports a newly requested item on update and skips an id the list does not render', () => {
     const { list, fake, update } = renderList({ a: 'Rename' }, ['a']);
     const added = document.createElement('div');
