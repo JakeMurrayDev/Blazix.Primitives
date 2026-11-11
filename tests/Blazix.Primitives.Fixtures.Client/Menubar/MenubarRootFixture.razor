@@ -9,14 +9,44 @@
     The `menubar-root` fixture (tests/browser/menubar.spec.ts, M5 track 8, issue 195): Menubar.test.tsx's
     ContainedTriggerMenubar (`setup=contained`, the default): File (Open, Save, a Share submenu with Email and Print),
     Edit (Copy, Paste) and View (Zoom In, Zoom Out, a Layout submenu with a radio group), each a MenuRoot with its own
-    trigger. `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
+    trigger. `case=first-disabled`: a bar whose File trigger is disabled, then Edit. `case=disabled-open`: a disabled bar
+    whose File menu is held open by `Open`, its item recording its clicks (`data-item-clicks`). `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
 <FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-file-changes="@string.Join(' ', fileChanges)" data-edit-changes="@string.Join(' ', editChanges)"
-                  data-view-changes="@string.Join(' ', viewChanges)">
+                  data-view-changes="@string.Join(' ', viewChanges)" data-item-clicks="@string.Join(' ', itemClicks)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-testid="before">Before</button>
+    @switch (Query("case"))
+    {
+        case "first-disabled":
+            <Menubar @ref="bar" style="display: flex">
+                <MenuRoot TPayload="NoPayload" @ref="file">
+                    <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" Disabled="true" data-testid="file-trigger">File</MenuTrigger>
+                    <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Open</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                </MenuRoot>
+                <MenuRoot TPayload="NoPayload" @ref="edit">
+                    <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
+                    <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Copy</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
+        case "disabled-open":
+            <Menubar @ref="bar" Disabled="true">
+                <MenuRoot TPayload="NoPayload" @ref="file" Open="true">
+                    <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner>
+                            <MenuPopup>
+                                <MenuItem data-testid="file-item" @onclick="@(() => itemClicks.Add("Open"))">Open</MenuItem>
+                            </MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
+        default:
     <DirectionProvider Direction="@direction">
     <Menubar @ref="bar" Orientation="@orientation" LoopFocus="@loopFocus" Disabled="@disabled" style="max-width: 25vw; display: flex">
         <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
@@ -78,12 +108,15 @@
         </MenuRoot>
     </Menubar>
     </DirectionProvider>
+            break;
+    }
 </FixtureContainer>
 
 @code {
     private readonly List<string> fileChanges = [];
     private readonly List<string> editChanges = [];
     private readonly List<string> viewChanges = [];
+    private readonly List<string> itemClicks = [];
     private Menubar? bar;
     private MenuRoot<NoPayload>? file;
     private MenuRoot<NoPayload>? edit;

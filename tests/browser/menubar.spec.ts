@@ -19,6 +19,47 @@ async function render(page: Page, mode: RenderMode, options: PopupFixtureOptions
 }
 
 test.describe('<Menubar />', () => {
+  test('renders contained top-level portal ownership as an allowed menubar child', async ({ page, mode }) => {
+    await render(page, mode);
+    await page.getByTestId('file-trigger').click();
+    const fileMenu = page.getByTestId('file-menu');
+    await expect(fileMenu).toBeVisible();
+
+    const portalId = await fileMenu.evaluate((element) => element.closest('[data-base-ui-portal]')?.id ?? '');
+    const owner = page.getByRole('menubar').locator('span[aria-owns]');
+    expect(portalId).not.toBe('');
+    await expect(owner).toHaveAttribute('role', 'group');
+    await expect(owner).not.toHaveAttribute('aria-hidden');
+    await expect(owner).toHaveAttribute('aria-owns', portalId);
+  });
+
+  test.describe('disabled state', () => {
+    test('keeps the menubar reachable when the first trigger is disabled', async ({ page, mode }) => {
+      await render(page, mode, { case: 'first-disabled' });
+      const fileTrigger = page.getByTestId('file-trigger');
+      const editTrigger = page.getByTestId('edit-trigger');
+      await expect(fileTrigger).toHaveAttribute('disabled', '');
+      await expect(fileTrigger).toHaveAttribute('tabindex', '-1');
+      await expect(editTrigger).toHaveAttribute('tabindex', '0');
+
+      // Base UI tabs from the document; the fixture's controls precede the bar, so the Tab starts on "Before".
+      await page.getByTestId('before').focus();
+      await page.keyboard.press('Tab');
+      await expect(editTrigger).toBeFocused();
+    });
+
+    test('disables menu items while the menubar is disabled', async ({ page, mode }) => {
+      const fixture = await render(page, mode, { case: 'disabled-open' });
+      const item = page.getByTestId('file-item');
+      await expect(item).toHaveAttribute('aria-disabled', 'true');
+
+      const box = (await item.boundingBox())!;
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-item-clicks', '');
+    });
+  });
+
   test.describe('when using contained triggers', () => {
     test.describe('click interactions', () => {
       test('should open the menu after clicking on its trigger and close it when clicking again', async ({ page, mode }) => {
@@ -58,6 +99,81 @@ test.describe('<Menubar />', () => {
         await expect(page.getByTestId('view-menu')).toBeVisible();
         await expect(page.getByTestId('edit-menu')).toHaveCount(0);
       });
+    });
+
+    test.describe('hover behavior, nested', () => {
+      test('should open nested submenus on hover when parent menu is open', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').click();
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+
+        await moveTo(page, page.getByTestId('share-trigger'));
+        await expect(page.getByTestId('share-menu')).toBeVisible();
+      });
+
+      test('should open another menu on hover when a nested submenu is open', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').click();
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+        await moveTo(page, page.getByTestId('share-trigger'));
+        await expect(page.getByTestId('share-menu')).toBeVisible();
+        await moveTo(page, page.getByTestId('share-item-1'));
+
+        await moveTo(page, page.getByTestId('edit-trigger'));
+        await expect(page.getByTestId('edit-menu')).toBeVisible();
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+        await expect(page.getByTestId('share-menu')).toHaveCount(0);
+      });
+    });
+
+    test.describe('closeOnClick on nested items behavior', () => {
+      test('should respect closeOnClick on nested items when the menu was opened on click', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('view-trigger').click({ delay: 30 });
+        await expect(page.getByTestId('view-menu')).toBeVisible();
+        await moveTo(page, page.getByTestId('layout-trigger'));
+        await expect(page.getByTestId('layout-menu')).toBeVisible();
+
+        await page.getByTestId('layout-item-2').click({ delay: 30 });
+        await expect(page.getByTestId('layout-menu')).toBeVisible();
+      });
+
+      test('should respect closeOnClick on nested items when the menu was opened on hover', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').click({ delay: 30 });
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await moveTo(page, page.getByTestId('view-trigger'));
+        await expect(page.getByTestId('view-menu')).toBeVisible();
+        await moveTo(page, page.getByTestId('layout-trigger'));
+        await expect(page.getByTestId('layout-menu')).toBeVisible();
+
+        await page.getByTestId('layout-item-2').click({ delay: 30 });
+        await expect(page.getByTestId('layout-menu')).toBeVisible();
+      });
+    });
+
+    test('correctly opens new menu on hover after clicking on its trigger and entering from hover (#2222)', async ({ page, mode }) => {
+      await render(page, mode);
+      const fileTrigger = page.getByTestId('file-trigger');
+      const editTrigger = page.getByTestId('edit-trigger');
+      const bar = page.getByRole('menubar');
+      await fileTrigger.click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect(bar).toHaveAttribute('data-has-submenu-open', '');
+      await moveTo(page, editTrigger);
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+
+      await editTrigger.click();
+      await expect(page.getByTestId('edit-menu')).toHaveCount(0);
+      await expect(bar).not.toHaveAttribute('data-has-submenu-open');
+
+      await fileTrigger.click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect(bar).toHaveAttribute('data-has-submenu-open', '');
+      await moveTo(page, editTrigger);
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
     });
 
     test.describe('focus behavior', () => {
