@@ -171,7 +171,7 @@ internal sealed class ComboboxRowContext
 
 // CMB §3.23 (ComboboxRow.tsx): a row cascades its context, so its items render as gridcells. The behaviour is the row's whole
 // logic, so a shell over it (Autocomplete's Row) declares only its parameters (ADR 08 Amendments 2026-11-03 (3)).
-/// <summary>The behaviour of a combobox row: the cascade that makes its items gridcells, kept while the content is unchanged.</summary>
+/// <summary>The behavior of a combobox row: the cascade that makes its items gridcells, kept while the content is unchanged.</summary>
 internal sealed class ComboboxRowBehavior
 {
     private RenderFragment? cascadedContent;

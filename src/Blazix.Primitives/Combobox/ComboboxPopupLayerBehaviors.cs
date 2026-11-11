@@ -525,12 +525,13 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         await Task.WhenAll(focus.DisposeAsync().AsTask(), transitionsDisposal, twinDisposal);
     }
 
+    // CMB-DOM-12: onPositionerChanged follows the positioner's mirrored placement.
     /// <summary>Reads the root and the positioner and subscribes the part.</summary>
     /// <param name="cascaded">The cascaded store, or <see langword="null"/> outside a root.</param>
     /// <param name="positionerContext">The cascaded positioner context, or <see langword="null"/>.</param>
     /// <param name="portalContext">The cascaded portal context, or <see langword="null"/>.</param>
     /// <param name="subscribe">The part's subscription factory over the store.</param>
-    /// <param name="onPositionerChanged">Called when the positioner's mirrored placement changed (CMB-DOM-12).</param>
+    /// <param name="onPositionerChanged">Called when the positioner's mirrored placement changed.</param>
     public void Subscribe(ComboboxStore? cascaded, PositionerContext? positionerContext, PopupPortalContext? portalContext, Func<ComboboxStore, SelectorSubscription<ComboboxStoreState>> subscribe, Action onPositionerChanged)
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
