@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { expect, test, type Page, type RenderMode } from './helpers';
-import { center, clickThrough, gotoCombobox, recorded, type FixtureOptions } from './combobox.helpers';
+import { center, clearScrollCalls, clickThrough, gotoCombobox, NEAREST, recorded, scrollCalls, spyScrollIntoView, type FixtureOptions } from './combobox.helpers';
 import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
 // ComboboxRoot.test.tsx, lines 1-3999, ported at L4 (M5 track 10, issue 174): Base UI's titles verbatim, on the `combobox-root-a`
@@ -40,31 +40,6 @@ async function pressImeKey(page: Page, key: string, code: string): Promise<void>
   await session.send('Input.dispatchKeyEvent', { type: 'keyUp', ...init });
   await session.detach();
 }
-
-/** Records every `scrollIntoView` call (Base UI's `vi.spyOn(HTMLElement.prototype, 'scrollIntoView')`), calling through. */
-async function spyScrollIntoView(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const calls: { id: string; options: unknown }[] = [];
-    (window as unknown as { scrollCalls: typeof calls }).scrollCalls = calls;
-    const original = HTMLElement.prototype.scrollIntoView;
-    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, ...args: unknown[]) {
-      calls.push({ id: this.id, options: args[0] });
-      return (original as (...parameters: unknown[]) => void).apply(this, args);
-    };
-  });
-}
-
-function scrollCalls(page: Page): Promise<{ id: string; options: unknown }[]> {
-  return page.evaluate(() => (window as unknown as { scrollCalls: { id: string; options: unknown }[] }).scrollCalls.slice());
-}
-
-function clearScrollCalls(page: Page): Promise<void> {
-  return page.evaluate(() => {
-    (window as unknown as { scrollCalls: unknown[] }).scrollCalls.length = 0;
-  });
-}
-
-const NEAREST = { block: 'nearest', inline: 'nearest' };
 
 test.describe('<Combobox.Root />', () => {
   test.describe('IME composition', () => {
