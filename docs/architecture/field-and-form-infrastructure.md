@@ -7,7 +7,7 @@
 | Tests | `field/root/FieldRoot.test.tsx`, `field/root/FieldRoot.react17.test.tsx`, `field/control/FieldControl.test.tsx`, `field/label/FieldLabel.test.tsx`, `field/description/FieldDescription.test.tsx`, `field/error/FieldError.test.tsx`, `field/validity/FieldValidity.test.tsx`, `field/item/FieldItem.test.tsx`, `form/Form.test.tsx`, `fieldset/root/FieldsetRoot.test.tsx`, `fieldset/legend/FieldsetLegend.test.tsx`, `internals/labelable-provider/useLabel.test.tsx`, `utils/useRegisteredLabelId.test.tsx`, `packages/utils/src/getDefaultFormSubmitter.test.ts`, `test/formData.ts` (helper), plus the `Form` / `Field` describe blocks inside every control's test file (cited inline in §6); the fieldset-only titles "sets the native disabled attribute" and "throws a descriptive error when rendered outside <Fieldset.Root>" are mapped in `components/fieldset.md` §13 |
 | Prefix | `FFI` |
 | Status | approved |
-| Revised | 2026-11-04 |
+| Revised | 2026-11-11 |
 | Used by | `components/field.md`, `components/fieldset.md`, `components/form.md`, `components/input.md`, `components/checkbox.md`, `components/checkbox-group.md`, `components/switch.md`, `components/radio.md`, `components/radio-group.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/slider.md`, `components/number-field.md`, `components/otp-field.md` |
 
 ## 1. Purpose
@@ -633,6 +633,7 @@ defaultSubmitter(form):
 - **FFI-ALG-11** — MUST. The implementation reproduces the following procedure exactly (**String serialization**).
   Source: `internals/serializeValue.ts:1-13`. Test: none (exercised indirectly by `RadioGroup.test.tsx` "submits to an external form when `form` is provided").
   Port note 2026-10-23 (M2 track 7, issue 83; ADR 08 Amendments 2026-10-22; ADR 16 rule 1): the port's serializer differs for values that are not strings. A `string` is used as is and `null` gives `""` (no `value` attribute on a radio's input); any other value is its text under `CultureInfo.InvariantCulture`, built by an interpolated `string.Create`, which takes the value unboxed. So `true` gives `True`, an enum gives its name and a record its `ToString()`, where `JSON.stringify` gives `true`, a number and an object literal: a reflection-based JSON serializer fails ADR 16 rule 1. Radio is M2's only caller with a value that is not a string, so the serializer is internal to `Radio/` (`RadioValues.Serialize`; `RadioValuesTests`, L1, with `de-DE` as the current culture) until Select (M5) moves it here (RAD-FRM-02's note).
+  Port note (2026-11-11, M5 track 10, [issue 174](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/174); CMB-API-68, `Field/FormValue.cs` granted and the change settled by the orchestrator 2026-11-11): a `bool` is now submitted as `true`/`false`, as `JSON.stringify` and `String()` give it; the rest of the note of 2026-10-23 stands. L1: "port: a bool is submitted as JavaScript's text".
 
 ```
 serializeValue(v): if v = null/undefined: ""  else if v is string: v
