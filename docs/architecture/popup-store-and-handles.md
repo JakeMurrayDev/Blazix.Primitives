@@ -483,6 +483,7 @@ Keys handled by this mechanism (all others pass through to FLT/UBT/the component
   Source: `utils/useMixedToggleClickHandler.ts:12-43`, `menu/trigger/MenuTrigger.tsx:209-213` (Menubar only). Test: none here (see MBR).
   Note (2026-11-03; ADR 12 Amendments 2026-10-27 item 4 and 2026-11-03): open to M5. The mixed toggle is built in `interactions` by track 2 and first used by Menubar (track 8), whose pull request turns it green.
   Note (2026-11-04, M5 track 2, [issue 160](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/160); ADR 04 Amendments 2026-11-03 (7)): built in `interactions` as `InteractionsClickOptions.MouseDownAction` (`'open'` or `'close'`), green at L3 (`interactions.test.ts` "port: with the mixed toggle, the click after an arming mousedown asks nothing, and the document click disarms it"). The suppressed click asks no press, so Blazor's dispatch runs the consumer's declined `onclick`, as for any click the module did not turn into a press (`InteractionsTriggerBehavior`). Menubar (track 8) sets the option and turns the row green.
+  Port note (2026-11-11, M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195)): proven on a public part, a Menubar trigger with consumer `onmousedown` and `onclick`. [L4] `tests/browser/menubar.spec.ts` "port: the opening press runs onmousedown once, the swallowed click runs onclick once and keeps the menu open, and the next click closes it", "port: a consumer onmousedown that calls PreventPartHandler() stops the open", both render modes, every Server title under a 40 ms one-way circuit delay.
 
 #### 4.7.3 Internal backdrop and anchored scroll lock
 
@@ -1019,6 +1020,7 @@ handle(_, type): if not isOpen(): openMethod ← type || (isIOS ? 'touch' : '')
   Source: `utils/useOpenInteractionType.ts:9-38`, `packages/utils/src/useEnhancedClickHandler.ts:14-48`. Test: [L4] `popupFocusPropsTests.tsx` "passes the interaction type to a function, and does nothing when it returns undefined".
 
 - **PSH-ALG-20** — MUST. The implementation reproduces the following procedure exactly for the mixed mousedown/click toggle guard.
+  Port note (2026-11-11, M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195)): proven on a public part, a Menubar trigger with consumer `onmousedown` and `onclick`. [L4] `tests/browser/menubar.spec.ts` "port: the opening press runs onmousedown once, the swallowed click runs onclick once and keeps the menu open, and the next click closes it", "port: a consumer onmousedown that calls PreventPartHandler() stops the open", both render modes, every Server title under a 40 ms one-way circuit delay.
 
 ```
 onMouseDown(e): if (action == 'open' and not open) or (action == 'close' and open):
