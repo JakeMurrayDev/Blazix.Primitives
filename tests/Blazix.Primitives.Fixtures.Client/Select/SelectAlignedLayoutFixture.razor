@@ -1,0 +1,264 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-aligned-layout` fixture (tests/browser/select-aligned.spec.ts; M5 track 9, L4 agent aligned): the trees of
+    SelectPopup.test.tsx's pixel-rect titles (231-788), real styles throughout (the wrappers' margin and padding place the
+    trigger on the page). One page per case, `?case=`; the trigger is `trigger`, the value `value`, the positioner
+    `positioner`, the popup `popup`, the selected item's text `item-text`:
+    - `zoom` (231-266): a 100/10 padded wrapper, a 108 x 30 trigger, a popup of `max-height: none`; the root is closed (the
+      spec sets `zoom` on the document element, then opens it);
+    - `ltr` (268-328) and `ltr-padding` (330-402): a left-to-right 160 px trigger with a value of 'With longer label'; the
+      second under a 220 px popup with a 4 px transparent border and inline padding;
+    - `rtl` (404-464) and `rtl-no-text` (466-520): the right-to-left mirror, the second with no value (a placeholder) and
+      items holding their text directly;
+    - `transform` (196-229): an open root whose popup carries an inline transform, scale and translate;
+    - `reopen` (522-612): the grouped list of the 'keeps item text aligned' title, an uncontrolled root;
+    - `docs-rtl` and `docs-rtl-anchor` (614-788): the docs-style RTL layout with its stylesheet, a controlled root; the second
+      anchors the positioner to the wrapper (`rtl-anchor`).
+    Every case but `zoom`, `reopen` and the docs ones is open from the first render (`Open` true, no callback).
+*@
+<FixtureContainer Name="select-aligned-layout" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-case="@Case">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @switch (Case)
+    {
+        case "zoom":
+            <div style="padding-top: 100px; padding-left: 10px">
+                <SelectRoot TValue="string" @ref="root" DefaultValue="@("css-modules")">
+                    <SelectTrigger @ref="trigger" data-testid="trigger" style="width: 108px; height: 30px"><SelectValue TValue="string" /></SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner @ref="positioner" data-testid="positioner">
+                            <SelectPopup data-testid="popup" style="max-height: none">
+                                <SelectItem Value="@("css-modules")"><SelectItemText>CSS Modules</SelectItemText></SelectItem>
+                                <SelectItem Value="@("tailwind-v4")"><SelectItemText>Tailwind v4</SelectItemText></SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </div>
+            break;
+        case "ltr" or "ltr-padding":
+            <div dir="ltr" style="margin-left: 100px; min-height: 600px; padding-top: 96px">
+                <DirectionProvider Direction="TextDirection.Ltr">
+                    <SelectRoot TValue="string" @ref="root" DefaultValue="@("with-longer-label")" Open="true">
+                        <SelectTrigger @ref="trigger" data-testid="trigger" style="width: 160px; display: flex; justify-content: flex-start; padding-inline-start: 12px; padding-inline-end: 28px">
+                            <SelectValue TValue="string" data-testid="value">With longer label</SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                            <SelectPositioner @ref="positioner" data-testid="positioner">
+                                <SelectPopup style="@(Case == "ltr" ? "width: 180px; max-height: none" : "width: 220px; max-height: none; box-sizing: border-box; border: 4px solid transparent; padding-inline-start: 20px; padding-inline-end: 12px")">
+                                    <SelectItem Value="@("with-longer-label")">
+                                        <SelectItemText data-testid="item-text" style="padding-inline-start: 24px; padding-inline-end: 8px">With longer label</SelectItemText>
+                                    </SelectItem>
+                                    <SelectItem Value="@("other")"><SelectItemText>Other option</SelectItemText></SelectItem>
+                                </SelectPopup>
+                            </SelectPositioner>
+                        </SelectPortal>
+                    </SelectRoot>
+                </DirectionProvider>
+            </div>
+            break;
+        case "rtl":
+            <div dir="rtl" style="margin-left: 100px; min-height: 600px; padding-top: 96px">
+                <DirectionProvider Direction="TextDirection.Rtl">
+                    <SelectRoot TValue="string" @ref="root" DefaultValue="@("with-longer-label")" Open="true">
+                        <SelectTrigger @ref="trigger" data-testid="trigger" style="width: 160px; display: flex; justify-content: flex-end; padding-inline-start: 28px; padding-inline-end: 12px">
+                            <SelectValue TValue="string" data-testid="value">With longer label</SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                            <SelectPositioner @ref="positioner" data-testid="positioner">
+                                <SelectPopup style="width: 180px; max-height: none">
+                                    <SelectItem Value="@("with-longer-label")">
+                                        <SelectItemText data-testid="item-text" style="padding-inline-start: 8px; padding-inline-end: 24px">With longer label</SelectItemText>
+                                    </SelectItem>
+                                    <SelectItem Value="@("other")"><SelectItemText>Other option</SelectItemText></SelectItem>
+                                </SelectPopup>
+                            </SelectPositioner>
+                        </SelectPortal>
+                    </SelectRoot>
+                </DirectionProvider>
+            </div>
+            break;
+        case "rtl-no-text":
+            <div dir="rtl" style="width: 280px; margin-left: 100px; min-height: 600px; padding-top: 96px">
+                <DirectionProvider Direction="TextDirection.Rtl">
+                    <SelectRoot TValue="string" @ref="root" Open="true">
+                        <SelectTrigger @ref="trigger" data-testid="trigger" style="width: 160px; display: flex; justify-content: flex-end; padding-inline-start: 28px; padding-inline-end: 12px">
+                            <SelectValue TValue="string"><Placeholder>اختر لهجة</Placeholder></SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                            <SelectPositioner @ref="positioner" data-testid="positioner">
+                                <SelectPopup style="width: 180px; max-height: none">
+                                    <SelectItem Value="@("with-longer-label")">With longer label</SelectItem>
+                                    <SelectItem Value="@("other")">Other option</SelectItem>
+                                </SelectPopup>
+                            </SelectPositioner>
+                        </SelectPortal>
+                    </SelectRoot>
+                </DirectionProvider>
+            </div>
+            break;
+        case "transform":
+            @* Base UI's tree has no wrapper (the trigger sits at the document's top, so jsdom's zero boxes never fall back);
+               here a 100 px padding keeps the trigger off the top edge so the placement runs the aligned path. *@
+            <div style="padding-top: 100px">
+                <SelectRoot TValue="string" @ref="root" Open="true">
+                    <SelectTrigger @ref="trigger" data-testid="trigger">Trigger</SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner @ref="positioner" data-testid="positioner">
+                            <SelectPopup data-testid="popup" style="transform: translateX(10px); scale: 0.8; translate: 1px 2px">
+                                <SelectItem Value="@("1")"><SelectItemText>Item 1</SelectItemText></SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </div>
+            break;
+        case "reopen":
+            <div style="margin-left: 100px; min-height: 600px; padding-top: 96px">
+                <SelectRoot TValue="string" @ref="root">
+                    <SelectTrigger @ref="trigger" data-testid="trigger" style="box-sizing: border-box; width: 176px; height: 40px; display: flex; align-items: center; justify-content: flex-start; padding-inline-start: 14px">
+                        <SelectValue TValue="string" data-testid="value"><Placeholder>Select produce</Placeholder></SelectValue>
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner @ref="positioner" data-testid="positioner">
+                            <SelectPopup style="width: 220px; max-height: none">
+                                <SelectList style="padding-block: 4px; overflow-y: auto">
+                                    <SelectGroup>
+                                        <SelectGroupLabel style="padding: 8px 16px 4px 30px; font-size: 11px; line-height: 16px">Fruits</SelectGroupLabel>
+                                        <SelectItem Value="@("apple")" style="padding: 8px 16px 8px 10px; font-size: 14px; line-height: 16px">
+                                            <SelectItemText data-testid="first-item-text">Apple</SelectItemText>
+                                        </SelectItem>
+                                        <SelectItem Value="@("banana")" style="padding: 8px 16px 8px 10px; font-size: 14px; line-height: 16px">
+                                            <SelectItemText data-testid="selected-item-text">Banana</SelectItemText>
+                                        </SelectItem>
+                                    </SelectGroup>
+                                </SelectList>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </div>
+            break;
+        default:
+            <div dir="rtl" id="rtl-anchor" class="rtlFixtureRoot">
+                @((MarkupString)("<style>" + s_docsCss + "</style>"))
+                <DirectionProvider Direction="TextDirection.Rtl">
+                    <SelectRoot TValue="string" @ref="root" DefaultValue="@("selected")" Open="@open" OnOpenChange="HandleOpenChange">
+                        <SelectTrigger @ref="trigger" class="rtlFixtureTrigger">
+                            <SelectValue TValue="string" data-testid="value">
+                                <ValueContent>@LabelOf(context)</ValueContent>
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                            <SelectPositioner @ref="positioner" Anchor="@(Case == "docs-rtl-anchor" ? "rtl-anchor" : null)" class="rtlFixturePositioner" data-testid="positioner" dir="rtl" SideOffset="8">
+                                <SelectPopup class="rtlFixturePopup" dir="rtl">
+                                    <SelectList class="rtlFixtureList">
+                                        @foreach ((string value, string label) in s_docsOptions)
+                                        {
+                                            <SelectItem @key="value" Value="@value" class="rtlFixtureItem">
+                                                <SelectItemIndicator class="rtlFixtureIndicator">✓</SelectItemIndicator>
+                                                <SelectItemText class="rtlFixtureText" data-testid="@(value == "selected" ? "item-text" : null)">@label</SelectItemText>
+                                            </SelectItem>
+                                        }
+                                    </SelectList>
+                                </SelectPopup>
+                            </SelectPositioner>
+                        </SelectPortal>
+                    </SelectRoot>
+                </DirectionProvider>
+            </div>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly (string Value, string Label)[] s_docsOptions =
+    [
+        ("first", "الخيار الأول"),
+        ("selected", "الخيار المحدد"),
+        ("third", "الخيار الثالث"),
+    ];
+
+    // SelectPopup.test.tsx:621-684, verbatim.
+    private const string s_docsCss = """
+        .rtlFixtureRoot {
+          width: 240px;
+          margin-left: 100px;
+          padding-top: 96px;
+          direction: rtl;
+        }
+        .rtlFixtureTrigger {
+          box-sizing: border-box;
+          display: flex;
+          justify-content: flex-end;
+          height: 2.5rem;
+          width: 160px;
+          padding-inline-start: 28px;
+          padding-inline-end: 12px;
+          font-size: 1rem;
+          line-height: 1.5rem;
+          direction: rtl;
+        }
+        .rtlFixturePositioner,
+        .rtlFixturePopup,
+        .rtlFixtureItem {
+          direction: rtl;
+        }
+        .rtlFixturePopup {
+          box-sizing: border-box;
+          min-width: var(--anchor-width);
+        }
+        .rtlFixturePopup[data-side='none'] {
+          min-width: calc(var(--anchor-width) + 1rem);
+        }
+        .rtlFixtureList {
+          padding-block: 0.25rem;
+          max-height: var(--available-height);
+        }
+        .rtlFixtureItem {
+          box-sizing: border-box;
+          padding-block: 0.5rem;
+          padding-inline-start: 1rem;
+          padding-inline-end: 0.625rem;
+          display: grid;
+          gap: 0.5rem;
+          align-items: center;
+          grid-template-columns: 0.75rem 1fr;
+        }
+        [data-side='none'] .rtlFixtureItem {
+          padding-inline-start: 3rem;
+        }
+        .rtlFixtureIndicator {
+          grid-column: 1;
+        }
+        .rtlFixtureText {
+          grid-column: 2;
+        }
+        """;
+
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectPositioner? positioner;
+    private bool open;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        positioner?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    private static string LabelOf(string? value) =>
+        s_docsOptions.FirstOrDefault(option => option.Value == value).Label ?? "اختر";
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        open = args.Value;
+    }
+}

@@ -1,0 +1,44 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-arrow` fixture (tests/browser/select-nav.spec.ts; M5 track 9): SelectScrollArrow.test.tsx's
+    "reflects scrollability on the %s arrow when the popup has no registered items" on real layout rather than stubbed
+    geometry. A controlled-open root with an unaligned positioner and a popup that is its own scroller (no List): 200 px
+    tall, `overflow-y: auto`, holding the sticky up arrow (`data-testid="up"`, kept mounted), a 400 px spacer (no
+    registered items) and the sticky down arrow (`data-testid="down"`, kept mounted). The trigger sits at the page's
+    origin so the popup, unaligned, opens below it.
+*@
+<FixtureContainer Name="select-nav-arrow" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <SelectRoot TValue="string" @ref="root" Open="true" OnOpenChange="RecordOpenChange">
+        <SelectTrigger @ref="trigger" data-testid="trigger">Open</SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner @ref="positioner" AlignItemWithTrigger="false">
+                <SelectPopup data-testid="popup" style="position: relative; z-index: 1; width: 160px; max-height: 200px; height: 200px; overflow-y: auto; box-sizing: border-box">
+                    <SelectScrollUpArrow KeepMounted="true" data-testid="up" style="position: sticky; top: 0; height: 12px; display: block; background: #ddd" />
+                    <div style="height: 400px"></div>
+                    <SelectScrollDownArrow KeepMounted="true" data-testid="down" style="position: sticky; bottom: 0; height: 12px; display: block; background: #ddd" />
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </SelectRoot>
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectPositioner? positioner;
+
+    // The arrows expose no attach task; the spec waits for the down arrow's `data-visible`, which its handle writes.
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        positioner?.TwinAttached ?? Task.CompletedTask,
+    ];
+}

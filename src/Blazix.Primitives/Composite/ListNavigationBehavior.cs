@@ -51,6 +51,7 @@ internal sealed class ListNavigationBehavior : IDisposable
     private bool openOnArrowKeyDown = true;
     private bool focusItemOnHover = true;
     private bool resetOnPointerLeave = true;
+    private bool retainHighlightWhileClosing;
     private IReadOnlyList<int>? disabledIndices;
     private bool deriveDisabledIndices;
     private int? selectedIndex;
@@ -154,6 +155,10 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <summary>Gets or sets a value indicating whether the pointer leaving an item clears the highlight.</summary>
     /// <value><see langword="true"/>, the default, to clear it.</value>
     public bool ResetOnPointerLeave { get => resetOnPointerLeave; set => Set(ref resetOnPointerLeave, value); }
+
+    /// <summary>Gets or sets a value indicating whether the highlight stays on its item while the list closes.</summary>
+    /// <value><see langword="true"/> to keep it until the list is hidden; <see langword="false"/>, the default, to clear it at the close.</value>
+    public bool RetainHighlightWhileClosing { get => retainHighlightWhileClosing; set => Set(ref retainHighlightWhileClosing, value); }
 
     /// <summary>Gets or sets the indices of the items navigation skips.</summary>
     /// <value>The indices, an empty list for none, or <see langword="null"/>, the default, to read the document.</value>
@@ -496,6 +501,7 @@ internal sealed class ListNavigationBehavior : IDisposable
         OpenOnArrowKeyDown = openOnArrowKeyDown ? null : false,
         FocusItemOnHover = focusItemOnHover ? null : false,
         ResetOnPointerLeave = resetOnPointerLeave ? null : false,
+        RetainHighlightWhileClosing = retainHighlightWhileClosing,
         DisabledIndices = disabledIndices,
         DeriveDisabledIndices = deriveDisabledIndices,
         SelectedIndex = selectedIndex,

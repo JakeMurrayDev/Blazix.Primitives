@@ -1,0 +1,137 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-list` fixture (tests/browser/select.spec.ts, M5 track 9): popupListConformanceTests (tests/browser/suites/)
+    on Select's parts, as SelectRoot.test.tsx's `conformance` describe renders them: a Before button, a trigger with a
+    value, a portaled anchored positioner (`AlignItemWithTrigger=false`: the suite owns the scroller's geometry), a popup
+    holding a List `scroller` and the items with their text, an After button. The query (the suite's createComponent props
+    and root props, tests/browser/CONTEXT.md):
+    - `items` (`|`-separated labels; absent for Item 0..Item 11, empty for none), `disabledItems` (`|`-separated),
+      `itemStyle`, `scrollerStyle` (CSS text), `onItemClick` (the items' consumer onclick records `data-item-clicks`);
+    - `selectable` (accepted; the root always records `data-value-changes`, `|`-separated values), `defaultValue`,
+      `modal` (`false` for a non-modal root; the root's default is modal), `wrap` (`form` with a submit button, recording
+      `data-submits`; `dialog`, inside an open DialogRoot's popup `data-testid="dialog"`).
+    The After button records `data-outside-clicks`. The sync button takes the suites' Shift keydown (`data-key-control`).
+*@
+<FixtureContainer Name="select-list" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-item-clicks="@string.Join('|', itemClicks)" data-value-changes="@string.Join('|', valueChanges)"
+                  data-outside-clicks="@outsideClicks" data-submits="@submits">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (wrap == "form")
+    {
+        <form @onsubmit="() => submits++">
+            @ListPage
+            <button type="submit">Submit</button>
+        </form>
+    }
+    else if (wrap == "dialog")
+    {
+        <DialogRoot TPayload="NoPayload" @ref="dialog" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup data-testid="dialog">@ListPage</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+    else
+    {
+        @ListPage
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = [.. Enumerable.Range(0, 12).Select(i => $"Item {i}")];
+    private readonly List<string> itemClicks = [];
+    private readonly List<string> valueChanges = [];
+    private string[] items = s_items;
+    private HashSet<string> disabledItems = [];
+    private string? itemStyle;
+    private string? scrollerStyle;
+    private bool recordItemClicks;
+    private string? defaultValue;
+    private bool modal = true;
+    private string? wrap;
+    private int outsideClicks;
+    private int submits;
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private DialogRoot<NoPayload>? dialog;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        dialog?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    // The suites' query is URLSearchParams's, which writes a space as `+`; the base class unescapes percent escapes only.
+    private string? Text(string name) => Query(name)?.Replace('+', ' ');
+
+    protected override void OnInitialized()
+    {
+        if (Text("items") is { } list)
+        {
+            items = list.Length == 0 ? [] : list.Split('|');
+        }
+
+        if (Text("disabledItems") is { } disabled && disabled.Length > 0)
+        {
+            disabledItems = [.. disabled.Split('|')];
+        }
+
+        itemStyle = Text("itemStyle");
+        scrollerStyle = Text("scrollerStyle");
+        recordItemClicks = QueryFlag("onItemClick") == true;
+        defaultValue = Text("defaultValue");
+        modal = QueryFlag("modal") != false;
+        wrap = Query("wrap");
+    }
+
+    private void RecordValueChange(ValueChangeEventArgs<string> args) => valueChanges.Add(args.Value ?? string.Empty);
+
+    private void RecordItemClick(string label) => itemClicks.Add(label);
+
+    private Dictionary<string, object> ItemAttributes(string label)
+    {
+        Dictionary<string, object> attributes = [];
+        if (itemStyle is not null)
+        {
+            attributes["style"] = itemStyle;
+        }
+
+        if (recordItemClicks)
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => RecordItemClick(label));
+        }
+
+        return attributes;
+    }
+
+    private RenderFragment ListPage => @<div>
+        <button type="button" data-testid="before">Before</button>
+        <SelectRoot TValue="string" @ref="root" DefaultValue="@defaultValue" Modal="@modal" OnValueChange="RecordValueChange"
+                    OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <SelectTrigger @ref="trigger" data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        <SelectList data-testid="scroller" style="@scrollerStyle">
+                            @foreach (string label in items)
+                            {
+                                <SelectItem @key="label" Value="@label" Disabled="@disabledItems.Contains(label)" @attributes="ItemAttributes(label)">
+                                    <SelectItemText>@label</SelectItemText>
+                                </SelectItem>
+                            }
+                        </SelectList>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+        <button type="button" data-testid="after" @onclick="() => outsideClicks++">After</button>
+    </div>;
+}

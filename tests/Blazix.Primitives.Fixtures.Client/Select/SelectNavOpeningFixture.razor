@@ -1,0 +1,49 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-opening` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the `opening` describe of
+    SelectRoot.test.tsx (7039-7092). A `clear` button (value null), then a controlled root whose value starts at `b`, an
+    unaligned positioner and the items a, b, c. The trigger carries `data-testid="trigger"`; the container records
+    `data-value-changes` (`value:reason`) and the open changes.
+*@
+<FixtureContainer Name="select-nav-opening" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)">
+    <div>
+        <button type="button" data-testid="clear" @onclick="Clear">Clear</button>
+        <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged" OnOpenChange="RecordOpenChange">
+            <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                        <SelectItem Value="@("c")">c</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    </div>
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private string? value = "b";
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    private void OnValueChanged(ValueChangeEventArgs<string> args)
+    {
+        value = args.Value;
+        valueChanges.Add($"{args.Value ?? "null"}:{args.Details.Reason.ToLiteral()}");
+    }
+
+    private void Clear() => value = null;
+}

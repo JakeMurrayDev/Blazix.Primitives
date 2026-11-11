@@ -1,0 +1,72 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: ToolbarButton.test.tsx's Select block (M5 track 9, final review B2), a SelectTrigger substituted into a ToolbarButton
+    inside a Select root inside a ToolbarRoot. bUnit observes what C# renders on the one element; the DOM `disabled` property
+    the toolbar button's handle clears, the keys, focus and the declared-mode report are L4 (tests/browser/toolbar.spec.ts's
+    Select block).
+*@
+
+@code {
+    private IRenderedComponent<SelectHost> cut = null!;
+
+    [Fact(DisplayName = "renders a select trigger")]
+    [Trait("Requirement", "TLB-ARIA-09")]
+    public void Renders_a_select_trigger()
+    {
+        // TLB-STR-05's L4 half runs in toolbar.spec.ts.
+        cut = RenderSelect(
+            @<ToolbarRoot>
+                <SelectRoot TValue="string" DefaultValue="@("a")">
+                    <ToolbarButton data-testid="button" Render="@Trigger(nativeButton: true)" />
+                    <SelectPortal>
+                        <SelectPositioner>
+                            <SelectPopup>
+                                <SelectItem Value="@("a")">a</SelectItem>
+                                <SelectItem Value="@("b")">b</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </ToolbarRoot>);
+
+        // One element: the toolbar button is the combobox.
+        IElement trigger = Assert.Single(cut.FindAll("button"));
+        Assert.Equal("combobox", trigger.GetAttribute("role"));
+        Assert.Equal("button", Trigger(cut).GetAttribute("data-testid"));
+        Assert.Equal("listbox", trigger.GetAttribute("aria-haspopup"));
+    }
+
+    [Fact(DisplayName = "disabled state")]
+    [Trait("Requirement", "TLB-DOM-08")]
+    [Trait("Requirement", "TLB-ARIA-09")]
+    public void Select_trigger_disabled_state()
+    {
+        // The L2 half: the substituted trigger is a composite button focusable when disabled, and stays the combobox. The DOM
+        // `disabled` its markup carries until the toolbar button's handle clears it (design point 14.2 (a)), the keys, the
+        // focus by Tab and the declared-mode message (TLB-EDGE-02) are the L4 half.
+        cut = RenderSelect(
+            @<ToolbarRoot>
+                <SelectRoot TValue="string" DefaultValue="@("a")">
+                    <ToolbarButton Disabled="true" Render="@Trigger(nativeButton: false)" />
+                    <SelectPortal>
+                        <SelectPositioner>
+                            <SelectPopup>
+                                <SelectItem Value="@("a")" />
+                                <SelectItem Value="@("b")" />
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </ToolbarRoot>);
+
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+        IElement trigger = Trigger(cut);
+        Assert.True(trigger.HasAttribute("data-disabled"));
+        Assert.Equal("true", trigger.GetAttribute("aria-disabled"));
+    }
+
+    private static RenderFragment Trigger(bool nativeButton) => @<SelectTrigger TValue="string" NativeButton="@nativeButton" />;
+}

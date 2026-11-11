@@ -1,0 +1,169 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: SelectGroupLabel.test.tsx's titles (M5 track 9). The label publishes its id to the group in its parameter set and
+    withdraws it when it goes away (SEL-API-46). React's ref callbacks and Strict Mode's double effects have no Blazor
+    form: the titles that use them port the id claims, and the label element's identity is its reference's id.
+*@
+
+@code {
+    private static IElement Group(IRenderedComponent<SelectHost> cut) => cut.Find("[role=\"group\"]");
+
+    private static IElement Label(IRenderedComponent<SelectHost> cut) => cut.Find("[data-testid=\"label\"]");
+
+    [Fact(DisplayName = "is hidden from the accessibility tree by default")]
+    [Trait("Requirement", "SEL-ARIA-12")]
+    [Trait("Requirement", "SEL-DOM-42")]
+    public void Is_hidden_from_the_accessibility_tree_by_default()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroup>
+                <SelectGroupLabel data-testid="label">Fruits</SelectGroupLabel>
+            </SelectGroup>
+        </SelectRoot>);
+
+        Assert.Equal("true", Label(cut).GetAttribute("aria-hidden"));
+    }
+
+    // Base UI passes `aria-hidden={undefined}`; an explicit undefined is not expressible in Razor (the compiler omits a null
+    // attribute, ADR 02's disposition of RND-DOM-19), so the consumer value that replaces the default is "false".
+    [Fact(DisplayName = "allows overriding aria-hidden")]
+    [Trait("Requirement", "SEL-DOM-42")]
+    public void Allows_overriding_aria_hidden()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroup>
+                <SelectGroupLabel data-testid="label" aria-hidden="false">Fruits</SelectGroupLabel>
+            </SelectGroup>
+        </SelectRoot>);
+
+        Assert.Equal("false", Label(cut).GetAttribute("aria-hidden"));
+    }
+
+    [Fact(DisplayName = "throws a descriptive error when rendered outside <Select.Group>")]
+    [Trait("Requirement", "SEL-STR-05")]
+    [Trait("Requirement", "SEL-EDGE-01")]
+    public void Throws_a_descriptive_error_when_rendered_outside_a_group()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroupLabel />
+        </SelectRoot>));
+
+        Assert.Equal("Blazix: `SelectGroupContext` is missing. SelectGroup parts must be placed within `<SelectGroup>`.", error.Message);
+    }
+
+    [Fact(DisplayName = "removes the group aria-labelledby attribute when unmounted")]
+    [Trait("Requirement", "SEL-API-46")]
+    [Trait("Requirement", "SEL-DOM-41")]
+    public async Task Removes_the_group_aria_labelledby_attribute_when_unmounted()
+    {
+        bool labelMounted = true;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroup>
+                @if (labelMounted)
+                {
+                    <SelectGroupLabel data-testid="label" id="group-label">Fruits</SelectGroupLabel>
+                }
+            </SelectGroup>
+        </SelectRoot>);
+
+        Assert.Equal("group-label", Group(cut).GetAttribute("aria-labelledby"));
+
+        labelMounted = false;
+        await RefreshAsync(cut);
+
+        Assert.DoesNotContain("Fruits", cut.Markup, StringComparison.Ordinal);
+        Assert.False(Group(cut).HasAttribute("aria-labelledby"));
+    }
+
+    [Fact(DisplayName = "does not let an older label cleanup clear a newer label")]
+    [Trait("Requirement", "SEL-API-46")]
+    public async Task Does_not_let_an_older_label_cleanup_clear_a_newer_label()
+    {
+        string labels = "old";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroup>
+                @if (labels != "new")
+                {
+                    <SelectGroupLabel @key="@("old")" id="old-label">Old</SelectGroupLabel>
+                }
+                @if (labels != "old")
+                {
+                    <SelectGroupLabel @key="@("new")" id="new-label">New</SelectGroupLabel>
+                }
+            </SelectGroup>
+        </SelectRoot>);
+
+        Assert.Equal("old-label", Group(cut).GetAttribute("aria-labelledby"));
+
+        labels = "both";
+        await RefreshAsync(cut);
+        Assert.Equal("new-label", Group(cut).GetAttribute("aria-labelledby"));
+
+        labels = "new";
+        await RefreshAsync(cut);
+        Assert.Equal("new-label", Group(cut).GetAttribute("aria-labelledby"));
+    }
+
+    // React's ref callbacks (firstRef, secondRef) have no Blazor form; the part's Element is the one handle, and the label is
+    // not re-created when its id changes, which its element reference shows.
+    [Fact(DisplayName = "updates explicit and generated ids independently of ref churn")]
+    [Trait("Requirement", "SEL-API-46")]
+    [Trait("Requirement", "SEL-EDGE-18")]
+    public async Task Updates_explicit_and_generated_ids_independently_of_ref_churn()
+    {
+        string id = null!;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroup>
+                <SelectGroupLabel data-testid="label" id="@id">Fruits</SelectGroupLabel>
+            </SelectGroup>
+        </SelectRoot>);
+
+        SelectGroupLabel part = cut.FindComponent<SelectGroupLabel>().Instance;
+        string reference = part.Element!.Value.Id;
+        string generatedId = Label(cut).Id!;
+        Assert.False(string.IsNullOrEmpty(generatedId));
+        Assert.Equal(generatedId, Group(cut).GetAttribute("aria-labelledby"));
+
+        id = "custom-label";
+        await RefreshAsync(cut);
+        Assert.Equal("custom-label", Group(cut).GetAttribute("aria-labelledby"));
+        Assert.Equal("custom-label", Label(cut).Id);
+        Assert.Equal(reference, part.Element!.Value.Id);
+
+        id = null!;
+        await RefreshAsync(cut);
+        Assert.Equal(generatedId, Group(cut).GetAttribute("aria-labelledby"));
+        Assert.Equal(generatedId, Label(cut).Id);
+    }
+
+    // Strict Mode mounts, unmounts and mounts every effect again; Blazor has no such pass. What Base UI's title pins in C# terms:
+    // a label replaced by another key moves the group's reference, and its unmount leaves the group unlabeled.
+    [Fact(DisplayName = "replaces and unregisters its label in Strict Mode")]
+    [Trait("Requirement", "SEL-API-46")]
+    [Trait("Requirement", "SEL-EDGE-18")]
+    public async Task Replaces_and_unregisters_its_label()
+    {
+        string labelId = "first-label";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectGroup>
+                @if (labelId is not null)
+                {
+                    <SelectGroupLabel @key="labelId" data-testid="label" id="@labelId">@labelId</SelectGroupLabel>
+                }
+            </SelectGroup>
+        </SelectRoot>);
+
+        Assert.Equal("first-label", Group(cut).GetAttribute("aria-labelledby"));
+
+        labelId = "second-label";
+        await RefreshAsync(cut);
+        Assert.Equal("second-label", Group(cut).GetAttribute("aria-labelledby"));
+
+        labelId = null!;
+        await RefreshAsync(cut);
+        Assert.False(Group(cut).HasAttribute("aria-labelledby"));
+    }
+}

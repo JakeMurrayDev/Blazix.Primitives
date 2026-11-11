@@ -1,0 +1,105 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-aligned-scroll` fixture (tests/browser/select-aligned.spec.ts; M5 track 9, L4 agent aligned): the trees of
+    SelectPopup.test.tsx's `aligned popup scroll resizing` describe (1137-1726) and of the titles that stub the viewport and
+    the elements' boxes (875-1135). The spec stubs the geometry in the page while the select is closed, as Base UI's ref
+    callbacks do, so the positioner and its popup render inline (no portal) and stay in the DOM while closed. The root is
+    controlled: `[data-open]` opens it, `[data-close]` closes it, and its own open changes (the window-resize close) are
+    applied. The query `case`:
+    - `list` (default): a trigger with a value, a positioner, a popup (`style` from the query's `popupStyle`) holding a
+      List `list` over the items `selected` (its text `selected-text`) and `other`;
+    - `popup`: the same without a List (the popup is the scroll container), `max-height: none`;
+    - `short`: the same without a List, items `1` and `2` holding their text directly, default value `1`, the trigger without
+      a value part (`popupStyle` carries the title's min-height);
+    The query also takes `popupStyle`, `wrapStyle` (the wrapper around the select) and `triggerStyle`.
+    - `closed`: the `list` tree with a keep-mounted scroll-up arrow (`up-arrow`) before the list and the root default `a`,
+      items `a` and `b`, never opened.
+    The container renders `data-attached`, `data-sync` and the open changes.
+*@
+<FixtureContainer Name="select-aligned-scroll" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-case="@kase">
+    <div style="position: fixed; right: 0; bottom: 0">
+        <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" tabindex="-1" data-open data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Open</button>
+        <button type="button" tabindex="-1" data-close data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Close</button>
+    </div>
+    <div style="@wrapStyle">
+    <SelectRoot TValue="string" @ref="root" DefaultValue="@(kase is "short" ? "1" : kase is "closed" ? "a" : "selected")" Open="@open" OnOpenChange="HandleOpenChange">
+        <SelectTrigger @ref="trigger" data-testid="trigger" style="@triggerStyle">
+            @if (kase is "short")
+            {
+                @:Trigger
+            }
+            else
+            {
+                <SelectValue TValue="string" data-testid="value" />
+            }
+        </SelectTrigger>
+        <SelectPositioner @ref="positioner" data-testid="positioner">
+            <SelectPopup data-testid="popup" style="@popupStyle">
+                @if (kase is "popup")
+                {
+                    <SelectItem Value="@("selected")"><SelectItemText data-testid="selected-text">Selected</SelectItemText></SelectItem>
+                    <SelectItem Value="@("other")"><SelectItemText>Other</SelectItemText></SelectItem>
+                }
+                else if (kase is "short")
+                {
+                    <SelectItem Value="@("1")">Item 1</SelectItem>
+                    <SelectItem Value="@("2")">Item 2</SelectItem>
+                }
+                else if (kase is "closed")
+                {
+                    <SelectScrollUpArrow KeepMounted="true" data-testid="up-arrow" />
+                    <SelectList data-testid="list">
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectList>
+                }
+                else
+                {
+                    <SelectList data-testid="list">
+                        <SelectItem Value="@("selected")"><SelectItemText data-testid="selected-text">Selected</SelectItemText></SelectItem>
+                        <SelectItem Value="@("other")"><SelectItemText>Other</SelectItemText></SelectItem>
+                    </SelectList>
+                }
+            </SelectPopup>
+        </SelectPositioner>
+    </SelectRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectPositioner? positioner;
+    private string kase = "list";
+    private string popupStyle = "max-height: none";
+    private string? wrapStyle;
+    private string? triggerStyle;
+    private bool open;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        positioner?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        kase = Query("case") ?? "list";
+        popupStyle = Query("popupStyle") ?? "max-height: none";
+        wrapStyle = Query("wrapStyle");
+        triggerStyle = Query("triggerStyle");
+    }
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        open = args.Value;
+    }
+}

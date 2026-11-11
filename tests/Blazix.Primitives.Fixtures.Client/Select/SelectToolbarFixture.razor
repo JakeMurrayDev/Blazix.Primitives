@@ -1,0 +1,69 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-toolbar` fixture (tests/browser/toolbar.spec.ts's Select block; M5 track 9, final review B2): ToolbarButton.test.tsx's
+    Select block, a SelectTrigger substituted into a ToolbarButton inside a Select root inside a ToolbarRoot, items `a` and
+    `b`, `defaultValue="a"`. `disabled=true` is the "disabled state" tree: the toolbar button disabled, the trigger
+    `NativeButton="false"` over its default `<button>`, the items without text. The popup is placed against the trigger
+    (`AlignItemWithTrigger="false"`). The container records the root's open changes and `data-value-changes` (value and
+    reason). The sync button is out of the tab order, so the first Tab from the page reaches the toolbar; `data-attached`
+    waits for the toolbar's composite and its button as ToolbarFixtureBase does, so the roving tabindex is in place first.
+*@
+<FixtureContainer Name="select-toolbar" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)">
+    <ToolbarRoot @ref="toolbar">
+        <SelectRoot TValue="string" @ref="root" DefaultValue="@("a")" OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
+            <ToolbarButton @ref="button" data-testid="button" Disabled="@disabled" Render="@Trigger" />
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        @if (disabled)
+                        {
+                            <SelectItem Value="@("a")" />
+                            <SelectItem Value="@("b")" />
+                        }
+                        else
+                        {
+                            <SelectItem Value="@("a")" data-testid="item-a">a</SelectItem>
+                            <SelectItem Value="@("b")" data-testid="item-b">b</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    </ToolbarRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private ToolbarRoot? toolbar;
+    private ToolbarButton? button;
+    private bool disabled;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        toolbar?.TwinAttached ?? Task.CompletedTask,
+        button?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    private RenderFragment Trigger => @<SelectTrigger TValue="string" @ref="trigger" NativeButton="@(!disabled)" />;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        disabled = QueryFlag("disabled") == true;
+    }
+
+    private void RecordValueChange(ValueChangeEventArgs<string> args)
+    {
+        valueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+    }
+}

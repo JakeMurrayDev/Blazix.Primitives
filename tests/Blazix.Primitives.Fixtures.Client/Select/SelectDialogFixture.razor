@@ -1,0 +1,77 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-dialog` fixture (tests/browser/dialog.spec.ts's nested popups block; M5 track 9, final review B2):
+    DialogRoot.test.tsx "should not dismiss the dialog when dismissing outside a nested select popup", a modal Dialog whose
+    popup holds a modal Select (trigger "Open select", one item "Item" without a value), placed against the trigger
+    (`AlignItemWithTrigger="false"`). The Select mounts with the dialog's popup, so `data-select-attached` turns `true` once
+    its trigger's handles and its root's session have attached (a press before them is lost), watched from the trigger's
+    reference, which the popup's render sets. The container records the Select's open changes and the Dialog's in
+    `data-dialog-open-changes`. The dialog popup is `position: relative; z-index: 1`,
+    as the Menu port's `menu-nesting` dialog case, so it stacks above the dialog's internal backdrop.
+*@
+<FixtureContainer Name="select-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-dialog-open-changes="@dialogChanges"
+                  data-select-attached="@(selectAttached ? "true" : "false")">
+    <DialogRoot TPayload="NoPayload" @ref="dialog" OnOpenChange="RecordDialogChange">
+        <DialogTrigger TPayload="NoPayload" @ref="dialogTrigger" data-testid="dialog-trigger">Open</DialogTrigger>
+        <DialogPortal>
+            <DialogPopup data-testid="dialog-popup" style="position: relative; z-index: 1">
+                <SelectRoot TValue="string" @ref="select" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger TValue="string" @ref="SelectTriggerRef" data-testid="select-trigger">Open select</SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner data-testid="select-positioner" AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem TValue="string">Item</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private DialogRoot<NoPayload>? dialog;
+    private DialogTrigger<NoPayload>? dialogTrigger;
+    private SelectRoot<string>? select;
+    private SelectTrigger<string>? selectTrigger;
+    private string dialogChanges = string.Empty;
+    private bool selectAttached;
+
+    // The Select mounts in the dialog popup's render, not the fixture's, so its trigger's reference starts the watch.
+    private SelectTrigger<string>? SelectTriggerRef
+    {
+        get => selectTrigger;
+        set
+        {
+            selectTrigger = value;
+            if (value is not null && !selectAttached)
+            {
+                _ = WatchSelectAsync(value);
+            }
+        }
+    }
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        dialog?.SessionAttached ?? Task.CompletedTask,
+        dialogTrigger?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    private async Task WatchSelectAsync(SelectTrigger<string> trigger)
+    {
+        await Task.Yield();
+        await Task.WhenAll(select!.SessionAttached, trigger.TwinsAttached);
+        selectAttached = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void RecordDialogChange(ValueChangeEventArgs<bool> args) =>
+        dialogChanges += $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()} ";
+}
