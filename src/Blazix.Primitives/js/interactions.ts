@@ -3158,14 +3158,16 @@ function trackHoverEntries(doc: Document): void {
   }, true);
 }
 
-/** Takes the document's recorded entry when its target is inside `element`, consuming it. */
-function takeHoverEntry(element: Element): HoverEntry | null {
+/** Reads the document's recorded entry when its target is inside `element`; `consume` removes it. */
+function takeHoverEntry(element: Element, consume = true): HoverEntry | null {
   const doc = ownerDocument(element);
   const entry = hoverEntries.get(doc);
   if (entry === undefined || !contains(element, entry.target)) {
     return null;
   }
-  hoverEntries.delete(doc);
+  if (consume) {
+    hoverEntries.delete(doc);
+  }
   return entry;
 }
 
@@ -3896,6 +3898,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
   const { record, channel } = context;
   const floatingElement = context.element as HTMLElement;
   const instance = getHoverInteraction(record);
+  trackHoverEntries(ownerDocument(floatingElement));
   const childClosedTimeout = createTimer();
   let cleanup: Cleanup | null = null;
   let pointerEventsCleanup: Cleanup | null = null;
@@ -4143,6 +4146,11 @@ function createHoverFloatingController(context: HandleContext): Controller {
   syncGate();
   runLayoutEffects(record.open, record.domReferenceElement, true);
   install();
+  // Design point 5 of M5 track 8, the floating side: at the attach, a pointer already inside the popup runs its enter, which
+  // cancels a pending close. The record is read, not consumed, so a trigger inside the popup that attaches later takes it.
+  if (cleanup !== null && takeHoverEntry(floatingElement, false) !== null) {
+    onFloatingMouseEnter();
+  }
   return {
     update() {
       syncGate();
