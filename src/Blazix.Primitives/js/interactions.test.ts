@@ -5565,12 +5565,12 @@ describe('Menu', () => {
   // listens for the release once; a release over an item of the tree then clicks it (`detail: 1`, `pointerType: mouse`),
   // a release outside the trigger, its bounds and the tree cancels the open, and so does one after the trigger's hover
   // open. A context menu sets its rules through `armMenuRelease` (track 7).
-  function releaseTree() {
+  function releaseTree(extra: { keepArmedWhenClosed?: boolean } = {}) {
     const menu = harness();
     menu.attachSession();
     const trigger = element('button', `${menu.token}-trigger`);
     vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(hoverRect(0, 0, 50, 20));
-    menu.attachTrigger(trigger, { trigger: { menu: { rootId: 'root', release: true, trackMouseEnter: true } } });
+    menu.attachTrigger(trigger, { trigger: { menu: { rootId: 'root', release: true, trackMouseEnter: true, ...extra } } });
     menu.setReference(trigger);
     const positioner = element('div');
     const popup = document.createElement('div');
@@ -5718,6 +5718,23 @@ describe('Menu', () => {
       await vi.advanceTimersByTimeAsync(200);
       mouse(tree.plain, 'mouseup', { clientX: 10, clientY: 40 });
       expect(tree.clicks.map((click) => click.id)).toEqual([tree.plain.id]);
+    });
+
+    // Design point 1 (a) of M5 track 8 (settled by the orchestrator 2026-11-11): MenuTrigger.tsx:120-124 disarms the tree
+    // when the trigger's menu is not open only for a trigger with no parent, so a menubar's trigger keeps the arm (MBR §16 Q9).
+    it('port: with keepArmedWhenClosed the end of the trigger\'s open leaves the tree armed, so a release after a reopen clicks the item', async () => {
+      vi.useFakeTimers();
+      for (const keepArmedWhenClosed of [false, true]) {
+        const tree = releaseTree({ keepArmedWhenClosed });
+        mouse(tree.trigger, 'mousedown');
+        tree.menu.setOpen(true, 'trigger-press', tree.trigger.id);
+        await vi.advanceTimersByTimeAsync(200);
+        tree.menu.setOpen(false, 'trigger-press', tree.trigger.id);
+        tree.menu.setOpen(true, 'trigger-focus', tree.trigger.id);
+
+        mouse(tree.plain, 'mouseup', { clientX: 10, clientY: 40 });
+        expect(tree.clicks.map((click) => click.id)).toEqual(keepArmedWhenClosed ? [tree.plain.id] : []);
+      }
     });
 
     it('port: a release outside the trigger, its bounds and the tree cancels the open with cancel-open; one within them does not', async () => {
