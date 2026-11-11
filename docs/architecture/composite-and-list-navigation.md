@@ -7,7 +7,7 @@
 | Tests | `internals/composite/composite.test.ts`, `internals/composite/root/CompositeRoot.test.tsx`, `internals/composite/list/CompositeList.test.tsx`, `internals/useItemRegistry.test.tsx`, `floating-ui-react/utils/composite.test.ts`, `floating-ui-react/hooks/useListNavigation.test.tsx`, `floating-ui-react/hooks/useListNavigation.webkit.test.tsx`, `floating-ui-react/hooks/useTypeahead.test.tsx`, `packages/react/test/popupListConformanceTests.tsx` |
 | Prefix | `CMP` |
 | Status | approved |
-| Revised | 2026-11-10 (M5 track 6) |
+| Revised | 2026-11-11 (M5 track 10) |
 | Used by | accordion (item registration), autocomplete, combobox (list navigation, typeahead on trigger, chips/items registration, highlight reason), menu (list navigation, typeahead, items registration, trigger as composite item, keyboard relay from menubar), menubar (roving group), navigation-menu (roving group, links/triggers as items), radio-group / radio (roving group, active item marker), select (list navigation, typeahead, items registration), tabs (roving group, active item marker, panels registration), toggle-group / toggle (roving group), toolbar (roving group: buttons, links, inputs), otp-field (input registration), slider (thumb registration), button-behavior (`useButton` infers "composite item" mode from the roving-group context) |
 
 ## 1. Purpose

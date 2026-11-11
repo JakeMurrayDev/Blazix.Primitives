@@ -117,3 +117,11 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - MNU-STR-07: Portal and Backdrop read the Root's context and throw outside a Root (`menu/portal/MenuPortal.tsx:21`, `menu/backdrop/MenuBackdrop.tsx:23`); the bullet listed them as exempt.
 - MNU-FOC-10, MNU-DIS-09, MNU-ANI-02: their "MNU-DOM-11" references meant the internal backdrop (MNU-DOM-25) or the Backdrop (MNU-DOM-10).
 - §3.7 Viewport: `data-activation-direction`, `data-transitioning`, `[data-previous]` and its size variables are written by the `popup` module, not C# (dated Writer note in §3.7).
+
+## 2026-11-11, combobox.md fidelity corrections (M5 track 10, [issue 174](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/174))
+
+- §6–§8 Test lines: the citations Base UI runs only in a browser (`describe.skipIf(isJSDOM)` or `skipIf(isJSDOM)` titles, CMB-API-21's grid titles, STA-28's visible inline highlight) were tagged [L2]; retagged L4 with dated notes (5c21131a). "releases the frozen query when controlled open reopens the popup" stays L2: the port's title completes the store's close transition itself.
+- CMB-FOC-08, CMB-DIS-04: "validates when the popup is blurred" closes on a programmatic focus-out only under jsdom; in a browser the portalled popup's focus manager closes on focus-out only after a pointerdown outside (`FloatingFocusManager.tsx:571-595`). Read from the source, not run (dated notes).
+- RND-DOM-54 (rendering-and-composition.md): its list of parts that publish a rendered id omits ComboboxPopup, which reads its DOM id (`ComboboxPopup.tsx:56-62`); dated note.
+- CMB-KEY-10, CMB-PTR-10, CMB-EVT-09: the ChipRemove propagation clause meets ADR 01's decision-point row on Server like the Escape clause; §9 lists it (dated).
+

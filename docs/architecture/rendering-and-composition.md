@@ -7,7 +7,7 @@
 | Tests | `internals/useRenderElement.test.tsx`, `internals/useRenderElement.spec.tsx`, `internals/getStateAttributesProps.test.ts`, `internals/stateAttributesMapping.test.ts`, `internals/resolveRenderedId.test.tsx`, `merge-props/mergeProps.test.ts`, `use-render/useRender.test.tsx`, `use-render/useRender.spec.tsx`, `utils/listbox-separator/ListboxSeparator.test.tsx`, `select/item-indicator/SelectItemIndicator.test.tsx`, `combobox/item-indicator/ComboboxItemIndicator.test.tsx`, `packages/utils/src/useId.test.tsx`, `packages/utils/src/useId.react17.test.tsx`, `packages/utils/src/useMergedRefs.test.tsx`, `packages/utils/src/getReactElementRef.test.tsx`, `test/describeConformance.tsx`, `test/conformanceTests/*.tsx` |
 | Prefix | `RND` |
 | Status | approved |
-| Revised | 2026-11-04 |
+| Revised | 2026-11-11 |
 | Used by | every component document (all 41 modules render through this pipeline); `architecture/transitions-and-mounting.md` (transition data attributes), `architecture/popup-store-and-handles.md` (popup state mappings), `architecture/field-and-form-infrastructure.md` (validity mapping), `architecture/button-behavior.md` (`nativeButton`, function-form props), `architecture/event-details-and-reasons.md` (`BaseUIEvent` vs event details) |
 
 Citation note: source paths are relative to `reference/base-ui/packages/react/src/` per conventions §3.1. Paths beginning with `test/` are relative to `reference/base-ui/packages/react/` (the conformance suite lives outside `src/`). Paths beginning with `packages/utils/` or `docs/` are relative to `reference/base-ui/`.
