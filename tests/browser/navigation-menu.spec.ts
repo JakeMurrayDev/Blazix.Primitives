@@ -792,6 +792,29 @@ test.describe('<NavigationMenu.Link /> and the guards', () => {
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');
   });
 
+  // NAV-FOC-11's form of the inactive-trigger gap (PR 217's run 42847434971): a top-level Link's blur waited for the
+  // Popup's and the Positioner's handles, which attach a round trip or two after the open's render on Server.
+  test('port: closes when focus leaves through a top-level link before the popup attaches, under circuit latency on Server', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the window is the round trips before the Popup\'s handle attaches');
+    await delayCircuit(page, 250);
+    const fixture = await gotoMenu(page, mode, { topLink: true });
+    await trigger(page, 2).focus();
+    await trigger(page, 2).click();
+    await expect(content(page, 2)).toBeVisible();
+    const topLink = page.getByTestId('top-link');
+    for (let i = 0; i < 6 && !(await topLink.evaluate((element) => element === document.activeElement)); i += 1) {
+      await page.keyboard.press('Tab');
+    }
+    await expect(topLink).toBeFocused();
+
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect(await valueChanges(fixture)).toContain('null:focus-out');
+  });
+
   test('returns focus to the trigger when no viewport focus guard is rendered', async ({ page, mode }) => {
     await gotoMenu(page, mode, { noViewport: true });
     await trigger(page, 1).focus();
@@ -1543,6 +1566,25 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(page.getByTestId('popup-root')).toHaveCount(0);
     await expect(page.getByTestId('after')).toBeFocused();
     await expect(trigger(page, 1)).not.toBeFocused();
+  });
+
+  // The title above failed on Server in PR 217's run 42847434971: the blur that leaves the menu is trigger 2's, an inactive
+  // trigger, and it found no Popup until the Popup's handle attached, so it reported no `focus-out` (NAV-FOC-10).
+  test('port: closes when focus leaves through an inactive trigger before the popup attaches, under circuit latency on Server', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the window is the round trips before the Popup\'s handle attaches');
+    await delayCircuit(page, 250);
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 1).focus();
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('Tab');
+    }
+
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect(await valueChanges(fixture)).toContain('null:focus-out');
   });
 
   test('closes the menu when tabbing back out', async ({ page, mode }) => {
