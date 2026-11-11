@@ -3120,6 +3120,68 @@ function hoverSessionState(record: SessionRecord): HoverSessionState {
 // triggers and press cancel (tooltip/trigger/TooltipTrigger.tsx:92-258)
 // ---------------------------------------------------------------------------------------------------------------
 
+// Design point 5 of M5 track 8 (settled by the orchestrator 2026-11-11; MBR-PTR-07; ADR 04 Amendments 2026-11-11): the
+// last `mouseover` per document, with the pointer type of the `pointerover` before it. On Server a trigger's handle attaches
+// a round trip after its element appears, so a pointer that entered it meanwhile reached no listener. Base UI attaches its
+// listeners in an effect React flushes before the next input (useHoverReferenceInteraction.ts:189-397), so it never misses
+// the entry. A `mouseout` out of the record's target (into an element outside it, or out of the window) clears the record;
+// the handle that runs it consumes it.
+interface HoverEntry {
+  readonly event: MouseEvent;
+  readonly target: Element;
+  readonly pointerType: string | undefined;
+}
+
+const hoverEntries = new WeakMap<Document, HoverEntry>();
+const hoverEntryDocuments = new WeakSet<Document>();
+
+function trackHoverEntries(doc: Document): void {
+  if (hoverEntryDocuments.has(doc)) {
+    return;
+  }
+  hoverEntryDocuments.add(doc);
+  let pointerType: string | undefined;
+  doc.addEventListener('pointerover', (event) => {
+    pointerType = event.pointerType;
+  }, true);
+  doc.addEventListener('mouseover', (event) => {
+    const target = getTarget(event);
+    if (isElement(target)) {
+      hoverEntries.set(doc, { event, target, pointerType });
+    }
+  }, true);
+  doc.addEventListener('mouseout', (event) => {
+    const entry = hoverEntries.get(doc);
+    if (entry !== undefined && !contains(entry.target, event.relatedTarget as Element | null)) {
+      hoverEntries.delete(doc);
+    }
+  }, true);
+}
+
+/** Takes the document's recorded entry when its target is inside `element`, consuming it. */
+function takeHoverEntry(element: Element): HoverEntry | null {
+  const doc = ownerDocument(element);
+  const entry = hoverEntries.get(doc);
+  if (entry === undefined || !contains(element, entry.target)) {
+    return null;
+  }
+  hoverEntries.delete(doc);
+  return entry;
+}
+
+/** A view of a dispatched event whose `currentTarget` is the element a replayed listener runs for. */
+function retargetEvent<T extends Event>(event: T, currentTarget: EventTarget): T {
+  return new Proxy(event, {
+    get(target, property) {
+      if (property === 'currentTarget') {
+        return currentTarget;
+      }
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+}
+
 function hoverListenerKey(options: HoverOptions | null): string | null {
   return options === null ? null : [options.move !== false, options.guardStaleOpen === true, options.nestedTooltipTriggers === true].join();
 }
@@ -3136,6 +3198,7 @@ function createHoverReferenceController(context: HandleContext): Controller {
   const { record, channel } = context;
   const element = context.element as HTMLElement;
   const instance = getHoverInteraction(record);
+  trackHoverEntries(ownerDocument(element));
   const session = hoverSessionState(record);
   // useHoverReferenceInteraction.ts:99: whether the last close was hover-initiated (FLT-PTR-13, FLT-PTR-17).
   let isHoverCloseActive = false;
@@ -3507,6 +3570,16 @@ function createHoverReferenceController(context: HandleContext): Controller {
     instance.restTimeoutPending = false;
   };
 
+  // The hook's once-`mousemove` open (useHoverReferenceInteraction.ts:377-378), taken once per install, so a replayed
+  // entry takes it as the live first move would.
+  let firstMoveTaken = false;
+  const onFirstMouseMove = (event: MouseEvent) => {
+    if (!firstMoveTaken) {
+      firstMoveTaken = true;
+      onMouseEnter(event);
+    }
+  };
+
   // FLT-PTR-11: useHoverReferenceInteraction.ts:419-421.
   const setPointerRef = (event: PointerEvent) => {
     instance.pointerType = event.pointerType;
@@ -3686,10 +3759,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     }
     const nested = options.nestedTooltipTriggers === true;
     hoverKey = hoverListenerKey(options);
+    firstMoveTaken = false;
     record.events.on('openchange', onOpenChange);
     // The hook's native listeners first, then its prop bag, then Tooltip's handlers (React runs delegated handlers last).
     hoverCleanup = mergeCleanups(
-      options.move !== false && listen(element, 'mousemove', onMouseEnter, { once: true }),
+      options.move !== false && listen(element, 'mousemove', onFirstMouseMove, { once: true }),
       // NavigationMenu's own lock decides on the state before this event's switch (Base UI reads the render's `value`), so
       // its listener runs before the hover hook's.
       options.blockPointerEventsOnEnter === true && listen(element, 'mouseenter', lockOnEnter),
@@ -3745,10 +3819,44 @@ function createHoverReferenceController(context: HandleContext): Controller {
     }
   };
 
+  // Design point 5 of M5 track 8: at the attach only, an entry the pointer made before the handle existed runs the live
+  // listeners in the browser's order (pointerenter, mouseover, mouseenter, mousemove) with the trigger as currentTarget,
+  // so every live guard applies: the pointer type, the disabled gate, the delays and the rest time counted from now, the
+  // nested triggers, the locks and the delay group. A handle whose hover is off now takes nothing.
+  const replayEntry = () => {
+    const options = hoverOptions();
+    if (hoverCleanup === null || options === null) {
+      return;
+    }
+    const entry = takeHoverEntry(element);
+    if (entry === null) {
+      return;
+    }
+    const event = retargetEvent(entry.event, element);
+    if (entry.pointerType !== undefined) {
+      instance.pointerType = entry.pointerType;
+      if (options.nestedTooltipTriggers === true) {
+        triggerPointerType = entry.pointerType;
+      }
+    }
+    if (options.nestedTooltipTriggers === true) {
+      handleNestedTriggerHover(event);
+    }
+    if (options.blockPointerEventsOnEnter === true) {
+      lockOnEnter(event);
+    }
+    onMouseEnter(event);
+    if (options.move !== false) {
+      onFirstMouseMove(event);
+    }
+    onMouseMove(event);
+  };
+
   syncGate();
   refreshHandleClose();
   installHover();
   installPress();
+  replayEntry();
   return {
     update() {
       syncGate();

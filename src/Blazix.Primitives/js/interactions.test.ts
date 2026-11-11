@@ -3251,7 +3251,7 @@ describe('useHoverReferenceInteraction', () => {
 
       await vi.advanceTimersByTimeAsync(1);
       expect(popup.open).toBe(true);
-      expect(popup.changes.at(-1)?.reason).toBe('trigger-hover');
+      expect(popup.changes.at(-1)?.details.reason).toBe('trigger-hover');
     });
 
     it('port: a recorded entry is cleared when the pointer leaves its target, out of the trigger or out of the window', async () => {
