@@ -89,6 +89,23 @@ public sealed class MenubarTests : BunitContext
     {
         Render<MenubarHost>();
 
+        AssertTheMenuNamesTheBarsSession();
+    }
+
+    // MenuTrigger.tsx:95-108: the trigger holding a detached Root's popup forwards the bar's floating parent node too.
+    [Fact(DisplayName = "port: a detached menu held by a bar trigger names the bar's session as its parent")]
+    [Trait("Requirement", "MBR-STR-04")]
+    public void A_detached_menu_held_by_a_bar_trigger_names_the_bars_session()
+    {
+        IRenderedComponent<MenubarDetachedHost> cut = Render<MenubarDetachedHost>();
+
+        Assert.Equal("bar", cut.Find("[data-testid=\"popup\"]").GetAttribute("data-rootownerid"));
+        cut.WaitForAssertion(AssertTheMenuNamesTheBarsSession, TimeSpan.FromSeconds(2));
+    }
+
+    // The menu's session (the one with a popup id) names as parent a session the bar drew (no popup id).
+    private void AssertTheMenuNamesTheBarsSession()
+    {
         List<JsonElement> sessions = [.. JSInterop.Invocations
             .SelectMany(invocation => invocation.Arguments.OfType<string>())
             .Where(argument => argument.StartsWith('{') && argument.Contains("\"session\":", StringComparison.Ordinal))
@@ -99,7 +116,8 @@ public sealed class MenubarTests : BunitContext
             .LastOrDefault();
 
         Assert.NotNull(parentToken);
-        Assert.Contains(sessions, options => options.TryGetProperty("sessionToken", out JsonElement token) && token.GetString() == parentToken);
+        Assert.Contains(sessions, options => options.TryGetProperty("sessionToken", out JsonElement token) && token.GetString() == parentToken
+            && !(options.GetProperty("session").TryGetProperty("floatingId", out JsonElement id) && id.ValueKind == JsonValueKind.String));
     }
 
     [Fact(DisplayName = "port: a bar menu's open sets data-has-submenu-open, and its close by another reason clears it")]
