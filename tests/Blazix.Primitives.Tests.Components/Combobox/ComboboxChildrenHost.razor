@@ -1,0 +1,35 @@
+@namespace Blazix.Primitives.Tests.Components
+@* ComboboxRoot.test.tsx's ChildrenCombobox and FilteredCombobox: an autoHighlight Root without Items whose List renders
+   `Results` as individually rendered Items. With `FilterByQuery` the host keeps the query from OnInputValueChange, as the
+   test's useState does, and renders only the results that contain it. *@
+<ComboboxRoot TValue="string" @ref="Root" AutoHighlight="true" OnInputValueChange="OnInput">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="string">
+                    @foreach (string item in Rendered)
+                    {
+                        <ComboboxItem TValue="string" Value="@item" @key="item">@item</ComboboxItem>
+                    }
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    private string query = string.Empty;
+
+    [Parameter]
+    public IReadOnlyList<string> Results { get; set; } = [];
+
+    [Parameter]
+    public bool FilterByQuery { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    private IEnumerable<string> Rendered => FilterByQuery ? Results.Where(item => item.Contains(query, StringComparison.Ordinal)) : Results;
+
+    private void OnInput(ValueChangeEventArgs<string> args) => query = args.Value;
+}

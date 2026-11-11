@@ -1,0 +1,102 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-live-regions` fixture (M5 track 10, issue 174; ported by session S for CMB-ARIA-13): ComboboxStatus.test.tsx,
+    ComboboxStatus.iOS.test.tsx and ComboboxEmpty.test.tsx's a11y titles, at L4, since the initial live-region text mutation is
+    the `dom` module's (UTL-A11Y-01..04). Every case renders a root open by default with an Input and a popup.
+
+    Case `status` (Base UI's StatusTest): a Status (`status`) whose text is the query's `text`, empty when absent; the control
+    `set-status` sets it to "Searching…"; the control `unmount` removes the whole root.
+    Case `status-render`: a Status rendered as `<p data-testid="custom-status">` with "Searching…".
+    Case `empty`: a root over no items with an Empty (`empty`) of "No results" and an empty List.
+    Case `empty-appears`: the same over the item `a`; the control `empty-items` replaces the items with none.
+    Case `empty-render`: an Empty rendered as `<p data-testid="custom-empty">` over no items.
+*@
+<FixtureContainer Name="combobox-live-regions" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    @if (showRoot)
+    {
+        @switch (Case)
+        {
+            case "status":
+            case "status-render":
+                <ComboboxRoot TValue="string" @ref="root" DefaultOpen="true">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    <ComboboxPortal>
+                        <ComboboxPositioner>
+                            <ComboboxPopup>
+                                @if (Case == "status")
+                                {
+                                    <ComboboxStatus data-testid="status">@statusText</ComboboxStatus>
+                                }
+                                else
+                                {
+                                    <ComboboxStatus Render="@s_customStatus">Searching…</ComboboxStatus>
+                                }
+                                <ComboboxList TValue="string">
+                                    <ComboboxItem TValue="string" Value="@("a")">a</ComboboxItem>
+                                </ComboboxList>
+                            </ComboboxPopup>
+                        </ComboboxPositioner>
+                    </ComboboxPortal>
+                </ComboboxRoot>
+                break;
+            case "empty":
+            case "empty-appears":
+            case "empty-render":
+                <ComboboxRoot TValue="string" @ref="root" Items="@items" DefaultOpen="true">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    <ComboboxPortal>
+                        <ComboboxPositioner>
+                            <ComboboxPopup>
+                                @if (Case == "empty-render")
+                                {
+                                    <ComboboxEmpty Render="@s_customEmpty">No results</ComboboxEmpty>
+                                }
+                                else
+                                {
+                                    <ComboboxEmpty data-testid="empty">No results</ComboboxEmpty>
+                                }
+                                <ComboboxList TValue="string" />
+                            </ComboboxPopup>
+                        </ComboboxPositioner>
+                    </ComboboxPortal>
+                </ComboboxRoot>
+                break;
+        }
+    }
+    <button type="button" tabindex="-1" data-testid="set-status" data-key-control @onkeydown="OnShift(SetStatus)">Set status</button>
+    <button type="button" tabindex="-1" data-testid="empty-items" data-key-control @onkeydown="OnShift(EmptyItems)">Empty items</button>
+    <button type="button" tabindex="-1" data-testid="unmount" data-key-control @onkeydown="OnShift(Unmount)">Unmount</button>
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment s_customStatus = @<p data-testid="custom-status"></p>;
+
+    private static readonly RenderFragment s_customEmpty = @<p data-testid="custom-empty"></p>;
+
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private string? statusText;
+    private IReadOnlyList<string> items = [];
+    private bool showRoot = true;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        statusText = Query("text");
+        items = Case == "empty-appears" ? ["a"] : [];
+    }
+
+    private void SetStatus() => statusText = "Searching…";
+
+    private void EmptyItems() => items = [];
+
+    private void Unmount() => showRoot = false;
+}

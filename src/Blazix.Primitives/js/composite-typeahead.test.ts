@@ -57,6 +57,41 @@ function type(text: string): void {
   }
 }
 
+describe('a typeahead-only reference (port, CMB-KEY-12)', () => {
+  /** Base UI's `ComboboxTrigger`: a closed trigger that runs the list's typeahead and none of its navigation keys. */
+  function trigger(extra: ListHarnessOptions = {}): ListHarness {
+    const harness = createListHarness({
+      reference: 'button',
+      items: [],
+      list: { typeahead: { resetMs: 750, labels: ['apple', 'banana', 'cherry'] } },
+      referenceExtra: { typeaheadOnly: true },
+      ...extra,
+    });
+    harnesses.push(harness);
+    return harness;
+  }
+
+  it('port: a typeahead-only reference matches while closed and leaves its arrow keys alone', () => {
+    const harness = trigger();
+    harness.reference.focus();
+    const arrow = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true, composed: true });
+    harness.reference.dispatchEvent(arrow);
+
+    type('b');
+
+    expect([arrow.defaultPrevented, harness.openRequests.length, harness.matches.map((match) => match.index)]).toEqual([false, 0, [1]]);
+  });
+
+  it('port: a typeahead-only reference does not run the typeahead while the list is open', () => {
+    const harness = trigger({ session: { open: true } });
+    harness.reference.focus();
+
+    type('b');
+
+    expect([harness.matches.length, harness.highlights.length]).toEqual([0, 0]);
+  });
+});
+
 describe('useTypeahead', () => {
   it('passes the matching keydown event to onMatch', async () => {
     const harness = combobox();

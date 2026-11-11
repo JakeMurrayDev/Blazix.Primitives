@@ -1,0 +1,86 @@
+@namespace Blazix.Primitives.Tests.Components
+@* ComboboxRoot.test.tsx's AsyncCombobox (prop: autoHighlight > asynchronous items): a Root over `Items`, given as its items or
+   as its filtered items, with autoHighlight and no filter; an Input, a Trigger, and a Popup with an Empty and a List. With
+   `ControlledInput` the host keeps the input value as the test's ControlledCombobox does with useState, and `ClearInput`
+   forces it empty. `RootParameters` are splatted last, so a test overrides Open, AutoHighlight or the callbacks. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="Parameters">
+    <ComboboxInput data-testid="input" />
+    <ComboboxTrigger data-testid="trigger" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup data-testid="popup">
+                <ComboboxEmpty>No matches</ComboboxEmpty>
+                <ComboboxList TValue="string">
+                    <ItemContent>
+                        <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+                    </ItemContent>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    private string inputValue = string.Empty;
+
+    [Parameter]
+    public IReadOnlyList<string> Items { get; set; } = [];
+
+    /// <summary>Gets or sets a value indicating whether the items are the root's FilteredItems rather than its Items.</summary>
+    [Parameter]
+    public bool UseFilteredItems { get; set; }
+
+    [Parameter]
+    public bool ControlledInput { get; set; }
+
+    [Parameter]
+    public bool ClearInput { get; set; }
+
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    public List<(string? Value, int Index, EventReason Reason)> Highlights { get; } = [];
+
+    public List<string?> ValueChanges { get; } = [];
+
+    public List<(bool Open, EventReason Reason)> OpenChanges { get; } = [];
+
+    /// <summary>Gets or sets a step run inside OnOpenChange, to cancel the request.</summary>
+    public Action<ValueChangeEventArgs<bool>>? OnOpen { get; set; }
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new()
+            {
+                [UseFilteredItems ? nameof(ComboboxRoot<string>.FilteredItems) : nameof(ComboboxRoot<string>.Items)] = Items,
+                [nameof(ComboboxRoot<string>.AutoHighlight)] = true,
+                [nameof(ComboboxRoot<string>.Filter)] = null,
+                [nameof(ComboboxRoot<string>.OnItemHighlighted)] = EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, args => Highlights.Add((args.Value, args.Details.Index, args.Details.Reason))),
+                [nameof(ComboboxRoot<string>.OnValueChange)] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => ValueChanges.Add(args.Value)),
+                [nameof(ComboboxRoot<string>.OnOpenChange)] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpen),
+            };
+            if (ControlledInput)
+            {
+                parameters[nameof(ComboboxRoot<string>.InputValue)] = ClearInput ? string.Empty : inputValue;
+                parameters[nameof(ComboboxRoot<string>.OnInputValueChange)] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => inputValue = args.Value);
+            }
+
+            foreach ((string key, object? value) in RootParameters)
+            {
+                parameters[key] = value;
+            }
+
+            return parameters;
+        }
+    }
+
+    private void RecordOpen(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add((args.Value, args.Details.Reason));
+        OnOpen?.Invoke(args);
+    }
+}

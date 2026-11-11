@@ -60,6 +60,8 @@ export interface ListHarnessOptions {
   navigateVerdict?: DecisionPolicy | ((event: EventInfo) => DecisionPolicy);
   /** Whether C# reports the items' order. */
   reportItems?: boolean;
+  /** Handle-level options merged into the reference handle's, such as a role. */
+  referenceExtra?: Record<string, unknown>;
   /** The session harness's options (the consumer's `OnOpenChange`, the initial open state). */
   session?: HarnessOptions;
   /** Where the elements go; the document's body by default. */
@@ -157,7 +159,7 @@ export function createListHarness(options: ListHarnessOptions = {}): ListHarness
   const floatingOptions = (): string =>
     JSON.stringify({ ...commonOptions(), floating: {}, items: registrations(), ...(options.reportItems ? { reportItems: true } : {}) });
 
-  const referenceOptions = (): string => JSON.stringify({ ...commonOptions(), reference: {} });
+  const referenceOptions = (): string => JSON.stringify({ ...commonOptions(), reference: {}, ...options.referenceExtra });
 
   const record = (method: string, payload: Record<string, unknown>): void => {
     reports.push({ method, payload });

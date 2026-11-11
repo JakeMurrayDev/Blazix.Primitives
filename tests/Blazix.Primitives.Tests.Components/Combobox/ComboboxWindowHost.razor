@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Tests.Components
+@* A virtualized Combobox over `Items` that renders a window of the root's filtered values, as a virtualizer does: the first
+   `WindowSize` of them, each an Item without `Index` (design point 1's path, CMB-API-22). The input change renders the host,
+   so the window follows the filter. *@
+<ComboboxRoot TValue="string" @ref="Root" Items="@Items" Virtualized="true" DefaultOpen="true" OnInputValueChange="@(_ => { })">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="string">
+                    @if (Root is not null)
+                    {
+                        IReadOnlyList<string> filtered = Root.Store.FilteredValues;
+                        for (int i = 0; i < filtered.Count && i < WindowSize; i++)
+                        {
+                            string value = filtered[i];
+                            <ComboboxItem TValue="string" @key="value" Value="@value">@value</ComboboxItem>
+                        }
+                    }
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    /// <summary>Gets or sets the root's items.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Items { get; set; } = [];
+
+    /// <summary>Gets or sets the number of filtered values the window renders.</summary>
+    [Parameter]
+    public int WindowSize { get; set; } = 20;
+
+    /// <summary>Gets the rendered root.</summary>
+    public ComboboxRoot<string>? Root { get; private set; }
+}
