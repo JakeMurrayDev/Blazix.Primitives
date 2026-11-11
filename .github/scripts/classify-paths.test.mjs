@@ -109,6 +109,20 @@ describe('dependent families', () => {
 
     expect(run(['src/Blazix.Primitives/ContextMenu/ContextMenuTrigger.cs'], withMenu).specs).toEqual(['tests/browser/context-menu.spec.ts']);
   });
+
+  // Design point 4 (a) of M5 track 8 (issue 195; settled by the orchestrator 2026-11-11): Menubar's menus are Menu's own
+  // parts and its branches are Menu's code, so a change under the Menu folder also runs the Menubar spec; one way.
+  it('a change under the Menu folder also runs the Menubar spec, and not the other way round', () => {
+    const withMenu = {
+      families: [...families, 'menu', 'context-menu', 'menubar'],
+      specFiles: [...specFiles, 'tests/browser/menu.root.spec.ts', 'tests/browser/context-menu.spec.ts', 'tests/browser/menubar.spec.ts'],
+    };
+    const shared = run(['src/Blazix.Primitives/Menu/MenuTriggerBehavior.cs'], withMenu);
+    expect(shared.families).toEqual(['context-menu', 'menu', 'menubar']);
+    expect(shared.specs).toContain('tests/browser/menubar.spec.ts');
+
+    expect(run(['src/Blazix.Primitives/Menubar/Menubar.cs'], withMenu).specs).toEqual(['tests/browser/menubar.spec.ts']);
+  });
 });
 
 describe('full L4', () => {
