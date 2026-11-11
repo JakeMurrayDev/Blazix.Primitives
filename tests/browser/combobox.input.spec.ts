@@ -468,6 +468,35 @@ test.describe('<Combobox.Input />', () => {
       await expect(button).toBeFocused();
       await expect(listbox(page)).toBeHidden();
     });
+
+    test('preserves caret position when controlled and inserting in the middle', async ({ page, mode }) => {
+      const fixture = await goto(page, mode, 'controlled-input');
+      const field = input(page);
+
+      await field.click();
+      await field.pressSequentially('abcd');
+      await expect(field).toHaveValue('abcd');
+
+      // Move caret left twice to position after "ab"
+      await page.keyboard.press('ArrowLeft');
+      await page.keyboard.press('ArrowLeft');
+      await expect.poll(() => caret(field)).toBe(2);
+
+      // On Server the controlled text's round trips land after the keys: each check waits until C# has seen the last change.
+      await page.keyboard.type('xxx');
+      await expect(fixture).toHaveAttribute('data-input-changes', /(^| )abxxxcd:input-change$/);
+      await settle(fixture);
+      await expect(field).toHaveValue('abxxxcd');
+      await expect.poll(() => caret(field)).toBe(5);
+      expect(await field.evaluate((element: HTMLInputElement) => element.selectionEnd)).toBe(5);
+
+      await page.keyboard.type('y');
+      await expect(fixture).toHaveAttribute('data-input-changes', /(^| )abxxxycd:input-change$/);
+      await settle(fixture);
+      await expect(field).toHaveValue('abxxxycd');
+      await expect.poll(() => caret(field)).toBe(6);
+      expect(await field.evaluate((element: HTMLInputElement) => element.selectionEnd)).toBe(6);
+    });
   });
 });
 

@@ -242,6 +242,46 @@ public sealed class ComboboxRootTests : IDisposable
         Assert.Contains("\"value\":\"a\"", test.LastInputOptions(), StringComparison.Ordinal);
     }
 
+    // On Server the consumer's render, which carries the controlled text, can reach the root after the commit: a re-assert at
+    // the commit would write the previous text over the typing and move the caret to the end.
+    [Fact(DisplayName = "port: a typed controlled text is not re-asserted before the consumer's render")]
+    [Trait("Requirement", "CMB-API-09")]
+    public async Task A_typed_controlled_text_is_not_reasserted_before_the_consumer_render()
+    {
+        // The consumer's callbacks render nothing yet (their receiver is not a component), as a render Server has not sent.
+        string latest = string.Empty;
+        EventCallback<ValueChangeEventArgs<string>> onChange = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), args => latest = args.Value);
+        EventCallback<ValueChangeEventArgs<bool>> onOpen = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { });
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = string.Empty, ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen });
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+
+        await test.TypeAsync(cut, "a");
+        await test.TypeAsync(cut, "ab");
+
+        Assert.Equal(revision, cut.Instance.Root.Store.State.InputRevision);
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = latest, ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen }));
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"ab\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a consumer render that keeps the controlled text re-asserts it over the typed edit")]
+    [Trait("Requirement", "CMB-API-09")]
+    public async Task A_consumer_render_that_keeps_the_controlled_text_reasserts_it()
+    {
+        EventCallback<ValueChangeEventArgs<string>> onChange = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), _ => { });
+        EventCallback<ValueChangeEventArgs<bool>> onOpen = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { });
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a", ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen });
+
+        await test.TypeAsync(cut, "ab");
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = "a", ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen }));
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"a\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "port: a supplied null input text derives the text from the selection")]
     [Trait("Requirement", "CMB-STA-19")]
     [Trait("Requirement", "CMB-API-09")]
