@@ -6,6 +6,7 @@ using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ContextMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.DialogFixtures;
@@ -200,6 +201,7 @@ public static class FixtureCatalog
         ["menu-nested"] = new(typeof(MenuNestedFixture)),
         ["menu-measure"] = new(typeof(MenuMeasureFixture)),
         ["menu-root"] = new(typeof(MenuRootFixture)),
+        ["context-menu-root"] = new(typeof(ContextMenuRootFixture)),
         ["menu-dialog"] = new(typeof(MenuDialogFixture)),
         ["menu-transition"] = new(typeof(MenuTransitionFixture)),
         ["menu-triggerless"] = new(typeof(MenuTriggerlessFixture)),
