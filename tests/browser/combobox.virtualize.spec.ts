@@ -8,7 +8,7 @@ import { settle } from './suites/popupFixture';
 // `Virtualize` over the consumer's filtered items, each an Item without `Index`, and the consumer's reveal through
 // `ScrollToItemAsync` driven by `OnItemHighlighted`.
 
-test('@verifies ADR-16/5 Combobox virtualized with Blazor Virtualize: keyboard across the window, the reveal, a selection and the form value', async ({ page, mode }, testInfo) => {
+test('Combobox virtualized with Blazor Virtualize: keyboard across the window, the reveal, a selection and the form value', async ({ page, mode }, testInfo) => {
   const fixture = await gotoCombobox(page, mode, 'combobox-virtualize');
   const field = page.getByTestId('input');
   const list = page.getByTestId('list');
@@ -51,7 +51,7 @@ test('@verifies ADR-16/5 Combobox virtualized with Blazor Virtualize: keyboard a
 // 6504 on WebAssembly in each of four runs, plus 112. The figures only tighten.
 const KEYSTROKE_BUDGET: Record<string, number> = { server: 7432, wasm: 6616 };
 
-test('stays within the per-keystroke allocation budget at 1,000 items', async ({ page, mode }) => {
+test('@verifies ADR-16/5 Combobox virtualized: stays within the per-keystroke allocation budget at 1,000 items', async ({ page, mode }) => {
   const fixture = await gotoCombobox(page, mode, 'combobox-virtualize');
   await page.getByTestId('input').click();
   await expect(page.getByRole('listbox')).toBeVisible();
