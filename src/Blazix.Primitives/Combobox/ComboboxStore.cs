@@ -343,6 +343,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool hadInputClear;
 
+    private bool openSeenByDiscard;
+
     // The rendered registry a query-clear restore found without the selection, waiting for the module's next order report.
     private ItemSlot<TValue>[]? restoreWaitedOn;
 
@@ -947,6 +949,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             NotifyInputValueCommitted();
         }
+
+        DiscardClosedQueryHighlight();
 
         // CMB-STA-28 (AriaCombobox.tsx:454-470): an inline list open on the first render never runs the closed sync, so the
         // selection's index is seeded once, for the list navigation to highlight and scroll to on mount.
@@ -1744,6 +1748,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
+        DiscardClosedQueryHighlight();
+
         // AriaCombobox.tsx:1088-1093: a kept-mounted dialog hides its inline list on close, so a pending query-clear restore is
         // discarded before it can overwrite the cleared highlight or report an item of the unfiltered list.
         if (!IsOpen && State.Inline && ListInsideOtherPopup)
@@ -1862,6 +1868,20 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             await EmitHighlightAsync(active, null);
         }
+    }
+
+    // AriaCombobox.tsx:1080-1085 (an effect on `open`): a controlled close can bypass the open request, and its exit animation
+    // may be interrupted, so a typed query's pending highlight is discarded when the popup closes. A typed request made while
+    // closed waits for its open, as the effect does not run again until `open` changes.
+    private void DiscardClosedQueryHighlight()
+    {
+        bool open = IsOpen;
+        if (openSeenByDiscard && !open && pendingHighlight is { HasQuery: true })
+        {
+            pendingHighlight = null;
+        }
+
+        openSeenByDiscard = open;
     }
 
     private int? FindSelectedIndexIn(IReadOnlyList<TValue> candidates)
