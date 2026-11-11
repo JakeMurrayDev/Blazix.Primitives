@@ -21,7 +21,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
     private readonly Func<Exception, Task> dispatchException;
 
     /// <summary>Initializes a new instance of the <see cref="MenubarContext"/> class.</summary>
-    /// <param name="flagChanged">Called after <see cref="HasSubmenuOpen"/> changed, before the subscribers.</param>
+    /// <param name="flagChanged">Called after <see cref="HasSubmenuOpen"/> changed, after the subscribers.</param>
     /// <param name="dispatchException">Reports an exception of a sibling's close request to the renderer.</param>
     public MenubarContext(Action flagChanged, Func<Exception, Task> dispatchException)
     {
@@ -160,9 +160,11 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
             return;
         }
 
+        // The triggers hear the flag before the bar renders it, so their hover and focus options are on their way before
+        // `data-has-submenu-open` shows (Base UI commits both together).
         HasSubmenuOpen = value;
-        flagChanged();
         Notify();
+        flagChanged();
     }
 
     private async Task CloseSiblingAsync(MenuRootContext menu)
