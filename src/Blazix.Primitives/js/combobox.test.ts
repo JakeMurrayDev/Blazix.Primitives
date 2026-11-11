@@ -357,6 +357,38 @@ describe('the input', () => {
     expect(scroller.scrollTop).toBe(50);
   });
 
+  // AriaCombobox.tsx:676-707 (CMB-PTR-12, PTR-13): Base UI resets the scroll inside the handler, before the highlight its
+  // commit scrolls to. On WebAssembly the report runs C#, and with it a restored highlight's scroll, before it returns, so the
+  // reset runs first (found by M2's L4 "scrolls to programmatic highlights after the filtered list changes", 2026-11-11).
+  it('port: a typed change resets the list scroll before it reports the change', () => {
+    const popup = document.createElement('div');
+    popup.id = 'popup';
+    const scroller = document.createElement('div');
+    const list = document.createElement('div');
+    list.id = 'list';
+    list.append(document.createElement('div'));
+    scroller.append(list);
+    popup.append(scroller);
+    document.body.append(popup);
+    Object.defineProperty(scroller, 'scrollHeight', { value: 400 });
+    Object.defineProperty(scroller, 'clientHeight', { value: 100 });
+    scroller.style.overflowY = 'auto';
+    scroller.scrollTop = 50;
+    const { input, fake } = setupInput('', { listId: 'list', popupId: 'popup' });
+    const atReport: number[] = [];
+    const send = fake.twin.invokeMethodAsync.bind(fake.twin);
+    fake.twin.invokeMethodAsync = <T>(method: string, ...args: unknown[]): Promise<T> => {
+      if (method === 'OnInputChange') {
+        atReport.push(scroller.scrollTop);
+      }
+      return send<T>(method, ...args);
+    };
+
+    typeInto(input, 'a');
+
+    expect(atReport).toEqual([0]);
+  });
+
   // AriaCombobox.tsx:945-948: the hidden validation input's form first, then the input's (review F14, settled by the
   // orchestrator 2026-11-10).
   it('port: a moved submit revision submits the hidden input\'s form, else the input\'s', () => {
