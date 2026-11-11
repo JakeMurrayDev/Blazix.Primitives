@@ -1,0 +1,44 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-groups` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the `groups` describe of
+    SelectRoot.test.tsx (6856-6906). A closed root with an unaligned positioner; the popup holds the group "Fruits"
+    (a label, apple, banana), a separator, and the group "Vegetables" (a label, carrot, leek). The trigger carries
+    `data-testid="trigger"`; the container records the open changes.
+*@
+<FixtureContainer Name="select-nav-groups" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+        <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false">
+                <SelectPopup data-testid="popup">
+                    <SelectGroup>
+                        <SelectGroupLabel>Fruits</SelectGroupLabel>
+                        <SelectItem Value="@("apple")">apple</SelectItem>
+                        <SelectItem Value="@("banana")">banana</SelectItem>
+                    </SelectGroup>
+                    <SelectSeparator />
+                    <SelectGroup>
+                        <SelectGroupLabel>Vegetables</SelectGroupLabel>
+                        <SelectItem Value="@("carrot")">carrot</SelectItem>
+                        <SelectItem Value="@("leek")">leek</SelectItem>
+                    </SelectGroup>
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </SelectRoot>
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

@@ -1,0 +1,190 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-dynamic` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the `dynamic items` describe of
+    SelectRoot.test.tsx (4470-5200). One page per case (`?case=`):
+    - `null-items`: "skips null items when navigating". A "Toggle" trigger and six items, three of which leave the list in
+      a 0 ms task after the popup opens and return once the close completes; the container records `data-filtered`.
+    - `remove`: "unselects the selected item if removed". A controlled value `a` over the items a, b, c; the `Remove` and
+      `Add` controls take the items out and put them back (both `data-key-control`: the popup is open and modal); the
+      value is rendered as `data-testid="value"`.
+    - `replace-options`, `replace-open`, `stale-open`: the three "resets aligned positioning ..." titles. Forty items
+      `<group>-<index>` keyed by index (so a replacement changes the values of the items already registered), a controlled
+      value, a 160×36 trigger under 120 px of padding, an aligned positioner and an unconstrained popup. `replace-options`
+      leaves `open` to the root and its button replaces the options and resets the value; `replace-open` controls `open`
+      and its button replaces the options, resets the value and opens; `stale-open` does the same but keeps the value.
+    The container records `data-open-changes`, `data-open-change-completes` and `data-value-changes` (`value:reason`).
+*@
+<FixtureContainer Name="select-nav-dynamic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-value-changes="@string.Join(' ', valueChanges)" data-filtered="@(filtered ? "true" : "false")">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @if (Case == "null-items")
+    {
+        <SelectRoot TValue="string" @ref="root" OnOpenChange="OnNullItemsOpenChange" OnOpenChangeComplete="OnNullItemsOpenChangeComplete">
+            <SelectTrigger @ref="trigger" data-testid="trigger">Toggle</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem Value="@("library")">Add to Library</SelectItem>
+                        @if (!filtered)
+                        {
+                            <SelectItem Value="@("playlist")">Add to Playlist</SelectItem>
+                            <SelectItem Value="@("next")">Play Next</SelectItem>
+                            <SelectItem Value="@("last")">Play Last</SelectItem>
+                        }
+                        <SelectItem Value="@("favorite")">Favorite</SelectItem>
+                        <SelectItem Value="@("share")">Share</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    }
+    else if (Case == "remove")
+    {
+        <button type="button" tabindex="-1" data-remove data-key-control @onclick="Remove" @onkeydown="OnShift(Remove)">Remove</button>
+        <button type="button" tabindex="-1" data-add data-key-control @onclick="Add" @onkeydown="OnShift(Add)">Add</button>
+        <div data-testid="value">@selected</div>
+        <SelectRoot TValue="string" @ref="root" Value="@selected" OnValueChange="OnSelectedChange" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            <SelectTrigger @ref="trigger" data-testid="trigger">Toggle</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    }
+    else if (Case == "replace-options")
+    {
+        <div style="padding-top: 120px; padding-left: 32px">
+            <button type="button" data-testid="replace-options" @onclick="ReplaceOptions">Replace options</button>
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @ReplaceContent
+            </SelectRoot>
+        </div>
+    }
+    else
+    {
+        <div style="padding-top: 120px; padding-left: 32px">
+            <button type="button" data-testid="replace-options-and-open" @onclick="ReplaceOptionsAndOpen">Replace options and open</button>
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged" Open="@open" OnOpenChange="OnOpenChanged" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @ReplaceContent
+            </SelectRoot>
+        </div>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private readonly string[] allItems = ["a", "b", "c"];
+    private string[] items = ["a", "b", "c"];
+    private string? selected = "a";
+    private string? value;
+    private string group = "a";
+    private bool open;
+    private bool filtered;
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    // Base UI's forty items, keyed by index: the replacement re-values the items already registered.
+    private RenderFragment ReplaceContent => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" style="width: 160px; height: 36px">
+            <SelectValue TValue="string">
+                <Placeholder>Pick one</Placeholder>
+            </SelectValue>
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner data-testid="positioner">
+                <SelectPopup data-testid="popup" style="max-height: none; min-height: 100px">
+                    @for (int index = 0; index < 40; index++)
+                    {
+                        string option = $"{group}-{index}";
+                        <SelectItem TValue="string" @key="index" Value="@option">
+                            <SelectItemText>@option</SelectItemText>
+                        </SelectItem>
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+
+    // Base UI: onOpenChange opens a 0 ms timeout that filters the items; onOpenChangeComplete(false) restores them.
+    private void OnNullItemsOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (args.Value)
+        {
+            _ = FilterAfterOpenAsync();
+        }
+    }
+
+    private async Task FilterAfterOpenAsync()
+    {
+        await Task.Yield();
+        await InvokeAsync(() =>
+        {
+            filtered = true;
+            StateHasChanged();
+        });
+    }
+
+    private void OnNullItemsOpenChangeComplete(bool openState)
+    {
+        RecordOpenChangeComplete(openState);
+        if (!openState)
+        {
+            filtered = false;
+        }
+    }
+
+    private void OnSelectedChange(ValueChangeEventArgs<string> args)
+    {
+        selected = args.Value;
+        valueChanges.Add($"{args.Value ?? "null"}:{args.Details.Reason.ToLiteral()}");
+    }
+
+    private void OnValueChanged(ValueChangeEventArgs<string> args)
+    {
+        value = args.Value;
+        valueChanges.Add($"{args.Value ?? "null"}:{args.Details.Reason.ToLiteral()}");
+    }
+
+    private void OnOpenChanged(ValueChangeEventArgs<bool> args)
+    {
+        open = args.Value;
+        RecordOpenChange(args);
+    }
+
+    private void Remove() => items = [.. allItems.Where(item => item != "a")];
+
+    private void Add() => items = [.. allItems];
+
+    private void ReplaceOptions()
+    {
+        group = "b";
+        value = null;
+    }
+
+    private void ReplaceOptionsAndOpen()
+    {
+        group = "b";
+        if (Case == "replace-open")
+        {
+            value = null;
+        }
+
+        open = true;
+    }
+}

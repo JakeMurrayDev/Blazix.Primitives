@@ -79,7 +79,9 @@ internal sealed class MenuBackdropBehavior : IAsyncDisposable
             attaching ??= AttachAsync(target, transitions);
             await attaching;
         }
-        else if (TransitionsOptions() is { } options && options != sentTransitions)
+
+        // Issue 226 (issue 213's shape, PR 215): a render during the attach sends what the attach did not carry.
+        if (transitionsHandle is not null && !disposed && TransitionsOptions() is { } options && options != sentTransitions)
         {
             sentTransitions = options;
             await transitionsHandle.UpdateAsync(options);

@@ -1,0 +1,99 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-lifecycle-arrows` fixture (tests/browser/select-lifecycle.spec.ts; M5 track 9, L4 agent lifecycle): the roots of
+    SelectRoot.test.tsx's `prop: actionsRef` scroll arrow title and its `scroll arrows` describe. The positioner is
+    `AlignItemWithTrigger=false`, the arrows are `data-testid="up-arrow"` and `down-arrow`, the list `list`, the popup `popup`.
+    The query `case`:
+    - `unmount` (default): an uncontrolled root whose every close calls `PreventUnmountOnClose()`; a keep-mounted up arrow, a
+      list of `max-height: 50px` over two 50 px items (a scroll height of 100 over a client height of 50, the helper's
+      `Object.defineProperties` values), a keep-mounted down arrow; `[data-unmount]` is `actionsRef.unmount()`;
+    - `fractional`: a root forced open (`Open` true, no callback), keep-mounted arrows around a list of three items (the title
+      overrides the list's scroll metrics in the page, as the ref callback does);
+    - `exit`: a root forced open, a list of `max-height: 60px` over three 34 px items (a scroll height of 102 over 60), a down
+      arrow that animates 100 ms on `[data-ending-style]` (open the page with `?animations=1`).
+*@
+<FixtureContainer Name="select-lifecycle-arrows" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes select-scroll-arrow-close-test { to { opacity: 0; } }
+        .animation-test-scroll-arrow[data-ending-style] { animation: select-scroll-arrow-close-test 100ms linear; }
+    </style>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+
+    @if (kase == "unmount")
+    {
+        <SelectRoot TValue="string" @ref="root" DefaultOpen="@(QueryFlag("defaultOpen") == true)" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </SelectRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" Open="true">
+            @Content
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private string kase = "unmount";
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized() => kase = Query("case") ?? "unmount";
+
+    // `onOpenChange={(_, details) => details.preventUnmountOnClose()}`: the opt-out on every change.
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && args.Details is OpenChangeEventDetails details)
+        {
+            details.PreventUnmountOnClose();
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">Open</SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false" data-testid="positioner">
+                <SelectPopup data-testid="popup">
+                    @if (kase == "exit")
+                    {
+                        <SelectList data-testid="list" style="max-height: 60px; overflow-y: auto">
+                            <SelectItem TValue="string" Value="@("one")" style="height: 34px">One</SelectItem>
+                            <SelectItem TValue="string" Value="@("two")" style="height: 34px">Two</SelectItem>
+                            <SelectItem TValue="string" Value="@("three")" style="height: 34px">Three</SelectItem>
+                        </SelectList>
+                        <SelectScrollDownArrow class="animation-test-scroll-arrow" data-testid="down-arrow" />
+                    }
+                    else if (kase == "fractional")
+                    {
+                        <SelectScrollUpArrow KeepMounted="true" data-testid="up-arrow" />
+                        <SelectList data-testid="list">
+                            <SelectItem TValue="string" Value="@("one")">One</SelectItem>
+                            <SelectItem TValue="string" Value="@("two")">Two</SelectItem>
+                            <SelectItem TValue="string" Value="@("three")">Three</SelectItem>
+                        </SelectList>
+                        <SelectScrollDownArrow KeepMounted="true" data-testid="down-arrow" />
+                    }
+                    else
+                    {
+                        <SelectScrollUpArrow KeepMounted="true" data-testid="up-arrow" />
+                        <SelectList data-testid="list" style="max-height: 50px; overflow-y: auto">
+                            <SelectItem TValue="string" Value="@("one")" style="height: 50px">One</SelectItem>
+                            <SelectItem TValue="string" Value="@("two")" style="height: 50px">Two</SelectItem>
+                        </SelectList>
+                        <SelectScrollDownArrow KeepMounted="true" data-testid="down-arrow" />
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+}

@@ -43,6 +43,12 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]
+// M5 track 9: the `select` twin's options and payloads (ADR 04 §1's `select` row).
+[JsonSerializable(typeof(SelectOptions))]
+[JsonSerializable(typeof(SelectActivation))]
+[JsonSerializable(typeof(SelectAlignedChange))]
+[JsonSerializable(typeof(SelectArrowsVisibility))]
+[JsonSerializable(typeof(SelectTriggerBlur))]
 [JsonSerializable(typeof(ScrollLockOptions))]
 [JsonSerializable(typeof(PortalOptions))]
 [JsonSerializable(typeof(TabsIndicatorMeasurement))]
@@ -69,4 +75,9 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(MenuFilterTexts))]
 [JsonSerializable(typeof(MenuFilterHighlightedChange))]
 [JsonSerializable(typeof(MenuFilterFocusOut))]
+[JsonSerializable(typeof(ContextMenuOptions))]
+[JsonSerializable(typeof(ContextMenuOpenRequest))]
+[JsonSerializable(typeof(ContextMenuCancelOpen))]
+[JsonSerializable(typeof(ContextMenuPress))]
+[JsonSerializable(typeof(ContextMenuTouch))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

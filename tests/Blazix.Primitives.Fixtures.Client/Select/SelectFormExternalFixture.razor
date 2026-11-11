@@ -1,0 +1,61 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-form-external` fixture (tests/browser/select-form.spec.ts; M5 track 9): SelectRoot.test.tsx's "submits to an
+    external form when `form` is provided" and its multiple twin. A native form `external-form` with a Submit button, and a
+    select outside it that names the form: `name="country"` with `DefaultValue` US, or with `?multiple=true`
+    `name="countries"` with the controlled values US and CA over the items US, CA and AU. The spec adds a submit listener
+    to the form and reads its FormData.
+*@
+<FixtureContainer Name="select-form-external" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <form id="external-form" data-testid="external-form">
+        <button type="submit">Submit</button>
+    </form>
+    @if (multiple)
+    {
+        <SelectRoot TValue="string" @ref="root" Multiple="true" Name="countries" Form="external-form" Values="@s_values">
+            @Content
+        </SelectRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" Name="country" Form="external-form" DefaultValue="@("US")">
+            @Content
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_values = ["US", "CA"];
+
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private bool multiple;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, root?.Field.TwinAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized() => multiple = QueryFlag("multiple") == true;
+
+    private RenderFragment Content => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+            <SelectValue TValue="string" />
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false">
+                <SelectPopup>
+                    <SelectItem TValue="string" Value="@("US")">United States</SelectItem>
+                    <SelectItem TValue="string" Value="@("CA")">Canada</SelectItem>
+                    @if (multiple)
+                    {
+                        <SelectItem TValue="string" Value="@("AU")">Australia</SelectItem>
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+}

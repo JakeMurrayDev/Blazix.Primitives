@@ -1,0 +1,159 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-lifecycle-actions` fixture (tests/browser/select-lifecycle.spec.ts; M5 track 9, L4 agent lifecycle):
+    SelectRoot.test.tsx's `manual unmount lifecycle` helper `Popup` (a root over a trigger, a portal, a positioner and a
+    popup with one item `Apple`; `AlignItemWithTrigger=false`), which the describe's twelve titles and `prop: actionsRef`'s
+    first title render. The root is controlled by this page, as the helper's `open={props.open ?? open}` is: the page's
+    own `open` follows every change the consumer's callback does not cancel, and `[data-set-open]` is `setProps({ open })`.
+    The query:
+    - `defaultOpen`: the page's `open` starts true;
+    - `uncontrolled`: the root takes no `Open` (`prop: actionsRef`'s root);
+    - `retain`: every close calls `PreventUnmountOnClose()` (`onOpenChange` of the titles that opt out), until
+      `[data-set-retain="false"]` (`optOut = false`);
+    - `cancelRetained`: while true, a close calls `PreventUnmountOnClose()` and cancels, until
+      `[data-set-cancel="false"]` (`cancel = false`);
+    - `deferred`: the controlled `open` follows a change one task later (`React.startTransition(() => setOpen(next))`);
+    - `reopenOnComplete`: the completion of a close sets `open` true once (the exit-animation callback that reopens).
+    Controls (all `data-key-control`: the modal root's backdrop takes a click): `[data-unmount]` (`actionsRef.unmount()`),
+    `[data-close]` (`actionsRef.close()`), `[data-close-and-unmount]` (both in one handler), `[data-unmount-twice]`.
+    The container records the open changes and the completions, as the base does.
+*@
+<FixtureContainer Name="select-lifecycle-actions" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" tabindex="-1" data-set-open="true" data-key-control @onclick="() => SetOpen(true)" @onkeydown="OnShift(() => SetOpen(true))">Set open</button>
+    <button type="button" tabindex="-1" data-set-open="false" data-key-control @onclick="() => SetOpen(false)" @onkeydown="OnShift(() => SetOpen(false))">Set closed</button>
+    <button type="button" tabindex="-1" data-set-retain="false" data-key-control @onclick="() => retain = false" @onkeydown="OnShift(() => retain = false)">Stop retaining</button>
+    <button type="button" tabindex="-1" data-set-cancel="false" data-key-control @onclick="() => cancelRetained = false" @onkeydown="OnShift(() => cancelRetained = false)">Stop canceling</button>
+    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    <button type="button" tabindex="-1" data-close data-key-control @onclick="CloseAsync" @onkeydown="OnShift(CloseAsync)">Close</button>
+    <button type="button" tabindex="-1" data-close-and-unmount data-key-control @onclick="CloseAndUnmount" @onkeydown="OnShift(CloseAndUnmount)">Close and unmount</button>
+    <button type="button" tabindex="-1" data-unmount-twice data-key-control @onclick="UnmountTwice" @onkeydown="OnShift(UnmountTwice)">Unmount twice</button>
+
+    @if (uncontrolled)
+    {
+        <SelectRoot TValue="string" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="HandleOpenChangeComplete">
+            @Content
+        </SelectRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" Open="@open" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="HandleOpenChangeComplete">
+            @Content
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private bool uncontrolled;
+    private bool defaultOpen;
+    private bool open;
+    private bool retain;
+    private bool cancelRetained;
+    private bool deferred;
+    private bool reopenOnComplete;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        uncontrolled = QueryFlag("uncontrolled") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        open = defaultOpen;
+        retain = QueryFlag("retain") == true;
+        cancelRetained = QueryFlag("cancelRetained") == true;
+        deferred = QueryFlag("deferred") == true;
+        reopenOnComplete = QueryFlag("reopenOnComplete") == true;
+    }
+
+    private RenderFragment Content => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">Open</SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false" data-testid="positioner">
+                <SelectPopup data-testid="popup">
+                    <SelectItem TValue="string" Value="@("apple")">Apple</SelectItem>
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+
+    private void SetOpen(bool value) => open = value;
+
+    private Task CloseAsync() => root!.CloseAsync();
+
+    // The helper's onOpenChange: the consumer's callback first (the opt-out, the cancel), then `setOpen(next)` unless
+    // canceled.
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && args.Details is OpenChangeEventDetails details)
+        {
+            if (cancelRetained)
+            {
+                details.PreventUnmountOnClose();
+                details.Cancel();
+            }
+            else if (retain)
+            {
+                details.PreventUnmountOnClose();
+            }
+        }
+
+        if (args.Details.IsCanceled)
+        {
+            return;
+        }
+
+        if (deferred)
+        {
+            _ = ApplyLaterAsync(args.Value);
+        }
+        else
+        {
+            open = args.Value;
+        }
+    }
+
+    private void HandleOpenChangeComplete(bool completed)
+    {
+        RecordOpenChangeComplete(completed);
+
+        // An exit-animation callback that reopens right after it unmounts.
+        if (!completed && reopenOnComplete)
+        {
+            reopenOnComplete = false;
+            open = true;
+        }
+    }
+
+    private async Task ApplyLaterAsync(bool next)
+    {
+        await Task.Yield();
+        await InvokeAsync(() =>
+        {
+            open = next;
+            StateHasChanged();
+        });
+    }
+
+    // `act(() => { actionsRef.current.close(); actionsRef.current.unmount(); })`: both calls in one handler.
+    private void CloseAndUnmount()
+    {
+        Task close = root!.CloseAsync();
+        root.Unmount();
+        _ = close;
+    }
+
+    private void UnmountTwice()
+    {
+        root!.Unmount();
+        root.Unmount();
+    }
+}

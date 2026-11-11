@@ -1,0 +1,52 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: SelectGroup.test.tsx's titles (M5 track 9). The group's role and its aria-labelledby are C#. Both titles keep Base UI's
+    tree, items directly under the positioner with no popup (SEL-STR-08); that the group's text is visible (layout, CSS) is L4.
+*@
+
+@code {
+    [Fact(DisplayName = "should render group with label")]
+    [Trait("Requirement", "SEL-DOM-41")]
+    public void Should_render_group_with_label()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectPositioner>
+                <SelectGroup>
+                    <SelectGroupLabel>Fruits</SelectGroupLabel>
+                    <SelectItem Value="@("apple")">Apple</SelectItem>
+                    <SelectItem Value="@("banana")">Banana</SelectItem>
+                </SelectGroup>
+            </SelectPositioner>
+        </SelectRoot>);
+
+        IElement group = cut.Find("[role=\"group\"]");
+        Assert.True(group.HasAttribute("aria-labelledby"));
+        Assert.Equal("Fruits", group.QuerySelector("[aria-hidden=\"true\"]")!.TextContent);
+        // Visible: the open positioner carries no `hidden` attribute (the computed visibility is L4).
+        Assert.False(cut.Find("[role=\"presentation\"][data-open]").HasAttribute("hidden"));
+    }
+
+    [Fact(DisplayName = "should associate label with group")]
+    [Trait("Requirement", "SEL-ARIA-11")]
+    [Trait("Requirement", "SEL-DOM-41")]
+    public void Should_associate_label_with_group()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectPositioner>
+                <SelectGroup>
+                    <SelectGroupLabel>Vegetables</SelectGroupLabel>
+                    <SelectItem Value="@("carrot")">Carrot</SelectItem>
+                    <SelectItem Value="@("lettuce")">Lettuce</SelectItem>
+                </SelectGroup>
+            </SelectPositioner>
+        </SelectRoot>);
+
+        IElement group = cut.Find("[role=\"group\"]");
+        IElement label = cut.FindAll("div").First(element => element.TextContent == "Vegetables");
+        Assert.False(string.IsNullOrEmpty(label.Id));
+        Assert.Equal(label.Id, group.GetAttribute("aria-labelledby"));
+    }
+}

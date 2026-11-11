@@ -1,0 +1,413 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: the value titles of SelectRoot.test.tsx (M5 track 9): the leading Separator title, "prop: defaultValue",
+    "prop: value", "prop: itemToStringValue", "prop: itemToStringLabel" and "prop: onValueChange". An item press is the
+    select module's activation report from the positioner; the press on the trigger is the interactions module's. A
+    controlled consumer that sets its state in the callback renders the host again, as the React tests' setState does.
+*@
+
+@code {
+    private sealed record CountryItem(string Country, string Code);
+
+    private static readonly CountryItem[] s_countries =
+    [
+        new("United States", "US"),
+        new("Canada", "CA"),
+        new("Australia", "AU"),
+    ];
+
+    private IRenderedComponent<SelectHost> cut = null!;
+    private string value = string.Empty;
+
+    private IElement Option(string text) => cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == text);
+
+    private string TriggerText() => Trigger(cut).TextContent.Trim();
+
+    [Fact(DisplayName = "exposes the orientation attribute rendered by Separator")]
+    [Trait("Requirement", "SEL-API-48")]
+    [Trait("Requirement", "SEL-ARIA-15")]
+    [Trait("Requirement", "SEL-DOM-46")]
+    public void Exposes_the_orientation_attribute_rendered_by_Separator()
+    {
+        cut = RenderSelect(@<SelectSeparator Orientation="Blazix.Primitives.Orientation.Vertical" />);
+
+        IElement separator = cut.Find("[role=\"presentation\"]");
+        Assert.Equal("vertical", separator.GetAttribute("data-orientation"));
+    }
+
+    // ----- prop: defaultValue -----
+
+    [Fact(DisplayName = "should select the item by default")]
+    [Trait("Requirement", "SEL-API-02")]
+    public async Task Should_select_the_item_by_default()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        Assert.Equal(string.Empty, Option("b").GetAttribute("data-selected"));
+        Assert.False(Option("a").HasAttribute("data-selected"));
+    }
+
+    // ----- prop: value -----
+
+    [Fact(DisplayName = "should select the item specified by the value prop")]
+    [Trait("Requirement", "SEL-API-01")]
+    public async Task Should_select_the_item_specified_by_the_value_prop()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" Value="@("b")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        Assert.Equal(string.Empty, Option("b").GetAttribute("data-selected"));
+        Assert.False(Option("a").HasAttribute("data-selected"));
+    }
+
+    [Fact(DisplayName = "selects the controlled value when the popup is mounted on the initial render")]
+    [Trait("Requirement", "SEL-STA-05")]
+    public void Selects_the_controlled_value_when_the_popup_is_mounted_on_the_initial_render()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true" Value="@("b")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal(string.Empty, Option("b").GetAttribute("data-selected"));
+        Assert.False(Option("a").HasAttribute("data-selected"));
+    }
+
+    [Fact(DisplayName = "should update the selected item when the value prop changes")]
+    [Trait("Requirement", "SEL-API-01")]
+    [Trait("Requirement", "SEL-EVT-06")]
+    public async Task Should_update_the_selected_item_when_the_value_prop_changes()
+    {
+        value = "a";
+        cut = RenderSelect(@<SelectRoot TValue="string" Value="@value">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        Assert.Equal(string.Empty, Option("a").GetAttribute("data-selected"));
+
+        value = "b";
+        await RefreshAsync(cut);
+
+        Assert.Equal(string.Empty, Option("b").GetAttribute("data-selected"));
+        Assert.False(Option("a").HasAttribute("data-selected"));
+    }
+
+    [Fact(DisplayName = "should not update the internal value if the controlled value prop does not change")]
+    [Trait("Requirement", "SEL-API-01")]
+    [Trait("Requirement", "SEL-EVT-07")]
+    public async Task Should_not_update_the_internal_value_if_the_controlled_value_prop_does_not_change()
+    {
+        List<string> changes = [];
+        cut = RenderSelect(@<SelectRoot TValue="string" Value="@("a")" OnValueChange="args => changes.Add(args.Value)">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        Assert.Equal("a", TriggerText());
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "b");
+
+        Assert.Equal(["b"], changes);
+        Assert.Equal("a", TriggerText());
+
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+
+        await OpenAsync(cut);
+
+        Assert.True(Option("a").HasAttribute("data-selected"));
+        Assert.False(Option("b").HasAttribute("data-selected"));
+    }
+
+    [Fact(DisplayName = "updates <Select.Value /> label when the value prop changes before the popup opens")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public async Task Updates_Select_Value_label_when_the_value_prop_changes_before_the_popup_opens()
+    {
+        value = "b";
+        cut = RenderSelect(@<SelectRoot TValue="string" Value="@value">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("b", TriggerText());
+
+        value = "a";
+        await RefreshAsync(cut);
+
+        Assert.Equal("a", TriggerText());
+    }
+
+    // ----- prop: itemToStringValue -----
+
+    [Fact(DisplayName = "uses itemToStringValue for form submission")]
+    [Trait("Requirement", "SEL-API-21")]
+    [Trait("Requirement", "SEL-DOM-51")]
+    public void Uses_itemToStringValue_for_form_submission()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="CountryItem" Name="country" DefaultValue="@s_countries[0]" ItemToStringLabel="item => item.Country" ItemToStringValue="item => item.Code">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (CountryItem item in s_countries)
+                        {
+                            <SelectItem Value="@item">@item.Country</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IElement hiddenInput = cut.Find("input[name=\"country\"]");
+        Assert.Equal("US", hiddenInput.GetAttribute("value"));
+    }
+
+    [Fact(DisplayName = "uses itemToStringValue for multiple selection form submission")]
+    [Trait("Requirement", "SEL-API-21")]
+    [Trait("Requirement", "SEL-DOM-53")]
+    public void Uses_itemToStringValue_for_multiple_selection_form_submission()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="CountryItem" Name="countries" Multiple="true" DefaultValues="@(new[] { s_countries[0], s_countries[1] })" ItemToStringLabel="item => item.Country" ItemToStringValue="item => item.Code">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (CountryItem item in s_countries)
+                        {
+                            <SelectItem Value="@item">@item.Country</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IReadOnlyList<IElement> hiddenInputs = cut.FindAll("input[name=\"countries\"]");
+        Assert.Equal(2, hiddenInputs.Count);
+        Assert.Equal("US", hiddenInputs[0].GetAttribute("value"));
+        Assert.Equal("CA", hiddenInputs[1].GetAttribute("value"));
+    }
+
+    // The function is typed for one item, so C# cannot hand it the value array that Base UI's function (typed `any`)
+    // could receive; the title's guard is that every call carries one item and the per-value inputs hold the data.
+    [Fact(DisplayName = "does not invoke itemToStringValue with the value array in multiple mode")]
+    [Trait("Requirement", "SEL-API-21")]
+    [Trait("Requirement", "SEL-DOM-52")]
+    [Trait("Requirement", "SEL-EDGE-20")]
+    [Trait("Requirement", "SEL-EVT-16")]
+    public void Does_not_invoke_itemToStringValue_with_the_value_array_in_multiple_mode()
+    {
+        CountryItem[] items = [s_countries[0], s_countries[1]];
+        List<CountryItem> converted = [];
+        Func<CountryItem, string> itemToStringValue = item =>
+        {
+            converted.Add(item);
+            return item.Code.ToUpperInvariant();
+        };
+
+        cut = RenderSelect(@<SelectRoot TValue="CountryItem" Name="countries" Multiple="true" DefaultValues="@items" ItemToStringValue="itemToStringValue">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (CountryItem item in items)
+                        {
+                            <SelectItem Value="@item">@item.Country</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IReadOnlyList<IElement> hiddenInputs = cut.FindAll("input[name=\"countries\"]");
+        Assert.Equal(2, hiddenInputs.Count);
+        Assert.Equal("US", hiddenInputs[0].GetAttribute("value"));
+        Assert.Equal("CA", hiddenInputs[1].GetAttribute("value"));
+        Assert.All(converted, item => Assert.Contains(item, items));
+    }
+
+    // ----- prop: itemToStringLabel -----
+
+    [Fact(DisplayName = "uses itemToStringLabel for trigger text when value is object")]
+    [Trait("Requirement", "SEL-API-20")]
+    public void Uses_itemToStringLabel_for_trigger_text_when_value_is_object()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="CountryItem" DefaultValue="@s_countries[1]" ItemToStringLabel="item => item.Country" ItemToStringValue="item => item.Code">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (CountryItem item in s_countries)
+                        {
+                            <SelectItem Value="@item">@item.Country</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Canada", TriggerText());
+    }
+
+    [Fact(DisplayName = "updates trigger text with itemToStringLabel after selecting object item")]
+    [Trait("Requirement", "SEL-API-20")]
+    public async Task Updates_trigger_text_with_itemToStringLabel_after_selecting_object_item()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="CountryItem" DefaultOpen="true" ItemToStringLabel="item => item.Country" ItemToStringValue="item => item.Code">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (CountryItem item in s_countries)
+                        {
+                            <SelectItem Value="@item">@item.Country</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await ClickOptionAsync(cut, "Canada");
+
+        Assert.Equal("Canada", TriggerText());
+    }
+
+    // ----- prop: onValueChange -----
+
+    [Fact(DisplayName = "should call onValueChange when an item is selected")]
+    [Trait("Requirement", "SEL-API-03")]
+    [Trait("Requirement", "SEL-EVT-01")]
+    public async Task Should_call_onValueChange_when_an_item_is_selected()
+    {
+        List<string> handleValueChange = [];
+        value = string.Empty;
+        cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" OnValueChange="HandleValueChange">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        async Task HandleValueChange(ValueChangeEventArgs<string> args)
+        {
+            value = args.Value;
+            handleValueChange.Add(args.Value);
+            await cut.Instance.RefreshAsync();
+        }
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "b");
+
+        Assert.Equal("b", handleValueChange[0]);
+    }
+
+    [Fact(DisplayName = "is not called twice on select")]
+    [Trait("Requirement", "SEL-EVT-07")]
+    public async Task Is_not_called_twice_on_select()
+    {
+        int calls = 0;
+        cut = RenderSelect(@<SelectRoot TValue="string" OnValueChange="_ => calls++">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "b");
+
+        Assert.Equal(1, calls);
+    }
+}

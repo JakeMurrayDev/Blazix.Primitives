@@ -1,0 +1,139 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The ContextMenu trees of the L2 ports, by `Case`:
+   - `tree` (the default): a Root (`DefaultOpen`, `Disabled`), a Trigger with `TriggerAttributes`, an optional consumer
+     Backdrop, then Portal > Positioner (`PositionerAttributes`) > Popup with an item, a Menu item, a separator, a group,
+     a submenu (`SubmenuOpen`, its own Portal > Positioner > Popup) and, with `PlainMenu`, a plain MenuRoot open inside
+     (its own Backdrop with `PlainBackdrop`).
+   - `nested`: an inner context menu inside the outer Trigger (ContextMenuTrigger.test.tsx's nested case).
+   - `trigger-alone`, `positioner-outside-portal`, `separator-alone`: the parts outside their parents.
+   The Root's open changes are recorded with their reason and event type; `Renders` counts the ClassValue calls by part. *@
+@switch (Case)
+{
+    case "trigger-alone":
+        <ContextMenuTrigger data-testid="trigger" />
+        break;
+    case "positioner-outside-portal":
+        <ContextMenuRoot DefaultOpen="true">
+            <ContextMenuPositioner />
+        </ContextMenuRoot>
+        break;
+    case "separator-alone":
+        <ContextMenuSeparator data-testid="separator" Orientation="Blazix.Primitives.Orientation.Vertical" />
+        break;
+    case "nested":
+        <ContextMenuRoot OnOpenChange="RecordOpenChange">
+            <ContextMenuTrigger data-testid="outer-trigger">
+                outer
+                <ContextMenuRoot>
+                    <ContextMenuTrigger data-testid="inner-trigger">inner</ContextMenuTrigger>
+                    <ContextMenuPortal>
+                        <ContextMenuPositioner>
+                            <ContextMenuPopup data-testid="inner-menu" />
+                        </ContextMenuPositioner>
+                    </ContextMenuPortal>
+                </ContextMenuRoot>
+            </ContextMenuTrigger>
+            <ContextMenuPortal>
+                <ContextMenuPositioner>
+                    <ContextMenuPopup data-testid="outer-menu" />
+                </ContextMenuPositioner>
+            </ContextMenuPortal>
+        </ContextMenuRoot>
+        break;
+    default:
+        <span data-testid="outside" class="@Count("outside")">outside</span>
+        <ContextMenuRoot DefaultOpen="DefaultOpen" Disabled="Disabled" OnOpenChange="OpenChangeCallback">
+            <ContextMenuTrigger data-testid="trigger" ClassValue="@(_ => Count("trigger"))" @attributes="TriggerAttributes">Right click here</ContextMenuTrigger>
+            <ContextMenuPortal>
+                @if (WithBackdrop)
+                {
+                    <ContextMenuBackdrop data-testid="backdrop" />
+                }
+                <ContextMenuPositioner data-testid="positioner" @attributes="PositionerAttributes">
+                    <ContextMenuPopup data-testid="popup" ClassValue="@(_ => Count("popup"))" @attributes="PopupAttributes">
+                        <ContextMenuItem data-testid="item">Add to Library</ContextMenuItem>
+                        <MenuItem data-testid="menu-item">Play Next</MenuItem>
+                        <ContextMenuSeparator data-testid="separator" />
+                        <ContextMenuGroup>
+                            <ContextMenuGroupLabel>Group</ContextMenuGroupLabel>
+                        </ContextMenuGroup>
+                        <ContextMenuSubmenuRoot DefaultOpen="SubmenuOpen">
+                            <ContextMenuSubmenuTrigger data-testid="submenu-trigger">Add to Playlist</ContextMenuSubmenuTrigger>
+                            <ContextMenuPortal>
+                                <ContextMenuPositioner data-testid="submenu-positioner">
+                                    <ContextMenuPopup data-testid="submenu-popup">
+                                        <ContextMenuItem>Jazz</ContextMenuItem>
+                                    </ContextMenuPopup>
+                                </ContextMenuPositioner>
+                            </ContextMenuPortal>
+                        </ContextMenuSubmenuRoot>
+                        @if (PlainMenu)
+                        {
+                            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                                <MenuPortal>
+                                    @if (PlainBackdrop)
+                                    {
+                                        <MenuBackdrop data-testid="plain-backdrop" />
+                                    }
+                                    <MenuPositioner data-testid="plain-positioner">
+                                        <MenuPopup data-testid="plain-popup" />
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuRoot>
+                        }
+                    </ContextMenuPopup>
+                </ContextMenuPositioner>
+            </ContextMenuPortal>
+        </ContextMenuRoot>
+        break;
+}
+
+@code {
+    [Parameter]
+    public string Case { get; set; } = "tree";
+
+    [Parameter]
+    public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool SubmenuOpen { get; set; }
+
+    [Parameter]
+    public bool WithBackdrop { get; set; }
+
+    [Parameter]
+    public bool PlainMenu { get; set; }
+
+    [Parameter]
+    public bool PlainBackdrop { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? TriggerAttributes { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? PositionerAttributes { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object>? PopupAttributes { get; set; }
+
+    // A callback with no receiver records without re-rendering the host, so the render counts are the parts' own.
+    private EventCallback<ValueChangeEventArgs<bool>> OpenChangeCallback => new(null, (Action<ValueChangeEventArgs<bool>>)RecordOpenChange);
+
+    /// <summary>The recorded open changes: the requested state, the reason and the event's type.</summary>
+    public List<(bool Open, EventReason Reason, string? EventType)> OpenChanges { get; } = [];
+
+    /// <summary>The ClassValue calls by part, one per render of the part.</summary>
+    public Dictionary<string, int> Renders { get; } = [];
+
+    private string? Count(string part)
+    {
+        Renders[part] = Renders.GetValueOrDefault(part) + 1;
+        return null;
+    }
+
+    private void RecordOpenChange(ValueChangeEventArgs<bool> args) =>
+        OpenChanges.Add((args.Value, args.Details.Reason, args.Details.Event.Type));
+}

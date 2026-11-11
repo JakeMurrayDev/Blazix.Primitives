@@ -1,0 +1,69 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: CSPProvider.test.tsx's Select title and the Select.Popup clause of the scrollbar style emitter (M5 track 9, final review
+    B2): the popup renders its own inline `style` element (design point 5 of M5 track 4), which a provider gives its nonce
+    or suppresses.
+*@
+
+@code {
+    private const string StyleText =
+        ".base-ui-disable-scrollbar{scrollbar-width:none}.base-ui-disable-scrollbar::-webkit-scrollbar{display:none}";
+
+    private IRenderedComponent<SelectHost> cut = null!;
+
+    [Fact(DisplayName = "does not render Select inline style tags when disableStyleElements is true")]
+    [Trait("Requirement", "UTL-DOM-33")]
+    public void Does_not_render_Select_inline_style_tags_when_disableStyleElements_is_true()
+    {
+        cut = RenderSelect(
+            @<CspProvider DisableStyleElements="true">
+                @OpenSelect
+            </CspProvider>);
+
+        // The popup rendered (the positive half), and no scrollbar style with it.
+        Assert.Single(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Null(DisableScrollbarStyle());
+    }
+
+    [Fact(DisplayName = "port: Select.Popup renders the scrollbar style, with the provider's nonce when one is set")]
+    [Trait("Requirement", "UTL-DOM-32")]
+    public void Select_popup_renders_the_scrollbar_style()
+    {
+        cut = RenderSelect(OpenSelect);
+
+        IElement? style = DisableScrollbarStyle();
+        Assert.NotNull(style);
+        Assert.Equal(StyleText, style.TextContent);
+        Assert.False(style.HasAttribute("nonce"));
+
+        cut = RenderSelect(
+            @<CspProvider Nonce="test-nonce">
+                @OpenSelect
+            </CspProvider>);
+
+        style = DisableScrollbarStyle();
+        Assert.NotNull(style);
+        Assert.Equal(StyleText, style.TextContent);
+        Assert.Equal("test-nonce", style.GetAttribute("nonce"));
+    }
+
+    private static RenderFragment OpenSelect =>
+        @<SelectRoot TValue="string" DefaultOpen="true">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>;
+
+    private IElement? DisableScrollbarStyle() =>
+        cut.FindAll("style").FirstOrDefault(element => element.TextContent.Contains(".base-ui-disable-scrollbar", StringComparison.Ordinal));
+}

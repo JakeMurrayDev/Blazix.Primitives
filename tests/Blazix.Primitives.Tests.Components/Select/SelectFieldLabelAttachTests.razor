@@ -1,0 +1,46 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using Bunit
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.JSInterop
+@*
+    FFI-PTR-01's Select case at L2 (M5 track 9; issue 213's shape, which main's PR 215 fixed in the transitions attaches): the
+    trigger claims its id in its after-render, which re-renders a Field.Label whose first `form` attach is still pending. The
+    label attached a second time; the module returns the live handle for an element it already holds and ignores the new
+    options, so a non-native label kept the field's initial control id and a click on it focused nothing (field.spec.ts
+    useLabel › Field.Label). The held runtime is a test double, not interop: the analyzer reads its members as JS interop.
+*@
+
+@code {
+#pragma warning disable BL0016
+    private static readonly RenderFragment s_div = builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.CloseElement();
+    };
+
+    [Fact(DisplayName = "port: a trigger id claimed while a Field.Label's form handle attaches reaches the module once it attaches")]
+    [Trait("Requirement", "FFI-PTR-01")]
+    public async Task A_trigger_id_claimed_while_the_labels_handle_attaches_reaches_the_module()
+    {
+        HeldAttachRuntime runtime = new(JSInterop.JSRuntime, "form.js");
+        Services.AddSingleton<IJSRuntime>(runtime);
+        RenderSelect(@<FieldRoot Name="country">
+            <FieldLabel NativeLabel="false" Render="@s_div">Country</FieldLabel>
+            <SelectRoot TValue="string">
+                <SelectTrigger id="country"><SelectValue /></SelectTrigger>
+            </SelectRoot>
+        </FieldRoot>);
+        await runtime.WaitForHeldAttachAsync(IsLabel);
+
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(Renderer.Dispatcher, FormHandle, options => IsLabel(options) && ControlId(options) == "country"));
+        Assert.Single(Form.Invocations["attach"], invocation => IsLabel((string)invocation.Arguments[1]!));
+    }
+
+    private static bool IsLabel(string options) => FieldTestContext.Parse(options).Label is not null;
+
+    private static string? ControlId(string options) => FieldTestContext.Parse(options).Label!.ControlId;
+#pragma warning restore BL0016
+}

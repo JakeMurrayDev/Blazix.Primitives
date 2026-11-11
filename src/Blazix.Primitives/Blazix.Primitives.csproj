@@ -56,7 +56,9 @@
     <BlazixJsEntry Include="js/interactions.ts" Out="js/interactions" />
     <BlazixJsEntry Include="js/focus-manager.ts" Out="js/focus-manager" />
     <BlazixJsEntry Include="js/navigation-menu.ts" Out="js/navigation-menu" />
+    <BlazixJsEntry Include="js/context-menu.ts" Out="js/context-menu" />
     <BlazixJsEntry Include="js/menu-filter.ts" Out="js/menu-filter" />
+    <BlazixJsEntry Include="js/select.ts" Out="js/select" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 

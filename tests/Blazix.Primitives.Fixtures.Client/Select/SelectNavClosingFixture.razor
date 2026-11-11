@@ -1,0 +1,40 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-closing` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the `closing` describe of
+    SelectRoot.test.tsx (7094-7154). A closed root with an unaligned positioner and a popup (`select-test-exit`) whose
+    exit is a 10 s keyframe on `[data-ending-style]`, so the popup stays mounted and ending while the title acts (open the
+    page with `?animations=1`). Items a and b; the trigger carries `data-testid="trigger"`. The container records the
+    open changes and completions.
+*@
+<FixtureContainer Name="select-nav-closing" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes select-test-exit { to { opacity: 0; } }
+        .select-test-exit[data-ending-style] { animation: select-test-exit 10s; }
+    </style>
+    <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+        <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false">
+                <SelectPopup class="select-test-exit" data-testid="popup">
+                    <SelectItem Value="@("a")">a</SelectItem>
+                    <SelectItem Value="@("b")">b</SelectItem>
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </SelectRoot>
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

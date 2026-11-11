@@ -45,6 +45,27 @@ public sealed class ListboxSeparatorTests : IDisposable
 
         Assert.Equal(expected, cut.Find("div").GetAttribute("data-orientation"));
     }
+
+    // RND-STR-11, ARIA-02: the families' separators are the shared implementation. Base UI's describe.each runs one title per
+    // family's part; each family adds its case (Select, M5 track 9; Combobox and Autocomplete, tracks 10 and 11).
+    [Theory(DisplayName = "exposes the listbox separator behavior")]
+    [InlineData("Select.Separator")]
+    [Trait("Requirement", "RND-STR-11")]
+    [Trait("Requirement", "RND-ARIA-02")]
+    public void Exposes_the_listbox_separator_behavior(string part)
+    {
+        IRenderedComponent<SelectSeparator> cut = part switch
+        {
+            "Select.Separator" => context.Render<SelectSeparator>(p => p.AddUnmatched("data-testid", "separator")),
+            _ => throw new ArgumentOutOfRangeException(nameof(part)),
+        };
+
+        AngleSharp.Dom.IElement element = cut.Find("[data-testid=separator]");
+        Assert.Equal("DIV", element.TagName);
+        Assert.Equal("presentation", element.GetAttribute("role"));
+        Assert.Equal("horizontal", element.GetAttribute("data-orientation"));
+        Assert.False(element.HasAttribute("aria-orientation"));
+    }
 }
 
 // The conformance suite on the test-only separator (RND-STR-11: a `div`).

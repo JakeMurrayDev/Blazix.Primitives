@@ -893,6 +893,15 @@ function isFocusGuard(element: Element | null | undefined): element is HTMLEleme
   return isHTMLElement(element) && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE);
 }
 
+/** The nearest focus guard among an element's siblings in one direction, when it is an inside guard. */
+function nearestInsideGuard(element: Element, direction: 'previousElementSibling' | 'nextElementSibling'): HTMLElement | null {
+  let sibling = element[direction];
+  while (sibling !== null && !isFocusGuard(sibling)) {
+    sibling = sibling[direction];
+  }
+  return isInsideGuard(sibling) ? sibling : null;
+}
+
 // Feature-detects `focus({ preventScroll })` by focusing a detached element with a getter (FLT-FOC-08).
 function supportsPreventScroll(doc: Document): boolean {
   let supported = false;
@@ -1037,8 +1046,11 @@ export function attach(
     const anchor = session?.domReferenceElement ?? null;
     return isHTMLElement(anchor) ? anchor : resolveId(options.domReferenceId);
   };
-  const beforeGuard = (): HTMLElement | null => (isInsideGuard(popup.previousElementSibling) ? popup.previousElementSibling : null);
-  const afterGuard = (): HTMLElement | null => (isInsideGuard(popup.nextElementSibling) ? popup.nextElementSibling : null);
+  // The inside guards wrap the manager's children, which may hold siblings of the popup: Combobox's end dismiss element
+  // sits between the popup and the after guard (ComboboxPopup.tsx:139-142). Each guard is the nearest focus guard among
+  // the popup's siblings on its side, and only an inside one (CMB-FOC-03, FOC-09).
+  const beforeGuard = (): HTMLElement | null => nearestInsideGuard(popup, 'previousElementSibling');
+  const afterGuard = (): HTMLElement | null => nearestInsideGuard(popup, 'nextElementSibling');
   // Popover's trigger focus guards (PSH-FOC-09, FLT-KEY-06), found by position around the anchor.
   const triggerBeforeGuard = (reference: Element | null): HTMLElement | null =>
     options.triggerFocusGuards && isFocusGuard(reference?.previousElementSibling) ? reference.previousElementSibling : null;
