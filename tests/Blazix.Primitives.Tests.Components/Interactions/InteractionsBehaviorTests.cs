@@ -373,6 +373,10 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.Equal(before + 2, renders);
     }
 
+    // ADR 04 Amendments 2026-11-11: every trigger press is answered. An accepted one by its commit's relay, with no counter
+    // (a click that changes nothing keeps its upgrade of the open event, as Base UI's dispatchOpenChange does); a canceled or
+    // vetoed one through its session's counter, so the module ends a press-requested open's count as open and rolls back
+    // the press's open event (gap 16).
     [Fact]
     public async Task A_committed_press_sends_one_session_update_and_renders_the_trigger_once()
     {
@@ -385,23 +389,8 @@ public sealed class InteractionsBehaviorTests : IDisposable
         string update = Assert.Single(host.UpdateOptions);
         Assert.Contains("\"open\":true", update, StringComparison.Ordinal);
         Assert.Contains("\"activeTriggerId\":\"t\"", update, StringComparison.Ordinal);
-        Assert.Equal(before + 1, renders);
-    }
-
-    // ADR 04 Amendments 2026-11-11: every trigger press is answered. An accepted one by its commit's relay, with no counter
-    // (a click that changes nothing keeps its upgrade of the open event, as Base UI's dispatchOpenChange does); a canceled or
-    // vetoed one through its session's counter, so the module ends a press-requested open's count as open and rolls back
-    // the press's open event (gap 16).
-    [Fact]
-    public async Task A_committed_press_is_answered_by_its_relay_and_moves_no_counter()
-    {
-        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup();
-
-        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{ClickJson}}}"""));
-
-        string update = Assert.Single(host.UpdateOptions);
-        Assert.Contains("\"open\":true", update, StringComparison.Ordinal);
         Assert.DoesNotContain("\"answered\"", update, StringComparison.Ordinal);
+        Assert.Equal(before + 1, renders);
     }
 
     [Fact]
