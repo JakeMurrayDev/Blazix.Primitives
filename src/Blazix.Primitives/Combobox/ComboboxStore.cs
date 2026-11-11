@@ -343,6 +343,12 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool hadInputClear;
 
+    // A typed text a controlled consumer did not apply by its commit, re-asserted once the consumer's render applies the root's
+    // parameters: on Server that render can reach the root after the commit, carrying the typed text.
+    private string? keptTypedText;
+
+    private bool inputParametersApplied;
+
     private bool handlingEvent;
 
     private string? handlerQuery;
@@ -918,6 +924,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             // revision, as a commit does.
             string text = !inputValueState.IsControlled ? state.InputValue : inputNullControlled ? DerivedInputText() : inputValueState.Value;
             textChanged = inputValueState.IsControlled && !string.Equals(text, state.InputValue, StringComparison.Ordinal);
+
+            // A typed text the consumer's render did not apply is written over the edit, as React re-asserts a controlled value.
+            textChanged |= inputValueState.IsControlled && keptTypedText is not null && !string.Equals(keptTypedText, text, StringComparison.Ordinal);
             state = state with
             {
                 InputValue = text,
@@ -925,6 +934,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
                 HasSelectedValue = ComputeHasSelectedValue(next.SelectionMode),
             };
         }
+
+        keptTypedText = null;
+        inputParametersApplied = true;
 
         Write(state);
         RefreshDerivation(State);
@@ -1093,6 +1105,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         // AriaCombobox.tsx:655-733 (setInputValue).
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(details);
+        inputParametersApplied = false;
         bool applied = await inputValueState.NotifyAsync(text, details, inputs.OnInputValueChange);
         if (!applied)
         {
@@ -1100,7 +1113,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             // follow-ups are skipped (CMB-EVT-07's note).
             if (typed && !inputValueState.IsControlled)
             {
-                await CommitInputValueAsync(text);
+                await CommitInputValueAsync(text, typed);
             }
             else if (typed)
             {
@@ -1141,7 +1154,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             pendingHighlight = new PendingHighlight(false, true);
         }
 
-        await CommitInputValueAsync(text);
+        await CommitInputValueAsync(text, typed);
 
         // AriaCombobox.tsx:1087-1242 run after every commit. A change that leaves the store's filtered membership as it was
         // while the list is navigable renders no part, and its candidates are already the rendered items, so the pending
@@ -1507,14 +1520,28 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
     }
 
-    private async Task CommitInputValueAsync(string text)
+    private async Task CommitInputValueAsync(string text, bool typed)
     {
         await inputValueState.CommitAsync(text, inputs.InputValueChanged);
         string committed = inputValueState.Value;
-        if (!string.Equals(committed, State.InputValue, StringComparison.Ordinal) || inputValueState.IsControlled)
+        bool controlledTyped = typed && inputValueState.IsControlled;
+        if (!string.Equals(committed, State.InputValue, StringComparison.Ordinal) || inputValueState.IsControlled && !controlledTyped)
         {
             Write(State with { InputValue = committed, InputRevision = State.InputRevision + 1 });
             RefreshDerivation(State);
+        }
+        else if (controlledTyped && !string.Equals(committed, text, StringComparison.Ordinal))
+        {
+            // The consumer kept its text, or its render has not reached the root yet: without a render to wait for, the kept text
+            // is written over the edit now; otherwise the render decides (ApplyInputs).
+            if (inputParametersApplied || !inputs.OnInputValueChange.HasDelegate && !inputs.InputValueChanged.HasDelegate)
+            {
+                Write(State with { InputRevision = State.InputRevision + 1 });
+            }
+            else
+            {
+                keptTypedText = text;
+            }
         }
 
         NotifyInputValueCommitted();

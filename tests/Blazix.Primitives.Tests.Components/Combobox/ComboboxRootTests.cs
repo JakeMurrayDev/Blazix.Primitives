@@ -248,9 +248,11 @@ public sealed class ComboboxRootTests : IDisposable
     [Trait("Requirement", "CMB-API-09")]
     public async Task A_typed_controlled_text_is_not_reasserted_before_the_consumer_render()
     {
+        // The consumer's callbacks render nothing yet (their receiver is not a component), as a render Server has not sent.
         string latest = string.Empty;
         EventCallback<ValueChangeEventArgs<string>> onChange = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), args => latest = args.Value);
-        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = string.Empty, ["OnInputValueChange"] = onChange });
+        EventCallback<ValueChangeEventArgs<bool>> onOpen = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { });
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = string.Empty, ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen });
         int revision = cut.Instance.Root!.Store.State.InputRevision;
 
         await test.TypeAsync(cut, "a");
@@ -258,7 +260,7 @@ public sealed class ComboboxRootTests : IDisposable
 
         Assert.Equal(revision, cut.Instance.Root.Store.State.InputRevision);
 
-        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = latest, ["OnInputValueChange"] = onChange }));
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = latest, ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen }));
 
         Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
         Assert.Contains("\"value\":\"ab\"", test.LastInputOptions(), StringComparison.Ordinal);
@@ -269,11 +271,12 @@ public sealed class ComboboxRootTests : IDisposable
     public async Task A_consumer_render_that_keeps_the_controlled_text_reasserts_it()
     {
         EventCallback<ValueChangeEventArgs<string>> onChange = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), _ => { });
-        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a", ["OnInputValueChange"] = onChange });
+        EventCallback<ValueChangeEventArgs<bool>> onOpen = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { });
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a", ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen });
 
         await test.TypeAsync(cut, "ab");
         int revision = cut.Instance.Root!.Store.State.InputRevision;
-        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = "a", ["OnInputValueChange"] = onChange }));
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = "a", ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen }));
 
         Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
         Assert.Contains("\"value\":\"a\"", test.LastInputOptions(), StringComparison.Ordinal);
