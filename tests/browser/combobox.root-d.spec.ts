@@ -488,8 +488,9 @@ test.describe('<Combobox.Root />', () => {
 
       const field = input(page);
       await typeInto(field, 'ap');
-      // Deviation (2026-11-11): on Server the filtered list and its items' handles land round trips after the keys; Base UI's
-      // click lands on the settled list, so the press waits for it.
+      // Deviation (2026-11-11): on Server the popup's `interactions` handle attaches a round trip after the open renders, and a
+      // press before it is an outside press (a logged CI-like run: OutsidePress, no item click); Base UI's click lands on the
+      // settled popup, so the press waits for it, as the fixtures' `data-attached` wait does for the first gesture.
       await expect(page.getByRole('option')).toHaveCount(2);
       await settle(fixture);
       await pressOption(option(page, 'apple'));
