@@ -1,0 +1,110 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenubarFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menubar-root` fixture (tests/browser/menubar.spec.ts, M5 track 8, issue 195): Menubar.test.tsx's
+    ContainedTriggerMenubar (`setup=contained`, the default): File (Open, Save, a Share submenu with Email and Print),
+    Edit (Copy, Paste) and View (Zoom In, Zoom Out, a Layout submenu with a radio group), each a MenuRoot with its own
+    trigger. `orientation=vertical` turns the bar. A "Before" button precedes the bar for Tab. The container records each
+    menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
+*@
+<FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-file-changes="@string.Join(' ', fileChanges)" data-edit-changes="@string.Join(' ', editChanges)"
+                  data-view-changes="@string.Join(' ', viewChanges)">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-testid="before">Before</button>
+    <Menubar @ref="bar" Orientation="@orientation" style="max-width: 25vw; display: flex">
+        <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
+            <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner data-testid="file-menu">
+                    <MenuPopup>
+                        <MenuItem data-testid="file-item-1">Open</MenuItem>
+                        <MenuItem data-testid="file-item-2">Save</MenuItem>
+                        <MenuSubmenuRoot>
+                            <MenuSubmenuTrigger data-testid="share-trigger">Share</MenuSubmenuTrigger>
+                            <MenuPortal>
+                                <MenuPositioner data-testid="share-menu">
+                                    <MenuPopup>
+                                        <MenuItem data-testid="share-item-1">Email</MenuItem>
+                                        <MenuItem data-testid="share-item-2">Print</MenuItem>
+                                    </MenuPopup>
+                                </MenuPositioner>
+                            </MenuPortal>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        <MenuRoot TPayload="NoPayload" @ref="edit" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(editChanges, args))">
+            <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner data-testid="edit-menu">
+                    <MenuPopup>
+                        <MenuItem data-testid="edit-item-1">Copy</MenuItem>
+                        <MenuItem data-testid="edit-item-2">Paste</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        <MenuRoot TPayload="NoPayload" @ref="view" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(viewChanges, args))">
+            <MenuTrigger TPayload="NoPayload" @ref="viewTrigger" data-testid="view-trigger">View</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner data-testid="view-menu">
+                    <MenuPopup>
+                        <MenuItem data-testid="view-item-1">Zoom In</MenuItem>
+                        <MenuItem data-testid="view-item-2">Zoom Out</MenuItem>
+                        <MenuSubmenuRoot>
+                            <MenuSubmenuTrigger data-testid="layout-trigger">Layout</MenuSubmenuTrigger>
+                            <MenuPortal>
+                                <MenuPositioner data-testid="layout-menu">
+                                    <MenuPopup>
+                                        <MenuRadioGroup TValue="string" DefaultValue="@("single")">
+                                            <MenuRadioItem TValue="string" Value="@("single")" data-testid="layout-item-1">Single column</MenuRadioItem>
+                                            <MenuRadioItem TValue="string" Value="@("two")" data-testid="layout-item-2">Two columns</MenuRadioItem>
+                                        </MenuRadioGroup>
+                                    </MenuPopup>
+                                </MenuPositioner>
+                            </MenuPortal>
+                        </MenuSubmenuRoot>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </Menubar>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> fileChanges = [];
+    private readonly List<string> editChanges = [];
+    private readonly List<string> viewChanges = [];
+    private Menubar? bar;
+    private MenuRoot<NoPayload>? file;
+    private MenuRoot<NoPayload>? edit;
+    private MenuRoot<NoPayload>? view;
+    private MenuTrigger<NoPayload>? fileTrigger;
+    private MenuTrigger<NoPayload>? editTrigger;
+    private MenuTrigger<NoPayload>? viewTrigger;
+    private Orientation orientation = Orientation.Horizontal;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        bar?.TwinsAttached ?? Task.CompletedTask,
+        file?.SessionAttached ?? Task.CompletedTask,
+        edit?.SessionAttached ?? Task.CompletedTask,
+        view?.SessionAttached ?? Task.CompletedTask,
+        fileTrigger?.TwinsAttached ?? Task.CompletedTask,
+        editTrigger?.TwinsAttached ?? Task.CompletedTask,
+        viewTrigger?.TwinsAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized() =>
+        orientation = Query("orientation") == "vertical" ? Orientation.Vertical : Orientation.Horizontal;
+
+    private static void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
+        changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+}

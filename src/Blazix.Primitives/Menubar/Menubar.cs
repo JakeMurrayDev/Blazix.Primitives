@@ -126,6 +126,12 @@ public sealed class Menubar : PartBase<MenubarState>
     /// <inheritdoc />
     protected override StateAttributesMapping<MenubarState>? StateAttributesMapping => s_mapping;
 
+    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the bar's composite and session handles
+    // are attached, so a browser test can wait for their listeners before it presses a key.
+    /// <summary>Gets a task that completes when the bar's handles are attached.</summary>
+    /// <value>A task that completes after the first interactive render has attached them.</value>
+    internal Task TwinsAttached => Task.WhenAll(composite!.TwinAttached, session!.TwinAttached);
+
     /// <inheritdoc />
     protected override void OnInitialized()
     {
