@@ -1,6 +1,7 @@
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
@@ -52,7 +53,33 @@ public sealed class MenuList : PartBase<EmptyState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => behavior!.Apply(Id, AdditionalAttributes);
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        // The part replaces ChildContent with its own cascade in a filterable menu, so a parameter set without content must not keep it.
+        ChildContent = null;
+        return base.SetParametersAsync(parameters);
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        behavior!.Apply(Id, AdditionalAttributes);
+
+        // MNU-STA-24 (FilterDropdownList.tsx:58-66): the list's groups and items belong to this root's query, so a filterable
+        // submenu's list inside an enclosing group of its parent does not count them as that group's members.
+        if (RootContext!.Filter is not null)
+        {
+            RenderFragment? content = ChildContent;
+            ChildContent = builder =>
+            {
+                builder.OpenComponent<CascadingValue<MenuFilterGroupContext?>>(0);
+                builder.AddComponentParameter(1, nameof(CascadingValue<MenuFilterGroupContext?>.Value), null);
+                builder.AddComponentParameter(2, nameof(CascadingValue<MenuFilterGroupContext?>.IsFixed), true);
+                builder.AddComponentParameter(3, nameof(CascadingValue<MenuFilterGroupContext?>.ChildContent), content);
+                builder.CloseComponent();
+            };
+        }
+    }
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)

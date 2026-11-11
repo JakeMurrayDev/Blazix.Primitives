@@ -3,7 +3,8 @@
    - "groups": a File group (Save) and a Manage group (Rename);
    - "empty-group": a group holding only its label, beside a Rename item;
    - "radio": a Rename item beside a Sort by radio group (Date modified, Size);
-   - "nested": an outer group holding an inner group (Save), beside a Rename item.
+   - "nested": an outer group holding an inner group (Save), beside a Rename item;
+   - "nested-root": a group holding Save and an open filterable submenu (Share, whose list holds Email), beside Rename.
    The items have no label: their texts come through the List's handle. *@
 <MenuFilterProvider>
     <MenuRoot TPayload="NoPayload" DefaultOpen="true">
@@ -38,6 +39,27 @@
                                     <MenuRadioItem TValue="string" Value="@("date")">Date modified</MenuRadioItem>
                                     <MenuRadioItem TValue="string" Value="@("size")">Size</MenuRadioItem>
                                 </MenuRadioGroup>
+                                break;
+                            case "nested-root":
+                                <MenuGroup data-testid="share-group">
+                                    <MenuItem>Save</MenuItem>
+                                    <MenuFilterProvider>
+                                        <MenuSubmenuRoot DefaultOpen="true">
+                                            <MenuSubmenuTrigger>Share</MenuSubmenuTrigger>
+                                            <MenuPortal>
+                                                <MenuPositioner>
+                                                    <MenuPopup>
+                                                        <MenuInput aria-label="Filter share" />
+                                                        <MenuList>
+                                                            <MenuItem>Email</MenuItem>
+                                                        </MenuList>
+                                                    </MenuPopup>
+                                                </MenuPositioner>
+                                            </MenuPortal>
+                                        </MenuSubmenuRoot>
+                                    </MenuFilterProvider>
+                                </MenuGroup>
+                                <MenuItem>Rename</MenuItem>
                                 break;
                             default:
                                 <MenuGroup data-testid="outer-group">
