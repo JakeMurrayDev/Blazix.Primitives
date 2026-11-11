@@ -137,3 +137,11 @@ Facts the port found against context-menu.md, each recorded on its row:
 - RND-DOM-54 (rendering-and-composition.md): its list of parts that publish a rendered id omits ComboboxPopup, which reads its DOM id (`ComboboxPopup.tsx:56-62`); dated note.
 - CMB-KEY-10, CMB-PTR-10, CMB-EVT-09: the ChipRemove propagation clause meets ADR 01's decision-point row on Server like the Escape clause; §9 lists it (dated).
 
+
+## 2026-11-11, Menubar port (M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195))
+
+- Sheet C contradiction 5: ADR 08 §1's single-part list gains `Menubar` (ADR 08 Amendments 2026-11-11). Contradiction 6: menu.md §5.1's Trigger table gains the dated `tabindex` row (`C# → JS (from attach, inside a Menubar)`), with its ownership-registry entry.
+- MBR-ARIA-04: the Portal's owner role is decided by the Root's position, not by the parent a detached trigger forwards to the store (`MenuPortal.tsx:29-32`). The port read the store's parent after design point 2 (i); "renders detached top-level portal ownership without an accessibility role" turned it up.
+- MBR-KEY-12: the statement's "this close clears `hasSubmenuOpen`" may not hold in Base UI past an instant. `useListNavigation.ts:771-792` returns the focus to the trigger inside the keydown, while the trigger's `useFocus` is still enabled by the bar's unrendered React state, so a focus open follows. Read from the source, not run; design point 6 of track 8.
+- MBR-FOC-03 and the touch titles at `Menubar.test.tsx:51-117`: they rely on a programmatic `focus()` opening the menu after a mouse open. In Chromium that focus is not `:focus-visible`, which `useFocus.ts:139-150` requires (brief, "Tests first"). The two touch-guard titles are not ported, and MBR-PTR-08's note says why.
+- MBR-FOC-06: a non-modal focus manager still writes the plain marker `data-base-ui-inert` on outside content (Base UI's `markOthers`); the row's "no `aria-hidden`/inert marking" means the attributes, not the marker.
