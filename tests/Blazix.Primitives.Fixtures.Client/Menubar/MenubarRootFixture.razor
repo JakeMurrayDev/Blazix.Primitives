@@ -19,7 +19,8 @@
     `case=scroll-lock`: a modal bar of File (`fileWidth=narrow` makes its positioner 240px wide, else the viewport less
     10px) and Edit (240px) (`:821-927`). `case=open-side`: a bar (`orientation`) whose File menu is open, for
     MenuPositioner.test.tsx's "Menubar parent" titles. `cancelSibling` makes the contained File menu's callback cancel its
-    `sibling-open` close. `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
+    `sibling-open` close. `animated` (with `animations=1`) gives the contained bar's popups 500 ms keyframes.
+    `case=button`: a bar of File, a Button (its clicks in `data-item-clicks`) and Edit (MBR-EDGE-04, BTN-EDGE-02). `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
 <FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -27,6 +28,15 @@
                   data-view-changes="@string.Join(' ', viewChanges)" data-item-clicks="@string.Join(' ', itemClicks)" data-handler-calls="@string.Join(' ', handlerCalls)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-testid="before">Before</button>
+    @if (animated)
+    {
+        <style>
+            @@keyframes menubar-fixture-enter { from { opacity: 0; } to { opacity: 1; } }
+            @@keyframes menubar-fixture-exit { from { opacity: 1; } to { opacity: 0; } }
+            .menubar-fixture-animated[data-open] { animation: menubar-fixture-enter 500ms; }
+            .menubar-fixture-animated[data-ending-style] { animation: menubar-fixture-exit 500ms; }
+        </style>
+    }
     @switch (Query("case"))
     {
         case "first-disabled":
@@ -92,6 +102,19 @@
                 </MenuRoot>
             </Menubar>
             break;
+        case "button":
+            <Menubar @ref="bar" style="display: flex">
+                <MenuRoot TPayload="NoPayload" @ref="file">
+                    <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
+                    <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Open</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                </MenuRoot>
+                <Button data-testid="bar-button" @onclick="@(() => itemClicks.Add("button"))">Help</Button>
+                <MenuRoot TPayload="NoPayload" @ref="edit">
+                    <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
+                    <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Copy</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
         case "disabled-open":
             <Menubar @ref="bar" Disabled="true">
                 <MenuRoot TPayload="NoPayload" @ref="file" Open="true">
@@ -134,7 +157,7 @@
             <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="file-menu">
-                    <MenuPopup>@FileItems</MenuPopup>
+                    <MenuPopup class="@PopupClass">@FileItems</MenuPopup>
                 </MenuPositioner>
             </MenuPortal>
         </MenuRoot>
@@ -142,7 +165,7 @@
             <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="edit-menu">
-                    <MenuPopup>@EditItems</MenuPopup>
+                    <MenuPopup class="@PopupClass">@EditItems</MenuPopup>
                 </MenuPositioner>
             </MenuPortal>
         </MenuRoot>
@@ -150,7 +173,7 @@
             <MenuTrigger TPayload="NoPayload" @ref="viewTrigger" data-testid="view-trigger">View</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="view-menu">
-                    <MenuPopup>@ViewItems</MenuPopup>
+                    <MenuPopup class="@PopupClass">@ViewItems</MenuPopup>
                 </MenuPositioner>
             </MenuPortal>
         </MenuRoot>
@@ -168,6 +191,7 @@
     private readonly List<string> itemClicks = [];
     private readonly List<string> handlerCalls = [];
     private bool triggerlessOpen = true;
+    private bool animated;
     private Menubar? bar;
     private MenuRoot<NoPayload>? file;
     private MenuRoot<NoPayload>? edit;
@@ -206,6 +230,7 @@
         loopFocus = QueryFlag("loopFocus") != false;
         disabled = QueryFlag("disabled") == true;
         direction = Query("dir") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+        animated = QueryFlag("animated") == true;
     }
 
     // `cancelSibling` (MBR-EVT-01): File's callback cancels its `sibling-open` close.
@@ -220,6 +245,9 @@
 
     private static void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
         changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    // `animated` (MBR-ANI-02, with `animations=1`): 500 ms keyframes on the contained bar's popups, open and ending.
+    private string? PopupClass => animated ? "menubar-fixture-animated" : null;
 
     // Deliverable 6's consumer handlers: `veto` makes the press's handler call PreventPartHandler().
     private void OnConsumerMouseDown(MouseEventArgs args)

@@ -48,6 +48,29 @@ async function tap(cdp: CDPSession, target: Locator): Promise<void> {
  * after the open's render on WebAssembly), and a key pressed before then lands on the trigger. Base UI's jsdom titles
  * focus in the open's commit.
  */
+/**
+ * Base UI's `user.click`: user-event's sequence dispatched to the element (the presses, the focus, the releases, the click),
+ * which hit-tests nothing and leaves the browser's focus-visible heuristic without a pointer interaction.
+ */
+async function userClick(target: Locator): Promise<void> {
+  await target.evaluate((element: HTMLElement) => {
+    const init = { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse', isPrimary: true };
+    element.dispatchEvent(new PointerEvent('pointerdown', init));
+    element.dispatchEvent(new MouseEvent('mousedown', init));
+    element.focus();
+    element.dispatchEvent(new PointerEvent('pointerup', init));
+    element.dispatchEvent(new MouseEvent('mouseup', init));
+    element.dispatchEvent(new MouseEvent('click', { ...init, detail: 1 }));
+  });
+}
+
+/** Base UI's `fireEvent(element, new PointerEvent('click', { bubbles: true, cancelable: true, pointerType: 'touch' }))`. */
+async function touchClick(target: Locator): Promise<void> {
+  await target.evaluate((element: HTMLElement) => {
+    element.dispatchEvent(new PointerEvent('click', { bubbles: true, cancelable: true, pointerType: 'touch' }));
+  });
+}
+
 async function focusInside(page: Page, testId: string): Promise<void> {
   await expect.poll(() => page.evaluate((id) => !!document.activeElement?.closest(`[data-testid="${id}"]`), testId)).toBe(true);
 }
@@ -65,6 +88,46 @@ test.describe('<Menubar />', () => {
     await expect(owner).toHaveAttribute('role', 'group');
     await expect(owner).not.toHaveAttribute('aria-hidden');
     await expect(owner).toHaveAttribute('aria-owns', portalId);
+  });
+
+  // Menubar.test.tsx:51-117 (MBR-PTR-08, MBR-FOC-03; MNU-STA-05's bar clause). File opens through user-event's dispatched
+  // sequence, as Base UI's `user.click` does, so the programmatic focus that follows is focus-visible and opens Edit; the
+  // focus goes to Edit once File's popup has taken its initial focus (ADR 01's popup-element row), else it takes it back. The
+  // guard is the menu store's, under its TimeProvider (MNU-STA-05): its 300 ms window runs in real time here, so the first
+  // touch click lands inside it (its dropped close is recorded by the consumer's callback, which runs first, as Base UI's
+  // onOpenChange does), and the title waits Base UI's fake-timer step of 310 ms for the second.
+  test('ignores a delayed touch click immediately after focus opens another menu', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await userClick(page.getByTestId('file-trigger'));
+    await expect(page.getByTestId('file-menu')).toBeVisible();
+    await focusInside(page, 'file-menu');
+
+    const editTrigger = page.getByTestId('edit-trigger');
+    await editTrigger.focus();
+    await expect(page.getByTestId('edit-menu')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )true:trigger-focus$/);
+
+    await touchClick(editTrigger);
+    await expect(fixture).toHaveAttribute('data-edit-changes', /true:trigger-focus false:trigger-press$/);
+    await expect(page.getByTestId('edit-menu')).toBeVisible();
+
+    await page.waitForTimeout(310);
+    await touchClick(editTrigger);
+    await expect(page.getByTestId('edit-menu')).toHaveCount(0);
+  });
+
+  test('closes on a touch item click immediately after focus opens another menu', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await userClick(page.getByTestId('file-trigger'));
+    await expect(page.getByTestId('file-menu')).toBeVisible();
+    await focusInside(page, 'file-menu');
+
+    await page.getByTestId('edit-trigger').focus();
+    await expect(page.getByTestId('edit-menu')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )true:trigger-focus$/);
+
+    await touchClick(page.getByTestId('edit-item-1'));
+    await expect(page.getByTestId('edit-menu')).toHaveCount(0);
   });
 
   test('renders detached top-level portal ownership without an accessibility role', async ({ page, mode }) => {
@@ -93,15 +156,7 @@ test.describe('<Menubar />', () => {
     // Base UI's `user.click` dispatches the press to the button itself. A real click there lands on the modal bar's
     // backdrop (MBR-DOM-08), so the port dispatches the same sequence user-event does: the pointer and mouse presses,
     // the focus, the releases and the click.
-    await outside.evaluate((button: HTMLElement) => {
-      const init = { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse', isPrimary: true };
-      button.dispatchEvent(new PointerEvent('pointerdown', init));
-      button.dispatchEvent(new MouseEvent('mousedown', init));
-      button.focus();
-      button.dispatchEvent(new PointerEvent('pointerup', init));
-      button.dispatchEvent(new MouseEvent('mouseup', init));
-      button.dispatchEvent(new MouseEvent('click', { ...init, detail: 1 }));
-    });
+    await userClick(outside);
 
     await expect(page.getByTestId('triggerless-menu')).not.toHaveAttribute('data-open');
     await expect(outside).toBeFocused();
@@ -350,6 +405,61 @@ test.describe('<Menubar />', () => {
       await expect(page.getByTestId('file-menu')).toBeVisible();
     });
 
+    test('port: a focus-opened bar menu closes when its trigger blurs to an element outside it', async ({ page, mode }) => {
+      // MBR-EVT-03 (FLT-FOC-04; MNU-FOC-16's bar clause). A bar menu takes its initial focus (MenuPopup.tsx:84-85), so the
+      // title focuses the trigger again before the blur; the open is the focus switch of the touch titles above. The close's
+      // reason differs by mode, an open question (design point 7 of track 8): the focus manager's focusout on the trigger
+      // closes with `focus-out` in a microtask (FloatingFocusManager.tsx:446-566, :587), before the trigger's 0 ms blur
+      // timer's `trigger-focus` (useFocus.ts:185-233), so Base UI likely records `focus-out`, as the port does on Server;
+      // WebAssembly records `trigger-focus`. The title asserts the close.
+      const fixture = await render(page, mode);
+      await userClick(page.getByTestId('file-trigger'));
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await focusInside(page, 'file-menu');
+      const editTrigger = page.getByTestId('edit-trigger');
+      await editTrigger.focus();
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+      await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )true:trigger-focus$/);
+      await focusInside(page, 'edit-menu');
+
+      await editTrigger.focus();
+      await expect(editTrigger).toBeFocused();
+      await page.getByTestId('before').focus();
+      await expect(page.getByTestId('edit-menu')).toHaveCount(0);
+      await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )false:(trigger-focus|focus-out)$/);
+    });
+
+    test('port: focusable content inside the bar that is no trigger keeps its own tab stop and is skipped by the bar\'s arrow keys', async ({ page, mode }) => {
+      // MBR-EDGE-04.
+      await render(page, mode, { case: 'button' });
+      await page.getByTestId('file-trigger').focus();
+      await page.keyboard.press('ArrowRight');
+      await expect(page.getByTestId('edit-trigger')).toBeFocused();
+
+      await page.getByTestId('file-trigger').focus();
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('bar-button')).toBeFocused();
+    });
+
+    test('port: a Button inside the bar infers composite mode: no tabindex of its own, and Space activates on keydown', async ({ page, mode }) => {
+      // BTN-EDGE-02's Menubar example (UBT-STA-01, UBT-DOM-05, UBT-KEY-12): Base UI's useButton reads the composite root's
+      // context (useButton.ts:25-26). Red on both modes (2026-11-11): the port's Button passes `composite: false`
+      // (Button/Button.cs, "composite inference is M2's composite module"), so it renders tabindex="0" under any composite
+      // root. Open by ID, a Button-family gap, not the bar's.
+      test.info().annotations.push({ type: 'open', description: 'BTN-EDGE-02: the Button never infers composite mode under a composite root' });
+      test.fixme(true, 'BTN-EDGE-02: the Button never infers composite mode under a composite root');
+      const fixture = await render(page, mode, { case: 'button' });
+      const button = page.getByTestId('bar-button');
+      await expect(button).not.toHaveAttribute('tabindex');
+
+      await button.focus();
+      await page.keyboard.down(' ');
+      await expect(fixture).toHaveAttribute('data-item-clicks', 'button');
+      await page.keyboard.up(' ');
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-item-clicks', 'button');
+    });
+
     test('port: a switch between bar menus is instant as a group, and a submenu in a bar menu never is', async ({ page, mode }) => {
       // MBR-ANI-01.
       await render(page, mode);
@@ -363,6 +473,39 @@ test.describe('<Menubar />', () => {
       await expect(page.getByTestId('edit-menu')).toBeVisible();
       await expect(page.getByTestId('edit-menu')).toHaveAttribute('data-instant', 'group');
       await expect(page.getByTestId('edit-menu').getByRole('menu')).toHaveAttribute('data-instant', 'group');
+    });
+
+    test('port: with animations, a switch between bar menus runs the outgoing exit and the incoming enter apart, and keeps the flag', async ({ page, mode }) => {
+      // MBR-ANI-02: each bar menu has its own popup and transition status, and the `sibling-open` close keeps the flag.
+      await render(page, mode, { animations: 1, animated: true });
+      const bar = page.getByRole('menubar');
+      // A CSS locator: a closing popup leaves the accessibility tree, which a role locator reads.
+      const filePopup = page.locator('[data-testid="file-menu"] [role="menu"]');
+      await page.getByTestId('file-trigger').click();
+      await expect(filePopup).toHaveAttribute('data-open', '');
+
+      // Recorded in the page, so the 500 ms exit cannot pass between two polls: at some mutation the outgoing popup is in its
+      // ending phase while the incoming one is open, with the flag set.
+      await page.evaluate(() => {
+        const state = window as unknown as { menubarOverlap?: boolean };
+        state.menubarOverlap = false;
+        const check = () => {
+          const outgoing = document.querySelector('[data-testid="file-menu"] [role="menu"]');
+          const incoming = document.querySelector('[data-testid="edit-menu"] [role="menu"]');
+          if (outgoing?.hasAttribute('data-ending-style') && !outgoing.hasAttribute('data-open') && incoming?.hasAttribute('data-open')
+            && document.querySelector('[role="menubar"]')?.hasAttribute('data-has-submenu-open')) {
+            state.menubarOverlap = true;
+          }
+        };
+        new MutationObserver(check).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-open', 'data-ending-style'] });
+      });
+      await moveTo(page, page.getByTestId('edit-trigger'));
+      await expect(page.getByTestId('edit-menu').getByRole('menu')).toHaveAttribute('data-open', '');
+      await expect.poll(() => page.evaluate(() => (window as unknown as { menubarOverlap?: boolean }).menubarOverlap)).toBe(true);
+
+      await expect(page.getByTestId('file-menu')).toHaveCount(0);
+      await expect(page.getByTestId('edit-menu').getByRole('menu')).toHaveAttribute('data-open', '');
+      await expect(bar).toHaveAttribute('data-has-submenu-open', '');
     });
 
     test('port: after a list-navigation close that opens no other menu the flag stays, so a hover still opens a menu', async ({ page, mode }) => {
