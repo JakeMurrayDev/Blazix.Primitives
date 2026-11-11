@@ -64,6 +64,9 @@ public sealed class MenuItem : PartBase<MenuItemState>
     private MenuRootContext? RootContext { get; set; }
 
     [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? ListRoot { get; set; }
 
     // MNU-API-34
@@ -119,6 +122,7 @@ public sealed class MenuItem : PartBase<MenuItemState>
     protected override void OnInitialized()
     {
         behavior = new MenuItemBehavior("Menu", MenuItemKind.Item, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onClick, onKeyDown, onKeyUp);
+        behavior.FilterGroup = FilterGroup;
         behavior.Subscribe(RootContext, ListRoot);
         base.OnInitialized();
     }

@@ -20,6 +20,7 @@ public sealed class MenuRadioGroup<TValue> : PartBase<MenuRadioGroupState>
 {
     private readonly MenuRadioGroupBehavior<TValue> behavior;
     private MenuRadioGroupState state = new(false);
+    private MenuFilterGroupContext? filterGroup;
 
     /// <summary>Initializes a new instance of the <see cref="MenuRadioGroup{TValue}"/> class.</summary>
     public MenuRadioGroup()
@@ -32,6 +33,9 @@ public sealed class MenuRadioGroup<TValue> : PartBase<MenuRadioGroupState>
 
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
+
+    [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
 
     // MNU-API-44
     /// <summary>Gets or sets the value of the group's selected item.</summary>
@@ -95,6 +99,13 @@ public sealed class MenuRadioGroup<TValue> : PartBase<MenuRadioGroupState>
     protected override void OnInitialized()
     {
         MenuRootContext.Require(RootContext, "Menu");
+
+        // MNU-STA-24, DOM-20 (M5 track 12): in a filterable menu the group counts its members and hides with them.
+        if (RootContext!.Filter is not null)
+        {
+            filterGroup = new MenuFilterGroupContext(FilterGroup, () => _ = InvokeAsync(StateHasChanged));
+        }
+
         base.OnInitialized();
     }
 
@@ -103,8 +114,32 @@ public sealed class MenuRadioGroup<TValue> : PartBase<MenuRadioGroupState>
     {
         behavior.Apply(ValueChanged, OnValueChange, Disabled);
         ChildContent = behavior.CascadeContent(ChildContent);
+        if (filterGroup is not null)
+        {
+            ChildContent = filterGroup.Cascade(ChildContent);
+        }
     }
 
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes) => behavior.AddAttributes(attributes);
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            filterGroup?.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    /// <inheritdoc />
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        behavior.AddAttributes(attributes);
+
+        // MNU-DOM-20: the boolean hidden while the query hides every member; a consumer's hidden is kept.
+        if (filterGroup is { Hidden: true })
+        {
+            attributes.Set("hidden", true);
+        }
+    }
 }

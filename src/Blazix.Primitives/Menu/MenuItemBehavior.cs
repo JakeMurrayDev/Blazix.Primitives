@@ -121,6 +121,10 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <summary>Gets a value indicating whether the item is highlighted, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
 
+    // MNU-STA-24 (M5 track 12): the enclosing group's filter context, set by the part before Subscribe.
+    /// <summary>Gets or sets the enclosing group's filter context, which counts the item as a member, or <see langword="null"/>.</summary>
+    public MenuFilterGroupContext? FilterGroup { get; set; }
+
     // MNU-STA-15 (M5 track 12): in a filterable menu, an item the query filters out renders nothing and leaves the list.
     /// <summary>Gets a value indicating whether the menu's filter hides the item, so that its part renders nothing.</summary>
     public bool FilteredOut => filterSlot is { FilteredOut: true };
@@ -167,7 +171,7 @@ internal sealed class MenuItemBehavior : IDisposable
         item = new CompositeItemBehavior(list, partName, onKeyDown, requestRender);
         if (this.root.Filter is { } filter)
         {
-            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged);
+            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged, FilterGroup);
         }
 
         // MenuItem.tsx:32-37, MenuCheckboxItem.tsx:41-46, MenuRadioItem.tsx:47-49: the root's disabled state disables an item

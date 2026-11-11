@@ -558,23 +558,35 @@ internal sealed class MenuFilterRootContext
 internal sealed class MenuFilterItemSlot : IDisposable
 {
     private readonly MenuFilterRootContext filter;
+    private readonly MenuFilterGroupContext? group;
     private readonly MenuFilterItem item;
     private IDisposable? registration;
+    private MenuFilterGroupContext.Member? member;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterItemSlot"/> class.</summary>
     /// <param name="filter">The menu's filter.</param>
     /// <param name="changed">The callback run when the item's visibility changes.</param>
-    public MenuFilterItemSlot(MenuFilterRootContext filter, Action changed)
+    /// <param name="group">The enclosing group's filter context, which counts the item as a member (MNU-STA-24), or <see langword="null"/>.</param>
+    public MenuFilterItemSlot(MenuFilterRootContext filter, Action changed, MenuFilterGroupContext? group = null)
     {
         this.filter = filter;
-        item = new MenuFilterItem(changed);
+        this.group = group;
+        item = new MenuFilterItem(() =>
+        {
+            member?.Changed();
+            changed();
+        });
     }
 
     /// <summary>Gets a value indicating whether the query filters the item out, so that it renders nothing.</summary>
     public bool FilteredOut => !item.Visible;
 
     /// <inheritdoc />
-    public void Dispose() => registration?.Dispose();
+    public void Dispose()
+    {
+        member?.Dispose();
+        registration?.Dispose();
+    }
 
     /// <summary>Registers the item on the first call, and applies a changed label or id afterwards.</summary>
     /// <param name="label">The item's <c>Label</c>.</param>
@@ -586,6 +598,7 @@ internal sealed class MenuFilterItemSlot : IDisposable
             item.Label = label;
             item.Id = id;
             registration = filter.RegisterItem(item);
+            member = group?.Register(() => item.Visible);
             return;
         }
 

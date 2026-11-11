@@ -76,6 +76,9 @@ public sealed class MenuCheckboxItem : PartBase<MenuCheckboxItemState>
     private MenuRootContext? RootContext { get; set; }
 
     [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? ListRoot { get; set; }
 
     // MNU-API-41
@@ -163,6 +166,7 @@ public sealed class MenuCheckboxItem : PartBase<MenuCheckboxItemState>
     {
         behavior = new MenuItemBehavior("Menu", MenuItemKind.CheckboxItem, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onClick, onKeyDown, onKeyUp);
         behavior.Activated = checkable.ToggleAsync;
+        behavior.FilterGroup = FilterGroup;
         behavior.Subscribe(RootContext, ListRoot);
         base.OnInitialized();
     }

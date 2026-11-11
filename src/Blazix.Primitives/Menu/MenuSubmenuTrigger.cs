@@ -80,6 +80,9 @@ public sealed class MenuSubmenuTrigger : PartBase<MenuSubmenuTriggerState>
     private MenuRootContext? RootContext { get; set; }
 
     [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? ParentList { get; set; }
 
     // MNU-API-50
@@ -147,6 +150,7 @@ public sealed class MenuSubmenuTrigger : PartBase<MenuSubmenuTriggerState>
     protected override void OnInitialized()
     {
         behavior = new MenuSubmenuTriggerBehavior(this, "Menu", JSRuntime, Logger, DevelopmentLog, IdGenerator, Platform, StateHasChanged, InvokeAsync, DispatchExceptionAsync, onClick, onMouseDown, onKeyDown, onKeyUp);
+        behavior.FilterGroup = FilterGroup;
         behavior.Subscribe(RootContext, ParentList);
         base.OnInitialized();
     }

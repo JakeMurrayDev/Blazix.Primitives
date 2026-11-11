@@ -103,6 +103,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <summary>Gets a value indicating whether the trigger ignores user interaction.</summary>
     public bool Disabled => parameters.Item.Disabled || (submenu?.State.Disabled ?? false) || (parentDisabled?.Value ?? false);
 
+    // MNU-STA-24 (M5 track 12): the enclosing group's filter context, set by the part before Subscribe.
+    /// <summary>Gets or sets the enclosing group's filter context, which counts the trigger as a member, or <see langword="null"/>.</summary>
+    public MenuFilterGroupContext? FilterGroup { get; set; }
+
     // MNU-STA-15 (M5 track 12): in a filterable parent menu, a trigger the query filters out renders nothing and leaves the
     // parent's list.
     /// <summary>Gets a value indicating whether the parent menu's filter hides the trigger, so that its part renders nothing.</summary>
@@ -186,7 +190,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         item = new CompositeItemBehavior(parentList, familyName + "SubmenuTrigger", onKeyDown, requestRender);
         if (context.Parent.Menu?.Filter is { } filter)
         {
-            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged);
+            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged, FilterGroup);
         }
     }
 

@@ -75,6 +75,9 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     private MenuRootContext? RootContext { get; set; }
 
     [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? ListRoot { get; set; }
 
     [CascadingParameter]
@@ -146,6 +149,7 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     {
         behavior = new MenuItemBehavior("Menu", MenuItemKind.RadioItem, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onClick, onKeyDown, onKeyUp);
         behavior.Activated = radio.SelectAsync;
+        behavior.FilterGroup = FilterGroup;
         behavior.Subscribe(RootContext, ListRoot);
         radio.Subscribe(Group);
         base.OnInitialized();
