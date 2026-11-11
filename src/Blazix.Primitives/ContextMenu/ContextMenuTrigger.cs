@@ -29,9 +29,10 @@ public static class ContextMenuTriggerDataAttributes
 // element (ADR 04 Amendments 2026-10-18; design points 1-3 of M5 track 7) owns the gestures: the module reports the open
 // request (reason `trigger-press`, the `contextmenu` or `touchstart` event, no trigger: CTX-EVT-02, 03) and the
 // `cancel-open` close (CTX-EVT-05), which this part requests from the menu. The consumer's `oncontextmenu` and `ontouch*`
-// handlers are declined and run once per dispatch through the module (design point 3 (a)): `press` on WebAssembly, the
-// `OnPress` report on Server, whose veto refuses the open the report precedes (Server: relaxed, the module's own side
-// effects of the vetoed gesture remain).
+// handlers are declined and run once per dispatch through the module (design point 3 (a)): `press` on WebAssembly at a
+// `contextmenu`, a `touchstart`, and a touch move, end or cancel while a long press is pending; the `OnPress` report
+// otherwise, whose veto refuses the open the report precedes (Server: relaxed, the module's own side effects of the vetoed
+// gesture remain).
 /// <summary>
 /// Represents an area that opens the context menu on a right click or a long press, Base UI's <c>ContextMenu.Trigger</c>,
 /// rendered as a <c>div</c>.
@@ -359,19 +360,29 @@ public sealed class ContextMenuTrigger : PartBase<ContextMenuTriggerState>
         };
     }
 
-    // WebAssembly only, synchronously inside the dispatch: the consumer's handler, and its veto as the verdict.
-    private DecisionPolicy DecidePress(ContextMenuPress press) => RunConsumerHandler(press) ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    // WebAssembly only, synchronously inside the dispatch: the consumer's handler, and its veto as the verdict. A vetoed
+    // gesture reports no open, so nothing is recorded.
+    private DecisionPolicy DecidePress(ContextMenuPress press) => RunConsumerHandler(press, out _) ? DecisionPolicy.Stop : DecisionPolicy.Run;
 
-    // Server: the event of a handler the module did not decide, ahead of the open it may veto.
-    private void OnPressed(ContextMenuPress press) => _ = RunConsumerHandler(press);
+    // A dispatch the module did not decide (every one on Server; a touch move, end or cancel with no long press pending on
+    // WebAssembly): the handler runs from the report, and its veto refuses the open the report precedes.
+    private void OnPressed(ContextMenuPress press)
+    {
+        bool prevented = RunConsumerHandler(press, out int index);
+        if (index >= 0)
+        {
+            vetoed[index] = prevented;
+        }
+    }
 
-    // Runs the consumer's handler for the press's event and records whether it vetoed the part's handling.
-    private bool RunConsumerHandler(ContextMenuPress press)
+    // Runs the consumer's handler for the press's event and returns whether it vetoed the part's handling.
+    private bool RunConsumerHandler(ContextMenuPress press, out int index)
     {
         EventSnapshot snapshot = press.Event ?? EventSnapshot.CreatePlaceholder();
-        int index = HandlerIndex("on" + snapshot.Type);
+        index = HandlerIndex("on" + snapshot.Type);
         if (index < 0 || !handlers[index].IsHandler)
         {
+            index = -1;
             return false;
         }
 
@@ -393,9 +404,7 @@ public sealed class ContextMenuTrigger : PartBase<ContextMenuTriggerState>
             _ = DispatchExceptionAsync(exception);
         }
 
-        bool prevented = args.PartHandlerPrevented();
-        vetoed[index] = prevented;
-        return prevented;
+        return args.PartHandlerPrevented();
     }
 
     // CTX-PTR-01, CTX-PTR-06, CTX-EVT-02, CTX-EVT-03: the open request has no trigger and never writes the open interaction

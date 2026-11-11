@@ -35,7 +35,7 @@ internal sealed class ContextMenuTwin(IJSRuntime jsRuntime)
     /// <summary>Gets or sets the chain the <c>press</c> decision runs on WebAssembly: the consumer's declined handler.</summary>
     /// <value>
     /// A function that receives the handed-over event, runs the consumer's handler and returns
-    /// <see cref="DecisionPolicy.Stop"/> when it called <c>PreventBaseUIHandler()</c>; <see langword="null"/> lets every
+    /// <see cref="DecisionPolicy.Stop"/> when it called <c>PreventPartHandler()</c>; <see langword="null"/> lets every
     /// event run. It runs synchronously inside the dispatch and must not await.
     /// </value>
     public Func<ContextMenuPress, DecisionPolicy>? PressDecider { get; set; }
