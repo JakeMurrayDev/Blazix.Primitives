@@ -468,13 +468,10 @@ test.describe('<Menubar />', () => {
       });
 
       test('should respect closeOnClick on nested items when the menu was opened on hover', async ({ page, mode }) => {
-        // Red on the shared-Root setups, both modes (2026-11-11): the Layout submenu is not visible after the hover switch
-        // from File to View. Open by ID (MBR-PTR-07's shared-Root runs), cause not yet traced.
         // On the shared-Root setups the one positioner moves from File's anchor to View's, so the hovers wait for a
-        // stable element as Base UI's `user.hover` acts on it where it is (Playwright's actionability). Red on Server on
-        // those setups (2026-11-11): the Layout submenu does not open; suspected, unverified, the submenu trigger the
-        // payload switch mounts is hovered before its hover handle attaches a round trip later. Open by ID (MBR-PTR-07).
-        test.fixme(setup !== 'contained' && mode === 'server', 'shared-Root setups on Server: the hover on a freshly mounted submenu trigger (open)');
+        // stable element as Base UI's `user.hover` acts on it where it is (Playwright's actionability). On Server the
+        // payload switch's Layout trigger was hovered before its handle attached; the `interactions` record of the last
+        // entry replays it at the attach (design point 5 of track 8, settled 2026-11-11).
         await render(page, mode);
         await page.getByTestId('file-trigger').click({ delay: 30 });
         await expect(page.getByTestId('file-menu')).toBeVisible();
