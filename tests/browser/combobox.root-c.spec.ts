@@ -535,7 +535,11 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('validates when the popup is blurred', async ({ page, mode }) => {
-      const fixture = await gotoRoot(page, mode, { case: 'field-popup' });
+      // Deviation (2026-11-11, session M's trace): with the host's animations off the outside pointerdown completes the close
+      // and the unmount inside itself on WebAssembly, so the focus manager returns focus to the trigger before the press's
+      // mousedown blurs it again; Base UI's production path waits a frame for the exit. The title runs with animations on
+      // (ADR 06 §2's `?animations=1`, as collapsible.spec.ts does).
+      const fixture = await gotoRoot(page, mode, { case: 'field-popup', animations: 1 });
 
       const trigger = page.getByTestId('trigger');
       const outside = page.getByTestId('outside');
