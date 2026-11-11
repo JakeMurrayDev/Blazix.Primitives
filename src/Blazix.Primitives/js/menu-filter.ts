@@ -230,9 +230,10 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     keyboardModality = true;
     syncHighlighted();
   };
-  // KEY-22, KEY-29, KEY-30 (useMenuFilterKeyDown.ts:103-176): the router. A key the table gives to the input (`edit`) or to
-  // no one (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not the highlight; an
-  // `activate` key clicks the highlighted item and a `submenu` key is dispatched on it. `enter-list` and `close` follow.
+  // KEY-22, KEY-25, KEY-26, KEY-29, KEY-30 (useMenuFilterKeyDown.ts:103-192): the router. A key the table gives to the
+  // input (`edit`) or to no one (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not
+  // the highlight; an `activate` key clicks the highlighted item, a `submenu` key is dispatched on it, and `close` reports
+  // a focus-out. `enter-list` follows with highlightListEdge.
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (options.open !== true) {
       return;
@@ -251,13 +252,13 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       case 'ignore':
         skipListNavigation(event);
         break;
-      // KEY-29 (:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
+      // KEY-25 (:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
       case 'activate':
         skipListNavigation(event);
         event.preventDefault();
         dispatchClickWithModifiers(activeItem!, event);
         break;
-      // KEY-30 (:161-169): the highlighted submenu trigger's own handlers decide, since opening depends on the item and on
+      // KEY-29 (:161-169): the highlighted submenu trigger's own handlers decide, since opening depends on the item and on
       // both menus' orientations, so the key is dispatched on it.
       case 'submenu': {
         skipListNavigation(event);
@@ -266,6 +267,12 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
         activeItem!.dispatchEvent(new KeyboardEventConstructor(event.type, event));
         break;
       }
+      // KEY-26 (:179-192): Shift+Tab closes with focus-out; C# requests the close and the focus manager returns focus.
+      case 'close':
+        skipListNavigation(event);
+        event.preventDefault();
+        channel.report('OnFocusOut', { event: eventInfo(event) });
+        break;
       default:
         break;
     }
