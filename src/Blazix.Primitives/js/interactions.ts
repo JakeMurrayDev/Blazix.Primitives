@@ -264,6 +264,8 @@ export interface MenuTriggerOptions {
   trackMouseEnter?: boolean | null;
   /** Whether focus returning to the trigger through the guard before the open popup closes it with `focus-out`. */
   closeOnGuardReturn?: boolean | null;
+  /** Whether the tree stays armed when this trigger's open ends (a menubar's trigger). */
+  keepArmedWhenClosed?: boolean | null;
 }
 
 // FLT §6.8
@@ -4202,7 +4204,8 @@ function createMenuTriggerController(context: HandleContext): Controller {
   };
 
   // MenuTrigger.tsx:120-124, 159-171: when this trigger's open ends, the tree is disarmed and the listener removed; a
-  // hover open by this trigger listens for the release.
+  // hover open by this trigger listens for the release. A trigger with a parent, a menubar's, keeps the arm
+  // (`keepArmedWhenClosed`; design point 1 (a) of M5 track 8, settled by the orchestrator 2026-11-11; MBR §16 Q9).
   const onSessionApplied = () => {
     syncGuardFocusOut();
     const opened = record.open && record.domReferenceElement === element;
@@ -4214,7 +4217,9 @@ function createMenuTriggerController(context: HandleContext): Controller {
       return;
     }
     if (!opened) {
-      menuReleaseSlot(record).armed = false;
+      if (menuOptions()?.keepArmedWhenClosed !== true) {
+        menuReleaseSlot(record).armed = false;
+      }
       removeDocumentMouseUp();
     } else if (lastReason === 'trigger-hover') {
       addDocumentMouseUp();
