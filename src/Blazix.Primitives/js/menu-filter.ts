@@ -12,7 +12,7 @@
 // It imports `composite`'s exported predicates and reads the session through `interactions`' exports; it edits neither.
 // Interface commit: the option and report names; every acting body throws until its red-first commit.
 
-import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey } from './composite';
+import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey, skipListNavigation } from './composite';
 import { eventInfo } from './event-info';
 import { platform } from './platform';
 import {
@@ -229,6 +229,25 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     keyboardModality = true;
     syncHighlighted();
   };
+  // KEY-22, KEY-30 (useMenuFilterKeyDown.ts:103-125): the router. A key the table gives to the input (`edit`) or to no one
+  // (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not the highlight.
+  const onKeyDownCapture = (event: KeyboardEvent): void => {
+    if (options.open !== true) {
+      return;
+    }
+    const activeId = input.getAttribute('aria-activedescendant');
+    const activeItem = activeId ? input.ownerDocument.getElementById(activeId) : null;
+    const action = getMenuFilterKeyAction(event, {
+      orientation: options.orientation ?? 'vertical',
+      rtl: options.rtl === true,
+      hasActiveItem: activeItem !== null,
+      activeItemOpensSubmenu: activeItem?.hasAttribute('aria-haspopup') ?? false,
+      hasValue: input.value !== '',
+    });
+    if (action === 'edit' || action === 'ignore') {
+      skipListNavigation(event);
+    }
+  };
   const onPointer = (): void => {
     keyboardModality = false;
     syncHighlighted();
@@ -242,6 +261,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   input.addEventListener('compositionend', onCompositionEnd);
   input.addEventListener('focus', onFocus);
   input.addEventListener('blur', onBlur);
+  input.addEventListener('keydown', onKeyDownCapture, true);
   input.addEventListener('keydown', onKeyDown);
   input.addEventListener('pointerdown', onPointer);
   input.addEventListener('mouseenter', onPointer);
@@ -272,6 +292,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       input.removeEventListener('compositionend', onCompositionEnd);
       input.removeEventListener('focus', onFocus);
       input.removeEventListener('blur', onBlur);
+      input.removeEventListener('keydown', onKeyDownCapture, true);
       input.removeEventListener('keydown', onKeyDown);
       input.removeEventListener('pointerdown', onPointer);
       input.removeEventListener('mouseenter', onPointer);
