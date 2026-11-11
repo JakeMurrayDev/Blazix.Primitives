@@ -367,12 +367,8 @@ test.describe('<Menubar />', () => {
 
     test('port: after a list-navigation close that opens no other menu the flag stays, so a hover still opens a menu', async ({ page, mode }) => {
       // MBR-EDGE-03 (with §16 Q4 replicated: the closed menu's trigger keeps the focus and the flag, and File reopens with
-      // `trigger-focus`). Red on Server (2026-11-11), not the hover-entry class: after that reopen the same backdrop and
-      // positioner stay, and 1 ms after the reopen's render the backdrop loses its cut-out (`clip-path` none; WebAssembly
-      // keeps it), so the backdrop covers the bar and the hover on Edit hits it. C# sends the bar's cut-out id on every sync;
-      // the remaining suspects are in the popup module's positioner role (`cut()`).
-      test.info().annotations.push({ type: 'open', description: 'MBR-EDGE-03 on Server: the reopened bar menu\'s backdrop loses its cut-out' });
-      test.fixme(mode === 'server', 'MBR-EDGE-03: after the §16 Q4 reopen the backdrop loses its cut-out on Server');
+      // `trigger-focus`). On Server the reopened menu's backdrop lost its cut-out while the closing menu's focus manager had
+      // removed its inert marker (issue 237), so the hover on Edit hit the backdrop; the positioner now keeps its backdrop.
       const fixture = await render(page, mode, { loopFocus: false });
       const bar = page.getByRole('menubar');
       await page.getByTestId('file-trigger').focus();
