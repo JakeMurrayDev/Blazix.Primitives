@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, waitForPositioned, type Page, type RenderMode } from './helpers';
-import { center, holdClock, parkPointer, positionerOf, withClock } from './menu.helpers';
+import { center, holdClock, moveTo, parkPointer, positionerOf, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The L4 titles of ContextMenuRoot.test.tsx, ContextMenuRoot.non-mac.test.tsx and ContextMenuTrigger.test.tsx (M5 track 7,
@@ -575,6 +575,11 @@ test.describe('ContextMenu port titles', () => {
 
     await expect(page.getByRole('menu')).toHaveCount(0);
     expect(await openChanges(fixture)).toEqual([]);
+
+    // The positive control: the same focused surface opens on the `contextmenu` a keyboard request dispatches.
+    await dispatchContextMenu(surface);
+    await expect(page.getByRole('menu')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
   });
 
   test('port: after a right-click open the popup has focus and the first ArrowDown highlights the first item', async ({ page, mode }) => {
@@ -745,3 +750,90 @@ async function waitMsReal(page: Page): Promise<void> {
     await page.clock.runFor(300);
   });
 }
+
+// CTX-EDGE-05 and MNU-EDGE-15: a plain Menu.Root inside a context menu's popup applies the context menu's release rules
+// (useMenuItemCommonProps.ts:107-131 tests for the ContextMenu context, not the parent kind): a release activates an item
+// only with the right button, and only on macOS. The press on the plain trigger arms it after 200 ms, waited in real time
+// with no clock held. The Trigger's half of the clause is open (context-menu.md CTX-EDGE-05's note).
+test.describe('ContextMenu port titles: a plain menu inside a context menu', () => {
+  async function pressPlainTrigger(page: Page, mode: RenderMode): Promise<void> {
+    await rightClick(page, page.getByTestId('trigger'), { x: 20, y: 20 });
+    await positioned(page.getByTestId('item'), mode);
+    const start = await center(page.getByTestId('plain-trigger'));
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await positioned(page.getByTestId('plain-item'), mode);
+    await page.waitForTimeout(300);
+    await moveTo(page, page.getByTestId('plain-item'));
+  }
+
+  test("port: a primary-button press-drag-release over an item of a plain menu inside the context menu's popup does not activate it", async ({ page, mode }) => {
+    const fixture = await render(page, mode, { plainMenu: 'popup' }, 'mac');
+    await pressPlainTrigger(page, mode);
+    await page.mouse.up();
+    await settle(fixture);
+
+    await expect(page.getByTestId('plain-popup')).toBeVisible();
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('');
+  });
+
+  test("port: on macOS a right-button release over an item of a plain menu inside the context menu's popup activates it", async ({ page, mode }) => {
+    const fixture = await render(page, mode, { plainMenu: 'popup' }, 'mac');
+    await pressPlainTrigger(page, mode);
+    await page.mouse.up({ button: 'right' });
+
+    await expect(page.getByTestId('plain-popup')).toHaveCount(0);
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('Plain');
+    expect((await fixture.getAttribute('data-plain-open-changes'))!.split(' ').at(-1)).toBe('false:item-press');
+  });
+
+  test("port: on other platforms a right-button release over an item of a plain menu inside the context menu's popup does not activate it", async ({ page, mode }) => {
+    const fixture = await render(page, mode, { plainMenu: 'popup' }, 'other');
+    await pressPlainTrigger(page, mode);
+    await page.mouse.up({ button: 'right' });
+    await settle(fixture);
+
+    await expect(page.getByTestId('plain-popup')).toBeVisible();
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('');
+  });
+});
+
+// CTX-POS-05, CTX-POS-06 and CTX-API-07..09 at L4: the placement the props resolve to, against the 0 x 0 pointer anchor.
+test.describe('ContextMenu port titles: placement', () => {
+  async function boxOf(target: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+    await positioned(target);
+    return (await target.boundingBox())!;
+  }
+
+  test('port: explicit side, align, sideOffset and alignOffset place the root popup exactly so', async ({ page, mode }) => {
+    await render(page, mode, { side: 'right', align: 'center', sideOffset: 11, alignOffset: 13 });
+    const point = await rightClick(page, page.getByTestId('trigger'), { x: 60, y: 75 });
+
+    const box = await boxOf(page.getByTestId('popup'));
+    expect(Math.abs(box.x - (point.x + 11))).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y + box.height / 2 - (point.y + 13))).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'right');
+    await expect(page.getByTestId('positioner')).toHaveAttribute('data-align', 'center');
+  });
+
+  test('port: an explicit side drops both offset defaults to 0 and keeps align start', async ({ page, mode }) => {
+    await render(page, mode, { side: 'right' });
+    const point = await rightClick(page, page.getByTestId('trigger'), { x: 60, y: 40 });
+
+    const box = await boxOf(page.getByTestId('popup'));
+    expect(Math.round(box.x)).toBe(Math.round(point.x));
+    expect(Math.round(box.y)).toBe(Math.round(point.y));
+    await expect(page.getByTestId('positioner')).toHaveAttribute('data-align', 'start');
+  });
+
+  test('port: an open submenu sits beside its trigger, inline-end and start, with no offset', async ({ page, mode }) => {
+    await render(page, mode, { defaultOpen: true, submenu: 'open' });
+
+    const trigger = await boxOf(page.getByTestId('submenu-trigger'));
+    const popup = await boxOf(page.getByTestId('submenu-popup'));
+    expect(Math.round(popup.x)).toBe(Math.round(trigger.x + trigger.width));
+    expect(Math.round(popup.y)).toBe(Math.round(trigger.y));
+    await expect(page.getByTestId('submenu-positioner')).toHaveAttribute('data-side', 'inline-end');
+    await expect(page.getByTestId('submenu-positioner')).toHaveAttribute('data-align', 'start');
+  });
+});

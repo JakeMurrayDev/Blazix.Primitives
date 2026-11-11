@@ -2,7 +2,8 @@
 @* The ContextMenu trees of the L2 ports, by `Case`:
    - `tree` (the default): a Root (`DefaultOpen`, `Disabled`), a Trigger with `TriggerAttributes`, an optional consumer
      Backdrop, then Portal > Positioner (`PositionerAttributes`) > Popup with an item, a Menu item, a separator, a group,
-     a submenu (`SubmenuOpen`, its own Portal > Positioner > Popup) and, with `PlainMenu`, a plain MenuRoot open inside.
+     a submenu (`SubmenuOpen`, its own Portal > Positioner > Popup) and, with `PlainMenu`, a plain MenuRoot open inside
+     (its own Backdrop with `PlainBackdrop`).
    - `nested`: an inner context menu inside the outer Trigger (ContextMenuTrigger.test.tsx's nested case).
    - `trigger-alone`, `positioner-outside-portal`, `separator-alone`: the parts outside their parents.
    The Root's open changes are recorded with their reason and event type; `Renders` counts the ClassValue calls by part. *@
@@ -70,6 +71,10 @@
                         {
                             <MenuRoot TPayload="NoPayload" DefaultOpen="true">
                                 <MenuPortal>
+                                    @if (PlainBackdrop)
+                                    {
+                                        <MenuBackdrop data-testid="plain-backdrop" />
+                                    }
                                     <MenuPositioner data-testid="plain-positioner">
                                         <MenuPopup data-testid="plain-popup" />
                                     </MenuPositioner>
@@ -101,6 +106,9 @@
 
     [Parameter]
     public bool PlainMenu { get; set; }
+
+    [Parameter]
+    public bool PlainBackdrop { get; set; }
 
     [Parameter]
     public IReadOnlyDictionary<string, object>? TriggerAttributes { get; set; }

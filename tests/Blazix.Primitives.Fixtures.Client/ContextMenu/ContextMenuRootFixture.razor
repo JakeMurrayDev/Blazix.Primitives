@@ -10,8 +10,9 @@
     ContextMenuRoot.non-mac.test.tsx and ContextMenuTrigger.test.tsx. `case`:
     - `default`: a Root (`disabled`, `defaultOpen`, controlled by `open`), the Trigger "Right click me" (a `<button>` with
       `button`; `veto` gives it an `oncontextmenu` calling PreventPartHandler(); `container` places the portal's container
-      inside it; `plainMenu=trigger` puts a plain MenuRoot inside it), `toggle-trigger` unmounting it, then Portal >
-      optional Backdrop (`backdrop`) > Positioner (`alignOffset`, `side`) > Popup with, first when `submenu` is `open` or `closed`, a
+      inside it; `plainMenu=trigger` puts a plain MenuRoot inside it, whose item "Plain action" records `Plain`),
+      `toggle-trigger` unmounting it, then Portal > optional Backdrop (`backdrop`) > Positioner (`side`, `align`,
+      `sideOffset`, `alignOffset`) > Popup with, first when `submenu` is `open` or `closed`, a
       SubmenuRoot "More options" (default open with `open`, Delay 1 on hover, else
       not on hover) holding "Deep action", then the items "Action" and "Second"; `plainMenu=popup` puts a plain MenuRoot inside the popup. An outside button and
       a focusable input are outside the tree.
@@ -20,12 +21,13 @@
       `anchorY`), the popup 150 by 100.
     The container records `data-open-changes` (`open:reason`), `data-open-events` (the event types), `data-open-triggers`
     (`none` or `set`: whether the details name a trigger), `data-item-clicks`,
-    `data-submenu-open-changes` and `data-inner-open-changes`, and `data-attached` once the roots' sessions and the
+    `data-submenu-open-changes`, `data-inner-open-changes` and `data-plain-open-changes`, and `data-attached` once the roots' sessions and the
     triggers' handles attached, and `data-trigger-attached` once the trigger's handle alone did.
 *@
 <FixtureContainer Name="context-menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-events="@string.Join(' ', events)"
                   data-submenu-open-changes="@string.Join(' ', submenuChanges)" data-inner-open-changes="@string.Join(' ', innerChanges)"
+                  data-plain-open-changes="@string.Join(' ', plainChanges)"
                   data-item-clicks="@string.Join(' ', clicks)" data-open-triggers="@string.Join(' ', triggers)"
                   data-trigger-attached="@(triggerAttached ? "true" : "false")">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
@@ -89,7 +91,7 @@
                         }
                         @if (Query("plainMenu") == "trigger")
                         {
-                            @PlainMenu()
+                            @PlainMenu
                         }
                     </ContextMenuTrigger>
                 }
@@ -98,7 +100,7 @@
                     {
                         <ContextMenuBackdrop data-testid="backdrop" />
                     }
-                    <ContextMenuPositioner data-testid="positioner" AlignOffset="@AlignOffset" Side="@SideValue">
+                    <ContextMenuPositioner data-testid="positioner" AlignOffset="@AlignOffset" SideOffset="@SideOffset" Side="@SideValue" Align="@AlignValue">
                         <ContextMenuPopup data-testid="popup">
                             @if (Query("submenu") is { } submenu)
                             {
@@ -120,7 +122,7 @@
                             </ContextMenuGroup>
                             @if (Query("plainMenu") == "popup")
                             {
-                                @PlainMenu()
+                                @PlainMenu
                             }
                         </ContextMenuPopup>
                     </ContextMenuPositioner>
@@ -135,6 +137,7 @@
     private readonly List<string> events = [];
     private readonly List<string> submenuChanges = [];
     private readonly List<string> innerChanges = [];
+    private readonly List<string> plainChanges = [];
     private readonly List<string> clicks = [];
     private readonly List<string> triggers = [];
     private bool triggerAttached;
@@ -168,6 +171,27 @@
             return null;
         }
     }
+
+    private OffsetValue? SideOffset
+    {
+        get
+        {
+            if (Query("sideOffset") is { } value)
+            {
+                return double.Parse(value, CultureInfo.InvariantCulture);
+            }
+
+            return null;
+        }
+    }
+
+    private Align? AlignValue => Query("align") switch
+    {
+        "start" => Align.Start,
+        "center" => Align.Center,
+        "end" => Align.End,
+        _ => null,
+    };
 
     private Side? SideValue => Query("side") switch
     {
@@ -225,12 +249,15 @@
     private void RecordInnerChange(ValueChangeEventArgs<bool> args) =>
         innerChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
 
-    private static RenderFragment PlainMenu() => @<MenuRoot TPayload="NoPayload">
+    private void RecordPlainChange(ValueChangeEventArgs<bool> args) =>
+        plainChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private RenderFragment PlainMenu => @<MenuRoot TPayload="NoPayload" OnOpenChange="RecordPlainChange">
         <MenuTrigger TPayload="NoPayload" data-testid="plain-trigger">Plain</MenuTrigger>
         <MenuPortal>
             <MenuPositioner data-testid="plain-positioner">
                 <MenuPopup data-testid="plain-popup">
-                    <MenuItem>Plain action</MenuItem>
+                    <MenuItem data-testid="plain-item" @onclick="@(() => clicks.Add("Plain"))">Plain action</MenuItem>
                 </MenuPopup>
             </MenuPositioner>
         </MenuPortal>

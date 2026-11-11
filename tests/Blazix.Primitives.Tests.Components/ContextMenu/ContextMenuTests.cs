@@ -130,6 +130,27 @@ public sealed class ContextMenuTests : BunitContext
         Assert.Null(RootInvocations().First().Arguments[0]);
     }
 
+    // MenuBackdrop.tsx:29-38 takes the ContextMenu context's backdrop ref whatever the menu's parent kind: a plain menu's
+    // Backdrop inside the popup is the element the root's handle receives as the consumer backdrop.
+    [Fact(DisplayName = "port: a plain menu's Backdrop inside the context menu's popup registers as the context menu's backdrop")]
+    [Trait("Requirement", "CTX-EDGE-05")]
+    [Trait("Requirement", "MNU-EDGE-15")]
+    public void A_plain_menus_backdrop_registers_with_the_context_menu()
+    {
+        IRenderedComponent<ContextMenuHost> cut = Render<ContextMenuHost>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.PlainMenu, true).Add(x => x.PlainBackdrop, true));
+        ContextMenuRoot root = cut.FindComponent<ContextMenuRoot>().Instance;
+        string? id = cut.Find("[data-testid=\"plain-backdrop\"]").GetAttribute("blazor:elementReference");
+
+        cut.WaitForAssertion(() =>
+        {
+            JSRuntimeInvocation last = RootInvocations().Last();
+            string json = (string)last.Arguments[last.Identifier == "attach" ? 1 : 0]!;
+            Assert.Equal($$"""{"part":"root","token":"{{root.Store.SessionToken}}","backdrop":0,"internalBackdrop":1,"positioner":2}""", json);
+            object?[] references = (object?[])last.Arguments[last.Identifier == "attach" ? 3 : 1]!;
+            Assert.Equal(id, Assert.IsType<ElementReference>(references[0]).Id);
+        }, TimeSpan.FromSeconds(2));
+    }
+
     [Fact(DisplayName = "blocks native context menus on both internal and external backdrops")]
     [Trait("Requirement", "CTX-STA-05")]
     [Trait("Requirement", "CTX-DOM-04")]
@@ -279,7 +300,7 @@ public sealed class ContextMenuTests : BunitContext
     }
 
     [Fact(DisplayName = "disables cross-axis shifting when side collision avoidance is flip")]
-    [Trait("Requirement", "CTX-POS-05")]
+    [Trait("Requirement", "CTX-POS-03")]
     [Trait("Requirement", "CTX-API-13")]
     public void Disables_cross_axis_shifting_when_side_avoidance_is_flip()
     {
@@ -292,6 +313,7 @@ public sealed class ContextMenuTests : BunitContext
     }
 
     [Fact(DisplayName = "preserves explicit context-menu placement and offsets")]
+    [Trait("Requirement", "CTX-POS-05")]
     [Trait("Requirement", "CTX-API-07")]
     [Trait("Requirement", "CTX-API-08")]
     [Trait("Requirement", "CTX-API-09")]
