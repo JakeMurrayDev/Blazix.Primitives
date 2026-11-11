@@ -109,6 +109,10 @@ internal abstract class MenuRootContext
     /// <param name="element">The positioner element, or <see langword="null"/>.</param>
     public abstract void SetPositionerElement(ElementReference? element);
 
+    /// <summary>Records whether the menu's positioner is rendered, so a menubar or context menu parent hears the menu.</summary>
+    /// <param name="registered"><see langword="true"/> after the positioner rendered; <see langword="false"/> when it is disposed.</param>
+    public abstract void SetPositionerRegistered(bool registered);
+
     /// <summary>Mirrors the popup's reported transition status.</summary>
     /// <param name="status">The status.</param>
     public abstract void MirrorStatus(TransitionStatus? status);
@@ -215,6 +219,7 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     private readonly MenuStore<TPayload> store;
     private readonly List<MenuRootContext> children = [];
     private readonly IDisposable openObservation;
+    private bool positionerRegistered;
 
     /// <summary>Initializes a new instance of the <see cref="MenuRootContext{TPayload}"/> class.</summary>
     /// <param name="store">The root's store.</param>
@@ -318,6 +323,25 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
 
     /// <inheritdoc />
     public override void SetPositionerElement(ElementReference? element) => store.SetPositionerElement(element);
+
+    // MBR-STA-04 (MenuPositioner.tsx:218-227), design point 3 (b) of M5 track 8 (settled by the orchestrator 2026-11-11):
+    // Base UI's Positioner tells the tree of the menu's open state when it mounts and on each change while it is mounted,
+    // so a parent menubar or context menu hears a menu only while its positioner is rendered, and a menu open at its first
+    // render is heard once the positioner registers (design point 2 (ii)).
+    /// <inheritdoc />
+    public override void SetPositionerRegistered(bool registered)
+    {
+        if (registered == positionerRegistered)
+        {
+            return;
+        }
+
+        positionerRegistered = registered;
+        if (registered)
+        {
+            store.State.Parent.Context?.OnMenuOpenChange(this, store.State.Popup.EffectiveOpen, store.State.OpenChangeReason ?? EventReason.SiblingOpen);
+        }
+    }
 
     /// <inheritdoc />
     public override void MirrorStatus(TransitionStatus? status)
@@ -426,7 +450,10 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
             }
         }
 
-        parent.Context?.OnMenuOpenChange(this, open, reason);
+        if (positionerRegistered)
+        {
+            parent.Context?.OnMenuOpenChange(this, open, reason);
+        }
     }
 
     private void Run(Task<bool> request)

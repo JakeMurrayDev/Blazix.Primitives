@@ -151,6 +151,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         this.element = element;
         MenuRootContext menu = root!;
         menu.SetPositionerElement(element);
+        menu.SetPositionerRegistered(element is not null);
         bool isOpen = open!.Value;
         string? triggerId = activeTriggerId!.Value;
         if (!isOpen)
@@ -178,6 +179,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         subscription?.Dispose();
         subscription = null;
         positioner.Dispose();
+        root?.SetPositionerRegistered(false);
         if (root is not null && root.State.Mounted)
         {
             root.SetPositionerElement(null);
