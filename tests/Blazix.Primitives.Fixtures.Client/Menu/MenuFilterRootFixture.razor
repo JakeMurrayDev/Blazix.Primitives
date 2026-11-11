@@ -1,0 +1,60 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+
+@*
+    The `menu-filter-root` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.scoping.test.tsx's
+    FilterableMenu, open: an input, a Clear button labelled "Clear filter", a list of Rename, Delete and Duplicate, and
+    Empty reading "No results". `query` seeds the provider's DefaultValue. Each query request is recorded as
+    `value:reason` in `data-value-changes` (`|`-separated); `data-attached` turns "true" once the menu's session and the
+    input's and list's `menu-filter` handles have attached.
+*@
+<FixtureContainer Name="menu-filter-root" data-attached="@(attached ? "true" : "false")" data-value-changes="@string.Join('|', changes)">
+    <MenuFilterProvider DefaultValue="@(Query ?? "")" OnValueChange="Record">
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true" @ref="root">
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuInput aria-label="Filter actions" @ref="input" />
+                        <MenuClear aria-label="Clear filter" />
+                        <MenuList @ref="list">
+                            <MenuItem>Rename</MenuItem>
+                            <MenuItem>Delete</MenuItem>
+                            <MenuItem>Duplicate</MenuItem>
+                        </MenuList>
+                        <MenuEmpty>No results</MenuEmpty>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> changes = [];
+    private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
+    private MenuList? list;
+    private bool attached;
+    private bool attaching;
+
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? Query { get; set; }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The popup's parts render after the root opens; the first render that has all three waits for their handles.
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null || input is null || list is null)
+        {
+            return;
+        }
+
+        attaching = true;
+        await Task.WhenAll(root.SessionAttached, input.FilterAttached, list.FilterAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void Record(ValueChangeEventArgs<string> args) => changes.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+}
