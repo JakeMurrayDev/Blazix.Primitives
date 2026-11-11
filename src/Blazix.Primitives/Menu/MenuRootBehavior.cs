@@ -222,7 +222,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         filterApplied = true;
         if (provider is { IsConsumed: false })
         {
-            context!.Filter = new MenuFilterRootContext(provider);
+            context!.Filter = new MenuFilterRootContext(provider, context);
         }
     }
 

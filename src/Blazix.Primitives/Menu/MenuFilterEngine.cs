@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 
 namespace Blazix.Primitives;
@@ -53,6 +54,9 @@ internal sealed class MenuFilterItem
 
     /// <summary>Gets a value indicating whether the item matches the query; a hidden item renders nothing.</summary>
     public bool Visible => visible;
+
+    // An item's visibility before its first render, set at registration without a notification.
+    internal void Seed(bool value) => visible = value;
 
     // Only a change notifies, so a keystroke that keeps an item visible never renders it (MNU-STA-16).
     internal void SetVisible(bool value)
@@ -214,19 +218,50 @@ internal sealed class MenuFilterEngine
 }
 
 // MNU §4.4: what a filterable root shares with its filter parts (the Input, Clear, Empty, List, groups, items and submenu
-// triggers), reached through MenuRootContext.Filter.
+// triggers), reached through MenuRootContext.Filter. The visible set is recomputed by Flush, which the parts call after
+// their render (registrations of a batch all precede it) and which a query change runs at once; an item's own visibility
+// is also set when it registers or relabels, so an item that does not match never renders (FilterDropdownRoot.tsx's
+// layout effect, which runs before paint).
 /// <summary>Represents the filter state a filterable menu root shares with the parts in its subtree.</summary>
 internal sealed class MenuFilterRootContext
 {
     private readonly MenuFilterProviderContext provider;
+    private readonly MenuRootContext root;
+    private readonly List<Action> subscribers = [];
     private string inputText;
+    private string? flushedQuery;
+    private bool dirty;
+    private CultureInfo? defaultCulture;
+    private Func<string, string, bool>? defaultMatch;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
     /// <param name="provider">The provider the root consumed.</param>
-    public MenuFilterRootContext(MenuFilterProviderContext provider)
+    /// <param name="root">The filterable root.</param>
+    public MenuFilterRootContext(MenuFilterProviderContext provider, MenuRootContext root)
     {
         this.provider = provider;
+        this.root = root;
         inputText = provider.Value;
+    }
+
+    // MNU-STA-16, STA-23: the match the provider sets, or the collator's contains under its culture (MNU-API-54, API-56).
+    private Func<string, string, bool>? Match
+    {
+        get
+        {
+            if (provider.FilterSupplied)
+            {
+                return provider.Filter;
+            }
+
+            if (defaultMatch is null || !Equals(defaultCulture, provider.Culture))
+            {
+                defaultCulture = provider.Culture;
+                defaultMatch = MenuFilter.Create(provider.Culture).Contains;
+            }
+
+            return defaultMatch;
+        }
     }
 
     /// <summary>Gets the filter engine.</summary>
@@ -250,6 +285,9 @@ internal sealed class MenuFilterRootContext
     /// <summary>Gets the input's element, the list's reference and the nested menus' return target, or <see langword="null"/>.</summary>
     public ElementReference? InputElement { get; private set; }
 
+    /// <summary>Gets the highlight the last recompute asked for, which the list's virtual focus applies.</summary>
+    public MenuFilterHighlight PendingHighlight { get; private set; }
+
     /// <summary>Registers the menu's input, its focus owner.</summary>
     /// <param name="element">The input's element.</param>
     /// <returns>The registration; disposing it unregisters the input.</returns>
@@ -259,14 +297,55 @@ internal sealed class MenuFilterRootContext
     /// <param name="id">The id, or <see langword="null"/> when the list renders none.</param>
     public void SetListId(string? id) => ListId = string.IsNullOrEmpty(id) ? null : id;
 
-    /// <summary>Subscribes to changes of the query and the provider's options.</summary>
-    /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> is current.</param>
+    /// <summary>Subscribes to changes of the query, the provider's options and the visible set.</summary>
+    /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> and the visible set are current.</param>
     /// <returns>The subscription; disposing it unsubscribes.</returns>
-    public IDisposable Subscribe(Action changed) => provider.Subscribe(() =>
+    public IDisposable Subscribe(Action changed)
     {
-        Track();
-        changed();
-    });
+        subscribers.Add(changed);
+        IDisposable query = provider.Subscribe(() =>
+        {
+            Track();
+            Flush();
+            changed();
+        });
+        return new Subscription(this, changed, query);
+    }
+
+    /// <summary>Registers an item with the engine and sets its visibility for its first render.</summary>
+    /// <param name="item">The item, its label already set.</param>
+    /// <returns>The registration; disposing it unregisters the item.</returns>
+    public IDisposable RegisterItem(MenuFilterItem item)
+    {
+        item.Seed(Matches(item));
+        dirty = true;
+        return new ItemRegistration(this, Engine.Register(item));
+    }
+
+    /// <summary>Records that an item's label or text changed, and sets its visibility at once.</summary>
+    /// <param name="item">The item.</param>
+    public void ItemChanged(MenuFilterItem item)
+    {
+        dirty = true;
+        item.SetVisible(Matches(item));
+    }
+
+    // MNU-STA-15..20 (FilterDropdownRoot.tsx:131-196): the visible set and the highlight it asks for, once per change of the
+    // query or the registry; the subscribers (Empty) hear of it.
+    /// <summary>Recomputes the visible set when the query or the registry changed since the last recompute.</summary>
+    public void Flush()
+    {
+        string query = Query;
+        if (!dirty && string.Equals(flushedQuery, query, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        dirty = false;
+        flushedQuery = query;
+        PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, Match, provider.AutoHighlight, root.HighlightedItemId is not null));
+        Notify();
+    }
 
     // MNU-EVT-16 (FilterDropdownInput.tsx:96-121, FilterDropdownRoot.tsx:155-178): the provider runs onValueChange and commits
     // unless canceled. An input edit is the input's text already, so a commit of it sends nothing to write; a canceled or
@@ -286,6 +365,13 @@ internal sealed class MenuFilterRootContext
 
         await provider.RequestValueAsync(value, reason, snapshot);
         Track();
+        Flush();
+    }
+
+    private bool Matches(MenuFilterItem item)
+    {
+        string query = Query.Trim();
+        return query.Length == 0 || Match is not { } match || item.FilterText is not { } text || match(text, query);
     }
 
     private void Track()
@@ -296,4 +382,86 @@ internal sealed class MenuFilterRootContext
             QueryRevision++;
         }
     }
+
+    private void Notify()
+    {
+        for (int i = 0; i < subscribers.Count; i++)
+        {
+            subscribers[i]();
+        }
+    }
+
+    private sealed class Subscription(MenuFilterRootContext owner, Action changed, IDisposable query) : IDisposable
+    {
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            owner.subscribers.Remove(changed);
+            query.Dispose();
+        }
+    }
+
+    // An unregistered item changes the registry; the subscribers re-render and their next render's Flush recomputes once.
+    private sealed class ItemRegistration(MenuFilterRootContext owner, IDisposable registration) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            registration.Dispose();
+            owner.dirty = true;
+            owner.Notify();
+        }
+    }
+}
+
+// The filter half of an item part's behaviour (MenuItemBehavior, MenuSubmenuTriggerBehavior): its registration with the
+// menu's filter by Label (design point 2 (b′); the rendered text comes through the List's handle) and its visibility.
+/// <summary>Represents one item's registration with its menu's filter.</summary>
+internal sealed class MenuFilterItemSlot : IDisposable
+{
+    private readonly MenuFilterRootContext filter;
+    private readonly MenuFilterItem item;
+    private IDisposable? registration;
+
+    /// <summary>Initializes a new instance of the <see cref="MenuFilterItemSlot"/> class.</summary>
+    /// <param name="filter">The menu's filter.</param>
+    /// <param name="changed">The callback run when the item's visibility changes.</param>
+    public MenuFilterItemSlot(MenuFilterRootContext filter, Action changed)
+    {
+        this.filter = filter;
+        item = new MenuFilterItem(changed);
+    }
+
+    /// <summary>Gets a value indicating whether the query filters the item out, so that it renders nothing.</summary>
+    public bool FilteredOut => !item.Visible;
+
+    /// <inheritdoc />
+    public void Dispose() => registration?.Dispose();
+
+    /// <summary>Registers the item on the first call, and applies a changed label afterwards.</summary>
+    /// <param name="label">The item's <c>Label</c>.</param>
+    public void Apply(string? label)
+    {
+        if (registration is null)
+        {
+            item.Label = label;
+            registration = filter.RegisterItem(item);
+        }
+        else if (!string.Equals(item.Label, label, StringComparison.Ordinal))
+        {
+            item.Label = label;
+            filter.ItemChanged(item);
+        }
+    }
+
+    /// <summary>Recomputes the menu's visible set when it changed; called after the item's render.</summary>
+    public void Flush() => filter.Flush();
 }
