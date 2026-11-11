@@ -80,6 +80,9 @@ public sealed class MenuInput : PartBase<MenuInputState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    /// <summary>Gets a task that completes when the input's <c>menu-filter</c> handle is attached.</summary>
+    internal Task FilterAttached => module?.Attached ?? Task.CompletedTask;
+
     // MNU-EDGE-04, STR-15. The handle's options follow the root's open state and the filter's query, and its reports reach
     // the provider (MNU-EVT-16) and the part's state (MNU-STA-22, M5 track 12's design point 5 (a)).
     /// <inheritdoc />

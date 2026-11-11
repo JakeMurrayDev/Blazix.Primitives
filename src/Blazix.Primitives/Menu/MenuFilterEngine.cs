@@ -668,7 +668,7 @@ internal sealed class MenuFilterItemSlot : IDisposable
     /// <summary>Initializes a new instance of the <see cref="MenuFilterItemSlot"/> class.</summary>
     /// <param name="filter">The menu's filter.</param>
     /// <param name="changed">The callback run when the item's visibility changes.</param>
-    /// <param name="group">The enclosing group's filter context, which counts the item as a member (MNU-STA-24), or <see langword="null"/>.</param>
+    /// <param name="group">The enclosing group's filter context, which counts the item as a member, or <see langword="null"/>.</param>
     public MenuFilterItemSlot(MenuFilterRootContext filter, Action changed, MenuFilterGroupContext? group = null)
     {
         this.filter = filter;
