@@ -336,8 +336,6 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         }
     }
 
-    // isKeyboardOpen.ts:8-13: `(event as MouseEvent)?.detail === 0`, which a UI event without a pointer press meets; Base UI's
-    // stand-in Event has no `detail`.
     private void WriteParent()
     {
         MenuParent parent = forwardedParent ?? rootParent;
@@ -347,6 +345,8 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         }
     }
 
+    // isKeyboardOpen.ts:8-13: `(event as MouseEvent)?.detail === 0`, which a UI event without a pointer press meets; Base UI's
+    // stand-in Event has no `detail`.
     private static bool IsKeyboardClick(OpenChangeEventDetails details) =>
         details.Reason is EventReason.TriggerPress or EventReason.ItemPress && details.Event.IsInstanceOf(EventKind.UIEvent) && details.Event.Detail == 0;
 
