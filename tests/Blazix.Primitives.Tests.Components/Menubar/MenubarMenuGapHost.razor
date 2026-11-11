@@ -1,0 +1,67 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The Menu paths a bar reads (design points 2 and 3 of M5 track 8), under `MenubarRecordingParent` and a test composite
+   root standing for the bar's (internal, so rendered from code), by `Case`:
+   - `initial-open`: a bar menu open at its first render (`DefaultOpen`), with its Positioner.
+   - `detached`: a trigger inside the bar bound by a handle to a Root outside it, open at its first render on that trigger.
+   - `no-positioner`: a bar menu controlled by `Open`, with a Portal and no Positioner. *@
+@switch (Case)
+{
+    case "detached":
+        <CascadingValue TValue="IMenuParentContext" Value="Parent" IsFixed="true">
+            @Bar(DetachedTrigger)
+        </CascadingValue>
+        <MenuRoot TPayload="NoPayload" Handle="handle" DefaultOpen="true" DefaultTriggerId="bar-trigger">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup" />
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "no-positioner":
+        <CascadingValue TValue="IMenuParentContext" Value="Parent" IsFixed="true">
+            @Bar(NoPositionerMenu)
+        </CascadingValue>
+        break;
+    default:
+        <CascadingValue TValue="IMenuParentContext" Value="Parent" IsFixed="true">
+            @Bar(InitialOpenMenu)
+        </CascadingValue>
+        break;
+}
+
+@code {
+    private readonly MenuHandle<NoPayload> handle = new();
+
+    [Parameter]
+    public string Case { get; set; } = "initial-open";
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    /// <summary>Gets the recording bar parent.</summary>
+    internal MenubarRecordingParent Parent { get; } = new();
+
+    private RenderFragment DetachedTrigger => @<MenuTrigger TPayload="NoPayload" Handle="handle" id="bar-trigger">File</MenuTrigger>;
+
+    private RenderFragment NoPositionerMenu => @<MenuRoot TPayload="NoPayload" Open="Open">
+        <MenuTrigger TPayload="NoPayload">File</MenuTrigger>
+        <MenuPortal />
+    </MenuRoot>;
+
+    private RenderFragment InitialOpenMenu => @<MenuRoot TPayload="NoPayload" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload">File</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup data-testid="popup" />
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>;
+
+    private static RenderFragment Bar(RenderFragment content) => builder =>
+    {
+        builder.OpenComponent<TestCompositeRoot>(0);
+        builder.AddComponentParameter(1, nameof(TestCompositeRoot.ChildContent), content);
+        builder.CloseComponent();
+    };
+}
