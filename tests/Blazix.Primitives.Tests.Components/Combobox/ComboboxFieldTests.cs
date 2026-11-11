@@ -262,6 +262,34 @@ public sealed class ComboboxFieldTests : IDisposable
         cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
     }
 
+    // CMB-FRM-05 (session S's L4 repro of "prop: validationMode=onSubmit"): with no callback that renders the consumer, nothing
+    // renders the root after a selection, and the field still observes the change (AriaCombobox.tsx:1294-1323).
+    [Fact(DisplayName = "port: a selection validates in onChange mode without a render of the root")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public async Task A_selection_validates_in_onChange_mode_without_a_render_of_the_root()
+    {
+        List<string?> validated = [];
+        IRenderedComponent<FieldRoot> cut = Render(
+            field => field.Add(x => x.ValidationMode, ValidationMode.OnChange).Add(x => x.Validate, args =>
+            {
+                validated.Add(args.Value as string);
+                return ValueTask.FromResult<FieldValidationResult?>(args.Value as string == "apple" ? "error" : null);
+            }),
+            new()
+            {
+                ["DefaultOpen"] = true,
+                ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), _ => { }),
+                ["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { }),
+                ["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), _ => { }),
+            });
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-apple]").Click());
+
+        cut.WaitForAssertion(() => Assert.Equal(["apple"], validated));
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
+    }
+
     [Fact(DisplayName = "prop: validationMode=onBlur")]
     [Trait("Requirement", "CMB-FRM-05")]
     public async Task Prop_validationMode_onBlur()
