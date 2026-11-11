@@ -54,7 +54,8 @@ public sealed class MenuFilterItemsTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             JSRuntimeInvocation attach = Assert.Single(dom.Invocations["attach"], i => ((string)i.Arguments[1]!).Contains("\"liveRegion\":true", StringComparison.Ordinal));
-            Assert.Equal(cut.Find("[role=status]").GetAttribute("blazor:elementreference"), ((Microsoft.AspNetCore.Components.ElementReference)attach.Arguments[0]!).Id);
+            Assert.NotNull(cut.Find("[role=status]"));
+            Assert.Equal(cut.FindComponent<MenuEmpty>().Instance.Element?.Id, ((Microsoft.AspNetCore.Components.ElementReference)attach.Arguments[0]!).Id);
         });
     }
 
