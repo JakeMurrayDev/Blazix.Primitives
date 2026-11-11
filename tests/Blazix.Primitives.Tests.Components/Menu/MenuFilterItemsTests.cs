@@ -42,6 +42,22 @@ public sealed class MenuFilterItemsTests : BunitContext
         });
     }
 
+    [Fact(DisplayName = "port: Empty announces its message through a live-region handle each time it appears")]
+    [Trait("Requirement", "MNU-DOM-23")]
+    public void Empty_attaches_its_live_region()
+    {
+        BunitJSModuleInterop dom = JSInterop.SetupModule("./_content/Blazix.Primitives/js/dom.js");
+        dom.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
+
+        IRenderedComponent<MenuFilterItemsHost> cut = Render<MenuFilterItemsHost>(p => p.Add(x => x.Case, "no-items"));
+
+        cut.WaitForAssertion(() =>
+        {
+            JSRuntimeInvocation attach = Assert.Single(dom.Invocations["attach"], i => ((string)i.Arguments[1]!).Contains("\"liveRegion\":true", StringComparison.Ordinal));
+            Assert.Equal(cut.Find("[role=status]").GetAttribute("blazor:elementreference"), ((Microsoft.AspNetCore.Components.ElementReference)attach.Arguments[0]!).Id);
+        });
+    }
+
     [Fact(DisplayName = "never mounts the Empty children while items match")]
     [Trait("Requirement", "MNU-API-61")]
     [Trait("Requirement", "MNU-STA-23")]
