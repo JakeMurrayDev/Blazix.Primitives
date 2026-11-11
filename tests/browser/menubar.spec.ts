@@ -1,5 +1,5 @@
 import { type CDPSession, type Locator } from '@playwright/test';
-import { delayCircuit, expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { advanceTime, delayCircuit, expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, moveTo, parkPointer } from './menu.helpers';
 import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -93,9 +93,10 @@ test.describe('<Menubar />', () => {
   // Menubar.test.tsx:51-117 (MBR-PTR-08, MBR-FOC-03; MNU-STA-05's bar clause). File opens through user-event's dispatched
   // sequence, as Base UI's `user.click` does, so the programmatic focus that follows is focus-visible and opens Edit; the
   // focus goes to Edit once File's popup has taken its initial focus (ADR 01's popup-element row), else it takes it back. The
-  // guard is the menu store's, under its TimeProvider (MNU-STA-05): its 300 ms window runs in real time here, so the first
-  // touch click lands inside it (its dropped close is recorded by the consumer's callback, which runs first, as Base UI's
-  // onOpenChange does), and the title waits Base UI's fake-timer step of 310 ms for the second.
+  // guard is the menu store's, under the host's TimeProvider (MNU-STA-05; ADR 06 §2 "Clocks"): the session clock moves only
+  // when the title advances it, as Base UI's fake timers do, so the first touch click lands inside the 300 ms window
+  // whatever the runner's speed (its dropped close is recorded by the consumer's callback, which runs first, as Base UI's
+  // onOpenChange does), and the title advances Base UI's 310 ms for the second.
   test('ignores a delayed touch click immediately after focus opens another menu', async ({ page, mode }) => {
     const fixture = await render(page, mode);
     await userClick(page.getByTestId('file-trigger'));
@@ -111,7 +112,7 @@ test.describe('<Menubar />', () => {
     await expect(fixture).toHaveAttribute('data-edit-changes', /true:trigger-focus false:trigger-press$/);
     await expect(page.getByTestId('edit-menu')).toBeVisible();
 
-    await page.waitForTimeout(310);
+    await advanceTime(page, fixture, 310);
     await touchClick(editTrigger);
     await expect(page.getByTestId('edit-menu')).toHaveCount(0);
   });
@@ -805,8 +806,12 @@ test.describe('<Menubar />', () => {
       });
 
       test('should allow clicking a menu trigger then navigating to another menu with keyboard', async ({ page, mode }) => {
+        // File opens through user-event's dispatched sequence, as Base UI's `user.click` does, so no pointer rests on its
+        // trigger: the port's internal backdrop is cut a render (WebAssembly) or a round trip (Server) after it mounts, and a
+        // pointer resting on File while Edit's backdrop mounts re-enters File's trigger and hover-opens it again (issue 242;
+        // MBR-DOM-08, PSH-ALG-21).
         await render(page, mode);
-        await page.getByTestId('file-trigger').click();
+        await userClick(page.getByTestId('file-trigger'));
         await expect(page.getByTestId('file-menu')).toBeVisible();
         await focusInside(page, 'file-menu');
 
