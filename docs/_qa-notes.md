@@ -125,4 +125,6 @@ Facts the port found against context-menu.md, each recorded on its row:
 - CTX-ANI-02 (§16 Q5): Chromium gives a right click's `contextmenu` `detail` 0, so a right-click open is an instant `click` open.
 - CTX-API-06: Base UI's handler stops the propagation of `contextmenu` and a single-touch `touchstart`, so a consumer handler on either cannot be left to Blazor's delegated dispatch; the module runs all five (design point 3 (a) of M5 track 7).
 - CTX-DOM-04's L4 title: Base UI's internal-backdrop selector also matches the consumer Backdrop once the modal focus manager marks it in a browser; the port's title takes the root Positioner's previous sibling.
+- CTX-EDGE-05, MNU-EDGE-15 (PR 228 review B1): a plain menu inside the Trigger keeps its own release slot while the context menu is closed, because the context menu's session joins the menu tree only while its Positioner is mounted. Open by ID; the fix is in the shared `interactions` module.
+- CTX-POS-03, POS-06 (PR 228 review B2): the submenu's visual-viewport result differs from the layout viewport's only under a pinch zoom; open at L4 by ID.
 
