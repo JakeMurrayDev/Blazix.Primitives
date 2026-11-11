@@ -191,23 +191,8 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.AfterRenderAsync(Element);
 
-    // ComboboxInput.tsx:428-432: an input inside the popup renders under the default field context, so a field-aware input
-    // it renders (a substitute callback's Input) does not register with the enclosing field nor take its name.
     /// <inheritdoc />
-    protected override void BuildRenderTree(RenderTreeBuilder builder)
-    {
-        if (ComboboxPositioner is null)
-        {
-            base.BuildRenderTree(builder);
-            return;
-        }
-
-        builder.OpenComponent<CascadingValue<FieldRootContext>>(0);
-        builder.AddComponentParameter(1, nameof(CascadingValue<FieldRootContext>.Value), null);
-        builder.AddComponentParameter(2, nameof(CascadingValue<FieldRootContext>.IsFixed), true);
-        builder.AddComponentParameter(3, nameof(CascadingValue<FieldRootContext>.ChildContent), element);
-        builder.CloseComponent();
-    }
+    protected override void BuildRenderTree(RenderTreeBuilder builder) => behavior!.BuildElement(builder, element);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

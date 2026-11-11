@@ -352,6 +352,28 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <returns>A task that completes when the handler has run.</returns>
     public Task HandleMouseDownAsync(MouseEventArgs args) => interactions.HandleMouseDownAsync(args);
 
+    // ComboboxInput.tsx:428-434: an input inside the popup renders under the default field context, so a field-aware input it
+    // renders (a substitute callback's Input) does not register with the enclosing field nor take its name.
+    /// <summary>Renders the part's element, under an empty field context while the input sits inside the popup.</summary>
+    /// <param name="builder">The part's render tree builder.</param>
+    /// <param name="element">The part's element, its base render.</param>
+    public void BuildElement(RenderTreeBuilder builder, RenderFragment element)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(element);
+        if (!hasPositionerParent)
+        {
+            element(builder);
+            return;
+        }
+
+        builder.OpenComponent<CascadingValue<FieldRootContext>>(0);
+        builder.AddComponentParameter(1, nameof(CascadingValue<FieldRootContext>.Value), null);
+        builder.AddComponentParameter(2, nameof(CascadingValue<FieldRootContext>.IsFixed), true);
+        builder.AddComponentParameter(3, nameof(CascadingValue<FieldRootContext>.ChildContent), element);
+        builder.CloseComponent();
+    }
+
     /// <summary>Renders the start dismiss button while the popup is open and the focus manager is modal.</summary>
     /// <param name="builder">The part's render tree builder.</param>
     public void BuildBeforeElement(RenderTreeBuilder builder)
