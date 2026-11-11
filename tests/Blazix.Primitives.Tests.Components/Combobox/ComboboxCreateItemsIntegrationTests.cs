@@ -183,6 +183,34 @@ public sealed class ComboboxCreateItemsIntegrationTests : IDisposable
         Assert.Equal(3, cut.OptionTexts().Count);
     }
 
+    // createItems.test.tsx (PR 193 delta review B1): with no items, an external result is rendered rather than filtered away.
+    [Fact(DisplayName = "treats undefined data as the absence of items rather than as an empty list")]
+    [Trait("Requirement", "CMB-API-67")]
+    public void Treats_undefined_data_as_the_absence_of_items_rather_than_as_an_empty_list()
+    {
+        IRenderedComponent<ComboboxTypedHarness<int>> cut = Render<int>(new() { ["Items"] = null, ["FilteredItems"] = (IReadOnlyList<int>)[1, 2, 3], ["DefaultValue"] = 2, ["DefaultOpen"] = true }, p => p.Add(x => x.ItemText, UserName));
+
+        Assert.Equal(s_users.Length, cut.OptionTexts().Count);
+    }
+
+    // The accessors receive only the data's leaf items, the source items, never a group.
+    [Fact(DisplayName = "only projects the leaf items of the data")]
+    [Trait("Requirement", "CMB-API-67")]
+    public void Only_projects_the_leaf_items_of_the_data()
+    {
+        List<User> projected = [];
+        ComboboxItemCollection<User, int> items = ComboboxItems.Create<User, int>(s_users, user =>
+        {
+            projected.Add(user);
+            return user.Id;
+        }, user => user.Name);
+
+        IRenderedComponent<ComboboxTypedHarness<int>> cut = Render<int>(new() { ["Items"] = items, ["DefaultValue"] = 3, ["DefaultOpen"] = true }, p => p.Add(x => x.ItemText, UserName));
+
+        Assert.Equal("Carol", cut.Find("[data-testid=input]").GetAttribute("value"));
+        Assert.Equal(s_users.ToHashSet(), projected.ToHashSet());
+    }
+
     [Fact(DisplayName = "resolves and degrades the selected label as the data loads and shrinks")]
     [Trait("Requirement", "CMB-EDGE-04")]
     public void Resolves_and_degrades_the_selected_label_as_the_data_loads_and_shrinks()

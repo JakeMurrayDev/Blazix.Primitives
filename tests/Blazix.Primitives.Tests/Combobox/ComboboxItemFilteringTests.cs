@@ -234,6 +234,25 @@ public sealed class ComboboxItemFilteringTests
         Assert.Equal(2, opened.Groups!.Count);
     }
 
+    // createItems.test.tsx: the limit stops the matching, so a filter that keeps everything is asked only until the limit fills.
+    [Fact(DisplayName = "stops filtering when the limit is reached")]
+    [Trait("Requirement", "CMB-API-67")]
+    public void Stops_filtering_when_the_limit_is_reached()
+    {
+        int[] many = [.. Enumerable.Range(0, 100)];
+        List<int> calls = [];
+        ComboboxItemPredicate<int> filter = ComboboxItemPredicate<int>.Custom((id, _, _) =>
+        {
+            calls.Add(id);
+            return id >= 0;
+        }, id => "Alice " + id);
+
+        ComboboxFilteredItems<int> result = ComboboxItemFiltering.Derive(Inputs(many, "a", limit: 2, filter: filter));
+
+        Assert.Equal(2, result.Flat.Count);
+        Assert.Equal(new HashSet<int> { 0, 1 }, calls.ToHashSet());
+    }
+
     private static ComboboxFilterInputs<int> TeamInputs(string query, int limit, ComboboxItemPredicate<int> filter) =>
         new(null, s_teams, null, null, false, query, limit, filter);
 
