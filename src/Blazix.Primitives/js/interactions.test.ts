@@ -523,6 +523,27 @@ describe('useFocus', () => {
     expect(popup.open).toBe(true);
   });
 
+  // M5 track 8 (issue 195), Menubar on a slow WebAssembly host: the popup's focus manager can move focus into it before the
+  // positioner's floating handle attaches. Base UI's floating ref is set at commit; the session names the popup by its
+  // floating id, so a blur into it keeps the popup open.
+  it('port: a blur into the popup the session names by its floating id keeps it open before the floating handle attaches', async () => {
+    const popup = harness();
+    const content = element('div', 'named-popup');
+    const inside = document.createElement('button');
+    content.append(inside);
+    popup.attachSession({ session: { floatingId: 'named-popup' } });
+    const button = element('button');
+    popup.attachTrigger(button, { trigger: { focus: {} } });
+    popup.setReference(button);
+
+    button.focus();
+    expect(popup.open).toBe(true);
+
+    inside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(popup.open).toBe(true);
+  });
+
   it('port: a blur closes after 0 ms unless focus moved into the floating element, onto an outside focus guard or onto another enabled trigger', async () => {
     const { popup, button, floating } = setup();
     const inside = document.createElement('button');
