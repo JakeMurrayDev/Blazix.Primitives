@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.JSInterop;
@@ -22,6 +23,12 @@ namespace Blazix.Primitives;
 /// </remarks>
 internal sealed class InteractionsSessionBehavior : IAsyncDisposable
 {
+    // ADR 04 Amendments 2026-11-11: a trigger answers its presses through its session's counter, and reaches the session by
+    // the token it joins. Tokens are drawn per circuit on Server (PartIdGenerator), so the sessions are keyed under the
+    // runtime first: one circuit's on Server, the page's on WebAssembly.
+    private static readonly ConditionalWeakTable<IJSRuntime, Dictionary<string, InteractionsSessionBehavior>> s_sessions = new();
+
+    private readonly IJSRuntime jsRuntime;
     private readonly Func<OpenChangeRequest, Task> requestOpenChange;
     private readonly Func<Exception, Task> dispatchException;
     private readonly InteractionsAttachment attachment;
@@ -55,6 +62,7 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         Func<OpenChangeRequest, Task> requestOpenChange,
         Func<Exception, Task> dispatchException)
     {
+        this.jsRuntime = jsRuntime;
         this.requestOpenChange = requestOpenChange;
         this.dispatchException = dispatchException;
         Token = token;
@@ -62,6 +70,11 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         twin.RequestReported += OnRequest;
         twin.EscapeDecider = DecideEscape;
         attachment = new InteractionsAttachment(twin);
+        Dictionary<string, InteractionsSessionBehavior> sessions = s_sessions.GetOrCreateValue(jsRuntime);
+        lock (sessions)
+        {
+            sessions[token] = this;
+        }
     }
 
     /// <summary>Gets the session token the popup's parts join; it is never rendered.</summary>
@@ -118,12 +131,62 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
         }
 
         disposed = true;
+        if (s_sessions.TryGetValue(jsRuntime, out Dictionary<string, InteractionsSessionBehavior>? sessions))
+        {
+            lock (sessions)
+            {
+                if (sessions.TryGetValue(Token, out InteractionsSessionBehavior? registered) && ReferenceEquals(registered, this))
+                {
+                    sessions.Remove(Token);
+                }
+            }
+        }
+
         await attachment.DisposeAsync();
     }
 
     /// <summary>Attaches the session handle after the root's first render, then sends the options that changed.</summary>
     /// <returns>A task that completes when the module has the options.</returns>
     public Task AfterRenderAsync() => attachment.SyncAsync(new InteractionsTarget(null, null, Token), Unchanged, BuildOptions);
+
+    // ADR 04 Amendments 2026-11-11 (the nested dialog's Escape on Server, PR 233's run 42954678792): the module counts a
+    // press-requested open as open for Escape dismissal until C# answers the press, so every press is answered, committed,
+    // canceled or vetoed, as every request the session routes is (design point 10 of M4 track 3).
+    /// <summary>Runs a trigger's press as a request its session answers: the counter moves first, then the press runs, then the session sends its options.</summary>
+    /// <param name="jsRuntime">The trigger's runtime.</param>
+    /// <param name="token">The session token the trigger's handle joins, or <see langword="null"/> without one.</param>
+    /// <param name="press">Runs the press: the consumer's handler, then the request unless the handler vetoed it.</param>
+    /// <returns>A task that completes once the press ran and the session sent its answer; without a session, the press's own task.</returns>
+    internal static Task AnswerPressAsync(IJSRuntime jsRuntime, string? token, Func<Task> press)
+    {
+        InteractionsSessionBehavior? session = null;
+        if (token is not null && s_sessions.TryGetValue(jsRuntime, out Dictionary<string, InteractionsSessionBehavior>? sessions))
+        {
+            lock (sessions)
+            {
+                sessions.TryGetValue(token, out session);
+            }
+        }
+
+        if (session is null || session.disposed)
+        {
+            return press();
+        }
+
+        // Before the press runs, so a commit's render sends the counter with the committed state.
+        session.answered++;
+        Task request;
+        try
+        {
+            request = press();
+        }
+        catch (Exception exception)
+        {
+            request = Task.FromException(exception);
+        }
+
+        return session.SendAnswerAsync(request);
+    }
 
     private static DecisionPolicy Verdict(OpenChangeEventDetails details)
     {
@@ -168,6 +231,19 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     {
         answered++;
         _ = AnswerAsync(requestOpenChange(InteractionsRequests.From(request)));
+    }
+
+    // A press's answer: the trigger observes the press's task, so its exceptions reach the trigger's part.
+    private async Task SendAnswerAsync(Task request)
+    {
+        try
+        {
+            await request;
+        }
+        finally
+        {
+            await attachment.SyncAsync(new InteractionsTarget(null, null, Token), Unchanged, BuildOptions);
+        }
     }
 
     // Design point 10 of M4 track 3 (settled by the orchestrator 2026-10-27; ADR 01 Amendments 2026-10-27's commit-path

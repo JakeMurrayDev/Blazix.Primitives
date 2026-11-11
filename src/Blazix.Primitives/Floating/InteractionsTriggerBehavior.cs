@@ -31,6 +31,7 @@ namespace Blazix.Primitives;
 /// </summary>
 internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 {
+    private readonly IJSRuntime jsRuntime;
     private readonly Func<OpenChangeRequest, Task> requestOpenChange;
     private readonly Func<Exception, Task> dispatchException;
     private readonly EventCallback onClick;
@@ -57,6 +58,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         EventCallback onClick,
         EventCallback onMouseDown = default)
     {
+        this.jsRuntime = jsRuntime;
         this.requestOpenChange = requestOpenChange;
         this.dispatchException = dispatchException;
         this.onClick = onClick;
@@ -258,24 +260,28 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
             return DecisionPolicy.Run;
         }
 
-        if (RunConsumerHandler(snapshot, press.Deferred))
+        // ADR 04 Amendments 2026-11-11: the session answers the press, vetoed or not; the press runs synchronously inside.
+        DecisionPolicy verdict = DecisionPolicy.Run;
+        _ = Observe(InteractionsSessionBehavior.AnswerPressAsync(jsRuntime, attachedToken ?? SessionToken, () =>
         {
-            return DecisionPolicy.Stop;
-        }
+            if (RunConsumerHandler(snapshot, press.Deferred))
+            {
+                verdict = DecisionPolicy.Stop;
+                return Task.CompletedTask;
+            }
 
-        _ = Observe(requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, snapshot)));
-        return DecisionPolicy.Run;
+            return requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, snapshot));
+        }));
+        return verdict;
     }
 
-    private void OnPress(InteractionsPress press)
-    {
-        if (RunConsumerHandler(press.Event, press.Deferred))
-        {
-            return;
-        }
-
-        _ = Observe(requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, press.Event)));
-    }
+    // ADR 04 Amendments 2026-11-11: every press is answered through the session's counter, a vetoed or canceled one too,
+    // so the module ends its press-requested open's count as open (and rolls back its optimistic open event, gap 16).
+    private void OnPress(InteractionsPress press) =>
+        _ = Observe(InteractionsSessionBehavior.AnswerPressAsync(jsRuntime, attachedToken ?? SessionToken, () =>
+            RunConsumerHandler(press.Event, press.Deferred)
+                ? Task.CompletedTask
+                : requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, press.Event))));
 
     private void OnRequest(InteractionsRequest request)
     {
