@@ -183,3 +183,66 @@ describe('the Input handle', () => {
     expect(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), fake.twin)).toBe(handle);
   });
 });
+
+// The List handle's item texts (MNU-STA-15, STA-17; design point 2 (b′)): the List reports the rendered `textContent` of
+// the items C# names, as useFilterDropdownItem.ts:100-140 reads it, so items without a label filter by what they render.
+describe('the List handle', () => {
+  const handles: TwinHandle[] = [];
+
+  afterEach(() => {
+    handles.splice(0).forEach((handle) => handle.dispose());
+    document.body.replaceChildren();
+  });
+
+  interface Texts {
+    ids: string[];
+    texts: string[];
+  }
+
+  function renderList(items: Record<string, string>, textIds: string[], fake: FakeTwin = createFakeTwin()) {
+    const list = document.createElement('div');
+    for (const [id, text] of Object.entries(items)) {
+      const item = document.createElement('div');
+      item.id = id;
+      item.innerHTML = `<span>${text}</span>`;
+      list.append(item);
+    }
+    document.body.append(list);
+    const json = (ids: string[]) => JSON.stringify({ part: 'list', menuKey: 'menu-1', textIds: ids });
+    const handle = attach(list, json(textIds), fake.twin);
+    handles.push(handle);
+    return { list, fake, update: (ids: string[]) => handle.update(json(ids)) };
+  }
+
+  it('port: reports the rendered text of each requested item once', () => {
+    const { fake, update } = renderList({ a: 'Rename', b: 'Copy' }, ['a', 'b']);
+
+    update(['a', 'b']);
+
+    expect(fake.reported<Texts>('OnTexts')).toEqual([{ ids: ['a', 'b'], texts: ['Rename', 'Copy'] }]);
+  });
+
+  it('port: reports an item whose rendered text changes, and only that item', async () => {
+    const { list, fake } = renderList({ a: 'Rename', b: 'Copy' }, ['a', 'b']);
+
+    list.querySelector('#b span')!.textContent = 'Duplicate';
+    await Promise.resolve();
+
+    expect(fake.reported<Texts>('OnTexts')[1]).toEqual({ ids: ['b'], texts: ['Duplicate'] });
+  });
+
+  it('port: reports a newly requested item on update and skips an id the list does not render', () => {
+    const { list, fake, update } = renderList({ a: 'Rename' }, ['a']);
+    const added = document.createElement('div');
+    added.id = 'c';
+    added.textContent = 'Pin';
+    list.append(added);
+
+    update(['a', 'c', 'gone']);
+
+    expect(fake.reported<Texts>('OnTexts')).toEqual([
+      { ids: ['a'], texts: ['Rename'] },
+      { ids: ['c'], texts: ['Pin'] },
+    ]);
+  });
+});
