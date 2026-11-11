@@ -1066,6 +1066,12 @@ function keyDown(target: Element, key: string): void {
   target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 }
 
+function pointerMove(target: Element, pointerType = 'mouse'): void {
+  const event = new MouseEvent('pointermove', { bubbles: true, cancelable: true, composed: true });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  target.dispatchEvent(event);
+}
+
 function pointerDown(target: Element, pointerType = 'mouse'): void {
   const event = new MouseEvent('pointerdown', { bubbles: true, cancelable: true, composed: true });
   Object.defineProperty(event, 'pointerType', { value: pointerType });
@@ -2428,6 +2434,35 @@ describe('FloatingFocusManager', () => {
       await settle();
       expect(second.items[0]!.getAttribute('tabindex')).toBe('0');
       expect(document.activeElement).toBe(second.after);
+    });
+
+    // Issue 221 (MNU-PTR-12's submenu-trigger title on WebAssembly; option (a), settled by the orchestrator 2026-11-11): a
+    // hover inside the popup is an interaction. A submenu that opened on that hover renders its trigger `tabindex="0"`
+    // long after initial focus, and the re-pick moved focus there, which highlighted it.
+    it('port: a pointer move inside the popup counts as an interaction, and one outside it does not', async () => {
+      const outside = renderGroupPopup();
+      outside.reference.focus();
+      attachManager(outside.floating);
+      await settle();
+      expect(document.activeElement).toBe(outside.after);
+
+      pointerMove(outside.reference);
+      outside.attachGroup();
+      await settle();
+      expect(document.activeElement).toBe(outside.items[0]);
+      document.body.replaceChildren();
+
+      const inside = renderGroupPopup();
+      inside.reference.focus();
+      attachManager(inside.floating);
+      await settle();
+      expect(document.activeElement).toBe(inside.after);
+
+      pointerMove(inside.items[1]!);
+      inside.attachGroup();
+      await settle();
+      expect(inside.items[0]!.getAttribute('tabindex')).toBe('0');
+      expect(document.activeElement).toBe(inside.after);
     });
   });
 
