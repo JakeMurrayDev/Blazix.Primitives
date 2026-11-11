@@ -128,3 +128,47 @@ test.describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider>', () => {
     await expect(page.getByRole('menuitem')).toHaveCount(3);
   });
 });
+
+// Virtual focus (MNU-STA-22, KEY-22; MenuRoot.tsx:516-557, 622-638): the input holds real focus and is the list's
+// reference, so the arrow keys move the highlight through aria-activedescendant and typed text stays in the input.
+test.describe('virtual focus', () => {
+  // MNU-STA-22, KEY-22: Base UI's "navigates the list from the input with aria-activedescendant" without its Enter step,
+  // which is the key router's `activate`.
+  test('port: navigates the list from the input with aria-activedescendant', async ({ page, mode }) => {
+    await render(page, mode);
+    await input(page).focus();
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+  });
+
+  // MNU-KEY-22, EVT-16: typing is the input's, not the list's typeahead.
+  test('port: typing in the input filters the list while the input keeps focus', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
+    await input(page).focus();
+
+    await page.keyboard.type('del');
+
+    await expect(input(page)).toHaveValue('del');
+    await expect(input(page)).toBeFocused();
+    await expect(item(page, 'Rename')).toHaveCount(0);
+    await expect(item(page, 'Delete')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-value-changes', 'd:input-change|de:input-change|del:input-change');
+  });
+
+  // The Server substitute: each keystroke's commit arrives after the next keystroke, and none overwrites a later one.
+  test('port: under a delayed circuit, typed text is never overwritten by an earlier commit', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'Server only: the circuit between the browser and C#');
+    await delayCircuit(page, 150);
+    const fixture = await render(page, mode);
+    await input(page).focus();
+
+    await page.keyboard.type('del');
+
+    await expect(fixture).toHaveAttribute('data-value-changes', 'd:input-change|de:input-change|del:input-change');
+    await expect(input(page)).toHaveValue('del');
+    await expect(item(page, 'Delete')).toBeVisible();
+  });
+});
