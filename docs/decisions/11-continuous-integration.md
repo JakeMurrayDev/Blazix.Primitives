@@ -102,7 +102,7 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 
 **2026-11-11, the allocation budgets run one class per process in `build-and-test` ([issue 216](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/216); ADR 16 Amendments 2026-11-11; settled by the orchestrator 2026-11-11).** The job's `Test (.NET)` step passes, for each project, the `--filter-not-class` arguments `.github/scripts/allocation-budgets.mjs --exclusions <project>` prints: every class of the `AllocationBudgets` collection.
 - A new step, `Test (.NET allocation budgets, one class per process)`, runs `node .github/scripts/allocation-budgets.mjs --configuration Release`.
-- That step runs each of the 37 classes in a `dotnet test --filter-class` process of its own and writes a table to the step summary.
+- That step runs each of the 39 classes in a `dotnet test --filter-class` process of its own and writes a table to the step summary. A class is in the collection by its `[Collection]` attribute, or, for a Razor test component, by its `@attribute` directive.
 - A class whose filter runs no test fails the step, so a misnamed class cannot pass unnoticed.
-- The step costs about 1 min on CI (59 s in run 42853153530; 75 s locally for the 37 processes), inside the job's 20-minute timeout.
+- The step costs about 1 min on CI (59 s for 37 classes in run 42853153530; about 90 s locally for the 39 processes), inside the job's 20-minute timeout.
 - The script's pure half, the class finder, the exclusion arguments and the summary, is tested by `allocation-budgets.test.mjs`, which `npm run test:js` runs (`.github/CONTEXT.md`).
