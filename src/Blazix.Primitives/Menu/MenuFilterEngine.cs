@@ -240,6 +240,7 @@ internal sealed class MenuFilterRootContext
     private Action? textIdsChanged;
     private string inputText;
     private string? flushedQuery;
+    private Func<string, string, bool>? flushedMatch;
     private bool dirty;
     private CultureInfo? defaultCulture;
     private Func<string, string, bool>? defaultMatch;
@@ -443,21 +444,33 @@ internal sealed class MenuFilterRootContext
     }
 
     // MNU-STA-15..20 (FilterDropdownRoot.tsx:131-196): the visible set and the highlight it asks for, once per change of the
-    // query or the registry; the visible-set subscribers (Empty) hear of it only when its emptiness changed, and an item
+    // query, the filter or the registry; the visible-set subscribers (Empty) hear of it only when its emptiness changed, and an item
     // hears of its own visibility (ADR 16: no render for an unchanged result).
     /// <summary>Recomputes the visible set when the query or the registry changed since the last recompute.</summary>
     public void Flush()
     {
         string query = Query;
-        if (!dirty && string.Equals(flushedQuery, query, StringComparison.Ordinal))
+        Func<string, string, bool>? match = Match;
+        if (!dirty && string.Equals(flushedQuery, query, StringComparison.Ordinal) && ReferenceEquals(flushedMatch, match))
         {
             return;
         }
 
+        // MNU-STA-15: a new filter (a Filter or Culture parameter) re-filters every item at once, as the query does.
+        if (!ReferenceEquals(flushedMatch, match) && flushedQuery is not null)
+        {
+            IReadOnlyList<MenuFilterItem> items = Engine.Items;
+            for (int i = 0; i < items.Count; i++)
+            {
+                items[i].SetVisible(Matches(items[i]));
+            }
+        }
+
         dirty = false;
         flushedQuery = query;
+        flushedMatch = match;
         bool wasEmpty = Engine.IsEmpty;
-        PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, Match, provider.AutoHighlight, root.HighlightedItemId is not null));
+        PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, match, provider.AutoHighlight, root.HighlightedItemId is not null));
         if (Engine.IsEmpty != wasEmpty)
         {
             Notify();
