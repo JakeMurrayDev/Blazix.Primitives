@@ -4,6 +4,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- ADR 16 Amendments 2026-11-11 (issue 216): the allocation budgets are measured with dynamic PGO off, CI and local runs
+         alike, and each budget class runs in a process of its own (.github/scripts/allocation-budgets.mjs). -->
+    <TieredPGO>false</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

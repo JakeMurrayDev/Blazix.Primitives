@@ -115,4 +115,61 @@ A hover-and-flip cycle (a hover open and close, two request reports and two sess
 | `DOTNET_TieredCompilation=0` | 11,584 | 8 of 8 |
 | inside three full L2 runs | 11,848 | 3 of 3 |
 
-The variation is dynamic PGO's per-process decisions, not tests that ran earlier. On CI, 35 of the last 40 `build-and-test` jobs passed every budget. Two exceeded a budget by the same 32 B on 2026-11-10, 144 B over their floors: this one, and Combobox's in run 42769069830 (3,056 against 3,024). Rule 7 is loosened for this budget only: its envelope is CI's observed +144, so the budget is 11,992. Other budgets pinned at floor + 112 can fail the same way; widening them to +144, or running the budget collection with dynamic PGO off, is left to each budget's owner and the orchestrator.
+The variation is dynamic PGO's per-process decisions, not tests that ran earlier. On CI, 35 of the last 40 `build-and-test` jobs passed every budget. Two exceeded a budget by the same 32 B on 2026-11-10, 144 B over their floors: this one, and Combobox's in run 42769069830 (3,056 against 3,024). Rule 7 is loosened for this budget only: its envelope is CI's observed +144, so the budget is 11,992. Other budgets pinned at floor + 112 can fail the same way; widening them to +144, or running the budget collection with dynamic PGO off, is left to each budget's owner and the orchestrator. *Corrected 2026-11-11 (Amendments 2026-11-11, issue 216): the steps are not dynamic PGO's. With PGO off, full runs still show them, and every title run alone measured its floor; the cause is the state earlier tests leave in the process.*
+
+**2026-11-11, the budgets run with dynamic PGO off and one class per process ([issue 216](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/216); settled by the orchestrator 2026-11-11 under the user's "Do recommended for decisions", option (C) of the measurement below; found when the positioner's re-render budget measured 6,408 B against 6,400 in runs 42831892003 (PR 212) and 42842958555 (PR 214), both changing only TypeScript).**
+
+*The measurement.* Release on macOS arm64, `main` at a188a810. Every budget title of both projects was measured: 58 test methods, each figure the least of five in one process. An uncommitted probe recorded the figures of passing titles too.
+- Full runs of both projects, one process per run:
+  - with PGO on (the default), 5 runs;
+  - with PGO off, 20 runs. In 10 of these, the positioner title had a longer warm-up: 120 more renders and a 300 ms pause for the tier-up.
+  - with `DOTNET_TieredCompilation=0`, 5 runs.
+- Each title alone, one process per test method, with PGO off: 3 rounds.
+
+The titles that varied (bytes, "figure: processes"):
+
+| Title | Budget | PGO on, full runs (5) | PGO off, full runs (20) | `TieredCompilation=0`, full runs (5) | PGO off, alone (3) |
+|---|---|---|---|---|---|
+| a re-render of a positioner | 6,400 | 6,264: 4, 6,376: 1 | 6,264: 15, 6,344: 3, 6,376: 2 | 6,184: 5 | 6,264: 3 |
+| a re-render of a preview card root and its trigger | 2,120 | 2,008: 5 | 2,008: 19, 2,120: 1 | 1,952: 5 | 2,008: 3 |
+| port: a re-render of an open dialog | 7,144 | 7,032: 4, 7,112: 1 | 7,032: 20 | 6,864: 5 | 7,032: 3 |
+| port: a re-render of a 100-item list | 41,696 | 41,440: 4, 41,520: 1 | 41,440: 19, 41,520: 1 | 41,384: 5 | 41,440: 3 |
+| a re-render of an open menu (NavigationMenu) | 11,992 | 11,848: 5 | 11,848: 20 | 11,584: 4, 11,776: 1 | 11,848: 3 |
+
+- The other 53 titles gave one figure in every process under every configuration.
+- `TieredCompilation=0` lowers most floors by 24 to 264 B.
+- Alone, with PGO off, none of the 174 measurements varied.
+- The positioner's steps were the same with the longer warm-up (6,264: 8, 6,344: 1, 6,376: 1 of those 10).
+
+*The reading, which corrects Amendments 2026-11-10.* The per-process steps of +80 to +192 B are not dynamic PGO's decisions.
+- PGO off removes the Dialog title's step, but the positioner varied in 5 of 20 processes against 1 of 5.
+- A tier-up pause leaves them, and `TieredCompilation=0` has its own.
+- A title run alone measures its floor every time.
+
+The cause is the state the earlier tests of a full run leave in the process: bUnit's and the runtime's pools and caches. The positioner budget's own comment already named it. A budget's figure is therefore measured where no earlier test ran.
+
+*The decision.*
+1. The two projects that hold budgets, `tests/Blazix.Primitives.Tests` and `tests/Blazix.Primitives.Tests.Components`, build with `<TieredPGO>false</TieredPGO>`, CI and local runs alike. It is kept because it removed one step, and the alone figures above are PGO-off figures.
+2. A main `dotnet test` run skips the classes of the `AllocationBudgets` collection: 39 classes, 31 in L2 and 8 in L1. Four landed after the measurement: Menu's `MenuAllocationBudgetTests` and `MenuListMeasureTests` (PR 183), ContextMenu's `ContextMenuAllocationBudgetTests` (PR 228) and Select's `SelectAllocationBudgetTests` (PR 205). Select's is a Razor test component, in the collection by its `@attribute` directive. `.github/scripts/allocation-budgets.mjs` runs each of them in a `dotnet test --filter-class` process of its own (ADR 11 Amendments 2026-11-11). A plain local run of a whole project still runs them inside it, so a budget that fails there is re-checked with the script first.
+3. Rule 7 is unchanged, and no budget changes. The step costs:
+   - locally, about 90 s for the 39 processes (87 and 94 s), about 2 s each, while the main runs of the three projects take 16 s;
+   - on CI, 59 s for the 37 classes before PRs 205 and 228 (run 42853153530); later figures are in the implementing pull request.
+
+*The floors under the new setup* (PGO off, alone), recorded only. Tightening is a separate decision under rule 7. A budget not listed here has no headroom on this host: 34 budgets equal their floor, the two FocusManager titles' 0 B included. The headroom of those listed:
+
+| Title | Budget | Floor | Headroom |
+|---|---|---|---|
+| a re-render of a 100-item list (list navigation) | 41,696 | 41,440 | 256 |
+| a re-render of a root with a list, tabs, an indicator and panels | 2,728 | 2,560 | 168 |
+| a re-render of an open menu (NavigationMenu) | 11,992 | 11,848 | 144 |
+| a re-render of a positioner | 6,400 | 6,264 | 136 |
+| a re-render of a composite root | 4,176 | 4,064 | 112 |
+| port: a re-render of an open dialog | 7,144 | 7,032 | 112 |
+| a re-render of a popup root and its trigger | 2,184 | 2,072 | 112 |
+| port: a re-render of the standalone root (NavigationMenu) | 2,088 | 1,976 | 112 |
+| a re-render of a preview card root and its trigger | 2,120 | 2,008 | 112 |
+| a re-render of a tooltip root and its trigger | 3,024 | 2,912 | 112 |
+| an indicator status report that changes nothing (Checkbox, Radio) | 328 | 272 | 56 |
+| a keystroke on an uncontrolled control after the first | 1,024 | 1,016 | 8 |
+
+*A recommendation only.* NavigationMenu's re-render budget can return from +144 to Amendments 2026-10-27's +112, that is 11,960 B. Its figure was its floor, 11,848, in every process measured: 5 with PGO on, 20 with PGO off and 3 alone. CI's 11,992 was measured inside a full run, which the budget step no longer makes. The re-pin should wait until the budget step has passed in several CI runs, and it is the orchestrator's to settle.
