@@ -1,0 +1,135 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@using Microsoft.AspNetCore.Components.Rendering
+@*
+    L2: store.test.tsx's titles (M5 track 9): the root's synchronization of its parameters into the store (SEL-STA-01). The
+    port passes the resolved values down in one record write (docs/components/select.md §16, "a port with a different
+    rendering model can simply pass the resolved values down"), so the contract is "no torn reads".
+*@
+
+@code {
+    // A descendant that runs a command on the store from its first render on, as a ref callback of Base UI's tree does.
+    private sealed class StoreProbe : ComponentBase
+    {
+        [CascadingParameter]
+        private SelectStore<string>? Store { get; set; }
+
+        [Parameter]
+        public Func<SelectStore<string>, Task>? Command { get; set; }
+
+        protected override Task OnAfterRenderAsync(bool firstRender) => Command is null ? Task.CompletedTask : Command(Store!);
+    }
+
+    private static RenderFragment Probe(Func<SelectStore<string>, Task> command) => builder =>
+    {
+        builder.OpenComponent<StoreProbe>(0);
+        builder.AddComponentParameter(1, nameof(StoreProbe.Command), command);
+        builder.CloseComponent();
+    };
+
+    [Fact(DisplayName = "publishes synchronized values in a single store transaction")]
+    [Trait("Requirement", "SEL-STA-01")]
+    public async Task Publishes_synchronized_values_in_a_single_store_transaction()
+    {
+        string id = "first";
+        bool modal = true;
+        bool disabled = false;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Id="@id" Modal="@modal" Disabled="@disabled">
+            <SelectTrigger />
+        </SelectRoot>);
+
+        List<(string? Id, bool Modal, bool Disabled)> snapshots = [];
+        using IDisposable subscription = StoreOf<string>(cut).Subscribe(state => snapshots.Add((state.RootId, state.Modal, state.Disabled)));
+
+        id = "second";
+        modal = false;
+        disabled = true;
+        await RefreshAsync(cut);
+
+        Assert.DoesNotContain(snapshots, snapshot => snapshot.Id == "second" && snapshot.Modal);
+        Assert.DoesNotContain(snapshots, snapshot => snapshot.Id == "first" && !snapshot.Modal);
+        Assert.DoesNotContain(snapshots, snapshot => snapshot.Id == "second" && !snapshot.Disabled);
+        Assert.DoesNotContain(snapshots, snapshot => snapshot.Id == "first" && snapshot.Disabled);
+        Assert.Contains(("second", false, true), snapshots);
+    }
+
+    [Fact(DisplayName = "provides setOpen to a descendant ref callback on the first commit")]
+    [Trait("Requirement", "SEL-STA-01")]
+    public void Provides_setOpen_to_a_descendant_ref_callback_on_the_first_commit()
+    {
+        List<bool> openChanges = [];
+        bool invoked = false;
+
+        RenderSelect(@<SelectRoot TValue="string" OnOpenChange="e => openChanges.Add(e.Value)">
+            @Probe(store =>
+            {
+                if (invoked)
+                {
+                    return Task.CompletedTask;
+                }
+
+                invoked = true;
+                return store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.None));
+            })
+            <SelectTrigger />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("alpha")">alpha</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.True(invoked);
+        Assert.NotEmpty(openChanges);
+        Assert.True(openChanges[0]);
+    }
+
+    // Base UI clicks the item from a ref callback of the update's commit, before the root's layout effect publishes
+    // `disabled`, so that click still selects. Blazor flows parameters parent first: the root has written `disabled` before a
+    // descendant's after-render runs, so the same click finds the select disabled. What the title pins in C# terms (no torn
+    // read: the trigger and the item agree) is asserted; the commit ordering of a ref callback is React's.
+    [Fact(DisplayName = "synchronizes an updated disabled prop after descendant ref callbacks")]
+    [Trait("Requirement", "SEL-STA-01")]
+    public async Task Synchronizes_an_updated_disabled_prop_after_descendant_ref_callbacks()
+    {
+        List<string> valueChanges = [];
+        bool disabled = false;
+        bool clickOnUpdate = false;
+        bool clicked = false;
+        IRenderedComponent<SelectHost> cut = null!;
+        cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true" Disabled="@disabled" OnValueChange="e => valueChanges.Add(e.Value)">
+            <SelectTrigger />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem data-testid="item" Value="@("alpha")">alpha</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+            @Probe(store =>
+            {
+                if (!clickOnUpdate || clicked)
+                {
+                    return Task.CompletedTask;
+                }
+
+                clicked = true;
+                return store.ActivateItemAsync(cut.Find("[data-testid=\"item\"]").Id!, EventSnapshot.CreatePlaceholder());
+            })
+        </SelectRoot>);
+        await PublishOrderAsync(cut);
+
+        clickOnUpdate = true;
+        disabled = true;
+        await RefreshAsync(cut);
+
+        Assert.True(clicked);
+        Assert.True(Trigger(cut).HasAttribute("disabled") || Trigger(cut).HasAttribute("aria-disabled"));
+        Assert.True(cut.Find("[data-testid=\"item\"]").HasAttribute("data-disabled"));
+        Assert.Empty(valueChanges);
+    }
+}

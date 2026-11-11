@@ -1,0 +1,115 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-lifecycle-basic` fixture (tests/browser/select-lifecycle.spec.ts; M5 track 9, L4 agent lifecycle): the small
+    SelectRoot.test.tsx roots of the lifecycle scope that need only a trigger, a portal, a positioner and a popup of items
+    (`AlignItemWithTrigger=false`). The container records the root's value changes (`data-value-changes`, `value:reason`
+    entries, space-separated), its open changes and the portalled content's presses. The query:
+    - `items`: `|`-separated values and labels (default `a|b`), `defaultValue`, `defaultOpen`, `name` (the hidden input's name),
+      `modal` (`true` or `false`; absent, the root's default), `valued` (the trigger renders a value part);
+    - `extra=content`: a `Portalled content` div inside the popup beside the list (`data-testid="portalled"`, its pointerdowns
+      counted as `data-portalled-presses`);
+    - `inputs=true`: an `<input>` before the root and `<input data-testid="after">` after it;
+    - `outside=true`: a button `outside` beside the root;
+    - `retainEveryClose` (the base's): every close keeps the popup mounted until a root `Unmount()`.
+    The positioner is `data-testid="positioner"`, the popup `popup`, the trigger `trigger`, an item `item-<value>`.
+*@
+<FixtureContainer Name="select-lifecycle-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes"
+                  data-value-changes="@string.Join(' ', valueChanges)" data-portalled-presses="@portalledPresses">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <div>
+        @if (inputs)
+        {
+            <input data-testid="before" />
+        }
+        @if (modal is null)
+        {
+            <SelectRoot TValue="string" @ref="root" DefaultValue="@defaultValue" DefaultOpen="@defaultOpen" Name="@name" Items="@labeled"
+                        OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Content
+            </SelectRoot>
+        }
+        else
+        {
+            <SelectRoot TValue="string" @ref="root" DefaultValue="@defaultValue" DefaultOpen="@defaultOpen" Name="@name" Items="@labeled" Modal="@modal.Value"
+                        OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @Content
+            </SelectRoot>
+        }
+        @if (inputs)
+        {
+            <input data-testid="after" />
+        }
+        @if (outside)
+        {
+            <button type="button" data-testid="outside">Outside</button>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private LabeledValue<string>[] labeled = [];
+    private string? defaultValue;
+    private string? name;
+    private bool defaultOpen;
+    private bool? modal;
+    private bool valued;
+    private bool inputs;
+    private bool outside;
+    private bool portalled;
+    private int portalledPresses;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        labeled = (Query("items") ?? "a|b").Split('|', StringSplitOptions.RemoveEmptyEntries).Select(item => new LabeledValue<string>(item, item)).ToArray();
+        defaultValue = Query("defaultValue");
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        name = Query("name");
+        modal = QueryFlag("modal");
+        valued = QueryFlag("valued") == true;
+        inputs = QueryFlag("inputs") == true;
+        outside = QueryFlag("outside") == true;
+        portalled = Query("extra") == "content";
+    }
+
+    private RenderFragment Content => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+            @if (valued)
+            {
+                <SelectValue TValue="string" data-testid="value" />
+            }
+            else
+            {
+                @("Open")
+            }
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner AlignItemWithTrigger="false" data-testid="positioner">
+                <SelectPopup data-testid="popup">
+                    <SelectList>
+                        @foreach (LabeledValue<string> item in labeled)
+                        {
+                            <SelectItem @key="item.Value" TValue="string" Value="@item.Value" data-testid="@("item-" + item.Value)">@item.Label</SelectItem>
+                        }
+                    </SelectList>
+                    @if (portalled)
+                    {
+                        <div data-testid="portalled" @onpointerdown="() => portalledPresses++">Portalled content</div>
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+
+    private void RecordValueChange(ValueChangeEventArgs<string> args) => valueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+}

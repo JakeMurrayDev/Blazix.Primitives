@@ -1,0 +1,83 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-conformance` fixture (tests/browser/select.spec.ts, M5 track 9): popupConformanceTests
+    (tests/browser/suites/) on Select's parts, as SelectRoot.test.tsx's `conformance` describe renders them: a trigger with
+    a value, a portal, a positioner and a popup holding one item. The query sets the root's props:
+    - `open=true|false`: a controlled root (the `[data-set-open]` buttons change it, as the suite's rerender does);
+      absent, the root is uncontrolled;
+    - `defaultOpen`, `cancelOpen`, `cancelClose`, `popupId`;
+    - `animated`: the popup takes the `popup-animated` class, 200 ms keyframes on `[data-open]` and `[data-ending-style]`
+      (open the page with `?animations=1`).
+*@
+<FixtureContainer Name="select-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes select-conformance-enter { from { opacity: 0; } }
+        @@keyframes select-conformance-exit { to { opacity: 0; } }
+        .popup-animated[data-open] { animation: select-conformance-enter 200ms; }
+        .popup-animated[data-ending-style] { animation: select-conformance-exit 200ms; }
+    </style>
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @* Select is modal by default: its internal backdrop takes a click on these, so they take the suites' Shift keydown. *@
+    <button type="button" data-set-open="true" data-key-control @onclick="() => open = true" @onkeydown="OnShift(() => open = true)">Set open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => open = false" @onkeydown="OnShift(() => open = false)">Set closed</button>
+
+    @if (controlled)
+    {
+        <SelectRoot TValue="string" @ref="root" Open="@open" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </SelectRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" DefaultOpen="@defaultOpen" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+            @Content
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private bool controlled;
+    private bool open;
+    private bool defaultOpen;
+    private Dictionary<string, object> popupAttributes = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        controlled = QueryFlag("open") is not null;
+        open = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        popupAttributes["data-testid"] = "popup";
+        if (Query("popupId") is { } id)
+        {
+            popupAttributes["id"] = id;
+        }
+
+        if (QueryFlag("animated") == true)
+        {
+            popupAttributes["class"] = "popup-animated";
+        }
+    }
+
+    private RenderFragment Content => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+            <SelectValue TValue="string" />
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner data-testid="positioner">
+                <SelectPopup @attributes="popupAttributes">
+                    <SelectItem TValue="string" Value="@("item")">Item</SelectItem>
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+}

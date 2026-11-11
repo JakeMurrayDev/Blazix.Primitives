@@ -1,0 +1,57 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-form-field` fixture (tests/browser/select-form.spec.ts; M5 track 9): SelectRoot.test.tsx's `Field` block
+    titles about `data-touched` and `data-focused`. `?case=`:
+    - `field` (default): a field around a select whose popup holds the items "" (Select) and `1` (Option 1), and a button
+      `outside` after it;
+    - `focus-removal`: "[data-focused] without a blur event": a field (test id `field`) around a select with a trigger
+      `first` only. The buttons `disable` and `unmount` (marked `data-key-control`, so a pressed one moves no focus, as Base
+      UI's `setProps` does) set the root's `Disabled` and remove the select.
+*@
+<FixtureContainer Name="select-form-field" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-open-changes="@OpenChanges">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (Case == "focus-removal")
+    {
+        <button type="button" tabindex="-1" data-set-disabled data-key-control @onclick="() => firstDisabled = true" @onkeydown="OnShift(() => firstDisabled = true)">Disable</button>
+        <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => firstMounted = false" @onkeydown="OnShift(() => firstMounted = false)">Unmount</button>
+        <FieldRoot data-testid="field">
+            @if (firstMounted)
+            {
+                <SelectRoot TValue="string" @ref="root" Disabled="@firstDisabled">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="first" />
+                </SelectRoot>
+            }
+        </FieldRoot>
+    }
+    else
+    {
+        <FieldRoot data-testid="field">
+            <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+                <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem TValue="string" Value="@("")">Select</SelectItem>
+                            <SelectItem TValue="string" Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>
+        <button type="button" data-testid="outside">Outside</button>
+    }
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private bool firstMounted = true;
+    private bool firstDisabled;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, root?.Field.TwinAttached ?? Task.CompletedTask];
+}

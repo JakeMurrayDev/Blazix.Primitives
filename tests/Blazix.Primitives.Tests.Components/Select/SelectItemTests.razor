@@ -1,0 +1,259 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@using Microsoft.AspNetCore.Components.Web
+@*
+    L2: SelectItem.test.tsx's titles bUnit observes (M5 track 9). The item's attributes, its selected state and the values it
+    requests are C#; the module's classification of pointers and keys, focus and `data-highlighted`/`tabindex` are the
+    `select` and `composite` modules' (L4: tests/browser/select.spec.ts). The highlight reaches C# as the module's report, and
+    shows here through the class function, which C# renders.
+*@
+
+@code {
+    private static IElement OptionOf(IRenderedComponent<SelectHost> cut, string text) =>
+        cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == text);
+
+    [Fact(DisplayName = "treats a null value as an empty selection in multiple mode")]
+    [Trait("Requirement", "SEL-API-40")]
+    [Trait("Requirement", "SEL-ARIA-09")]
+    [Trait("Requirement", "SEL-EDGE-15")]
+    [Trait("Requirement", "SEL-EVT-05")]
+    [Trait("Requirement", "SEL-STA-03")]
+    [Trait("Requirement", "SEL-STA-11")]
+    public async Task Treats_a_null_value_as_an_empty_selection_in_multiple_mode()
+    {
+        List<(IReadOnlyList<string> Values, EventReason Reason)> changes = [];
+
+        // A controlled multiple select can legitimately be handed `null` (for example while its value is still loading).
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Multiple="true" Values="@(default(IReadOnlyList<string>))" OnValuesChange="e => changes.Add((e.Value, e.Details.Reason))">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("one")">one</SelectItem>
+                        <SelectItem Value="@("two")">two</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        IElement option = OptionOf(cut, "one");
+        Assert.Equal("false", option.GetAttribute("aria-selected"));
+
+        await ClickOptionAsync(cut, option);
+
+        (IReadOnlyList<string> values, EventReason reason) = Assert.Single(changes);
+        Assert.Equal(["one"], values);
+        Assert.Equal(EventReason.ItemPress, reason);
+    }
+
+    [Fact(DisplayName = "keeps the selection while grouped items are reordered and inserted")]
+    [Trait("Requirement", "SEL-STA-05")]
+    public async Task Keeps_the_selection_while_grouped_items_are_reordered_and_inserted()
+    {
+        // `useCompositeListItem({ guess: true })` has no Blazor form; the claim in C# terms is that the selection follows the
+        // value across the order reports the composite module sends, and the selected index resolves back to the item.
+        List<string> items = ["b", "c"];
+        bool reversed = false;
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true" DefaultValue="@("b")">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectGroup>
+                            <SelectGroupLabel>Group one</SelectGroupLabel>
+                            @foreach (string itemValue in reversed ? Enumerable.Reverse(items) : items)
+                            {
+                                <SelectItem @key="itemValue" Value="@itemValue">
+                                    <SelectItemText>@itemValue</SelectItemText>
+                                </SelectItem>
+                            }
+                        </SelectGroup>
+                        <SelectGroup>
+                            <SelectGroupLabel>Group two</SelectGroupLabel>
+                            <SelectItem Value="@("z")">
+                                <SelectItemText>z</SelectItemText>
+                            </SelectItem>
+                        </SelectGroup>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await PublishOrderAsync(cut);
+        Assert.Equal(0, StoreOf<string>(cut).State.SelectedIndex);
+
+        items = ["a", .. items];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.Contains(cut.FindAll("[role=\"option\"]"), option => option.TextContent.Trim() == "a");
+        Assert.True(OptionOf(cut, "b").HasAttribute("data-selected"));
+        Assert.Equal(1, StoreOf<string>(cut).State.SelectedIndex);
+
+        reversed = true;
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.True(OptionOf(cut, "b").HasAttribute("data-selected"));
+        Assert.Equal(1, StoreOf<string>(cut).State.SelectedIndex);
+
+        reversed = false;
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.True(OptionOf(cut, "b").HasAttribute("data-selected"));
+        Assert.Equal(1, StoreOf<string>(cut).State.SelectedIndex);
+        Assert.False(OptionOf(cut, "a").HasAttribute("data-selected"));
+    }
+
+    // Base UI renders the item under the positioner with no popup (SEL-STR-08); the exit finishing is the transitions report.
+    [Fact(DisplayName = "should select the item and close popup when clicked")]
+    [Trait("Requirement", "SEL-DOM-18")]
+    [Trait("Requirement", "SEL-STR-08")]
+    public async Task Should_select_the_item_and_close_popup_when_clicked()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPositioner data-testid="positioner">
+                <SelectItem Value="@("one")">one</SelectItem>
+            </SelectPositioner>
+        </SelectRoot>);
+
+        IElement value = cut.Find("[data-testid=\"value\"]");
+        Assert.Equal(string.Empty, value.TextContent);
+
+        await OpenAsync(cut);
+        Assert.False(cut.Find("[data-testid=\"positioner\"]").HasAttribute("hidden"));
+
+        await ClickOptionAsync(cut, "one");
+        await CompleteTransitionAsync<string>(cut);
+
+        Assert.Equal("one", cut.Find("[data-testid=\"value\"]").TextContent);
+        Assert.True(cut.Find("[data-testid=\"positioner\"]").HasAttribute("hidden"));
+    }
+
+    // A disabled item is `aria-disabled`, never `disabled`, so it stays focusable; the arrow keys reaching it are the composite
+    // module's (L4).
+    [Fact(DisplayName = "should focus disabled items")]
+    [Trait("Requirement", "SEL-DOM-37")]
+    public async Task Should_focus_disabled_items()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("one")">one</SelectItem>
+                        <SelectItem Value="@("two")" Disabled="true">two</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        IElement one = OptionOf(cut, "one");
+        IElement two = OptionOf(cut, "two");
+        Assert.False(one.HasAttribute("aria-disabled"));
+        Assert.Equal("true", two.GetAttribute("aria-disabled"));
+        Assert.True(two.HasAttribute("data-disabled"));
+        Assert.False(two.HasAttribute("disabled"));
+        Assert.Equal("-1", two.GetAttribute("tabindex"));
+    }
+
+    [Fact(DisplayName = "inherits the disabled state from the root")]
+    [Trait("Requirement", "SEL-API-13")]
+    [Trait("Requirement", "SEL-DOM-35")]
+    public async Task Inherits_the_disabled_state_from_the_root()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Open="true" Disabled="true">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("one")">one</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await PublishOrderAsync(cut);
+
+        IElement item = OptionOf(cut, "one");
+        Assert.True(item.HasAttribute("data-disabled"));
+        Assert.Equal("true", item.GetAttribute("aria-disabled"));
+
+        // The click on a disabled item, and the consumer's onclick not running for it, are the `select` module's to reject (it
+        // never reports one: `isElementDisabled`; L3 in select.test.ts, L4 in select.spec.ts), so no activation is simulated.
+        Assert.Equal(string.Empty, cut.Find("[data-testid=\"value\"]").TextContent);
+    }
+
+    [Fact(DisplayName = "should apply data-highlighted attribute when item is highlighted")]
+    [Trait("Requirement", "SEL-DOM-35")]
+    [Trait("Requirement", "SEL-STA-23")]
+    public async Task Should_apply_data_highlighted_attribute_when_item_is_highlighted()
+    {
+        // `data-highlighted` and `tabindex` are written by the composite module (mirrored, ADR 04); C# renders the highlight
+        // through the item's state, which the class function shows.
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("a")">
+            <SelectTrigger data-testid="trigger" />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")" ClassValue="@(state => state.Highlighted ? "highlighted" : "plain")">a</SelectItem>
+                        <SelectItem Value="@("b")" ClassValue="@(state => state.Highlighted ? "highlighted" : "plain")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+        Assert.Equal("plain", OptionOf(cut, "a").GetAttribute("class"));
+
+        await HighlightAsync(cut, 0);
+        Assert.Equal("highlighted", OptionOf(cut, "a").GetAttribute("class"));
+        Assert.Equal("plain", OptionOf(cut, "b").GetAttribute("class"));
+
+        await HighlightAsync(cut, 1);
+        Assert.Equal("plain", OptionOf(cut, "a").GetAttribute("class"));
+        Assert.Equal("highlighted", OptionOf(cut, "b").GetAttribute("class"));
+    }
+
+    [Fact(DisplayName = "should apply data-selected attribute when item is selected")]
+    [Trait("Requirement", "SEL-DOM-35")]
+    [Trait("Requirement", "SEL-STA-23")]
+    public async Task Should_apply_data_selected_attribute_when_item_is_selected()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger data-testid="trigger" />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+        Assert.False(OptionOf(cut, "a").HasAttribute("data-selected"));
+
+        await ClickOptionAsync(cut, "a");
+        await CompleteTransitionAsync<string>(cut);
+
+        await OpenAsync(cut);
+        Assert.Equal(string.Empty, OptionOf(cut, "a").GetAttribute("data-selected"));
+        Assert.False(OptionOf(cut, "b").HasAttribute("data-selected"));
+    }
+}

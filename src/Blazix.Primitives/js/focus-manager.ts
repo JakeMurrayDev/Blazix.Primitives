@@ -1468,13 +1468,19 @@ export function attach(
         enqueueFocus(next, { preventScroll: next === floatingFocusElement, shouldFocus: () => open && !disposed });
       }
     });
+    // Issue 221 (option (a), settled by the orchestrator 2026-11-11): a pointer move inside the popup is an interaction too,
+    // as a pointer down or a key down anywhere is (the interaction recording), so a submenu that opens on that hover and
+    // renders its trigger as a tab stop is not re-picked.
+    const onPointerMove = () => stop();
     const stop = () => {
       observer.disconnect();
+      floatingFocusElement.removeEventListener('pointermove', onPointerMove, true);
       if (stopRepick === stop) {
         stopRepick = null;
       }
     };
     observer.observe(floatingFocusElement, { subtree: true, attributes: true, attributeFilter: ['tabindex'] });
+    floatingFocusElement.addEventListener('pointermove', onPointerMove, true);
     stopRepick = stop;
   };
 

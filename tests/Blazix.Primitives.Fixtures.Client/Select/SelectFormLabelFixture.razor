@@ -1,0 +1,108 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-form-label` fixture (tests/browser/select-form.spec.ts; M5 track 9): SelectRoot.test.tsx's label titles.
+    `?case=`:
+    - `field-label-non-native`: a field with a Select (empty positioner) and a Field.Label rendered as a `span`
+      (`nativeLabel` false), test id `label`;
+    - `select-label`: a Select.Label without content (test id `label`) before the trigger;
+    - `select-label-click`: a Select.Label "Font" before a trigger with a value and a popup of the items "Sans-serif" and
+      "Serif";
+    - `field-label`: a field with a Field.Label "Font" before the same select; with `?triggerId=x-id` the trigger carries
+      that id.
+    The container records `data-open-changes`.
+*@
+<FixtureContainer Name="select-form-label" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-open-changes="@OpenChanges">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @switch (Case)
+    {
+        case "field-label-non-native":
+            <FieldRoot data-testid="field">
+                <SelectRoot TValue="string" @ref="root">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" />
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false" />
+                    </SelectPortal>
+                </SelectRoot>
+                <FieldLabel @ref="fieldLabel" NativeLabel="false" Render="@SpanRender" data-testid="label" />
+            </FieldRoot>
+            break;
+        case "select-label":
+            <SelectRoot TValue="string" @ref="root">
+                <SelectLabel @ref="selectLabel" data-testid="label" />
+                <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false" />
+                </SelectPortal>
+            </SelectRoot>
+            break;
+        case "select-label-click":
+            <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+                <SelectLabel @ref="selectLabel" data-testid="label">Font</SelectLabel>
+                <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+                    <SelectValue TValue="string" />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem TValue="string" Value="@("sans")">Sans-serif</SelectItem>
+                            <SelectItem TValue="string" Value="@("serif")">Serif</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+        default:
+            <FieldRoot data-testid="field">
+                <FieldLabel @ref="fieldLabel" data-testid="label">Font</FieldLabel>
+                <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" @attributes="triggerAttributes">
+                        <SelectValue TValue="string" />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem TValue="string" Value="@("sans")">Sans-serif</SelectItem>
+                                <SelectItem TValue="string" Value="@("serif")">Serif</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </FieldRoot>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment SpanRender = builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.CloseElement();
+    };
+
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectLabel? selectLabel;
+    private FieldLabel? fieldLabel;
+    private Dictionary<string, object> triggerAttributes = [];
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        root?.Field.TwinAttached ?? Task.CompletedTask,
+        selectLabel?.TwinAttached ?? Task.CompletedTask,
+        fieldLabel?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        if (Query("triggerId") is { } id)
+        {
+            triggerAttributes["id"] = id;
+        }
+    }
+}

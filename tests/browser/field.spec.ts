@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
-import { test, expect, fixtureUrl, Fixture, type Page, type RenderMode } from './helpers';
+import { test, expect, fixtureUrl, Fixture, gotoFixture, type Page, type RenderMode } from './helpers';
+import { gotoPopupFixture, openChanges, settle as settlePopup } from './suites/popupFixture';
 
 // The [L4] rows of docs/architecture/field-and-form-infrastructure.md (FFI) and docs/components/field.md (FLD): the titles
 // that render only Field parts (PR 1a, the landing rule of issue 77) and those that render Form, Field.Error or
@@ -879,5 +880,54 @@ test.describe('Field', () => {
 
     await fixture.getByRole('button', { name: 'Submit' }).click();
     await expect(fixture).toHaveAttribute('data-valid-submits', '1');
+  });
+});
+
+// useLabel.test.tsx's cases that render a Select (M5 track 9, final review B2), on the `select-use-label` fixture: the
+// Select.Label and the non-native Field.Label of a Field holding a Select. Combobox.Label's case is track 10's.
+test.describe('useLabel', () => {
+  for (const [labelType, label] of [['Select.Label', 'select'], ['Field.Label', 'field']] as const) {
+    test.describe(labelType, () => {
+      // FFI-PTR-01
+      test('focuses the trigger without opening the popup in the document', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'select-use-label', { label });
+        const trigger = page.getByRole('combobox', { name: 'Country' });
+
+        await page.getByText('Country', { exact: true }).click();
+
+        await expect(trigger).toBeFocused();
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        await settlePopup(fixture);
+        expect(await openChanges(fixture)).toEqual([]);
+      });
+    });
+  }
+});
+
+// FieldRoot.test.tsx's Select title (M5 track 9, final review B2), on the prerendered `field-select-prerender` fixture. Base
+// UI reads the server markup, hydrates and toggles; here the static response is the server markup and the page is the
+// hydrated one, whose label keeps the id the server rendered (the generated ids are stable across server and client).
+test.describe('<Field.Root />', () => {
+  // FFI-FRM-34 as the port reads it (ADR 01 Amendments 2026-10-22, "label and legend ids publish in the creating batch";
+  // issue 227, settled 2026-11-11): Field.Label publishes its id while it initializes, so the static response already
+  // carries the association, to a label that is present. Base UI asserts its absence only because it registers after
+  // hydration (FST-DOM-08's SSR titles read the same way).
+  test('keeps `aria-labelledby` valid when toggling from Checkbox.Root to Select.Root after hydration', async ({ page, mode }) => {
+    const html = await (await page.request.get(fixtureUrl(mode, 'field-select-prerender'))).text();
+    const labelId = html.match(/<div[^>]*data-testid="label"[^>]*>/)?.[0].match(/ id="([^"]+)"/)?.[1];
+    const checkboxTag = html.match(/<[a-z]+[^>]*data-testid="checkbox"[^>]*>/)?.[0];
+    expect(labelId).toBeTruthy();
+    expect(checkboxTag).toBeTruthy();
+    expect(checkboxTag).toContain(`aria-labelledby="${labelId}"`);
+
+    const fixture = await gotoFixture(page, mode, 'field-select-prerender');
+    await expect(fixture.getByTestId('label')).toHaveAttribute('id', labelId!);
+    await expect(fixture.getByTestId('checkbox')).toHaveAttribute('aria-labelledby', labelId!);
+
+    await fixture.getByRole('button', { name: 'Toggle' }).click();
+    await expect(fixture.getByTestId('trigger')).toHaveAttribute('aria-labelledby', labelId!);
+
+    await fixture.getByRole('button', { name: 'Toggle' }).click();
+    await expect(fixture.getByTestId('checkbox')).toHaveAttribute('aria-labelledby', labelId!);
   });
 });

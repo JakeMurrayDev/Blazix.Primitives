@@ -1,0 +1,210 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-nav-typeahead` fixture (tests/browser/select-nav.spec.ts; M5 track 9): the `typeahead` describe of
+    SelectRoot.test.tsx (5214-5600). One page per case (`?case=`); every trigger is the page's first tab stop and carries
+    `data-testid="trigger"`, every value `data-testid="value"`:
+    - `label`: items `us`/`fr`/`ca` with the labels "United States", "France", "Canada" and the item texts "Option 1..3".
+    - `focus-leaves`: apple, banana, avocado and an `outside` button.
+    - `space-text`: a default-open root with "Item One" and "Item Two"; the items' consumer `onclick` records
+      `data-item-clicks`.
+    - `disabled-skip`: apricot (disabled), avocado. `only-disabled`: cherry, banana (disabled). `double-letter`: aaron
+      (disabled), apple, avocado. `items-provided`: the root's `Items` apple/Apple, cherry/Cherry. `open-disabled`: a
+      default-open root over apricot (disabled), avocado. The closed ones keep the value controlled, as Base UI's do.
+    - `reset-closed`: a `reset` button (value null) before the root, items a1/A1, a2/A2.
+    - `jump-reset`: a `set-car` button before the root, a controlled value `dog`, items car, cat, dog.
+    The container records `data-value-changes` (`value:reason`, space-separated) and `data-item-clicks`.
+*@
+<FixtureContainer Name="select-nav-typeahead" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)"
+                  data-item-clicks="@string.Join('|', itemClicks)">
+    @switch (Case)
+    {
+        case "label":
+            <SelectRoot TValue="string" @ref="root" OnValueChange="RecordValueChange">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("us")" Label="United States"><SelectItemText>Option 1</SelectItemText></SelectItem>
+                            <SelectItem Value="@("fr")" Label="France"><SelectItemText>Option 2</SelectItemText></SelectItem>
+                            <SelectItem Value="@("ca")" Label="Canada"><SelectItemText>Option 3</SelectItemText></SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "focus-leaves":
+            <SelectRoot TValue="string" @ref="root" OnValueChange="RecordValueChange">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("apple")">apple</SelectItem>
+                            <SelectItem Value="@("banana")">banana</SelectItem>
+                            <SelectItem Value="@("avocado")">avocado</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <button type="button" data-testid="outside">outside</button>
+            break;
+
+        case "space-text":
+            <SelectRoot TValue="string" @ref="root" DefaultOpen="true" OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("one")" @onclick='() => itemClicks.Add("one")'>Item One</SelectItem>
+                            <SelectItem Value="@("two")" @onclick='() => itemClicks.Add("two")'>Item Two</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "open-disabled":
+            <SelectRoot TValue="string" @ref="root" DefaultOpen="true" OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("apricot")" Disabled="true">apricot</SelectItem>
+                            <SelectItem Value="@("avocado")">avocado</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "disabled-skip":
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("apricot")" Disabled="true">apricot</SelectItem>
+                            <SelectItem Value="@("avocado")">avocado</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "items-provided":
+            <SelectRoot TValue="string" @ref="root" Items="@s_fruit" Value="@value" OnValueChange="OnValueChanged">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("apple")">Apple</SelectItem>
+                            <SelectItem Value="@("cherry")">Cherry</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "only-disabled":
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("cherry")">cherry</SelectItem>
+                            <SelectItem Value="@("banana")" Disabled="true">banana</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "double-letter":
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("aaron")" Disabled="true">aaron</SelectItem>
+                            <SelectItem Value="@("apple")">apple</SelectItem>
+                            <SelectItem Value="@("avocado")">avocado</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "reset-closed":
+            <button type="button" data-testid="reset" @onclick="Reset">Reset</button>
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("a1")">A1</SelectItem>
+                            <SelectItem Value="@("a2")">A2</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+
+        case "jump-reset":
+            <button type="button" data-testid="set-car" @onclick="SetCar">Set car</button>
+            <SelectRoot TValue="string" @ref="root" Value="@value" OnValueChange="OnValueChanged">
+                <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue data-testid="value" /></SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("car")">car</SelectItem>
+                            <SelectItem Value="@("cat")">cat</SelectItem>
+                            <SelectItem Value="@("dog")">dog</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            break;
+    }
+
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private static readonly LabeledValue<string>[] s_fruit = [new("apple", "Apple"), new("cherry", "Cherry")];
+
+    private readonly List<string> valueChanges = [];
+    private readonly List<string> itemClicks = [];
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private string? value;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        // The `jump-reset` case starts on `dog`; every other controlled case starts empty.
+        value = Case == "jump-reset" ? "dog" : null;
+    }
+
+    private void RecordValueChange(ValueChangeEventArgs<string> args) =>
+        valueChanges.Add($"{args.Value ?? "null"}:{args.Details.Reason.ToLiteral()}");
+
+    private void OnValueChanged(ValueChangeEventArgs<string> args)
+    {
+        value = args.Value;
+        RecordValueChange(args);
+    }
+
+    private void Reset() => value = null;
+
+    private void SetCar() => value = "car";
+}

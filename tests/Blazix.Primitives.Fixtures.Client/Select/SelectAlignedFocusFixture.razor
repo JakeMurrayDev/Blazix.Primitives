@@ -1,0 +1,61 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-aligned-focus` fixture (tests/browser/select-aligned.spec.ts; M5 track 9, L4 agent aligned): SelectPopup.test.tsx's
+    two keyboard titles. The query `case`:
+    - `toolbar` (43-88): a `ToolbarRoot` (`toolbar`) whose `ToolbarButton` renders the `SelectTrigger` (`trigger`; value `a`),
+      the positioner inline (not portaled) holding the items `a` and `b`, then a toolbar button `next`;
+    - `boundary` (90-124): a portaled popup holding a `Select all` button before a list of `a`, `b`, `c` (value `a`).
+*@
+<FixtureContainer Name="select-aligned-focus" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-case="@Case">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+
+    @if (Case == "toolbar")
+    {
+        <ToolbarRoot data-testid="toolbar">
+            <SelectRoot TValue="string" @ref="root" DefaultValue="@("a")" OnOpenChange="RecordOpenChange">
+                <SelectTrigger @ref="trigger" Render="s_toolbarButton" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+                @* Rendered inline rather than portaled, so the popup sits inside the toolbar's own DOM subtree. *@
+                <SelectPositioner data-testid="positioner">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectRoot>
+            <ToolbarButton data-testid="next">Next</ToolbarButton>
+        </ToolbarRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" DefaultValue="@("a")" OnOpenChange="RecordOpenChange">
+            <SelectTrigger @ref="trigger" data-testid="trigger"><SelectValue TValue="string" /></SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner data-testid="positioner">
+                    <SelectPopup data-testid="popup">
+                        <button type="button">Select all</button>
+                        <SelectList>
+                            <SelectItem Value="@("a")">a</SelectItem>
+                            <SelectItem Value="@("b")">b</SelectItem>
+                            <SelectItem Value="@("c")">c</SelectItem>
+                        </SelectList>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment s_toolbarButton = @<ToolbarButton />;
+
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+}

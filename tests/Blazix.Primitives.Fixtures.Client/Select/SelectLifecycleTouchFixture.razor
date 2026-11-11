@@ -1,0 +1,144 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-lifecycle-touch` fixture (tests/browser/select-lifecycle.spec.ts; M5 track 9, L4 agent lifecycle): the roots of
+    SelectRoot.test.tsx's `scroll locking` describe (`interaction type tracking (openMethod)` and `touch scroll lock`), whose
+    positioners keep Base UI's default `AlignItemWithTrigger` (a touch-opened popup is not aligned). The query `case`:
+    - `single` (default): a modal root over one item `Item`; `exit=<ms>` gives the popup a `ms` opacity keyframe animation on
+      `[data-ending-style]` (open the page with `?animations=1`); `padTop` the wrapper's padding-top in px;
+      `positionerWidth` the positioner's CSS width (`full`: `calc(100vw - 10px)`); `modal=false` a non-modal root;
+    - `highlight`: three items `a`, `b`, `c` and a value on the trigger;
+    - `reopen`: the `recomputes positioning` root: 80 items `Item 1`..`Item 80` in a list of `max-height: var(--available-height)`
+      between two 75 px spacers, a scroll up arrow, an arrow and a scroll down arrow, a positioner `sideOffset` 8, popup class
+      `reopen-test-popup` (a 120 px popup that animates 20 ms on `[data-starting-style]` and `[data-ending-style]`); the root is
+      controlled by this page (`onOpenChange={setOpen}`), a button `outside` precedes it.
+    The wrapper is `data-testid="wrapper"`; the trigger `trigger`, the positioner `positioner`, the popup `popup`, the list `list`,
+    an item `item-<value>`. The container records the open changes and the completions.
+*@
+<FixtureContainer Name="select-lifecycle-touch" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <style>
+        @@keyframes select-close-test { to { opacity: 0; } }
+        .exit-20[data-ending-style] { animation: select-close-test 20ms linear; }
+        .exit-100[data-ending-style] { animation: select-close-test 100ms linear; }
+        .exit-1000[data-ending-style] { animation: select-close-test 1000ms linear; }
+        @@keyframes select-reopen-test { to { opacity: 0; transform: scale(0.9); } }
+        .reopen-test-popup { width: 120px; transition: transform 150ms, opacity 150ms; }
+        .reopen-test-popup[data-starting-style], .reopen-test-popup[data-ending-style] { animation: select-reopen-test 20ms linear; }
+        .reopen-test-list { max-height: var(--available-height); overflow-y: auto; }
+    </style>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <div data-testid="wrapper" style="@(padTop is null ? null : $"padding-top: {padTop}px")">
+        @if (kase == "reopen")
+        {
+            <button type="button" data-testid="outside">Outside</button>
+            <SelectRoot TValue="string" @ref="root" Open="@open" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @ReopenContent
+            </SelectRoot>
+        }
+        else if (modal is null)
+        {
+            <SelectRoot TValue="string" @ref="root" Items="@labeled" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @SimpleContent
+            </SelectRoot>
+        }
+        else
+        {
+            <SelectRoot TValue="string" @ref="root" Items="@labeled" Modal="@modal.Value" OnOpenChange="RecordOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                @SimpleContent
+            </SelectRoot>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private LabeledValue<string>[] labeled = [];
+    private string kase = "single";
+    private string? exitClass;
+    private string? positionerStyle;
+    private int? padTop;
+    private bool? modal;
+    private bool open;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override void OnInitialized()
+    {
+        kase = Query("case") ?? "single";
+        modal = QueryFlag("modal");
+        exitClass = Query("exit") is { } ms ? "exit-" + ms : null;
+        padTop = int.TryParse(Query("padTop"), CultureInfo.InvariantCulture, out int pad) ? pad : null;
+        positionerStyle = Query("positionerWidth") switch
+        {
+            null => null,
+            "full" => "width: calc(100vw - 10px)",
+            { } width => $"width: {width}",
+        };
+        labeled = kase switch
+        {
+            "highlight" => [new("a", "a"), new("b", "b"), new("c", "c")],
+            "reopen" => Enumerable.Range(1, 80).Select(index => new LabeledValue<string>($"Item {index}", $"Item {index}")).ToArray(),
+            _ => [new("item", "Item")],
+        };
+    }
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private RenderFragment SimpleContent => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+            @if (kase == "highlight")
+            {
+                <SelectValue TValue="string" />
+            }
+            else
+            {
+                @("Open")
+            }
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner data-testid="positioner" style="@positionerStyle">
+                <SelectPopup data-testid="popup" class="@exitClass">
+                    @foreach (LabeledValue<string> item in labeled)
+                    {
+                        <SelectItem @key="item.Value" TValue="string" Value="@item.Value" data-testid="@("item-" + item.Value)">@item.Label</SelectItem>
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+
+    private RenderFragment ReopenContent => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">Open</SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner data-testid="positioner" SideOffset="8">
+                <SelectPopup data-testid="popup" class="reopen-test-popup">
+                    <SelectScrollUpArrow />
+                    <SelectArrow />
+                    <SelectList class="reopen-test-list" data-testid="list">
+                        <div aria-hidden="true" style="height: 75px">Start</div>
+                        @foreach (LabeledValue<string> item in labeled)
+                        {
+                            <SelectItem @key="item.Value" TValue="string" Value="@item.Value">@item.Label</SelectItem>
+                        }
+                        <div aria-hidden="true" style="height: 75px">End</div>
+                    </SelectList>
+                    <SelectScrollDownArrow />
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+}
