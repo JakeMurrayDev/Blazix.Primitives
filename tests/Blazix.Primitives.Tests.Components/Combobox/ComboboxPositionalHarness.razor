@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Tests.Components
+@* A list without Items whose template is positional: the items carry no @key, so a changed value reaches the Item that
+   rendered the previous one, under the same id (review F12). *@
+<ComboboxRoot TValue="string" @ref="Root" DefaultOpen="true" OnItemHighlighted="args => Highlighted.Add(args.Value)">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="string">
+                    @for (int i = 0; i < Values.Count; i++)
+                    {
+                        string value = Values[i];
+                        <ComboboxItem TValue="string" Value="@value" data-testid="@("item-" + i)">@value</ComboboxItem>
+                    }
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<string> Values { get; set; } = [];
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    public List<string?> Highlighted { get; } = [];
+}

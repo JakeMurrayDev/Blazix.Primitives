@@ -1,0 +1,223 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Batch B's tree over string values, for ComboboxRoot.test.tsx's titles whose tree ComboboxHarness does not render: a Root
+   given only the parameters a test supplies (`RootParameters`, splatted, as in ComboboxHarness), an optional Trigger (with
+   `TriggerContent`, such as a Value part), an Input outside or inside the popup, and a List in a Portal > Positioner >
+   Popup or, with `Inline`, directly in the Root. The Popup takes `PopupAttributes` and a `PopupRender` element. The List
+   renders `Rows` of items in `ComboboxRow`s (each row in a `ComboboxGroup` with `GroupRows`, the first labelled
+   `GroupLabel`), else `StaticItems` as direct children, else the root's filtered items through ItemContent (`ExplicitIndex`
+   gives each item its index). The value, values, input value, open and highlight changes are recorded with their details. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="Parameters">
+    @if (WithTrigger)
+    {
+        <ComboboxTrigger data-testid="trigger">@(TriggerContent ?? DefaultTriggerContent)</ComboboxTrigger>
+    }
+    @if (WithInput && !InputInsidePopup)
+    {
+        <ComboboxInput data-testid="input" />
+    }
+    @Extra
+    @if (Inline)
+    {
+        @ListContent
+    }
+    else if (WithPopup)
+    {
+        <ComboboxPortal>
+            <ComboboxPositioner>
+                <ComboboxPopup data-testid="popup" @attributes="PopupAttributes" Render="PopupRender">
+                    @if (WithInput && InputInsidePopup)
+                    {
+                        <ComboboxInput data-testid="input" />
+                    }
+                    @if (WithEmpty)
+                    {
+                        <ComboboxEmpty data-testid="empty">No items.</ComboboxEmpty>
+                    }
+                    @ListContent
+                </ComboboxPopup>
+            </ComboboxPositioner>
+        </ComboboxPortal>
+    }
+</ComboboxRoot>
+
+@code {
+    private static readonly RenderFragment DefaultTriggerContent = builder => builder.AddContent(0, "Open");
+
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public bool WithInput { get; set; } = true;
+
+    [Parameter]
+    public bool InputInsidePopup { get; set; }
+
+    [Parameter]
+    public bool WithTrigger { get; set; }
+
+    [Parameter]
+    public RenderFragment? TriggerContent { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the List is a direct child of the Root, without a popup.</summary>
+    [Parameter]
+    public bool Inline { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the Portal, Positioner and Popup are rendered when not inline.</summary>
+    [Parameter]
+    public bool WithPopup { get; set; } = true;
+
+    [Parameter]
+    public bool WithList { get; set; } = true;
+
+    [Parameter]
+    public bool WithEmpty { get; set; }
+
+    [Parameter]
+    public Dictionary<string, object>? PopupAttributes { get; set; }
+
+    [Parameter]
+    public RenderFragment? PopupRender { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string>? StaticItems { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<IReadOnlyList<string>>? Rows { get; set; }
+
+    [Parameter]
+    public bool GroupRows { get; set; }
+
+    [Parameter]
+    public string? GroupLabel { get; set; }
+
+    [Parameter]
+    public bool ExplicitIndex { get; set; }
+
+    [Parameter]
+    public RenderFragment? Extra { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    public List<(string? Value, EventReason Reason)> ValueChanges { get; } = [];
+
+    public List<(IReadOnlyList<string> Values, EventReason Reason)> ValuesChanges { get; } = [];
+
+    public List<(string Text, EventReason Reason, bool? IsItemPress, string? EventType)> InputChanges { get; } = [];
+
+    public List<(bool Open, EventReason Reason)> OpenChanges { get; } = [];
+
+    public List<string?> Highlighted { get; } = [];
+
+    /// <summary>Gets or sets a step run inside OnValueChange, to cancel or record more.</summary>
+    public Action<ValueChangeEventArgs<string>>? OnValue { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnValuesChange.</summary>
+    public Action<ValueChangeEventArgs<IReadOnlyList<string>>>? OnValues { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnInputValueChange.</summary>
+    public Action<ValueChangeEventArgs<string>>? OnInput { get; set; }
+
+    /// <summary>Gets or sets a step run inside OnOpenChange.</summary>
+    public Action<ValueChangeEventArgs<bool>>? OnOpen { get; set; }
+
+    private RenderFragment ListContent => builder =>
+    {
+        if (WithList)
+        {
+            builder.AddContent(0, List);
+        }
+    };
+
+    private RenderFragment List => Rows is null && StaticItems is null ? TemplateList : ChildList;
+
+    private RenderFragment TemplateList => @<ComboboxList TValue="string" data-testid="list">
+        <ItemContent>
+            <ComboboxItem TValue="string" Value="@context.Value" Index="@(ExplicitIndex ? (int?)context.Index : null)" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value</ComboboxItem>
+        </ItemContent>
+    </ComboboxList>;
+
+    private RenderFragment ChildList => @<ComboboxList TValue="string" data-testid="list">
+        @if (Rows is { } rows)
+        {
+            for (int r = 0; r < rows.Count; r++)
+            {
+                IReadOnlyList<string> row = rows[r];
+                string? label = r == 0 ? GroupLabel : null;
+                if (GroupRows)
+                {
+                    <ComboboxGroup TValue="string" data-testid="@("group-" + r)">
+                        @if (label is not null)
+                        {
+                            <ComboboxGroupLabel>@label</ComboboxGroupLabel>
+                        }
+                        @RowOf(row)
+                    </ComboboxGroup>
+                }
+                else
+                {
+                    @RowOf(row)
+                }
+            }
+        }
+        else if (StaticItems is { } items)
+        {
+            foreach (string item in items)
+            {
+                <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@item</ComboboxItem>
+            }
+        }
+    </ComboboxList>;
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new(RootParameters);
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnInputValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordInput));
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnOpenChange), EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpen));
+            parameters.TryAdd(nameof(ComboboxRoot<string>.OnItemHighlighted), EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, args => Highlighted.Add(args.Value)));
+            bool multiple = parameters.TryGetValue(nameof(ComboboxRoot<string>.Multiple), out object? flag) && flag is true;
+            if (multiple)
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<string>.OnValuesChange), EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, RecordValues));
+            }
+            else
+            {
+                parameters.TryAdd(nameof(ComboboxRoot<string>.OnValueChange), EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValue));
+            }
+
+            return parameters;
+        }
+    }
+
+    private static RenderFragment RowOf(IReadOnlyList<string> row) => @<ComboboxRow>
+        @foreach (string item in row)
+        {
+            <ComboboxItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@item</ComboboxItem>
+        }
+    </ComboboxRow>;
+
+    private void RecordValue(ValueChangeEventArgs<string> args)
+    {
+        ValueChanges.Add((args.Value, args.Details.Reason));
+        OnValue?.Invoke(args);
+    }
+
+    private void RecordValues(ValueChangeEventArgs<IReadOnlyList<string>> args)
+    {
+        ValuesChanges.Add((args.Value, args.Details.Reason));
+        OnValues?.Invoke(args);
+    }
+
+    private void RecordInput(ValueChangeEventArgs<string> args)
+    {
+        InputChanges.Add((args.Value, args.Details.Reason, (args.Details as ComboboxChangeEventDetails)?.IsItemPress, args.Details.Event?.Type));
+        OnInput?.Invoke(args);
+    }
+
+    private void RecordOpen(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add((args.Value, args.Details.Reason));
+        OnOpen?.Invoke(args);
+    }
+}

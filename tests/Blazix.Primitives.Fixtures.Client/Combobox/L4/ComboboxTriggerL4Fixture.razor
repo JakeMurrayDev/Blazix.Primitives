@@ -1,0 +1,212 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-trigger` fixture (M5 track 10, issue 174): ComboboxTrigger.test.tsx (and createItems.test.tsx's closed trigger
+    typeahead title), ported at L4. The query's `case` picks the Base UI test's rendering; recorded callbacks render through
+    `Records` (ComboboxL4FixtureBase). Every part carries Base UI's test id (`trigger`, `input`, `value`, `popup`).
+
+    Case `default` (the many titles that render a Trigger over a List of two items): the query's `input` places an Input
+    (`before` or `after` the Trigger, outside the popup; `inside` the popup; absent for none), `disabled` (the Trigger's),
+    `readOnly`, `value` (a Combobox.Value in the Trigger), `portal=false` (no popup), `textarea` (a textarea beside the
+    Trigger), `items` (`|`-separated item texts, `alpha|beta` shown as Alpha and Beta when absent, empty for no items),
+    `side` (the Positioner's side), `unmount` (a control that removes the Trigger).
+    Case `validate`: a Field.Root (validationMode onBlur) over a root with defaultValue apple; each validation is recorded as
+    `data-validations`.
+    Case `typeahead-items`: items apple|banana|cherry as the root's `Items`, a Value in the Trigger.
+    Case `typeahead-plain`: defaultValue apple over apple, apricot, banana as plain children; `keepMounted` (the Portal's).
+    Case `typeahead-reorder`: the same, with a control that reorders to apricot, apple, banana.
+    Case `typeahead-indexed`: Apple, Banana (removable), Blueberry at indices 0..2.
+    Case `create-items`: Combobox.createItems over three users whose labels are Yak and Zebra, a Value in the Trigger.
+*@
+<FixtureContainer Name="combobox-trigger" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    @switch (Case)
+    {
+        case "validate":
+            <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="ValidateAsync">
+                <ComboboxRoot TValue="string" DefaultValue="@("apple")">
+                    <ComboboxTrigger @ref="trigger" data-testid="trigger" />
+                </ComboboxRoot>
+            </FieldRoot>
+            break;
+        case "typeahead-items":
+            <ComboboxRoot TValue="string" @ref="root" Items="s_fruits" OnValueChange="@(EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange))">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger"><ComboboxValue TValue="string" /></ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxList TValue="string">
+                                <ItemContent>
+                                    <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+                                </ItemContent>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+        case "typeahead-plain":
+        case "typeahead-reorder":
+            <ComboboxRoot TValue="string" @ref="root" DefaultValue="@("apple")" OnValueChange="@(EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange))">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger"><ComboboxValue TValue="string" /></ComboboxTrigger>
+                <ComboboxPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxList TValue="string">
+                                @foreach (string item in order)
+                                {
+                                    <ComboboxItem TValue="string" Value="@item" @key="item">@item</ComboboxItem>
+                                }
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            @if (Case == "typeahead-reorder")
+            {
+                <button type="button" data-testid="reorder" data-key-control
+                        @onclick="Reorder" @onkeydown="OnShift(Reorder)">reorder</button>
+            }
+
+            break;
+        case "typeahead-indexed":
+            <ComboboxRoot TValue="string" @ref="root" OnValueChange="@(EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange))">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger"><ComboboxValue TValue="string" /></ComboboxTrigger>
+                <button type="button" data-key-control @onclick="RemoveBanana" @onkeydown="OnShift(RemoveBanana)">Remove banana</button>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxList TValue="string">
+                                <ComboboxItem TValue="string" Value="@("apple")" Index="0">Apple</ComboboxItem>
+                                @if (showBanana)
+                                {
+                                    <ComboboxItem TValue="string" Value="@("banana")" Index="1">Banana</ComboboxItem>
+                                }
+                                <ComboboxItem TValue="string" Value="@("blueberry")" Index="2">Blueberry</ComboboxItem>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+        case "create-items":
+            <ComboboxRoot TValue="int" @ref="intRoot" Items="s_users">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger"><ComboboxValue TValue="int" /></ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxList TValue="int">
+                                <ItemContent>
+                                    <ComboboxItem TValue="int" Value="@context.Value" @key="context.Value">@s_users.Get(context.Value).Name</ComboboxItem>
+                                </ItemContent>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+        default:
+            <ComboboxRoot TValue="string" @ref="root" ReadOnly="@(QueryFlag("readOnly") == true)"
+                          OnOpenChange="@(EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpenChange))"
+                          OnValueChange="@(EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange))">
+                @if (Query("input") == "before")
+                {
+                    <ComboboxInput @ref="input" data-testid="input" />
+                }
+
+                <div style="margin: 60px">
+                    @if (showTrigger)
+                    {
+                        <ComboboxTrigger @ref="trigger" data-testid="trigger" Disabled="@(QueryFlag("disabled") == true)">
+                            @if (QueryFlag("value") == true)
+                            {
+                                <ComboboxValue TValue="string" />
+                            }
+                            else
+                            {
+                                @:Open
+                            }
+                        </ComboboxTrigger>
+                    }
+                </div>
+                @if (Query("input") == "after")
+                {
+                    <ComboboxInput @ref="input" data-testid="input" />
+                }
+
+                @if (QueryFlag("unmount") == true)
+                {
+                    <button type="button" data-testid="hide-trigger" data-key-control @onclick="HideTrigger" @onkeydown="OnShift(HideTrigger)">hide</button>
+                }
+
+                @if (QueryFlag("textarea") == true)
+                {
+                    <textarea aria-label="notes"></textarea>
+                }
+
+                @if (QueryFlag("portal") != false)
+                {
+                    <ComboboxPortal>
+                        <ComboboxPositioner style="position: relative; z-index: 1" Side="@PositionerSide">
+                            <ComboboxPopup data-testid="popup">
+                                @if (Query("input") == "inside")
+                                {
+                                    <ComboboxInput @ref="input" data-testid="input" />
+                                }
+
+                                <ComboboxList TValue="string">
+                                    @foreach (string item in Items)
+                                    {
+                                        <ComboboxItem TValue="string" Value="@item" @key="item">@Label(item)</ComboboxItem>
+                                    }
+                                </ComboboxList>
+                            </ComboboxPopup>
+                        </ComboboxPositioner>
+                    </ComboboxPortal>
+                }
+            </ComboboxRoot>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private sealed record User(int Id, string Name);
+
+    private static readonly string[] s_fruits = ["apple", "banana", "cherry"];
+
+    private static readonly ComboboxItemCollection<User, int> s_users = ComboboxItems.Create<User, int>(
+        [new(1, "Alice"), new(2, "Bob"), new(3, "Carol")], user => user.Id, user => user.Id == 2 ? "Zebra" : "Yak");
+
+    private ComboboxRoot<string>? root;
+    private ComboboxRoot<int>? intRoot;
+    private ComboboxTrigger? trigger;
+    private ComboboxInput? input;
+    private List<string> order = ["apple", "apricot", "banana"];
+    private bool showTrigger = true;
+    private bool showBanana = true;
+
+    private Side? PositionerSide => Query("side") == "right" ? Side.Right : null;
+
+    private IReadOnlyList<string> Items => Query("items") is { } list ? (list.Length == 0 ? [] : list.Split('|')) : ["alpha", "beta"];
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? intRoot?.SessionAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    // Base UI's items render their text; the two default items are Alpha and Beta, a query's items are shown as given.
+    private string Label(string item) => Query("items") is null ? char.ToUpperInvariant(item[0]) + item[1..] : item;
+
+    private ValueTask<FieldValidationResult?> ValidateAsync(FieldValidationArguments arguments)
+    {
+        Record("validations", Format(arguments.Value as string));
+        return ValueTask.FromResult<FieldValidationResult?>(null);
+    }
+
+    private void HideTrigger() => showTrigger = false;
+
+    private void Reorder() => order = ["apricot", "apple", "banana"];
+
+    private void RemoveBanana() => showBanana = false;
+}
