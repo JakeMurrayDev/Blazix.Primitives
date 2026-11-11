@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Issue 226 (issue 213's Menu half): a default-open Menu with a Backdrop and a kept-mounted Portal > Positioner > Popup.
+   The Popup's style is a parameter, every close calls `PreventUnmountOnClose()`, and the Root is captured for its
+   `CloseAsync` and `Unmount`. *@
+<MenuRoot TPayload="NoPayload" @ref="Root" DefaultOpen="true" OnOpenChange="RetainClose">
+    <MenuPortal KeepMounted="true">
+        <MenuBackdrop />
+        <MenuPositioner>
+            <MenuPopup style="@PopupStyle">Content</MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>
+</MenuRoot>
+
+@code {
+    [Parameter]
+    public string? PopupStyle { get; set; }
+
+    /// <summary>Gets the rendered root.</summary>
+    public MenuRoot<NoPayload>? Root { get; private set; }
+
+    private static void RetainClose(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value)
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+    }
+}
