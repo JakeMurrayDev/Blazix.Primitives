@@ -3209,6 +3209,140 @@ describe('useHoverReferenceInteraction', () => {
     expect(popup.open).toBe(true);
   });
 
+  // Design point 5 of M5 track 8 (settled by the orchestrator 2026-11-11; MBR-PTR-07's Server runs): on Server a trigger's
+  // handle attaches a round trip after its element appears, so a pointer that entered it meanwhile reached no listener.
+  // Base UI attaches its listeners in an effect React flushes before the next input, so it never misses the entry. The
+  // module keeps one record per document of the last `mouseover`, and a hover handle that installs runs its live enter
+  // path from a record whose target is inside its trigger. Every title pairs its guard with a replay that does happen.
+  describe('port: an entry before the hover handle attaches', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    // A hover handle attached first, so the document's record is kept from the start of the title.
+    function tracked() {
+      const popup = harness();
+      popup.attachSession();
+      popup.attachTrigger(element('button'), { trigger: { hover: {} } });
+      return popup;
+    }
+
+    function enter(target: HTMLElement, pointerType = 'mouse', relatedTarget: EventTarget | null = null) {
+      hoverPointer(target, 'pointerover', pointerType);
+      hoverMouse(target, 'mouseover', { relatedTarget });
+    }
+
+    function attachHovered(button: HTMLElement, hover: HoverTestOptions = {}) {
+      const popup = harness();
+      popup.attachSession();
+      const handle = popup.attachTrigger(button, { trigger: { hover } });
+      return { popup, handle };
+    }
+
+    it('port: a hover handle that attaches after the pointer entered its trigger runs the entry, its open delay counted from the attach', async () => {
+      tracked();
+      const button = element('button');
+      enter(button);
+      await vi.advanceTimersByTimeAsync(50);
+
+      const { popup } = attachHovered(button, { mouseOnly: true, move: false, delayOpen: 100 });
+      await vi.advanceTimersByTimeAsync(99);
+      expect(popup.open).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(popup.open).toBe(true);
+      expect(popup.changes.at(-1)?.reason).toBe('trigger-hover');
+    });
+
+    it('port: a recorded entry is cleared when the pointer leaves its target, out of the trigger or out of the window', async () => {
+      tracked();
+      const outside = element('div');
+      const left = element('button');
+      enter(left);
+      hoverMouse(left, 'mouseout', { relatedTarget: outside });
+      const leftWindow = element('button');
+      enter(leftWindow);
+      hoverMouse(leftWindow, 'mouseout', { relatedTarget: null });
+      const moved = element('button');
+      const child = document.createElement('span');
+      moved.append(child);
+      enter(moved);
+      hoverMouse(moved, 'mouseout', { relatedTarget: child });
+
+      const first = attachHovered(left);
+      const second = attachHovered(leftWindow);
+      const third = attachHovered(moved);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(first.popup.open).toBe(false);
+      expect(second.popup.open).toBe(false);
+      // The control: a move within the trigger keeps the record.
+      expect(third.popup.open).toBe(true);
+    });
+
+    it('port: a recorded touch entry meets the live pointer-type guard, so a mouse-only trigger stays closed and one that is not opens', async () => {
+      tracked();
+      const mouseOnly = element('button');
+      enter(mouseOnly, 'touch');
+      const closed = attachHovered(mouseOnly, { mouseOnly: true });
+      const any = element('button');
+      enter(any, 'touch');
+      const opened = attachHovered(any, {});
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(closed.popup.open).toBe(false);
+      expect(opened.popup.open).toBe(true);
+    });
+
+    it('port: a trigger inserted under a resting pointer with no mouseover since does not open, and one entered after its insertion does', async () => {
+      tracked();
+      const container = element('div');
+      enter(container);
+      const resting = document.createElement('button');
+      container.append(resting);
+      const notEntered = attachHovered(resting);
+      const entered = document.createElement('button');
+      container.append(entered);
+      hoverMouse(container, 'mouseout', { relatedTarget: entered });
+      enter(entered, 'mouse', container);
+      const opened = attachHovered(entered);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(notEntered.popup.open).toBe(false);
+      expect(opened.popup.open).toBe(true);
+    });
+
+    it('port: only the attach runs a recorded entry, not a handle that reinstalls its listeners for an update', async () => {
+      tracked();
+      const updated = element('button');
+      const { popup, handle } = attachHovered(updated, { move: true });
+      enter(updated);
+      handle.update(JSON.stringify({ sessionToken: popup.token, trigger: { hover: { move: false } } }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(popup.open).toBe(false);
+
+      const fresh = element('button');
+      hoverMouse(updated, 'mouseout', { relatedTarget: fresh });
+      enter(fresh, 'mouse', updated);
+      const control = attachHovered(fresh);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(control.popup.open).toBe(true);
+    });
+
+    it('port: a recorded entry is consumed by the first handle that runs it', async () => {
+      tracked();
+      const button = element('button');
+      enter(button);
+
+      const first = attachHovered(button);
+      const second = attachHovered(button);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(first.popup.open).toBe(true);
+      expect(second.popup.open).toBe(false);
+    });
+  });
+
   describe('hover semantics', () => {
     beforeEach(() => {
       vi.useFakeTimers();
