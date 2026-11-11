@@ -1,8 +1,13 @@
 @namespace Blazix.Primitives.Tests.Components
 @* MenuFilterRoot.test.tsx's provider trees (MNU-API-54, API-56, I18N-03): an open filterable menu whose items are `Items`,
-   without labels (their texts come through the List's handle). `FilterMode` is "default" (no Filter), "custom" (`Filter`)
-   or "null" (a supplied null); `Culture` and `DefaultQuery` are the provider's. *@
-@if (FilterMode == "custom")
+   without labels (their texts come through the List's handle). `FilterMode` is "default" (no Filter), "custom" (`Filter`),
+   "null" (a supplied null) or "controlled" (`Value` and `OnValueChange`, no Filter); `Culture` and `DefaultQuery` are the
+   provider's. With `Variants`, the list holds one item of each kind: Apple, Banana (checkbox), Cherry (radio), Date (link). *@
+@if (FilterMode == "controlled")
+{
+    <MenuFilterProvider Value="@Value" OnValueChange="OnValueChange">@Menu</MenuFilterProvider>
+}
+else if (FilterMode == "custom")
 {
     <MenuFilterProvider Filter="Filter" Culture="Culture" DefaultValue="@DefaultQuery">@Menu</MenuFilterProvider>
 }
@@ -31,6 +36,15 @@ else
     [Parameter]
     public string[] Items { get; set; } = ["Delete", "Rename"];
 
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<string>> OnValueChange { get; set; }
+
+    [Parameter]
+    public bool Variants { get; set; }
+
     private RenderFragment Menu => @<MenuRoot TPayload="NoPayload" DefaultOpen="true">
         <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
         <MenuPortal>
@@ -38,9 +52,21 @@ else
                 <MenuPopup>
                     <MenuInput aria-label="Filter actions" />
                     <MenuList>
-                        @foreach (string item in Items)
+                        @if (Variants)
                         {
-                            <MenuItem @key="item">@item</MenuItem>
+                            <MenuItem>Apple</MenuItem>
+                            <MenuCheckboxItem>Banana</MenuCheckboxItem>
+                            <MenuRadioGroup TValue="string">
+                                <MenuRadioItem TValue="string" Value="@("cherry")">Cherry</MenuRadioItem>
+                            </MenuRadioGroup>
+                            <MenuLinkItem href="#date">Date</MenuLinkItem>
+                        }
+                        else
+                        {
+                            @foreach (string item in Items)
+                            {
+                                <MenuItem @key="item">@item</MenuItem>
+                            }
                         }
                     </MenuList>
                 </MenuPopup>
