@@ -193,7 +193,17 @@ public sealed class ComboboxChipsTests : IDisposable
         IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values });
         string apple = cut.Find("[data-testid=chip-apple]").Id!;
         string cherry = cut.Find("[data-testid=chip-cherry]").Id!;
-        CompositeTwin registry = runtime.Twins.OfType<CompositeTwin>().First(twin => runtime.AttachedOptions(twin).Contains("\"registrationOnly\":true", StringComparison.Ordinal));
+        // The registry's handle attaches after the composite module's import resolves, which a parallel run can delay past the
+        // render: the title polls for it on the renderer's thread, as it polls for the options below.
+        CompositeTwin? FindRegistry() => runtime.Twins.OfType<CompositeTwin>().FirstOrDefault(twin => runtime.AttachedOptionsOrNull(twin)?.Contains("\"registrationOnly\":true", StringComparison.Ordinal) == true);
+        CompositeTwin? registry = await cut.InvokeAsync(FindRegistry);
+        for (int wait = 0; wait < 500 && registry is null; wait++)
+        {
+            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+            registry = await cut.InvokeAsync(FindRegistry);
+        }
+
+        Assert.NotNull(registry);
         await cut.InvokeAsync(() => registry.OnItemsChange("{\"ids\":[\"" + apple + "\",\"" + cherry + "\"]}"));
 
         await cut.InvokeAsync(runtime.Release);
@@ -477,7 +487,7 @@ public sealed class ComboboxChipsTests : IDisposable
 
         public void Release() => held.SetResult(new FakeModule(this));
 
-        public string AttachedOptions(object twin) => handles.First(handle => ReferenceEquals(handle.Twin, twin)).Options[0];
+        public string? AttachedOptionsOrNull(object twin) => handles.FirstOrDefault(handle => ReferenceEquals(handle.Twin, twin))?.Options[0];
 
         public List<string> ChipsOptions() => [.. handles.Where(handle => handle.Options[0].Contains("\"part\":\"chips\"", StringComparison.Ordinal)).SelectMany(handle => handle.Options)];
 
