@@ -219,6 +219,7 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     private readonly MenuStore<TPayload> store;
     private readonly List<MenuRootContext> children = [];
     private readonly IDisposable openObservation;
+    private readonly IDisposable parentObservation;
     private bool positionerRegistered;
 
     /// <summary>Initializes a new instance of the <see cref="MenuRootContext{TPayload}"/> class.</summary>
@@ -229,6 +230,16 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
         this.store = store;
         FamilyName = familyName;
         openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (open, _, _) => OnOpenChanged(open));
+
+        // A parent forwarded after the positioner registered (a detached Root's bar trigger forwards in its own
+        // after-render) hears the menu's state then, as a registration does (design points 2 (i) and 3 (b) of M5 track 8).
+        parentObservation = store.Observe(static state => state.Parent, (parent, _, _) =>
+        {
+            if (positionerRegistered)
+            {
+                parent.Context?.OnMenuOpenChange(this, store.State.Popup.EffectiveOpen, store.State.OpenChangeReason ?? EventReason.SiblingOpen);
+            }
+        });
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -390,8 +401,12 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
         return new ChildRegistration(children, child);
     }
 
-    /// <summary>Releases the context's observation of its store.</summary>
-    public void Release() => openObservation.Dispose();
+    /// <summary>Releases the context's observations of its store.</summary>
+    public void Release()
+    {
+        openObservation.Dispose();
+        parentObservation.Dispose();
+    }
 
     /// <inheritdoc />
     private protected override void OnSiblingOpened(MenuRootContext opened)
