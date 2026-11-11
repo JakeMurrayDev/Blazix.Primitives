@@ -57,6 +57,7 @@
     <BlazixJsEntry Include="js/focus-manager.ts" Out="js/focus-manager" />
     <BlazixJsEntry Include="js/navigation-menu.ts" Out="js/navigation-menu" />
     <BlazixJsEntry Include="js/combobox.ts" Out="js/combobox" />
+    <BlazixJsEntry Include="js/context-menu.ts" Out="js/context-menu" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 

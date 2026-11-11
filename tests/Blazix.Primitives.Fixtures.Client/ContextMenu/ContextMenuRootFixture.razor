@@ -1,0 +1,265 @@
+@namespace Blazix.Primitives.Fixtures.Client.ContextMenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `context-menu-root` fixture (tests/browser/context-menu.spec.ts, M5 track 7): ContextMenuRoot.test.tsx,
+    ContextMenuRoot.non-mac.test.tsx and ContextMenuTrigger.test.tsx. `case`:
+    - `default`: a Root (`disabled`, `defaultOpen`, controlled by `open`), the Trigger "Right click me" (a `<button>` with
+      `button`; `veto` gives it an `oncontextmenu` calling PreventPartHandler(); `container` places the portal's container
+      inside it; `plainMenu=trigger` puts a plain MenuRoot inside it, whose item "Plain action" records `Plain`),
+      `toggle-trigger` unmounting it, then Portal > optional Backdrop (`backdrop`) > Positioner (`side`, `align`,
+      `sideOffset`, `alignOffset`) > Popup with, first when `submenu` is `open` or `closed`, a
+      SubmenuRoot "More options" (default open with `open`, Delay 1 on hover, else
+      not on hover) holding "Deep action", then the items "Action" and "Second"; `plainMenu=popup` puts a plain MenuRoot inside the popup. An outside button and
+      a focusable input are outside the tree.
+    - `nested`: an inner context menu inside the outer Trigger (the nested title).
+    - `flip`: an open root whose Positioner flips (`collisionAvoidance` side flip) against a virtual anchor at (100,
+      `anchorY`), the popup 150 by 100.
+    The container records `data-open-changes` (`open:reason`), `data-open-events` (the event types), `data-open-triggers`
+    (`none` or `set`: whether the details name a trigger), `data-item-clicks`,
+    `data-submenu-open-changes`, `data-inner-open-changes` and `data-plain-open-changes`, and `data-attached` once the roots' sessions and the
+    triggers' handles attached, and `data-trigger-attached` once the trigger's handle alone did.
+*@
+<FixtureContainer Name="context-menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-events="@string.Join(' ', events)"
+                  data-submenu-open-changes="@string.Join(' ', submenuChanges)" data-inner-open-changes="@string.Join(' ', innerChanges)"
+                  data-plain-open-changes="@string.Join(' ', plainChanges)"
+                  data-item-clicks="@string.Join(' ', clicks)" data-open-triggers="@string.Join(' ', triggers)"
+                  data-trigger-attached="@(triggerAttached ? "true" : "false")">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-testid="toggle-trigger" data-key-control @onkeydown="OnShift(() => triggerMounted = !triggerMounted)">Toggle trigger</button>
+    <button type="button" data-testid="outside">Outside</button>
+    <input data-testid="input" aria-label="Input" />
+    @switch (Case)
+    {
+        case "nested":
+            <ContextMenuRoot @ref="root" OnOpenChange="RecordOpenChange">
+                <ContextMenuTrigger @ref="trigger" data-testid="outer-trigger" style="display: block; width: 400px; height: 200px">
+                    outer
+                    <ContextMenuRoot @ref="innerRoot" OnOpenChange="RecordInnerChange">
+                        <ContextMenuTrigger @ref="innerTrigger" data-testid="inner-trigger" style="display: block; width: 100px; height: 50px; margin: 20px">inner</ContextMenuTrigger>
+                        <ContextMenuPortal>
+                            <ContextMenuPositioner>
+                                <ContextMenuPopup data-testid="inner-menu">
+                                    <ContextMenuItem>Inner action</ContextMenuItem>
+                                </ContextMenuPopup>
+                            </ContextMenuPositioner>
+                        </ContextMenuPortal>
+                    </ContextMenuRoot>
+                </ContextMenuTrigger>
+                <ContextMenuPortal>
+                    <ContextMenuPositioner>
+                        <ContextMenuPopup data-testid="outer-menu">
+                            <ContextMenuItem>Outer action</ContextMenuItem>
+                        </ContextMenuPopup>
+                    </ContextMenuPositioner>
+                </ContextMenuPortal>
+            </ContextMenuRoot>
+            break;
+        case "flip":
+            <div style="position: fixed; bottom: 0; left: 0; right: 0; height: 50px">
+                <ContextMenuRoot @ref="root" Open="true">
+                    <ContextMenuTrigger @ref="trigger" data-testid="trigger">Surface</ContextMenuTrigger>
+                    <ContextMenuPortal>
+                        <ContextMenuPositioner data-testid="positioner" CollisionAvoidance="@s_flip" Anchor="@FlipAnchor">
+                            <ContextMenuPopup data-testid="popup" style="width: 150px; height: 100px">
+                                <ContextMenuItem>Action 1</ContextMenuItem>
+                                <ContextMenuItem>Action 2</ContextMenuItem>
+                                <ContextMenuItem>Action 3</ContextMenuItem>
+                            </ContextMenuPopup>
+                        </ContextMenuPositioner>
+                    </ContextMenuPortal>
+                </ContextMenuRoot>
+            </div>
+            break;
+        default:
+            <ContextMenuRoot @ref="root" @attributes="ControlledAttributes"
+                             DefaultOpen="@(QueryFlag("defaultOpen") == true)" Disabled="@(QueryFlag("disabled") == true)"
+                             OnOpenChange="RecordContextChange">
+                @if (triggerMounted)
+                {
+                    <ContextMenuTrigger @ref="trigger" data-testid="trigger" Render="@(QueryFlag("button") == true ? Button : null)"
+                                        @attributes="TriggerAttributes" style="display: block; width: 300px; height: 150px; margin: 40px; background: #eee">
+                        Right click me
+                        @if (container)
+                        {
+                            <div id="context-menu-container" data-testid="container"></div>
+                        }
+                        @if (Query("plainMenu") == "trigger")
+                        {
+                            @PlainMenu
+                        }
+                    </ContextMenuTrigger>
+                }
+                <ContextMenuPortal Container="@(container ? (PortalContainerValue?)"#context-menu-container" : null)">
+                    @if (QueryFlag("backdrop") == true)
+                    {
+                        <ContextMenuBackdrop data-testid="backdrop" />
+                    }
+                    <ContextMenuPositioner data-testid="positioner" AlignOffset="@AlignOffset" SideOffset="@SideOffset" Side="@SideValue" Align="@AlignValue">
+                        <ContextMenuPopup data-testid="popup">
+                            @if (Query("submenu") is { } submenu)
+                            {
+                                <ContextMenuSubmenuRoot DefaultOpen="@(submenu == "open")" OnOpenChange="RecordSubmenuChange">
+                                    <ContextMenuSubmenuTrigger data-testid="submenu-trigger" Delay="1" OpenOnHover="@(submenu == "open")">More options</ContextMenuSubmenuTrigger>
+                                    <ContextMenuPortal>
+                                        <ContextMenuPositioner data-testid="submenu-positioner">
+                                            <ContextMenuPopup data-testid="submenu-popup">
+                                                <ContextMenuItem data-testid="submenu-item" @onclick="@(() => clicks.Add("Deep"))">Deep action</ContextMenuItem>
+                                            </ContextMenuPopup>
+                                        </ContextMenuPositioner>
+                                    </ContextMenuPortal>
+                                </ContextMenuSubmenuRoot>
+                            }
+                            <ContextMenuItem data-testid="item" @onclick="@(() => clicks.Add("Action"))">Action</ContextMenuItem>
+                            <ContextMenuItem data-testid="second" @onclick="@(() => clicks.Add("Second"))">Second</ContextMenuItem>
+                            <ContextMenuGroup>
+                                <ContextMenuGroupLabel data-testid="group-label">Group</ContextMenuGroupLabel>
+                            </ContextMenuGroup>
+                            @if (Query("plainMenu") == "popup")
+                            {
+                                @PlainMenu
+                            }
+                        </ContextMenuPopup>
+                    </ContextMenuPositioner>
+                </ContextMenuPortal>
+            </ContextMenuRoot>
+            break;
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly CollisionAvoidance s_flip = new(Side: CollisionAvoidanceMode.Flip);
+    private readonly List<string> events = [];
+    private readonly List<string> submenuChanges = [];
+    private readonly List<string> innerChanges = [];
+    private readonly List<string> plainChanges = [];
+    private readonly List<string> clicks = [];
+    private readonly List<string> triggers = [];
+    private bool triggerAttached;
+    private ContextMenuRoot? root;
+    private ContextMenuRoot? innerRoot;
+    private ContextMenuTrigger? trigger;
+    private ContextMenuTrigger? innerTrigger;
+    private bool controlled;
+    private bool open;
+    private bool triggerMounted = true;
+    private bool container;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        root?.SessionAttached ?? Task.CompletedTask,
+        innerRoot?.SessionAttached ?? Task.CompletedTask,
+        trigger?.TwinAttached ?? Task.CompletedTask,
+        innerTrigger?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    // Not a conditional with a `null` arm: OffsetValue converts `null` implicitly (its function case), which would send 0.
+    private OffsetValue? AlignOffset
+    {
+        get
+        {
+            if (Query("alignOffset") is { } value)
+            {
+                return double.Parse(value, CultureInfo.InvariantCulture);
+            }
+
+            return null;
+        }
+    }
+
+    private OffsetValue? SideOffset
+    {
+        get
+        {
+            if (Query("sideOffset") is { } value)
+            {
+                return double.Parse(value, CultureInfo.InvariantCulture);
+            }
+
+            return null;
+        }
+    }
+
+    private Align? AlignValue => Query("align") switch
+    {
+        "start" => Align.Start,
+        "center" => Align.Center,
+        "end" => Align.End,
+        _ => null,
+    };
+
+    private Side? SideValue => Query("side") switch
+    {
+        "top" => Side.Top,
+        "bottom" => Side.Bottom,
+        "left" => Side.Left,
+        "right" => Side.Right,
+        _ => null,
+    };
+
+    private AnchorValue FlipAnchor => new VirtualAnchor(100, double.Parse(Query("anchorY") ?? "700", CultureInfo.InvariantCulture), 0, 0);
+
+    private IReadOnlyDictionary<string, object>? TriggerAttributes => QueryFlag("veto") == true
+        ? new Dictionary<string, object> { ["oncontextmenu"] = EventCallback.Factory.Create<MouseEventArgs>(this, (MouseEventArgs e) => e.PreventPartHandler()) }
+        : null;
+
+    private static RenderFragment Button => @<button type="button" />;
+
+    // Open is supplied only when the query controls it, as whether it was supplied decides control.
+    private IReadOnlyDictionary<string, object>? ControlledAttributes => controlled
+        ? new Dictionary<string, object> { ["Open"] = open, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, v => open = v) }
+        : null;
+
+    protected override void OnInitialized()
+    {
+        controlled = Query("open") is not null;
+        open = QueryFlag("open") == true;
+        container = QueryFlag("container") == true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The attach-order title: the trigger's handle, which may attach before the menu's session the base awaits.
+        Task attachments = base.OnAfterRenderAsync(firstRender);
+        if (!triggerAttached && trigger is { } attaching && RendererInfo.IsInteractive)
+        {
+            await attaching.TwinAttached;
+            triggerAttached = true;
+            StateHasChanged();
+        }
+
+        await attachments;
+    }
+
+    private void RecordContextChange(ValueChangeEventArgs<bool> args)
+    {
+        events.Add(args.Details.Event.Type);
+        triggers.Add(args.Details.Trigger is null ? "none" : "set");
+        RecordOpenChange(args);
+    }
+
+    private void RecordSubmenuChange(ValueChangeEventArgs<bool> args) =>
+        submenuChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private void RecordInnerChange(ValueChangeEventArgs<bool> args) =>
+        innerChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private void RecordPlainChange(ValueChangeEventArgs<bool> args) =>
+        plainChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    private RenderFragment PlainMenu => @<MenuRoot TPayload="NoPayload" OnOpenChange="RecordPlainChange">
+        <MenuTrigger TPayload="NoPayload" data-testid="plain-trigger">Plain</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner data-testid="plain-positioner">
+                <MenuPopup data-testid="plain-popup">
+                    <MenuItem data-testid="plain-item" @onclick="@(() => clicks.Add("Plain"))">Plain action</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>;
+}

@@ -239,3 +239,17 @@ Menu's figures are the list rows' (track 1's test-only hosts run Menu's options)
   - On WebAssembly the input's `combobox` handle asks `navigate` before its keys while C# holds the handler. C# runs the handler inside the dispatch, once per keydown: the event's type, key, modifiers and `timeStamp` key the verdict, which also answers the `composite` reference handle's `navigate` for the same keydown. A `PreventPartHandler()` stops both. Blazor's later dispatch of the key skips the handler.
   - On Server the point falls back to `run`: the keys run, and the handler runs from Blazor's dispatch. A key the handle stopped never reaches that dispatch, so the module reports it (`OnKeyHandled`) and the handler runs a round trip late, without a veto.
 - *`press`:* CMB-PTR-08, the Chips' and the InputGroup's `onMouseDown` against the press. On WebAssembly C# runs the handler inside `press` and a `PreventPartHandler()` skips the press; Blazor's later dispatch of the mousedown skips the handler. On Server the point falls back to `run`: the press happens, and the handler runs from Blazor's dispatch, without a veto.
+
+**2026-11-11, the CTX row's `Cancel()` clause (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); sheet C contradiction 1; a clarification, the row unchanged).** A consumer's `Cancel()` on the open of a right click restores no native menu on either mode.
+- Base UI calls `preventDefault()` before it requests the open (`context-menu/trigger/ContextMenuTrigger.tsx:81-82`), and so does the `context-menu` module.
+- The row's "on Server, where a `Cancel()` can no longer restore the native menu" therefore holds on both modes.
+- A canceled open leaves the menu closed with the new anchor and the release window installed (CTX-EVT-04's port title).
+- The consumer's own `oncontextmenu` veto is "C#-origin consumer vetoes" (CTX-API-06 gains a dated row in context-menu.md §9).
+
+**2026-11-11, a measured row: the native menu over a just-mounted backdrop (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); design point 2 (a), settled by the orchestrator 2026-11-11).**
+- *The cause.* The `context-menu` module learns the internal backdrop and the consumer Backdrop from the root's `update`, which is sent after the render that mounted them. Until it arrives, a right click on a backdrop shows the browser's menu (CTX-PTR-03, DIS-03).
+- *The measurement.* A page-side probe dispatched `contextmenu` on the internal backdrop every frame from its insertion until one was prevented, 8 runs each (local, 2026-11-11):
+  - WebAssembly: 0 ms in 8 of 8.
+  - Server: 0 ms in 6 of 8, and one frame (17 ms) in 2.
+  - Server with a 40 ms one-way circuit delay: 78–98 ms, about one round trip.
+- *The rule.* WebAssembly meets CTX-PTR-03. On Server the window is the round trip after the opening render.
