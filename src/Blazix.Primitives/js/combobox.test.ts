@@ -4,6 +4,7 @@
 // re-tag to L3 with `detectPlatform` injected). Positive titles only: each asserts the behaviour first.
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  CHIP_PART,
   CLEAR_POINT,
   NAVIGATE_POINT,
   PRESS_POINT,
@@ -865,6 +866,39 @@ describe('the chips keys', () => {
     target.dispatchEvent(event);
     return event;
   }
+
+  // ComboboxChip.tsx:100-127 with mergeProps: the consumer's onKeyDown and onMouseDown run first, and preventBaseUIHandler()
+  // skips the chip's own key handling and, through `baseUIHandlerPrevented`, the Chips' press (handleInputPress.ts:14-16). A
+  // Chip with such a handler has its own handle, which asks `navigate` and `press` (settled by the orchestrator 2026-11-11,
+  // option (a)); the chips container's listener runs after it in the bubble.
+  function attachChipHandle(element: HTMLElement, synchronous: boolean, verdict: 'run' | 'stop'): FakeTwin {
+    const chipFake = createFakeTwin({ synchronous, verdict });
+    handles.push(attach(element, options({ part: CHIP_PART }), chipFake.twin));
+    return chipFake;
+  }
+
+  it('port: a chip handle asks navigate for a key and press for a mousedown, and a stop verdict makes the chips skip their key and their press', () => {
+    const { chip, input, fake } = setupChips();
+    const chipFake = attachChipHandle(chip[1], true, 'stop');
+    chip[1].focus();
+
+    const enter = key(chip[1], 'Enter');
+    const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    chip[1].dispatchEvent(press);
+
+    expect([chipFake.decisions.map((decision) => decision.point), enter.defaultPrevented, press.defaultPrevented, document.activeElement === input, fake.reported('OnInputPress').length])
+      .toEqual([[NAVIGATE_POINT, PRESS_POINT], false, false, false, 0]);
+  });
+
+  it('port: on Server a chip handle reports its key and its press, and the chips handle them', () => {
+    const { chip, input } = setupChips();
+    const chipFake = attachChipHandle(chip[1], false, 'run');
+    chip[1].focus();
+
+    const enter = key(chip[1], 'Enter');
+
+    expect([chipFake.reported<{ type: string }>('OnChipEvent').map((event) => event.type), enter.defaultPrevented, document.activeElement === input]).toEqual([['keydown'], true, true]);
+  });
 
   it('port: the arrow keys move the focus between the chips and out to the input, mirrored in RTL', () => {
     const { chip, input } = setupChips();

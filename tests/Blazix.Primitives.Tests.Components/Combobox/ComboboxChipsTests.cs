@@ -307,6 +307,78 @@ public sealed class ComboboxChipsTests : IDisposable
         Assert.StartsWith("Blazix: `ComboboxChipsContext` is missing.", error.Message, StringComparison.Ordinal);
     }
 
+    // ComboboxChip.tsx:100-127 with mergeProps: the consumer's onKeyDown and onMouseDown run before the chip's own handling and
+    // the Chips' press, and preventBaseUIHandler() skips them. The chips module stops the keys and decides the press before
+    // Blazor's document-level dispatch, so a Chip declines the two handlers and runs them in its own handle's `navigate` and
+    // `press` points (option (a), settled by the orchestrator 2026-11-11); a chip without them attaches no handle.
+    [Fact(DisplayName = "port: a chip's consumer onkeydown and onmousedown run inside its own handle's navigate and press points, and PreventPartHandler() stops the chip's handling")]
+    [Trait("Requirement", "CMB-KEY-10")]
+    [Trait("Requirement", "CMB-PTR-08")]
+    public async Task A_chips_consumer_handlers_run_inside_its_handles_points()
+    {
+        List<string> ran = [];
+        IRenderedComponent<ComboboxHarness> cut = Render(
+            new() { ["Multiple"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values },
+            chipAttributes: value => value != "apple" ? null : new Dictionary<string, object>
+            {
+                ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, args =>
+                {
+                    ran.Add("key:" + args.Key);
+                    if (args.Key == "Enter")
+                    {
+                        args.PreventPartHandler();
+                    }
+                }),
+                ["onmousedown"] = EventCallback.Factory.Create<MouseEventArgs>(this, args =>
+                {
+                    ran.Add("down");
+                    args.PreventPartHandler();
+                }),
+            });
+        IElement apple = cut.Find("[data-testid=chip-apple]");
+        Assert.False(apple.HasAttribute("blazor:onkeydown"));
+        Assert.False(apple.HasAttribute("blazor:onmousedown"));
+        ComboboxTwin chip = Assert.Single(ChipTwins());
+
+        string enter = await cut.InvokeAsync(() => chip.Decide(ComboboxTwin.NavigatePoint, ComboboxTestContext.Key("Enter")));
+        string letter = await cut.InvokeAsync(() => chip.Decide(ComboboxTwin.NavigatePoint, ComboboxTestContext.Key("a")));
+        string press = await cut.InvokeAsync(() => chip.Decide(ComboboxTwin.PressPoint, ComboboxTestContext.Event(ComboboxTestContext.Click, "mousedown", 2)));
+
+        Assert.Equal(["stop", "run", "stop"], [enter, letter, press]);
+        Assert.Equal(["key:Enter", "key:a", "down"], ran);
+    }
+
+    [Fact(DisplayName = "port: on Server a chip's consumer onkeydown runs from its own handle's report")]
+    [Trait("Requirement", "CMB-KEY-10")]
+    public async Task On_server_a_chips_consumer_onkeydown_runs_from_its_handles_report()
+    {
+        List<string> ran = [];
+        IRenderedComponent<ComboboxHarness> cut = Render(
+            new() { ["Multiple"] = true, ["DefaultValues"] = (IReadOnlyList<string>)s_values },
+            chipAttributes: value => value != "apple" ? null : new Dictionary<string, object>
+            {
+                ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, args => ran.Add("key:" + args.Key)),
+            });
+
+        await cut.InvokeAsync(() => Assert.Single(ChipTwins()).OnChipEvent(ComboboxTestContext.Key("Enter")));
+
+        Assert.Equal(["key:Enter"], ran);
+    }
+
+    private List<ComboboxTwin> ChipTwins()
+    {
+        List<ComboboxTwin> twins = [];
+        foreach (JSRuntimeInvocation attach in test.Combobox.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains("\"part\":\"chip\"", StringComparison.Ordinal))
+            {
+                twins.Add(((DotNetObjectReference<ComboboxTwin>)attach.Arguments[2]!).Value);
+            }
+        }
+
+        return twins;
+    }
+
     private Task ReportOrderAsync(IRenderedComponent<ComboboxHarness> cut, params string[] ids)
     {
         JSRuntimeInvocation attach = test.Composite.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string json && json.Contains("\"registrationOnly\":true", StringComparison.Ordinal));
@@ -356,7 +428,7 @@ public sealed class ComboboxChipsTests : IDisposable
         return twins;
     }
 
-    private IRenderedComponent<ComboboxHarness> Render(Dictionary<string, object?> root, IReadOnlyList<string>? chips = null)
+    private IRenderedComponent<ComboboxHarness> Render(Dictionary<string, object?> root, IReadOnlyList<string>? chips = null, Func<string, IReadOnlyDictionary<string, object>?>? chipAttributes = null)
     {
         IReadOnlyList<string> values = chips ?? s_values;
         void Extra(RenderTreeBuilder builder)
@@ -370,6 +442,11 @@ public sealed class ComboboxChipsTests : IDisposable
                     inner.OpenComponent<ComboboxChip>(0);
                     inner.SetKey(value);
                     inner.AddComponentParameter(1, "data-testid", "chip-" + value);
+                    if (chipAttributes?.Invoke(value) is { } attributes)
+                    {
+                        inner.AddMultipleAttributes(1, attributes);
+                    }
+
                     inner.AddComponentParameter(2, "ChildContent", (RenderFragment)(chip =>
                     {
                         chip.AddContent(0, value);

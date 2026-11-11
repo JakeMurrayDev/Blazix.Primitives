@@ -121,6 +121,33 @@ public sealed class ComboboxTwinContractTests
         Assert.Equal(["input:ab:True:False", "clear:-1:Escape", "remove:2", "cancel:keydown", "dismiss:keydown", "selection:Escape", "enter:Escape", "press:keydown", "open:Escape", "link:#a", "link:end", "key:Escape", "blur:keydown"], received);
     }
 
+    // ADR 04 Amendments 2026-11-11 (the Chip's consumer handlers, option (a) settled by the orchestrator 2026-11-11): a Chip with
+    // a consumer onkeydown or onmousedown attaches the `chip` part, which asks `navigate` and `press` and, on Server, reports the
+    // event so C# runs the handler.
+    [Fact]
+    [Trait("Verifies", "ADR06-3")]
+    [Trait("Requirement", "CMB-KEY-10")]
+    [Trait("Requirement", "CMB-PTR-08")]
+    public async Task The_chip_part_reports_its_event_and_its_points_ask_the_decider()
+    {
+        using BunitContext context = new();
+        await using ComboboxTwin twin = new(context.JSInterop.JSRuntime);
+        List<string> received = [];
+        twin.ChipEventReported += snapshot => received.Add($"chip:{snapshot.Type}:{snapshot.Key}");
+        twin.Decider = (point, snapshot) =>
+        {
+            received.Add($"decide:{point}:{snapshot.Key}");
+            return DecisionPolicy.Stop;
+        };
+
+        twin.OnChipEvent(KeyJson);
+        string verdict = twin.Decide(ComboboxTwin.NavigatePoint, KeyJson);
+
+        Assert.Equal("chip", ComboboxTwin.ChipPart);
+        Assert.Equal("stop", verdict);
+        Assert.Equal(["chip:keydown:Escape", "decide:navigate:Escape"], received);
+    }
+
     [Fact]
     [Trait("Verifies", "ADR06-3")]
     [Trait("Requirement", "CMB-KEY-05")]
