@@ -3252,6 +3252,8 @@ describe('useHoverReferenceInteraction', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(popup.open).toBe(true);
       expect(popup.changes.at(-1)?.details.reason).toBe('trigger-hover');
+      // The live listener's event type, as FLT-STA-05 and the client-point open check read it.
+      expect(popup.changes.at(-1)?.details.event?.type).toBe('mouseenter');
     });
 
     it('port: a recorded entry is cleared when the pointer leaves its target, out of the trigger or out of the window', async () => {
