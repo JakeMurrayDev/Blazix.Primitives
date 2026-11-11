@@ -3180,11 +3180,15 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
   // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a); ADR 01's "a popup element the opening render creates"
   // row): on Server the floating list attaches a round trip after the open, where Base UI's list mounts in the open's commit.
   // A navigation key pressed on the open reference meanwhile is kept, the newest only, and replayed once the list attaches
-  // while the same open lasts; a close drops it. The key stops here as its navigation would.
-  if (currentOpen && state.floating === null && isKeptNavigationKey(event, list, currentTarget)) {
-    stopEvent(event);
-    state.pendingKey = { handle, event };
-    return;
+  // while the same open lasts; a close or any newer key drops it (PR 193 delta review F1). The key stops here as its
+  // navigation would.
+  if (currentOpen && state.floating === null) {
+    if (isKeptNavigationKey(event, list, currentTarget)) {
+      stopEvent(event);
+      state.pendingKey = { handle, event };
+      return;
+    }
+    state.pendingKey = null;
   }
 
   if (list.virtual && currentOpen && (!list.nested || isTypeableElement(currentTarget))) {
