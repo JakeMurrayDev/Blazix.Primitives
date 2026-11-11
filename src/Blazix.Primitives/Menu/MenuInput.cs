@@ -1,5 +1,7 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -35,9 +37,21 @@ public sealed class MenuInput : PartBase<MenuInputState>
 {
     private MenuInputState state = new(false);
     private MenuFilterRootContext? filter;
+    private MenuFilterModuleAttachment? module;
+    private MenuSubscription? subscription;
+    private MenuSelection<bool>? open;
+    private MenuSelection<bool>? keyboardOpen;
+    private IDisposable? filterSubscription;
+    private string frozenValue = "";
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the input ignores user interaction.</summary>
     /// <value>The default is <see langword="false"/>. The input is also disabled while its menu is.</value>
@@ -53,27 +67,68 @@ public sealed class MenuInput : PartBase<MenuInputState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    // MNU-EDGE-04, STR-15. The handle's options follow the root's open state and the filter's query, and its reports reach
+    // the provider (MNU-EVT-16) and the part's state (MNU-STA-22, M5 track 12's design point 5 (a)).
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        // MNU-EDGE-04, STR-15.
-        filter = RootContext?.Filter ?? throw MenuParts.MissingFilter("Input");
+        MenuFilterRootContext current = RootContext?.Filter ?? throw MenuParts.MissingFilter("Input");
+        filter = current;
+        frozenValue = current.Query;
+        subscription = RootContext.Subscribe(RequestRender);
+        open = subscription.Select(MenuSelectors.Open);
+        keyboardOpen = subscription.Select(MenuSelectors.KeyboardOpen);
+        filterSubscription = current.Subscribe(RequestRender);
+        module = new MenuFilterModuleAttachment(JSRuntime);
+        module.Twin.ValueChanged += change => _ = InvokeAsync(() => current.RequestQueryAsync(
+            change.Value,
+            string.Equals(change.Reason, "input-clear", StringComparison.Ordinal) ? EventReason.InputClear : EventReason.InputChange,
+            change.Event));
+        module.Twin.HighlightedChanged += highlighted => _ = InvokeAsync(() => SetHighlighted(highlighted));
         base.OnInitialized();
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (state.Highlighted != filter!.InputHighlighted)
+        if (Element is not { } element)
         {
-            state = new MenuInputState(filter.InputHighlighted);
+            return;
         }
+
+        await PopupPortalContext.WhenMoved(Portal);
+        await module!.SyncAsync(element, new MenuFilterOptions
+        {
+            Part = MenuFilterTwin.InputPart,
+            MenuKey = RootContext!.SessionToken,
+            Value = filter!.Query,
+            ValueRevision = filter.QueryRevision,
+            Open = open!.Value,
+            KeyboardOpen = keyboardOpen!.Value,
+        });
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            subscription?.Dispose();
+            filterSubscription?.Dispose();
+            if (module is not null)
+            {
+                _ = module.DisposeAsync().AsTask();
+            }
+        }
+
+        base.Dispose(disposing);
     }
 
     // MNU-DOM-21 (filter-dropdown/input/FilterDropdownInput.tsx:44-53, 150-163; menu/input/MenuInput.tsx:32-65), API-59: the
-    // id stays on the part's own element (issue 115); disabled is the root's or the part's. value is the committed query,
-    // which C# renders (C# -> JS, ADR 04 Amendments 2026-10-22); aria-activedescendant and data-highlighted are the
-    // browser-side behaviors'.
+    // id stays on the part's own element (issue 115); disabled is the root's or the part's. value is the committed query of
+    // the first render, then frozen: the module writes later ones by revision (C# -> JS, the `checked` handover of ADR 04
+    // Amendments 2026-10-22), so a render never overwrites a keystroke still on its way; aria-activedescendant and
+    // data-highlighted are the browser-side behaviors'.
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
@@ -94,6 +149,17 @@ public sealed class MenuInput : PartBase<MenuInputState>
             attributes.Set("disabled", true);
         }
 
-        attributes.Set("value", filter.Query);
+        attributes.Set("value", frozenValue);
+    }
+
+    private void RequestRender() => _ = InvokeAsync(StateHasChanged);
+
+    private void SetHighlighted(bool highlighted)
+    {
+        if (state.Highlighted != highlighted)
+        {
+            state = new MenuInputState(highlighted);
+            StateHasChanged();
+        }
     }
 }

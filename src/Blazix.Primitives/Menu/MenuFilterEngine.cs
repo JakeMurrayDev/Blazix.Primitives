@@ -219,16 +219,27 @@ internal sealed class MenuFilterEngine
 internal sealed class MenuFilterRootContext
 {
     private readonly MenuFilterProviderContext provider;
+    private string inputText;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
     /// <param name="provider">The provider the root consumed.</param>
-    public MenuFilterRootContext(MenuFilterProviderContext provider) => this.provider = provider;
+    public MenuFilterRootContext(MenuFilterProviderContext provider)
+    {
+        this.provider = provider;
+        inputText = provider.Value;
+    }
 
     /// <summary>Gets the filter engine.</summary>
     public MenuFilterEngine Engine { get; } = new();
 
     /// <summary>Gets the committed query.</summary>
     public string Query => provider.Value;
+
+    /// <summary>
+    /// Gets the count of times the committed query was sent for the input to write: it moves only when the query differs
+    /// from the input's text, so a committed keystroke never overwrites a later one still on its way.
+    /// </summary>
+    public int QueryRevision { get; private set; }
 
     /// <summary>Gets a value indicating whether the Clear button renders: the query is not empty.</summary>
     public bool ShowsClear => Query.Length > 0;
@@ -239,9 +250,6 @@ internal sealed class MenuFilterRootContext
     /// <summary>Gets the input's element, the list's reference and the nested menus' return target, or <see langword="null"/>.</summary>
     public ElementReference? InputElement { get; private set; }
 
-    /// <summary>Gets a value indicating whether the input shows its focus ring, the menu-filter module's mirror.</summary>
-    public bool InputHighlighted { get; private set; }
-
     /// <summary>Registers the menu's input, its focus owner.</summary>
     /// <param name="element">The input's element.</param>
     /// <returns>The registration; disposing it unregisters the input.</returns>
@@ -251,10 +259,41 @@ internal sealed class MenuFilterRootContext
     /// <param name="id">The id, or <see langword="null"/> when the list renders none.</param>
     public void SetListId(string? id) => ListId = string.IsNullOrEmpty(id) ? null : id;
 
+    /// <summary>Subscribes to changes of the query and the provider's options.</summary>
+    /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> is current.</param>
+    /// <returns>The subscription; disposing it unsubscribes.</returns>
+    public IDisposable Subscribe(Action changed) => provider.Subscribe(() =>
+    {
+        Track();
+        changed();
+    });
+
+    // MNU-EVT-16 (FilterDropdownInput.tsx:96-121, FilterDropdownRoot.tsx:155-178): the provider runs onValueChange and commits
+    // unless canceled. An input edit is the input's text already, so a commit of it sends nothing to write; a canceled or
+    // rewritten one moves the revision and the module writes the committed query back, React's re-render of the controlled
+    // input. The highlight that follows a change lands with the list's virtual focus.
     /// <summary>Requests a query change through the provider's <c>OnValueChange</c>.</summary>
     /// <param name="value">The new query.</param>
     /// <param name="reason">The reason: input change, input clear, clear press or popup close.</param>
     /// <param name="snapshot">The event the change came from, or <see langword="null"/>.</param>
-    /// <returns>A task that completes when the request and its highlight follow-up ran.</returns>
-    public Task RequestQueryAsync(string value, EventReason reason, EventSnapshot? snapshot) => throw new NotImplementedException();
+    /// <returns>A task that completes when the request ran.</returns>
+    public async Task RequestQueryAsync(string value, EventReason reason, EventSnapshot? snapshot)
+    {
+        if (reason is EventReason.InputChange or EventReason.InputClear)
+        {
+            inputText = value;
+        }
+
+        await provider.RequestValueAsync(value, reason, snapshot);
+        Track();
+    }
+
+    private void Track()
+    {
+        if (!string.Equals(provider.Value, inputText, StringComparison.Ordinal))
+        {
+            inputText = provider.Value;
+            QueryRevision++;
+        }
+    }
 }
