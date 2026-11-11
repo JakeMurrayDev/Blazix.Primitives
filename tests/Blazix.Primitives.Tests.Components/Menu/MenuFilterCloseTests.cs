@@ -43,12 +43,23 @@ public sealed class MenuFilterCloseTests : BunitContext
     [Trait("Requirement", "MNU-EVT-18")]
     public void A_reopened_menu_starts_empty()
     {
-        IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>(p => p.Add(x => x.DefaultQuery, "ren"));
+        List<EventReason> requests = [];
+        IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>(p => p
+            .Add(x => x.DefaultQuery, "ren")
+            .Add(x => x.OnValueChange, (ValueChangeEventArgs<string> args) => requests.Add(args.Details.Reason)));
 
+        // The reset runs once the close has committed; a person reopens after it.
         cut.Render(p => p.Add(x => x.Open, false));
+        cut.WaitForAssertion(() => Assert.Equal([EventReason.PopupClose], requests));
         cut.Render(p => p.Add(x => x.Open, true));
 
-        cut.WaitForAssertion(() => Assert.Equal("", cut.Find("input").GetAttribute("value")));
+        // The input's rendered value is its first render's; the module writes the reset from the handle's update.
+        cut.WaitForAssertion(() =>
+        {
+            string update = LastUpdate();
+            Assert.Contains("\"open\":true", update, StringComparison.Ordinal);
+            Assert.Contains("\"value\":\"\"", update, StringComparison.Ordinal);
+        });
     }
 
     [Fact(DisplayName = "keeps the query when the popup-close reset is canceled")]
@@ -69,7 +80,9 @@ public sealed class MenuFilterCloseTests : BunitContext
         cut.Render(p => p.Add(x => x.Open, false));
         cut.Render(p => p.Add(x => x.Open, true));
 
-        cut.WaitForAssertion(() => Assert.Equal("ren", cut.Find("input").GetAttribute("value")));
+        cut.WaitForAssertion(() => Assert.Contains("\"open\":true", LastUpdate(), StringComparison.Ordinal));
+        Assert.Contains("\"value\":\"ren\"", LastUpdate(), StringComparison.Ordinal);
+        Assert.Contains("\"valueRevision\":0", LastUpdate(), StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "port: with the popup kept mounted, the reset is written to the input when the menu reopens")]
