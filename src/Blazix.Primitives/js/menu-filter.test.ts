@@ -287,8 +287,8 @@ describe('the key router', () => {
   }
 
   // An open filterable menu: the harness's input reference under virtual focus, with the menu-filter Input handle on it.
-  async function openFilterMenu(): Promise<{ harness: ListHarness; input: HTMLInputElement }> {
-    const harness = createListHarness({ reference: 'input', list: { virtual: true } });
+  async function openFilterMenu(itemAttributes?: (index: number, label: string) => Record<string, string>): Promise<{ harness: ListHarness; input: HTMLInputElement }> {
+    const harness = createListHarness({ reference: 'input', list: { virtual: true }, itemAttributes });
     harnesses.push(harness);
     const input = harness.reference as HTMLInputElement;
     handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical' }), createFakeTwin().twin));
@@ -307,6 +307,32 @@ describe('the key router', () => {
     const event = keyDown(input, key, { shiftKey: true });
 
     expect(event.defaultPrevented).toBe(false);
+    expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
+  });
+
+  // KEY-29 (useMenuFilterKeyDown.ts:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
+  it('port: Enter on a highlighted item clicks it', async () => {
+    const { harness, input } = await openFilterMenu();
+    const clicks: MouseEvent[] = [];
+    harness.item(0).addEventListener('click', (event) => clicks.push(event));
+
+    const event = keyDown(input, 'Enter', { ctrlKey: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0].ctrlKey).toBe(true);
+  });
+
+  // KEY-30 (useMenuFilterKeyDown.ts:161-169): the cross-axis key on a highlighted submenu trigger is the trigger's own.
+  it('port: the cross-axis key on a highlighted submenu trigger is dispatched on the trigger', async () => {
+    const { harness, input } = await openFilterMenu((index) => (index === 0 ? { 'aria-haspopup': 'menu' } : {}));
+    input.value = 'on';
+    const keys: string[] = [];
+    harness.item(0).addEventListener('keydown', (event) => keys.push(event.key));
+
+    keyDown(input, 'ArrowRight');
+
+    expect(keys).toEqual(['ArrowRight']);
     expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
   });
 });
