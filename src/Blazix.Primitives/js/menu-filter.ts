@@ -12,6 +12,7 @@
 // It imports `composite`'s exported predicates and reads the session through `interactions`' exports; it edits neither.
 // Interface commit: the option and report names; every acting body throws until its red-first commit.
 
+import { dispatchClickWithModifiers } from './button';
 import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey, skipListNavigation } from './composite';
 import { eventInfo } from './event-info';
 import { platform } from './platform';
@@ -229,8 +230,9 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     keyboardModality = true;
     syncHighlighted();
   };
-  // KEY-22, KEY-30 (useMenuFilterKeyDown.ts:103-125): the router. A key the table gives to the input (`edit`) or to no one
-  // (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not the highlight.
+  // KEY-22, KEY-29, KEY-30 (useMenuFilterKeyDown.ts:103-176): the router. A key the table gives to the input (`edit`) or to
+  // no one (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not the highlight; an
+  // `activate` key clicks the highlighted item and a `submenu` key is dispatched on it. `enter-list` and `close` follow.
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (options.open !== true) {
       return;
@@ -244,8 +246,28 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       activeItemOpensSubmenu: activeItem?.hasAttribute('aria-haspopup') ?? false,
       hasValue: input.value !== '',
     });
-    if (action === 'edit' || action === 'ignore') {
-      skipListNavigation(event);
+    switch (action) {
+      case 'edit':
+      case 'ignore':
+        skipListNavigation(event);
+        break;
+      // KEY-29 (:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
+      case 'activate':
+        skipListNavigation(event);
+        event.preventDefault();
+        dispatchClickWithModifiers(activeItem!, event);
+        break;
+      // KEY-30 (:161-169): the highlighted submenu trigger's own handlers decide, since opening depends on the item and on
+      // both menus' orientations, so the key is dispatched on it.
+      case 'submenu': {
+        skipListNavigation(event);
+        event.preventDefault();
+        const KeyboardEventConstructor = input.ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
+        activeItem!.dispatchEvent(new KeyboardEventConstructor(event.type, event));
+        break;
+      }
+      default:
+        break;
     }
   };
   const onPointer = (): void => {

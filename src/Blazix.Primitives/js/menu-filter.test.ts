@@ -288,7 +288,7 @@ describe('the key router', () => {
 
   // An open filterable menu: the harness's input reference under virtual focus, with the menu-filter Input handle on it.
   async function openFilterMenu(itemAttributes?: (index: number, label: string) => Record<string, string>): Promise<{ harness: ListHarness; input: HTMLInputElement }> {
-    const harness = createListHarness({ reference: 'input', list: { virtual: true }, itemAttributes });
+    const harness = createListHarness({ reference: 'input', list: { virtual: true }, ...(itemAttributes ? { itemAttributes } : {}) });
     harnesses.push(harness);
     const input = harness.reference as HTMLInputElement;
     handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical' }), createFakeTwin().twin));
@@ -320,7 +320,7 @@ describe('the key router', () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(clicks).toHaveLength(1);
-    expect(clicks[0].ctrlKey).toBe(true);
+    expect(clicks[0]?.ctrlKey).toBe(true);
   });
 
   // KEY-30 (useMenuFilterKeyDown.ts:161-169): the cross-axis key on a highlighted submenu trigger is the trigger's own.
