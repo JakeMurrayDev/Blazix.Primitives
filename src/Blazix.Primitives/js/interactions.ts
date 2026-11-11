@@ -4018,6 +4018,11 @@ interface MenuReleaseSlot {
 // Sessions whose floating handle carries Menu's options: every menu Positioner sends them (`floating.menu`).
 const menuSessions = new WeakSet<SessionRecord>();
 
+// Sessions a menubar trigger's menu names as its parent (`trigger.menu.keepArmedWhenClosed`): the bar's elementless
+// session, which holds the slot its menus share (MenuStore.ts:173-181, MenubarContext.ts:19-30; MBR-STA-07; Deliverable 4
+// of M5 track 8).
+const menuForestRoots = new WeakSet<SessionRecord>();
+
 // MenuStore.ts:173-181: Base UI's `allowMouseUpTriggerRef` belongs to the top-level menu, and a submenu, a menubar's menu
 // or a context menu's shares its parent's (the interim review of PR 183, F8). The slot is the outermost session of the
 // chain of menu sessions, so two top-level menus inside one popup of another family keep their own.
@@ -4027,7 +4032,7 @@ function menuTreeRoot(record: SessionRecord): SessionRecord {
   while (current.parentToken !== null && !seen.has(current)) {
     seen.add(current);
     const parent = sessions.get(current.parentToken);
-    if (!parent || !menuSessions.has(parent)) {
+    if (!parent || !(menuSessions.has(parent) || menuForestRoots.has(parent))) {
       break;
     }
     current = parent;
@@ -4175,6 +4180,14 @@ function createMenuTriggerController(context: HandleContext): Controller {
     lastReason = details.reason;
   };
 
+  // A menubar's trigger: the session its menu names as parent is the bar's, whose slot the bar's menus share.
+  const markForestRoot = () => {
+    const parent = menuOptions()?.keepArmedWhenClosed === true && record.parentToken !== null ? sessions.get(record.parentToken) : undefined;
+    if (parent !== undefined) {
+      menuForestRoots.add(parent);
+    }
+  };
+
   // The guard is observed on the positioner, as the trigger's focus event can report a shadow host as `relatedTarget`.
   const onGuardFocusOut = (event: FocusEvent) => {
     const guard = guardPositioner?.querySelector(`[${FOCUS_GUARD_ATTRIBUTE}][data-type="inside"]`) ?? null;
@@ -4207,6 +4220,7 @@ function createMenuTriggerController(context: HandleContext): Controller {
   // hover open by this trigger listens for the release. A trigger with a parent, a menubar's, keeps the arm
   // (`keepArmedWhenClosed`; design point 1 (a) of M5 track 8, settled by the orchestrator 2026-11-11; MBR §16 Q9).
   const onSessionApplied = () => {
+    markForestRoot();
     syncGuardFocusOut();
     const opened = record.open && record.domReferenceElement === element;
     if (opened === openedByThisTrigger) {
@@ -4233,8 +4247,12 @@ function createMenuTriggerController(context: HandleContext): Controller {
     listen(element, 'mousedown', onMouseDown),
     listen(element, 'focus', onFocus),
   );
+  markForestRoot();
   syncGuardFocusOut();
   return {
+    update() {
+      markForestRoot();
+    },
     dispose() {
       cleanup();
       stopListening();
