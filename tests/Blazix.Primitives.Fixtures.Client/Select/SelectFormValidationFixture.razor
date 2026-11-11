@@ -1,0 +1,113 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-form-validation` fixture (tests/browser/select-form.spec.ts; M5 track 9): SelectRoot.test.tsx's `Field` block
+    titles that validate. `?case=`:
+    - `blur` (default): `validationMode="onBlur"`; the select has the item `1`; the validator counts its calls
+      (`data-validate-calls`) and answers `error` for any value, or with `?validate=one` only for the value `1`; a
+      Field.Error (test id `error`) follows the select and a button `outside` follows the field;
+    - `raw`: `validationMode="onBlur"` over the object values United States and Canada (value type Country, code and
+      label), the first committed, with `itemToStringValue` returning the code; the validator records whether it received
+      the very instance of the first item (`data-raw-same`);
+    - `onchange`: `validationMode="onChange"`, the validator answers `error` for the value `1`; the select has the item `1`.
+*@
+<FixtureContainer Name="select-form-validation" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-validate-calls="@validateCalls" data-raw-same="@rawSame">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @switch (Case)
+    {
+        case "raw":
+            <FieldRoot ValidationMode="@ValidationMode.OnBlur" Validate="ValidateRawAsync" data-testid="field">
+                <SelectRoot TValue="Country" @ref="rawRoot" DefaultValue="@s_countries[0]" ItemToStringLabel="@(item => item.Label)" ItemToStringValue="@(item => item.Code)">
+                    <SelectTrigger TValue="Country" @ref="rawTrigger" data-testid="trigger">
+                        <SelectValue TValue="Country" />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false" />
+                    </SelectPortal>
+                </SelectRoot>
+            </FieldRoot>
+            break;
+        case "onchange":
+            <FieldRoot ValidationMode="@ValidationMode.OnChange" Validate="ValidateOneAsync" data-testid="field">
+                <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+                        <SelectValue TValue="string" />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem TValue="string" Value="@("1")">Option 1</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </FieldRoot>
+            break;
+        default:
+            <FieldRoot ValidationMode="@ValidationMode.OnBlur" Validate="@(QueryFlag("one") == true ? ValidateOneAsync : ValidateAlwaysAsync)" data-testid="field">
+                <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" />
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem TValue="string" Value="@("1")">Option 1</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            break;
+    }
+    <button type="button" data-testid="outside">Outside</button>
+</FixtureContainer>
+
+@code {
+    private static readonly Country[] s_countries = [new("US", "United States"), new("CA", "Canada")];
+
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectRoot<Country>? rawRoot;
+    private SelectTrigger<Country>? rawTrigger;
+    private int validateCalls;
+    private string rawSame = string.Empty;
+
+    private sealed record Country(string Code, string Label);
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        root?.Field.TwinAttached ?? Task.CompletedTask,
+        rawTrigger?.TwinsAttached ?? Task.CompletedTask,
+        rawRoot?.SessionAttached ?? Task.CompletedTask,
+        rawRoot?.Field.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    private ValueTask<FieldValidationResult?> ValidateAlwaysAsync(FieldValidationArguments args)
+    {
+        validateCalls++;
+        _ = InvokeAsync(StateHasChanged);
+        return ValueTask.FromResult<FieldValidationResult?>("error");
+    }
+
+    private ValueTask<FieldValidationResult?> ValidateOneAsync(FieldValidationArguments args)
+    {
+        validateCalls++;
+        _ = InvokeAsync(StateHasChanged);
+        return ValueTask.FromResult<FieldValidationResult?>(Equals(args.Value, "1") ? "error" : null);
+    }
+
+    // Base UI: `expect(value).toBe(items[0])` inside the validator; the verdict is an error either way.
+    private ValueTask<FieldValidationResult?> ValidateRawAsync(FieldValidationArguments args)
+    {
+        validateCalls++;
+        rawSame = ReferenceEquals(args.Value, s_countries[0]) ? "true" : "false";
+        _ = InvokeAsync(StateHasChanged);
+        return ValueTask.FromResult<FieldValidationResult?>("error");
+    }
+}

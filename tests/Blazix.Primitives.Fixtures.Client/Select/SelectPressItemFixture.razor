@@ -1,0 +1,164 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.AspNetCore.Components.Web
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-press-item` fixture (tests/browser/select-press.spec.ts, M5 track 9, L4 agent press): the SelectItem.test.tsx
+    titles' roots, one per page. A trigger with a value (placeholder "Select font"), a portaled positioner and a popup holding
+    the items. The query:
+    - `items`: `|`-separated `value` or `value:label` entries (default `one|two`) of the rendered items; with `rootItems=true`
+      the root's Items carry them too (the value then shows the selected item's label), else the value shows the value;
+    - `disabledItems`: `|`-separated item values; `disabled=true` disables the root;
+    - `clickItems`: `|`-separated item values given a consumer onclick, recorded as `data-item-clicks` (`|`-separated
+      values); with `prevent=true` the handler calls PreventPartHandler() (Base UI's `preventBaseUIHandler()`);
+    - `align=false`: `AlignItemWithTrigger=false` (the positioner's default, as Base UI's, is aligned);
+    - `hover=false`: `HighlightItemOnHover=false`; `defaultValue`; `defaultOpen=true`; `open=true`: a root whose Open the
+      page owns (Base UI's `open`); `placeholder`: the value's placeholder (default "Select font", empty for none).
+    The popup has 6 px of padding, so a pointer can enter an item from the side without a vertical movement.
+    The container records the root's changes: `data-value-changes` (`value:reason`, space-separated) and the open changes.
+    The sync button takes the suites' Shift keydown (`data-key-control`).
+*@
+<FixtureContainer Name="select-press-item" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)"
+                  data-item-clicks="@string.Join('|', itemClicks)">
+    <style>
+        [data-testid="trigger"] { display: block; width: 160px; height: 36px; margin: 80px 0 0 40px; box-sizing: border-box; }
+        [data-testid="popup"] { background: white; border: 1px solid #888; min-width: 140px; padding: 6px; box-sizing: border-box; }
+        [data-testid="popup"] [role="option"] { padding: 6px 12px; min-height: 32px; box-sizing: border-box; cursor: default; }
+        [data-testid="popup"] [role="option"][data-highlighted] { background: #cde; }
+    </style>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (controlledOpen)
+    {
+        <SelectRoot TValue="string" @ref="root" Open="true" DefaultValue="@defaultValue" Disabled="@disabled" Items="@(rootItems ? items : null)" HighlightItemOnHover="@hover"
+                    OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
+            @Content
+        </SelectRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" DefaultOpen="@defaultOpen" DefaultValue="@defaultValue" Disabled="@disabled" Items="@(rootItems ? items : null)" HighlightItemOnHover="@hover"
+                    OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
+            @Content
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> valueChanges = [];
+    private readonly List<string> itemClicks = [];
+    private LabeledValue<string>[] items = [new("one", "one"), new("two", "two")];
+    private HashSet<string> disabledItems = [];
+    private HashSet<string> clickItems = [];
+    private bool controlledOpen;
+    private bool defaultOpen;
+    private bool disabled;
+    private bool align = true;
+    private bool hover = true;
+    private bool prevent;
+    private bool rootItems;
+    private string? defaultValue;
+    private string placeholder = "Select font";
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectPositioner? positioner;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, PositionerAttached()];
+
+    // The specs' query is URLSearchParams's, which writes a space as `+`; the base class unescapes percent escapes only.
+    private string? Text(string name) => Query(name)?.Replace('+', ' ');
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (Text("items") is { } list)
+        {
+            items = [.. list.Split('|', StringSplitOptions.RemoveEmptyEntries).Select(entry =>
+            {
+                int colon = entry.IndexOf(':', StringComparison.Ordinal);
+                return colon < 0 ? new LabeledValue<string>(entry, entry) : new LabeledValue<string>(entry[..colon], entry[(colon + 1)..]);
+            })];
+        }
+
+        disabledItems = [.. (Query("disabledItems") ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries)];
+        clickItems = [.. (Query("clickItems") ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries)];
+        controlledOpen = QueryFlag("open") == true;
+        defaultOpen = QueryFlag("defaultOpen") == true;
+        disabled = QueryFlag("disabled") == true;
+        align = QueryFlag("align") != false;
+        hover = QueryFlag("hover") != false;
+        prevent = QueryFlag("prevent") == true;
+        rootItems = QueryFlag("rootItems") == true;
+        defaultValue = Query("defaultValue");
+        placeholder = Text("placeholder") ?? placeholder;
+    }
+
+    // A root that opens at the first render mounts its positioner after the first render, and the items' clicks reach the
+    // `select` module through the positioner's handle: wait for it before the page reads as attached.
+    private async Task PositionerAttached()
+    {
+        if (!controlledOpen && !defaultOpen)
+        {
+            return;
+        }
+
+        for (int i = 0; positioner is null && i < 2000; i++)
+        {
+            await Task.Delay(5);
+        }
+
+        if (positioner is not null)
+        {
+            await positioner.TwinAttached;
+        }
+    }
+
+    private void RecordValueChange(ValueChangeEventArgs<string> args)
+    {
+        valueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+    }
+
+    private void RecordItemClick(string value, MouseEventArgs args)
+    {
+        itemClicks.Add(value);
+        if (prevent)
+        {
+            args.PreventPartHandler();
+        }
+
+        StateHasChanged();
+    }
+
+    private Dictionary<string, object> ItemAttributes(string value)
+    {
+        Dictionary<string, object> attributes = [];
+        if (clickItems.Contains(value))
+        {
+            attributes["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, args => RecordItemClick(value, args));
+        }
+
+        return attributes;
+    }
+
+    private RenderFragment Content => @<text>
+        <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+            <SelectValue TValue="string" data-testid="value">
+                <Placeholder>@placeholder</Placeholder>
+            </SelectValue>
+        </SelectTrigger>
+        <SelectPortal>
+            <SelectPositioner @ref="positioner" data-testid="positioner" AlignItemWithTrigger="@align">
+                <SelectPopup data-testid="popup">
+                    @foreach (LabeledValue<string> item in items)
+                    {
+                        <SelectItem @key="item.Value" TValue="string" Value="@item.Value" Disabled="@disabledItems.Contains(item.Value)"
+                                    data-testid="@("item-" + item.Value)" @attributes="ItemAttributes(item.Value)">@item.Label</SelectItem>
+                    }
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectPortal>
+    </text>;
+}

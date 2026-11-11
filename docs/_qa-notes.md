@@ -111,6 +111,8 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - Form: `onClearErrors` removed in v1.0.0-alpha.9; not a prop in 1.9.0.
 - NumberField: no `role="spinbutton"`/`aria-value*`, no PageUp/PageDown, no Enter commit, no `pattern`, no cursor CSS variables.
 
+- 2026-11-10 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173)): two fidelity corrections in `select.md`. SEL-EDGE-05 said a read-only single-mode activation still requests the close; `select/item/SelectItem.tsx:128-138` returns before the close. SEL-POS-11 counted fourteen "aligned popup scroll resizing" titles; the describe has fifteen.
+
 ## 2026-11-04, menu.md fidelity corrections (M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172))
 
 - MNU-FOC-09: `finalFocus`'s function receives the close's interaction type (`'mouse' | 'touch' | 'pen' | 'keyboard' | ''`), as MNU-API-31 says, not a reason category (`FloatingFocusManager.tsx:50-66`).

@@ -18,6 +18,7 @@ import {
   getLogicalSide,
   hide,
   readPlacement,
+  setAligned,
   transformOrigin,
   update as updatePosition,
   type OffsetData,
@@ -1196,6 +1197,105 @@ describe('positioning module: the attribute writes', () => {
   });
 });
 
+// SEL-STA-20, SEL-POS-14, SEL-STA-28 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the
+// user 2026-11-03; design point 2 (i), settled by the orchestrator 2026-11-04): Select's module tells the Positioner it
+// is placed over the trigger.
+describe('positioning module: setAligned', () => {
+  it('writes data-side none while told aligned, then the resolved side again, and keeps reporting the resolved side', async () => {
+    stubViewport();
+    const { positioner, fake } = setup();
+    await settle();
+    expect(positioner.getAttribute('data-side')).toBe('bottom');
+
+    let passes = 0;
+    setAligned(positioner, true, () => passes++);
+    expect(positioner.getAttribute('data-side')).toBe('none');
+    expect(passes).toBe(1);
+
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(positioner.getAttribute('data-side')).toBe('none');
+    expect(readPlacement(positioner)).toMatchObject({ side: 'bottom' });
+    expect(fake.reported<{ side: string }>('OnPlacementChange').every((entry) => entry.side !== 'none')).toBe(true);
+
+    setAligned(positioner, false);
+    expect(positioner.getAttribute('data-side')).toBe('bottom');
+  });
+
+  // F4 of PR 205's final review (M5 track 9; settled by the orchestrator 2026-11-11, option (a)): the `select` handle
+  // attaches when the force-mounted Popup renders, before the `positioning` handle that only an open attaches, so the
+  // module holds its request and applies it when its own handle attaches; a stand-down before that clears it.
+  it('holds an aligned request made before its handle attaches and applies it at attach, and a stand-down clears it', async () => {
+    stubViewport();
+    const early = document.createElement('div');
+    let passes = 0;
+    expect(setAligned(early, true, () => passes++)).toBe(true);
+    expect(setAligned(early, false)).toBe(true);
+
+    const trigger = document.createElement('button');
+    trigger.id = 'trigger';
+    stubRect(trigger, 100, 100, 72, 36);
+    const positioner = document.createElement('div');
+    positioner.setAttribute('role', 'presentation');
+    positioner.setAttribute('data-open', '');
+    document.body.append(trigger, positioner);
+    expect(setAligned(positioner, true, () => passes++)).toBe(true);
+    handles.push(attach(positioner, JSON.stringify(options()), createFakeTwin().twin));
+    await settle();
+
+    expect(positioner.getAttribute('data-side')).toBe('none');
+    expect(passes).toBeGreaterThan(0);
+    document.body.append(early);
+    handles.push(attach(early, JSON.stringify(options()), createFakeTwin().twin));
+    await settle();
+    expect(early.getAttribute('data-side')).not.toBe('none');
+  });
+
+  // DP1 (a) of M5 track 9, settled by the orchestrator 2026-11-04 (select/positioner/SelectPositioner.tsx:115): Base UI
+  // renders `{ position: 'fixed' }` in place of the anchored styles while aligned, so no anchored translate is left to
+  // move the popup the select module places over its trigger; usePositioner's `pointer-events: none` while closed stays.
+  it('stands its layer down to position: fixed while told aligned, with no anchored translate, and restores it after', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    await settle();
+    expect(positioner.style.transform).toMatch(/^translate\(/);
+
+    setAligned(positioner, true);
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.transform).toBe('');
+    expect(positioner.style.top).toBe('');
+    expect(positioner.style.left).toBe('');
+    expect(positioner.style.opacity).toBe('');
+    // SEL-DOM-22: the measured variables stay, from the measured layer.
+    expect(positioner.style.getPropertyValue('--available-height')).toMatch(/px$/);
+
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(positioner.style.transform).toBe('');
+
+    setAligned(positioner, false);
+    expect(positioner.style.position).toBe('absolute');
+    expect(positioner.style.transform).toMatch(/^translate\(/);
+  });
+
+  it('keeps opacity 0 on an aligned handle until its first pass, so nothing shows before the placement', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    let placed = 0;
+    setAligned(positioner, true, () => {
+      placed++;
+      expect(positioner.style.opacity).toBe('');
+    });
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.opacity).toBe('0');
+    expect(placed).toBe(0);
+
+    await settle();
+    expect(placed).toBeGreaterThan(0);
+    expect(positioner.style.opacity).toBe('');
+  });
+});
+
 describe('positioning module: the handle', () => {
   it('returns the live handle on a repeated attach and disposes idempotently, stopping the tracking and dropping a pass still in flight', async () => {
     stubViewport();
@@ -1510,3 +1610,52 @@ describe('positioning module: a reopen while still mounted', () => {
   });
 });
 
+describe('positioning module: the size variables at the close', () => {
+  // SEL-POS-06 (M5 track 9; settled by the orchestrator 2026-11-10): Base UI's size() writes nothing once unmounted
+  // (internals/useAnchorPositioning.ts:363). The module hears of the unmount from the Positioner's `hidden`, one update after
+  // the exit's end hid the popup inside it; a pass in between measures the collapsed Positioner, and the next open would
+  // start from that size (Select's touch-dismiss reopen stayed on the side the collapsed popup fit).
+  it('port: writes no size variables once a closed Positioner has collapsed, so the next open starts from the size it closed with, and still writes for one that keeps a box or is open', async () => {
+    stubViewport();
+    const { positioner } = setup();
+    await settle();
+    const height = positioner.style.getPropertyValue('--available-height');
+    expect(height).toMatch(/px$/);
+
+    // Closed and still mounted; the content is gone, so the box is empty (as jsdom's always is).
+    positioner.removeAttribute('data-open');
+    await settle();
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 300 });
+    const passes = spies.computePosition.mock.calls.length;
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+
+    expect(spies.computePosition.mock.calls.length).toBeGreaterThan(passes);
+    expect(positioner.style.getPropertyValue('--available-height')).toBe(height);
+
+    // The boundary (final review N1), folded into this title so it is red against the base (ADR 11 §3): a closed
+    // Positioner that keeps a box still writes, and so does an open one with an empty box.
+    Object.defineProperty(positioner, 'offsetWidth', { configurable: true, value: 120 });
+    Object.defineProperty(positioner, 'offsetHeight', { configurable: true, value: 80 });
+    positioner.style.width = '120px';
+    positioner.style.height = '80px';
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 500 });
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    const kept = positioner.style.getPropertyValue('--available-height');
+    expect(kept).toMatch(/px$/);
+    expect(kept).not.toBe(height);
+
+    Object.defineProperty(positioner, 'offsetWidth', { configurable: true, value: 0 });
+    Object.defineProperty(positioner, 'offsetHeight', { configurable: true, value: 0 });
+    positioner.style.width = '';
+    positioner.style.height = '';
+    positioner.setAttribute('data-open', '');
+    await settle();
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 700 });
+    window.dispatchEvent(new Event('resize'));
+    await settle();
+    expect(positioner.style.getPropertyValue('--available-height')).toMatch(/px$/);
+    expect(positioner.style.getPropertyValue('--available-height')).not.toBe(kept);
+  });
+});

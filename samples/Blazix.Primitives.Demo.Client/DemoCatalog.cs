@@ -38,6 +38,7 @@ public static class DemoCatalog
         new("menu", "Menu", "A list of actions in a popup anchored to a button, with checkbox items and a submenu of radio items.", typeof(MenuDemo)),
         new("combobox", "Combobox", "An input that filters a list of options as the user types, here a list of fruits.", typeof(ComboboxDemo)),
         new("context-menu", "Context Menu", "A menu that opens at the pointer on a right click or a long press, with a submenu.", typeof(ContextMenuDemo)),
+        new("select", "Select", "A button that opens a list of options to choose one from, placed over the button with the chosen option aligned.", typeof(SelectDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

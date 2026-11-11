@@ -1,0 +1,282 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: SelectTrigger.test.tsx's titles bUnit observes (M5 track 9). A press is the interactions module's report, the
+    placement the positioning module's; focus, the release check and the aligned geometry are L4 (tests/browser/select.spec.ts).
+*@
+
+@code {
+    private sealed record ShippingMethod(string Id, string Name);
+
+    [Fact(DisplayName = "throws a descriptive error when rendered outside <Select.Root>")]
+    [Trait("Requirement", "SEL-STR-02")]
+    [Trait("Requirement", "SEL-EDGE-01")]
+    public void Throws_outside_the_root()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<SelectTrigger<string>>());
+
+        Assert.Equal("Blazix: `SelectRootContext` is missing. Select parts must be placed within `<SelectRoot>`.", error.Message);
+    }
+
+    [Fact(DisplayName = "is removed from the tab order when disabled and not rendered as a button")]
+    [Trait("Requirement", "SEL-API-24")]
+    [Trait("Requirement", "SEL-API-25")]
+    [Trait("Requirement", "SEL-DOM-07")]
+    public void Is_removed_from_the_tab_order_when_disabled_and_not_rendered_as_a_button()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Disabled="true">
+            <SelectTrigger data-testid="trigger" NativeButton="false">
+                <Render><div></div></Render>
+                <ChildContent><SelectValue /></ChildContent>
+            </SelectTrigger>
+        </SelectRoot>);
+
+        IElement trigger = cut.Find("[data-testid=\"trigger\"]");
+        Assert.Equal("DIV", trigger.TagName);
+        Assert.Equal("-1", trigger.GetAttribute("tabindex"));
+    }
+
+    [Fact(DisplayName = "cannot be focused when disabled")]
+    [Trait("Requirement", "SEL-API-24")]
+    [Trait("Requirement", "SEL-DOM-07")]
+    public void Cannot_be_focused_when_disabled()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")">
+            <SelectTrigger data-testid="trigger" Disabled="true">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IElement trigger = cut.Find("[data-testid=\"trigger\"]");
+        Assert.True(trigger.HasAttribute("data-disabled"));
+        // The native button's `disabled` takes it out of the tab order (the Tab press itself is L4).
+        Assert.True(trigger.HasAttribute("disabled"));
+    }
+
+    [Fact(DisplayName = "does not toggle the popup when disabled")]
+    [Trait("Requirement", "SEL-API-24")]
+    public void Does_not_toggle_the_popup_when_disabled()
+    {
+        int openChanges = 0;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")" OnOpenChange="_ => openChanges++">
+            <SelectTrigger data-testid="trigger" Disabled="true">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        // The trigger's interactions handle carries no press while disabled, so the module reports none.
+        string triggerId = Trigger(cut).Id!;
+        string options = (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains("\"triggerId\":\"" + triggerId + "\"", StringComparison.Ordinal)).Arguments[1]!;
+        foreach (JSRuntimeInvocation update in InteractionsHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains("\"triggerId\":\"" + triggerId + "\"", StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        Assert.DoesNotContain("\"click\":", options, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Equal(0, openChanges);
+    }
+
+    [Fact(DisplayName = "sets aria-required attribute when required")]
+    [Trait("Requirement", "SEL-API-11")]
+    [Trait("Requirement", "SEL-ARIA-06")]
+    public void Sets_aria_required_when_required()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Required="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        Assert.Equal("true", cut.Find("[data-testid=\"trigger\"]").GetAttribute("aria-required"));
+    }
+
+    [Fact(DisplayName = "should have the data-placeholder attribute when provided `null` value")]
+    [Trait("Requirement", "SEL-STA-02")]
+    [Trait("Requirement", "SEL-DOM-04")]
+    [Trait("Requirement", "SEL-DOM-11")]
+    public void Has_data_placeholder_when_provided_a_null_value()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@(default(string))">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.True(cut.Find("[data-testid=\"trigger\"]").HasAttribute("data-placeholder"));
+        Assert.True(cut.Find("[data-testid=\"value\"]").HasAttribute("data-placeholder"));
+    }
+
+    [Fact(DisplayName = "should have the data-placeholder attribute when provided custom property with `itemToStringValue`")]
+    [Trait("Requirement", "SEL-STA-02")]
+    [Trait("Requirement", "SEL-DOM-04")]
+    [Trait("Requirement", "SEL-DOM-11")]
+    public void Has_data_placeholder_with_a_custom_item_to_string_value()
+    {
+        ShippingMethod[] shippingMethods = [new("", "Default"), new("standard", "Standard"), new("express", "Express"), new("overnight", "Overnight")];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="ShippingMethod" DefaultValue="@shippingMethods[0]" ItemToStringValue="item => item.Id" ItemToStringLabel="item => item.Name">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        IElement value = cut.Find("[data-testid=\"value\"]");
+        Assert.True(cut.Find("[data-testid=\"trigger\"]").HasAttribute("data-placeholder"));
+        Assert.True(value.HasAttribute("data-placeholder"));
+        Assert.Equal("Default", value.TextContent);
+    }
+
+    [Fact(DisplayName = "should have the data-placeholder attribute when provided { value: null }")]
+    [Trait("Requirement", "SEL-API-30")]
+    [Trait("Requirement", "SEL-STA-02")]
+    [Trait("Requirement", "SEL-DOM-04")]
+    [Trait("Requirement", "SEL-DOM-11")]
+    public void Has_data_placeholder_when_provided_a_null_item()
+    {
+        LabeledValue<string>[] fonts = [new(null!, "Select font")];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Items="fonts">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        IElement value = cut.Find("[data-testid=\"value\"]");
+        Assert.True(cut.Find("[data-testid=\"trigger\"]").HasAttribute("data-placeholder"));
+        Assert.True(value.HasAttribute("data-placeholder"));
+        Assert.Equal("Select font", value.TextContent);
+    }
+
+    [Fact(DisplayName = "should not have the data-placeholder attribute when provided a value")]
+    [Trait("Requirement", "SEL-STA-02")]
+    [Trait("Requirement", "SEL-DOM-04")]
+    [Trait("Requirement", "SEL-DOM-11")]
+    public void Has_no_data_placeholder_when_provided_a_value()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("a")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        Assert.Equal("a", cut.Find("[data-testid=\"value\"]").TextContent);
+        Assert.False(cut.Find("[data-testid=\"trigger\"]").HasAttribute("data-placeholder"));
+        Assert.False(cut.Find("[data-testid=\"value\"]").HasAttribute("data-placeholder"));
+    }
+
+    [Fact(DisplayName = "should not have the data-placeholder attribute when multiple mode has a default value")]
+    [Trait("Requirement", "SEL-STA-02")]
+    [Trait("Requirement", "SEL-DOM-04")]
+    [Trait("Requirement", "SEL-DOM-11")]
+    public void Has_no_data_placeholder_when_multiple_mode_has_a_default_value()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Multiple="true" DefaultValues="@(new[] { "a" })">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        Assert.Equal("a", cut.Find("[data-testid=\"value\"]").TextContent);
+        Assert.False(cut.Find("[data-testid=\"trigger\"]").HasAttribute("data-placeholder"));
+        Assert.False(cut.Find("[data-testid=\"value\"]").HasAttribute("data-placeholder"));
+    }
+
+    [Fact(DisplayName = "sets data-popup-side to the current popup side")]
+    [Trait("Requirement", "SEL-DOM-05")]
+    [Trait("Requirement", "SEL-STA-28")]
+    public async Task Sets_data_popup_side_to_the_current_popup_side()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger data-testid="trigger">Trigger</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner Side="Side.Right" AlignItemWithTrigger="false">
+                    <SelectPopup>
+                        <SelectItem Value="@("apple")">apple</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        IElement trigger = cut.Find("[data-testid=\"trigger\"]");
+        Assert.False(trigger.HasAttribute("data-popup-side"));
+
+        await OpenAsync(cut);
+        await PlaceAsync(cut, "right");
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Equal("right", cut.Find("[data-testid=\"trigger\"]").GetAttribute("data-popup-side"));
+
+        await CloseAsync<string>(cut);
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.False(cut.Find("[data-testid=\"trigger\"]").HasAttribute("data-popup-side"));
+    }
+
+    [Fact(DisplayName = "sets data-popup-side to the resolved side when alignItemWithTrigger is active")]
+    [Trait("Requirement", "SEL-DOM-05")]
+    [Trait("Requirement", "SEL-STA-28")]
+    public async Task Sets_data_popup_side_to_the_resolved_side_when_aligned()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("apple")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner data-testid="positioner">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem Value="@("apple")">apple</SelectItem>
+                        <SelectItem Value="@("orange")">orange</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+        await PlaceAsync(cut, "bottom");
+
+        // The positioner's `data-side="none"` is the positioning module's write once told aligned (L3, L4); C# renders the
+        // popup's, and the trigger's resolved side.
+        Assert.Equal("none", cut.Find("[data-testid=\"popup\"]").GetAttribute("data-side"));
+        Assert.Equal("bottom", cut.Find("[data-testid=\"trigger\"]").GetAttribute("data-popup-side"));
+    }
+
+    [Fact(DisplayName = "should have the data-popup-open and data-pressed attributes when open")]
+    [Trait("Requirement", "SEL-DOM-02")]
+    public async Task Has_data_popup_open_and_data_pressed_when_open()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger />
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        IElement trigger = Trigger(cut);
+        Assert.True(trigger.HasAttribute("data-popup-open"));
+        Assert.True(trigger.HasAttribute("data-pressed"));
+    }
+}

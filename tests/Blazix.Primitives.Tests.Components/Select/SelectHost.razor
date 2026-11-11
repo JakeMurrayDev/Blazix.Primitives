@@ -1,0 +1,13 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The host of a Select test's tree: the test's fragment reads the test's own variables, and RefreshAsync renders it
+    again, as a React test's rerender does with new props.
+*@
+@ChildContent
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    public Task RefreshAsync() => InvokeAsync(StateHasChanged);
+}

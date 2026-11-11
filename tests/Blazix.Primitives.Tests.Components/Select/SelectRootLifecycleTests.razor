@@ -1,0 +1,886 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Blazix.Primitives.Interop
+@using Bunit
+@*
+    L2: the root-level lifecycle titles of SelectRoot.test.tsx (M5 track 9): "manual unmount lifecycle", the popup
+    conformance suite's titles bUnit observes, "server-side rendering", "prop: defaultOpen", "prop: modal" and
+    "prop: actionsRef". The exit animation is the transitions module's report, stood in for by CompleteTransitionAsync
+    (the exit finished); the Escape press, the outside press and the focus-out are the interactions module's reports;
+    animations, layout, scroll locking and focus are L4 (tests/browser/select.spec.ts).
+*@
+
+@code {
+    // "manual unmount lifecycle"'s Popup: a Select.Root whose open state is always controlled, `open={props.open ?? open}`,
+    // with `setOpen(nextOpen)` after the consumer's `onOpenChange` unless the request was canceled.
+    private IRenderedComponent<SelectHost> cut = null!;
+    private bool popupOpen;
+    private bool? propOpen;
+    private bool propDefaultOpen;
+    private Action<ValueChangeEventArgs<bool>>? propOnOpenChange;
+    private Action<bool>? propOnOpenChangeComplete;
+    private readonly List<bool> completes = [];
+
+    // The conformance suite's createComponent, one field per root prop the suite passes.
+    private bool confOpen;
+    private bool confDefaultOpen;
+
+    private int FalseCompletions => completes.Count(open => !open);
+
+    private IRenderedComponent<SelectHost> RenderPopup(
+        bool defaultOpen = false,
+        bool? open = null,
+        Action<ValueChangeEventArgs<bool>>? onOpenChange = null,
+        Action<bool>? onOpenChangeComplete = null)
+    {
+        popupOpen = defaultOpen;
+        propDefaultOpen = defaultOpen;
+        propOpen = open;
+        propOnOpenChange = onOpenChange;
+        propOnOpenChangeComplete = onOpenChangeComplete;
+        cut = RenderSelect(PopupTree());
+        return cut;
+    }
+
+    private RenderFragment PopupTree()
+    {
+        return @<SelectRoot TValue="string" Open="@(propOpen ?? popupOpen)" DefaultOpen="@propDefaultOpen" OnOpenChange="HandlePopupOpenChange" OnOpenChangeComplete="HandlePopupOpenChangeComplete">
+            <SelectTrigger />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("apple")">Apple</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>;
+    }
+
+    private async Task HandlePopupOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        propOnOpenChange?.Invoke(args);
+        if (!args.Details.IsCanceled)
+        {
+            popupOpen = args.Value;
+            await cut.Instance.RefreshAsync();
+        }
+    }
+
+    private void HandlePopupOpenChangeComplete(bool open)
+    {
+        completes.Add(open);
+        propOnOpenChangeComplete?.Invoke(open);
+    }
+
+    private SelectRoot<string> RootOf() => cut.FindComponent<SelectRoot<string>>().Instance;
+
+    private IReadOnlyList<IElement> Listbox() => cut.FindAll("[role=\"listbox\"]");
+
+    private static void PreventUnmount(ValueChangeEventArgs<bool> args)
+    {
+        if (!args.Value)
+        {
+            ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+        }
+    }
+
+    // ----- manual unmount lifecycle -----
+
+    [Fact(DisplayName = "automatically unmounts with an actions ref and completes closing once")]
+    [Trait("Requirement", "SEL-API-06")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Automatically_unmounts_with_an_actions_ref_and_completes_closing_once()
+    {
+        RenderPopup();
+
+        Assert.Empty(completes);
+        await OpenAsync(cut);
+        Assert.NotEmpty(Listbox());
+        await SessionRequestAsync(cut, open: false, "escape-key", Key("Escape"));
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+
+        // Calling the action after the automatic unmount must not repeat the completion.
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.Equal(1, FalseCompletions);
+    }
+
+    [Fact(DisplayName = "keeps the popup mounted until the unmount action completes closing")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-EVT-10")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Keeps_the_popup_mounted_until_the_unmount_action_completes_closing()
+    {
+        RenderPopup(defaultOpen: true, onOpenChange: PreventUnmount);
+
+        await ClickOptionAsync(cut, "Apple");
+        // The exit finishing (the transitions module's report) must not unmount a close that opted out.
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+        Assert.DoesNotContain(false, completes);
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.Empty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+
+        propOpen = true;
+        await RefreshAsync(cut);
+        Assert.NotEmpty(Listbox());
+        propOpen = false;
+        await RefreshAsync(cut);
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(Listbox());
+        Assert.Equal(2, FalseCompletions);
+    }
+
+    [Fact(DisplayName = "clears the opt-out when a controlled reopen interrupts a pending unmount")]
+    [Trait("Requirement", "SEL-ANI-09")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-EVT-10")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Clears_the_opt_out_when_a_controlled_reopen_interrupts_a_pending_unmount()
+    {
+        RenderPopup(defaultOpen: true, onOpenChange: PreventUnmount);
+
+        await ClickOptionAsync(cut, "Apple");
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+        Assert.DoesNotContain(false, completes);
+        propOpen = true;
+        await RefreshAsync(cut);
+        propOpen = false;
+        await RefreshAsync(cut);
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+    }
+
+    [Fact(DisplayName = "ignores an opt-out on a canceled close")]
+    [Trait("Requirement", "SEL-ANI-09")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-DIS-12")]
+    [Trait("Requirement", "SEL-EVT-09")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Ignores_an_opt_out_on_a_canceled_close()
+    {
+        bool cancel = true;
+        RenderPopup(defaultOpen: true, onOpenChange: args =>
+        {
+            if (!args.Value && cancel)
+            {
+                ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                args.Details.Cancel();
+            }
+        });
+
+        await ClickOptionAsync(cut, "Apple");
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-expanded"));
+        Assert.NotEmpty(Listbox());
+        cancel = false;
+        await ClickOptionAsync(cut, "Apple");
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(Listbox());
+    }
+
+    [Fact(DisplayName = "keeps the opt-out when a controlled close is applied in a transition")]
+    [Trait("Requirement", "SEL-ANI-09")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-EVT-10")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Keeps_the_opt_out_when_a_controlled_close_is_applied_in_a_transition()
+    {
+        // Blazor has no concurrent transition: `React.startTransition(() => setOpen(nextOpen))` becomes a controlled close
+        // the consumer applies after the callback returned, which is when the opt-out must still hold.
+        bool? deferred = null;
+        RenderPopup(open: true, onOpenChange: args =>
+        {
+            PreventUnmount(args);
+            deferred = args.Value;
+        });
+
+        await ClickOptionAsync(cut, "Apple");
+        propOpen = deferred;
+        await RefreshAsync(cut);
+        Assert.Equal("false", Trigger(cut).GetAttribute("aria-expanded"));
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+        Assert.DoesNotContain(false, completes);
+
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.Empty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+    }
+
+    [Fact(DisplayName = "closes through the `close` action so `onOpenChange` can opt out")]
+    [Trait("Requirement", "SEL-API-05")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-DIS-08")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Closes_through_the_close_action_so_onOpenChange_can_opt_out()
+    {
+        List<EventReason> reasons = [];
+        RenderPopup(defaultOpen: true, onOpenChange: args =>
+        {
+            reasons.Add(args.Details.Reason);
+            PreventUnmount(args);
+        });
+
+        await cut.InvokeAsync(RootOf().CloseAsync);
+        Assert.Equal([EventReason.ImperativeAction], reasons);
+        Assert.Equal("false", Trigger(cut).GetAttribute("aria-expanded"));
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.Empty(Listbox());
+    }
+
+    [Fact(DisplayName = "ignores `unmount` while the popup is open")]
+    [Trait("Requirement", "SEL-ANI-08")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Ignores_unmount_while_the_popup_is_open()
+    {
+        RenderPopup(defaultOpen: true);
+        string? popupId = cut.Find("[role=\"listbox\"]").Id;
+        Assert.False(string.IsNullOrEmpty(popupId));
+
+        await cut.InvokeAsync(RootOf().Unmount);
+
+        Assert.Equal(popupId, cut.Find("[role=\"listbox\"]").Id);
+        Assert.DoesNotContain(false, completes);
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-expanded"));
+    }
+
+    [Fact(DisplayName = "unmounts when `close` and `unmount` are called in one batch")]
+    [Trait("Requirement", "SEL-ANI-08")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-EVT-10")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Unmounts_when_close_and_unmount_are_called_in_one_batch()
+    {
+        RenderPopup(defaultOpen: true, onOpenChange: PreventUnmount);
+        Assert.NotEmpty(Listbox());
+
+        SelectRoot<string> root = RootOf();
+        await cut.InvokeAsync(async () =>
+        {
+            Task closing = root.CloseAsync();
+            root.Unmount();
+            await closing;
+        });
+
+        Assert.Empty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+    }
+
+    [Fact(DisplayName = "still unmounts on a later close after `unmount` was called while open")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Still_unmounts_on_a_later_close_after_unmount_was_called_while_open()
+    {
+        RenderPopup(defaultOpen: true);
+
+        // A stale exit-animation callback can call `unmount()` after a quick reopen.
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.NotEmpty(Listbox());
+
+        await SessionRequestAsync(cut, open: false, "escape-key", Key("Escape"));
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(Listbox());
+        Assert.False(completes[^1]);
+    }
+
+    [Fact(DisplayName = "still unmounts on a later close after `unmount` and a reopen in one batch")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Still_unmounts_on_a_later_close_after_unmount_and_a_reopen_in_one_batch()
+    {
+        bool reopenOnComplete = true;
+        bool optOut = true;
+        RenderPopup(
+            open: true,
+            onOpenChange: args =>
+            {
+                if (!args.Value && optOut)
+                {
+                    ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose();
+                }
+
+                propOpen = args.Value;
+            },
+            onOpenChangeComplete: next =>
+            {
+                // An exit-animation callback that reopens right after it unmounts.
+                if (!next && reopenOnComplete)
+                {
+                    reopenOnComplete = false;
+                    propOpen = true;
+                    _ = cut.Instance.RefreshAsync();
+                }
+            });
+
+        await cut.InvokeAsync(RootOf().CloseAsync);
+        Assert.NotEmpty(Listbox());
+
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.NotEmpty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+
+        optOut = false;
+        await ClickOptionAsync(cut, "Apple");
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(Listbox());
+        Assert.Equal(2, FalseCompletions);
+    }
+
+    [Fact(DisplayName = "does not call `onOpenChange` when the `close` action is called while closed")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-DIS-08")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Does_not_call_onOpenChange_when_the_close_action_is_called_while_closed()
+    {
+        int openChanges = 0;
+        RenderPopup(onOpenChange: _ => openChanges++);
+
+        await cut.InvokeAsync(RootOf().CloseAsync);
+
+        Assert.Equal(0, openChanges);
+        Assert.Equal("false", Trigger(cut).GetAttribute("aria-expanded"));
+    }
+
+    [Fact(DisplayName = "completes closing once when `unmount` is called twice in one batch")]
+    [Trait("Requirement", "SEL-API-17")]
+    [Trait("Requirement", "SEL-STA-10")]
+    public async Task Completes_closing_once_when_unmount_is_called_twice_in_one_batch()
+    {
+        RenderPopup(defaultOpen: true, onOpenChange: PreventUnmount);
+
+        await ClickOptionAsync(cut, "Apple");
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+
+        SelectRoot<string> root = RootOf();
+        await cut.InvokeAsync(() =>
+        {
+            root.Unmount();
+            root.Unmount();
+        });
+        Assert.Empty(Listbox());
+        Assert.Equal(1, FalseCompletions);
+    }
+
+    // ----- conformance: the popup suite (popupConformanceTests) inside <Select.Root> -----
+
+    // createComponent: the suite's Root, Trigger (data-testid="trigger"), Portal, Positioner and Popup (data-testid="popup").
+    private RenderFragment ConformanceTree(EventCallback<ValueChangeEventArgs<bool>> onOpenChange = default)
+    {
+        return @<SelectRoot TValue="string" Open="@confOpen" DefaultOpen="@confDefaultOpen" OnOpenChange="onOpenChange" OnOpenChangeComplete="HandlePopupOpenChangeComplete">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup data-testid="popup">
+                        <SelectItem>Item</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>;
+    }
+
+    // The suite's uncontrolled root: neither `open` nor `defaultOpen` supplied unless the test says so.
+    private RenderFragment UncontrolledTree(EventCallback<ValueChangeEventArgs<bool>> onOpenChange = default)
+    {
+        return @<SelectRoot TValue="string" OnOpenChange="onOpenChange" OnOpenChangeComplete="HandlePopupOpenChangeComplete">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup data-testid="popup">
+                        <SelectItem>Item</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>;
+    }
+
+    private IReadOnlyList<IElement> Popups() => cut.FindAll("[data-testid=\"popup\"]");
+
+    private IElement ConformanceTrigger() => cut.Find("[data-testid=\"trigger\"]");
+
+    [Fact(DisplayName = "opens the popup with the `open` prop")]
+    [Trait("Requirement", "SEL-API-04")]
+    public async Task Opens_the_popup_with_the_open_prop()
+    {
+        confOpen = false;
+        cut = RenderSelect(ConformanceTree());
+        Assert.Empty(Popups());
+
+        confOpen = true;
+        await RefreshAsync(cut);
+        Assert.NotEmpty(Popups());
+    }
+
+    // "opens initially and remains uncontrolled" is L4 only (SEL-ANI-10), as is "is called with the new open state and the
+    // change details" (SEL-EVT-08): tests/browser/select.spec.ts.
+    [Fact(DisplayName = "is ignored when `open={false}` is passed")]
+    [Trait("Requirement", "SEL-API-04")]
+    public void Is_ignored_when_open_false_is_passed()
+    {
+        confOpen = false;
+        confDefaultOpen = true;
+        cut = RenderSelect(ConformanceTree());
+
+        Assert.Empty(Popups());
+    }
+
+    [Fact(DisplayName = "is ignored when `open={true}` is passed, so Escape cannot close")]
+    [Trait("Requirement", "SEL-DIS-12")]
+    public async Task Is_ignored_when_open_true_is_passed_so_Escape_cannot_close()
+    {
+        confOpen = true;
+        confDefaultOpen = true;
+        cut = RenderSelect(ConformanceTree());
+        Assert.NotEmpty(Popups());
+        Assert.True(Popups()[0].HasAttribute("data-open"));
+
+        await SessionRequestAsync(cut, open: false, "escape-key", Key("Escape"));
+
+        // A controlled consumer that does not apply `open={false}` keeps the popup open.
+        Assert.NotEmpty(Popups());
+        Assert.True(Popups()[0].HasAttribute("data-open"));
+        Assert.Equal("true", ConformanceTrigger().GetAttribute("aria-expanded"));
+    }
+
+    [Fact(DisplayName = "keeps the popup closed when the open change is canceled")]
+    [Trait("Requirement", "SEL-DIS-12")]
+    [Trait("Requirement", "SEL-EVT-09")]
+    public async Task Keeps_the_popup_closed_when_the_open_change_is_canceled()
+    {
+        List<(bool Open, EventReason Reason)> calls = [];
+        cut = RenderSelect(UncontrolledTree(EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
+        {
+            calls.Add((args.Value, args.Details.Reason));
+            if (args.Value)
+            {
+                args.Details.Cancel();
+            }
+        })));
+
+        await OpenAsync(cut);
+
+        // The open request was made, so a missing popup proves `cancel()` prevented it.
+        Assert.Equal([(true, EventReason.TriggerPress)], calls);
+        Assert.Empty(Popups());
+        Assert.False(ConformanceTrigger().HasAttribute("data-popup-open"));
+    }
+
+    [Fact(DisplayName = "has the listbox role on the popup")]
+    [Trait("Requirement", "SEL-ARIA-08")]
+    [Trait("Requirement", "SEL-DOM-23")]
+    public void Has_the_listbox_role_on_the_popup()
+    {
+        confOpen = true;
+        cut = RenderSelect(ConformanceTree());
+
+        Assert.Equal("listbox", Popups()[0].GetAttribute("role"));
+    }
+
+    [Fact(DisplayName = "has the `aria-controls` attribute on the trigger")]
+    [Trait("Requirement", "SEL-ARIA-04")]
+    public void Has_the_aria_controls_attribute_on_the_trigger()
+    {
+        confOpen = true;
+        cut = RenderSelect(ConformanceTree());
+
+        IElement popup = Popups()[0];
+        Assert.False(string.IsNullOrEmpty(popup.Id));
+        Assert.Equal(popup.Id, ConformanceTrigger().GetAttribute("aria-controls"));
+    }
+
+    [Fact(DisplayName = "opens on trigger click and sets `aria-expanded` on the trigger")]
+    [Trait("Requirement", "SEL-ARIA-01")]
+    [Trait("Requirement", "SEL-ARIA-02")]
+    public async Task Opens_on_trigger_click_and_sets_aria_expanded_on_the_trigger()
+    {
+        cut = RenderSelect(UncontrolledTree());
+        IElement trigger = ConformanceTrigger();
+        Assert.Empty(Popups());
+        Assert.Equal("false", trigger.GetAttribute("aria-expanded"));
+
+        await OpenAsync(cut);
+
+        // The press is the interactions module's report; the pointer events themselves are L4.
+        Assert.NotEmpty(Popups());
+        Assert.Equal(string.Empty, Popups()[0].GetAttribute("data-open"));
+        Assert.Equal("true", ConformanceTrigger().GetAttribute("aria-expanded"));
+    }
+
+    [Fact(DisplayName = "has the `aria-haspopup` attribute on the trigger")]
+    [Trait("Requirement", "SEL-ARIA-03")]
+    public async Task Has_the_aria_haspopup_attribute_on_the_trigger()
+    {
+        confOpen = false;
+        cut = RenderSelect(ConformanceTree());
+        Assert.Equal("listbox", ConformanceTrigger().GetAttribute("aria-haspopup"));
+
+        confOpen = true;
+        await RefreshAsync(cut);
+        Assert.NotEmpty(Popups());
+        Assert.Equal("listbox", ConformanceTrigger().GetAttribute("aria-haspopup"));
+    }
+
+    [Fact(DisplayName = "allows a custom `id` prop")]
+    [Trait("Requirement", "SEL-ARIA-04")]
+    [Trait("Requirement", "SEL-DOM-23")]
+    public void Allows_a_custom_id_prop()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup data-testid="popup" id="TestId">
+                        <SelectItem>Item</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("TestId", Popups()[0].GetAttribute("id"));
+        Assert.Equal("TestId", ConformanceTrigger().GetAttribute("aria-controls"));
+    }
+
+    // "prop: onOpenChangeComplete": the enter and exit completions are the popup's transitions report; that the report
+    // fires only once the enter animation finished is the module's (L3, L4: "is called on open once the enter animation
+    // finishes", "is called on close once the exit animation finishes"), and "animations" (both titles) is L4.
+    [Fact(DisplayName = "is not called on mount when closed")]
+    [Trait("Requirement", "SEL-API-06")]
+    public void Is_not_called_on_mount_when_closed()
+    {
+        cut = RenderSelect(ConformanceTree());
+
+        Assert.Empty(completes);
+    }
+
+    [Fact(DisplayName = "is called on open when there is no enter animation")]
+    [Trait("Requirement", "SEL-API-06")]
+    public async Task Is_called_on_open_when_there_is_no_enter_animation()
+    {
+        confOpen = false;
+        cut = RenderSelect(ConformanceTree());
+
+        confOpen = true;
+        await RefreshAsync(cut);
+        await CompleteTransitionAsync<string>(cut, opened: true);
+
+        Assert.Equal([true], completes);
+    }
+
+    [Fact(DisplayName = "is called on close when there is no exit animation")]
+    [Trait("Requirement", "SEL-API-06")]
+    public async Task Is_called_on_close_when_there_is_no_exit_animation()
+    {
+        confOpen = true;
+        cut = RenderSelect(ConformanceTree());
+        await CompleteTransitionAsync<string>(cut, opened: true);
+
+        confOpen = false;
+        await RefreshAsync(cut);
+        await CompleteTransitionAsync<string>(cut);
+
+        Assert.Empty(Popups());
+        Assert.False(completes[^1]);
+        Assert.Equal([true, false], completes);
+    }
+
+    // The popup-list conformance suite (popupListConformanceTests) is L4 apart from this title, which select.md §13 maps to
+    // SEL-ARIA-09: `renderList({ root: { defaultValue: ITEMS[8] } })` with `alignItemWithTrigger={false}`.
+    [Fact(DisplayName = "marks only the selected item as selected")]
+    [Trait("Requirement", "SEL-ARIA-09")]
+    public async Task Marks_only_the_selected_item_as_selected()
+    {
+        string[] items = [.. Enumerable.Range(0, 12).Select(index => $"Item {index}")];
+        cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@items[8]">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup">
+                        <SelectList data-testid="scroller">
+                            @foreach (string item in items)
+                            {
+                                <SelectItem Value="@item"><SelectItemText>@item</SelectItemText></SelectItem>
+                            }
+                        </SelectList>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+
+        IReadOnlyList<IElement> options = cut.FindAll("[role=\"option\"]");
+        Assert.Equal("true", options.First(option => option.TextContent.Trim() == "Item 8").GetAttribute("aria-selected"));
+        Assert.Equal("false", options.First(option => option.TextContent.Trim() == "Item 2").GetAttribute("aria-selected"));
+    }
+
+    // ----- server-side rendering -----
+
+    // renderToString has no counterpart in bUnit (it renders interactively); the prerendered half is L4.
+    // Base UI's "does not link Select.Label before hydration" asserts an absence that holds only because the label
+    // registers after hydration; the port's label publishes in the render that creates it (ADR 01 Amendments 2026-10-22,
+    // the Fieldset FST-DOM-08 precedent; port notes on SEL-DOM-14, SEL-FRM-15, SEL-EDGE-11), so the first render, which
+    // prerendering emits, already links it.
+    [Fact(DisplayName = "port: links Select.Label in the first render, which prerendering emits")]
+    [Trait("Requirement", "SEL-DOM-14")]
+    [Trait("Requirement", "SEL-EDGE-11")]
+    [Trait("Requirement", "SEL-FRM-15")]
+    public void Links_Select_Label_in_the_first_render()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectLabel data-testid="label">Font</SelectLabel>
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+        </SelectRoot>);
+
+        IElement label = cut.Find("[data-testid=\"label\"]");
+        IElement trigger = cut.Find("[data-testid=\"trigger\"]");
+
+        Assert.False(string.IsNullOrEmpty(label.Id));
+        Assert.False(string.IsNullOrEmpty(trigger.Id));
+        Assert.Equal(label.Id, trigger.GetAttribute("aria-labelledby"));
+    }
+
+    // ----- prop: defaultOpen -----
+
+    [Fact(DisplayName = "should open the select by default")]
+    [Trait("Requirement", "SEL-API-04")]
+    [Trait("Requirement", "SEL-ARIA-08")]
+    [Trait("Requirement", "SEL-DOM-23")]
+    public void Should_open_the_select_by_default()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        // Whether the listbox is visible on screen is L4; C# renders it open.
+        IElement listbox = cut.Find("[role=\"listbox\"]");
+        Assert.True(listbox.HasAttribute("data-open"));
+        // `listbox` is implicitly vertical.
+        Assert.False(listbox.HasAttribute("aria-orientation"));
+    }
+
+    [Fact(DisplayName = "should select an item and close when clicked while opened by default")]
+    [Trait("Requirement", "SEL-DIS-07")]
+    public async Task Should_select_an_item_and_close_when_clicked_while_opened_by_default()
+    {
+        List<string> changes = [];
+        cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true" OnValueChange="args => changes.Add(args.Value)">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">a</SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+
+        await ClickOptionAsync(cut, "b");
+
+        Assert.Equal(["b"], changes);
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+    }
+
+    // ----- prop: modal -----
+
+    [Fact(DisplayName = "should render an internal backdrop when `true`")]
+    [Trait("Requirement", "SEL-API-16")]
+    [Trait("Requirement", "SEL-ARIA-15")]
+    [Trait("Requirement", "SEL-DOM-54")]
+    [Trait("Requirement", "SEL-STR-07")]
+    public async Task Should_render_an_internal_backdrop_when_true()
+    {
+        cut = RenderSelect(@<div>
+            <SelectRoot TValue="string" Modal="true">
+                <SelectTrigger data-testid="trigger">Open</SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner data-testid="positioner">
+                        <SelectPopup>
+                            <SelectItem>1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <button>Outside</button>
+        </div>);
+
+        await OpenAsync(cut);
+        Assert.NotEmpty(Listbox());
+
+        IElement positioner = cut.Find("[data-testid=\"positioner\"]");
+
+        Assert.Equal("presentation", positioner.PreviousElementSibling?.GetAttribute("role"));
+    }
+
+    [Fact(DisplayName = "should not render an internal backdrop when `false`")]
+    [Trait("Requirement", "SEL-API-16")]
+    [Trait("Requirement", "SEL-STR-07")]
+    public async Task Should_not_render_an_internal_backdrop_when_false()
+    {
+        cut = RenderSelect(@<div>
+            <SelectRoot TValue="string" Modal="false">
+                <SelectTrigger data-testid="trigger">Open</SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner data-testid="positioner">
+                        <SelectPopup>
+                            <SelectItem>1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <button>Outside</button>
+        </div>);
+
+        await OpenAsync(cut);
+        Assert.NotEmpty(Listbox());
+
+        IElement positioner = cut.Find("[data-testid=\"positioner\"]");
+
+        Assert.Null(positioner.PreviousElementSibling);
+    }
+
+    // The "scroll locking" describe (all six titles: "keeps touch interaction type when reopening quickly after close",
+    // "keeps touch positioning during the close transition", "keeps the selected item highlighted when reopening after a
+    // touch-driven mouseleave", "recomputes positioning before the popup becomes visible again after touch dismiss",
+    // "applies scroll lock when a touch-opened popup covers the viewport width", "does not apply scroll lock when a
+    // touch-opened popup is narrower than the viewport") is L4 only.
+
+    // ----- prop: actionsRef -----
+
+    [Fact(DisplayName = "unmounts the select when the `unmount` method is called")]
+    [Trait("Requirement", "SEL-API-17")]
+    public async Task Unmounts_the_select_when_the_unmount_method_is_called()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" OnOpenChange="args => ((OpenChangeEventDetails)args.Details).PreventUnmountOnClose()">
+            <SelectTrigger data-testid="trigger">Open</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem>1</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+        Assert.NotEmpty(Listbox());
+
+        await PressAsync(cut, open: false);
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+
+        await cut.InvokeAsync(RootOf().Unmount);
+        Assert.Empty(Listbox());
+    }
+
+    // Blazor has no Strict Mode (ADR 06 Amendments 2026-10-18 rule 2): the title's two runs are one run here. The arrows'
+    // `data-visible` and the list's scroll listener are the `select` module's (L3, L4); the module's report is simulated.
+    [Fact(DisplayName = "clears scroll arrow visibility when manually unmounted (strict: %s)")]
+    [Trait("Requirement", "SEL-ANI-07")]
+    public async Task Clears_scroll_arrow_visibility_when_manually_unmounted()
+    {
+        cut = RenderSelect(@<SelectRoot TValue="string" OnOpenChange="PreventUnmount">
+            <SelectTrigger>Open</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup>
+                        <SelectScrollUpArrow KeepMounted="true" />
+                        <SelectList>
+                            <SelectItem Value="@("one")">One</SelectItem>
+                            <SelectItem Value="@("two")">Two</SelectItem>
+                        </SelectList>
+                        <SelectScrollDownArrow KeepMounted="true" />
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await OpenAsync(cut);
+        SelectTwin twin = SelectTwinOf("\"part\":\"positioner\"")!;
+        await cut.InvokeAsync(() => twin.OnArrowsChange("""{"up":true,"down":true}"""));
+        Assert.True(StoreOf<string>(cut).State.ScrollUpArrowVisible);
+        Assert.True(StoreOf<string>(cut).State.ScrollDownArrowVisible);
+
+        // Only the unmount cleanup resets the visibility (SEL-ANI-07), not the close.
+        await PressAsync(cut, open: false);
+        await CompleteTransitionAsync<string>(cut);
+        Assert.NotEmpty(Listbox());
+        Assert.True(StoreOf<string>(cut).State.ScrollUpArrowVisible);
+        Assert.True(StoreOf<string>(cut).State.ScrollDownArrowVisible);
+
+        await cut.InvokeAsync(RootOf().Unmount);
+
+        Assert.Empty(Listbox());
+        Assert.False(StoreOf<string>(cut).State.ScrollUpArrowVisible);
+        Assert.False(StoreOf<string>(cut).State.ScrollDownArrowVisible);
+    }
+
+    // The Tab press, the real focus and the module-written `tabindex="0"` of the focused option are L4; C# renders the
+    // options with `tabindex="-1"` and the popup open or closed.
+    [Fact(DisplayName = "does not leave a tabbable option while closed and kept mounted after tabbing out")]
+    [Trait("Requirement", "SEL-DOM-36")]
+    public async Task Does_not_leave_a_tabbable_option_while_closed_and_kept_mounted_after_tabbing_out()
+    {
+        cut = RenderSelect(@<div>
+            <input />
+            <SelectRoot TValue="string" DefaultValue="@("1")" Modal="false" OnOpenChange="PreventUnmount">
+                <SelectTrigger>Open</SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("1")">1</SelectItem>
+                            <SelectItem Value="@("2")">2</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <input data-testid="after" />
+        </div>);
+
+        await OpenAsync(cut);
+        Assert.True(cut.Find("[role=\"listbox\"]").HasAttribute("data-open"));
+        Assert.Equal("-1", cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == "1").GetAttribute("tabindex"));
+
+        // Tabbing out of the popup is a focus-out dismissal; the opt-out keeps the closed popup mounted.
+        await SessionRequestAsync(cut, open: false, "focus-out");
+        await CompleteTransitionAsync<string>(cut);
+
+        IElement listbox = cut.Find("[role=\"listbox\"]");
+        Assert.False(listbox.HasAttribute("data-open"));
+        Assert.Equal("-1", cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == "1").GetAttribute("tabindex"));
+    }
+}

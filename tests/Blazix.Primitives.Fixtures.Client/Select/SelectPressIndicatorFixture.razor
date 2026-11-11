@@ -1,0 +1,90 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-press-indicator` fixture (tests/browser/select-press.spec.ts, M5 track 9, L4 agent press): the
+    SelectItemIndicator.test.tsx titles' roots, one case per page, named by `?case=`; the indicator of item a is
+    `indicator`, with a 150 ms keyframe exit while [data-ending-style] (open the page with `?animations=1` to run it):
+    - `settle`: Base UI's "settles out of its transition state" root: a multiple root that is open by default (DefaultOpen)
+      with `a` selected, a kept-mounted indicator; the items a and b;
+    - `controlled` (default): Base UI's TestComponent: a root whose Value and Open the page owns (`value`, open), the
+      indicator of item a `keepMounted` when the query says `keepMounted=true`; `[data-set-value="a|b"]` changes the value
+      (the rerender with `setProps`). The sync button and those buttons take the suites' Shift keydown (`data-key-control`).
+*@
+<FixtureContainer Name="select-press-indicator" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <style>
+        @@keyframes select-press-indicator-out { from { opacity: 1; } to { opacity: 0; } }
+        [data-testid="indicator"][data-ending-style] { animation: select-press-indicator-out 150ms; }
+    </style>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" tabindex="-1" data-set-value="a" data-key-control @onclick='() => value = "a"' @onkeydown='OnShift(() => value = "a")'>Value a</button>
+    <button type="button" tabindex="-1" data-set-value="b" data-key-control @onclick='() => value = "b"' @onkeydown='OnShift(() => value = "b")'>Value b</button>
+    @if (Case == "settle")
+    {
+        <SelectRoot TValue="string" @ref="root" Multiple="true" DefaultOpen="true" DefaultValues="@s_defaultValues" OnOpenChange="RecordOpenChange">
+            <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+                <SelectValue TValue="string" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner @ref="positioner" data-testid="positioner">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem TValue="string" Value="@("a")" data-testid="item-a">a<SelectItemIndicator KeepMounted="true" data-testid="indicator" /></SelectItem>
+                        <SelectItem TValue="string" Value="@("b")" data-testid="item-b">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    }
+    else
+    {
+        <SelectRoot TValue="string" @ref="root" Value="@value" Open="true" OnOpenChange="RecordOpenChange">
+            <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" />
+            <SelectPortal>
+                <SelectPositioner @ref="positioner" data-testid="positioner">
+                    <SelectPopup data-testid="popup">
+                        <SelectItem TValue="string" Value="@("a")" data-testid="item-a">a<SelectItemIndicator KeepMounted="@keepMounted" data-testid="indicator" /></SelectItem>
+                        <SelectItem TValue="string" Value="@("b")" data-testid="item-b">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_defaultValues = ["a"];
+
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectPositioner? positioner;
+    private string? value;
+    private bool keepMounted;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, PositionerAttached()];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        value = Query("value") ?? (Case == "settle" ? null : "b");
+        keepMounted = QueryFlag("keepMounted") == true;
+    }
+
+    // The root opens at the first render, which mounts its positioner after it: wait for its handle before the page reads as
+    // attached.
+    private async Task PositionerAttached()
+    {
+        for (int i = 0; positioner is null && i < 2000; i++)
+        {
+            await Task.Delay(5);
+        }
+
+        if (positioner is not null)
+        {
+            await positioner.TwinAttached;
+        }
+    }
+}
