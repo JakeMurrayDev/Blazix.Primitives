@@ -114,6 +114,73 @@ public sealed class ComboboxPartRoleTitlesTests : IDisposable
         Assert.Equal("true", cut.Find("[data-testid=chip-apple]").GetAttribute("aria-readonly"));
     }
 
+    // ComboboxEmpty.tsx:27-46 (CMB-DOM-23): the element always renders, so its live region persists; its children only while
+    // the filtered list is empty.
+    [Fact(DisplayName = "renders when there are no filtered items")]
+    [Trait("Requirement", "CMB-DOM-23")]
+    public void Renders_when_there_are_no_filtered_items()
+    {
+        IRenderedComponent<ComboboxHarness> cut = RenderEmpty(new() { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)[] });
+
+        Assert.Contains("No items.", cut.Find("[data-testid=empty]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "does not render when there are items")]
+    [Trait("Requirement", "CMB-DOM-23")]
+    public void Does_not_render_when_there_are_items()
+    {
+        IRenderedComponent<ComboboxHarness> cut = RenderEmpty(new() { ["DefaultOpen"] = true });
+
+        Assert.DoesNotContain("No items.", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "renders when the search query matches no items")]
+    [Trait("Requirement", "CMB-DOM-23")]
+    public void Renders_when_the_search_query_matches_no_items()
+    {
+        IRenderedComponent<ComboboxHarness> cut = RenderEmpty(new() { ["DefaultOpen"] = true, ["DefaultInputValue"] = "d" });
+
+        Assert.Contains("No items.", cut.Find("[data-testid=empty]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "does not render when the search query matches an item")]
+    [Trait("Requirement", "CMB-DOM-23")]
+    public void Does_not_render_when_the_search_query_matches_an_item()
+    {
+        IRenderedComponent<ComboboxHarness> cut = RenderEmpty(new() { ["DefaultOpen"] = true, ["DefaultInputValue"] = "banana" });
+
+        Assert.DoesNotContain("No items.", cut.Markup, StringComparison.Ordinal);
+    }
+
+    // ComboboxStatus.tsx:22-36 (CMB-DOM-23): rendered inside the Popup, so it exists only while the popup is mounted.
+    [Fact(DisplayName = "renders only when open")]
+    [Trait("Requirement", "CMB-DOM-23")]
+    public async Task Renders_only_when_open()
+    {
+        void Status(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxStatus>(0);
+            builder.AddComponentParameter(1, "data-testid", "status");
+            builder.AddComponentParameter(2, "ChildContent", (RenderFragment)(inner => inner.AddContent(0, "Searching…")));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["Items"] = s_items })
+            .Add(x => x.PopupExtra, (RenderFragment)Status));
+        Assert.Empty(cut.FindAll("[data-testid=status]"));
+
+        await test.PressAsync(cut, "[data-testid=input]", "input-press");
+
+        Assert.Single(cut.FindAll("[data-testid=status]"));
+    }
+
+    private IRenderedComponent<ComboboxHarness> RenderEmpty(Dictionary<string, object?> root)
+    {
+        root.TryAdd("Items", s_items);
+        return test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, root).Add(x => x.WithEmpty, true));
+    }
+
     private IRenderedComponent<ComboboxHarness> Render(Dictionary<string, object?> root, bool insidePopup = false)
     {
         root.TryAdd("Items", s_items);
