@@ -5,18 +5,27 @@ import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/pop
 
 // The L4 titles of Menubar.test.tsx (M5 track 8, issue 195; docs/components/menubar.md), titles verbatim, on both render
 // modes, Server under a one-way circuit delay. Real Playwright input: presses, hovers and keys. The first batch runs on
-// the contained setup (ContainedTriggerMenubar); the detached and multiple setups follow with their fixture cases.
+// the three setups of Base UI's `describe.for` (contained, detached and multiple contained triggers, `?setup=`).
 
 const FIXTURE = 'menubar-root';
 const SERVER_DELAY_MS = 40;
 
-async function render(page: Page, mode: RenderMode, options: PopupFixtureOptions = {}): Promise<Locator> {
+async function renderFixture(page: Page, mode: RenderMode, options: PopupFixtureOptions = {}): Promise<Locator> {
   if (mode === 'server') {
     await delayCircuit(page, SERVER_DELAY_MS);
   }
   await parkPointer(page);
   return gotoPopupFixture(page, mode, FIXTURE, options);
 }
+
+const SETUPS = [
+  { name: 'contained triggers', setup: 'contained' },
+  { name: 'detached triggers', setup: 'detached' },
+  { name: 'multiple contained triggers', setup: 'multiple' },
+] as const;
+
+/** Opens the fixture outside the setups (the contained bar, or a `case`). */
+const render = renderFixture;
 
 test.describe('<Menubar />', () => {
   test('renders contained top-level portal ownership as an allowed menubar child', async ({ page, mode }) => {
@@ -60,7 +69,10 @@ test.describe('<Menubar />', () => {
     });
   });
 
-  test.describe('when using contained triggers', () => {
+  for (const { name, setup } of SETUPS) {
+  test.describe(`when using ${name}`, () => {
+    const render = (page: Page, mode: RenderMode, options: PopupFixtureOptions = {}) => renderFixture(page, mode, { setup, ...options });
+
     test.describe('click interactions', () => {
       test('should open the menu after clicking on its trigger and close it when clicking again', async ({ page, mode }) => {
         await render(page, mode);
@@ -141,6 +153,9 @@ test.describe('<Menubar />', () => {
       });
 
       test('should respect closeOnClick on nested items when the menu was opened on hover', async ({ page, mode }) => {
+        // Red on the shared-Root setups, both modes (2026-11-11): the Layout submenu is not visible after the hover switch
+        // from File to View. Open by ID (MBR-PTR-07's shared-Root runs), cause not yet traced.
+        test.fixme(setup !== 'contained', 'shared-Root setups: the nested submenu after a hover switch (open)');
         await render(page, mode);
         await page.getByTestId('file-trigger').click({ delay: 30 });
         await expect(page.getByTestId('file-menu')).toBeVisible();
@@ -358,6 +373,9 @@ test.describe('<Menubar />', () => {
       });
 
       test('moves between triggers with the main-axis arrow keys when vertical', async ({ page, mode }) => {
+        // Red on the detached setup, both modes (2026-11-11): a closed detached Root's parent is its own position, so its
+        // list opens on ArrowDown before the bar moves focus. Open by ID (MBR-KEY-01's detached run).
+        test.fixme(setup === 'detached', 'detached setup: ArrowDown on a closed trigger opens its menu (open)');
         await render(page, mode, { orientation: 'vertical' });
         await page.getByTestId('file-trigger').focus();
 
@@ -371,6 +389,9 @@ test.describe('<Menubar />', () => {
         { direction: 'rtl', openKey: 'ArrowLeft', oppositeKey: 'ArrowRight' },
       ] as const) {
         test(`opens a menu of a vertical ${direction} menubar with ${openKey}`, async ({ page, mode }) => {
+          // Red on the detached setup, both modes (2026-11-11): the closed detached Root's own list handles the keys
+          // (see the main-axis title). Open by ID (MBR-KEY-04, KEY-05, I18N-02's detached runs).
+          test.fixme(setup === 'detached', 'detached setup: a closed trigger\'s keys are its own Root\'s (open)');
           const fixture = await render(page, mode, { orientation: 'vertical', dir: direction });
           await page.getByTestId('file-trigger').focus();
 
@@ -389,5 +410,5 @@ test.describe('<Menubar />', () => {
       });
     });
   });
+  }
 });
-

@@ -9,7 +9,10 @@
     The `menubar-root` fixture (tests/browser/menubar.spec.ts, M5 track 8, issue 195): Menubar.test.tsx's
     ContainedTriggerMenubar (`setup=contained`, the default): File (Open, Save, a Share submenu with Email and Print),
     Edit (Copy, Paste) and View (Zoom In, Zoom Out, a Layout submenu with a radio group), each a MenuRoot with its own
-    trigger. `case=first-disabled`: a bar whose File trigger is disabled, then Edit. `case=disabled-open`: a disabled bar
+    trigger. `setup=detached`: the three triggers in the bar bound by a handle to one Root outside it; `setup=multiple`:
+    the three triggers inside one Root in the bar (DetachedTriggerMenubar, MultipleContainedTriggersMenubar); the Root
+    renders the menu its trigger's payload names (`file`, `edit`, `view`), its open changes in `data-file-changes`.
+    `case=first-disabled`: a bar whose File trigger is disabled, then Edit. `case=disabled-open`: a disabled bar
     whose File menu is held open by `Open`, its item recording its clicks (`data-item-clicks`). `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
@@ -48,26 +51,33 @@
             break;
         default:
     <DirectionProvider Direction="@direction">
+    @if (Query("setup") == "detached")
+    {
+        <Menubar @ref="bar" Orientation="@orientation" LoopFocus="@loopFocus" Disabled="@disabled" style="max-width: 25vw; display: flex">
+            <MenuTrigger TPayload="string" @ref="fileShared" Handle="handle" Payload="@("file")" data-testid="file-trigger">File</MenuTrigger>
+            <MenuTrigger TPayload="string" @ref="editShared" Handle="handle" Payload="@("edit")" data-testid="edit-trigger">Edit</MenuTrigger>
+            <MenuTrigger TPayload="string" @ref="viewShared" Handle="handle" Payload="@("view")" data-testid="view-trigger">View</MenuTrigger>
+        </Menubar>
+        <MenuRoot TPayload="string" @ref="shared" Handle="handle" OnOpenChange="RecordShared" PayloadContent="@DynamicMenu" />
+    }
+    else if (Query("setup") == "multiple")
+    {
+        <Menubar @ref="bar" Orientation="@orientation" LoopFocus="@loopFocus" Disabled="@disabled" style="max-width: 25vw; display: flex">
+            <MenuRoot TPayload="string" @ref="shared" OnOpenChange="RecordShared" PayloadContent="@DynamicMenu">
+                <MenuTrigger TPayload="string" @ref="fileShared" Payload="@("file")" data-testid="file-trigger">File</MenuTrigger>
+                <MenuTrigger TPayload="string" @ref="editShared" Payload="@("edit")" data-testid="edit-trigger">Edit</MenuTrigger>
+                <MenuTrigger TPayload="string" @ref="viewShared" Payload="@("view")" data-testid="view-trigger">View</MenuTrigger>
+            </MenuRoot>
+        </Menubar>
+    }
+    else
+    {
     <Menubar @ref="bar" Orientation="@orientation" LoopFocus="@loopFocus" Disabled="@disabled" style="max-width: 25vw; display: flex">
         <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
             <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="file-menu">
-                    <MenuPopup>
-                        <MenuItem data-testid="file-item-1">Open</MenuItem>
-                        <MenuItem data-testid="file-item-2">Save</MenuItem>
-                        <MenuSubmenuRoot>
-                            <MenuSubmenuTrigger data-testid="share-trigger">Share</MenuSubmenuTrigger>
-                            <MenuPortal>
-                                <MenuPositioner data-testid="share-menu">
-                                    <MenuPopup>
-                                        <MenuItem data-testid="share-item-1">Email</MenuItem>
-                                        <MenuItem data-testid="share-item-2">Print</MenuItem>
-                                    </MenuPopup>
-                                </MenuPositioner>
-                            </MenuPortal>
-                        </MenuSubmenuRoot>
-                    </MenuPopup>
+                    <MenuPopup>@FileItems</MenuPopup>
                 </MenuPositioner>
             </MenuPortal>
         </MenuRoot>
@@ -75,10 +85,7 @@
             <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="edit-menu">
-                    <MenuPopup>
-                        <MenuItem data-testid="edit-item-1">Copy</MenuItem>
-                        <MenuItem data-testid="edit-item-2">Paste</MenuItem>
-                    </MenuPopup>
+                    <MenuPopup>@EditItems</MenuPopup>
                 </MenuPositioner>
             </MenuPortal>
         </MenuRoot>
@@ -86,27 +93,12 @@
             <MenuTrigger TPayload="NoPayload" @ref="viewTrigger" data-testid="view-trigger">View</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="view-menu">
-                    <MenuPopup>
-                        <MenuItem data-testid="view-item-1">Zoom In</MenuItem>
-                        <MenuItem data-testid="view-item-2">Zoom Out</MenuItem>
-                        <MenuSubmenuRoot>
-                            <MenuSubmenuTrigger data-testid="layout-trigger">Layout</MenuSubmenuTrigger>
-                            <MenuPortal>
-                                <MenuPositioner data-testid="layout-menu">
-                                    <MenuPopup>
-                                        <MenuRadioGroup TValue="string" DefaultValue="@("single")">
-                                            <MenuRadioItem TValue="string" Value="@("single")" data-testid="layout-item-1">Single column</MenuRadioItem>
-                                            <MenuRadioItem TValue="string" Value="@("two")" data-testid="layout-item-2">Two columns</MenuRadioItem>
-                                        </MenuRadioGroup>
-                                    </MenuPopup>
-                                </MenuPositioner>
-                            </MenuPortal>
-                        </MenuSubmenuRoot>
-                    </MenuPopup>
+                    <MenuPopup>@ViewItems</MenuPopup>
                 </MenuPositioner>
             </MenuPortal>
         </MenuRoot>
     </Menubar>
+    }
     </DirectionProvider>
             break;
     }
@@ -128,6 +120,11 @@
     private bool loopFocus = true;
     private bool disabled;
     private TextDirection direction = TextDirection.Ltr;
+    private readonly MenuHandle<string> handle = new();
+    private MenuRoot<string>? shared;
+    private MenuTrigger<string>? fileShared;
+    private MenuTrigger<string>? editShared;
+    private MenuTrigger<string>? viewShared;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -138,6 +135,10 @@
         fileTrigger?.TwinsAttached ?? Task.CompletedTask,
         editTrigger?.TwinsAttached ?? Task.CompletedTask,
         viewTrigger?.TwinsAttached ?? Task.CompletedTask,
+        shared?.SessionAttached ?? Task.CompletedTask,
+        fileShared?.TwinsAttached ?? Task.CompletedTask,
+        editShared?.TwinsAttached ?? Task.CompletedTask,
+        viewShared?.TwinsAttached ?? Task.CompletedTask,
     ];
 
     protected override void OnInitialized()
@@ -150,4 +151,66 @@
 
     private static void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
         changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    // The shared Root's open changes, recorded under File's attribute.
+    private void RecordShared(ValueChangeEventArgs<bool> args) => Record(fileChanges, args);
+
+    // Menubar.test.tsx's DynamicMenu: the shared Root renders the menu its trigger's payload names.
+    private RenderFragment<string?> DynamicMenu => key => @<MenuPortal>
+        <MenuPositioner data-testid="@(key is null ? null : key + "-menu")">
+            <MenuPopup>
+                @switch (key)
+                {
+                    case "file":
+                        @FileItems
+                        break;
+                    case "edit":
+                        @EditItems
+                        break;
+                    case "view":
+                        @ViewItems
+                        break;
+                }
+            </MenuPopup>
+        </MenuPositioner>
+    </MenuPortal>;
+
+    private RenderFragment FileItems => @<text>
+        <MenuItem data-testid="file-item-1">Open</MenuItem>
+        <MenuItem data-testid="file-item-2">Save</MenuItem>
+        <MenuSubmenuRoot>
+            <MenuSubmenuTrigger data-testid="share-trigger">Share</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner data-testid="share-menu">
+                    <MenuPopup>
+                        <MenuItem data-testid="share-item-1">Email</MenuItem>
+                        <MenuItem data-testid="share-item-2">Print</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
+
+    private RenderFragment EditItems => @<text>
+        <MenuItem data-testid="edit-item-1">Copy</MenuItem>
+        <MenuItem data-testid="edit-item-2">Paste</MenuItem>
+    </text>;
+
+    private RenderFragment ViewItems => @<text>
+        <MenuItem data-testid="view-item-1">Zoom In</MenuItem>
+        <MenuItem data-testid="view-item-2">Zoom Out</MenuItem>
+        <MenuSubmenuRoot>
+            <MenuSubmenuTrigger data-testid="layout-trigger">Layout</MenuSubmenuTrigger>
+            <MenuPortal>
+                <MenuPositioner data-testid="layout-menu">
+                    <MenuPopup>
+                        <MenuRadioGroup TValue="string" DefaultValue="@("single")">
+                            <MenuRadioItem TValue="string" Value="@("single")" data-testid="layout-item-1">Single column</MenuRadioItem>
+                            <MenuRadioItem TValue="string" Value="@("two")" data-testid="layout-item-2">Two columns</MenuRadioItem>
+                        </MenuRadioGroup>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuSubmenuRoot>
+    </text>;
 }
