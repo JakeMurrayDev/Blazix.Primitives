@@ -2580,7 +2580,7 @@ describe('useDismiss', () => {
     // ADR 04 Amendments 2026-11-11 (menu.others.spec.ts:205 on Server, PR 233's run 42954678792): a nested popup opened by
     // a press is open in Base UI from the press's commit, so an Escape right after closes it, not its parent. On Server C#'s
     // commit reaches the session a round trip after the popup renders; until C# answers the press, its requested open counts
-    // as open for Escape dismissal. A press C# cancels is answered (every press is), and then it no longer counts.
+    // as open for Escape dismissal. A press C# cancels is answered through the counter, and then it no longer counts.
     it('port: on Server an Escape while a nested popup\'s press-requested open awaits C# is that popup\'s, and once C# cancels the press it is the parent\'s', () => {
       // The press's commit has not arrived: the parent asks nothing, and the nested popup requests its own close.
       const outer = harness({ open: true });

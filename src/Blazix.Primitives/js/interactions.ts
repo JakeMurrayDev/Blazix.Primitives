@@ -1069,7 +1069,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.answered = answered;
     // A canceled close moves no revision: the name it was given does not wait for a later close.
     record.namedTrigger = null;
-    // ADR 04 Amendments 2026-11-11: every press is answered, so a press C# canceled or vetoed stops counting as open.
+    // ADR 04 Amendments 2026-11-11: C# answers a press it declined (canceled or vetoed), which stops counting as open.
     record.pressOpen = null;
     rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
@@ -1412,7 +1412,7 @@ function rearmDismiss(record: SessionRecord): void {
 // orchestrator 2026-11-11): Base UI's popup is open from its press's commit, inside the press. On Server the commit reaches
 // the session a round trip after the popup renders, and an Escape in between found the nested popup closed, so its parent
 // closed. A press that opens the closed popup counts as open for Escape dismissal from its request until C# answers it:
-// committed (the relay), or canceled or vetoed (the answered counter, which every press moves, (b1)). Outside presses
+// committed (the relay), or canceled or vetoed (the answered counter, which a declined press moves, (b1)). Outside presses
 // keep the committed state, so the opening press can never count as outside its own popup.
 /**
  * Whether a session counts as open for Escape dismissal: it is open, or a press's request to open it awaits C#.
