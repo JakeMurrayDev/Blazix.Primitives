@@ -343,6 +343,29 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.KeepOpenOnCrossOrientationKey = parent.Context?.KeepOpenOnCrossOrientationKey ?? false;
         navigation.RelayTarget = RelayTargetOf(parent);
         navigation.SetTypeahead(!disabled, TypeaheadResetMs, "element");
+        ApplyFilterListOptions(navigation, parameters);
+    }
+
+    // MenuRoot.tsx:516-557 (M5 track 12, granted by the orchestrator 2026-11-11): a filterable menu's list runs under virtual
+    // focus, the Input its reference. allowEscape follows loopFocus without an automatic highlight, the trigger opens on the
+    // vertical axis, a submenu leaves its arrow-key opening to the filter's key router, the pointer's leave keeps an
+    // "always" highlight, and the input owns typing, so typeahead is off. focusItemOnOpen (the keyboard open) comes with the
+    // open-time highlight.
+    private void ApplyFilterListOptions(ListNavigationBehavior navigation, in MenuRootParameters<TPayload> parameters)
+    {
+        if (context?.Filter is not { } filter)
+        {
+            return;
+        }
+
+        AutoHighlightValue autoHighlight = filter.AutoHighlight;
+        navigation.Virtual = true;
+        navigation.Nested = parent.Kind == MenuParentKind.Menubar;
+        navigation.AllowEscape = parameters.LoopFocus && !autoHighlight.IsEnabled;
+        navigation.TriggerOrientation = "vertical";
+        navigation.OpenOnArrowKeyDown = parent.Kind is not (MenuParentKind.ContextMenu or MenuParentKind.Menu);
+        navigation.ResetOnPointerLeave = !autoHighlight.IsAlways;
+        navigation.SetTypeahead(false, TypeaheadResetMs, "element");
     }
 
     // An interactions or list request (a press, a hover, Escape, an outside press, a focus-out, a navigation key): a
